@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { CloudIcon } from "@hugeicons/core-free-icons";
+import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -96,9 +96,6 @@ function CloudflareConnectForm({
 }: {
   organizationId: never;
 }) {
-  const [token, setToken] = useState("");
-  const [zoneId, setZoneId] = useState("");
-
   const zonesQuery = useMutation({
     ...orpc.organization.cloudflareListZones.mutationOptions(),
     onError: (err) => toast.error(err.message ?? "Couldn't list zones"),
@@ -107,11 +104,16 @@ function CloudflareConnectForm({
     ...orpc.organization.setCloudflareConfig.mutationOptions(),
     onSuccess: async () => {
       await invalidateSettings(organizationId);
-      setToken("");
-      setZoneId("");
+      form.reset();
       toast.success("Cloudflare connected");
     },
     onError: (err) => toast.error(err.message ?? "Save failed"),
+  });
+
+  const form = useForm({
+    defaultValues: { token: "", zoneId: "" },
+    onSubmit: ({ value }) =>
+      saveConfig.mutate({ organizationId, token: value.token, zoneId: value.zoneId }),
   });
 
   const zones = zonesQuery.data;
@@ -156,36 +158,44 @@ function CloudflareConnectForm({
           <div className="flex flex-1 flex-col gap-2">
             <span>Paste the token here.</span>
             <div className="flex items-center gap-2">
-              <Input
-                type="password"
-                placeholder="cf_…"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                disabled={zonesQuery.isPending || saveConfig.isPending}
-                className="font-mono text-[13px]"
-              />
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={!token || zonesQuery.isPending}
-                onClick={() =>
-                  zonesQuery.mutate(
-                    { token },
-                    {
-                      onSuccess: (result) => {
-                        // Auto-select when the token is scoped to a single
-                        // zone — the common case. Saves a dropdown click.
-                        const only =
-                          result.length === 1 ? result[0] : undefined;
-                        if (only) setZoneId(only.id);
-                      },
-                    },
-                  )
-                }
-              >
-                {zonesQuery.isPending ? "Loading…" : "Load zones"}
-              </Button>
+              <form.Field name="token">
+                {(field) => (
+                  <Input
+                    type="password"
+                    placeholder="cf_…"
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    disabled={zonesQuery.isPending || saveConfig.isPending}
+                    className="font-mono text-[13px]"
+                  />
+                )}
+              </form.Field>
+              <form.Subscribe selector={(s) => s.values.token}>
+                {(token) => (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={!token || zonesQuery.isPending}
+                    onClick={() =>
+                      zonesQuery.mutate(
+                        { token },
+                        {
+                          onSuccess: (result) => {
+                            // Auto-select when the token is scoped to a single
+                            // zone — the common case. Saves a dropdown click.
+                            const only =
+                              result.length === 1 ? result[0] : undefined;
+                            if (only) form.setFieldValue("zoneId", only.id);
+                          },
+                        },
+                      )
+                    }
+                  >
+                    {zonesQuery.isPending ? "Loading…" : "Load zones"}
+                  </Button>
+                )}
+              </form.Subscribe>
             </div>
           </div>
         </li>
@@ -193,20 +203,24 @@ function CloudflareConnectForm({
       {zones && zones.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <label className="text-[12px] font-medium">Zone</label>
-          <NativeSelect
-            value={zoneId}
-            onChange={(e) => setZoneId(e.target.value)}
-            disabled={saveConfig.isPending}
-          >
-            <NativeSelectOption value="" disabled>
-              Select a zone…
-            </NativeSelectOption>
-            {zones.map((z) => (
-              <NativeSelectOption key={z.id} value={z.id}>
-                {z.name} ({z.status})
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+          <form.Field name="zoneId">
+            {(field) => (
+              <NativeSelect
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                disabled={saveConfig.isPending}
+              >
+                <NativeSelectOption value="" disabled>
+                  Select a zone…
+                </NativeSelectOption>
+                {zones.map((z) => (
+                  <NativeSelectOption key={z.id} value={z.id}>
+                    {z.name} ({z.status})
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            )}
+          </form.Field>
         </div>
       )}
       {zones && zones.length === 0 && (
@@ -216,16 +230,18 @@ function CloudflareConnectForm({
         </div>
       )}
       <div className="flex items-center justify-end">
-        <Button
-          type="button"
-          size="sm"
-          disabled={!token || !zoneId || saveConfig.isPending}
-          onClick={() =>
-            saveConfig.mutate({ organizationId, token, zoneId })
-          }
-        >
-          {saveConfig.isPending ? "Saving…" : "Connect"}
-        </Button>
+        <form.Subscribe selector={(s) => s.values}>
+          {({ token, zoneId }) => (
+            <Button
+              type="button"
+              size="sm"
+              disabled={!token || !zoneId || saveConfig.isPending}
+              onClick={() => void form.handleSubmit()}
+            >
+              {saveConfig.isPending ? "Saving…" : "Connect"}
+            </Button>
+          )}
+        </form.Subscribe>
       </div>
     </>
   );

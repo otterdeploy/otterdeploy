@@ -6,7 +6,7 @@
 
 import { DeviceAccessIcon } from "@hugeicons/core-free-icons";
 import { formatRelative } from "@otterdeploy/shared/format";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
@@ -16,15 +16,10 @@ import { Button } from "@/shared/components/ui/button";
 import { ErrorState } from "@/shared/components/ui/error-state";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
-import {
-  describeAgent,
-  useAuthInvalidate,
-  useCurrentSession,
-  useSessions,
-} from "./data/use-account";
+import { authKeys, describeAgent, useCurrentSession, useSessions } from "./data/use-account";
 
 export function SessionsCard() {
-  const invalidate = useAuthInvalidate();
+  const queryClient = useQueryClient();
   const currentQ = useCurrentSession();
   const sessionsQ = useSessions();
 
@@ -44,7 +39,7 @@ export function SessionsCard() {
       if (res.error) throw new Error(res.error.message ?? "Failed to revoke");
     },
     onSuccess: async () => {
-      await invalidate.sessions();
+      await queryClient.invalidateQueries({ queryKey: authKeys.sessions });
       toast.success("Session revoked");
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to revoke"),
@@ -56,7 +51,7 @@ export function SessionsCard() {
       if (res.error) throw new Error(res.error.message ?? "Failed");
     },
     onSuccess: async () => {
-      await invalidate.sessions();
+      await queryClient.invalidateQueries({ queryKey: authKeys.sessions });
       toast.success("Signed out of all other sessions");
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),

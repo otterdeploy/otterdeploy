@@ -5,8 +5,8 @@
  * domain settings live on the same page.
  */
 
-import { useState } from "react";
 import { ServerStack01Icon } from "@hugeicons/core-free-icons";
+import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -17,9 +17,7 @@ import { orpc, queryClient } from "@/shared/server/orpc";
 
 function invalidateControlPlane(organizationId: never) {
   return queryClient.invalidateQueries({
-    queryKey: orpc.organization.controlPlaneDomain.queryKey({
-      input: { organizationId },
-    }),
+    queryKey: orpc.organization.controlPlaneDomain.queryKey({ input: { organizationId } }),
   });
 }
 
@@ -45,11 +43,14 @@ export function ControlPlaneCard({ organizationId }: { organizationId: never }) 
     onError: (err) => toast.error(err.message ?? "Failed to save domain"),
   });
 
-  const [value, setValue] = useState<string | null>(null);
   const current = domainQuery.data?.domain ?? "";
-  const displayed = value ?? current;
-  const dirty = displayed.trim().toLowerCase() !== current.toLowerCase();
   const status = domainStatus(current, domainQuery.data?.verifiedAt ?? null);
+
+  // Server-seeded default: hydrates the field until the user touches it.
+  const form = useForm({
+    defaultValues: { domain: current },
+    onSubmit: ({ value }) => setDomain.mutate({ organizationId, domain: value.domain.trim() }),
+  });
 
   return (
     <SettingsSection
@@ -73,27 +74,32 @@ export function ControlPlaneCard({ organizationId }: { organizationId: never }) 
           <StatusBadge status={status} />
         </div>
         <div className="flex items-center gap-2">
-          <Input
-            type="text"
-            placeholder="deploy.acme.com"
-            value={displayed}
-            onChange={(e) => setValue(e.target.value)}
-            disabled={setDomain.isPending || domainQuery.isLoading}
-            className="font-mono text-[13px]"
-          />
-          <Button
-            type="button"
-            size="sm"
-            disabled={!dirty || setDomain.isPending}
-            onClick={() =>
-              setDomain.mutate({
-                organizationId,
-                domain: displayed.trim(),
-              })
-            }
+          <form.Field name="domain">
+            {(field) => (
+              <Input
+                type="text"
+                placeholder="deploy.acme.com"
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                disabled={setDomain.isPending || domainQuery.isLoading}
+                className="font-mono text-[13px]"
+              />
+            )}
+          </form.Field>
+          <form.Subscribe
+            selector={(s) => s.values.domain.trim().toLowerCase() !== current.toLowerCase()}
           >
-            {setDomain.isPending ? "Saving…" : "Save"}
-          </Button>
+            {(dirty) => (
+              <Button
+                type="button"
+                size="sm"
+                disabled={!dirty || setDomain.isPending}
+                onClick={() => void form.handleSubmit()}
+              >
+                {setDomain.isPending ? "Saving…" : "Save"}
+              </Button>
+            )}
+          </form.Subscribe>
         </div>
         <StatusFooter organizationId={organizationId} status={status} current={current} />
       </div>

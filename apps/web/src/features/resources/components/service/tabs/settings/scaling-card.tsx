@@ -11,8 +11,7 @@
  * A limits-only save omits `replicas` and leaves the pause intact.
  */
 
-import { useState } from "react";
-
+import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -66,7 +65,14 @@ function ScalingForm({ resource, service }: { resource: ScalingResource; service
     cpuLimit: service.resources.cpuLimit,
     memoryLimitMb: service.resources.memoryLimitMb,
   };
-  const [form, setForm] = useState<ScalingFormValues>(() => initialScalingForm(stored));
+  const scalingForm = useForm({ defaultValues: initialScalingForm(stored) });
+  const form = useStore(scalingForm.store, (s) => s.values);
+  const patchScaling = (patch: Partial<ScalingFormValues>) => {
+    if (patch.replicas !== undefined) scalingForm.setFieldValue("replicas", patch.replicas);
+    if (patch.cpuLimit !== undefined) scalingForm.setFieldValue("cpuLimit", patch.cpuLimit);
+    if (patch.memoryLimitMb !== undefined)
+      scalingForm.setFieldValue("memoryLimitMb", patch.memoryLimitMb);
+  };
   const paused = stored.pausedReplicas !== null;
 
   // Plain docker runs exactly one container per service — the runtime driver
@@ -127,7 +133,7 @@ function ScalingForm({ resource, service }: { resource: ScalingResource; service
   };
 
   const setReplicas = (next: number) =>
-    setForm((f) => ({ ...f, replicas: Math.max(1, Math.round(next)) }));
+    scalingForm.setFieldValue("replicas", Math.max(1, Math.round(next)));
 
   return (
     <>
@@ -145,7 +151,7 @@ function ScalingForm({ resource, service }: { resource: ScalingResource; service
         cpuValid={cpuValid}
         memValid={memValid}
         fitLine={fitLine}
-        onPatch={(p) => setForm((f) => ({ ...f, ...p }))}
+        onPatch={patchScaling}
       />
 
       <PlacementReadout service={service} />

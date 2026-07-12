@@ -5,9 +5,18 @@
  * dialogs read/invalidate one cache.
  */
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
 import { authClient } from "@/lib/auth-client";
+
+/** Shared auth cache keys — the shell's account dialogs read the same cache,
+ *  so invalidations here and there must agree on these exact keys. */
+export const authKeys = {
+  all: ["auth"] as const,
+  currentSession: ["auth", "current-session"] as const,
+  accounts: ["auth", "accounts"] as const,
+  sessions: ["auth", "sessions"] as const,
+};
 
 export interface SessionRow {
   id: string;
@@ -22,7 +31,7 @@ export interface SessionRow {
  *  snapshot — carries `twoFactorEnabled` and reflects profile edits. */
 export function useCurrentSession() {
   return useQuery({
-    queryKey: ["auth", "current-session"],
+    queryKey: authKeys.currentSession,
     queryFn: async () => (await authClient.getSession()).data,
   });
 }
@@ -31,7 +40,7 @@ export function useCurrentSession() {
  *  password — the gate for change-password and TOTP two-factor. */
 export function useLinkedAccounts() {
   return useQuery({
-    queryKey: ["auth", "accounts"],
+    queryKey: authKeys.accounts,
     queryFn: async () => {
       const res = await authClient.listAccounts();
       if (res.error) {
@@ -45,7 +54,7 @@ export function useLinkedAccounts() {
 /** Every device session for the user (the same source as the shell dialog). */
 export function useSessions() {
   return useQuery({
-    queryKey: ["auth", "sessions"],
+    queryKey: authKeys.sessions,
     queryFn: async (): Promise<SessionRow[]> => {
       const res = await authClient.listSessions();
       if (res.error) {
@@ -54,15 +63,6 @@ export function useSessions() {
       return (res.data ?? []) as SessionRow[];
     },
   });
-}
-
-/** Invalidators for the shared auth cache. */
-export function useAuthInvalidate() {
-  const qc = useQueryClient();
-  return {
-    session: () => qc.invalidateQueries({ queryKey: ["auth", "current-session"] }),
-    sessions: () => qc.invalidateQueries({ queryKey: ["auth", "sessions"] }),
-  };
 }
 
 /** Coarse "Browser on OS" label from a user-agent string. Best-effort — used

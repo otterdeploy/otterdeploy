@@ -12,6 +12,7 @@ import { useState } from "react";
 
 import { Alert02Icon, CodeIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 
 import {
@@ -46,34 +47,33 @@ export function RouteDirectivesButton({
   customDirectives: string | null;
 }) {
   const [open, setOpen] = useState(false);
-  const [value, setValue] = useState(customDirectives ?? "");
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const hasDirectives = (customDirectives ?? "").trim().length > 0;
 
-  const onSave = () => {
-    setSaving(true);
-    setError(null);
-    const tx = proxyRoutesCollection.update(routeId as ProxyRouteId, (draft) => {
-      draft.customDirectives = value.trim().length === 0 ? null : value;
-    });
-    tx.isPersisted.promise
-      .then(() => {
-        toast.success("Directives applied");
-        setOpen(false);
-      })
-      .catch((e) => {
-        // A Caddy parse rejection surfaces as RouteDirectivesRejectedError —
-        // show it inline; other failures are toasted.
-        if (e instanceof RouteDirectivesRejectedError) {
-          setError(e.message);
-          toast.error("Rejected — not saved");
-        } else {
-          toast.error(e instanceof Error ? e.message : "Failed to save directives");
-        }
-      })
-      .finally(() => setSaving(false));
-  };
+  const form = useForm({
+    defaultValues: { directives: customDirectives ?? "" },
+    onSubmit: async ({ value }) => {
+      setError(null);
+      const tx = proxyRoutesCollection.update(routeId as ProxyRouteId, (draft) => {
+        draft.customDirectives = value.directives.trim().length === 0 ? null : value.directives;
+      });
+      await tx.isPersisted.promise
+        .then(() => {
+          toast.success("Directives applied");
+          setOpen(false);
+        })
+        .catch((e) => {
+          // A Caddy parse rejection surfaces as RouteDirectivesRejectedError —
+          // show it inline; other failures are toasted.
+          if (e instanceof RouteDirectivesRejectedError) {
+            setError(e.message);
+            toast.error("Rejected — not saved");
+          } else {
+            toast.error(e instanceof Error ? e.message : "Failed to save directives");
+          }
+        });
+    },
+  });
 
   return (
     <Dialog
@@ -82,7 +82,7 @@ export function RouteDirectivesButton({
         setOpen(next);
         // Re-hydrate when (re)opening so the editor reflects the saved value.
         if (next) {
-          setValue(customDirectives ?? "");
+          form.reset({ directives: customDirectives ?? "" });
           setError(null);
         }
       }}
@@ -108,17 +108,22 @@ export function RouteDirectivesButton({
           </DialogDescription>
         </DialogHeader>
 
-        <Textarea
-          value={value}
-          onChange={(e) => {
-            setValue(e.target.value);
-            if (error) setError(null);
-          }}
-          spellCheck={false}
-          placeholder={PLACEHOLDER}
-          className="min-h-48 font-mono text-[12.5px] leading-relaxed"
-          autoFocus
-        />
+        <form.Field name="directives">
+          {(field) => (
+            <Textarea
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(e) => {
+                field.handleChange(e.target.value);
+                if (error) setError(null);
+              }}
+              spellCheck={false}
+              placeholder={PLACEHOLDER}
+              className="min-h-48 font-mono text-[12.5px] leading-relaxed"
+              autoFocus
+            />
+          )}
+        </form.Field>
 
         {error ? (
           <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3">
@@ -134,16 +139,29 @@ export function RouteDirectivesButton({
         ) : null}
 
         <DialogFooter>
-          <Button size="sm" variant="outline" onClick={() => setOpen(false)} disabled={saving}>
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            onClick={onSave}
-            disabled={saving || value === (customDirectives ?? "")}
+          <form.Subscribe
+            selector={(s) => ({ saving: s.isSubmitting, directives: s.values.directives })}
           >
-            {saving ? "Validating…" : "Save & apply"}
-          </Button>
+            {({ saving, directives }) => (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setOpen(false)}
+                  disabled={saving}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => void form.handleSubmit()}
+                  disabled={saving || directives === (customDirectives ?? "")}
+                >
+                  {saving ? "Validating…" : "Save & apply"}
+                </Button>
+              </>
+            )}
+          </form.Subscribe>
         </DialogFooter>
       </DialogContent>
     </Dialog>

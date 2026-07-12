@@ -6,8 +6,8 @@
  * env value re-applies on every boot and would silently win.
  */
 
-import { useState } from "react";
 import { GlobalIcon } from "@hugeicons/core-free-icons";
+import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -29,11 +29,14 @@ export function ServerIpCard({ organizationId }: { organizationId: never }) {
     onError: (err) => toast.error(err.message ?? "Failed to save public IP"),
   });
 
-  const [value, setValue] = useState<string | null>(null);
   const current = query.data?.serverIp ?? "";
   const envOverride = query.data?.envOverride ?? false;
-  const displayed = value ?? current;
-  const dirty = displayed.trim() !== current;
+
+  // Server-seeded default: hydrates the field until the user touches it.
+  const form = useForm({
+    defaultValues: { serverIp: current },
+    onSubmit: ({ value }) => save.mutate({ organizationId, serverIp: value.serverIp.trim() }),
+  });
 
   return (
     <SettingsSection
@@ -61,22 +64,30 @@ export function ServerIpCard({ organizationId }: { organizationId: never }) {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Input
-            type="text"
-            placeholder="203.0.113.10"
-            value={displayed}
-            onChange={(e) => setValue(e.target.value)}
-            disabled={envOverride || save.isPending || query.isLoading}
-            className="font-mono text-[13px]"
-          />
-          <Button
-            type="button"
-            size="sm"
-            disabled={envOverride || !dirty || save.isPending}
-            onClick={() => save.mutate({ organizationId, serverIp: displayed.trim() })}
-          >
-            {save.isPending ? "Saving…" : "Save"}
-          </Button>
+          <form.Field name="serverIp">
+            {(field) => (
+              <Input
+                type="text"
+                placeholder="203.0.113.10"
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                disabled={envOverride || save.isPending || query.isLoading}
+                className="font-mono text-[13px]"
+              />
+            )}
+          </form.Field>
+          <form.Subscribe selector={(s) => s.values.serverIp.trim() !== current}>
+            {(dirty) => (
+              <Button
+                type="button"
+                size="sm"
+                disabled={envOverride || !dirty || save.isPending}
+                onClick={() => void form.handleSubmit()}
+              >
+                {save.isPending ? "Saving…" : "Save"}
+              </Button>
+            )}
+          </form.Subscribe>
         </div>
         {envOverride && (
           <div className="text-[11.5px] text-muted-foreground">

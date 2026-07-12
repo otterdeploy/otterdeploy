@@ -6,6 +6,8 @@
  */
 import { useState } from "react";
 
+import { useForm } from "@tanstack/react-form";
+
 import { EVENTS, SEVERITY_DOT } from "@/features/notifications/shared";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -40,34 +42,34 @@ interface OutboundDialogProps {
 
 export function OutboundDialog({ open, onOpenChange, editing, onSubmit }: OutboundDialogProps) {
   const isEdit = editing !== null;
-  const [url, setUrl] = useState("");
-  const [events, setEvents] = useState<string[]>(DEFAULT_EVENTS);
   const [error, setError] = useState<string | null>(null);
+
+  const form = useForm({
+    defaultValues: { url: "", events: DEFAULT_EVENTS },
+    onSubmit: ({ value }) => {
+      const trimmed = value.url.trim();
+      if (!URL_RE.test(trimmed)) {
+        setError("Enter a valid URL (https://…)");
+        return;
+      }
+      if (value.events.length === 0) {
+        setError("Subscribe to at least one event");
+        return;
+      }
+      onSubmit({ url: trimmed, events: value.events });
+    },
+  });
 
   // Re-seed when the dialog opens (edit hydrates, create resets).
   const handleOpenChange = (next: boolean) => {
     if (next) {
-      setUrl(editing?.url ?? "");
-      setEvents(editing ? [...editing.events] : DEFAULT_EVENTS);
+      form.reset({
+        url: editing?.url ?? "",
+        events: editing ? [...editing.events] : DEFAULT_EVENTS,
+      });
       setError(null);
     }
     onOpenChange(next);
-  };
-
-  const toggle = (id: string) =>
-    setEvents((cur) => (cur.includes(id) ? cur.filter((e) => e !== id) : [...cur, id]));
-
-  const submit = () => {
-    const trimmed = url.trim();
-    if (!URL_RE.test(trimmed)) {
-      setError("Enter a valid URL (https://…)");
-      return;
-    }
-    if (events.length === 0) {
-      setError("Subscribe to at least one event");
-      return;
-    }
-    onSubmit({ url: trimmed, events });
   };
 
   return (
@@ -85,49 +87,64 @@ export function OutboundDialog({ open, onOpenChange, editing, onSubmit }: Outbou
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            submit();
+            void form.handleSubmit();
           }}
           className="flex flex-col gap-4"
           noValidate
         >
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="webhook-url">Target URL</Label>
-            <Input
-              id="webhook-url"
-              className="font-mono"
-              placeholder="https://hooks.example.com/intake"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              aria-invalid={Boolean(error)}
-            />
-          </div>
+          <form.Field name="url">
+            {(field) => (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="webhook-url">Target URL</Label>
+                <Input
+                  id="webhook-url"
+                  className="font-mono"
+                  placeholder="https://hooks.example.com/intake"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  aria-invalid={Boolean(error)}
+                />
+              </div>
+            )}
+          </form.Field>
 
-          <div className="flex flex-col gap-2">
-            <Label>Subscribe to events</Label>
-            <div className="flex flex-wrap gap-1.5">
-              {EVENTS.map((e) => {
-                const on = events.includes(e.id);
-                return (
-                  <button
-                    key={e.id}
-                    type="button"
-                    onClick={() => toggle(e.id)}
-                    aria-pressed={on}
-                    title={e.label}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-[11px] transition-colors",
-                      on
-                        ? "border-foreground/40 bg-muted text-foreground"
-                        : "border-border text-muted-foreground hover:bg-muted/50",
-                    )}
-                  >
-                    <span className={cn("size-1.5 rounded-full", SEVERITY_DOT[e.severity])} />
-                    {e.id}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <form.Field name="events">
+            {(field) => (
+              <div className="flex flex-col gap-2">
+                <Label>Subscribe to events</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {EVENTS.map((e) => {
+                    const on = field.state.value.includes(e.id);
+                    return (
+                      <button
+                        key={e.id}
+                        type="button"
+                        onClick={() =>
+                          field.handleChange(
+                            on
+                              ? field.state.value.filter((id) => id !== e.id)
+                              : [...field.state.value, e.id],
+                          )
+                        }
+                        aria-pressed={on}
+                        title={e.label}
+                        className={cn(
+                          "flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-[11px] transition-colors",
+                          on
+                            ? "border-foreground/40 bg-muted text-foreground"
+                            : "border-border text-muted-foreground hover:bg-muted/50",
+                        )}
+                      >
+                        <span className={cn("size-1.5 rounded-full", SEVERITY_DOT[e.severity])} />
+                        {e.id}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </form.Field>
 
           {error && <p className="text-[11px] text-destructive">{error}</p>}
 

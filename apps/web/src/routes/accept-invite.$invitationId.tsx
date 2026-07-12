@@ -6,7 +6,7 @@
  * unauthenticated visitors are sent to sign-in and returned afterwards.
  */
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
@@ -30,6 +30,7 @@ export const Route = createFileRoute("/accept-invite/$invitationId")({
 function AcceptInvitePage() {
   const { invitationId } = Route.useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const invitation = useQuery({
     queryKey: ["invitation", invitationId],
@@ -74,7 +75,10 @@ function AcceptInvitePage() {
       }
       return res.data;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      // The cached invitation still says "pending" — refetch so revisiting the
+      // invite link shows its real (declined) state instead of the accept UI.
+      await queryClient.invalidateQueries({ queryKey: ["invitation", invitationId] });
       toast.success("Invitation declined");
       void navigate({ to: "/" });
     },

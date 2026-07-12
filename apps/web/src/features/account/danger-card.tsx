@@ -7,7 +7,7 @@
 
 import { Alert02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
@@ -28,6 +28,7 @@ import { Button } from "@/shared/components/ui/button";
 
 export function DangerCard() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const signOutEverywhere = useMutation({
     mutationFn: async () => {
@@ -38,6 +39,9 @@ export function DangerCard() {
       await authClient.signOut().catch(() => undefined);
     },
     onSuccess: () => {
+      // Every cached query belongs to the account that just signed out — drop
+      // the whole cache so nothing leaks into the next sign-in.
+      queryClient.clear();
       void navigate({ to: "/sign-in", replace: true });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to sign out everywhere"),

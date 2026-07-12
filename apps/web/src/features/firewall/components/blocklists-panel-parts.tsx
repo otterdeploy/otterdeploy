@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -8,56 +9,80 @@ import { Card } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 import { orpc } from "@/shared/server/orpc";
 
+const customListValid = (v: { name: string; url: string }) =>
+  v.name.trim().length > 0 && /^https?:\/\//i.test(v.url.trim());
+
 export function AddCustomForm({ onAdded }: { onAdded: () => void }) {
-  const [name, setName] = useState("");
-  const [url, setUrl] = useState("");
+  const form = useForm({
+    defaultValues: { name: "", url: "" },
+    onSubmit: ({ value }) => {
+      if (customListValid(value)) add.mutate({ name: value.name.trim(), url: value.url.trim() });
+    },
+  });
   const add = useMutation({
     ...orpc.firewall.blocklists.addCustom.mutationOptions(),
     onSuccess: () => {
       toast.success("List added — importing…");
-      setName("");
-      setUrl("");
+      form.reset();
       onAdded();
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Couldn't add list"),
   });
-  const valid = name.trim().length > 0 && /^https?:\/\//i.test(url.trim());
   return (
     <form
       className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed p-2.5"
       onSubmit={(e) => {
         e.preventDefault();
-        if (valid) add.mutate({ name: name.trim(), url: url.trim() });
+        void form.handleSubmit();
       }}
     >
-      <Input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="List name"
-        className="h-8 w-40 text-[12px]"
-      />
-      <Input
-        value={url}
-        onChange={(e) => setUrl(e.target.value)}
-        placeholder="https://example.com/blocklist.txt"
-        className="h-8 min-w-0 flex-1 font-mono text-[12px]"
-      />
-      <Button type="submit" size="sm" disabled={!valid || add.isPending}>
-        {add.isPending ? "Adding…" : "Add custom list"}
-      </Button>
+      <form.Field name="name">
+        {(field) => (
+          <Input
+            value={field.state.value}
+            onBlur={field.handleBlur}
+            onChange={(e) => field.handleChange(e.target.value)}
+            placeholder="List name"
+            className="h-8 w-40 text-[12px]"
+          />
+        )}
+      </form.Field>
+      <form.Field name="url">
+        {(field) => (
+          <Input
+            value={field.state.value}
+            onBlur={field.handleBlur}
+            onChange={(e) => field.handleChange(e.target.value)}
+            placeholder="https://example.com/blocklist.txt"
+            className="h-8 min-w-0 flex-1 font-mono text-[12px]"
+          />
+        )}
+      </form.Field>
+      <form.Subscribe selector={(s) => customListValid(s.values)}>
+        {(valid) => (
+          <Button type="submit" size="sm" disabled={!valid || add.isPending}>
+            {add.isPending ? "Adding…" : "Add custom list"}
+          </Button>
+        )}
+      </form.Subscribe>
     </form>
   );
 }
 
 export function ConsoleEnrollCard() {
-  const [key, setKey] = useState("");
   const [open, setOpen] = useState(false);
+  const form = useForm({
+    defaultValues: { key: "" },
+    onSubmit: ({ value }) => {
+      if (value.key.trim()) enroll.mutate({ key: value.key.trim() });
+    },
+  });
   const enroll = useMutation({
     ...orpc.firewall.console.enroll.mutationOptions(),
     onSuccess: (r) => {
       if (r.ok) toast.success(r.message);
       else toast.error(r.message);
-      setKey("");
+      form.reset();
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Enrollment failed"),
   });
@@ -91,18 +116,27 @@ export function ConsoleEnrollCard() {
           className="flex flex-wrap items-center gap-2 pt-1"
           onSubmit={(e) => {
             e.preventDefault();
-            if (key.trim()) enroll.mutate({ key: key.trim() });
+            void form.handleSubmit();
           }}
         >
-          <Input
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-            placeholder="Enrollment key from the console"
-            className="h-8 min-w-0 flex-1 font-mono text-[12px]"
-          />
-          <Button type="submit" size="sm" disabled={key.trim().length < 8 || enroll.isPending}>
-            {enroll.isPending ? "Enrolling…" : "Enroll"}
-          </Button>
+          <form.Field name="key">
+            {(field) => (
+              <Input
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+                placeholder="Enrollment key from the console"
+                className="h-8 min-w-0 flex-1 font-mono text-[12px]"
+              />
+            )}
+          </form.Field>
+          <form.Subscribe selector={(s) => s.values.key.trim().length < 8}>
+            {(tooShort) => (
+              <Button type="submit" size="sm" disabled={tooShort || enroll.isPending}>
+                {enroll.isPending ? "Enrolling…" : "Enroll"}
+              </Button>
+            )}
+          </form.Subscribe>
         </form>
       ) : null}
     </Card>

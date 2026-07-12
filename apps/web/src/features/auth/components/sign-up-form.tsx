@@ -1,5 +1,5 @@
 import { useForm } from "@tanstack/react-form";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -12,6 +12,7 @@ import { SocialSignIn } from "./social-sign-in";
 
 export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { redirect } = useSearch({ from: "/sign-in" });
   const { t } = useTranslation();
 
@@ -22,7 +23,10 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
         throw new Error(result.error.message ?? result.error.statusText ?? "Sign up failed");
       return result.data;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      // A new session exists now — anything cached under ["auth", …] describes
+      // the pre-sign-up (or previous) session.
+      await queryClient.invalidateQueries({ queryKey: ["auth"] });
       void navigate({ to: (redirect ?? "/") as "/", replace: true });
       toast.success(t("auth.signUp.accountCreated"));
     },

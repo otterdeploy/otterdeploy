@@ -13,6 +13,7 @@ import { useState } from "react";
 
 import { Key01Icon, Link01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -43,6 +44,11 @@ import { columnInputKind } from "../data/structure";
 import { useMutateRow, useTableStructure } from "../data/use-database";
 import { TypeLabel } from "./type-label";
 
+/** A column's issue depends only on its own draft value, so it can be
+ *  computed per field without re-validating the whole draft. */
+const issueReason = (col: StructureColumn, raw: string | undefined) =>
+  validateInsertDraft([col], { [col.name]: raw })[0]?.reason;
+
 export function AddRecordDialog({
   resourceId,
   table,
@@ -59,44 +65,41 @@ export function AddRecordDialog({
 }) {
   const { query, structure } = useTableStructure({ resourceId, table, enabled: open });
   const mutateRow = useMutateRow();
-  const [draft, setDraft] = useState<InsertDraft>({});
   const [showIssues, setShowIssues] = useState(false);
 
-  const issues = validateInsertDraft(structure, draft);
-  const issueFor = (name: string) => issues.find((i) => i.column === name);
+  const form = useForm({
+    defaultValues: {} as InsertDraft,
+    onSubmit: ({ value }) => {
+      const issues = validateInsertDraft(structure, value);
+      if (issues.length > 0) return setShowIssues(true);
+      mutateRow.mutate(
+        {
+          resourceId: resourceId as never,
+          schema: table.schema,
+          table: table.name,
+          op: "insert",
+          pk: [],
+          set: buildInsertSet(structure, value),
+        },
+        {
+          onSuccess: () => {
+            toast.success(`Row added to ${table.name}`);
+            close(false);
+            onInserted();
+          },
+          onError: (err) =>
+            toast.error(err instanceof Error ? err.message : "Couldn't insert the row."),
+        },
+      );
+    },
+  });
 
   const close = (next: boolean) => {
     if (!next) {
-      setDraft({});
+      form.reset();
       setShowIssues(false);
     }
     onOpenChange(next);
-  };
-
-  const submit = () => {
-    if (issues.length > 0) {
-      setShowIssues(true);
-      return;
-    }
-    mutateRow.mutate(
-      {
-        resourceId: resourceId as never,
-        schema: table.schema,
-        table: table.name,
-        op: "insert",
-        pk: [],
-        set: buildInsertSet(structure, draft),
-      },
-      {
-        onSuccess: () => {
-          toast.success(`Row added to ${table.name}`);
-          close(false);
-          onInserted();
-        },
-        onError: (err) =>
-          toast.error(err instanceof Error ? err.message : "Couldn't insert the row."),
-      },
-    );
   };
 
   return (
@@ -123,13 +126,16 @@ export function AddRecordDialog({
               </p>
             ) : (
               structure.map((col) => (
-                <FieldRow
-                  key={col.name}
-                  col={col}
-                  value={draft[col.name] ?? ""}
-                  onChange={(v) => setDraft((d) => ({ ...d, [col.name]: v }))}
-                  issue={showIssues ? issueFor(col.name)?.reason : undefined}
-                />
+                <form.Field key={col.name} name={col.name}>
+                  {(field) => (
+                    <FieldRow
+                      col={col}
+                      value={field.state.value ?? ""}
+                      onChange={field.handleChange}
+                      issue={showIssues ? issueReason(col, field.state.value) : undefined}
+                    />
+                  )}
+                </form.Field>
               ))
             )}
           </div>
@@ -142,7 +148,7 @@ export function AddRecordDialog({
           </Button>
           <Button
             size="sm"
-            onClick={submit}
+            onClick={() => void form.handleSubmit()}
             disabled={mutateRow.isPending || query.isLoading || query.isError}
           >
             {mutateRow.isPending ? "Adding…" : "Add record"}

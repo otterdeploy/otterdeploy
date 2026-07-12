@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { EarthIcon } from "@hugeicons/core-free-icons";
+import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -36,10 +36,14 @@ export function DomainCard({ organizationId }: { organizationId: never }) {
     onError: (err) => toast.error(err.message ?? "Failed to save domain"),
   });
 
-  const [value, setValue] = useState<string | null>(null);
   const current = settingsQuery.data?.baseDomain ?? "";
-  const displayed = value ?? current;
-  const dirty = displayed.trim().toLowerCase() !== current.toLowerCase();
+
+  // Server-seeded default: hydrates the field until the user touches it.
+  const form = useForm({
+    defaultValues: { baseDomain: current },
+    onSubmit: ({ value }) =>
+      setBaseDomain.mutate({ organizationId, baseDomain: value.baseDomain.trim() }),
+  });
 
   const verifiedAt = settingsQuery.data?.baseDomainVerifiedAt ?? null;
   const verifyToken = settingsQuery.data?.baseDomainVerifyToken ?? null;
@@ -69,27 +73,32 @@ export function DomainCard({ organizationId }: { organizationId: never }) {
           <StatusBadge status={status} />
         </div>
         <div className="flex items-center gap-2">
-          <Input
-            type="text"
-            placeholder="acme.com"
-            value={displayed}
-            onChange={(e) => setValue(e.target.value)}
-            disabled={setBaseDomain.isPending || settingsQuery.isLoading}
-            className="font-mono text-[13px]"
-          />
-          <Button
-            type="button"
-            size="sm"
-            disabled={!dirty || setBaseDomain.isPending}
-            onClick={() =>
-              setBaseDomain.mutate({
-                organizationId,
-                baseDomain: displayed.trim(),
-              })
-            }
+          <form.Field name="baseDomain">
+            {(field) => (
+              <Input
+                type="text"
+                placeholder="acme.com"
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                disabled={setBaseDomain.isPending || settingsQuery.isLoading}
+                className="font-mono text-[13px]"
+              />
+            )}
+          </form.Field>
+          <form.Subscribe
+            selector={(s) => s.values.baseDomain.trim().toLowerCase() !== current.toLowerCase()}
           >
-            {setBaseDomain.isPending ? "Saving…" : "Save"}
-          </Button>
+            {(dirty) => (
+              <Button
+                type="button"
+                size="sm"
+                disabled={!dirty || setBaseDomain.isPending}
+                onClick={() => void form.handleSubmit()}
+              >
+                {setBaseDomain.isPending ? "Saving…" : "Save"}
+              </Button>
+            )}
+          </form.Subscribe>
         </div>
         {status === "pending" && verifyToken && (
           <PendingVerification

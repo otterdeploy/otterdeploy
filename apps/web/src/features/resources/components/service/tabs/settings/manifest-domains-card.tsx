@@ -10,10 +10,9 @@
 
 import type { ProjectId } from "@otterdeploy/shared/id";
 
-import { useState } from "react";
-
 import { Delete02Icon, PlusSignIcon, StarIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 
 import { useStageManifestChange } from "@/features/projects/hooks/use-manifest-stage";
@@ -35,8 +34,6 @@ export function ManifestDomainsCard({
   projectId: string;
   serviceName: string;
 }) {
-  const [input, setInput] = useState("");
-
   const manifest = useQuery(
     orpc.project.manifest.get.queryOptions({ input: { id: projectId as ProjectId } }),
   );
@@ -60,17 +57,20 @@ export function ManifestDomainsCard({
       };
     });
 
-  const add = async () => {
-    const domain = input.trim().toLowerCase();
-    if (!domain) return;
-    if (domains.some((d) => d.domain === domain)) {
-      setInput("");
-      return;
-    }
-    // First domain becomes primary by default.
-    await setDomains([...domains, { domain, primary: domains.length === 0 }]);
-    setInput("");
-  };
+  const form = useForm({
+    defaultValues: { domain: "" },
+    onSubmit: async ({ value }) => {
+      const domain = value.domain.trim().toLowerCase();
+      if (!domain) return;
+      if (domains.some((d) => d.domain === domain)) {
+        form.reset();
+        return;
+      }
+      // First domain becomes primary by default.
+      await setDomains([...domains, { domain, primary: domains.length === 0 }]);
+      form.reset();
+    },
+  });
 
   const remove = (domain: string) => {
     const next = domains.filter((d) => d.domain !== domain);
@@ -132,29 +132,39 @@ export function ManifestDomainsCard({
           ))
         )}
 
-        <div className="flex items-center gap-2 px-3 py-2.5">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                void add();
-              }
-            }}
-            placeholder="app.example.com"
-            className={cn("h-8 font-mono text-[12.5px]")}
-          />
-          <Button
-            size="sm"
-            className="h-8 shrink-0 gap-1.5 text-[12px]"
-            onClick={() => void add()}
-            disabled={busy || input.trim().length === 0}
-          >
-            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
-            Add
-          </Button>
-        </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void form.handleSubmit();
+          }}
+          className="flex items-center gap-2 px-3 py-2.5"
+          noValidate
+        >
+          <form.Field name="domain">
+            {(field) => (
+              <Input
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+                placeholder="app.example.com"
+                className={cn("h-8 font-mono text-[12.5px]")}
+              />
+            )}
+          </form.Field>
+          <form.Subscribe selector={(s) => s.values.domain}>
+            {(domain) => (
+              <Button
+                type="submit"
+                size="sm"
+                className="h-8 shrink-0 gap-1.5 text-[12px]"
+                disabled={busy || domain.trim().length === 0}
+              >
+                <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
+                Add
+              </Button>
+            )}
+          </form.Subscribe>
+        </form>
       </div>
     </SettingsCard>
   );

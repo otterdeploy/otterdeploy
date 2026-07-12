@@ -1,5 +1,5 @@
 import { useForm } from "@tanstack/react-form";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import * as z from "zod";
 
@@ -24,6 +24,7 @@ const schema = z.object({
 
 export function CreateOrganizationForm() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const createOrgMutation = useMutation({
     mutationKey: ["createOrganization"],
@@ -44,6 +45,11 @@ export function CreateOrganizationForm() {
       }
 
       return created.data;
+    },
+    onSuccess: async () => {
+      // setActive rewrote the session's activeOrganizationId — refetch any
+      // cached session so it reflects the new organization.
+      await queryClient.invalidateQueries({ queryKey: ["auth"] });
     },
   });
 
