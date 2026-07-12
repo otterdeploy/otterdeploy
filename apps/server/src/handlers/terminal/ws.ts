@@ -1,8 +1,11 @@
 import type { ServerWebSocket } from "bun";
+import type { Context, MiddlewareHandler } from "hono";
+import type { WSEvents } from "hono/ws";
 
 import { log } from "evlog";
 import { upgradeWebSocket } from "hono/bun";
 
+import { authorizePty, type PtyActor } from "./auth";
 import {
   decodeClientMessage,
   type PtyBackend,
@@ -17,23 +20,21 @@ import {
 // ---------------------------------------------------------------------------
 // WebSocket handler — wired by index.ts:
 //   app.get("/pty", terminalWebSocketHandler);
-// Auth middleware (when re-enabled) sits in front of this and stashes
-// `userId` via c.set("userId", ...).
+// Auth + authorization run BEFORE the upgrade (see ./auth): a denial is a
+// plain HTTP 401/403 and no socket ever opens. The post-upgrade wire protocol
+// is unchanged.
 // ---------------------------------------------------------------------------
 
-export const terminalWebSocketHandler = upgradeWebSocket((c) => {
-  const userId = c.get("userId") as string | undefined;
+// Resolve the target up front. Exactly one of `?container=` or `?host=1`
+// must be present — never both, never neither.
+function parseTarget(c: Context): Target | null {
   const containerId = c.req.query("container") || null;
   const hostFlag = c.req.query("host") === "1";
 
-  // Resolve the target up front. Exactly one of `?container=` or `?host=1`
-  // must be present — never both, never neither.
-  const target: Target | null = containerId
-    ? { kind: "container", id: containerId }
-    : hostFlag
-      ? { kind: "host" }
-      : null;
+  return containerId ? { kind: "container", id: containerId } : hostFlag ? { kind: "host" } : null;
+}
 
+function ptyEvents(actor: PtyActor, target: Target | null): WSEvents {
   const state = {
     backend: null as PtyBackend | null,
     cols: 80,
@@ -67,7 +68,7 @@ export const terminalWebSocketHandler = upgradeWebSocket((c) => {
       const args: StartArgs = {
         cols: state.cols,
         rows: state.rows,
-        userId,
+        userId: actor.userId ?? undefined,
         onData: (chunk) => {
           // Bun ServerWebSocket.send: >0 = bytes sent, -1 = queued
           // (backpressure), 0 = dropped (socket closed or over
@@ -161,4 +162,27 @@ export const terminalWebSocketHandler = upgradeWebSocket((c) => {
       state.backend = null;
     },
   };
-});
+}
+
+export const terminalWebSocketHandler: MiddlewareHandler = async (c, next) => {
+  // Non-upgrade requests fall through, matching upgradeWebSocket's own
+  // behavior when no upgrade is possible.
+  if (c.req.header("upgrade")?.toLowerCase() !== "websocket") return next();
+
+  const target = parseTarget(c);
+  const authz = await authorizePty(c, target);
+
+  if (authz.isErr()) {
+    log.warn({
+      pty: {
+        event: "auth-denied",
+        status: authz.error.status,
+        detail: authz.error.message,
+        target: target?.kind ?? "none",
+      },
+    });
+    return c.json({ message: authz.error.message }, authz.error.status);
+  }
+
+  return upgradeWebSocket(c, ptyEvents(authz.value, target));
+};

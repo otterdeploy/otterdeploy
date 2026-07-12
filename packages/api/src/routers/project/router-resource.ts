@@ -131,6 +131,8 @@ export const resourceRouter = {
           resourceId: input.resourceId,
           organizationId: context.activeOrganizationId,
           tail: input.tail,
+          follow: input.follow,
+          since: input.since,
         });
       },
     ),
