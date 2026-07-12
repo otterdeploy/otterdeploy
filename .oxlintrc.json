@@ -195,6 +195,18 @@
       }
     },
     {
+      "files": [
+        "packages/api/src/stack/manifest/schema.ts",
+        "apps/builder/src/pipeline.ts",
+        "apps/builder/src/load.ts",
+        "apps/cli/src/commands/add.ts"
+      ],
+      "rules": {
+        "max-lines": "off",
+        "complexity": "off"
+      }
+    },
+    {
       "files": ["packages/db/src/schema/**"],
       "rules": {
         "max-lines": "off"

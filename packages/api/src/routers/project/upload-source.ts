@@ -12,12 +12,7 @@
  * If staging fails between the two, the caller marks the row failed so it never
  * strands as a phantom `pending`.
  */
-import type {
-  DeploymentId,
-  OrganizationId,
-  ProjectId,
-  ResourceId,
-} from "@otterdeploy/shared/id";
+import type { DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { deployment, project, resource, serviceResource } from "@otterdeploy/db/schema/project";

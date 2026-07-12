@@ -1,5 +1,4 @@
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
-
 import type { DeploymentId } from "@otterdeploy/shared/id";
 
 import {

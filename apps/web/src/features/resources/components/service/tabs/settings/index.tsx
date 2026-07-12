@@ -26,7 +26,7 @@ export interface ServiceSettingsResource extends VariablesEditorResource {
   replicas: number;
   publicEnabled: boolean;
   publicDomain: string | null;
-  source: "image" | "git";
+  source: "image" | "git" | "upload";
   // Stored railpack/dockerfile/… config. Optional + `unknown` to match the
   // resource-list contract; the build card narrows it.
   buildConfig?: unknown;

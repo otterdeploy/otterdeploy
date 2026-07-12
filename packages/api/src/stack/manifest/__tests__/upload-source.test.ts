@@ -18,7 +18,10 @@ describe("source: upload manifest variant", () => {
     });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.services.web).toMatchObject({ source: "upload", sourceSubdir: "apps/api" });
+      expect(result.data.services.web).toMatchObject({
+        source: "upload",
+        sourceSubdir: "apps/api",
+      });
     }
   });
 

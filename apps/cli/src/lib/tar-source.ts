@@ -37,7 +37,9 @@ export function createSourceTarball(projectDir: string, stamp: string): string {
     throw new Error(`could not run tar (${proc.error.message}) — is tar installed?`);
   }
   if (proc.status !== 0) {
-    throw new Error(`tar failed (exit ${proc.status}): ${(proc.stderr || "").trim().slice(0, 500)}`);
+    throw new Error(
+      `tar failed (exit ${proc.status}): ${(proc.stderr || "").trim().slice(0, 500)}`,
+    );
   }
   return out;
 }

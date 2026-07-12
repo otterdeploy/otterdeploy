@@ -201,7 +201,8 @@ async function uploadServiceSources(args: {
         resourceId,
         tarballPath: tarball,
       });
-      if (!args.json) consola.success(`Source uploaded for ${name} — build ${deploymentId} queued.`);
+      if (!args.json)
+        consola.success(`Source uploaded for ${name} — build ${deploymentId} queued.`);
     } finally {
       rmSync(tarball, { force: true });
     }

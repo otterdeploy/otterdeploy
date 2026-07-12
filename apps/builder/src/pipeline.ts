@@ -35,7 +35,6 @@ import { rm } from "node:fs/promises";
 import { pruneStaleBuildCache, pruneStaleBuilds } from "./build-workdir";
 import { ensureBuildxBuilder, cachePathFor } from "./buildx";
 import { cloneRepoAtSha } from "./clone";
-import { extractTarballToWorkDir } from "./extract";
 import { isComposeDeployment, runComposeBuild } from "./compose-build";
 import { detectServiceFramework } from "./detect-framework";
 import {
@@ -44,6 +43,7 @@ import {
   SwarmConvergenceError,
   SwarmUpdateError,
 } from "./errors";
+import { extractTarballToWorkDir } from "./extract";
 import { loadPipelineContext, PipelineLoadError } from "./load";
 import { createLogSink, type LogSink } from "./log-stream";
 import {

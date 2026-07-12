@@ -199,7 +199,7 @@ export function OverviewNavCards({
   onGoTab,
 }: {
   resource: {
-    source: "image" | "git";
+    source: "image" | "git" | "upload";
     image: string;
     extraEnv: Record<string, string>;
     secretKeys: string[];

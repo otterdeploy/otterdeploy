@@ -62,7 +62,9 @@ async function streamBodyToFile(c: Context, path: string): Promise<void> {
       if (total > MAX_UPLOAD_BYTES) {
         throw new Error(`source tarball exceeds the ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB limit`);
       }
-      writer.write(value);
+      // FileSink.write returns a number, or a Promise on backpressure — await
+      // handles both and satisfies no-floating-promises.
+      await writer.write(value);
     }
     await writer.flush();
   } finally {
