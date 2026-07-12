@@ -32,8 +32,6 @@
   },
   "scripts": {
     "build": "bun run scripts/build.ts",
-    "compile": "bun build --compile --minify --sourcemap ./src/index.ts --outfile otterdeploy",
-    "compile:all": "bun run scripts/compile-all.ts",
     "prepack": "bun run scripts/build.ts",
     "start": "bun run src/index.ts",
     "test": "bun --bun vitest run",

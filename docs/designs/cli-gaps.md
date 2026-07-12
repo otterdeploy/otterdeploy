@@ -53,9 +53,12 @@ addition to `resource-logs.ts`).
 
 ## Packaging & DX
 
-- `package.json` → `0.1.0`; `bun build --compile` binaries per platform
-  (`scripts/compile-all.ts`) + a tag-triggered release workflow
-  (`.github/workflows/cli-release.yml`). Standalone binary verified.
+- `package.json` → `0.1.0`, publishable to npm. `bun run build` bundles the CLI
+  into a single dependency-free `dist/index.js` (Node ≥20 or Bun); a tag-triggered
+  workflow (`.github/workflows/cli-publish.yml`) publishes via npm trusted
+  publishing (OIDC). Distributed via npm only — a `bun --compile` standalone
+  binary bakes in the whole runtime (~100 MB), which isn't worth it for a thin
+  API-client CLI.
 - Shell completions (`bash`/`zsh`/`fish`, generated from the live command tree),
   `NO_COLOR`/`--no-color`, `pull` overwrite confirmation.
 - Tests: `apps/cli` now has a vitest suite (config round-trip incl. composes,
