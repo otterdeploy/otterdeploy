@@ -86,6 +86,34 @@ export function markEventHeads(
   return heads;
 }
 
+/**
+ * Structured (JSON) logs — pino, bunyan, authentik, … — carry severity in a
+ * `level` field the keyword heuristic can't see (and scanning the raw JSON for
+ * words like "error" false-positives on field names). Read the level directly,
+ * supporting both string levels ("error", "warning") and pino's numeric scale
+ * (≥50 error, 40 warn, 30 info, ≤20 debug/trace). Returns null when the line
+ * isn't a JSON object or has no recognisable level, so the caller falls back to
+ * the content heuristic.
+ */
+function severityFromStructuredLevel(s: string): LogSeverity | null {
+  if (s[0] !== "{") return null;
+  const m = s.match(/"level"\s*:\s*(?:"([a-z]+)"|(\d{1,3}))/i);
+  if (!m) return null;
+  if (m[1]) {
+    const lvl = m[1].toLowerCase();
+    if (/^(fatal|critical|crit|panic|error|err)$/.test(lvl)) return "error";
+    if (/^(warn|warning)$/.test(lvl)) return "warn";
+    if (/^(info|notice)$/.test(lvl)) return "info";
+    if (/^(debug|trace|verbose)$/.test(lvl)) return "normal";
+    return null;
+  }
+  const n = Number(m[2]);
+  if (n >= 50) return "error";
+  if (n >= 40) return "warn";
+  if (n >= 30) return "info";
+  return "normal";
+}
+
 export function classifyLogSeverity(line: string): LogSeverity {
   const s = line.trim();
   if (!s) return "normal";
@@ -94,6 +122,9 @@ export function classifyLogSeverity(line: string): LogSeverity {
   // *contains* an error word (e.g. `railpack prepare … --error-missing-start`)
   // trips the error bucket and paints a perfectly healthy command line red.
   if (s.startsWith("$ ")) return "info";
+  // Structured logs declare their own severity — authoritative when present.
+  const structured = severityFromStructuredLevel(s);
+  if (structured !== null) return structured;
   for (const [severity, patterns] of SEVERITY_PATTERNS) {
     if (patterns.some((re) => re.test(s))) return severity;
   }

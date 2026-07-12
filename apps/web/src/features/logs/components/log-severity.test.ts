@@ -25,4 +25,22 @@ describe("classifyLogSeverity", () => {
     expect(classifyLogSeverity("GET /api/products 200 in 14ms")).toBe("normal");
     expect(classifyLogSeverity("✓ Ready in 1200ms")).toBe("success");
   });
+
+  test("structured JSON logs use their `level` field, not keywords", () => {
+    // The all-white regression: authentik ships JSON with the severity in
+    // `level`; the keyword scan saw none of these and painted every line white.
+    expect(classifyLogSeverity('{"event": "Loaded config", "level": "debug"}')).toBe("normal");
+    expect(classifyLogSeverity('{"event": "Starting authentik bootstrap", "level": "info"}')).toBe(
+      "info",
+    );
+    expect(classifyLogSeverity('{"event": "DB pool exhausted", "level": "warning"}')).toBe("warn");
+    expect(classifyLogSeverity('{"level":"error","msg":"connection refused"}')).toBe("error");
+    expect(classifyLogSeverity('{"event":"boom","level":"critical"}')).toBe("error");
+    // pino numeric levels
+    expect(classifyLogSeverity('{"level":50,"msg":"down"}')).toBe("error");
+    expect(classifyLogSeverity('{"level":30,"msg":"ok"}')).toBe("info");
+    expect(classifyLogSeverity('{"level":20,"msg":"trace"}')).toBe("normal");
+    // A JSON line with no level still falls back to the content heuristic.
+    expect(classifyLogSeverity('{"msg":"TypeError: bad"}')).toBe("error");
+  });
 });
