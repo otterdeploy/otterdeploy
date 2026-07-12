@@ -437,7 +437,7 @@ export const serviceRestartConditionEnum = pgEnum("service_restart_condition", [
  *            column to it. Swarm provisioning is deferred until then so a
  *            placeholder pull never reaches the daemon.
  */
-export const serviceSourceEnum = pgEnum("service_source", ["image", "git"]);
+export const serviceSourceEnum = pgEnum("service_source", ["image", "git", "upload"]);
 
 export const serviceResource = pgTable(
   "service_resource",
@@ -456,8 +456,8 @@ export const serviceResource = pgTable(
     // pipeline services default to "image" so the swarm provisioner keeps
     // working unchanged.
     source: serviceSourceEnum("source").notNull().default("image"),
-    // Monorepo support: when source = "git", the path within the repo to
-    // hand to nixpacks. Null = repo root.
+    // Monorepo support: when source = "git" or "upload", the path within the
+    // repo/tarball to hand to the builder. Null = root.
     sourceSubdir: text("source_subdir"),
     // Framework/language detected at build time (next/vite/go/python/…), used
     // by the graph to render the service's brand logo. Captured by the builder

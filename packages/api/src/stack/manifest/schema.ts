@@ -235,7 +235,25 @@ const gitServiceSchema = serviceCommonSchema.extend({
   previews: z.boolean().optional(),
 });
 
-export const serviceSchema = z.discriminatedUnion("source", [imageServiceSchema, gitServiceSchema]);
+// Source the build from a tarball uploaded at deploy time (`otterdeploy deploy`
+// tars the local project and streams it to the control plane), then build it on
+// the server with the same railpack/Dockerfile pipeline as a git service — no
+// GitHub binding. The manifest only marks the service as upload-sourced; the
+// bytes are supplied per-deploy, not declared here (an upload service with no
+// tarball yet simply has no build until one is pushed). Reuses the git service's
+// build/subdir/imageRepository fields verbatim.
+const uploadServiceSchema = serviceCommonSchema.extend({
+  source: z.literal("upload"),
+  sourceSubdir: z.string().nullable().optional(),
+  build: buildSchema.optional(),
+  imageRepository: z.string().min(1).nullable().optional(),
+});
+
+export const serviceSchema = z.discriminatedUnion("source", [
+  imageServiceSchema,
+  gitServiceSchema,
+  uploadServiceSchema,
+]);
 export type ServiceManifest = z.infer<typeof serviceSchema>;
 
 // ── Databases ───────────────────────────────────────────────────────────
@@ -381,6 +399,7 @@ const composesMap = z.record(resourceName, composeSchema);
 const partialServiceSchema = z.union([
   imageServiceSchema.partial(),
   gitServiceSchema.partial(),
+  uploadServiceSchema.partial(),
   // Permits an override that doesn't declare `source` and just tweaks fields.
   serviceCommonSchema,
 ]);

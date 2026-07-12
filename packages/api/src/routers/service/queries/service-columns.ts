@@ -13,8 +13,9 @@ export interface CreateServiceInput {
   status?: "draft" | "valid" | "invalid";
 
   image: string;
-  /** "image" = pull a pre-built tag; "git" = built by apps/builder. */
-  source?: "image" | "git";
+  /** "image" = pull a pre-built tag; "git"/"upload" = built by apps/builder
+   *  (git clone vs. an uploaded source tarball). */
+  source?: "image" | "git" | "upload";
   /** When source = "git", path within the repo handed to nixpacks. */
   sourceSubdir?: string | null;
   /** Per-service git binding (git source only). Repo + branch this service

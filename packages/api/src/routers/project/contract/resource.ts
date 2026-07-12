@@ -132,7 +132,7 @@ export const serviceResourceSchema = z.object({
   imageDigest: z.string().nullable(),
   // Where the service's image came from. "image" = pre-built pull;
   // "git" = built from the project's gitRepoId.
-  source: z.enum(["image", "git"]),
+  source: z.enum(["image", "git", "upload"]),
   // Path within the repo to hand to the builder. Null = repo root.
   // Only meaningful when `source === "git"`.
   sourceSubdir: z.string().nullable(),
