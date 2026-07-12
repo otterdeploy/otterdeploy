@@ -1,29 +1,56 @@
 {
   "name": "@otterdeploy/cli",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "description": "Deploy and operate otterdeploy projects from the terminal.",
+  "keywords": [
+    "caddy",
+    "cli",
+    "deploy",
+    "docker",
+    "otterdeploy",
+    "paas",
+    "self-hosted"
+  ],
+  "homepage": "https://github.com/otterdeploy/otterdeploy/tree/main/apps/cli#readme",
+  "bugs": "https://github.com/otterdeploy/otterdeploy/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/otterdeploy/otterdeploy.git",
+    "directory": "apps/cli"
+  },
   "bin": {
-    "otterdeploy": "./src/index.ts"
+    "otterdeploy": "dist/index.js"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "type": "module",
-  "main": "src/index.ts",
-  "scripts": {
-    "start": "bun run src/index.ts",
-    "typecheck": "tsc -b --checkers 4"
+  "publishConfig": {
+    "access": "public"
   },
-  "dependencies": {
+  "scripts": {
+    "build": "bun run scripts/build.ts",
+    "compile": "bun build --compile --minify --sourcemap ./src/index.ts --outfile otterdeploy",
+    "compile:all": "bun run scripts/compile-all.ts",
+    "prepack": "bun run scripts/build.ts",
+    "start": "bun run src/index.ts",
+    "test": "bun --bun vitest run",
+    "typecheck": "tsc --noEmit --checkers 4"
+  },
+  "devDependencies": {
     "@orpc/client": "catalog:",
-    "@otterdeploy/api": "workspace:*",
-    "@otterdeploy/shared": "workspace:*",
+    "@types/bun": "catalog:",
     "better-auth": "catalog:",
     "better-result": "catalog:",
     "citty": "^0.1.6",
     "consola": "^3.2.3",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
     "zod": "catalog:"
   },
-  "devDependencies": {
-    "@otterdeploy/config": "workspace:*",
-    "@types/bun": "catalog:",
-    "typescript": "catalog:"
-  }
+  "engines": {
+    "node": ">=20"
+  },
+  "//": "Runtime deps are bundled into dist/index.js at build time (bun build), so the published package has no dependencies. The workspace packages (@otterdeploy/api, @otterdeploy/shared, @otterdeploy/config) resolve at build/typecheck time via workspace hoisting and are intentionally not listed — they carry no npm version and would break `bun publish` resolution."
 }

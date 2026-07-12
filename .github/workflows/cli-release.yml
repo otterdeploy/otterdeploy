@@ -1,0 +1,64 @@
+name: CLI Release
+
+# Tag `cli-v*` (e.g. cli-v0.1.0) to cut a release: compiles a standalone
+# binary per platform and attaches them to a GitHub release. The binaries
+# bundle the Bun runtime, so users need nothing installed.
+on:
+  push:
+    tags:
+      - "cli-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.target.out }}
+    runs-on: ${{ matrix.target.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - { bun: bun-linux-x64, out: otterdeploy-linux-x64, runner: ubuntu-latest }
+          - { bun: bun-linux-arm64, out: otterdeploy-linux-arm64, runner: ubuntu-latest }
+          - { bun: bun-darwin-x64, out: otterdeploy-darwin-x64, runner: macos-latest }
+          - { bun: bun-darwin-arm64, out: otterdeploy-darwin-arm64, runner: macos-latest }
+          - { bun: bun-windows-x64, out: otterdeploy-windows-x64.exe, runner: ubuntu-latest }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.10
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Compile
+        working-directory: apps/cli
+        run: |
+          mkdir -p dist
+          bun build --compile --minify --sourcemap --target=${{ matrix.target.bun }} \
+            ./src/index.ts --outfile dist/${{ matrix.target.out }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target.out }}
+          path: apps/cli/dist/${{ matrix.target.out }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true

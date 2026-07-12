@@ -1,0 +1,50 @@
+name: CLI npm publish
+
+# Tag `cli-v<version>` (e.g. cli-v0.1.0) to publish @otterdeploy/cli to npm.
+# The tag version must match apps/cli/package.json. Runs alongside cli-release.yml
+# (which attaches standalone binaries to the GitHub release for the same tag).
+on:
+  push:
+    tags:
+      - "cli-v*"
+
+permissions:
+  contents: read
+  id-token: write # npm provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.10
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Verify tag matches package version
+        working-directory: apps/cli
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#cli-v}"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "Tag $GITHUB_REF_NAME ($TAG_VERSION) != package.json version ($PKG_VERSION)" >&2
+            exit 1
+          fi
+          echo "Publishing @otterdeploy/cli@$PKG_VERSION"
+
+      - name: Build bundle
+        working-directory: apps/cli
+        run: bun run build
+
+      - name: Configure npm auth
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish to npm
+        working-directory: apps/cli
+        run: bun publish --access public --provenance

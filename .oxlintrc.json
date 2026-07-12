@@ -262,6 +262,18 @@
       "rules": {
         "max-lines": "off"
       }
+    },
+    {
+      "files": ["apps/cli/src/commands/**", "apps/cli/src/lib/deploy-run.ts"],
+      "rules": {
+        "complexity": "off"
+      }
+    },
+    {
+      "files": ["apps/cli/scripts/**"],
+      "rules": {
+        "no-console": "off"
+      }
     }
   ],
   "settings": {

@@ -26,20 +26,32 @@ function isLocalHost(url: string): boolean {
   }
 }
 
+const isBun = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
+
 /**
  * A `fetch` for the given base URL: the stock global fetch for remote hosts, or
- * a TLS-relaxed wrapper for local dev hosts. Usable as both oRPC's `RPCLink`
- * fetch and better-auth's `customFetchImpl` (it accepts the standard
- * `(input, init)` and ignores any extra positional args those callers pass).
+ * a TLS-relaxed wrapper for local dev hosts (the portless proxy serves a
+ * self-signed cert on `*.localhost:1355`). Usable as both oRPC's `RPCLink`
+ * fetch and better-auth's `customFetchImpl`.
+ *
+ * The relaxation is scoped strictly to loopback / `.localhost`, so it never
+ * weakens a real connection — an npm-installed CLI hitting a production host
+ * (valid cert) always takes the untouched `fetch` path.
  */
 export function fetchFor(baseUrl: string): typeof fetch {
   if (!isLocalHost(baseUrl)) return fetch;
-  return ((input: Parameters<typeof fetch>[0], init?: RequestInit) =>
-    fetch(input, {
-      ...init,
-      // `tls` is a Bun-specific fetch option, absent from the standard
-      // RequestInit type — accepting the self-signed local cert the portless
-      // proxy serves.
-      tls: { rejectUnauthorized: false },
-    } as RequestInit)) as typeof fetch;
+  if (isBun) {
+    return ((input: Parameters<typeof fetch>[0], init?: RequestInit) =>
+      fetch(input, {
+        ...init,
+        // `tls` is a Bun-specific fetch option (absent from RequestInit).
+        tls: { rejectUnauthorized: false },
+      } as RequestInit)) as typeof fetch;
+  }
+  // Node has no per-request TLS-skip on global fetch without pulling in undici;
+  // for a loopback dev host only, relax verification process-wide. The CLI is
+  // short-lived and this branch never runs against a remote host.
+  // oxlint-disable-next-line node/no-process-env -- dev-only, localhost-scoped TLS relaxation
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+  return fetch;
 }

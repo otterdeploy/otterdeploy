@@ -57,10 +57,59 @@ const createCommand = defineCommand({
   },
 });
 
+const deleteCommand = defineCommand({
+  meta: {
+    name: "delete",
+    description: "Permanently delete a project and all its resources",
+  },
+  args: {
+    slug: { type: "positional", required: true, description: "Project slug" },
+    url: { type: "string", description: "Override control plane URL" },
+    force: {
+      type: "boolean",
+      description: "Skip confirmation prompts (required in non-interactive shells)",
+    },
+  },
+  async run({ args }) {
+    const { url, token } = await ensureAuthenticated(args.url);
+    const client = createCliClient({ url, token });
+    const project = await client.project.getBySlug({ slug: args.slug });
+
+    if (!args.force) {
+      if (!process.stdin.isTTY) {
+        consola.error(
+          "Refusing to delete without confirmation in a non-interactive shell. Pass --force.",
+        );
+        process.exit(1);
+      }
+      consola.warn(
+        `This permanently deletes ${project.slug} (${project.id}) and every service, database, and route in it.`,
+      );
+      const confirmed = await consola.prompt(`Delete project ${project.slug}?`, {
+        type: "confirm",
+        initial: false,
+      });
+      if (confirmed !== true) {
+        consola.error("Aborted.");
+        process.exit(1);
+      }
+      const typed = await consola.prompt("Type the project slug to confirm:", { type: "text" });
+      if (typed !== args.slug) {
+        consola.error("Slug mismatch — nothing deleted.");
+        process.exit(1);
+      }
+    }
+
+    await client.project.delete({ id: project.id });
+    consola.success(`Deleted project ${args.slug}.`);
+  },
+});
+
 export const projectCommand = defineCommand({
   meta: { name: "project", description: "Manage projects" },
   subCommands: {
     list: listCommand,
     create: createCommand,
+    delete: deleteCommand,
   },
 });
