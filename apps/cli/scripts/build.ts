@@ -23,7 +23,10 @@ const POLYGLOT_HEADER = [
   '\':\' //; exec "$(command -v bun || command -v node)" "$0" "$@"',
 ].join("\n");
 
-await $`bun build --target=node --format=esm --minify --sourcemap=none ./src/index.ts --outfile ${OUT}`;
+// The --define marks this as the published bundle so the dev-only localhost TLS
+// relaxation (lib/local-tls.ts) is dead-code-eliminated — the shipped CLI must
+// contain no certificate-verification bypass.
+await $`bun build --target=node --format=esm --minify --sourcemap=none --define process.env.OTTERDEPLOY_BUNDLED='"1"' ./src/index.ts --outfile ${OUT}`;
 
 // bun build preserves the source's `#!/usr/bin/env bun` shebang; swap it for
 // the polyglot header so the npm bin runs under Bun or Node.

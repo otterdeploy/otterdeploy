@@ -30,22 +30,24 @@ const isBun = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
 
 /**
  * A `fetch` for the given base URL: the stock global fetch for remote hosts, or
- * a TLS-relaxed wrapper for local dev hosts (the portless proxy serves a
- * self-signed cert on `*.localhost:1355`). Usable as both oRPC's `RPCLink`
+ * — in dev only — a TLS-relaxed wrapper for the loopback portless proxy
+ * (self-signed cert on `*.localhost:1355`). Usable as both oRPC's `RPCLink`
  * fetch and better-auth's `customFetchImpl`.
  *
- * The relaxation is scoped strictly to loopback / `.localhost`, so it never
- * weakens a real connection — an npm-installed CLI hitting a production host
- * (valid cert) always takes the untouched `fetch` path.
+ * The dev relaxation is Bun-only and localhost-only. The publish build passes
+ * `--define process.env.OTTERDEPLOY_BUNDLED="1"`, so the leading term below
+ * folds to `"1" !== "1"` → `false` and the whole branch (the only place
+ * `rejectUnauthorized` appears) is dead-code-eliminated — the shipped CLI
+ * contains no certificate-verification bypass at all. Running from source
+ * (`bun run start`) leaves the env var unset, keeping the relaxation for dev.
  */
 export function fetchFor(baseUrl: string): typeof fetch {
-  // Only Bun can relax TLS per-request (its `tls` fetch option), and only for a
-  // loopback dev host. On Node we deliberately do NOT touch verification: the
-  // old approach set NODE_TLS_REJECT_UNAUTHORIZED=0, which disables TLS
-  // process-wide and makes Node print an alarming security warning. A published
-  // CLI targets real hosts with valid certs; for a self-signed localhost dev
-  // proxy, run the CLI under Bun.
-  if (isBun && isLocalHost(baseUrl)) {
+  if (
+    // oxlint-disable-next-line node/no-process-env -- build-time define, folded to false in the published bundle
+    process.env.OTTERDEPLOY_BUNDLED !== "1" &&
+    isBun &&
+    isLocalHost(baseUrl)
+  ) {
     return ((input: Parameters<typeof fetch>[0], init?: RequestInit) =>
       fetch(input, {
         ...init,
