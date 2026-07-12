@@ -1,0 +1,31 @@
+Rule: react-doctor/no-ref-current-in-render
+Severity: error
+Category: Bugs
+Count: 19
+
+This ref is mutated during render. React can replay or discard render work, so the mutation can leak from UI that never commits.
+
+Suggestion: Move ref writes into an event handler or effect. Render must stay pure because React can replay or discard it. The predictable null-guarded lazy initialization pattern remains supported.
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/no-ref-current-in-render
+
+Files:
+  src/features/logs/components/use-logs-table.ts:94
+  src/features/resources/components/postgres/tabs/data/components/sql-editor.tsx:135
+  src/routes/_app/$orgSlug/_shell/$projectSlug/graph/layout.tsx:217
+  src/routes/_app/$orgSlug/_shell/$projectSlug/graph/layout.tsx:227
+  src/routes/_app/$orgSlug/_shell/$projectSlug/graph/layout.tsx:253
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:70
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:247
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:439
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:558
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:760
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:875
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1017
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1022
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1281
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1419
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1430
+  src/shared/components/data-grid/hooks/use-data-grid.ts:2061
+  src/shared/components/data-grid/hooks/use-data-grid.ts:2103
+  src/shared/components/data-grid/hooks/use-lazy-ref.ts:6

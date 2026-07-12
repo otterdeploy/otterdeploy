@@ -113,7 +113,7 @@ export function useProjectLogStream({
 }: UseProjectLogStreamArgs): { lines: LogLine[]; status: LogStreamStatus } {
   // Key the resource list by sorted-join so resourceIds = [a, b] and [b, a]
   // don't trigger reconnects.
-  const key = resourceIds ? [...resourceIds].sort().join(",") : "";
+  const key = resourceIds ? resourceIds.toSorted().join(",") : "";
 
   const { lines: rawLines, status } = useLogStream({
     open: (signal) =>

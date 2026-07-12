@@ -1,0 +1,13 @@
+Rule: react-doctor/no-inline-exhaustive-style
+Severity: warning
+Category: Maintainability
+Count: 1
+
+This inline style has 8 properties, which is hard to read & rebuilds every render. Move it to a CSS class, CSS module, or styled component.
+
+Suggestion: Move the styles to a CSS class, CSS module, Tailwind utilities, or a styled component. Big inline objects are hard to read and rebuild on every update.
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/no-inline-exhaustive-style
+
+Files:
+  src/shared/components/ui/svgs/postgresql.tsx:6

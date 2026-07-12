@@ -15,6 +15,7 @@
 import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 import type { ReactCodeMirrorRef } from "@uiw/react-codemirror";
 
+import { omitUndefined } from "@otterdeploy/shared/object";
 import { useEffect, useRef, useState } from "react";
 
 import { useStore } from "@tanstack/react-form";
@@ -64,9 +65,9 @@ function buildInlineEntry(
       ? {
           files: [
             { path: "compose.yml", content: value.content },
-            ...value.files
-              .filter((f) => f.path.trim())
-              .map((f) => ({ path: f.path.trim(), content: f.content })),
+            ...value.files.flatMap((f) =>
+              f.path.trim() ? [{ path: f.path.trim(), content: f.content }] : [],
+            ),
           ],
           composePath: "compose.yml",
         }
@@ -84,19 +85,19 @@ function buildGitEntry(
   brand: { logoBrand?: string },
   envEntry: { env?: Record<string, string> },
 ) {
-  return {
+  const gitRepoId = value.gitRepoId.trim();
+  return omitUndefined({
     source: "git" as const,
-    ...brand,
+    logoBrand: brand.logoBrand,
     // Bound repo id (private-capable) when picked; else the pasted URL.
-    ...(value.gitRepoId.trim()
-      ? { gitRepoId: value.gitRepoId.trim() }
-      : { gitRepoUrl: value.gitRepoUrl.trim() }),
-    ...(value.gitRef.trim() ? { gitRef: value.gitRef.trim() } : {}),
+    gitRepoId: gitRepoId || undefined,
+    gitRepoUrl: gitRepoId ? undefined : value.gitRepoUrl.trim(),
     // Blank → the builder auto-detects common compose file names.
-    ...(value.composePath.trim() ? { composePath: value.composePath.trim() } : {}),
-    ...(value.sourceSubdir.trim() ? { sourceSubdir: value.sourceSubdir.trim() } : {}),
-    ...envEntry,
-  };
+    gitRef: value.gitRef.trim() || undefined,
+    composePath: value.composePath.trim() || undefined,
+    sourceSubdir: value.sourceSubdir.trim() || undefined,
+    env: envEntry.env,
+  });
 }
 
 export function ComposeWizard({
@@ -119,9 +120,6 @@ export function ComposeWizard({
   const navigate = useNavigate();
   const fileInput = useRef<HTMLInputElement>(null);
   const editorRef = useRef<ReactCodeMirrorRef>(null);
-  // Latest blank-name fallback (repo/parsed stack name), kept in a ref so the
-  // submit handler can read it without forward-referencing the derived value.
-  const derivedNameRef = useRef("compose-stack");
   // Two-step inline flow: paste the file → fill its `${VAR}` values.
   const [step, setStep] = useState<"file" | "vars">("file");
 
@@ -129,27 +127,7 @@ export function ComposeWizard({
     successToast: "Stack staged — review and click Deploy to apply",
   });
 
-  const onSubmit = async (value: ComposeFormValues) => {
-    // Stage a `composes[name]` entry into the manifest — no immediate deploy.
-    // The graph then shows the stack as a pending ghost; the pending-changes
-    // bar's Deploy provisions it (manifest.apply → reconciler).
-    const rawName = value.name.trim() || derivedNameRef.current;
-    const name = toResourceName(rawName);
-    const entry = buildComposeEntry(value, prefill?.logoBrand);
-
-    await stage.mutateAsync((current) => ({
-      ...current,
-      project: current.project || projectSlug,
-      composes: { ...current.composes, [name]: entry },
-    }));
-    onComplete?.();
-    void navigate({
-      to: "/$orgSlug/$projectSlug/graph",
-      params: { orgSlug, projectSlug },
-    });
-  };
-
-  const form = useComposeForm(onSubmit);
+  const form = useComposeForm();
   const { preview, parseContent } = useComposeParse(projectId, editorRef, form);
 
   // Template handoff: seed the form once on mount and run the same parse the
@@ -166,6 +144,7 @@ export function ComposeWizard({
 
   const source = useStore(form.store, (s) => s.values.source);
   const gitRepoUrl = useStore(form.store, (s) => s.values.gitRepoUrl);
+  const variables = useStore(form.store, (s) => s.values.variables);
   const exposed = new Set(useStore(form.store, (s) => s.values.exposed));
   // The form already tracks the async `content` validation — no manual flag.
   const parsing = useStore(form.store, (s) => Boolean(s.fieldMeta.content?.isValidating));
@@ -175,18 +154,37 @@ export function ComposeWizard({
     form.setFieldValue("exposed", cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key]);
   };
 
-  const { buildServices, hasVars, showNext, canCreate, derivedName } = deriveComposeFlags({
-    source,
-    gitRepoUrl,
-    preview,
-    step,
-    stagePending: stage.isPending,
-  });
-  // Keep the submit-time fallback name current without the handler closing over
-  // the derived value (which would forward-reference it).
-  useEffect(() => {
-    derivedNameRef.current = derivedName;
-  }, [derivedName]);
+  const { buildServices, hasVars, showNext, canCreate, derivedName, requiredUnset } =
+    deriveComposeFlags({
+      source,
+      gitRepoUrl,
+      preview,
+      step,
+      stagePending: stage.isPending,
+      variables,
+    });
+
+  // Stage a `composes[name]` entry into the manifest — no immediate deploy. The
+  // graph then shows the stack as a pending ghost; the pending-changes bar's
+  // Deploy provisions it (manifest.apply → reconciler). Defined here, after
+  // `derivedName`, so the blank-name fallback reads it straight off the derived
+  // value — no ref/effect round-trip.
+  const stageStack = async () => {
+    const value = form.state.values;
+    const name = toResourceName(value.name.trim() || derivedName);
+    const entry = buildComposeEntry(value, prefill?.logoBrand);
+
+    await stage.mutateAsync((current) => ({
+      ...current,
+      project: current.project || projectSlug,
+      composes: { ...current.composes, [name]: entry },
+    }));
+    onComplete?.();
+    void navigate({
+      to: "/$orgSlug/$projectSlug/graph",
+      params: { orgSlug, projectSlug },
+    });
+  };
 
   return (
     <form
@@ -200,7 +198,7 @@ export function ComposeWizard({
           setStep("vars");
           return;
         }
-        void form.handleSubmit();
+        if (canCreate) void stageStack();
       }}
       noValidate
     >
@@ -219,6 +217,7 @@ export function ComposeWizard({
         derivedName={derivedName}
         showNext={showNext}
         canCreate={canCreate}
+        requiredUnset={requiredUnset}
         isPending={stage.isPending}
         onCancel={onCancel}
         fileInput={fileInput}

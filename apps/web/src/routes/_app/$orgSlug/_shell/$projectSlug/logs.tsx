@@ -62,9 +62,9 @@ function RouteComponent() {
   );
   const services = useMemo(
     () =>
-      resources
-        .filter((r) => r.type === "service")
-        .map((r) => ({ id: r.resourceId, name: r.name })),
+      resources.flatMap((r) =>
+        r.type === "service" ? [{ id: r.resourceId, name: r.name }] : [],
+      ),
     [resources],
   );
 

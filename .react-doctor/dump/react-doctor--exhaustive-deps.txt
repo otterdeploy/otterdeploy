@@ -1,0 +1,90 @@
+Rule: react-doctor/exhaustive-deps
+Severity: warning
+Category: Bugs
+Count: 26
+
+`allRows` is rebuilt every render, so `useMemo` runs every time.
+
+`rows` is rebuilt every render, so `useMemo` runs every time.
+
+`useEffect` can run with a stale `projectMatch.loaderData.project` & show your users old data.
+
+`useEffect` can run with a stale `query.data.defaultBranch` & show your users old data.
+
+`useEffect` can run with a stale `env.data.keys` & show your users old data.
+
+`useMemo` can run with a stale `query.data.points, query.data.bucketSeconds` & show your users old data.
+
+`useMemo` can run with a stale `query.data.points` & show your users old data.
+
+`useMemo` can run with a stale `tables` & show your users old data.
+
+`useEffect` can run with a stale `tables, openTable` & show your users old data.
+
+`useMemo` can run with a stale `search.window` & show your users old data.
+
+`useMemo` can run with a stale `filter` & show your users old data.
+
+`useMemo` can run with a stale `fileCellOpts.accept` & show your users old data.
+
+`useCallback` can run with a stale `isUploading, isDeleting, fileCellOpts.maxFiles` & show your users old data.
+
+`useCallback` can run with a stale `isUploading, isDeleting` & show your users old data.
+
+`useCallback` can run with a stale `tableMeta.cellMapRef` & show your users old data.
+
+`useCallback` can run with a stale `virtualItem.index` & show your users old data.
+
+A complex expression in `useMemo`'s dependency array hides the real value, so stale values can slip through.
+
+`useMemo` can run with a stale `rowVirtualizer.measureElement` & show your users old data.
+
+`useCallback`'s callback is defined elsewhere, so dependencies can't be checked and stale values can slip through.
+
+`useCallback` can run with a stale `openProp, _open` & show your users old data.
+
+`useMemo` can run with a stale `openProp, _open` & show your users old data.
+
+Suggestion: Don't blindly add missing dependencies. Read the hook callback first.
+
+Bad:
+useEffect(() => {
+  setCount(count + 1);
+}, [count]);
+
+Better:
+useEffect(() => {
+  setCount((currentCount) => currentCount + 1);
+}, []);
+
+If the missing value is recreated every render, move it inside the hook or stabilize it before adding it to deps.
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/exhaustive-deps
+
+Files:
+  src/features/edge-logs/components/edge-logs-view.tsx:60
+  src/features/edge-logs/components/edge-logs-view.tsx:70
+  src/features/firewall/components/flagged-panel.tsx:44
+  src/features/projects/components/new-resource/overlay-provider.tsx:52
+  src/features/projects/components/new-resource/overlay-provider.tsx:75
+  src/features/projects/components/new-resource/steps/source-pickers.tsx:113
+  src/features/projects/components/new-resource/steps/variables.tsx:52
+  src/features/resources/components/_shared/metrics/use-project-metrics.ts:128
+  src/features/resources/components/_shared/metrics/use-resource-metrics.ts:143
+  src/features/resources/components/postgres/tabs/data/use-data-studio.ts:149
+  src/features/resources/components/postgres/tabs/data/use-data-studio.ts:189
+  src/routes/_app/$orgSlug/_shell/$projectSlug/deployments.tsx:75
+  src/routes/_app/$orgSlug/_shell/audit.tsx:58
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1414
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1585
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1631
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1663
+  src/shared/components/data-grid/data-grid-cell-wrapper.tsx:47
+  src/shared/components/data-grid/data-grid-row.tsx:181
+  src/shared/components/data-grid/hooks/use-data-grid.ts:2073
+  src/shared/components/data-grid/hooks/use-data-grid.ts:2073
+  src/shared/components/data-grid/hooks/use-data-grid.ts:2092
+  src/shared/components/data-grid/hooks/use-data-grid.ts:3273
+  src/shared/components/data-grid/lib/compose-refs.ts:63
+  src/shared/components/ui/sidebar.tsx:86
+  src/shared/components/ui/sidebar.tsx:121

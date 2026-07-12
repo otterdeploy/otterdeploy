@@ -88,8 +88,11 @@ function useSelectionMirror(onSelectionChange?: (indices: number[]) => void) {
     onSelectionChange?.(
       Object.keys(next)
         .filter((k) => next[k])
-        .map(Number)
-        .filter((n) => Number.isInteger(n))
+        .reduce<number[]>((acc, k) => {
+          const n = Number(k);
+          if (Number.isInteger(n)) acc.push(n);
+          return acc;
+        }, [])
         .sort((a, b) => a - b),
     );
   };
@@ -165,9 +168,10 @@ export function DiceResultGrid({
       const before = prev[i];
       const after = next[i];
       if (!before || !after || before === after) continue;
-      const set = columns
-        .filter((c) => before[c] !== after[c])
-        .map((c) => ({ column: c, value: after[c] ?? null }));
+      const set = columns.reduce<ColumnValue[]>((acc, c) => {
+        if (before[c] !== after[c]) acc.push({ column: c, value: after[c] ?? null });
+        return acc;
+      }, []);
       if (set.length === 0) continue;
       onUpdateRow(pkFor(before), set).catch((err) => {
         // Revert just this row to its pre-edit value.
@@ -180,7 +184,8 @@ export function DiceResultGrid({
   const handleRowsDelete = async (rowsToDelete: Row[]) => {
     if (!canEdit || !onDeleteRow) return;
     const snapshot = data;
-    setData((cur) => cur.filter((r) => !rowsToDelete.includes(r)));
+    const toDelete = new Set(rowsToDelete);
+    setData((cur) => cur.filter((r) => !toDelete.has(r)));
     for (const row of rowsToDelete) {
       try {
         await onDeleteRow(pkFor(row));

@@ -119,6 +119,9 @@ export interface PendingByName {
     /** Framework the create wizard detected (via inspectRepo) for a git
      *  service — lets the ghost render the brand logo before it's built. */
     framework?: FrameworkKind;
+    /** Template brand (compose creates) so the ghost group shows the stack's
+     *  logo before the first deploy persists it. */
+    logoBrand?: string;
   }>;
   /** Lookup keyed by `${resource}:${name}` (the node id) → pending
    *  update/delete marker for an already-applied resource. */
@@ -219,6 +222,9 @@ export const buildLiveNodes = (
       // Client-known framework (from the wizard) so the ghost shows the brand
       // logo immediately, before any build persists it on the resource row.
       ...(c.framework ? { framework: c.framework } : {}),
+      // Template brand mark for a staged stack, so the ghost group's header
+      // shows the logo (e.g. Authentik) instead of the generic container icon.
+      ...(c.logoBrand ? { logoBrand: c.logoBrand } : {}),
       // A compose ghost renders as a group: hand it the parsed member cards so
       // the operator sees the stack's services before deploying it.
       ...(c.resource === "compose" ? { services: c.services ?? [] } : {}),

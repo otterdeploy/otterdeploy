@@ -36,8 +36,8 @@ const CATEGORY_ORDER = new Map(TEMPLATE_CATEGORIES.map((c, i) => [c.id, i]));
 /** A→Z, or category order (as declared in TEMPLATE_CATEGORIES) then A→Z. */
 export function sortTemplates(templates: StackTemplate[], sort: TemplateSort): StackTemplate[] {
   const az = (a: StackTemplate, b: StackTemplate) => a.name.localeCompare(b.name);
-  if (sort === "az") return [...templates].sort(az);
-  return [...templates].sort(
+  if (sort === "az") return templates.toSorted(az);
+  return templates.toSorted(
     (a, b) =>
       (CATEGORY_ORDER.get(a.category) ?? 0) - (CATEGORY_ORDER.get(b.category) ?? 0) || az(a, b),
   );

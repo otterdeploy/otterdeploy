@@ -28,7 +28,3 @@ export async function removeVolume(name: string) {
   invalidate();
   return result;
 }
-
-export function inspectVolume(name: string) {
-  return orpc.volumes.inspect.call({ name });
-}

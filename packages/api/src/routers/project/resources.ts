@@ -17,6 +17,7 @@ import { listServiceEnvVarsForResources } from "../service/queries";
 import { reclaimServiceHostArtifacts } from "../service/teardown";
 import { getLatestDeploymentsForResources } from "./deployments";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
+import { removeDatabaseFromManifest, removeServiceFromManifest } from "./manifest";
 import { getDatabaseProvisioner } from "./provisioners";
 import {
   deleteResourceById,
@@ -221,6 +222,12 @@ export async function deleteProjectResource(
       await provisioner.destroy({ serviceName }, log);
       await deleteResourceById(input.resourceId);
       await reconcile(log);
+      // Strip it from the manifest too, or the next diff re-stages a phantom
+      // `create` ghost — a deployed resource must never revert to pending.
+      await removeDatabaseFromManifest(
+        { projectId: input.projectId, organizationId: input.organizationId },
+        found.record.resource.name,
+      );
 
       log.set({
         teardown: { proxyRoutesRemoved: true, swarmDestroyed: true, dbDeleted: true },
@@ -241,6 +248,12 @@ export async function deleteProjectResource(
       await deleteProxyRoutesByResource(input.resourceId);
       await teardownServiceRuntime(found.record.service.serviceName, input, log);
       await deleteResourceById(input.resourceId);
+      // Strip it from the manifest too, or the next diff re-stages a phantom
+      // `create` ghost — a deployed service must never revert to pending.
+      await removeServiceFromManifest(
+        { projectId: input.projectId, organizationId: input.organizationId },
+        found.record.resource.name,
+      );
       log.set({
         teardown: { proxyRoutesRemoved: true, runtimeDestroyed: true, dbDeleted: true },
       });

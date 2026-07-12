@@ -1,0 +1,13 @@
+Rule: typescript/restrict-template-expressions
+Severity: warning
+Category: Bugs
+Count: 3
+
+Invalid type used in template literal expression.
+
+Docs: https://oxc.rs/docs/guide/usage/linter/rules/typescript/restrict-template-expressions.html
+
+Files:
+  src/shared/components/ui/chart.tsx:144
+  src/shared/components/ui/chart.tsx:180
+  src/shared/components/ui/chart.tsx:279

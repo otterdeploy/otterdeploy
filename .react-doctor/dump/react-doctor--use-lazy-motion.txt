@@ -1,0 +1,13 @@
+Rule: react-doctor/use-lazy-motion
+Severity: warning
+Category: Performance
+Count: 1
+
+Importing "motion" ships about 30 kb of extra code and slows page load. Use "m" with LazyMotion instead.
+
+Suggestion: Use `import { LazyMotion, m } from "framer-motion"` with `domAnimation` features. Saves about 30kb.
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/use-lazy-motion
+
+Files:
+  src/shared/components/ui/tabs.tsx:6

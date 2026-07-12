@@ -33,7 +33,6 @@ export function FilterPopover({
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Filter[]>(filters);
-  const [, setNl] = useState("");
 
   useEffect(() => {
     if (open) {

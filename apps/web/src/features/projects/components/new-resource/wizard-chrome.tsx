@@ -122,7 +122,10 @@ export function RequiredHint({
       <span className="font-mono text-foreground/80">
         {Array.from(
           new Set(
-            issues.map((i) => i.path[0]).filter((p) => typeof p === "string" && p !== "__step"),
+            issues.flatMap((i) => {
+              const p = i.path[0];
+              return typeof p === "string" && p !== "__step" ? [p] : [];
+            }),
           ),
         ).join(", ")}
       </span>

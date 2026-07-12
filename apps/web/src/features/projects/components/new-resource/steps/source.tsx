@@ -138,24 +138,28 @@ export function StepSource() {
                 )}
               </form.AppField>
               <div className="flex flex-col gap-1.5">
-                <label className="text-[12.5px] font-medium">Root directory (monorepo)</label>
-                <RootDirectoryPicker
-                  gitRepoId={repo || null}
-                  value={root}
-                  repoFullName={boundFullName}
-                  onChange={(next) => form.setFieldValue("root", next)}
-                />
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[12.5px] font-medium">Root directory (monorepo)</span>
+                  <RootDirectoryPicker
+                    gitRepoId={repo || null}
+                    value={root}
+                    repoFullName={boundFullName}
+                    onChange={(next) => form.setFieldValue("root", next)}
+                  />
+                </label>
                 <p className="text-[11px] text-muted-foreground">
                   Browse the repo to pick the folder for this service. Empty = repo root.
                 </p>
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-[12.5px] font-medium">Branch</label>
-                <BranchPicker
-                  gitRepoId={repo}
-                  value={branch}
-                  onChange={(b) => form.setFieldValue("branch", b)}
-                />
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[12.5px] font-medium">Branch</span>
+                  <BranchPicker
+                    gitRepoId={repo}
+                    value={branch}
+                    onChange={(b) => form.setFieldValue("branch", b)}
+                  />
+                </label>
                 <p className="text-[11px] text-muted-foreground">
                   Deploys track this branch. Manual-deploy bindings redeploy on demand; push deploys
                   fire on commits to it.

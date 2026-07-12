@@ -31,7 +31,11 @@ let cmdSeq = 0;
 const newCmdRow = (value = ""): CmdRow => ({ id: `cmd-${cmdSeq++}`, value });
 
 /** Editor rows → the `string[]` the manifest stores. Blank rows are dropped. */
-const toCommands = (rows: CmdRow[]): string[] => rows.map((r) => r.value.trim()).filter(Boolean);
+const toCommands = (rows: CmdRow[]): string[] =>
+  rows.flatMap((r) => {
+    const v = r.value.trim();
+    return v ? [v] : [];
+  });
 
 /**
  * Reads the service's current hooks from the manifest and renders the editor.
@@ -89,8 +93,8 @@ function DeployHooksEditor({
   initialPre: string[];
   initialPost: string[];
 }) {
-  const [preRows, setPreRows] = useState<CmdRow[]>(initialPre.map(newCmdRow));
-  const [postRows, setPostRows] = useState<CmdRow[]>(initialPost.map(newCmdRow));
+  const [preRows, setPreRows] = useState<CmdRow[]>(() => initialPre.map(newCmdRow));
+  const [postRows, setPostRows] = useState<CmdRow[]>(() => initialPost.map(newCmdRow));
 
   const stage = useStageManifestChange(projectId as ProjectId, {
     successToast: "Deploy hooks saved — deploy to apply",

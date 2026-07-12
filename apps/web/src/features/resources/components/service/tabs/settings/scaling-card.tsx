@@ -17,6 +17,7 @@ import { toast } from "sonner";
 
 import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
 import { Button } from "@/shared/components/ui/button";
+import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import {
@@ -105,7 +106,7 @@ function ScalingForm({ resource, service }: { resource: ScalingResource; service
             },
           }),
         }),
-        queryClient.invalidateQueries({ queryKey: ["resource"] }),
+        queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY }),
       ]);
     },
   });

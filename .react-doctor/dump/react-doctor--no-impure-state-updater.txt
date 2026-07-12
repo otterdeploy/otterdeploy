@@ -1,0 +1,19 @@
+Rule: react-doctor/no-impure-state-updater
+Severity: error
+Category: Bugs
+Count: 5
+
+This state updater performs the nested state update "setActiveId()". React may run updater functions more than once, so side effects here can repeat or observe inconsistent external state.
+
+This state updater performs the captured value "newValues". React may run updater functions more than once, so side effects here can repeat or observe inconsistent external state.
+
+Suggestion: Keep state updater callbacks pure and return only the next state. Move notifications, storage, timers, ref writes, and other external work into the event or effect that queues the update.
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/no-impure-state-updater
+
+Files:
+  src/routes/_app/$orgSlug/_shell/terminal.tsx:57
+  src/routes/terminal.tsx:86
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1030
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1049
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1110

@@ -1,0 +1,40 @@
+Rule: react-hooks-js/refs
+Severity: error
+Category: Performance
+Count: 30
+
+This component misses React Compiler's automatic memoization & re-renders more than it should: Cannot access refs during render. Rewrite the flagged code so the compiler can optimize it.
+
+Suggestion: React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+Files:
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:69
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:70
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:72
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:73
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:243
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:246
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:247
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:438
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:439
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:557
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:558
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:560
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:561
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:759
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:760
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:874
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:875
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1013
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1016
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1017
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1021
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1022
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1280
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1281
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1404
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1418
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1419
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1429
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1430
+  src/shared/components/data-grid/data-grid.tsx:230

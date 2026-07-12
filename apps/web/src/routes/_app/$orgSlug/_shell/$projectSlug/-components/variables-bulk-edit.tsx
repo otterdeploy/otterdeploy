@@ -16,8 +16,9 @@ import { BulkEditSidebar } from "./variables-bulk-sidebar";
 import { parseDotEnv, type ParsedVar } from "./variables-dotenv";
 import type { EnvironmentRef, EnvVarRow } from "./variables-types";
 
-/** One atomic bulkReplace per selected env, run sequentially; failures are
- *  collected so a partial failure reports exactly which envs missed. */
+/** One atomic bulkReplace per selected env — the calls are independent (each
+ *  targets a distinct env) so they run concurrently; failures are collected so
+ *  a partial failure reports exactly which envs missed. */
 async function applyToTargets(
   targets: EnvironmentRef[],
   replaceEnv: (target: EnvironmentRef) => Promise<unknown>,
@@ -27,16 +28,22 @@ async function applyToTargets(
 }> {
   const applied: EnvironmentRef[] = [];
   const failed: { env: EnvironmentRef; message: string }[] = [];
-  for (const target of targets) {
-    try {
-      await replaceEnv(target);
-      applied.push(target);
-    } catch (err) {
-      failed.push({
-        env: target,
-        message: err instanceof Error ? err.message : "Couldn't save",
-      });
-    }
+  const results = await Promise.all(
+    targets.map(async (target) => {
+      try {
+        await replaceEnv(target);
+        return { target, message: null as string | null };
+      } catch (err) {
+        return {
+          target,
+          message: err instanceof Error ? err.message : "Couldn't save",
+        };
+      }
+    }),
+  );
+  for (const { target, message } of results) {
+    if (message === null) applied.push(target);
+    else failed.push({ env: target, message });
   }
   return { applied, failed };
 }
@@ -78,7 +85,7 @@ export function BulkEditDialog({
 
   // Cross-env targets — the current env is pre-checked each time the
   // dialog opens; others are opt-in.
-  const [targetIds, setTargetIds] = useState<Set<string>>(new Set([env.id]));
+  const [targetIds, setTargetIds] = useState<Set<string>>(() => new Set([env.id]));
   useEffect(() => {
     if (open) setTargetIds(new Set([env.id]));
   }, [open, env.id]);

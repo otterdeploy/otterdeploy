@@ -76,9 +76,9 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
     // then back when the row arrives. Recording the create keys up front keeps
     // those ghosts pinned across the entire apply + the post-apply refetch gap.
     onMutate: () => {
-      const appliedCreateKeys = (diff.data?.changes ?? [])
-        .filter((c) => c.kind === "create" && c.resource !== "env")
-        .map((c) => `${c.resource}:${c.name}`);
+      const appliedCreateKeys = (diff.data?.changes ?? []).flatMap((c) =>
+        c.kind === "create" && c.resource !== "env" ? [`${c.resource}:${c.name}`] : [],
+      );
       markAppliedCreates(projectId, appliedCreateKeys);
     },
     onSuccess: async (result) => {

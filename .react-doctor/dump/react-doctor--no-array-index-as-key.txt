@@ -1,0 +1,41 @@
+Rule: react-doctor/no-array-index-as-key
+Severity: warning
+Category: Bugs
+Count: 25
+
+Your users can see & submit the wrong data when this list reorders or filters, so use a stable id like `key={item.id}`, not the array index "i".
+
+Your users can see & submit the wrong data when this list reorders or filters, so use a stable id like `key={item.id}`, not the array index "idx".
+
+Your users can see & submit the wrong data when this list reorders or filters, so use a stable id like `key={item.id}`, not the array index "index".
+
+Suggestion: Use a stable id from the item, like `key={item.id}` or `key={item.slug}`. Index keys break when the list reorders or filters.
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/no-array-index-as-key
+
+Files:
+  src/features/certificates/cas-table.tsx:121
+  src/features/certificates/custom-table.tsx:98
+  src/features/logs/components/logs-histogram.tsx:132
+  src/features/projects/components/networking/caddyfile-viewer.tsx:125
+  src/features/projects/components/new-resource/compose-extra-files.tsx:42
+  src/features/projects/components/new-resource/compose-preview.tsx:110
+  src/features/projects/components/new-resource/form-fields/number-field.tsx:32
+  src/features/projects/components/new-resource/form-fields/ports-field.tsx:53
+  src/features/projects/components/new-resource/form-fields/select-field.tsx:47
+  src/features/projects/components/new-resource/form-fields/switch-field.tsx:24
+  src/features/projects/components/new-resource/form-fields/text-field.tsx:37
+  src/features/projects/components/new-resource/form-fields/variables-field.tsx:82
+  src/features/projects/components/pending-changes-bar.tsx:178
+  src/features/projects/components/stack/yaml-view.tsx:89
+  src/features/resources/components/mariadb/tabs/data/table-browser.tsx:184
+  src/features/resources/components/mongo/tabs/data/index.tsx:226
+  src/features/resources/components/redis/tabs/data/studio-parts.tsx:226
+  src/features/ssh-keys/key-card.tsx:207
+  src/features/volumes/create-volume-dialog.tsx:219
+  src/routes/_app/$orgSlug/-components/docker-dialogs.tsx:196
+  src/routes/_app/$orgSlug/-components/docker-panel.tsx:174
+  src/routes/_app/$orgSlug/_shell/$projectSlug/graph/-components/graph-skeleton.tsx:33
+  src/shared/components/ui/chart.tsx:186
+  src/shared/components/ui/chart.tsx:284
+  src/shared/components/ui/field.tsx:192

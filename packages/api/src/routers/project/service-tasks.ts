@@ -73,7 +73,16 @@ function buildSwarmNameToOwner(
   for (const c of composes) {
     for (const sub of c.services) {
       const swarmName = composeSwarmServiceName(c.stackName, sub.name);
-      swarmNameToOwner.set(swarmName, { resourceId: c.resourceId, service: sub.name });
+      // A compose service is now a REAL child service_resource (registered in
+      // the `services` loop above under its OWN resourceId). Its swarm name is
+      // identical to this fan-out key, so setting it here would clobber the
+      // child owner — filing the child's live tasks under the STACK id and
+      // leaving the child with zero tasks (which renders as a false "offline"
+      // even while it's running). Only claim the swarm name for the stack when
+      // no child row already owns it (orphan swarm service, no dedicated row).
+      if (!swarmNameToOwner.has(swarmName)) {
+        swarmNameToOwner.set(swarmName, { resourceId: c.resourceId, service: sub.name });
+      }
     }
   }
   return swarmNameToOwner;

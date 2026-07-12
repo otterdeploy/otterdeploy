@@ -19,7 +19,7 @@ export function useEdgeBans(onBlocked?: () => void) {
   const bannedIps = useMemo(
     () =>
       new Set(
-        (decisions.data ?? []).filter((d) => d.scope.toLowerCase() === "ip").map((d) => d.value),
+        (decisions.data ?? []).flatMap((d) => (d.scope.toLowerCase() === "ip" ? [d.value] : [])),
       ),
     [decisions.data],
   );

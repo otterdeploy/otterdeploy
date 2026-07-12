@@ -45,8 +45,8 @@ export function parseDotenv(input: string): DotenvEntry[] {
 // whitespace, newlines, `#`, or `=` so the result re-parses to the same
 // entry. Keys are sorted for stable diffs.
 export function serializeDotenv(entries: DotenvEntry[]): string {
-  return [...entries]
-    .sort((a, b) => a.key.localeCompare(b.key))
+  return entries
+    .toSorted((a, b) => a.key.localeCompare(b.key))
     .map(({ key, value }) => `${key}=${quoteIfNeeded(value)}`)
     .join("\n");
 }

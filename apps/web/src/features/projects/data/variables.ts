@@ -20,11 +20,16 @@ import { orpc, queryClient } from "@/shared/server/orpc";
  */
 const environmentIdSchema = zId("env");
 
+/** Namespace prefix for the project-variables collection — the single source of
+ *  truth the variables table invalidates after a bulk env replace. See
+ *  [[RESOURCE_COLLECTION_KEY]]. */
+export const PROJECT_VARIABLES_COLLECTION_KEY = ["projectVariables"] as const;
+
 export const variablesCollection = createCollection(
   queryCollectionOptions({
     syncMode: "on-demand",
     queryKey: (opts) => {
-      const baseQuery = ["projectVariables"];
+      const baseQuery = [...PROJECT_VARIABLES_COLLECTION_KEY];
       const { filters } = parseLoadSubsetOptions(opts);
       // Startup base-key call: query-db-collection calls queryKey({}) once to
       // compute the prefix every subset key must extend. No filters yet.

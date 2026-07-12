@@ -5,6 +5,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import * as z from "zod";
 
 import { authClient } from "@/lib/auth-client";
+import { authQueryKeys } from "@/lib/auth-query-keys";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 import { Button } from "@/shared/components/ui/button";
 import { Field, FieldLabel } from "@/shared/components/ui/field";
@@ -50,7 +51,7 @@ function DevicePairingPage() {
   // unknown" — surfaced to the user via `claim.error`.
   const claim = useQuery({
     enabled: code.length > 0,
-    queryKey: ["device", "claim", code],
+    queryKey: authQueryKeys.deviceClaim(code),
     queryFn: async () => {
       const result = await authClient.device({ query: { user_code: code } });
       if (result.error) {

@@ -85,14 +85,18 @@ export function resourcesFromForm(
 
 /** Wizard port rows → manifest ports. First row is primary. */
 export function portsToManifest(ports: Port[]): ManifestPort[] {
-  return ports
-    .filter((p) => p.port > 0)
-    .map((p, i) => ({
+  const out: ManifestPort[] = [];
+  for (const p of ports) {
+    if (p.port <= 0) continue;
+    out.push({
       container: p.port,
       protocol: p.protocol === "udp" ? "udp" : "tcp",
       appProtocol: HTTP_PROTOCOLS.has(p.protocol) ? "http" : "tcp",
-      primary: i === 0,
-    }));
+      // First kept port is primary (matches the old filter-then-index-0).
+      primary: out.length === 0,
+    });
+  }
+  return out;
 }
 
 /**

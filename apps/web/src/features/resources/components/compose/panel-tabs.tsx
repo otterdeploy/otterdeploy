@@ -4,19 +4,25 @@
  * pane. Pulled into a sibling module so the panel component stays small.
  */
 
+import { useState } from "react";
+
 import { yaml } from "@codemirror/lang-yaml";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { EditorView } from "@codemirror/view";
 import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { tags as t } from "@lezer/highlight";
+import { useMutation } from "@tanstack/react-query";
 import CodeMirror from "@uiw/react-codemirror";
+import { toast } from "sonner";
 
 import { ComposeExposedEditor } from "@/features/resources/components/compose/exposed-editor";
+import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
 import { TypedConfirmDialog } from "@/shared/components/typed-confirm-dialog";
 import { Button } from "@/shared/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
 import { cn } from "@/shared/lib/utils";
+import { orpc, queryClient } from "@/shared/server/orpc";
 
 import type { ComposeService, StackServiceStatus } from "./panel-parts";
 
@@ -100,46 +106,164 @@ export function ComposeServicesTab({
 }
 
 export function ComposeFileTab({
+  projectId,
+  resourceId,
   source,
   isLoading,
   composeContent,
 }: {
+  projectId: string;
+  resourceId: string;
   source: "inline" | "git";
   isLoading: boolean;
   composeContent: string | null | undefined;
 }) {
-  return (
-    <>
-      {source === "git" ? (
+  // Git stacks stay read-only — their compose file lives in the repo and is
+  // resolved at build time, so editing it here would just be overwritten.
+  if (source === "git") {
+    return (
+      <>
         <p className="mb-3 rounded-md border border-info/30 bg-info/5 px-3 py-2 text-[12px] text-muted-foreground">
           This stack builds from a repository — the compose file lives in the repo and is resolved
           at build time.
         </p>
-      ) : null}
-      {isLoading ? (
-        <div className="rounded-lg border bg-card px-4 py-6 text-center text-[12px] text-muted-foreground">
-          Loading compose file…
-        </div>
-      ) : composeContent ? (
-        <div className="overflow-hidden rounded-lg border bg-background/40">
-          <CodeMirror
-            value={composeContent}
-            readOnly
-            editable={false}
-            theme="none"
-            extensions={viewerExtensions}
-            basicSetup={{
-              lineNumbers: true,
-              foldGutter: false,
-              highlightActiveLine: false,
-              highlightActiveLineGutter: false,
-            }}
-          />
-        </div>
-      ) : (
-        <p className="text-[12.5px] text-muted-foreground">No compose file stored yet.</p>
-      )}
-    </>
+        {isLoading ? (
+          <div className="rounded-lg border bg-card px-4 py-6 text-center text-[12px] text-muted-foreground">
+            Loading compose file…
+          </div>
+        ) : composeContent ? (
+          <ComposeViewer content={composeContent} />
+        ) : (
+          <p className="text-[12.5px] text-muted-foreground">No compose file stored yet.</p>
+        )}
+      </>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="rounded-lg border bg-card px-4 py-6 text-center text-[12px] text-muted-foreground">
+        Loading compose file…
+      </div>
+    );
+  }
+  if (composeContent == null) {
+    return <p className="text-[12.5px] text-muted-foreground">No compose file stored yet.</p>;
+  }
+  // Mounts only once the content has loaded, so the editor seeds its draft from
+  // the real YAML without an effect.
+  return (
+    <ComposeFileEditor
+      projectId={projectId}
+      resourceId={resourceId}
+      initialContent={composeContent}
+    />
+  );
+}
+
+/** Read-only YAML viewer — transparent so it inherits the panel surface. */
+function ComposeViewer({ content }: { content: string }) {
+  return (
+    <div className="overflow-hidden rounded-lg border bg-background/40">
+      <CodeMirror
+        value={content}
+        readOnly
+        editable={false}
+        theme="none"
+        extensions={viewerExtensions}
+        basicSetup={{
+          lineNumbers: true,
+          foldGutter: false,
+          highlightActiveLine: false,
+          highlightActiveLineGutter: false,
+        }}
+      />
+    </div>
+  );
+}
+
+/** Editable compose YAML for an inline stack. Saves via compose.updateContent,
+ *  which re-parses + keeps the project manifest in lockstep; the change takes
+ *  effect on the next redeploy. */
+function ComposeFileEditor({
+  projectId,
+  resourceId,
+  initialContent,
+}: {
+  projectId: string;
+  resourceId: string;
+  initialContent: string;
+}) {
+  const [draft, setDraft] = useState(initialContent);
+  // Baseline the Save button dirties against — updated on a successful save so
+  // the button settles without waiting for the invalidated query to refetch.
+  const [baseline, setBaseline] = useState(initialContent);
+  const dirty = draft !== baseline && draft.trim().length > 0;
+
+  const save = useMutation({
+    ...orpc.compose.updateContent.mutationOptions(),
+    onSuccess: async (_data, variables) => {
+      setBaseline(variables.composeContent);
+      toast.success("Compose file saved", {
+        description: "Redeploy the stack to apply your changes.",
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: orpc.compose.get.queryKey({
+            input: { projectId: projectId as never, resourceId: resourceId as never },
+          }),
+        }),
+        // The graph card reads the parsed service summary off the resource list.
+        queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY }),
+      ]);
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : "Failed to save compose file"),
+  });
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="overflow-hidden rounded-lg border bg-background/40">
+        <CodeMirror
+          value={draft}
+          theme="none"
+          extensions={viewerExtensions}
+          onChange={setDraft}
+          basicSetup={{
+            lineNumbers: true,
+            foldGutter: false,
+            highlightActiveLine: false,
+            highlightActiveLineGutter: false,
+          }}
+        />
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="mr-auto text-[11px] text-muted-foreground">
+          Edits take effect on the next redeploy.
+        </span>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={!dirty || save.isPending}
+          onClick={() => setDraft(baseline)}
+        >
+          Reset
+        </Button>
+        <Button
+          size="sm"
+          disabled={!dirty || save.isPending}
+          onClick={() =>
+            save.mutate({
+              projectId: projectId as never,
+              resourceId: resourceId as never,
+              composeContent: draft,
+            })
+          }
+        >
+          {save.isPending ? "Saving…" : "Save"}
+        </Button>
+      </div>
+    </div>
   );
 }
 

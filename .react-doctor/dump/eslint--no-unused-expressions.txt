@@ -1,0 +1,13 @@
+Rule: eslint/no-unused-expressions
+Severity: warning
+Category: Bugs
+Count: 1
+
+Expected expression to be used
+
+Suggestion: Consider using this expression or removing it
+
+Docs: https://oxc.rs/docs/guide/usage/linter/rules/eslint/no-unused-expressions.html
+
+Files:
+  src/features/resources/components/postgres/tabs/data/components/snippet-tree.tsx:69

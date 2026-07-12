@@ -64,7 +64,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
   // the mass-block target set (contract caps one call at 100).
   const suspiciousIps = useMemo(
     () =>
-      [...new Set(allRows.filter((r) => classifyThreat(r.path)).map((r) => r.clientIp))]
+      [...new Set(allRows.flatMap((r) => (classifyThreat(r.path) ? [r.clientIp] : [])))]
         .filter((ip) => !bannedIps.has(ip))
         .slice(0, 100),
     [allRows, bannedIps],

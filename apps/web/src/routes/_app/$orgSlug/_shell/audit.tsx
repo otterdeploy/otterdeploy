@@ -80,7 +80,7 @@ function AuditRoute() {
   // `from`; only the cache identity is stabilized.
   const stats = useQuery({
     ...orpc.audit.list.queryOptions({ input: { ...input, limit: 1 } }),
-    queryKey: ["audit", "stats", key],
+    queryKey: [...orpc.audit.list.key(), "stats", key],
     placeholderData: keepPreviousData,
     staleTime: 15_000,
     refetchInterval: 15_000,

@@ -52,6 +52,7 @@ export function MultiSelectCombobox({
 }) {
   const [open, setOpen] = useState(false);
   const byValue = new Map(options.map((o) => [o.value, o]));
+  const selected = new Set(value);
   const toggle = (v: string) =>
     onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v]);
 
@@ -84,6 +85,13 @@ export function MultiSelectCombobox({
                         e.stopPropagation();
                         toggle(v);
                       }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          toggle(v);
+                        }
+                      }}
                     >
                       <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
                     </span>
@@ -111,7 +119,7 @@ export function MultiSelectCombobox({
                 onSelect={() => toggle(o.value)}
                 className="gap-2"
               >
-                <Checkbox checked={value.includes(o.value)} className="pointer-events-none" />
+                <Checkbox checked={selected.has(o.value)} className="pointer-events-none" />
                 <span className={cn("truncate text-[13px]", o.mono && "font-mono")}>{o.label}</span>
                 {o.tag ? (
                   <Badge variant="secondary" className="ml-auto shrink-0 font-normal">

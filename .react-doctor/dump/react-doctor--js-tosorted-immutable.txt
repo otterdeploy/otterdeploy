@@ -1,0 +1,18 @@
+Rule: react-doctor/js-tosorted-immutable
+Severity: warning
+Category: Performance
+Count: 6
+
+This wastes work because [...array].sort() copies the array just to sort it, so use array.toSorted() to sort without the extra copy (ES2023)
+
+Suggestion: Use `array.toSorted()` (ES2023) instead of `[...array].sort()` so you sort without copying the array first
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/js-tosorted-immutable
+
+Files:
+  src/features/account/sessions-card.tsx:29
+  src/features/logs/data/use-project-log-stream.ts:116
+  src/features/resources/components/_shared/variables-editor/dotenv-parse.ts:48
+  src/features/templates/catalog/filter.ts:39
+  src/features/templates/catalog/filter.ts:40
+  src/routes/_app/$orgSlug/-components/servers-managers-card.tsx:34

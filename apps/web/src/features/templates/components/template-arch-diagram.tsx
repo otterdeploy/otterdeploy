@@ -76,9 +76,11 @@ export function buildDiagram(parsed: ParsedCompose): Diagram {
       s.dependsOn.map((d) => ({ from: `svc:${s.name}`, to: `svc:${d}` })),
     ),
     ...parsed.services.flatMap((s) =>
-      s.volumes
-        .filter((m) => m.type === "volume" && m.source)
-        .map((m) => ({ from: `svc:${s.name}`, to: `vol:${m.source}` })),
+      s.volumes.flatMap((m) =>
+        m.type === "volume" && m.source
+          ? [{ from: `svc:${s.name}`, to: `vol:${m.source}` }]
+          : [],
+      ),
     ),
   ];
 

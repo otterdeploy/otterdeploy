@@ -1,0 +1,13 @@
+Rule: react-doctor/no-layout-property-animation
+Severity: error
+Category: Performance
+Count: 1
+
+This stutters because animating "height" makes the browser redo page layout every frame, so animate transform or scale instead, or use the layout prop
+
+Suggestion: Use `transform: translateX()` or `scale()` instead. They animate smoothly without making the browser redo layout or repaint
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/no-layout-property-animation
+
+Files:
+  src/shared/components/ui/tabs.tsx:239

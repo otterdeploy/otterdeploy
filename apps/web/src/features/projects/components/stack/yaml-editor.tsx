@@ -51,6 +51,7 @@ export function YamlEditor({ value, onChange, onSubmit, disabled, className }: Y
       </div>
       <textarea
         ref={textareaRef}
+        aria-label="YAML editor"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {

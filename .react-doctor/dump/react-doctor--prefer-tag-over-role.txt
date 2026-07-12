@@ -1,0 +1,22 @@
+Rule: react-doctor/prefer-tag-over-role
+Severity: warning
+Category: Accessibility
+Count: 4
+
+Screen reader users get more reliable semantics from `<button>` than `role="button"`, so use `<button>` instead.
+
+Screen reader users get more reliable semantics from `<search>` than `role="search"`, so use `<search>` instead.
+
+Screen reader users get more reliable semantics from `<a>` than `role="link"`, so use `<a>` instead.
+
+Screen reader users get more reliable semantics from `<ul>` than `role="list"`, so use `<ul>` instead.
+
+Suggestion: Use the matching HTML element when one exists so browsers and assistive tech get native semantics.
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/prefer-tag-over-role
+
+Files:
+  src/shared/components/data-grid/data-grid-cell-wrapper.tsx:154
+  src/shared/components/data-grid/data-grid-search.tsx:161
+  src/shared/components/ui/breadcrumb.tsx:59
+  src/shared/components/ui/item.tsx:14

@@ -103,11 +103,13 @@ export function useEditorState({ serverEnv, serverSecretKeys }: UseEditorStateAr
 
   const removeRow = (id: string) =>
     setRows((prev) =>
-      prev
+      prev.reduce<DraftRow[]>((acc, r) => {
         // Added-then-removed rows leave no trace; existing rows tombstone
         // until save so undo works.
-        .map((r) => (r.id === id ? { ...r, deleted: true } : r))
-        .filter((r) => !(r.deleted && r.baseline === null)),
+        const next = r.id === id ? { ...r, deleted: true } : r;
+        if (!(next.deleted && next.baseline === null)) acc.push(next);
+        return acc;
+      }, []),
     );
 
   const restoreRow = (id: string) =>
@@ -124,7 +126,10 @@ export function useEditorState({ serverEnv, serverSecretKeys }: UseEditorStateAr
       for (const r of prev) {
         if (r.baseline) baselineByKey.set(r.baseline.key, r.baseline);
       }
-      const idByKey = new Map(prev.filter((r) => !r.deleted).map((r) => [r.key, r.id] as const));
+      const idByKey = new Map<string, string>();
+      for (const r of prev) {
+        if (!r.deleted) idByKey.set(r.key, r.id);
+      }
       return next.map((e) => ({
         id: idByKey.get(e.key) ?? rid(),
         key: e.key,

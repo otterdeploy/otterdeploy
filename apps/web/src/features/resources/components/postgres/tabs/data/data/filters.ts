@@ -113,7 +113,7 @@ function clause(f: Filter): string {
 
 /** Build the ` WHERE …` suffix (empty string when no active filters). */
 export function buildWhere(filters: Filter[]): string {
-  const parts = filters.filter(isFilterActive).map(clause);
+  const parts = filters.flatMap((f) => (isFilterActive(f) ? [clause(f)] : []));
   return parts.length ? ` WHERE ${parts.join(" AND ")}` : "";
 }
 

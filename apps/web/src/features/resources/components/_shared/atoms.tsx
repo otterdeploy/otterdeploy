@@ -21,6 +21,7 @@ import type {
 } from "@/features/projects/components/graph/resource-node";
 
 import { FrameworkLogo } from "@/features/projects/components/framework-logo";
+import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 import { Docker } from "@/shared/components/ui/svgs/docker";
 import { Mariadb } from "@/shared/components/ui/svgs/mariadb";
 import { Mongodb } from "@/shared/components/ui/svgs/mongodb";
@@ -101,6 +102,23 @@ export function PanelIcon({ node }: { node: ResourceNodeData }) {
         </div>
       );
     }
+  }
+  // Template/compose brand mark (e.g. Authentik) — persisted as `logoBrand` on
+  // the stack. Same precedence + tile as the graph's compose group header, so a
+  // template stack shows its logo in the detail header instead of the generic
+  // blue container icon.
+  if (node.logoBrand) {
+    return (
+      <div className="grid size-10 shrink-0 place-items-center rounded-lg border bg-background">
+        <SvglLogo
+          search={node.logoBrand}
+          fallback={node.name}
+          size={22}
+          border="none"
+          background="transparent"
+        />
+      </div>
+    );
   }
   const { icon, tint } = KIND_ICON[node.kind];
   return (

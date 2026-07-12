@@ -21,6 +21,12 @@ function parseCol<T extends z.ZodType>(
 const projectIdSchema = zId("project");
 const resourceIdSchema = zId("resource");
 
+/** Namespace prefix for the service-domains collection cache entries — the
+ *  single source of truth expose/unexpose + the domains card invalidate to
+ *  refetch a service's published hosts immediately. See [[RESOURCE_COLLECTION_KEY]]
+ *  for why this is a distinct namespace rather than the raw orpc key. */
+export const SERVICE_DOMAINS_COLLECTION_KEY = ["service-domains"] as const;
+
 /**
  * Domains published by a service — the generated public host plus any
  * operator-added custom hosts (see packages/api/src/routers/service/router-domains.ts).
@@ -39,7 +45,7 @@ export const serviceDomainsCollection = createCollection(
   queryCollectionOptions({
     syncMode: "on-demand",
     queryKey: (opts) => {
-      const baseQuery = ["service-domains"];
+      const baseQuery = [...SERVICE_DOMAINS_COLLECTION_KEY];
       const { filters } = parseLoadSubsetOptions(opts);
       // Startup base-key call: query-db-collection calls queryKey({}) once to
       // compute the prefix every subset key must extend. No filters yet — just

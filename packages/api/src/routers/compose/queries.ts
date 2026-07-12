@@ -113,6 +113,25 @@ export async function updateComposeExposed(input: {
     .where(eq(composeResource.resourceId, input.resourceId));
 }
 
+/** Replace an inline stack's compose YAML + its re-parsed service summary (and,
+ *  for a multi-file stack, the matching file entry). The caller keeps the
+ *  project manifest in lockstep and the change takes effect on redeploy. */
+export async function updateComposeContent(input: {
+  resourceId: ResourceId;
+  composeContent: string;
+  services: ComposeServiceSummary[];
+  files?: ComposeFile[];
+}): Promise<void> {
+  await db
+    .update(composeResource)
+    .set({
+      composeContent: input.composeContent,
+      services: input.services,
+      ...(input.files ? { files: input.files } : {}),
+    })
+    .where(eq(composeResource.resourceId, input.resourceId));
+}
+
 export async function deleteComposeRecord(
   projectId: ProjectId,
   resourceId: ResourceId,

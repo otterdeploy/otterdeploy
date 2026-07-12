@@ -21,6 +21,9 @@ import type { Id, ID_PREFIX } from "@otterdeploy/shared/id";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { DEPENDENCIES_COLLECTION_KEY } from "@/features/projects/data/dependencies";
+import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
+import { SERVICE_TASKS_COLLECTION_KEY } from "@/features/resources/data/service-tasks";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 type ProjectId = Id<typeof ID_PREFIX.project>;
@@ -52,10 +55,10 @@ async function invalidateManifestConsumers(projectId: ProjectId) {
     }),
     // The graph reads resources / edges / task rollup from TanStack DB
     // collections keyed by a PREFIX — a bare `resource.list` orpc key never
-    // matches, so invalidate the prefixes to actually refetch the graph.
-    queryClient.invalidateQueries({ queryKey: ["resource"] }),
-    queryClient.invalidateQueries({ queryKey: ["dependencies"] }),
-    queryClient.invalidateQueries({ queryKey: ["service-tasks"] }),
+    // matches, so invalidate the collections' own exported keys to refetch it.
+    queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY }),
+    queryClient.invalidateQueries({ queryKey: DEPENDENCIES_COLLECTION_KEY }),
+    queryClient.invalidateQueries({ queryKey: SERVICE_TASKS_COLLECTION_KEY }),
   ]);
 }
 
@@ -106,53 +109,4 @@ export interface ApplyManifestResult {
    *  as "the resource exists / a deploy started" and e.g. navigate to the
    *  graph. False means everything landed in `skipped` (nothing deployed). */
   applied: boolean;
-}
-
-/**
- * One-shot create + deploy. Mirrors {@link useStageManifestChange} but
- * calls `manifest.applyChange` (atomic save + reconcile) so a single
- * action both records the change AND provisions it — no separate trip to
- * the pending-changes bar's Deploy button.
- *
- * The reconciler reports per-resource failures in `skipped[]` rather than
- * throwing (a git create with no build binding, an unresolved `${secret}`,
- * …). We surface those as toasts and return them so the caller can decide
- * whether to navigate. The change is still saved on partial/total failure,
- * so the pending-changes bar + graph ghost remain as a recovery surface.
- */
-function useApplyManifestChange(projectId: ProjectId) {
-  return useMutation({
-    mutationFn: async (mutate: ManifestMutator): Promise<ApplyManifestResult> => {
-      const current = await orpc.project.manifest.get.call({ id: projectId });
-      const next = mutate(current.manifest ?? emptyManifest());
-      const result = await orpc.project.manifest.applyChange.call({
-        projectId,
-        manifest: next,
-        expectedVersion: current.version,
-      });
-      return {
-        appliedCount: result.appliedCount,
-        skipped: result.skipped,
-        applied: result.appliedCount > 0,
-      };
-    },
-    onSuccess: async (result) => {
-      await invalidateManifestConsumers(projectId);
-      const detail = result.skipped.map((s) => `${s.resource} ${s.name}: ${s.reason}`).join("; ");
-      if (result.skipped.length === 0) {
-        toast.success(
-          `Deployed ${result.appliedCount} change${result.appliedCount === 1 ? "" : "s"}`,
-        );
-      } else if (result.appliedCount === 0) {
-        // Nothing landed — the change is saved (pending) but couldn't be
-        // provisioned. Point the operator at the actionable reason.
-        toast.error(`Nothing deployed — ${detail}`);
-      } else {
-        toast.warning(
-          `Deployed ${result.appliedCount}, skipped ${result.skipped.length} — ${detail}`,
-        );
-      }
-    },
-    onError: (err) => toast.error(err.message ?? "Failed to deploy change"),
-  });
 }

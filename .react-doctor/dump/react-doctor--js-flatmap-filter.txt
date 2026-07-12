@@ -1,0 +1,15 @@
+Rule: react-doctor/js-flatmap-filter
+Severity: warning
+Category: Performance
+Count: 3
+
+This loops over your list twice because .map().filter(Boolean) makes two passes, so use .flatMap() to change & drop items in one pass
+
+Suggestion: Use `.flatMap(item => condition ? [value] : [])` to change and drop items in one pass, instead of building a throwaway array in between
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/js-flatmap-filter
+
+Files:
+  src/features/resources/components/service/tabs/settings/deploy-hooks-card.tsx:34
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1129
+  src/shared/components/data-grid/hooks/use-data-grid.ts:823

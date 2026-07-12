@@ -1,0 +1,13 @@
+Rule: react-doctor/no-fetch-in-effect
+Severity: warning
+Category: Bugs
+Count: 1
+
+fetch() inside useEffect can race, double-fire, or leak. Use a data-fetching layer or Server Component instead.
+
+Suggestion: Use a data-fetching layer or Server Component so fetches do not race, double-fire, or leak from `useEffect`.
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/no-fetch-in-effect
+
+Files:
+  src/features/updates/components/update-progress.tsx:21

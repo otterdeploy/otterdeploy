@@ -1,0 +1,9 @@
+Rule: eslint-tanstack-query/no-unstable-deps
+Severity: warning
+Category: Bugs
+Count: 1
+
+The result of useQuery is not referentially stable, so don't pass it directly into the dependencies array of useMemo. Instead, destructure the return value of useQuery and pass the destructured values into the dependency array of useMemo.
+
+Files:
+  src/routes/_app/$orgSlug/_shell/docker.tsx:89

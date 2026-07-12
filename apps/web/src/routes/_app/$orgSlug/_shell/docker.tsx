@@ -85,7 +85,15 @@ function DockerRoute() {
   // instead of pretending to filter.
   const filteredTasks = useMemo(() => {
     if (nodeFilter === "all") return tasks;
-    return { ...tasks, data: tasks.data?.filter((t) => t.nodeId === nodeFilter) };
+    // Pick only the QueryLike fields TasksTable reads instead of spreading the
+    // whole query object (a spread subscribes to every tracked field → churn).
+    return {
+      data: tasks.data?.filter((t) => t.nodeId === nodeFilter),
+      isLoading: tasks.isLoading,
+      isError: tasks.isError,
+      error: tasks.error,
+      refetch: tasks.refetch,
+    };
   }, [tasks, nodeFilter]);
 
   const prune = useMutation(

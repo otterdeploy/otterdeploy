@@ -1,0 +1,44 @@
+Rule: deslop/unused-file
+Severity: warning
+Category: Maintainability
+Count: 34
+
+Unused file is not reachable from any entry point, so it adds maintenance surface without shipping any code.
+
+Suggestion: Delete the file if it is truly unreachable, or import it from an entry point.
+
+Files:
+  src/features/auth/components/auth-shell.tsx
+  src/features/auth/components/create-organization-form.tsx
+  src/features/git-providers/installation-actions.tsx
+  src/features/onboarding/steps.tsx
+  src/features/projects/components/settings/registry-section.tsx
+  src/features/projects/components/settings/source-section.tsx
+  src/features/projects/components/settings/state.ts
+  src/features/resources/components/_shared/task-logs-tail.tsx
+  src/features/shell/components/placeholder.tsx
+  src/shared/components/brand/brand-wordmark.tsx
+  src/shared/components/ui/accordion.tsx
+  src/shared/components/ui/aspect-ratio.tsx
+  src/shared/components/ui/breadcrumb.tsx
+  src/shared/components/ui/button-group.tsx
+  src/shared/components/ui/carousel.tsx
+  src/shared/components/ui/collapsible.tsx
+  src/shared/components/ui/context-menu.tsx
+  src/shared/components/ui/direction.tsx
+  src/shared/components/ui/drawer.tsx
+  src/shared/components/ui/hover-card.tsx
+  src/shared/components/ui/input-otp.tsx
+  src/shared/components/ui/item.tsx
+  src/shared/components/ui/menubar.tsx
+  src/shared/components/ui/navigation-menu.tsx
+  src/shared/components/ui/slider.tsx
+  src/shared/components/ui/svgs/aws.tsx
+  src/shared/components/ui/svgs/github-wordmark-dark.tsx
+  src/shared/components/ui/svgs/github-wordmark-light.tsx
+  src/shared/components/ui/svgs/mysql-wordmark-dark.tsx
+  src/shared/components/ui/svgs/mysql-wordmark-light.tsx
+  src/shared/components/ui/svgs/postgresql-wordmark-dark.tsx
+  src/shared/components/ui/svgs/postgresql-wordmark-light.tsx
+  src/shared/components/ui/svgs/slack-wordmark.tsx
+  src/shared/lib/where.ts

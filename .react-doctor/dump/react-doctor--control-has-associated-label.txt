@@ -1,0 +1,18 @@
+Rule: react-doctor/control-has-associated-label
+Severity: warning
+Category: Accessibility
+Count: 6
+
+Blind users can't tell what this control does because screen readers find no label, so add visible text, `aria-label`, or `aria-labelledby`.
+
+Suggestion: Give every interactive control a label screen readers can read.
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/control-has-associated-label
+
+Files:
+  src/features/logs/components/logs-histogram.tsx:195
+  src/features/projects/components/networking/caddy-code-editor.tsx:134
+  src/features/projects/components/stack/yaml-editor.tsx:52
+  src/features/resources/components/compose/exposed-editor.tsx:147
+  src/features/resources/components/postgres/tabs/data/components/snippet-tree-rows.tsx:65
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:519

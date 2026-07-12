@@ -202,10 +202,13 @@ function CloudflareConnectForm({
       </ol>
       {zones && zones.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          <label className="text-[12px] font-medium">Zone</label>
+          <label htmlFor="cf-zone" className="text-[12px] font-medium">
+            Zone
+          </label>
           <form.Field name="zoneId">
             {(field) => (
               <NativeSelect
+                id="cf-zone"
                 value={field.state.value}
                 onChange={(e) => field.handleChange(e.target.value)}
                 disabled={saveConfig.isPending}

@@ -34,11 +34,16 @@ const deploymentIdSchema = zId("deployment");
  * 5s refetchInterval: status is derived from underlying tasks every time we
  * list, so we poll to catch state transitions on running tasks.
  */
+/** Namespace prefix for the deployments collection — the single source of truth
+ *  the project event stream invalidates when a docker deploy event lands. See
+ *  [[RESOURCE_COLLECTION_KEY]]. */
+export const DEPLOYMENTS_COLLECTION_KEY = ["deployments"] as const;
+
 export const deploymentsCollection = createCollection(
   queryCollectionOptions({
     syncMode: "on-demand",
     queryKey: (opts) => {
-      const baseQuery = ["deployments"];
+      const baseQuery = [...DEPLOYMENTS_COLLECTION_KEY];
       const { filters } = parseLoadSubsetOptions(opts);
       // Startup base-key call: query-db-collection calls queryKey({}) once to
       // compute the prefix every subset key must extend. No filters yet — just
@@ -80,11 +85,16 @@ export const deploymentsCollection = createCollection(
  * 5s refetchInterval so task state (running / building / error) stays current
  * as swarm converges.
  */
+/** Namespace prefix for the deployment-tasks collection — the single source of
+ *  truth the project event stream invalidates on a docker task event. See
+ *  [[RESOURCE_COLLECTION_KEY]]. */
+export const DEPLOYMENT_TASKS_COLLECTION_KEY = ["deployment-tasks"] as const;
+
 export const deploymentTasksCollection = createCollection(
   queryCollectionOptions({
     syncMode: "on-demand",
     queryKey: (opts) => {
-      const baseQuery = ["deployment-tasks"];
+      const baseQuery = [...DEPLOYMENT_TASKS_COLLECTION_KEY];
       const { filters } = parseLoadSubsetOptions(opts);
       if (!filters.at(0)) return baseQuery;
       const input = {

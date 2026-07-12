@@ -147,7 +147,6 @@ export function ReferencePicker({
     >
       <div className="border-b p-2">
         <input
-          autoFocus
           type="text"
           placeholder="Filter Database, Service or Shared Variables"
           value={query}

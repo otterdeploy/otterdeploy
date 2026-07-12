@@ -12,7 +12,7 @@ interface StepKindProps {
 
 export function StepKind({ dbView, onDbViewChange }: StepKindProps) {
   const form = useFormContext();
-  const kindId = useStore(form.store, (s) => s.values.kindId as string | "");
+  const kindId = useStore(form.store, (s) => s.values.kindId as string);
 
   return (
     <KindPicker

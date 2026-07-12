@@ -113,9 +113,11 @@ const SPEC_SKIP = new Set(["fields", "reason"]);
 
 function extractSpec(details: unknown): GroupedChange["spec"] {
   if (!details || typeof details !== "object") return [];
-  return Object.entries(details as Record<string, unknown>)
-    .filter(([k, v]) => !SPEC_SKIP.has(k) && v !== undefined && v !== null)
-    .map(([field, value]) => ({ field: specLabel(field), value: renderValue(value) }));
+  return Object.entries(details as Record<string, unknown>).flatMap(([field, value]) =>
+    !SPEC_SKIP.has(field) && value !== undefined && value !== null
+      ? [{ field: specLabel(field), value: renderValue(value) }]
+      : [],
+  );
 }
 
 const SPEC_LABELS: Record<string, string> = {

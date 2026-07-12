@@ -1,0 +1,95 @@
+Rule: eslint/complexity
+Severity: error
+Category: Bugs
+Count: 31
+
+function `deriveComposeFlags` has a complexity of 19. Maximum allowed is 15.
+
+function `computePendingByName` has a complexity of 17. Maximum allowed is 15.
+
+function has a complexity of 25. Maximum allowed is 15.
+
+function `UrlCell` has a complexity of 16. Maximum allowed is 15.
+
+function has a complexity of 33. Maximum allowed is 15.
+
+function `FileCell` has a complexity of 33. Maximum allowed is 15.
+
+async function has a complexity of 23. Maximum allowed is 15.
+
+function has a complexity of 19. Maximum allowed is 15.
+
+function `DataGridCellWrapper` has a complexity of 16. Maximum allowed is 15.
+
+function has a complexity of 27. Maximum allowed is 15.
+
+function `DataGridColumnHeader` has a complexity of 16. Maximum allowed is 15.
+
+function has a complexity of 32. Maximum allowed is 15.
+
+function has a complexity of 18. Maximum allowed is 15.
+
+function has a complexity of 17. Maximum allowed is 15.
+
+function has a complexity of 23. Maximum allowed is 15.
+
+async function has a complexity of 110. Maximum allowed is 15.
+
+function has a complexity of 63. Maximum allowed is 15.
+
+async function `onScrollAndFocus` has a complexity of 18. Maximum allowed is 15.
+
+function has a complexity of 187. Maximum allowed is 15.
+
+function `onGlobalKeyDown` has a complexity of 19. Maximum allowed is 15.
+
+function `tick` has a complexity of 48. Maximum allowed is 15.
+
+function `getColumnPinningStyle` has a complexity of 18. Maximum allowed is 15.
+
+function `scrollCellIntoView` has a complexity of 17. Maximum allowed is 15.
+
+function `parseTsv` has a complexity of 33. Maximum allowed is 15.
+
+function `getFileIcon` has a complexity of 16. Maximum allowed is 15.
+
+function has a complexity of 16. Maximum allowed is 15.
+
+function has a complexity of 22. Maximum allowed is 15.
+
+function `parseBlocks` has a complexity of 26. Maximum allowed is 15.
+
+Docs: https://oxc.rs/docs/guide/usage/linter/rules/eslint/complexity.html
+
+Files:
+  src/features/projects/components/new-resource/compose-wizard-shared.ts:107
+  src/routes/_app/$orgSlug/_shell/$projectSlug/graph/-components/graph-model.ts:84
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:92
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:456
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:537
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:584
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1369
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1461
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1785
+  src/shared/components/data-grid/data-grid-cell-wrapper.tsx:15
+  src/shared/components/data-grid/data-grid-cell-wrapper.tsx:87
+  src/shared/components/data-grid/data-grid-column-header.tsx:28
+  src/shared/components/data-grid/data-grid-row.tsx:41
+  src/shared/components/data-grid/data-grid-row.tsx:223
+  src/shared/components/data-grid/hooks/use-data-grid.ts:341
+  src/shared/components/data-grid/hooks/use-data-grid.ts:514
+  src/shared/components/data-grid/hooks/use-data-grid.ts:662
+  src/shared/components/data-grid/hooks/use-data-grid.ts:1111
+  src/shared/components/data-grid/hooks/use-data-grid.ts:1286
+  src/shared/components/data-grid/hooks/use-data-grid.ts:1597
+  src/shared/components/data-grid/hooks/use-data-grid.ts:2129
+  src/shared/components/data-grid/hooks/use-data-grid.ts:2235
+  src/shared/components/data-grid/hooks/use-data-grid.ts:2792
+  src/shared/components/data-grid/hooks/use-data-grid.ts:3018
+  src/shared/components/data-grid/lib/data-grid.ts:135
+  src/shared/components/data-grid/lib/data-grid.ts:189
+  src/shared/components/data-grid/lib/data-grid.ts:255
+  src/shared/components/data-grid/lib/data-grid.ts:494
+  src/shared/components/ui/chart.tsx:138
+  src/shared/components/ui/chart.tsx:179
+  src/shared/components/ui/markdown.tsx:121

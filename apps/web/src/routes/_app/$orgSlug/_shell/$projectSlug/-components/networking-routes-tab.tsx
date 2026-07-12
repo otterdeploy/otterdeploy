@@ -53,9 +53,7 @@ export function RoutesTab({
   // Public ports are derived from the routes actually published: HTTP terminates
   // on :443, a TCP route (e.g. an exposed database) contributes its own port.
   const publicPorts = Array.from(
-    new Set(
-      rows.filter((r) => r.enabled).map((r) => (r.isHttp ? 443 : r.internalPort)),
-    ),
+    new Set(rows.flatMap((r) => (r.enabled ? [r.isHttp ? 443 : r.internalPort] : []))),
   ).sort((a, b) => a - b);
 
   return (

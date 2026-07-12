@@ -62,7 +62,7 @@ export type AuditFilterForm = ReturnType<typeof useAuditFilterForm>;
 function useFilterOptions(filter: AuditFilter, queryFilter: AuditFilter) {
   const distinct = useQuery({
     ...orpc.audit.distinct.queryOptions({ input: auditWindow(queryFilter) }),
-    queryKey: ["audit", "distinct", filter.range, filter.from, filter.to],
+    queryKey: [...orpc.audit.distinct.key(), filter.range, filter.from, filter.to],
     placeholderData: keepPreviousData,
     staleTime: 60_000,
   });

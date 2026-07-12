@@ -1,0 +1,11 @@
+Rule: typescript/no-redundant-type-constituents
+Severity: warning
+Category: Bugs
+Count: 1
+
+is overridden by string in this union type.
+
+Docs: https://oxc.rs/docs/guide/usage/linter/rules/typescript/no-redundant-type-constituents.html
+
+Files:
+  src/features/projects/components/new-resource/steps/kind.tsx:15

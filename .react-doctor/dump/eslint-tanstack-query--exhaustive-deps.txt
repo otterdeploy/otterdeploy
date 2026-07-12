@@ -1,0 +1,23 @@
+Rule: eslint-tanstack-query/exhaustive-deps
+Severity: warning
+Category: Bugs
+Count: 1
+
+The following dependencies are missing in your queryKey: channel
+
+Suggestion: Don't blindly add missing dependencies. Read the hook callback first.
+
+Bad:
+useEffect(() => {
+  setCount(count + 1);
+}, [count]);
+
+Better:
+useEffect(() => {
+  setCount((currentCount) => currentCount + 1);
+}, []);
+
+If the missing value is recreated every render, move it inside the hook or stabilize it before adding it to deps.
+
+Files:
+  src/features/notifications/delivery-history-dialog.tsx:47

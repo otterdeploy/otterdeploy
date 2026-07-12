@@ -78,12 +78,12 @@ export function VariablesEditor({ resource, addRowSignal = 0, onSave }: Variable
   const save = () => {
     // Drop empty-keyed rows here rather than at the server so the operator
     // sees the row disappear instead of a silent server-side filter.
-    const env = editor.rows
-      .filter((r) => r.key.trim().length > 0)
-      .map((r) => ({ key: r.key.trim(), value: r.value }));
-    const secretKeys = editor.rows
-      .filter((r) => r.isSecret && r.key.trim().length > 0)
-      .map((r) => r.key.trim());
+    const env = editor.rows.flatMap((r) =>
+      r.key.trim().length > 0 ? [{ key: r.key.trim(), value: r.value }] : [],
+    );
+    const secretKeys = editor.rows.flatMap((r) =>
+      r.isSecret && r.key.trim().length > 0 ? [r.key.trim()] : [],
+    );
 
     if (onSave) {
       // Staging invalidates the manifest query, which re-feeds serverEnv and

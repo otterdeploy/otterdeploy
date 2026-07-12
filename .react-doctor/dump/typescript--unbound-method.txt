@@ -1,0 +1,14 @@
+Rule: typescript/unbound-method
+Severity: warning
+Category: Bugs
+Count: 2
+
+Avoid referencing unbound methods which may cause unintentional scoping of `this`.
+
+Suggestion: If your function does not access `this`, you can annotate it with `this: void`, or consider using an arrow function instead.
+
+Docs: https://oxc.rs/docs/guide/usage/linter/rules/typescript/unbound-method.html
+
+Files:
+  src/routes/_app/$orgSlug/layout.tsx:32
+  src/shared/server/orpc.ts:38

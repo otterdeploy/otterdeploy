@@ -1,0 +1,22 @@
+Rule: react-hooks-js/todo
+Severity: error
+Category: Performance
+Count: 12
+
+This component misses React Compiler's automatic memoization & re-renders more than it should. Rewrite the flagged code so the compiler can optimize it.
+
+Suggestion: Todo: (BuildHIR::lowerAssignment) Handle computed properties in ObjectPattern
+
+Files:
+  src/features/api-keys/scope-picker.tsx:28
+  src/features/logs/data/use-log-stream.ts:78
+  src/features/projects/hooks/use-project-events.ts:66
+  src/features/resources/components/postgres/tabs/settings/danger-zone.tsx:28
+  src/features/resources/components/service/tabs/settings/danger-zone.tsx:34
+  src/features/volumes/remove-volume-dialog.tsx:55
+  src/features/webhooks/secret-reveal.tsx:34
+  src/routes/_app/$orgSlug/_shell/terminal.tsx:64
+  src/routes/_app/$orgSlug/settings/workspace/notifications.tsx:59
+  src/routes/terminal.tsx:93
+  src/shared/components/ui/calendar.tsx:31
+  src/shared/components/ui/calendar.tsx:32

@@ -157,8 +157,7 @@ function DataGridSearchImpl({
   if (!searchOpen) return null;
 
   return (
-    <div
-      role="search"
+    <search
       data-slot="grid-search"
       className="absolute end-4 top-4 z-50 flex animate-in flex-col gap-2 rounded-lg border bg-background p-2 shadow-lg fade-in-0 slide-in-from-top-2"
     >
@@ -222,6 +221,6 @@ function DataGridSearchImpl({
           <span>Type to search</span>
         )}
       </div>
-    </div>
+    </search>
   );
 }

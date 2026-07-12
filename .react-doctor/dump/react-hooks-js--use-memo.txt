@@ -1,0 +1,11 @@
+Rule: react-hooks-js/use-memo
+Severity: error
+Category: Performance
+Count: 1
+
+This component misses React Compiler's automatic memoization & re-renders more than it should: Expected the dependency list for useCallback to be an array literal. Rewrite the flagged code so the compiler can optimize it.
+
+Suggestion: Expected the dependency list for useCallback to be an array literal.
+
+Files:
+  src/shared/components/data-grid/lib/compose-refs.ts:63

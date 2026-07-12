@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import * as z from "zod";
 
 import { authClient } from "@/lib/auth-client";
+import { authQueryKeys } from "@/lib/auth-query-keys";
 
 import { AuthInput, AuthSubmitButton } from "./auth-fields";
 import { SocialSignIn } from "./social-sign-in";
@@ -26,7 +27,7 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
     onSuccess: async () => {
       // A new session exists now — anything cached under ["auth", …] describes
       // the pre-sign-up (or previous) session.
-      await queryClient.invalidateQueries({ queryKey: ["auth"] });
+      await queryClient.invalidateQueries({ queryKey: authQueryKeys.all });
       void navigate({ to: (redirect ?? "/") as "/", replace: true });
       toast.success(t("auth.signUp.accountCreated"));
     },

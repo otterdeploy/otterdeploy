@@ -18,10 +18,12 @@ function ComposeVarsStep({
   form,
   projectId,
   hasVars,
+  requiredUnset,
 }: {
   form: ComposeForm;
   projectId: ProjectId;
   hasVars: boolean;
+  requiredUnset: boolean;
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -34,6 +36,12 @@ function ComposeVarsStep({
           Edit, add more, or toggle the lock to mark a value secret. Saved as project variables.
         </span>
       </div>
+      {requiredUnset && (
+        <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+          This stack requires every value above to be set before it can be added — a blank one would
+          deploy with an empty setting (e.g. an empty database password).
+        </div>
+      )}
       <form.AppField name="variables">
         {(field) => <field.VariablesField projectId={projectId} />}
       </form.AppField>
@@ -128,6 +136,7 @@ export function ComposeWizardBody({
   derivedName,
   showNext,
   canCreate,
+  requiredUnset,
   isPending,
   onCancel,
   fileInput,
@@ -149,6 +158,7 @@ export function ComposeWizardBody({
   derivedName: string;
   showNext: boolean;
   canCreate: boolean;
+  requiredUnset: boolean;
   isPending: boolean;
   onCancel?: () => void;
   fileInput: React.RefObject<HTMLInputElement | null>;
@@ -160,7 +170,12 @@ export function ComposeWizardBody({
     <>
       <div className="flex flex-1 flex-col gap-4 overflow-auto p-5">
         {step === "vars" ? (
-          <ComposeVarsStep form={form} projectId={projectId} hasVars={hasVars} />
+          <ComposeVarsStep
+            form={form}
+            projectId={projectId}
+            hasVars={hasVars}
+            requiredUnset={requiredUnset}
+          />
         ) : (
           <>
             <ComposeSourceToggle

@@ -10,13 +10,6 @@
 
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
-import {
-  Alert02Icon,
-  CancelCircleIcon,
-  Copy01Icon,
-  Search01Icon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
 import { copyToClipboard } from "@/shared/lib/clipboard";

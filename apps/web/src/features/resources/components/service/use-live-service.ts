@@ -10,6 +10,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import type { PauseControl } from "./panel-parts";
@@ -62,7 +63,7 @@ export function usePauseControl({
       }),
       // The graph node + panel prop read replicas/status from the resource
       // collection — refresh it now instead of waiting for the 5s poll.
-      queryClient.invalidateQueries({ queryKey: ["resource"] }),
+      queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY }),
       queryClient.invalidateQueries({
         queryKey: orpc.project.resource.list.queryKey({
           input: { projectId: projectId as never },

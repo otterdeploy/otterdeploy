@@ -18,8 +18,11 @@ export const ProviderFields = withForm({
       <form.Field name="provider">
         {(field) => (
           <div className="flex flex-col gap-1.5">
-            <label className="text-[12px] font-medium">Provider</label>
+            <label htmlFor="email-provider" className="text-[12px] font-medium">
+              Provider
+            </label>
             <NativeSelect
+              id="email-provider"
               value={field.state.value}
               onChange={(e) =>
                 field.handleChange(e.target.value as "" | "resend" | "smtp")
@@ -42,10 +45,11 @@ export const ProviderFields = withForm({
               <form.Field name="from">
                 {(field) => (
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[12px] font-medium">
+                    <label htmlFor="email-from" className="text-[12px] font-medium">
                       From address
                     </label>
                     <Input
+                      id="email-from"
                       type="text"
                       placeholder="otterdeploy <no-reply@acme.com>"
                       value={field.state.value}
@@ -61,10 +65,11 @@ export const ProviderFields = withForm({
               <form.Field name="resendApiKey">
                 {(field) => (
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[12px] font-medium">
+                    <label htmlFor="email-resend-api-key" className="text-[12px] font-medium">
                       Resend API key
                     </label>
                     <Input
+                      id="email-resend-api-key"
                       type="password"
                       placeholder={
                         settings.resendConfigured
@@ -100,8 +105,11 @@ const SmtpFields = withForm({
         <form.Field name="smtpHost">
           {(field) => (
             <div className="flex flex-1 flex-col gap-1.5">
-              <label className="text-[12px] font-medium">SMTP host</label>
+              <label htmlFor="email-smtp-host" className="text-[12px] font-medium">
+                SMTP host
+              </label>
               <Input
+                id="email-smtp-host"
                 type="text"
                 placeholder="smtp.example.com"
                 value={field.state.value}
@@ -114,8 +122,11 @@ const SmtpFields = withForm({
         <form.Field name="smtpPort">
           {(field) => (
             <div className="flex w-24 flex-col gap-1.5">
-              <label className="text-[12px] font-medium">Port</label>
+              <label htmlFor="email-smtp-port" className="text-[12px] font-medium">
+                Port
+              </label>
               <Input
+                id="email-smtp-port"
                 type="number"
                 placeholder="587"
                 value={field.state.value}
@@ -129,8 +140,11 @@ const SmtpFields = withForm({
       <form.Field name="smtpSecure">
         {(field) => (
           <div className="flex flex-col gap-1.5">
-            <label className="text-[12px] font-medium">Security</label>
+            <label htmlFor="email-smtp-secure" className="text-[12px] font-medium">
+              Security
+            </label>
             <NativeSelect
+              id="email-smtp-secure"
               value={field.state.value ? "tls" : "starttls"}
               onChange={(e) => field.handleChange(e.target.value === "tls")}
             >
@@ -145,8 +159,11 @@ const SmtpFields = withForm({
       <form.Field name="smtpUser">
         {(field) => (
           <div className="flex flex-col gap-1.5">
-            <label className="text-[12px] font-medium">Username</label>
+            <label htmlFor="email-smtp-user" className="text-[12px] font-medium">
+              Username
+            </label>
             <Input
+              id="email-smtp-user"
               type="text"
               placeholder="apikey / user@example.com"
               value={field.state.value}
@@ -160,8 +177,11 @@ const SmtpFields = withForm({
       <form.Field name="smtpPassword">
         {(field) => (
           <div className="flex flex-col gap-1.5">
-            <label className="text-[12px] font-medium">Password</label>
+            <label htmlFor="email-smtp-password" className="text-[12px] font-medium">
+              Password
+            </label>
             <Input
+              id="email-smtp-password"
               type="password"
               placeholder={
                 settings.smtpPasswordConfigured

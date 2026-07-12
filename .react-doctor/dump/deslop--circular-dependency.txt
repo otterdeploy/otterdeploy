@@ -1,0 +1,23 @@
+Rule: deslop/circular-dependency
+Severity: warning
+Category: Maintainability
+Count: 7
+
+Circular import cycle: src/features/projects/components/new-resource/form-context.ts → src/features/projects/components/new-resource/form-fields/number-field.tsx. Modules in the cycle can observe partially initialized exports, causing order-dependent bugs.
+
+Circular import cycle: src/features/projects/components/new-resource/form-context.ts → src/features/projects/components/new-resource/form-fields/ports-field.tsx. Modules in the cycle can observe partially initialized exports, causing order-dependent bugs.
+
+Circular import cycle: src/features/projects/components/new-resource/form-context.ts → src/features/projects/components/new-resource/form-fields/select-field.tsx. Modules in the cycle can observe partially initialized exports, causing order-dependent bugs.
+
+Circular import cycle: src/features/projects/components/new-resource/form-context.ts → src/features/projects/components/new-resource/form-fields/submit-button.tsx. Modules in the cycle can observe partially initialized exports, causing order-dependent bugs.
+
+Circular import cycle: src/features/projects/components/new-resource/form-context.ts → src/features/projects/components/new-resource/form-fields/switch-field.tsx. Modules in the cycle can observe partially initialized exports, causing order-dependent bugs.
+
+Circular import cycle: src/features/projects/components/new-resource/form-context.ts → src/features/projects/components/new-resource/form-fields/text-field.tsx. Modules in the cycle can observe partially initialized exports, causing order-dependent bugs.
+
+Circular import cycle: src/features/projects/components/new-resource/form-context.ts → src/features/projects/components/new-resource/form-fields/variables-field.tsx. Modules in the cycle can observe partially initialized exports, causing order-dependent bugs.
+
+Suggestion: Break the cycle by extracting the shared code into a third module that both files import.
+
+Files:
+  src/features/projects/components/new-resource/form-context.ts

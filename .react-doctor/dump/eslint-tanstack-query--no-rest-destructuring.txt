@@ -1,0 +1,9 @@
+Rule: eslint-tanstack-query/no-rest-destructuring
+Severity: warning
+Category: Bugs
+Count: 1
+
+Object rest destructuring on a query will observe all changes to the query, leading to excessive re-renders.
+
+Files:
+  src/routes/_app/$orgSlug/_shell/docker.tsx:88

@@ -15,6 +15,7 @@ import { ServiceDeployHooksCard } from "./deploy-hooks-card";
 import { ServiceDomainsCard } from "./domains-card";
 import { ServiceHealthCheckCard } from "./health-check-card";
 import { ManifestDomainsCard } from "./manifest-domains-card";
+import { ManifestPortsCard } from "./manifest-ports-card";
 import { ServiceProtectionCard } from "./protection-card";
 import { ServicePublicAccessCard } from "./public-access-card";
 import { ServiceScalingCard } from "./scaling-card";
@@ -70,9 +71,14 @@ export function ServiceSettingsBody({
       ) : null}
 
       {pending ? (
-        // Manifest-backed domains; the live public-access + protection cards
-        // need a running resource, so they're omitted until after Deploy.
-        <ManifestDomainsCard projectId={resource.projectId} serviceName={resource.name} />
+        // Manifest-backed ports + domains; the live scaling / public-access /
+        // protection cards need a running resource, so they're omitted until
+        // after Deploy. Ports come first — a public URL needs an http+primary
+        // port, which the domains card below then attaches to.
+        <>
+          <ManifestPortsCard projectId={resource.projectId} serviceName={resource.name} />
+          <ManifestDomainsCard projectId={resource.projectId} serviceName={resource.name} />
+        </>
       ) : (
         <>
           {/* Runtime-scoped: reads/writes the live service row via

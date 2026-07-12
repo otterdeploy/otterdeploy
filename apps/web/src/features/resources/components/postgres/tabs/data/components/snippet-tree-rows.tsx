@@ -64,6 +64,7 @@ export function Row({
       {renaming && onRename ? (
         <input
           autoFocus
+          aria-label="Rename"
           defaultValue={label}
           onBlur={(e) => onRename(e.target.value)}
           onKeyDown={(e) => {

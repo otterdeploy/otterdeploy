@@ -1,0 +1,13 @@
+Rule: eslint/no-console
+Severity: warning
+Category: Bugs
+Count: 1
+
+Unexpected console statement.
+
+Suggestion: Delete this console statement.
+
+Docs: https://oxc.rs/docs/guide/usage/linter/rules/eslint/no-console.html
+
+Files:
+  src/shared/db/sqlite-persistence.ts:45

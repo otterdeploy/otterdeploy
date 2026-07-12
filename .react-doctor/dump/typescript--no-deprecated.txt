@@ -1,0 +1,17 @@
+Rule: typescript/no-deprecated
+Severity: warning
+Category: Bugs
+Count: 3
+
+`FormEvent` is deprecated. FormEvent doesn't actually exist.
+You probably meant to use , , , or just  instead
+depending on the event type.
+
+`execCommand` is deprecated. [MDN Reference](https://developer.mozilla.org/docs/Web/API/Document/execCommand)
+
+Docs: https://oxc.rs/docs/guide/usage/linter/rules/typescript/no-deprecated.html
+
+Files:
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:86
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:302
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:578

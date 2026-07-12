@@ -1,0 +1,67 @@
+Rule: eslint/no-unused-vars
+Severity: warning
+Category: Bugs
+Count: 19
+
+Identifier 'Spinner' is imported but never used.
+
+Identifier 'Alert02Icon' is imported but never used.
+
+Identifier 'CancelCircleIcon' is imported but never used.
+
+Identifier 'Copy01Icon' is imported but never used.
+
+Identifier 'Search01Icon' is imported but never used.
+
+Identifier 'HugeiconsIcon' is imported but never used.
+
+Type 'ProjectId' is imported but never used.
+
+Function 'useApplyManifestChange' is declared but never used.
+
+Function 'TaskLogsTail' is declared but never used.
+
+Variable 'setNl' is declared but never used. Unused variables should start with a '_'.
+
+Function 'createResourceTasksCollection' is declared but never used.
+
+Function 'DirectionProvider' is declared but never used.
+
+Function 'clearBadgeWidthCache' is declared but never used.
+
+Function 'AlertTitle' is declared but never used.
+
+Function 'AlertAction' is declared but never used.
+
+Function 'CardAction' is declared but never used.
+
+Function 'CardFooter' is declared but never used.
+
+Function 'NativeSelectOptGroup' is declared but never used.
+
+Function 'Toggle' is declared but never used.
+
+Suggestion: Consider removing this import.
+
+Docs: https://oxc.rs/docs/guide/usage/linter/rules/eslint/no-unused-vars.html
+
+Files:
+  src/features/git-providers/connect-dialog.tsx:33
+  src/features/logs/components/log-viewer.tsx:14
+  src/features/logs/components/log-viewer.tsx:15
+  src/features/logs/components/log-viewer.tsx:16
+  src/features/logs/components/log-viewer.tsx:17
+  src/features/logs/components/log-viewer.tsx:19
+  src/features/projects/components/new-resource/compose-wizard-fields.tsx:7
+  src/features/projects/hooks/use-manifest-stage.ts:126
+  src/features/resources/components/_shared/task-logs-tail.tsx:23
+  src/features/resources/components/postgres/tabs/data/components/filter-popover.tsx:36
+  src/features/resources/data/resource.ts:100
+  src/shared/components/data-grid/direction.tsx:11
+  src/shared/components/data-grid/hooks/use-badge-overflow.ts:174
+  src/shared/components/ui/alert.tsx:38
+  src/shared/components/ui/alert.tsx:64
+  src/shared/components/ui/card.tsx:59
+  src/shared/components/ui/card.tsx:79
+  src/shared/components/ui/native-select.tsx:49
+  src/shared/components/ui/toggle.tsx:30

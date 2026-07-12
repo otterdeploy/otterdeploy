@@ -102,95 +102,109 @@ export async function reconcileStackServices(
   const progress = ctx.deployLog ?? (() => undefined);
 
   for (const svc of parsed.services) {
-    const image = resolveImage(svc);
-    if (!image) {
-      progress(`Service ${svc.name}: no image resolved (build not finished?) — skipped.`);
-      failed.push(svc.name);
-      continue;
-    }
-    const mapped = toServiceFields(svc, ctx, image);
-    desired.add(mapped.serviceName);
-
-    const existing = existingByName.get(mapped.serviceName);
-    let resourceId: ResourceId;
-    let isCreate = false;
-
-    if (existing) {
-      resourceId = existing.resource.id;
-      // Structure (image/command/replicas/healthcheck/resources) tracks the
-      // file. Env + ports + name are left alone — the user owns env post-create.
-      await updateServiceRecord(resourceId, mapped.fields);
-    } else {
-      isCreate = true;
-      const name = await pickResourceName(ctx.projectId, svc.name);
-      const created = await createServiceRecord({
-        projectId: ctx.projectId,
-        name,
-        status: "draft",
-        source: "image",
-        internalHostname: mapped.internalHostname,
-        serviceName: mapped.serviceName,
-        networkName: mapped.networkName,
-        stackId: ctx.stackResourceId,
-        ports: mapped.ports,
-        env: mapped.env,
-        ...mapped.fields,
-      });
-      resourceId = created.resource.id;
-      // Seed bind mounts (multi-file inline stacks) ONCE, on create — mirroring
-      // the env "user owns it post-create" convention, so a later compose edit
-      // never clobbers user-managed mounts and existing stacks are untouched.
-      if (mapped.mounts.length > 0) {
-        await bulkReplaceServiceMounts(resourceId, mapped.mounts);
+    // Each service reconciles independently. A throw here (a failed
+    // pickResourceName, createServiceRecord, insertDeployment, or a
+    // buildSwarmSpec/provision that raises instead of returning an error) must
+    // NOT abort the loop: earlier services (e.g. the stack's first "server")
+    // are already committed, so an unguarded throw silently strands the whole
+    // stack at its first member — the "4 services → only server" collapse.
+    // Catch per service, record it as failed, and press on so every declared
+    // service at least gets its resource row + a failure the operator can see.
+    try {
+      const image = resolveImage(svc);
+      if (!image) {
+        progress(`Service ${svc.name}: no image resolved (build not finished?) — skipped.`);
+        failed.push(svc.name);
+        continue;
       }
-    }
+      const mapped = toServiceFields(svc, ctx, image);
+      desired.add(mapped.serviceName);
 
-    // One deployment row per service per reconcile → its own build/deploy
-    // history + logs. buildSwarmSpec stamps this (latest) deployment's id onto
-    // the swarm tasks, so the Deployments tab groups tasks correctly. The
-    // image is prebuilt/pulled — nothing compiles here — so the row starts at
-    // "pending", not "building".
-    const dep = await insertDeployment({
-      resourceId,
-      image,
-      reason: isCreate ? "create" : reason === "create" ? "create" : "redeploy",
-      status: "pending",
-      snapshot: { stack: ctx.stackResourceId, composeService: svc.name },
-    });
+      const existing = existingByName.get(mapped.serviceName);
+      let resourceId: ResourceId;
+      let isCreate = false;
 
-    progress(
-      `Service ${svc.name}: ${isCreate ? "creating" : "updating"} ${mapped.serviceName} from ${image}…`,
-    );
+      if (existing) {
+        resourceId = existing.resource.id;
+        // Structure (image/command/replicas/healthcheck/resources) tracks the
+        // file. Env + ports + name are left alone — the user owns env post-create.
+        await updateServiceRecord(resourceId, mapped.fields);
+      } else {
+        isCreate = true;
+        const name = await pickResourceName(ctx.projectId, svc.name);
+        const created = await createServiceRecord({
+          projectId: ctx.projectId,
+          name,
+          status: "draft",
+          source: "image",
+          internalHostname: mapped.internalHostname,
+          serviceName: mapped.serviceName,
+          networkName: mapped.networkName,
+          stackId: ctx.stackResourceId,
+          ports: mapped.ports,
+          env: mapped.env,
+          ...mapped.fields,
+        });
+        resourceId = created.resource.id;
+        // Seed bind mounts (multi-file inline stacks) ONCE, on create — mirroring
+        // the env "user owns it post-create" convention, so a later compose edit
+        // never clobbers user-managed mounts and existing stacks are untouched.
+        if (mapped.mounts.length > 0) {
+          await bulkReplaceServiceMounts(resourceId, mapped.mounts);
+        }
+      }
 
-    // Provision (fresh) or update (existing) the swarm service via the EXISTING
-    // per-service primitive — same path a standalone service deploys through.
-    const rolled = isCreate
-      ? await (async () => {
-          const record = await getServiceRecord(ctx.projectId, resourceId);
-          if (!record) return Result.err(new Error("Service row vanished after create"));
-          return provisionFresh(ctx.projectId, record, ctx.projectSlug, log);
-        })()
-      : await redeployOne(ctx.projectId, resourceId, ctx.projectSlug, log);
+      // One deployment row per service per reconcile → its own build/deploy
+      // history + logs. buildSwarmSpec stamps this (latest) deployment's id onto
+      // the swarm tasks, so the Deployments tab groups tasks correctly. The
+      // image is prebuilt/pulled — nothing compiles here — so the row starts at
+      // "pending", not "building".
+      const dep = await insertDeployment({
+        resourceId,
+        image,
+        reason: isCreate ? "create" : reason === "create" ? "create" : "redeploy",
+        status: "pending",
+        snapshot: { stack: ctx.stackResourceId, composeService: svc.name },
+      });
 
-    if (rolled.isErr()) {
-      const message = rolled.error instanceof Error ? rolled.error.message : String(rolled.error);
-      await markDeploymentFailed(dep.id, message);
+      progress(
+        `Service ${svc.name}: ${isCreate ? "creating" : "updating"} ${mapped.serviceName} from ${image}…`,
+      );
+
+      // Provision (fresh) or update (existing) the swarm service via the EXISTING
+      // per-service primitive — same path a standalone service deploys through.
+      const rolled = isCreate
+        ? await (async () => {
+            const record = await getServiceRecord(ctx.projectId, resourceId);
+            if (!record) return Result.err(new Error("Service row vanished after create"));
+            return provisionFresh(ctx.projectId, record, ctx.projectSlug, log);
+          })()
+        : await redeployOne(ctx.projectId, resourceId, ctx.projectSlug, log);
+
+      if (rolled.isErr()) {
+        const message = rolled.error instanceof Error ? rolled.error.message : String(rolled.error);
+        await markDeploymentFailed(dep.id, message);
+        progress(`Service ${svc.name}: failed — ${message}`);
+        failed.push(svc.name);
+        continue;
+      }
+      if (rolled.value.status === "error") {
+        await markDeploymentFailed(dep.id, `Swarm reported ${svc.name} errored`);
+        progress(`Service ${svc.name}: failed — swarm reported an error state.`);
+        failed.push(svc.name);
+        continue;
+      }
+      await db
+        .update(deployment)
+        .set({ status: "running", completedAt: new Date() })
+        .where(eq(deployment.id, dep.id));
+      progress(`Service ${svc.name}: rolled out.`);
+      deployed++;
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
       progress(`Service ${svc.name}: failed — ${message}`);
       failed.push(svc.name);
-      continue;
     }
-    if (rolled.value.status === "error") {
-      await markDeploymentFailed(dep.id, `Swarm reported ${svc.name} errored`);
-      progress(`Service ${svc.name}: failed — swarm reported an error state.`);
-      failed.push(svc.name);
-      continue;
-    }
-    await db
-      .update(deployment)
-      .set({ status: "running", completedAt: new Date() })
-      .where(eq(deployment.id, dep.id));
-    progress(`Service ${svc.name}: rolled out.`);
-    deployed++;
   }
 
   // Remove services the file no longer declares: tear down swarm + routes +

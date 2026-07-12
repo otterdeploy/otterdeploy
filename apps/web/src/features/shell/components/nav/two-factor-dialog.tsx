@@ -13,6 +13,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
+import { authQueryKeys } from "@/lib/auth-query-keys";
 import { Badge } from "@/shared/components/ui/badge";
 import {
   Dialog,
@@ -48,7 +49,7 @@ export function TwoFactorDialog({
   const qc = useQueryClient();
 
   const sessionQ = useQuery({
-    queryKey: ["auth", "current-session"],
+    queryKey: authQueryKeys.currentSession,
     queryFn: async () => (await authClient.getSession()).data,
     enabled: open,
   });
@@ -71,7 +72,7 @@ export function TwoFactorDialog({
     if (!v) reset();
     onOpenChange(v);
   };
-  const refreshSession = () => qc.invalidateQueries({ queryKey: ["auth", "current-session"] });
+  const refreshSession = () => qc.invalidateQueries({ queryKey: authQueryKeys.currentSession });
 
   const enable = useMutation({
     mutationFn: async () => {

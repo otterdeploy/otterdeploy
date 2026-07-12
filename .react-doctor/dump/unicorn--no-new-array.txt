@@ -1,0 +1,14 @@
+Rule: unicorn/no-new-array
+Severity: warning
+Category: Bugs
+Count: 2
+
+Do not use `new Array(singleArgument)`.
+
+Suggestion: It's not clear whether the argument is meant to be the length of the array or the only element. If the argument is the array's length, consider using `Array.from({ length: n })`. If the argument is the only element, use `[element]`.
+
+Docs: https://oxc.rs/docs/guide/usage/linter/rules/unicorn/no-new-array.html
+
+Files:
+  src/features/logs/components/log-severity.ts:67
+  src/shared/components/data-grid/hooks/use-data-grid.ts:380

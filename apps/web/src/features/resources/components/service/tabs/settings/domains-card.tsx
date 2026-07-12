@@ -23,6 +23,7 @@ import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Spinner } from "@/shared/components/ui/spinner";
+import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import type { DomainView } from "./domains-card-parts";
@@ -52,7 +53,7 @@ export function ServiceDomainsCard({
           input: { projectId: resource.projectId as never },
         }),
       }),
-      queryClient.invalidateQueries({ queryKey: ["resource"] }),
+      queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY }),
     ]);
   };
 

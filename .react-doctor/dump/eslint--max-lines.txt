@@ -1,0 +1,34 @@
+Rule: eslint/max-lines
+Severity: error
+Category: Bugs
+Count: 8
+
+File has too many lines (310).
+
+File has too many lines (399).
+
+File has too many lines (1833).
+
+File has too many lines (2825).
+
+File has too many lines (426).
+
+File has too many lines (300).
+
+File has too many lines (252).
+
+File has too many lines (635).
+
+Suggestion: Maximum allowed is 250.
+
+Docs: https://oxc.rs/docs/guide/usage/linter/rules/eslint/max-lines.html
+
+Files:
+  src/features/onboarding/steps.tsx:357
+  src/routes/_app/$orgSlug/_shell/$projectSlug/graph/$resourceId/deployment/-components/deployment-detail.tsx:445
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:2018
+  src/shared/components/data-grid/hooks/use-data-grid.ts:3302
+  src/shared/components/data-grid/lib/data-grid.ts:506
+  src/shared/components/ui/chart.tsx:339
+  src/shared/components/ui/combobox.tsx:273
+  src/shared/components/ui/sidebar.tsx:697

@@ -112,9 +112,14 @@ function TableListRail({ studio }: { studio: DataStudioController }) {
   );
 }
 
+const COMPACT_COUNT_FORMAT = new Intl.NumberFormat("en", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
 /** 1234 → "1.2K" — the rail is narrow, and the estimate is approximate anyway. */
 function compactCount(n: number): string {
-  return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(n);
+  return COMPACT_COUNT_FORMAT.format(n);
 }
 
 function SidebarSkeleton() {

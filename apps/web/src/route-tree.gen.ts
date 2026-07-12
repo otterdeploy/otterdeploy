@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from "./routes/__root"
 import { Route as TerminalRouteImport } from "./routes/terminal"
 import { Route as SignInRouteImport } from "./routes/sign-in"
+import { Route as PreviewRouteImport } from "./routes/preview"
 import { Route as DeviceRouteImport } from "./routes/device"
 import { Route as AppLayoutRouteImport } from "./routes/_app/layout"
 import { Route as AppIndexRouteImport } from "./routes/_app/index"
@@ -81,6 +82,11 @@ const TerminalRoute = TerminalRouteImport.update({
 const SignInRoute = SignInRouteImport.update({
   id: "/sign-in",
   path: "/sign-in",
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PreviewRoute = PreviewRouteImport.update({
+  id: "/preview",
+  path: "/preview",
   getParentRoute: () => rootRouteImport,
 } as any)
 const DeviceRoute = DeviceRouteImport.update({
@@ -428,9 +434,10 @@ const AppOrgSlugShellProjectSlugGraphResourceIdDeploymentDeploymentIdRoute =
 export interface FileRoutesByFullPath {
   "/": typeof AppIndexRoute
   "/device": typeof DeviceRoute
+  "/preview": typeof PreviewRoute
   "/sign-in": typeof SignInRoute
   "/terminal": typeof TerminalRoute
-  "/$orgSlug": typeof AppOrgSlugShellLayoutRouteWithChildren
+  "/$orgSlug": typeof AppOrgSlugLayoutRouteWithChildren
   "/accept-invite/$invitationId": typeof AcceptInviteInvitationIdRoute
   "/onboarding/create-organization": typeof OnboardingCreateOrganizationRoute
   "/$orgSlug/settings": typeof AppOrgSlugSettingsLayoutRouteWithChildren
@@ -490,6 +497,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   "/device": typeof DeviceRoute
+  "/preview": typeof PreviewRoute
   "/sign-in": typeof SignInRoute
   "/terminal": typeof TerminalRoute
   "/$orgSlug": typeof AppOrgSlugShellIndexRoute
@@ -552,6 +560,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   "/_app": typeof AppLayoutRouteWithChildren
   "/device": typeof DeviceRoute
+  "/preview": typeof PreviewRoute
   "/sign-in": typeof SignInRoute
   "/terminal": typeof TerminalRoute
   "/_app/$orgSlug": typeof AppOrgSlugLayoutRouteWithChildren
@@ -619,6 +628,7 @@ export interface FileRouteTypes {
   fullPaths:
     | "/"
     | "/device"
+    | "/preview"
     | "/sign-in"
     | "/terminal"
     | "/$orgSlug"
@@ -681,6 +691,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | "/device"
+    | "/preview"
     | "/sign-in"
     | "/terminal"
     | "/$orgSlug"
@@ -742,6 +753,7 @@ export interface FileRouteTypes {
     | "__root__"
     | "/_app"
     | "/device"
+    | "/preview"
     | "/sign-in"
     | "/terminal"
     | "/_app/$orgSlug"
@@ -808,6 +820,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppLayoutRoute: typeof AppLayoutRouteWithChildren
   DeviceRoute: typeof DeviceRoute
+  PreviewRoute: typeof PreviewRoute
   SignInRoute: typeof SignInRoute
   TerminalRoute: typeof TerminalRoute
   AcceptInviteInvitationIdRoute: typeof AcceptInviteInvitationIdRoute
@@ -828,6 +841,13 @@ declare module "@tanstack/react-router" {
       path: "/sign-in"
       fullPath: "/sign-in"
       preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    "/preview": {
+      id: "/preview"
+      path: "/preview"
+      fullPath: "/preview"
+      preLoaderRoute: typeof PreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     "/device": {
@@ -1492,6 +1512,7 @@ const AppLayoutRouteWithChildren = AppLayoutRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   AppLayoutRoute: AppLayoutRouteWithChildren,
   DeviceRoute: DeviceRoute,
+  PreviewRoute: PreviewRoute,
   SignInRoute: SignInRoute,
   TerminalRoute: TerminalRoute,
   AcceptInviteInvitationIdRoute: AcceptInviteInvitationIdRoute,

@@ -1,0 +1,18 @@
+Rule: react-doctor/async-await-in-loop
+Severity: warning
+Category: Performance
+Count: 4
+
+This makes the for…of loop slow because each await runs one after another, so collect the independent calls & run them together with `await Promise.all(items.map(...))`
+
+This makes the for-loop slow because each await runs one after another, so collect the independent calls & run them together with `await Promise.all(items.map(...))`
+
+Suggestion: Collect the items, then use `await Promise.all(items.map(...))` so independent work runs at the same time
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/async-await-in-loop
+
+Files:
+  src/features/resources/components/postgres/tabs/data/components/dice-grid.tsx:186
+  src/features/resources/components/postgres/tabs/data/use-data-studio-helpers.ts:163
+  src/routes/_app/$orgSlug/_shell/$projectSlug/-components/variables-bulk-edit.tsx:32
+  src/shared/components/data-grid/hooks/use-data-grid.ts:711

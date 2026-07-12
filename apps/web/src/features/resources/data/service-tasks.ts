@@ -5,12 +5,17 @@ import { parseLoadSubsetOptions } from "@tanstack/query-db-collection";
 import { parseCol, projectIdSchema } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
+/** Namespace prefix for the live service-tasks collection — the single source
+ *  of truth manifest apply + the project event stream invalidate to refresh
+ *  per-service task rollups. See [[RESOURCE_COLLECTION_KEY]]. */
+export const SERVICE_TASKS_COLLECTION_KEY = ["service-tasks"] as const;
+
 export const serviceTasksCollection = createCollection(
   queryCollectionOptions({
     syncMode: "on-demand",
     refetchInterval: 5000,
     queryKey: (opts) => {
-      const baseQuery = ["service-tasks"];
+      const baseQuery = [...SERVICE_TASKS_COLLECTION_KEY];
       const { filters } = parseLoadSubsetOptions(opts);
 
       if (!filters.at(0)) return baseQuery;

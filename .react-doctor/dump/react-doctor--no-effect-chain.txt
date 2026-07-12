@@ -1,0 +1,13 @@
+Rule: react-doctor/no-effect-chain
+Severity: warning
+Category: Bugs
+Count: 1
+
+Your screen redraws several times from a single action because one useEffect changes "active", which sets off this one.
+
+Suggestion: Compute as much as possible during render (e.g. `const isGameOver = round > 5`) and write all related state inside the event handler that originally fires the chain. Each effect link adds an extra render and makes the code rigid as requirements evolve
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/no-effect-chain
+
+Files:
+  src/features/projects/components/networking/caddyfile-viewer.tsx:51

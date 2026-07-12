@@ -1,0 +1,14 @@
+Rule: react-doctor/no-multi-comp
+Severity: warning
+Category: Maintainability
+Count: 2
+
+This file declares several components, so each component is harder to find, test, and change.
+
+Suggestion: Move secondary components into their own files so each component stays easier to find, test, and change.
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/no-multi-comp
+
+Files:
+  src/routes/_app/$orgSlug/_shell/platform.tsx:74
+  src/routes/_app/$orgSlug/_shell/platform.tsx:162

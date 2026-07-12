@@ -1,0 +1,13 @@
+Rule: react-doctor/rerender-memo-before-early-return
+Severity: warning
+Category: Performance
+Count: 1
+
+This runs even when the component bails out because the useMemo builds JSX before an early return, so move the JSX into a child wrapped in memo to skip it on the early return
+
+Suggestion: Move the JSX into a child component wrapped in memo, so the parent's early return skips it
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/rerender-memo-before-early-return
+
+Files:
+  src/shared/components/ui/chart.tsx:138

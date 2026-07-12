@@ -377,7 +377,7 @@ function useDataGrid<TData>({
         }
       }
 
-      const newData: TData[] = new Array(currentData.length);
+      const newData: TData[] = Array.from<TData>({ length: currentData.length });
 
       for (let i = 0; i < currentData.length; i++) {
         const updates = rowUpdatesMap.get(i);
@@ -573,6 +573,8 @@ function useDataGrid<TData>({
             serializedValue = value ? JSON.stringify(value) : "";
           } else if (value instanceof Date) {
             serializedValue = value.toISOString();
+          } else if (value != null && typeof value === "object" && !Array.isArray(value)) {
+            serializedValue = JSON.stringify(value);
           } else {
             serializedValue = String(value ?? "");
           }
@@ -707,9 +709,8 @@ function useDataGrid<TData>({
           if (propsRef.current.onRowsAdd) {
             await propsRef.current.onRowsAdd(rowsNeeded);
           } else if (propsRef.current.onRowAdd) {
-            for (let i = 0; i < rowsNeeded; i++) {
-              await propsRef.current.onRowAdd();
-            }
+            const onRowAdd = propsRef.current.onRowAdd;
+            await Promise.all(Array.from({ length: rowsNeeded }, () => onRowAdd()));
           }
 
           let attempts = 0;
@@ -820,9 +821,9 @@ function useDataGrid<TData>({
                   values = pastedValue ? pastedValue.split(",").map((v) => v.trim()) : [];
                 }
 
-                const validated = values
-                  .map((v) => matchSelectOption(v, options))
-                  .filter(Boolean) as string[];
+                const validated = values.flatMap(
+                  (v) => matchSelectOption(v, options) || [],
+                ) as string[];
 
                 if (values.length > 0 && validated.length === 0) {
                   shouldSkip = true;
@@ -1445,7 +1446,11 @@ function useDataGrid<TData>({
           if (!cell) continue;
 
           const value = cell.getValue();
-          const stringValue = String(value ?? "").toLowerCase();
+          const stringValue = (
+            value != null && typeof value === "object" && !Array.isArray(value)
+              ? JSON.stringify(value)
+              : String(value ?? "")
+          ).toLowerCase();
 
           if (stringValue.includes(lowerQuery)) {
             matches.push({ rowIndex, columnId });
@@ -1802,10 +1807,11 @@ function useDataGrid<TData>({
 
       const selectedCells = new Set<string>();
       const rows = tableRef.current?.getRowModel().rows ?? [];
+      const rowIndexById = new Map(rows.map((r, index) => [r.id, index]));
 
       for (const rowId of selectedRows) {
-        const rowIndex = rows.findIndex((r) => r.id === rowId);
-        if (rowIndex === -1) continue;
+        const rowIndex = rowIndexById.get(rowId);
+        if (rowIndex === undefined) continue;
 
         for (const columnId of columnIds) {
           selectedCells.add(getCellKey(rowIndex, columnId));
@@ -2116,8 +2122,10 @@ function useDataGrid<TData>({
           if ("accessorKey" in c) return c.accessorKey as string;
           return undefined;
         })
-        .filter((id): id is string => Boolean(id))
-        .filter((c) => !NON_NAVIGABLE_COLUMN_IDS.has(c));
+        .filter(
+          (id): id is string =>
+            id != null && id !== "" && !NON_NAVIGABLE_COLUMN_IDS.has(id),
+        );
 
       const targetColumnId = columnId ?? navigableIds[0];
 

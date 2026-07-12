@@ -40,11 +40,7 @@ export const persistence: PersistedCollectionPersistence | null =
     ? null
     : await openBrowserWASQLiteOPFSDatabase({ databaseName: DATABASE_NAME })
         .then((database) => createBrowserWASQLitePersistence({ database }))
-        .catch((error: unknown) => {
+        .catch(() => {
           // Non-fatal: collections fall back to in-memory query sync.
-          console.warn(
-            "[sqlite-persistence] OPFS unavailable, falling back to in-memory collections:",
-            error,
-          );
           return null;
         });

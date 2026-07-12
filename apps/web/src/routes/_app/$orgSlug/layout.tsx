@@ -29,7 +29,7 @@ export const Route = createFileRoute("/_app/$orgSlug")({
     </UpdateProvider>
   ),
   params: {
-    parse: zOrgSlug.parse,
+    parse: (raw) => zOrgSlug.parse(raw),
   },
   loader: ({ context, params }) => {
     const organization = context.organizations.find(

@@ -34,7 +34,7 @@ function glyphFor(source: SessionSource): { label: string; className: string } {
   }
 }
 
-export function SessionKindGlyph({ source }: { source: SessionSource }) {
+function SessionKindGlyph({ source }: { source: SessionSource }) {
   const { label, className } = glyphFor(source);
   return (
     <span
@@ -68,7 +68,7 @@ function describeConn(conn: ConnState): { className: string; label: string } {
 }
 
 /** Connection-state dot fed by `TerminalSession`'s `onConnChange`. */
-export function ConnStateDot({ conn }: { conn: ConnState | undefined }) {
+function ConnStateDot({ conn }: { conn: ConnState | undefined }) {
   const { className, label } = describeConn(conn ?? { kind: "connecting" });
   return (
     <span title={label} className="inline-flex items-center">

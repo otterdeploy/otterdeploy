@@ -1,0 +1,70 @@
+Rule: react-hooks/exhaustive-deps
+Severity: warning
+Category: Bugs
+Count: 22
+
+React hook useMemo depends on `allRows`, which changes every render
+
+React hook useMemo depends on `rows`, which changes every render
+
+React Hook useEffect contains a call to setState. Without a list of dependencies, this can lead to an infinite chain of updates.
+
+React Hook useMemo has a missing dependency: 'tables'
+
+React Hook useEffect has missing dependencies: 'tables', and 'openTable'
+
+React Hook useMemo has a missing dependency: 'filter'
+
+React Hook useMemo has unnecessary dependency: filter.action
+
+React Hook useMemo has unnecessary dependency: filter.actor
+
+React Hook useMemo has unnecessary dependency: filter.from
+
+React Hook useMemo has unnecessary dependency: filter.limit
+
+React Hook useMemo has unnecessary dependency: filter.outcome
+
+React Hook useMemo has unnecessary dependency: filter.range
+
+React Hook useMemo has unnecessary dependency: filter.targetType
+
+React Hook useMemo has unnecessary dependency: filter.to
+
+React Hook useMemo has unnecessary dependency: columnPinning
+
+React Hook useMemo has unnecessary dependency: columnVisibility
+
+React Hook useMemo has unnecessary dependency: columns
+
+React Hook useMemo has a complex expression in the dependency array.
+
+React Hook useCallback received a function whose dependencies are unknown.
+
+Suggestion: Try memoizing this variable with `useRef` or `useCallback`.
+
+Docs: https://oxc.rs/docs/guide/usage/linter/rules/react/exhaustive-deps.html
+
+Files:
+  src/features/edge-logs/components/edge-logs-view.tsx:60
+  src/features/edge-logs/components/edge-logs-view.tsx:70
+  src/features/firewall/components/flagged-panel.tsx:44
+  src/features/logs/data/use-log-stream.ts:59
+  src/features/resources/components/postgres/tabs/data/use-data-studio.ts:148
+  src/features/resources/components/postgres/tabs/data/use-data-studio.ts:185
+  src/routes/_app/$orgSlug/_shell/audit.tsx:57
+  src/routes/_app/$orgSlug/_shell/audit.tsx:58
+  src/routes/_app/$orgSlug/_shell/audit.tsx:58
+  src/routes/_app/$orgSlug/_shell/audit.tsx:58
+  src/routes/_app/$orgSlug/_shell/audit.tsx:58
+  src/routes/_app/$orgSlug/_shell/audit.tsx:58
+  src/routes/_app/$orgSlug/_shell/audit.tsx:58
+  src/routes/_app/$orgSlug/_shell/audit.tsx:58
+  src/routes/_app/$orgSlug/_shell/audit.tsx:58
+  src/shared/components/data-grid/data-grid-row.tsx:193
+  src/shared/components/data-grid/data-grid-row.tsx:193
+  src/shared/components/data-grid/hooks/use-data-grid.ts:2073
+  src/shared/components/data-grid/hooks/use-data-grid.ts:2073
+  src/shared/components/data-grid/hooks/use-data-grid.ts:2073
+  src/shared/components/data-grid/hooks/use-data-grid.ts:2092
+  src/shared/components/data-grid/lib/compose-refs.ts:63

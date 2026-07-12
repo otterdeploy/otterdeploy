@@ -1,5 +1,3 @@
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
-
 import { zId } from "@otterdeploy/shared/id";
 import { createCollection, type SimpleComparison } from "@tanstack/db";
 import { parseLoadSubsetOptions, queryCollectionOptions } from "@tanstack/query-db-collection";
@@ -31,11 +29,21 @@ function parseCol<T extends z.ZodType>(
 
 const projectIdSchema = zId("project");
 
+/**
+ * Namespace prefix for the on-demand resource collection's react-query cache
+ * entries. Deliberately distinct from the `orpc.project.resource.list` key so
+ * the collection's polled subset queries don't collide with direct one-shot
+ * `project.resource.list` reads. Exported as the single source of truth: any
+ * code that needs to refetch the graph invalidates THIS, instead of re-typing
+ * the `["resource"]` literal (which drifts silently if the prefix ever changes).
+ */
+export const RESOURCE_COLLECTION_KEY = ["resource"] as const;
+
 export const resourceCollection = createCollection(
   queryCollectionOptions({
     syncMode: "on-demand",
     queryKey: (opts) => {
-      const baseQuery = ["resource"];
+      const baseQuery = [...RESOURCE_COLLECTION_KEY];
       const { filters } = parseLoadSubsetOptions(opts);
       // Startup base-key call: query-db-collection calls queryKey({}) once to
       // compute the prefix every subset key must extend. No filters yet — just
@@ -75,31 +83,3 @@ export const resourceCollection = createCollection(
     getKey: (item) => item.resourceId,
   }),
 );
-
-/**
- * Swarm task history for one resource (postgres database, service replica
- * fan-out, etc.). Backed by project.resource.tasks which dispatches on
- * resource kind to derive the right swarm service name.
- *
- * 5s `refetchInterval` so restarts + replica cycles surface live. Reads
- * are synchronous from the local store between fetches — the Deployments
- * tab doesn't flash a loading state on tab switches.
- *
- * @note Memoize with useMemo([projectId, resourceId]) at the call site.
- */
-function createResourceTasksCollection(projectId: ProjectId, resourceId: ResourceId) {
-  return createCollection(
-    queryCollectionOptions({
-      ...orpc.project.resource.tasks.queryOptions({
-        input: { projectId, resourceId },
-      }),
-      queryKey: orpc.project.resource.tasks.queryKey({
-        input: { projectId, resourceId },
-      }),
-      queryFn: async () => orpc.project.resource.tasks.call({ projectId, resourceId }),
-      refetchInterval: 5000,
-      queryClient,
-      getKey: (t) => t.id,
-    }),
-  );
-}

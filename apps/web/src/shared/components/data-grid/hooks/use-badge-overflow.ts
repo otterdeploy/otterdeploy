@@ -170,7 +170,3 @@ export function useBadgeOverflow<T>({
 
   return result;
 }
-
-function clearBadgeWidthCache(): void {
-  badgeWidthCache.clear();
-}

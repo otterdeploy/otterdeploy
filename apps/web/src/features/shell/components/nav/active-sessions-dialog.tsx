@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
+import { authQueryKeys } from "@/lib/auth-query-keys";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -69,12 +70,12 @@ export function ActiveSessionsDialog({
   const qc = useQueryClient();
 
   const currentQ = useQuery({
-    queryKey: ["auth", "current-session"],
+    queryKey: authQueryKeys.currentSession,
     queryFn: async () => (await authClient.getSession()).data,
     enabled: open,
   });
   const sessionsQ = useQuery({
-    queryKey: ["auth", "sessions"],
+    queryKey: authQueryKeys.sessions,
     queryFn: async (): Promise<SessionRow[]> => {
       const res = await authClient.listSessions();
       if (res.error) {
@@ -86,7 +87,7 @@ export function ActiveSessionsDialog({
   });
 
   const currentToken = currentQ.data?.session?.token;
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["auth", "sessions"] });
+  const invalidate = () => qc.invalidateQueries({ queryKey: authQueryKeys.sessions });
 
   const revokeOne = useMutation({
     mutationFn: async (token: string) => {

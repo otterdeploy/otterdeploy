@@ -188,7 +188,7 @@ export function DockerfileBuildCard({
   config: BuildDockerfileConfig;
 }) {
   const [dockerfilePath, setDockerfilePath] = useState(config.dockerfilePath ?? "");
-  const [rows, setRows] = useState<ArgRow[]>(
+  const [rows, setRows] = useState<ArgRow[]>(() =>
     Object.entries(config.buildArgs ?? {}).map(([key, value]) => newArgRow(key, value)),
   );
 

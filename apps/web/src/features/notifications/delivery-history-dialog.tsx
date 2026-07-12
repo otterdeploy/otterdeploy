@@ -21,7 +21,7 @@ import {
 } from "@/shared/components/ui/dialog";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { Spinner } from "@/shared/components/ui/spinner";
-import { client } from "@/shared/server/orpc";
+import { client, orpc } from "@/shared/server/orpc";
 
 import {
   type Channel,
@@ -45,7 +45,7 @@ interface DeliveryHistoryDialogProps {
 
 export function DeliveryHistoryDialog({ open, onOpenChange, channel }: DeliveryHistoryDialogProps) {
   const query = useInfiniteQuery({
-    queryKey: ["notifications", "deliveries", channel?.id],
+    queryKey: [...orpc.notifications.deliveries.key(), channel?.id],
     enabled: open && channel !== null,
     initialPageParam: null as string | null,
     queryFn: ({ pageParam }) =>

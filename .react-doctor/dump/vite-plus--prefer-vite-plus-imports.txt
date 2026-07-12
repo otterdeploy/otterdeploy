@@ -1,0 +1,16 @@
+Rule: vite-plus/prefer-vite-plus-imports
+Severity: warning
+Category: Bugs
+Count: 8
+
+Use 'vite-plus/test' instead of 'vitest' in Vite+ projects.
+
+Files:
+  src/features/account/data/use-account.test.ts:1 (test file)
+  src/features/firewall/duration.test.ts:1 (test file)
+  src/features/logs/components/log-severity.test.ts:1 (test file)
+  src/features/notifications/shared.test.ts:1 (test file)
+  src/features/resources/components/postgres/tabs/data/data/destructive-sql.test.ts:1 (test file)
+  src/features/resources/components/postgres/tabs/data/data/filters.test.ts:1 (test file)
+  src/features/resources/components/postgres/tabs/data/data/insert.test.ts:1 (test file)
+  src/features/resources/components/postgres/tabs/data/data/query-history.test.ts:1 (test file)

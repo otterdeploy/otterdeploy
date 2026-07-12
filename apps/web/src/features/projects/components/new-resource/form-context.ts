@@ -1,7 +1,8 @@
-import { createFormHook, createFormHookContexts } from "@tanstack/react-form";
+import { createFormHook } from "@tanstack/react-form";
 
 import type { ResourceFormState } from "./schemas";
 
+import { fieldContext, formContext, useFieldContext } from "./form-hook-contexts";
 import { LinkedSecretsField } from "./form-fields/linked-secrets-field";
 import { NumberField } from "./form-fields/number-field";
 import { PortsField } from "./form-fields/ports-field";
@@ -10,13 +11,6 @@ import { SubmitButton } from "./form-fields/submit-button";
 import { SwitchField } from "./form-fields/switch-field";
 import { TextField } from "./form-fields/text-field";
 import { VariablesField } from "./form-fields/variables-field";
-
-const {
-  fieldContext,
-  formContext,
-  useFieldContext,
-  useFormContext: _useFormContext,
-} = createFormHookContexts();
 
 export { useFieldContext };
 
@@ -37,7 +31,7 @@ const formHook = createFormHook({
   },
 });
 
-export const { useAppForm, withForm } = formHook;
+export const { useAppForm } = formHook;
 
 // Typed context hook — step files call this to get a fully-typed form.
 // useTypedAppFormContext takes the same props as useAppForm to infer TFormData,

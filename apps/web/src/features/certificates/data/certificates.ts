@@ -46,9 +46,10 @@ export function deriveCustomStatus(
   if (cert.installState === "error") return { kind: "error", detail: cert.installError };
   if (cert.matchingDomains.length === 0) return { kind: "unrouted" };
   const servingDomains =
-    inventory?.certificates
-      .filter((p) => p.fingerprint !== null && p.fingerprint === cert.fingerprint256)
-      .map((p) => p.domain) ?? [];
+    inventory?.certificates.reduce<string[]>((acc, p) => {
+      if (p.fingerprint !== null && p.fingerprint === cert.fingerprint256) acc.push(p.domain);
+      return acc;
+    }, []) ?? [];
   if (servingDomains.length > 0) return { kind: "serving", domains: servingDomains };
   if (cert.installState === "installed") return { kind: "installed-not-observed" };
   return { kind: "pending" };

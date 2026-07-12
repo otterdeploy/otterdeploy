@@ -10,6 +10,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
+import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 interface ServiceSummary {
@@ -35,9 +36,11 @@ const newRow = (service = "", port = 0, domain = ""): Row => ({
 
 /** Strip the local row id; drops rows with no service/port chosen. */
 function toExposed(rows: Row[]): Exposure[] {
-  return rows
-    .filter((r) => r.service && r.port > 0)
-    .map((r) => ({ service: r.service, port: r.port, domain: r.domain.trim() }));
+  return rows.flatMap((r) =>
+    r.service && r.port > 0
+      ? [{ service: r.service, port: r.port, domain: r.domain.trim() }]
+      : [],
+  );
 }
 
 export function ComposeExposedEditor({
@@ -91,7 +94,7 @@ function ExposedForm({
           input: { projectId, resourceId },
         }),
       });
-      await queryClient.invalidateQueries({ queryKey: ["resource"] });
+      await queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY });
       toast.success("Exposed services updated", {
         description: "Routes re-mint immediately.",
       });
@@ -144,6 +147,7 @@ function ExposedForm({
             return (
               <div key={row.id} className="flex items-center gap-1.5">
                 <select
+                  aria-label="Service"
                   value={row.service}
                   disabled={save.isPending}
                   onChange={(e) => {

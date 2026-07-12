@@ -1,0 +1,42 @@
+Rule: react-doctor/js-combine-iterations
+Severity: warning
+Category: Performance
+Count: 26
+
+This loops over your list twice because .filter().map() makes two passes, so do it in one pass with .reduce() or a for...of loop
+
+This loops over your list twice because .map().filter() makes two passes, so do it in one pass with .reduce() or a for...of loop
+
+This loops over your list twice because .filter().filter() makes two passes, so do it in one pass with .reduce() or a for...of loop
+
+Suggestion: Combine `.map().filter()` style chains into one pass with `.reduce()` or a `for...of` loop, so you only loop over the list once
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/js-combine-iterations
+
+Files:
+  src/features/certificates/data/certificates.ts:49
+  src/features/edge-logs/components/edge-logs-view.tsx:67
+  src/features/edge-logs/data/use-edge-bans.ts:22
+  src/features/firewall/components/flagged-panel.tsx:40
+  src/features/projects/components/new-resource/compose-wizard.tsx:68
+  src/features/projects/components/new-resource/to-manifest.ts:88
+  src/features/projects/components/new-resource/wizard-chrome.tsx:125
+  src/features/projects/components/pending-changes-bar.tsx:79
+  src/features/projects/components/pending-changes-groups.ts:116
+  src/features/resources/components/_shared/variables-editor/index.tsx:81
+  src/features/resources/components/_shared/variables-editor/index.tsx:84
+  src/features/resources/components/_shared/variables-editor/use-editor-state.ts:106
+  src/features/resources/components/_shared/variables-editor/use-editor-state.ts:127
+  src/features/resources/components/compose/exposed-editor.tsx:39
+  src/features/resources/components/postgres/tabs/data/components/dice-grid.tsx:89
+  src/features/resources/components/postgres/tabs/data/components/dice-grid.tsx:168
+  src/features/resources/components/postgres/tabs/data/data/filters.ts:116
+  src/features/team/data/use-team.ts:136
+  src/features/templates/components/template-arch-diagram.tsx:79
+  src/features/templates/components/template-detail-sections.tsx:32
+  src/routes/_app/$orgSlug/_shell/$projectSlug/-components/networking-routes-tab.tsx:57
+  src/routes/_app/$orgSlug/_shell/$projectSlug/logs.tsx:65
+  src/shared/components/data-grid/hooks/use-data-grid.ts:2113
+  src/shared/components/data-grid/lib/data-grid.ts:352
+  src/shared/components/ui/chart.tsx:177
+  src/shared/components/ui/chart.tsx:276

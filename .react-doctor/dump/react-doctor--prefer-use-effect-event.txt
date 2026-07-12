@@ -1,0 +1,16 @@
+Rule: react-doctor/prefer-use-effect-event
+Severity: warning
+Category: Bugs
+Count: 2
+
+Your effect re-subscribes whenever "onSelectRange" changes, even though it's only used inside `addEventListener`.
+
+Your effect re-subscribes whenever "patchSearch" changes, even though it's only used inside `setTimeout`.
+
+Suggestion: Wrap the callback with `useEffectEvent(callback)` (React 19+) and call it inside the sub-handler. An Effect Event always sees the latest props and state but isn't a dependency, so the effect won't re-subscribe every time the parent redraws. See https://react.dev/reference/react/useEffectEvent
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/prefer-use-effect-event
+
+Files:
+  src/features/logs/components/logs-histogram.tsx:78
+  src/routes/_app/$orgSlug/_shell/$projectSlug/logs.tsx:98

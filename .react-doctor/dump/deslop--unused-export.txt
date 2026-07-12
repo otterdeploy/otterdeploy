@@ -1,0 +1,35 @@
+Rule: deslop/unused-export
+Severity: warning
+Category: Maintainability
+Count: 9
+
+Unused export: `ProjectChip` is exported but no module imports it, so it expands the public surface and can mislead callers about supported API.
+
+Unused export: `withForm` is exported but no module imports it, so it expands the public surface and can mislead callers about supported API.
+
+Unused export: `StagedResourcePanel` is exported but no module imports it, so it expands the public surface and can mislead callers about supported API.
+
+Unused export: `serviceDomainsCollection` is exported but no module imports it, so it expands the public surface and can mislead callers about supported API.
+
+Unused export: `StatusDot` is exported but no module imports it, so it expands the public surface and can mislead callers about supported API.
+
+Unused export: `SessionKindGlyph` is exported but no module imports it, so it expands the public surface and can mislead callers about supported API.
+
+Unused export: `ConnStateDot` is exported but no module imports it, so it expands the public surface and can mislead callers about supported API.
+
+Unused export: `inspectVolume` is exported but no module imports it, so it expands the public surface and can mislead callers about supported API.
+
+Unused export: `hostOf` is exported but no module imports it, so it expands the public surface and can mislead callers about supported API.
+
+Suggestion: Drop the `export` keyword (or remove the declaration) if no other module uses this symbol.
+
+Files:
+  src/features/databases/shared.tsx:59
+  src/features/projects/components/new-resource/form-context.ts:40
+  src/features/resources/components/_shared/staged-panel.tsx:109
+  src/features/resources/data/service-domains.ts:44
+  src/features/shell/components/sidebar/index.tsx:22
+  src/features/terminal/components/session-tab.tsx:37
+  src/features/terminal/components/session-tab.tsx:71
+  src/features/volumes/data/volumes.ts:32
+  src/features/webhooks/shared.ts:23

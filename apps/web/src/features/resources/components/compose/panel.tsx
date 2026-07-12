@@ -3,7 +3,7 @@
  * one unit, so the panel answers the three questions a single node can't:
  *   - Deployments → is it building / did the build fail / where are the logs.
  *   - Services    → how many services, what's in each, which one is up/down.
- *   - Compose     → the exact file being deployed (read-only).
+ *   - Compose     → the exact file being deployed (editable for inline stacks).
  *   - Settings    → redeploy the whole stack / delete it.
  *
  * Build progress reuses the same ResourceTasksTab as services/databases —
@@ -54,6 +54,9 @@ interface ComposeResourcePanelProps {
     source: "inline" | "git";
     stackName: string;
     services: ComposeService[];
+    /** Template brand mark (e.g. "Authentik") so the header shows the stack's
+     *  logo instead of the generic container icon. */
+    logoBrand?: string | null;
   };
   orgSlug: string;
   projectSlug: string;
@@ -117,6 +120,7 @@ export function ComposeResourcePanel({
         name={resource.name}
         serviceCount={resource.services.length}
         source={resource.source}
+        logoBrand={resource.logoBrand}
         onClose={onClose}
         onRedeploy={() =>
           redeploy.mutate({
@@ -179,6 +183,8 @@ export function ComposeResourcePanel({
 
               <TabsContent value="file" className="px-6 pt-5 pb-6">
                 <ComposeFileTab
+                  projectId={resource.projectId}
+                  resourceId={resource.resourceId}
                   source={resource.source}
                   isLoading={fileQuery.isLoading}
                   composeContent={fileQuery.data?.composeContent}

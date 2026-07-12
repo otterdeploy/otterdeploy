@@ -7,31 +7,31 @@
 name: otterdeploy
 
 services:
-  # postgres:
-  # Pinned to 17 — postgres:18+ refuses our /var/lib/postgresql/data mount
-  # (the v18 image manages its own version/cluster subdir and treats a mount
-  # placed directly at .../data as an "unused volume"). Matches the pin in
-  # packages/api/src/constants.ts and the swarm database engines.
-  # image: postgres:17-alpine
-  # container_name: otterdeploy-postgres
-  # restart: unless-stopped
-  # environment:
-  #   POSTGRES_USER: ${POSTGRES_USER:-postgres}
-  #   POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
-  #   POSTGRES_DB: ${POSTGRES_DB:-postgres}
-  # ports:
-  #   - "${POSTGRES_PORT:-5432}:5432"
-  # volumes:
-  #   - otterdeploy-postgres-data:/var/lib/postgresql/data
-  # healthcheck:
-  #   test:
-  #     [
-  #       "CMD-SHELL",
-  #       "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}",
-  #     ]
-  #   interval: 5s
-  #   timeout: 3s
-  #   retries: 20
+  postgres:
+    # Pinned to 17 — postgres:18+ refuses our /var/lib/postgresql/data mount
+    # (the v18 image manages its own version/cluster subdir and treats a mount
+    # placed directly at .../data as an "unused volume"). Matches the pin in
+    # packages/api/src/constants.ts and the swarm database engines.
+    image: postgres:17-alpine
+    container_name: otterdeploy-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - otterdeploy-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   redis:
     image: redis:7-alpine
@@ -64,6 +64,9 @@ services:
     working_dir: /app/apps/builder
     command: ["bun", "run", "src/index.ts"]
     container_name: otterdeploy-builder
+    # Opt-in for local dev: `bun run infra` skips this (and its heavy image
+    # build). Start it with `docker compose --profile build up -d builder`.
+    profiles: ["build"]
     restart: unless-stopped
     # Required env (DB/Redis/auth secret/…) comes from the project .env; the two
     # connection URLs are then overridden below so the worker — and the helper
@@ -72,9 +75,9 @@ services:
     env_file:
       - .env
     environment:
-      # DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-postgres}
-      # DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-postgres}
-      DATABASE_URL: ${DATABASE_URL}
+      # Reach the compose Postgres by service DNS — the host's ${DATABASE_URL}
+      # (localhost:5432) resolves to the container itself in here, not the DB.
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-postgres}
       # Reach the redis CONTAINER by service DNS on the compose network. Do NOT
       # inject the host's ${REDIS_URL} (redis://localhost:6379) — inside this
       # container "localhost" is the container itself, so the builder can't reach
@@ -102,8 +105,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
-      # postgres:
-      #   condition: service_healthy
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
 
@@ -170,6 +173,10 @@ services:
       context: .
       dockerfile: ./infra/caddy/Dockerfile
     container_name: otterdeploy-caddy
+    # Opt-in for local dev: the control-plane web/API run directly on the host
+    # (3001/3300), so the edge isn't needed to boot. Start it when you deploy
+    # workloads: `docker compose --profile edge up -d caddy`.
+    profiles: ["edge"]
     restart: unless-stopped
     command: sh -c "caddy run --config /etc/caddy/Caddyfile --adapter caddyfile"
     ports:

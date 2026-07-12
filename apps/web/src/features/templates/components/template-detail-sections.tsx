@@ -29,9 +29,9 @@ export function IncludedServicesTable({ parsed }: { parsed: ParsedCompose }) {
         </TableHeader>
         <TableBody>
           {parsed.services.map((svc) => {
-            const volumes = svc.volumes
-              .filter((m) => m.type === "volume" && m.source)
-              .map((m) => m.source);
+            const volumes = svc.volumes.flatMap((m) =>
+              m.type === "volume" && m.source ? [m.source] : [],
+            );
             return (
               <TableRow key={svc.name}>
                 <TableCell className="font-medium">{svc.name}</TableCell>

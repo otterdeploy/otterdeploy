@@ -1,0 +1,13 @@
+Rule: react-doctor/query-destructure-result
+Severity: warning
+Category: Bugs
+Count: 1
+
+Spreading the whole useQuery() result reads every field, so TanStack Query subscribes to all of them and re-renders on each change. Spread only the fields you need.
+
+Suggestion: TanStack Query only subscribes to the fields you actually read, so `query.data` is as targeted as destructuring. Spreading the whole result reads every field and re-renders on each change; pick out only the fields you need.
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/query-destructure-result
+
+Files:
+  src/routes/_app/$orgSlug/_shell/docker.tsx:88

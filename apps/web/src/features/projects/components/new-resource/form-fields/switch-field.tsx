@@ -1,7 +1,7 @@
 import { Field, FieldError, FieldLabel } from "@/shared/components/ui/field";
 import { Switch } from "@/shared/components/ui/switch";
 
-import { useFieldContext } from "../form-context";
+import { useFieldContext } from "../form-hook-contexts";
 
 interface SwitchFieldProps {
   label: string;

@@ -1,0 +1,20 @@
+Rule: react-doctor/rendering-svg-precision
+Severity: warning
+Category: Performance
+Count: 8
+
+Your users download extra bytes for SVG d precision they can't see, so round it to 1 or 2 decimals.
+
+Suggestion: Round path, points, and transform decimals to 1 or 2 digits. The extra precision adds bytes with no visible difference.
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/rendering-svg-precision
+
+Files:
+  src/shared/components/ui/svgs/excalidraw.tsx:9
+  src/shared/components/ui/svgs/minio.tsx:9
+  src/shared/components/ui/svgs/n8n.tsx:9
+  src/shared/components/ui/svgs/nocodb.tsx:9
+  src/shared/components/ui/svgs/nuxt.tsx:6
+  src/shared/components/ui/svgs/plausible.tsx:9
+  src/shared/components/ui/svgs/rust.tsx:6
+  src/shared/components/ui/svgs/vaultwarden.tsx:9

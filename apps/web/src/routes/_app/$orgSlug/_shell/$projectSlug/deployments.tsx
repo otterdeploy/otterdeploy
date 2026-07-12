@@ -86,8 +86,9 @@ function RouteComponent() {
     }),
     // Key on the *filter selection*, not the resolved input — `since` is
     // derived from "now" on mount, so keying on it would make every return to
-    // the route a cache miss (same trick as the audit page).
-    queryKey: ["project-deployments", project.id, filterKey, limit],
+    // the route a cache miss (same trick as the audit page). Prefix from the
+    // oRPC path (not a hand-typed string) so it stays tied to the procedure.
+    queryKey: [...orpc.deployment.listByProject.key(), project.id, filterKey, limit],
     placeholderData: keepPreviousData,
     staleTime: 15_000,
     // Live-ish while the tab is focused; react-query pauses interval refetch

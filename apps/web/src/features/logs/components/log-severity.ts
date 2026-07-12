@@ -64,7 +64,7 @@ function netBraces(text: string): number {
 export function markEventHeads(
   lines: ReadonlyArray<{ severity: LogSeverity; text: string }>,
 ): boolean[] {
-  const heads: boolean[] = new Array(lines.length).fill(false);
+  const heads: boolean[] = Array.from({ length: lines.length }, () => false);
   let inEvent = false;
   let depth = 0; // open braces of the current object dump
 

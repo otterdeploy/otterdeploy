@@ -37,6 +37,8 @@ export function HostFilter({
   const toggle = (host: string) =>
     onChange(value.includes(host) ? value.filter((h) => h !== host) : [...value, host]);
 
+  const selected = new Set(value);
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
@@ -71,7 +73,7 @@ export function HostFilter({
                 onSelect={() => toggle(host)}
                 className="gap-2 font-mono text-[12px]"
               >
-                <Checkbox checked={value.includes(host)} className="pointer-events-none" />
+                <Checkbox checked={selected.has(host)} className="pointer-events-none" />
                 <span className="truncate">{host}</span>
               </CommandItem>
             ))}

@@ -7,7 +7,7 @@
   "scripts": {
     "build": "vite build",
     "build:vercel": "NITRO_PRESET=vercel vite build",
-    "dev": "portless www.otterdeploy --force vite dev",
+    "dev": "vite dev",
     "postinstall": "fumadocs-mdx",
     "serve": "vite preview",
     "start": "vite preview",

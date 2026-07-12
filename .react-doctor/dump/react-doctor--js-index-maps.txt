@@ -1,0 +1,13 @@
+Rule: react-doctor/js-index-maps
+Severity: warning
+Category: Performance
+Count: 1
+
+This gets slow as your list grows because array.findIndex() runs inside a loop, so build a Map once before the loop for instant lookups
+
+Suggestion: Build a `Map` once before the loop instead of calling `array.find(...)` inside it
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/js-index-maps
+
+Files:
+  src/shared/components/data-grid/hooks/use-data-grid.ts:1807

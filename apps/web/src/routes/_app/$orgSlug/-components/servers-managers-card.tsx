@@ -31,7 +31,7 @@ export function ManagersQuorumCard({ view }: { view: SwarmNodesView | null }) {
   const reachable = managers.filter((m) => m.leader || m.reachability === "reachable").length;
   const healthy = reachable >= required;
 
-  const nodes = [...view.nodes].sort((a, b) => {
+  const nodes = view.nodes.toSorted((a, b) => {
     if (a.role !== b.role) return a.role === "manager" ? -1 : 1;
     if (a.leader !== b.leader) return a.leader ? -1 : 1;
     return a.hostname.localeCompare(b.hostname);

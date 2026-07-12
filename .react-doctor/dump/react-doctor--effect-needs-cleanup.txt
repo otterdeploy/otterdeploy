@@ -1,0 +1,25 @@
+Rule: react-doctor/effect-needs-cleanup
+Severity: error
+Category: Bugs
+Count: 5
+
+`addEventListener` creates a subscription in a function that outlives the render, with no cleanup path. Store the handle and release it, or move this into a useEffect that returns cleanup, so it does not leak after unmount.
+
+`WebSocket` creates a connection in useEffect without returning cleanup. Return a cleanup function so it does not leak after unmount.
+
+`addEventListener` creates a subscription in useEffect without returning cleanup. Return a cleanup function so it does not leak after unmount.
+
+`on` creates a subscription in useEffect without returning cleanup. Return a cleanup function so it does not leak after unmount.
+
+`observe` creates a subscription in useLayoutEffect without returning cleanup. Return a cleanup function so it does not leak after unmount.
+
+Suggestion: Return a cleanup function that stops the subscription or timer: `return () => target.removeEventListener(name, handler)` for listeners, `return () => clearInterval(id)` or `clearTimeout(id)` for timers, `return () => observer.disconnect()` for observers, `return () => socket.close()` for connections, or `return unsubscribe` if the subscribe call already gave you one.
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/effect-needs-cleanup
+
+Files:
+  src/features/terminal/components/terminal-session.tsx:120
+  src/features/terminal/components/terminal-session.tsx:125
+  src/shared/components/data-grid/hooks/use-data-grid.ts:2985
+  src/shared/components/ui/carousel.tsx:97
+  src/shared/components/ui/tabs.tsx:175

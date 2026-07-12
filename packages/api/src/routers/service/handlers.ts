@@ -17,6 +17,7 @@ import { reconcile } from "../../caddy";
 import { deleteProxyRoutesByResource } from "../../caddy/queries";
 import { PLATFORM } from "../../constants";
 import { runtime } from "../../runtime";
+import { removeServiceFromManifest } from "../project/manifest";
 import { loadProject, loadResource } from "./context";
 import {
   MissingServiceBuildBindingError,
@@ -228,6 +229,13 @@ export async function deleteService(
   );
   await deleteServiceRecord(input.resourceId);
   await reconcile(log);
+  // Strip it from the manifest too, or the next diff sees it declared-but-absent
+  // and re-stages a phantom `create` ghost — a deployed service must never
+  // revert to pending-create after it's torn down.
+  await removeServiceFromManifest(
+    { projectId: input.projectId, organizationId: input.organizationId },
+    record.resource.name,
+  );
 
   log.set({ teardown: { service: record.service.serviceName, ok: true } });
 

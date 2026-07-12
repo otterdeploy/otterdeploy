@@ -38,8 +38,10 @@ export function FlaggedPanel() {
   const unblockedIps = useMemo(
     () =>
       rows
-        .map((r) => r.ip)
-        .filter((ip) => !bannedIps.has(ip))
+        .reduce<string[]>((acc, r) => {
+          if (!bannedIps.has(r.ip)) acc.push(r.ip);
+          return acc;
+        }, [])
         .slice(0, 100),
     [rows, bannedIps],
   );

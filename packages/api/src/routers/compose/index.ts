@@ -6,7 +6,7 @@ import { projectScopedProcedure, requirePermission } from "../..";
 import { removeResourceDir } from "../../lib/data-dir";
 import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { removeComposeStack } from "../../swarm";
-import { removeComposeFromManifest } from "../project/manifest";
+import { removeComposeFromManifest, syncManifestComposeContent } from "../project/manifest";
 import { getProjectInOrg } from "../project/queries";
 import { enqueueComposeBuild, enqueueInlineComposeBuild } from "./build-trigger";
 import { cleanupOrphanedComposeVars } from "./cleanup-vars";
@@ -18,6 +18,7 @@ import {
   deleteComposeRecord,
   getComposeRecord,
   listComposeRecords,
+  updateComposeContent,
   updateComposeExposed,
 } from "./queries";
 import { removeStackServices } from "./reconcile";
@@ -161,6 +162,53 @@ export const composeRouter = {
   // exposures that don't reference a real service, persists the list, then
   // re-mints the Caddy routes (reconcileComposeDomains is idempotent: it clears
   // the stack's generated routes and re-creates one per exposure).
+  updateContent: requirePermission({ service: ["update"] }).compose.updateContent.handler(
+    async ({ input, context, errors }) => {
+      const rec = await getComposeRecord(input.projectId, input.resourceId);
+      if (!rec) throw errors.NOT_FOUND();
+      // A git stack's compose file lives in its repo — editing it here would
+      // drift from the source of truth and be overwritten on the next build.
+      if (rec.compose.source !== "inline") {
+        throw errors.INVALID_INPUT({
+          message: "This stack is built from a repo — edit its compose file there, not here.",
+        });
+      }
+      const parsed = parseCompose(input.composeContent);
+      if (parsed.isErr()) {
+        throw errors.INVALID_INPUT({ message: parsed.error.message });
+      }
+      const services = summarizeCompose(parsed.value);
+
+      // Multi-file stack: the compose file is one entry in `files`, mirrored by
+      // `composeContent`. Keep both in sync so the materialized tree the deploy
+      // writes matches what we parsed. Single-file stacks carry no `files`.
+      const composePath = rec.compose.composePath;
+      const files =
+        rec.compose.files.length > 0 && composePath
+          ? rec.compose.files.map((f) =>
+              f.path === composePath ? { ...f, content: input.composeContent } : f,
+            )
+          : undefined;
+
+      await updateComposeContent({
+        resourceId: input.resourceId,
+        composeContent: input.composeContent,
+        services,
+        files,
+      });
+      // Keep the desired manifest in lockstep — otherwise a later manifest
+      // apply / DR restore re-materializes the OLD YAML and reverts the edit.
+      await syncManifestComposeContent(
+        { projectId: input.projectId, organizationId: context.activeOrganizationId },
+        rec.resource.name,
+        input.composeContent,
+        files,
+      );
+      const updated = (await getComposeRecord(input.projectId, input.resourceId)) ?? rec;
+      return toView(updated);
+    },
+  ),
+
   setExposed: requirePermission({ service: ["update"] }).compose.setExposed.handler(
     async ({ input, context, errors }) => {
       const rec = await getComposeRecord(input.projectId, input.resourceId);

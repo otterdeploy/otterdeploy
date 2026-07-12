@@ -133,15 +133,19 @@ export const invitationsCollection = createCollection(
       if (res.error) {
         throw new Error(res.error.message ?? "Failed to load invitations");
       }
-      return (res.data ?? [])
-        .filter((i) => i.status === "pending")
-        .map((i) => ({
-          id: i.id,
-          organizationId,
-          email: i.email,
-          role: i.role,
-          expiresAt: new Date(i.expiresAt),
-        }));
+      return (res.data ?? []).flatMap((i) =>
+        i.status === "pending"
+          ? [
+              {
+                id: i.id,
+                organizationId,
+                email: i.email,
+                role: i.role,
+                expiresAt: new Date(i.expiresAt),
+              },
+            ]
+          : [],
+      );
     },
     onInsert: async ({ transaction }) => {
       await Promise.all(

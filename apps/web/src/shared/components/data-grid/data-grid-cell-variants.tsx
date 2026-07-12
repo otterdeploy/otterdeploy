@@ -519,6 +519,7 @@ export function NumberCell<TData>({
         <input
           type="number"
           ref={inputRef}
+          aria-label={columnId}
           value={value}
           min={min}
           max={max}
@@ -1126,9 +1127,10 @@ export function MultiSelectCell<TData>({
     [searchValue, tableMeta, rowIndex, columnId],
   );
 
-  const displayLabels = selectedValues
-    .map((val) => optionByValue.get(val)?.label ?? val)
-    .filter(Boolean);
+  const displayLabels = selectedValues.flatMap((val) => {
+    const label = optionByValue.get(val)?.label ?? val;
+    return label ? [label] : [];
+  });
 
   const selectedValuesSet = React.useMemo(() => new Set(selectedValues), [selectedValues]);
 
@@ -1873,8 +1875,6 @@ export function FileCell<TData>({
                 role="region"
                 aria-labelledby={labelId}
                 aria-describedby={descriptionId}
-                aria-invalid={!!error}
-                aria-disabled={isPending}
                 data-dragging={isDragging ? "" : undefined}
                 data-invalid={error ? "" : undefined}
                 data-disabled={isPending ? "" : undefined}

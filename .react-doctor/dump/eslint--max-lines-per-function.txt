@@ -1,0 +1,55 @@
+Rule: eslint/max-lines-per-function
+Severity: error
+Category: Bugs
+Count: 15
+
+The function `ShortTextCell` has too many lines (161). Maximum allowed is 150.
+
+The function `LongTextCell` has too many lines (164). Maximum allowed is 150.
+
+The function `UrlCell` has too many lines (186). Maximum allowed is 150.
+
+The function `MultiSelectCell` has too many lines (263). Maximum allowed is 150.
+
+The function `FileCell` has too many lines (588). Maximum allowed is 150.
+
+The function `DataGridCellWrapper` has too many lines (161). Maximum allowed is 150.
+
+The function `DataGridColumnHeader` has too many lines (164). Maximum allowed is 150.
+
+The function `DataGridSearchImpl` has too many lines (153). Maximum allowed is 150.
+
+The function `DataGrid` has too many lines (221). Maximum allowed is 150.
+
+The function `useDataGrid` has too many lines (2696). Maximum allowed is 150.
+
+The async function has too many lines (294). Maximum allowed is 150.
+
+The function has too many lines (204). Maximum allowed is 150.
+
+The function has too many lines (436). Maximum allowed is 150.
+
+The function has too many lines (202). Maximum allowed is 150.
+
+The function `Calendar` has too many lines (154). Maximum allowed is 150.
+
+Suggestion: Consider splitting it into smaller functions.
+
+Docs: https://oxc.rs/docs/guide/usage/linter/rules/eslint/max-lines-per-function.html
+
+Files:
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:49
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:225
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:537
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:979
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1369
+  src/shared/components/data-grid/data-grid-cell-wrapper.tsx:15
+  src/shared/components/data-grid/data-grid-column-header.tsx:28
+  src/shared/components/data-grid/data-grid-search.tsx:58
+  src/shared/components/data-grid/data-grid.tsx:34
+  src/shared/components/data-grid/hooks/use-data-grid.ts:137
+  src/shared/components/data-grid/hooks/use-data-grid.ts:662
+  src/shared/components/data-grid/hooks/use-data-grid.ts:1111
+  src/shared/components/data-grid/hooks/use-data-grid.ts:2235
+  src/shared/components/data-grid/hooks/use-data-grid.ts:2985
+  src/shared/components/ui/calendar.tsx:11

@@ -11,6 +11,7 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
+import { authQueryKeys } from "@/lib/auth-query-keys";
 import { Button } from "@/shared/components/ui/button";
 import { Spinner } from "@/shared/components/ui/spinner";
 
@@ -33,7 +34,7 @@ function AcceptInvitePage() {
   const queryClient = useQueryClient();
 
   const invitation = useQuery({
-    queryKey: ["invitation", invitationId],
+    queryKey: authQueryKeys.invitation(invitationId),
     queryFn: async () => {
       const res = await authClient.organization.getInvitation({
         query: { id: invitationId },
@@ -78,7 +79,7 @@ function AcceptInvitePage() {
     onSuccess: async () => {
       // The cached invitation still says "pending" — refetch so revisiting the
       // invite link shows its real (declined) state instead of the accept UI.
-      await queryClient.invalidateQueries({ queryKey: ["invitation", invitationId] });
+      await queryClient.invalidateQueries({ queryKey: authQueryKeys.invitation(invitationId) });
       toast.success("Invitation declined");
       void navigate({ to: "/" });
     },

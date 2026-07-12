@@ -12,18 +12,3 @@ export interface NavItem {
   badge?: string;
   active?: boolean;
 }
-
-const STATUS_DOT: Record<Status, string> = {
-  ok: "bg-emerald-500",
-  warn: "bg-amber-500",
-  err: "bg-rose-500",
-};
-
-export function StatusDot({ status, className = "" }: { status: Status; className?: string }) {
-  return (
-    <span
-      aria-hidden
-      className={`inline-block size-2 shrink-0 rounded-full ${STATUS_DOT[status]} ${className}`}
-    />
-  );
-}

@@ -1,0 +1,22 @@
+Rule: react-doctor/prefer-dynamic-import
+Severity: warning
+Category: Performance
+Count: 6
+
+"@codemirror/view" ships extra code to your users up front & slows page load. Load it on demand with React.lazy() or next/dynamic.
+
+"recharts" ships extra code to your users up front & slows page load. Load it on demand with React.lazy() or next/dynamic.
+
+"@codemirror/state" ships extra code to your users up front & slows page load. Load it on demand with React.lazy() or next/dynamic.
+
+Suggestion: Load it only when needed: `const Component = dynamic(() => import('library'), { ssr: false })` from next/dynamic, or React.lazy().
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/prefer-dynamic-import
+
+Files:
+  src/features/projects/components/new-resource/compose-wizard-editor.ts:10
+  src/features/resources/components/_shared/metrics/metric-area-chart.tsx:11
+  src/features/resources/components/compose/panel-tabs.tsx:9
+  src/features/resources/components/postgres/tabs/data/components/sql-editor.tsx:15
+  src/features/resources/components/postgres/tabs/data/components/sql-editor.tsx:16
+  src/shared/components/ui/chart.tsx:5

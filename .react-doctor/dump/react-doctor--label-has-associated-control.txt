@@ -1,0 +1,27 @@
+Rule: react-doctor/label-has-associated-control
+Severity: warning
+Category: Accessibility
+Count: 13
+
+Screen reader users can't tell which input this label names because it's tied to none, so add `htmlFor` or wrap the input inside it.
+
+Blind users can't identify this field because screen readers find no label text, so add visible text, `aria-label`, or `aria-labelledby`.
+
+Suggestion: Tie every label to a control with `htmlFor`, or by nesting the input.
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/label-has-associated-control
+
+Files:
+  src/features/projects/components/new-resource/steps/source-pickers.tsx:52
+  src/features/projects/components/new-resource/steps/source.tsx:141
+  src/features/projects/components/new-resource/steps/source.tsx:153
+  src/features/resources/components/postgres/tabs/data/studio-sql-toolbar.tsx:112
+  src/routes/_app/$orgSlug/-components/settings-cloudflare.tsx:205
+  src/routes/_app/$orgSlug/-components/settings-email-fields.tsx:21
+  src/routes/_app/$orgSlug/-components/settings-email-fields.tsx:45
+  src/routes/_app/$orgSlug/-components/settings-email-fields.tsx:64
+  src/routes/_app/$orgSlug/-components/settings-email-fields.tsx:103
+  src/routes/_app/$orgSlug/-components/settings-email-fields.tsx:117
+  src/routes/_app/$orgSlug/-components/settings-email-fields.tsx:132
+  src/routes/_app/$orgSlug/-components/settings-email-fields.tsx:148
+  src/routes/_app/$orgSlug/-components/settings-email-fields.tsx:163

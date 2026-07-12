@@ -19,15 +19,6 @@ export function inboundUrl(token: string): string {
   return `${env.VITE_SERVER_URL}/api/webhooks/in/${token}`;
 }
 
-/** Hostname of a URL for compact display; falls back to the raw string. */
-export function hostOf(url: string): string {
-  try {
-    return new URL(url).host;
-  } catch {
-    return url;
-  }
-}
-
 /** Status pill meta shared by both card kinds. */
 export const STATUS_META: Record<OutboundStatus | InboundStatus, { label: string; dot: string }> = {
   active: { label: "active", dot: "bg-emerald-500" },

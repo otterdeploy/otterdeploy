@@ -13,6 +13,8 @@ import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
+import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
+import { SERVICE_DOMAINS_COLLECTION_KEY } from "@/features/resources/data/service-domains";
 import { Spinner } from "@/shared/components/ui/spinner";
 import { Switch } from "@/shared/components/ui/switch";
 import { orpc, queryClient } from "@/shared/server/orpc";
@@ -37,9 +39,23 @@ export function ServicePublicAccessCard({
         }),
       }),
       // The graph panel reads from the on-demand `resourceCollection`, keyed
-      // under the "resource" prefix — invalidate it so the switch flips now
+      // under its own namespace — invalidate it so the switch flips now
       // instead of waiting for the 5s poll.
-      queryClient.invalidateQueries({ queryKey: ["resource"] }),
+      queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY }),
+      // The Domains card reads the just-minted (or dropped) public route from
+      // `service.domains.list` — invalidate it (and the shared collection
+      // prefix) so the resolved hostname appears immediately, not after a
+      // manual refresh. Without this the domain the server auto-provisions on
+      // expose stays invisible until the query's own refetch.
+      queryClient.invalidateQueries({
+        queryKey: orpc.service.domains.list.queryKey({
+          input: {
+            projectId: resource.projectId as never,
+            resourceId: resource.resourceId as never,
+          },
+        }),
+      }),
+      queryClient.invalidateQueries({ queryKey: SERVICE_DOMAINS_COLLECTION_KEY }),
     ]);
   };
 

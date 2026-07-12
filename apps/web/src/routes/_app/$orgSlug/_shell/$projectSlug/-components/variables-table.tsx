@@ -4,6 +4,7 @@ import { ArrowDown01Icon, Key01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Checkbox } from "@/shared/components/ui/checkbox";
+import { PROJECT_VARIABLES_COLLECTION_KEY } from "@/features/projects/data/variables";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { BulkEditDialog } from "./variables-bulk-edit";
@@ -60,7 +61,7 @@ export function PerEnvTable({
     for (const envId of envIds) {
       void queryClient.invalidateQueries({
         queryKey: [
-          "projectVariables",
+          ...PROJECT_VARIABLES_COLLECTION_KEY,
           ...orpc.project.envVar.list.queryKey({
             input: {
               projectId: projectId as never,

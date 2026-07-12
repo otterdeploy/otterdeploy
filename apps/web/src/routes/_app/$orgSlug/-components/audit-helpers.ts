@@ -76,7 +76,10 @@ export function exportCsv(items: AuditEvent[]) {
     "durationMs",
     "reason",
   ];
-  const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const esc = (v: unknown) => {
+    const s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+    return `"${s.replace(/"/g, '""')}"`;
+  };
   const rows = [
     cols.join(","),
     ...items.map((e) => cols.map((c) => esc(e[c])).join(",")),

@@ -154,6 +154,24 @@ export const composeContract = {
     .input(z.object({ projectId: projectIdField, resourceId: resourceIdField }))
     .output(z.object({ ok: z.boolean() })),
 
+  // Replace the stored compose YAML of an INLINE stack, re-parse it, and keep
+  // the project manifest in lockstep. Takes effect on the next redeploy. Git
+  // stacks are rejected — their file lives in the repo.
+  updateContent: oc
+    .errors({
+      NOT_FOUND: sharedErrors.NOT_FOUND,
+      INVALID_INPUT: sharedErrors.INVALID_INPUT,
+    })
+    .meta({ path: `${basePath}/{resourceId}/content`, tag, method: "POST" })
+    .input(
+      z.object({
+        projectId: projectIdField,
+        resourceId: resourceIdField,
+        composeContent: z.string().min(1),
+      }),
+    )
+    .output(composeViewSchema),
+
   // Replace which service:port pairs are publicly exposed on a LIVE stack —
   // re-mints the Caddy routes without re-staging the manifest.
   setExposed: oc

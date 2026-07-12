@@ -14,11 +14,16 @@ import { orpc, queryClient } from "@/shared/server/orpc";
  * filter as `loadSubsetOptions`, from which `queryKey` / `queryFn` recover the
  * `projectId` to fetch (and cache) the right subset.
  */
+/** Namespace prefix for the dependency-edges collection — the single source of
+ *  truth manifest apply + the project event stream invalidate to redraw graph
+ *  edges. See [[RESOURCE_COLLECTION_KEY]]. */
+export const DEPENDENCIES_COLLECTION_KEY = ["dependencies"] as const;
+
 export const dependenciesCollection = createCollection(
   queryCollectionOptions({
     syncMode: "on-demand",
     queryKey: (opts) => {
-      const baseQuery = ["dependencies"];
+      const baseQuery = [...DEPENDENCIES_COLLECTION_KEY];
       const { filters } = parseLoadSubsetOptions(opts);
 
       if (!filters.at(0)) return baseQuery;

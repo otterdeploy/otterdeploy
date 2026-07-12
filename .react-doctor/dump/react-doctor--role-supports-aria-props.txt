@@ -1,0 +1,16 @@
+Rule: react-doctor/role-supports-aria-props
+Severity: warning
+Category: Accessibility
+Count: 2
+
+Screen reader users get no help from `aria-invalid` because role `region` ignores it, so remove it or change the role.
+
+Screen reader users get no help from `aria-disabled` because role `region` ignores it, so remove it or change the role.
+
+Suggestion: Only use `aria-*` attributes that the element's role supports.
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/role-supports-aria-props
+
+Files:
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1876
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1877

@@ -62,7 +62,9 @@ function RouteComponent() {
             offset the sidebar starts its `top` at. Pin only the header and an
             11px gap opens between header and sidebar once the banner scrolls
             off (and the banner disappears entirely). */}
-        <div className="sticky top-0 z-50">
+        {/* backdrop-blur frosts content that scrolls under the translucent
+            update banner (bg-primary/5) instead of letting it bleed through. */}
+        <div className="sticky top-0 z-50 backdrop-blur-md">
           <UpdateBanner />
           <SiteHeader />
         </div>

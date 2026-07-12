@@ -1,0 +1,13 @@
+Rule: react-doctor/no-autofocus
+Severity: warning
+Category: Accessibility
+Count: 1
+
+`autoFocus` moves focus on load, which can disrupt screen reader and keyboard users. Remove it and let users choose where to focus.
+
+Suggestion: Do not use `autoFocus`. It disorients users on load.
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/no-autofocus
+
+Files:
+  src/features/projects/components/variables/reference-picker.tsx:150

@@ -49,7 +49,7 @@ export function ServiceTypeSelector({
   ];
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[12.5px] font-medium">Service type</label>
+      <span className="text-[12.5px] font-medium">Service type</span>
       <div className="inline-flex w-fit rounded-md border p-0.5">
         {options.map(([id, label]) => {
           const active = id === "static" ? isStatic : !isStatic;

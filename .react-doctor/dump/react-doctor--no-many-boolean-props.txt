@@ -1,0 +1,58 @@
+Rule: react-doctor/no-many-boolean-props
+Severity: warning
+Category: Maintainability
+Count: 16
+
+Component "ComposeWizardBody" takes 4 on/off props (hasVars, showNext, canCreate…), which is hard to combine & test. Split it into smaller components or named variants.
+
+Component "WizardFooter" takes 4 on/off props (isLast, isCreating, showAdvancedToggle…), which is hard to combine & test. Split it into smaller components or named variants.
+
+Component "RowPanel" takes 4 on/off props (isLoading, isError, isFetching…), which is hard to combine & test. Split it into smaller components or named variants.
+
+Component "DocumentPanel" takes 4 on/off props (isLoading, isError, isFetching…), which is hard to combine & test. Split it into smaller components or named variants.
+
+Component "ResultsPanel" takes 4 on/off props (isLoading, isError, hasResult…), which is hard to combine & test. Split it into smaller components or named variants.
+
+Component "ShortTextCell" takes 5 on/off props (isEditing, isFocused, isSelected…), which is hard to combine & test. Split it into smaller components or named variants.
+
+Component "LongTextCell" takes 5 on/off props (isFocused, isEditing, isSelected…), which is hard to combine & test. Split it into smaller components or named variants.
+
+Component "NumberCell" takes 5 on/off props (isFocused, isEditing, isSelected…), which is hard to combine & test. Split it into smaller components or named variants.
+
+Component "UrlCell" takes 5 on/off props (isEditing, isFocused, isSelected…), which is hard to combine & test. Split it into smaller components or named variants.
+
+Component "CheckboxCell" takes 4 on/off props (isFocused, isSelected, isSearchMatch…), which is hard to combine & test. Split it into smaller components or named variants.
+
+Component "SelectCell" takes 5 on/off props (isFocused, isEditing, isSelected…), which is hard to combine & test. Split it into smaller components or named variants.
+
+Component "MultiSelectCell" takes 5 on/off props (isFocused, isEditing, isSelected…), which is hard to combine & test. Split it into smaller components or named variants.
+
+Component "DateCell" takes 5 on/off props (isFocused, isEditing, isSelected…), which is hard to combine & test. Split it into smaller components or named variants.
+
+Component "FileCell" takes 5 on/off props (isFocused, isEditing, isSelected…), which is hard to combine & test. Split it into smaller components or named variants.
+
+Component "DataGridCellWrapper" takes 5 on/off props (isEditing, isFocused, isSelected…), which is hard to combine & test. Split it into smaller components or named variants.
+
+Component "DataGridCellImpl" takes 5 on/off props (isFocused, isEditing, isSelected…), which is hard to combine & test. Split it into smaller components or named variants.
+
+Suggestion: Split boolean-heavy APIs into smaller components or named variants so combinations stay testable.
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/no-many-boolean-props
+
+Files:
+  src/features/projects/components/new-resource/compose-wizard-body.tsx:124
+  src/features/projects/components/new-resource/wizard-chrome.tsx:133
+  src/features/resources/components/mariadb/tabs/data/table-browser.tsx:96
+  src/features/resources/components/mongo/tabs/data/index.tsx:138
+  src/features/resources/components/postgres/tabs/data/components/results-panel.tsx:69
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:49
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:225
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:411
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:537
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:742
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:847
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:979
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1262
+  src/shared/components/data-grid/data-grid-cell-variants.tsx:1369
+  src/shared/components/data-grid/data-grid-cell-wrapper.tsx:15
+  src/shared/components/data-grid/data-grid-cell.tsx:45

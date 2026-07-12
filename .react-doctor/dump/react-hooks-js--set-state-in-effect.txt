@@ -1,0 +1,34 @@
+Rule: react-hooks-js/set-state-in-effect
+Severity: error
+Category: Performance
+Count: 20
+
+This component misses React Compiler's automatic memoization & re-renders more than it should: Calling setState synchronously within an effect can trigger cascading renders. Rewrite the flagged code so the compiler can optimize it.
+
+Suggestion: Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+Files:
+  src/features/logs/components/logs-histogram.tsx:49
+  src/features/logs/data/use-log-stream.ts:61
+  src/features/projects/components/networking/caddyfile-viewer.tsx:47
+  src/features/projects/components/networking/custom-config-editor.tsx:40
+  src/features/projects/components/new-resource/overlay-provider.tsx:50
+  src/features/projects/components/new-resource/overlay-provider.tsx:67
+  src/features/projects/components/settings/source-section.tsx:47
+  src/features/projects/components/settings/state.ts:52
+  src/features/projects/components/stack/use-stack-state.ts:43
+  src/features/resources/components/postgres/tabs/data/components/dice-grid.tsx:146
+  src/features/resources/components/postgres/tabs/data/components/filter-popover.tsx:40
+  src/features/resources/components/postgres/tabs/data/studio-results.tsx:53
+  src/features/resources/components/postgres/tabs/data/use-data-studio-helpers.ts:74
+  src/features/resources/components/service/tabs/settings/source-card.tsx:161
+  src/routes/_app/$orgSlug/_shell/$projectSlug/-components/variables-bulk-edit.tsx:76
+  src/routes/_app/$orgSlug/_shell/$projectSlug/-components/variables-bulk-edit.tsx:83
+  src/routes/_app/$orgSlug/_shell/$projectSlug/deployments.tsx:71
+  src/shared/components/data-grid/data-grid-search.tsx:90
+  src/shared/components/ui/carousel.tsx:99
+  src/shared/hooks/use-mobile.ts:14

@@ -1,0 +1,59 @@
+Rule: react-doctor/only-export-components
+Severity: warning
+Category: Maintainability
+Count: 47
+
+This file exports non-components, so Fast Refresh can't safely preserve component state.
+
+Suggestion: Move non-component exports out of component files so Fast Refresh can preserve component state instead of full-reloading.
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/only-export-components
+
+Files:
+  src/features/backups/backup-now-parts.tsx:22
+  src/features/backups/destination-fields.tsx:15
+  src/features/backups/destination-fields.tsx:67
+  src/features/backups/destination-fields.tsx:80
+  src/features/command-palette/components/nav-items.tsx:46
+  src/features/command-palette/components/nav-items.tsx:96
+  src/features/edge-logs/components/edge-events-view-parts.tsx:16
+  src/features/edge-logs/components/edge-events-view-parts.tsx:17
+  src/features/edge-logs/components/edge-events-view-parts.tsx:21
+  src/features/edge-logs/components/edge-events-view-parts.tsx:27
+  src/features/edge-logs/components/edge-logs-shared.tsx:4
+  src/features/edge-logs/components/edge-logs-shared.tsx:8
+  src/features/edge-logs/components/edge-logs-view-parts.tsx:170
+  src/features/logs/components/ansi.tsx:24
+  src/features/logs/components/log-toolbar.tsx:24
+  src/features/notifications/channel-fields.tsx:13
+  src/features/projects/components/networking/route-access-shared.tsx:27
+  src/features/projects/components/networking/route-access-shared.tsx:51
+  src/features/projects/components/networking/route-access-shared.tsx:55
+  src/features/projects/components/networking/route-access-shared.tsx:59
+  src/features/projects/components/networking/route-access-shared.tsx:65
+  src/features/projects/components/new-resource/form-fields/variables-field-parts.tsx:26
+  src/features/projects/components/new-resource/form-fields/variables-field-parts.tsx:45
+  src/features/projects/components/new-resource/steps/source-pickers.tsx:83
+  src/features/projects/components/new-resource/wizard-chrome.tsx:33
+  src/features/resources/components/compose/panel-parts.tsx:50
+  src/features/resources/components/compose/panel-parts.tsx:69
+  src/features/resources/components/postgres/tabs/data/components/type-label.tsx:9
+  src/features/resources/components/redis/tabs/data/studio-atoms.tsx:64
+  src/features/resources/components/redis/tabs/data/studio-atoms.tsx:70
+  src/features/resources/components/redis/tabs/data/studio-atoms.tsx:78
+  src/features/resources/components/redis/tabs/data/studio-atoms.tsx:89
+  src/features/resources/components/service/tabs/overview-parts.tsx:46
+  src/features/resources/components/service/tabs/settings/build-card-shared.tsx:20
+  src/features/resources/components/service/tabs/settings/build-card-shared.tsx:53
+  src/features/resources/components/service/tabs/settings/build-card-shared.tsx:97
+  src/features/resources/components/service/tabs/settings/build-card-shared.tsx:113
+  src/features/shell/components/nav/two-factor-panels.tsx:9
+  src/features/templates/components/template-arch-diagram.tsx:35
+  src/features/terminal/components/open-terminal-tabs.tsx:12
+  src/routes/_app/$orgSlug/-components/servers-health-pool.tsx:15
+  src/routes/_app/$orgSlug/-components/servers-swarm-actions.tsx:20
+  src/routes/_app/$orgSlug/_shell/$projectSlug/graph/$resourceId/deployment/-components/deployment-tabs.tsx:24
+  src/shared/components/ui/button-group.tsx:81
+  src/shared/components/ui/button.tsx:58
+  src/shared/components/ui/navigation-menu.tsx:162
+  src/shared/components/ui/tabs.tsx:250

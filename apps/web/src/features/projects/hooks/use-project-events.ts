@@ -24,6 +24,13 @@ import { useEffect } from "react";
 import { type ProjectId, type ResourceId } from "@otterdeploy/shared/id";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { DEPENDENCIES_COLLECTION_KEY } from "@/features/projects/data/dependencies";
+import {
+  DEPLOYMENT_TASKS_COLLECTION_KEY,
+  DEPLOYMENTS_COLLECTION_KEY,
+} from "@/features/resources/data/deployments";
+import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
+import { SERVICE_TASKS_COLLECTION_KEY } from "@/features/resources/data/service-tasks";
 import { orpc } from "@/shared/server/orpc";
 
 export function useProjectEvents(projectId?: ProjectId | null): void {
@@ -46,8 +53,8 @@ export function useProjectEvents(projectId?: ProjectId | null): void {
           input: { projectId, resourceId },
         }),
       });
-      void qc.invalidateQueries({ queryKey: ["deployments"] });
-      void qc.invalidateQueries({ queryKey: ["deployment-tasks"] });
+      void qc.invalidateQueries({ queryKey: DEPLOYMENTS_COLLECTION_KEY });
+      void qc.invalidateQueries({ queryKey: DEPLOYMENT_TASKS_COLLECTION_KEY });
     };
 
     void (async () => {
@@ -67,15 +74,15 @@ export function useProjectEvents(projectId?: ProjectId | null): void {
           // — not just create/remove — so a live status or framework change
           // refreshes the node immediately instead of waiting for the 30s poll.
           // (Bare orpc keys never match a collection's ["resource", …] key.)
-          void qc.invalidateQueries({ queryKey: ["resource"] });
-          void qc.invalidateQueries({ queryKey: ["service-tasks"] });
+          void qc.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY });
+          void qc.invalidateQueries({ queryKey: SERVICE_TASKS_COLLECTION_KEY });
 
           // Membership change also reshapes the dependency edges.
           if (
             event.kind === "resource" &&
             (event.action === "created" || event.action === "removed")
           ) {
-            void qc.invalidateQueries({ queryKey: ["dependencies"] });
+            void qc.invalidateQueries({ queryKey: DEPENDENCIES_COLLECTION_KEY });
           }
         }
       } catch (err) {

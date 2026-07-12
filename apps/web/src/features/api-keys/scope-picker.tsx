@@ -43,7 +43,9 @@ export function ScopePicker({
         </p>
       </div>
       <div className="flex flex-col divide-y rounded-md border">
-        {API_SCOPES.map((scope) => (
+        {API_SCOPES.map((scope) => {
+          const selectedActions = new Set(value[scope.resource] ?? []);
+          return (
           <div key={scope.resource} className="flex items-center gap-3 px-3 py-2.5">
             <div className="min-w-0 flex-1">
               <div className="text-[13px] font-medium">{scope.label}</div>
@@ -54,7 +56,7 @@ export function ScopePicker({
             <div className="grid shrink-0 grid-cols-[5rem_5rem] gap-x-2">
               {scope.actions.map((action) => {
                 const id = `scope-${scope.resource}-${action}`;
-                const checked = (value[scope.resource] ?? []).includes(action);
+                const checked = selectedActions.has(action);
                 return (
                   <label
                     key={action}
@@ -72,7 +74,8 @@ export function ScopePicker({
               })}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

@@ -1,0 +1,12 @@
+Rule: react-hooks-js/incompatible-library
+Severity: error
+Category: Performance
+Count: 2
+
+This component misses React Compiler's automatic memoization & re-renders more than it should: Compilation Skipped: Use of incompatible library. It's how the library works, not a bug in your code. Memoize values you pass from it into other memoized components, or suppress it with `// react-doctor-disable-next-line react-hooks-js/incompatible-library`.
+
+Suggestion: This API returns functions which cannot be memoized without leading to stale UI. To prevent this, by default React Compiler will skip memoizing this component/hook. However, you may see issues if values from this API are passed to other components/hooks that are memoized.
+
+Files:
+  src/features/logs/components/use-logs-table.ts:71
+  src/shared/components/data-grid/hooks/use-data-grid.ts:2058

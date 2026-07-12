@@ -1,0 +1,13 @@
+Rule: react-doctor/click-events-have-key-events
+Severity: warning
+Category: Accessibility
+Count: 1
+
+Keyboard users can't trigger this click handler because there's no keyboard one, so add `onKeyUp`, `onKeyDown`, or `onKeyPress`.
+
+Suggestion: Pair `onClick` with a key handler so keyboard users can trigger it.
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/click-events-have-key-events
+
+Files:
+  src/features/backups/multi-combobox.tsx:78

@@ -133,6 +133,7 @@ export function CaddyCodeEditor({
 
         <textarea
           ref={textareaRef}
+          aria-label="Caddyfile"
           value={value}
           onChange={(e) => onValueChange(e.target.value)}
           onScroll={syncScroll}

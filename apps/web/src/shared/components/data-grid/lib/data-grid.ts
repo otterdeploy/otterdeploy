@@ -349,7 +349,7 @@ export function parseTsv(text: string, fallbackColumnCount: number): string[][] 
 
   if (buf && bufTabCount === expectedTabCount) rows.push(buf.split("\t"));
 
-  return rows.length > 0 ? rows : lines.filter((l) => l.length > 0).map((l) => l.split("\t"));
+  return rows.length > 0 ? rows : lines.flatMap((l) => (l.length > 0 ? [l.split("\t")] : []));
 }
 
 export function getIsInPopover(element: unknown): boolean {

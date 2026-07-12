@@ -196,6 +196,7 @@ function Bar({
       type="button"
       onPointerDown={onPointerDown}
       onPointerEnter={onPointerEnter}
+      aria-label={`${clockHM(start)}–${clockHM(end)} · ${total} events`}
       title={`${clockHM(start)}–${clockHM(end)} · ${total} events`}
       className={cnBar(dimmed)}
     >

@@ -100,9 +100,15 @@ function computePendingByName(
         resource: c.resource,
         name: c.name,
         // Compose creates carry a parsed service summary (enrichComposeCreates
-        // on the server) so the ghost group renders its member cards.
+        // on the server) so the ghost group renders its member cards, plus the
+        // template brand so the ghost shows its logo before the first deploy.
         ...(c.resource === "compose"
-          ? { services: composeGhostServices(c.details) }
+          ? {
+              services: composeGhostServices(c.details),
+              ...(typeof c.details?.logoBrand === "string"
+                ? { logoBrand: c.details.logoBrand }
+                : {}),
+            }
           : // A staged service ghost shows the wizard-detected framework logo
             // immediately (client hint — no build/persist round-trip).
             c.resource === "service"

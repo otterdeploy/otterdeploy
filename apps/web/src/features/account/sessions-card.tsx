@@ -26,7 +26,7 @@ export function SessionsCard() {
   const currentToken = currentQ.data?.session?.token;
   const sessions = sessionsQ.data ?? [];
   // Current session first, then most recently active.
-  const ordered = [...sessions].sort((a, b) => {
+  const ordered = sessions.toSorted((a, b) => {
     if (a.token === currentToken) return -1;
     if (b.token === currentToken) return 1;
     return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();

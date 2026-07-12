@@ -54,7 +54,7 @@
     "db:stop": "turbo -F @otterdeploy/db db:stop",
     "db:studio": "turbo -F @otterdeploy/db db:studio",
     "db:watch": "turbo -F @otterdeploy/db db:watch",
-    "dev": "turbo dev --filter=!builder",
+    "dev": "turbo dev --filter=web --filter=server",
     "dev:native": "turbo -F native dev",
     "dev:server": "turbo -F server dev",
     "dev:web": "turbo -F web dev",

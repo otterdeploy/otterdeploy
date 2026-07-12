@@ -81,7 +81,7 @@ export function toResourceName(raw: string): string {
   return /^[a-z]/.test(slug) ? slug : `s-${slug}`.slice(0, 63);
 }
 
-export function useComposeForm(onSubmit: (value: ComposeFormValues) => Promise<void>) {
+export function useComposeForm() {
   return useAppForm({
     defaultValues: {
       name: "",
@@ -97,9 +97,6 @@ export function useComposeForm(onSubmit: (value: ComposeFormValues) => Promise<v
       exposed: [],
       variables: [],
     } as ComposeFormValues,
-    onSubmit: async ({ value }) => {
-      await onSubmit(value);
-    },
   });
 }
 
@@ -113,19 +110,33 @@ export function deriveComposeFlags(args: {
   preview: Preview | null;
   step: "file" | "vars";
   stagePending: boolean;
+  variables: Var[];
 }) {
-  const { source, gitRepoUrl, preview, step, stagePending } = args;
+  const { source, gitRepoUrl, preview, step, stagePending, variables } = args;
   const buildServices = preview?.services.filter((s) => s.hasBuild) ?? [];
   // A valid, deployable inline file (no build services).
   const inlineReady = source === "inline" && preview?.valid === true && buildServices.length === 0;
   const hasVars = source === "inline" && (preview?.vars.length ?? 0) > 0;
+  // Required env = a `${VAR}` ref the file declares WITHOUT a `:-default`. The
+  // stack can't deploy correctly until these are set (e.g. Authentik's
+  // POSTGRES_PASSWORD), so block staging while any is blank — otherwise the
+  // vars step can be clicked straight through and the stack lands in the
+  // pending state with an empty password, which is exactly the "janky" bypass.
+  const requiredKeys = new Set(
+    (preview?.vars ?? []).filter((v) => v.default === null).map((v) => v.name),
+  );
+  const requiredUnset =
+    source === "inline" &&
+    variables.some((v) => requiredKeys.has(v.key.trim()) && v.value.trim() === "");
   // Always route an inline file through the variables step before creating, so
   // the operator can review / set / add env values BEFORE the stack deploys —
   // not just when the file happens to declare `${VAR}` refs. (Git source has no
   // inline step; its file + vars are resolved at build time.)
   const showNext = step === "file" && inlineReady;
   const canCreate =
-    !stagePending && (source === "git" ? gitRepoUrl.trim().length > 0 : inlineReady);
+    !stagePending &&
+    !requiredUnset &&
+    (source === "git" ? gitRepoUrl.trim().length > 0 : inlineReady);
 
   // What the name will be if left blank — shown as the field's placeholder.
   const repoName = gitRepoUrl
@@ -136,5 +147,14 @@ export function deriveComposeFlags(args: {
     .pop();
   const derivedName = (source === "git" ? repoName : preview?.name) || "compose-stack";
 
-  return { buildServices, inlineReady, hasVars, showNext, canCreate, repoName, derivedName };
+  return {
+    buildServices,
+    inlineReady,
+    hasVars,
+    showNext,
+    canCreate,
+    repoName,
+    derivedName,
+    requiredUnset,
+  };
 }

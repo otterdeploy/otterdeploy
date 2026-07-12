@@ -25,7 +25,16 @@ function enrichComposeCreates(changes: Change[], manifest: Manifest): Change[] {
     if (!spec || spec.source !== "inline") return c;
     const parsed = parseCompose(spec.content);
     if (parsed.isErr()) return c;
-    return { ...c, details: { ...c.details, services: summarizeCompose(parsed.value) } };
+    return {
+      ...c,
+      details: {
+        ...c.details,
+        services: summarizeCompose(parsed.value),
+        // Carry the template brand so the pending ghost group renders the
+        // stack's logo immediately, before the first deploy persists it.
+        ...(spec.logoBrand ? { logoBrand: spec.logoBrand } : {}),
+      },
+    };
   });
 }
 

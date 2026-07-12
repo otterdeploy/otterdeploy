@@ -1,0 +1,18 @@
+Rule: react-doctor/js-set-map-lookups
+Severity: warning
+Category: Performance
+Count: 6
+
+This scales poorly because `array.includes()` inside a loop scans the whole list every time. Use a Set for constant-time lookups.
+
+Suggestion: Use a `Set` or `Map` when you check for the same items over and over. `Array.includes`/`find` scans the whole list each time
+
+Curl with no cache & follow the canonical fix and false positive check recipe before fixing: https://react.doctor/docs/rules/react-doctor/js-set-map-lookups
+
+Files:
+  src/features/api-keys/scope-picker.tsx:57
+  src/features/backups/multi-combobox.tsx:114
+  src/features/edge-logs/components/host-filter.tsx:74
+  src/features/resources/components/compose/exposed-editor.tsx:154
+  src/features/resources/components/postgres/tabs/data/components/dice-grid.tsx:183
+  src/routes/_app/$orgSlug/_shell/servers.tsx:85
