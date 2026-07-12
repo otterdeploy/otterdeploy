@@ -16,22 +16,7 @@ npm install -g @otterdeploy/cli
 otterdeploy --version
 ```
 
-The npm package runs on Node ≥20 or Bun. For a zero-runtime install, every
-release also attaches a standalone binary per platform (the runtime is bundled
-in, so there is nothing else to install):
-
-| Platform | Asset |
-| --- | --- |
-| Linux x64 | `otterdeploy-linux-x64` |
-| Linux arm64 | `otterdeploy-linux-arm64` |
-| macOS (Intel) | `otterdeploy-darwin-x64` |
-| macOS (Apple Silicon) | `otterdeploy-darwin-arm64` |
-| Windows x64 | `otterdeploy-windows-x64.exe` |
-
-```bash
-curl -fsSL https://github.com/otterdeploy/otterdeploy/releases/latest/download/otterdeploy-linux-x64 -o otterdeploy
-chmod +x otterdeploy && sudo mv otterdeploy /usr/local/bin/
-```
+Runs on Node ≥20 or Bun.
 
 ## Authentication
 

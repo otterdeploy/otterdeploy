@@ -11,8 +11,7 @@ npm install -g @otterdeploy/cli
 # or: bun add -g @otterdeploy/cli
 ```
 
-Runs on Node ≥20 or Bun. Standalone binaries (no runtime required) are also
-attached to each [GitHub release](https://github.com/otterdeploy/otterdeploy/releases).
+Runs on Node ≥20 or Bun.
 
 ## Quick start
 
