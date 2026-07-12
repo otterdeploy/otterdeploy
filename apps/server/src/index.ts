@@ -43,6 +43,7 @@ import {
   inboundWebhookHandler,
   terminalWebSocketHandler,
 } from "./handlers";
+import { uploadSourceHandler } from "./handlers/upload/source";
 import { invalidate } from "./lib/invalidate";
 
 initLogger({
@@ -233,6 +234,13 @@ app.get("/api/integrations/github/manifest/callback", githubManifestCallbackHand
 // Per-node health reports from the swarm global agent service (Bearer HMAC
 // token, verified in the handler). See docs/designs/server-health-agent.md.
 app.post("/api/agent/health", agentHealthIngestHandler);
+
+// ─── Local source upload ───────────────────────────────────────────
+// `otterdeploy deploy` streams a source tarball here for a `source: "upload"`
+// service; the handler stages it on the shared data dir and enqueues the build
+// (Bearer session token or org API key). Raw route — binary body. See
+// packages/api/src/routers/project/upload-source.ts.
+app.post("/api/services/:resourceId/source", uploadSourceHandler);
 
 // ─── Deployment protection (auth wall) ─────────────────────────────
 // forward_auth target (internal subrequest from Caddy) + the cross-domain
