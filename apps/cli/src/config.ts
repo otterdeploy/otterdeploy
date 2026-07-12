@@ -56,9 +56,31 @@ export function clearConfig(): void {
   }
 }
 
+/**
+ * Normalize a user-supplied control plane URL: bare hosts
+ * (`deploy.acme.com`) get an `https://` scheme, the result is validated as a
+ * URL, and any trailing slash is stripped so it composes cleanly with
+ * `${url}/api/auth`. Returns null for empty/invalid input.
+ *
+ * Every URL source funnels through here — `--url` flag, positional arg,
+ * OTTERDEPLOY_URL env, stored config, interactive prompt — so a scheme-less
+ * host is accepted everywhere, not just at the prompt. Without this,
+ * `login --url deploy.acme.com` reached better-auth as
+ * `deploy.acme.com/api/auth` and died with "Invalid base URL".
+ */
+export function normalizeUrl(raw: string | undefined | null): string | null {
+  if (!raw) return null;
+  let url = raw.trim();
+  if (!url) return null;
+  if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+  if (!z.url().safeParse(url).success) return null;
+  return url.replace(/\/$/, "");
+}
+
 // Resolution order: --url flag > OTTERDEPLOY_URL env > stored config.
+// Normalized so a scheme-less host resolves the same from any source.
 export function resolveUrl(flag?: string): string | undefined {
-  return flag ?? env.OTTERDEPLOY_URL ?? loadConfig().url;
+  return normalizeUrl(flag ?? env.OTTERDEPLOY_URL ?? loadConfig().url) ?? undefined;
 }
 
 // CI auth: OTTERDEPLOY_TOKEN bypasses the device-code flow entirely.

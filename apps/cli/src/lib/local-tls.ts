@@ -39,8 +39,13 @@ const isBun = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
  * (valid cert) always takes the untouched `fetch` path.
  */
 export function fetchFor(baseUrl: string): typeof fetch {
-  if (!isLocalHost(baseUrl)) return fetch;
-  if (isBun) {
+  // Only Bun can relax TLS per-request (its `tls` fetch option), and only for a
+  // loopback dev host. On Node we deliberately do NOT touch verification: the
+  // old approach set NODE_TLS_REJECT_UNAUTHORIZED=0, which disables TLS
+  // process-wide and makes Node print an alarming security warning. A published
+  // CLI targets real hosts with valid certs; for a self-signed localhost dev
+  // proxy, run the CLI under Bun.
+  if (isBun && isLocalHost(baseUrl)) {
     return ((input: Parameters<typeof fetch>[0], init?: RequestInit) =>
       fetch(input, {
         ...init,
@@ -48,10 +53,5 @@ export function fetchFor(baseUrl: string): typeof fetch {
         tls: { rejectUnauthorized: false },
       } as RequestInit)) as typeof fetch;
   }
-  // Node has no per-request TLS-skip on global fetch without pulling in undici;
-  // for a loopback dev host only, relax verification process-wide. The CLI is
-  // short-lived and this branch never runs against a remote host.
-  // oxlint-disable-next-line node/no-process-env -- dev-only, localhost-scoped TLS relaxation
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
   return fetch;
 }
