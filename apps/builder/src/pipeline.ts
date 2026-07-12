@@ -35,6 +35,7 @@ import { rm } from "node:fs/promises";
 import { pruneStaleBuildCache, pruneStaleBuilds } from "./build-workdir";
 import { ensureBuildxBuilder, cachePathFor } from "./buildx";
 import { cloneRepoAtSha } from "./clone";
+import { extractTarballToWorkDir } from "./extract";
 import { isComposeDeployment, runComposeBuild } from "./compose-build";
 import { detectServiceFramework } from "./detect-framework";
 import {
@@ -141,33 +142,57 @@ function runBuildSteps(
       `build start: project=${ctx.project.slug} resource=${ctx.resource.name} sha=${ctx.deployment.gitSha ?? "unknown"}`,
     );
 
-    const { gitSha, gitRef } = ctx.deployment;
-    if (!gitSha || !gitRef) {
-      return Result.err(new InvalidDeploymentError(opts.deploymentId));
+    // Source acquisition differs by kind — git clones a repo, upload extracts a
+    // tarball the CLI staged — but both produce a populated work dir + an image
+    // tag, and everything downstream is source-agnostic.
+    let sourceDir: string;
+    let buildTag: string;
+    if (ctx.service.source === "upload") {
+      // No commit sha for an uploaded source — tag the image by the unique
+      // deployment id instead.
+      buildTag = opts.deploymentId;
+      const extracted = yield* await step("extract", () =>
+        extractTarballToWorkDir({
+          projectId: ctx.project.id as ProjectId,
+          deploymentId: opts.deploymentId,
+          sink,
+        }),
+      );
+      sourceDir = extracted.workDir;
+      work.path = extracted.workDir;
+      work.persistent = extracted.persistent;
+    } else {
+      const { gitSha, gitRef } = ctx.deployment;
+      if (!gitSha || !gitRef || !ctx.repo) {
+        return Result.err(new InvalidDeploymentError(opts.deploymentId));
+      }
+      const repo = ctx.repo;
+      buildTag = gitSha;
+
+      // Public-URL bindings carry no installationId — clone over anonymous HTTPS.
+      // Installation-backed bindings mint a short-lived token + inject it. Use the
+      // GitHub-side numeric id (resolved in load.ts), NOT repo.installationId,
+      // which is the internal git_installation.id FK the token API can't resolve.
+      const installationId = ctx.githubInstallationId;
+      const bindingKind = resolveBindingKind(installationId, repo.isPrivate);
+      const installationToken = yield* await mintInstallationToken(installationId);
+
+      const cloned = yield* await step("clone", () =>
+        cloneRepoAtSha({
+          cloneUrl: repo.cloneUrl,
+          ref: gitRef,
+          sha: gitSha,
+          projectId: ctx.project.id as ProjectId,
+          deploymentId: opts.deploymentId,
+          installationToken,
+          bindingKind,
+          sink,
+        }),
+      );
+      sourceDir = cloned.workDir;
+      work.path = cloned.workDir;
+      work.persistent = cloned.persistent;
     }
-
-    // Public-URL bindings carry no installationId — clone over anonymous HTTPS.
-    // Installation-backed bindings mint a short-lived token + inject it. Use the
-    // GitHub-side numeric id (resolved in load.ts), NOT repo.installationId,
-    // which is the internal git_installation.id FK the token API can't resolve.
-    const installationId = ctx.githubInstallationId;
-    const bindingKind = resolveBindingKind(installationId, ctx.repo.isPrivate);
-    const installationToken = yield* await mintInstallationToken(installationId);
-
-    const cloned = yield* await step("clone", () =>
-      cloneRepoAtSha({
-        cloneUrl: ctx.repo.cloneUrl,
-        ref: gitRef,
-        sha: gitSha,
-        projectId: ctx.project.id as ProjectId,
-        deploymentId: opts.deploymentId,
-        installationToken,
-        bindingKind,
-        sink,
-      }),
-    );
-    work.path = cloned.workDir;
-    work.persistent = cloned.persistent;
 
     // Pick the builder, then build. Both the dockerfile and railpack paths
     // produce the same `{ shaTag, latestTag, buildDir }` shape so everything
@@ -187,10 +212,10 @@ function runBuildSteps(
       runImageBuild({
         buildConfig: ctx.service.buildConfig,
         builder,
-        workDir: cloned.workDir,
+        workDir: sourceDir,
         sourceSubdir: ctx.service.sourceSubdir,
         imageRepository: ctx.imageRepository,
-        gitSha,
+        gitSha: buildTag,
         cacheBuilder,
         cachePath,
         sink,
@@ -216,7 +241,7 @@ function runBuildSteps(
     // throws: returns null if nothing was detected. Read before cleanup rm's
     // the clone dir.
     const framework = await detectServiceFramework({
-      workDir: cloned.workDir,
+      workDir: sourceDir,
       sourceSubdir: ctx.service.sourceSubdir,
       buildDir: image.buildDir,
       sink,

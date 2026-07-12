@@ -18,15 +18,16 @@
  * (or bumping BUILDER_CONCURRENCY).
  */
 
-import type { DeploymentId } from "@otterdeploy/shared/id";
+import type { DeploymentId, ProjectId } from "@otterdeploy/shared/id";
 
 import { reportPreviewBuildOutcome } from "@otterdeploy/api/git/preview-report";
 import { env } from "@otterdeploy/env/server";
 import { defineJob } from "@otterdeploy/jobs";
 import { DeployTriggeredPayload, deployTriggeredJob } from "@otterdeploy/jobs/jobs/deploy";
-import { DATA_ROOT } from "@otterdeploy/shared/paths";
+import { DATA_ROOT, sourceTarballPath } from "@otterdeploy/shared/paths";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import { getDeploymentStatus, markFailed } from "./state";
@@ -92,12 +93,28 @@ const HELPER_TIMEOUT_MS = 45 * 60_000;
 /** Sentinel exitCode for a build we killed at the timeout wall. */
 const HELPER_TIMED_OUT = -2;
 
-/** Spawn the per-deployment helper container and resolve once it exits. */
-function runHelperContainer(deploymentId: DeploymentId): Promise<HelperResult> {
+/** Spawn the per-deployment helper container and resolve once it exits.
+ *  For a `source: "upload"` build, `sourceTarball` is the host path of the
+ *  staged tarball; it's bind-mounted into the helper at the same path so the
+ *  pipeline's extract step can read it (the helper does NOT mount DATA_ROOT, so
+ *  the tarball must be mounted explicitly — same-path, docker-out-of-docker). */
+function runHelperContainer(
+  deploymentId: DeploymentId,
+  opts: { sourceTarball?: string } = {},
+): Promise<HelperResult> {
   const envFlags = FORWARDED_ENV.filter(
     // eslint-disable-next-line node/no-process-env
     (key) => process.env[key] !== undefined,
   ).flatMap((key) => ["-e", key]);
+
+  // Mount the staged source tarball read-only at its own host path so the
+  // extract step finds it (the bind source resolves on the host daemon). Gated
+  // on the file existing on the host — no data folder ⇒ no tarball ⇒ the build
+  // fails with a clear "uploaded source not found" from extract.ts.
+  const sourceFlags =
+    opts.sourceTarball && existsSync(opts.sourceTarball)
+      ? ["-v", `${opts.sourceTarball}:${opts.sourceTarball}:ro`]
+      : [];
 
   // Persist the BuildKit layer cache + the buildx instance registration across
   // these throwaway containers, but only when the data folder is actually
@@ -126,6 +143,7 @@ function runHelperContainer(deploymentId: DeploymentId): Promise<HelperResult> {
     "-v",
     "/var/run/docker.sock:/var/run/docker.sock",
     ...cacheFlags,
+    ...sourceFlags,
     ...envFlags,
     env.BUILDER_HELPER_IMAGE,
     "bun",
@@ -197,11 +215,16 @@ export function makeBuildJob() {
 
       for (const id of payload.deploymentIds) {
         const deploymentId = id as DeploymentId;
+        // Upload builds: the staged tarball is bind-mounted into the helper.
+        const sourceTarball =
+          payload.sourceKind === "tarball"
+            ? sourceTarballPath(payload.projectId as ProjectId, deploymentId)
+            : undefined;
         let outcome: { ok: boolean; error?: string } = { ok: false, error: "not attempted" };
 
         for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
           try {
-            const { exitCode, tail } = await runHelperContainer(deploymentId);
+            const { exitCode, tail } = await runHelperContainer(deploymentId, { sourceTarball });
             const status = await getDeploymentStatus(deploymentId).catch(() => null);
             const unconverged = status === "pending" || status === "building";
 
@@ -235,6 +258,10 @@ export function makeBuildJob() {
           }
           break;
         }
+
+        // Reclaim the staged tarball now that every attempt is done (the worker
+        // has DATA_ROOT mounted read-write; the helper only had it read-only).
+        if (sourceTarball) await rm(sourceTarball, { force: true }).catch(() => undefined);
 
         results.push({ deploymentId: id, ...outcome });
         // Preview deploys converge their PR comment + commit status here, the
