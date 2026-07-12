@@ -10,10 +10,9 @@
 
 import { sleep } from "@otterdeploy/shared/promise";
 import { consola } from "consola";
-import * as z from "zod";
 
 import { CLI_CLIENT_ID, createCliAuthClient, type CliAuthClient } from "./auth-client";
-import { loadConfig, resolveToken, resolveUrl, saveConfig } from "./config";
+import { loadConfig, normalizeUrl, resolveToken, resolveUrl, saveConfig } from "./config";
 import { openInBrowser } from "./lib/browser";
 
 type DeviceCodeData = NonNullable<Awaited<ReturnType<CliAuthClient["device"]["code"]>>["data"]>;
@@ -34,14 +33,12 @@ export async function promptForUrl(): Promise<string | null> {
     type: "text",
   });
   if (typeof raw !== "string") return null; // cancelled (Ctrl-C)
-  let url = raw.trim();
-  if (!url) return null;
-  if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
-  if (!z.url().safeParse(url).success) {
-    consola.error(`"${url}" is not a valid URL.`);
+  const url = normalizeUrl(raw);
+  if (!url) {
+    if (raw.trim()) consola.error(`"${raw.trim()}" is not a valid URL.`);
     return null;
   }
-  return url.replace(/\/$/, "");
+  return url;
 }
 
 export interface AuthedSession {

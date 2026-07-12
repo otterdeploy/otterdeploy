@@ -2,7 +2,7 @@ import { defineCommand } from "citty";
 import { consola } from "consola";
 
 import { deviceCodeLogin, promptForUrl } from "../auth-flow";
-import { loadConfig, saveConfig } from "../config";
+import { loadConfig, normalizeUrl, saveConfig } from "../config";
 
 export const loginCommand = defineCommand({
   meta: {
@@ -19,8 +19,21 @@ export const loginCommand = defineCommand({
   },
   async run({ args }) {
     // Resolution order: --url flag → bare positional → stored config → prompt.
+    // Explicit inputs are normalized (bare host → https://) and validated up
+    // front, so `login --url deploy.acme.com` works and a typo fails with a
+    // clear message instead of a downstream "Invalid base URL".
     const positional = args._?.[0];
-    const url = args.url ?? positional ?? loadConfig().url ?? (await promptForUrl());
+    const explicit = args.url ?? positional ?? loadConfig().url;
+    let url: string | null;
+    if (explicit) {
+      url = normalizeUrl(explicit);
+      if (!url) {
+        consola.error(`"${explicit}" is not a valid control plane URL.`);
+        process.exit(1);
+      }
+    } else {
+      url = await promptForUrl();
+    }
     if (!url) {
       consola.error(
         "No URL provided. Run `otterdeploy login <url>` (e.g. https://otter.acme.com).",

@@ -11,7 +11,15 @@ npm install -g @otterdeploy/cli
 # or: bun add -g @otterdeploy/cli
 ```
 
-Runs on Node ≥20 or Bun.
+Runs on Node ≥20 or Bun, on Windows, macOS, and Linux.
+
+**Bun-only machines (no Node installed):** `bun add -g` symlinks the binary and
+lets the OS run its `#!/usr/bin/env node` shebang, which needs Node. If you have
+only Bun, run it with `bunx` instead — it executes under Bun and needs no Node:
+
+```bash
+bunx @otterdeploy/cli whoami
+```
 
 ## Quick start
 

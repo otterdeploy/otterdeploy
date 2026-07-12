@@ -30,17 +30,24 @@ const isBun = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
 
 /**
  * A `fetch` for the given base URL: the stock global fetch for remote hosts, or
- * a TLS-relaxed wrapper for local dev hosts (the portless proxy serves a
- * self-signed cert on `*.localhost:1355`). Usable as both oRPC's `RPCLink`
+ * — in dev only — a TLS-relaxed wrapper for the loopback portless proxy
+ * (self-signed cert on `*.localhost:1355`). Usable as both oRPC's `RPCLink`
  * fetch and better-auth's `customFetchImpl`.
  *
- * The relaxation is scoped strictly to loopback / `.localhost`, so it never
- * weakens a real connection — an npm-installed CLI hitting a production host
- * (valid cert) always takes the untouched `fetch` path.
+ * The dev relaxation is Bun-only and localhost-only. The publish build passes
+ * `--define process.env.OTTERDEPLOY_BUNDLED="1"`, so the leading term below
+ * folds to `"1" !== "1"` → `false` and the whole branch (the only place
+ * `rejectUnauthorized` appears) is dead-code-eliminated — the shipped CLI
+ * contains no certificate-verification bypass at all. Running from source
+ * (`bun run start`) leaves the env var unset, keeping the relaxation for dev.
  */
 export function fetchFor(baseUrl: string): typeof fetch {
-  if (!isLocalHost(baseUrl)) return fetch;
-  if (isBun) {
+  if (
+    // oxlint-disable-next-line node/no-process-env -- build-time define, folded to false in the published bundle
+    process.env.OTTERDEPLOY_BUNDLED !== "1" &&
+    isBun &&
+    isLocalHost(baseUrl)
+  ) {
     return ((input: Parameters<typeof fetch>[0], init?: RequestInit) =>
       fetch(input, {
         ...init,
@@ -48,10 +55,5 @@ export function fetchFor(baseUrl: string): typeof fetch {
         tls: { rejectUnauthorized: false },
       } as RequestInit)) as typeof fetch;
   }
-  // Node has no per-request TLS-skip on global fetch without pulling in undici;
-  // for a loopback dev host only, relax verification process-wide. The CLI is
-  // short-lived and this branch never runs against a remote host.
-  // oxlint-disable-next-line node/no-process-env -- dev-only, localhost-scoped TLS relaxation
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
   return fetch;
 }
