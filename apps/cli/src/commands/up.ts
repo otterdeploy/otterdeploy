@@ -151,10 +151,11 @@ async function maybeAddFirstService(configOverride?: string): Promise<void> {
   const source = (await consola.prompt("Source:", {
     type: "select",
     options: [
+      { label: "Upload this directory (build on server)", value: "upload" },
       { label: "Container image", value: "image" },
-      { label: "Build from this project's git repo", value: "git" },
+      { label: "Build from a connected git repo", value: "git" },
     ],
-  })) as "image" | "git";
+  })) as "image" | "git" | "upload";
 
   const portRaw = (await consola.prompt("HTTP port (blank to skip):", {
     type: "text",
@@ -167,12 +168,12 @@ async function maybeAddFirstService(configOverride?: string): Promise<void> {
   const manifest = await loadManifest(configOverride);
   const next: Manifest = { ...manifest, services: { ...manifest.services } };
 
-  if (source === "git") {
-    const subdir = (await consola.prompt("Build subdir (blank for repo root):", {
+  if (source === "upload" || source === "git") {
+    const subdir = (await consola.prompt("Build subdir (blank for root):", {
       type: "text",
     })) as string;
     next.services[name] = {
-      source: "git",
+      source,
       sourceSubdir: subdir || null,
       replicas: 1,
       ...(hasPort ? { ports: [{ container: portNum, appProtocol: "http", primary: true }] } : {}),
