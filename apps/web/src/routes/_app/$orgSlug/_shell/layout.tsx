@@ -1,11 +1,11 @@
 import { ProjectSidebar } from "@/features/shell/components/sidebar/project-sidebar";
 
 import { SiteHeader } from "@/features/shell/components/site-header";
-import { UpdateBanner } from "@/features/updates";
+import { UpdateBanner, useUpdateStatus } from "@/features/updates";
 
 import { SidebarInset, SidebarProvider } from "@/shared/components/ui/sidebar";
 import { createFileRoute, Outlet, useMatch } from "@tanstack/react-router";
-import { useState } from "react";
+import { type CSSProperties, useState } from "react";
 
 /**
  * Operational shell — the pathless chrome wrapping every day-to-day org page
@@ -38,8 +38,20 @@ function RouteComponent() {
   // Read once on mount so a re-render never clobbers the live toggle state.
   const [defaultSidebarOpen] = useState(readSidebarDefaultOpen);
 
+  // The update banner (when shown) sits above the header, so the top chrome is
+  // taller. `--header-height` is the offset every shell height calc subtracts
+  // (sidebar, project tabs, full-height pages) — fold the banner's height in
+  // here so they all stay inside the viewport instead of overflowing by a bar.
+  const status = useUpdateStatus();
+  const bannerShown = status.bannerVisible && status.latest !== null;
+
   return (
-    <div className="[--header-height:calc(--spacing(12))]">
+    <div
+      // header bar (12) + banner (11) when shown, else just the header bar.
+      style={
+        { "--header-height": `calc(var(--spacing) * ${bannerShown ? 23 : 12})` } as CSSProperties
+      }
+    >
       {/* UpdateProvider lives in the parent $orgSlug layout — both chromes
           consume it (banner here, UpdatesCard in the settings zone). */}
       <SidebarProvider defaultOpen={defaultSidebarOpen} className="flex flex-col">

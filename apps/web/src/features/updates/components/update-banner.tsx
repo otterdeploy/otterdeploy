@@ -20,7 +20,7 @@ export function UpdateBanner() {
   if (!status.bannerVisible || !status.latest) return null;
 
   return (
-    <div className="flex w-full min-w-0 items-center gap-3 border-b border-primary/20 bg-primary/5 px-4 py-2 text-[13px]">
+    <div className="flex h-11 w-full min-w-0 shrink-0 items-center gap-3 border-b border-primary/20 bg-primary/5 px-4 text-[13px]">
       <span className="min-w-0 truncate font-medium">
         A new version of otterdeploy is available
       </span>

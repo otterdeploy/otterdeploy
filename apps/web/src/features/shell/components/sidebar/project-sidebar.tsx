@@ -120,17 +120,19 @@ export function ProjectSidebar({
       </SidebarContent>
 
       <SidebarFooter className="gap-2">
-        {/* Instance summary: real server count + running platform version. */}
-        <div className="flex items-start gap-2 px-2 py-1 text-xs text-muted-foreground">
-          <span className="flex-1 leading-snug">
-            self-hosted · {servers.length} {servers.length === 1 ? "server" : "servers"}
-          </span>
-          {currentVersion && <span className="font-mono">{currentVersion}</span>}
-        </div>
-
         <SidebarSeparator />
 
         <NavUser user={user} />
+
+        {/* Instance summary — real server count + running platform version.
+            Pinned below the user, and hidden when the rail is collapsed to icon
+            width so its text can't overflow the 3rem column. */}
+        <div className="flex items-center gap-2 px-2 pb-1 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
+          <span className="min-w-0 flex-1 truncate leading-snug">
+            self-hosted · {servers.length} {servers.length === 1 ? "server" : "servers"}
+          </span>
+          {currentVersion && <span className="shrink-0 font-mono">{currentVersion}</span>}
+        </div>
       </SidebarFooter>
     </Sidebar>
   );
