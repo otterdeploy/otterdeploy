@@ -114,12 +114,23 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
   fold(await runDatabaseCreates(ctx, byKind.databaseCreates));
   // 2. Build the ${database:…}/${service:…} ref table now the rows exist.
   const refTable = await loadRefTable(projectId);
-  // 3-7. Service/compose/database creates, updates, then deletes.
+  // A source change diffs to delete+create of the SAME name (see diff.ts) and
+  // MUST delete before it creates — otherwise the create collides with the
+  // still-live resource ("service already exists") and is skipped, leaving the
+  // service torn down and never recreated. Split those replace-deletes out and
+  // run them first; unrelated deletes stay last (frees their ports/domains
+  // without tearing anything down early).
+  const createdServiceNames = new Set(byKind.serviceCreates.map((c) => c.name));
+  const replaceDeletes = byKind.serviceDeletes.filter((c) => createdServiceNames.has(c.name));
+  const standaloneDeletes = byKind.serviceDeletes.filter((c) => !createdServiceNames.has(c.name));
+
+  // 3-7. Same-name replace-deletes, then creates, updates, then deletes.
+  fold(await runServiceDeletes(ctx, replaceDeletes));
   fold(await runServiceCreates(ctx, byKind.serviceCreates, refTable));
   fold(await runServiceUpdates(ctx, byKind.serviceUpdates, refTable));
   fold(await runComposeCreates(ctx, byKind.composeCreates));
   fold(await runDatabaseUpdates(ctx, byKind.databaseUpdates));
-  fold(await runServiceDeletes(ctx, byKind.serviceDeletes));
+  fold(await runServiceDeletes(ctx, standaloneDeletes));
   fold(await runDatabaseDeletes(ctx, byKind.databaseDeletes));
 
   // 8. Enqueue builds for the git-sourced services collected above. A failure
