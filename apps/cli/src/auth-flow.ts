@@ -14,6 +14,7 @@ import * as z from "zod";
 
 import { CLI_CLIENT_ID, createCliAuthClient, type CliAuthClient } from "./auth-client";
 import { loadConfig, resolveToken, resolveUrl, saveConfig } from "./config";
+import { openInBrowser } from "./lib/browser";
 
 type DeviceCodeData = NonNullable<Awaited<ReturnType<CliAuthClient["device"]["code"]>>["data"]>;
 
@@ -67,7 +68,12 @@ export async function ensureAuthenticated(urlOverride?: string): Promise<AuthedS
   return { url, token };
 }
 
-async function deviceCodeLogin(url: string): Promise<{ token: string; webUrl?: string }> {
+export interface DeviceLoginResult {
+  token: string;
+  webUrl?: string;
+}
+
+export async function deviceCodeLogin(url: string): Promise<DeviceLoginResult> {
   const auth = createCliAuthClient(url);
   const code = await requestDeviceCode(auth);
   const fullUrl =
@@ -86,6 +92,7 @@ async function deviceCodeLogin(url: string): Promise<{ token: string; webUrl?: s
     ].join("\n"),
   );
   openInBrowser(fullUrl);
+  consola.info(`Waiting for approval… (code expires in ${code.expires_in ?? 1800}s)`);
 
   const token = await pollForDeviceToken(auth, code);
   // verification_uri carries the web origin (in dev that's a different host
@@ -145,16 +152,5 @@ function safeOrigin(maybeUrl: string): string | undefined {
   }
 }
 
-function openInBrowser(url: string): void {
-  const cmd =
-    process.platform === "darwin"
-      ? ["open", url]
-      : process.platform === "win32"
-        ? ["cmd", "/c", "start", "", url]
-        : ["xdg-open", url];
-  try {
-    Bun.spawn(cmd, { stdout: "ignore", stderr: "ignore" });
-  } catch {
-    // Ignore — user has the URL in the box.
-  }
-}
+// Re-exported for callers that already import it from here.
+export { openInBrowser };

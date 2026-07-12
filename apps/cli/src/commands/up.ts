@@ -5,10 +5,9 @@
  *                   define a first service, then deploy.
  *   config exists?  just deploy it (idempotent — re-run to redeploy).
  *
- * The deploy half is identical to `sync`: save + diff to show the plan,
- * confirm if anything is destructive, then the atomic `applyChange` the
- * UI Deploy button uses. `init` + `deploy` still exist for users who want
- * the two steps apart; `up` is the guided fast path.
+ * The deploy half IS `deploy`/`sync` — the shared runDeploy pipeline.
+ * `init` + `deploy` still exist for users who want the two steps apart;
+ * `up` is the guided fast path.
  */
 
 import type { Manifest } from "@otterdeploy/api/manifest";
@@ -28,7 +27,7 @@ import {
   writeConfig,
   writeConfigTemplate,
 } from "../config-file";
-import { countByKind, printDiff } from "../lib/diff-printer";
+import { parseTimeoutMinutes, runDeploy } from "../lib/deploy-run";
 
 // Project slugs are lowercase kebab; derive a sane default from the cwd.
 function slugify(input: string): string {
@@ -50,6 +49,8 @@ export const upCommand = defineCommand({
     env: { type: "string", description: "Environment override block to apply" },
     name: { type: "string", description: "Project display name (scaffold only)" },
     slug: { type: "string", description: "Project slug (scaffold only)" },
+    wait: { type: "boolean", description: "Wait for changed services to reach running" },
+    timeout: { type: "string", description: "Minutes to wait with --wait (default 30)" },
     yes: { type: "boolean", description: "Skip all prompts (non-interactive)" },
     url: { type: "string", description: "Override control plane URL" },
     json: { type: "boolean", description: "Output as JSON" },
@@ -66,69 +67,16 @@ export const upCommand = defineCommand({
       await scaffoldProject(client, args, url, targetPath);
     }
 
-    // ─── Deploy (same path as `sync`) ─────────────────────────────────
-    const manifest = await loadManifest(args.config);
-    const project = await client.project.getBySlug({ slug: manifest.project });
-    const current = await client.project.manifest.get({ id: project.id });
-
-    // Save + diff so the plan reflects the local manifest (diff compares
-    // the *saved* manifest vs live state). applyChange then uses the
-    // bumped version.
-    const saved = await client.project.manifest.save({
-      projectId: project.id,
-      manifest,
-      expectedVersion: current.version,
+    // ─── Deploy (shared pipeline with `deploy`/`sync`) ────────────────
+    await runDeploy({
+      client,
+      config: args.config,
+      env: args.env,
+      yes: args.yes,
+      json: args.json,
+      wait: args.wait,
+      timeoutMinutes: parseTimeoutMinutes(args.timeout),
     });
-    const diff = await client.project.manifest.diff({
-      projectId: project.id,
-      environment: args.env,
-    });
-
-    if (diff.changes.length === 0) {
-      if (args.json) {
-        process.stdout.write(
-          `${JSON.stringify({ appliedCount: 0, skipped: [], version: saved.version }, null, 2)}\n`,
-        );
-        return;
-      }
-      consola.info("Nothing to deploy — already in sync.");
-      return;
-    }
-
-    if (!args.yes && !args.json) {
-      printDiff(diff.changes);
-      const counts = countByKind(diff.changes);
-      const deletes = counts.delete ?? 0;
-      const ok = await consola.prompt(
-        deletes > 0 ? `${deletes} resource(s) will be deleted. Continue?` : "Apply these changes?",
-        { type: "confirm", initial: deletes === 0 },
-      );
-      if (!ok) {
-        consola.info("Aborted. Config saved — run `otterdeploy deploy` when ready.");
-        return;
-      }
-    }
-
-    const result = await client.project.manifest.applyChange({
-      projectId: project.id,
-      manifest,
-      expectedVersion: saved.version,
-      environment: args.env,
-    });
-
-    if (args.json) {
-      process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-      return;
-    }
-
-    consola.success(`Applied ${result.appliedCount} change(s) (manifest v${result.version}).`);
-    if (result.skipped.length > 0) {
-      consola.warn("Skipped:");
-      for (const s of result.skipped) {
-        consola.log(`  ${s.resource} ${s.name}: ${s.reason}`);
-      }
-      process.exitCode = 1;
-    }
   },
 });
 
@@ -161,15 +109,16 @@ async function scaffoldProject(
         }));
   const name = args.name ?? slug;
 
-  // create, or link if the slug is already taken (same as `init`).
+  // create, or link if the slug is already taken (same as `init`). Status
+  // lines are suppressed under --json so stdout stays a single JSON document.
   let project: { id: string; slug: string };
   try {
     project = await client.project.create({ name, slug });
-    consola.success(`Created project ${slug}`);
+    if (!args.json) consola.success(`Created project ${slug}`);
   } catch (error) {
     if ((error as { code?: string }).code !== "CONFLICT") throw error;
     project = await client.project.getBySlug({ slug });
-    consola.info(`Linked to existing project ${slug}`);
+    if (!args.json) consola.info(`Linked to existing project ${slug}`);
   }
 
   // $schema lives on the web origin (captured at login), not the API.
@@ -179,7 +128,7 @@ async function scaffoldProject(
     schemaUrl: `${schemaHost.replace(/\/$/, "")}/otterdeploy.schema.json`,
     projectSlug: project.slug,
   });
-  consola.success(`Wrote ${targetPath}`);
+  if (!args.json) consola.success(`Wrote ${targetPath}`);
 
   // A bare template deploys nothing useful — offer a first service.
   if (!args.yes && !args.json) {

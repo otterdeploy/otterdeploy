@@ -5,7 +5,7 @@
  *   - otterdeploy.config.ts   — exports default a Manifest (usually via
  *                                defineConfig()). Loaded via dynamic import
  *                                (Bun handles TS natively).
- *   - otterdeploy.config.json — plain JSON. Loaded via Bun.file().json().
+ *   - otterdeploy.config.json — plain JSON. Read with node:fs (Bun + Node).
  *
  * Either way, the loaded value is validated against manifestSchema and
  * shipped on the wire as JSON via the existing manifest.* contract.
@@ -13,11 +13,17 @@
 
 import { manifestSchema, type Manifest } from "@otterdeploy/api/manifest";
 import { Result, TaggedError } from "better-result";
-// import { assert } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+
+// The JSON config path uses plain fs so it runs on both Bun and Node; the .ts
+// path relies on the runtime being able to import TypeScript (Bun natively, or
+// Node ≥22.6 with type-stripping / a loader).
+const canImportTs =
+  typeof (globalThis as { Bun?: unknown }).Bun !== "undefined" ||
+  Number.parseInt(process.versions.node ?? "0", 10) >= 22;
 
 // .json is the default format. .ts is supported for users who want
 // type-checked authoring + env-var interpolation; .json is preferred
@@ -62,9 +68,16 @@ export async function loadConfig(override?: string): Promise<Manifest> {
   }
   const ext = extname(path).toLowerCase();
 
+  if (ext !== ".json" && !canImportTs) {
+    throw new LoadConfigError({
+      path,
+      message: `Loading ${path} needs TypeScript support — run under Bun (or Node ≥22), or use otterdeploy.config.json.`,
+    });
+  }
+
   const rawResult = await Result.tryPromise({
     try: async (): Promise<unknown> => {
-      if (ext === ".json") return Bun.file(path).json();
+      if (ext === ".json") return JSON.parse(readFileSync(path, "utf8"));
       // file:// URL avoids ESM resolver issues with absolute paths on
       // Windows + keeps cache-busting deterministic across reloads.
       const mod = (await import(pathToFileURL(path).href)) as { default?: unknown };
@@ -93,12 +106,20 @@ export async function loadConfig(override?: string): Promise<Manifest> {
 export function writeConfig(manifest: Manifest, override?: string): string {
   const path = configPath(override);
   const ext = extname(path).toLowerCase();
+  // Validate before persisting so an invalid resource name/replica count (from
+  // `add`, which builds map keys from raw args) is rejected up front instead of
+  // producing a file that fails manifestSchema.parse on every later load. The
+  // ZodError surfaces through the index.ts error boundary.
+  manifestSchema.parse(manifest);
   const ordered = {
     $schema: manifest.$schema,
     version: manifest.version ?? 1,
     project: manifest.project,
     databases: manifest.databases,
     services: manifest.services,
+    // Omitted only when empty — an empty map round-trips to the schema
+    // default, and older files without composes stay byte-identical.
+    ...(Object.keys(manifest.composes ?? {}).length > 0 ? { composes: manifest.composes } : {}),
     ...(manifest.environments ? { environments: manifest.environments } : {}),
   };
   const body =

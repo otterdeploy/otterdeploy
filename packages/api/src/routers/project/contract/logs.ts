@@ -24,6 +24,10 @@ export const resourceLogsTailInput = z.object({
   resourceId: resourceIdField,
   /** Number of historical lines to replay before live-tailing. */
   tail: z.number().int().min(0).max(1000).optional().default(100),
+  /** false = replay history, then end once docker EOFs (no reconnect loop). */
+  follow: z.boolean().optional().default(true),
+  /** Only lines at/after this instant (ISO 8601 UTC; converted to unix seconds for docker). */
+  since: z.iso.datetime().optional(),
 });
 
 export const resourceTaskLogsTailInput = z.object({

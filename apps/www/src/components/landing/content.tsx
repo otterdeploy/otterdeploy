@@ -106,7 +106,7 @@ export const FEATURE_CELLS: FeatureCell[] = [
     n: "09",
     title: "CLI + typed API",
     desc: "Drive everything from the CLI or the end-to-end typed oRPC API.",
-    detail: "npx otterdeploy status",
+    detail: "otterdeploy deploy --wait",
   },
 ];
 

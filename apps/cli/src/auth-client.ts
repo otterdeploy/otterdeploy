@@ -1,5 +1,5 @@
 import { createAuthClient } from "better-auth/client";
-import { deviceAuthorizationClient } from "better-auth/client/plugins";
+import { deviceAuthorizationClient, organizationClient } from "better-auth/client/plugins";
 
 import { fetchFor } from "./lib/local-tls";
 
@@ -10,7 +10,7 @@ export const CLI_CLIENT_ID = "otterdeploy-cli";
 export function createCliAuthClient(baseURL: string) {
   return createAuthClient({
     baseURL: `${baseURL.replace(/\/$/, "")}/api/auth`,
-    plugins: [deviceAuthorizationClient()],
+    plugins: [deviceAuthorizationClient(), organizationClient()],
     // Trust the dev portless proxy's local cert (Bun's fetch otherwise rejects
     // it); a no-op for remote hosts. See lib/local-tls.ts.
     fetchOptions: { customFetchImpl: fetchFor(baseURL) },

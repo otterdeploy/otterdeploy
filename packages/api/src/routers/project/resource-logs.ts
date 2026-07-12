@@ -34,6 +34,16 @@ interface LogsRef {
   organizationId: OrgId;
   resourceId: ResourceId;
   tail?: number;
+  /** false = one attach, end at docker EOF instead of reconnecting forever. */
+  follow?: boolean;
+  /** ISO instant — docker wants unix seconds, see sinceToUnixSeconds. */
+  since?: string;
+}
+
+function sinceToUnixSeconds(since: string | undefined): number | undefined {
+  if (!since) return undefined;
+  const ms = Date.parse(since);
+  return Number.isFinite(ms) ? Math.floor(ms / 1000) : undefined;
 }
 
 export async function* tailResourceLogs(
@@ -77,6 +87,8 @@ async function* tailContainerLogs(
     yield { stream: "system", line: "Resource not found", ts: nowIso() };
     return;
   }
+  const follow = input.follow ?? true;
+  const since = sinceToUnixSeconds(input.since);
   let attached: string | null = null;
   let waitingShown = false;
   const POLL_INTERVAL_MS = 2_000;
@@ -91,6 +103,10 @@ async function* tailContainerLogs(
     const containerId = running?.containerId ?? null;
 
     if (!containerId) {
+      if (!follow) {
+        yield { stream: "system", line: `No container yet for ${serviceName}.`, ts: nowIso() };
+        return;
+      }
       if (!waitingShown) {
         yield { stream: "system", line: `Waiting for container ${serviceName}…`, ts: nowIso() };
         waitingShown = true;
@@ -109,31 +125,49 @@ async function* tailContainerLogs(
       };
     }
 
-    const logsResult = await docker.containers.getContainer(containerId).logs({
-      follow: true,
-      stdout: true,
-      stderr: true,
-      tail: String(input.tail ?? 100),
-      timestamps: true,
-    });
-    if (logsResult.isErr()) {
-      yield {
-        stream: "system",
-        line: `container logs failed: ${logsResult.error.message}. Retrying…`,
-        ts: nowIso(),
-      };
-      await sleep(POLL_INTERVAL_MS);
-      continue;
-    }
-
-    for await (const event of demuxDockerLogs(logsResult.value)) {
-      yield event;
-    }
-
-    yield { stream: "system", line: "Log stream closed; reconnecting…", ts: nowIso() };
-    attached = null;
+    const outcome = yield* streamContainerOnce(docker, containerId, input, follow, since);
+    if (outcome === "done") return;
+    // Only a cleanly-ended follow stream re-announces the (possibly new)
+    // container on the next pass; a transient error keeps the attachment.
+    if (outcome === "reconnect") attached = null;
     await sleep(POLL_INTERVAL_MS);
   }
+}
+
+// Attach to one container's logs and relay them. Returns how the caller should
+// proceed: stop, retry the same container, or rediscover and reattach.
+async function* streamContainerOnce(
+  docker: Docker,
+  containerId: string,
+  input: LogsRef,
+  follow: boolean,
+  since: number | undefined,
+): AsyncGenerator<ResourceLogEvent, "done" | "retry" | "reconnect", void> {
+  const logsResult = await docker.containers.getContainer(containerId).logs({
+    follow,
+    stdout: true,
+    stderr: true,
+    tail: String(input.tail ?? 100),
+    timestamps: true,
+    ...(since !== undefined ? { since } : {}),
+  });
+  if (logsResult.isErr()) {
+    const suffix = follow ? ". Retrying…" : "";
+    yield {
+      stream: "system",
+      line: `container logs failed: ${logsResult.error.message}${suffix}`,
+      ts: nowIso(),
+    };
+    return follow ? "retry" : "done";
+  }
+
+  for await (const event of demuxDockerLogs(logsResult.value)) {
+    yield event;
+  }
+
+  if (!follow) return "done";
+  yield { stream: "system", line: "Log stream closed; reconnecting…", ts: nowIso() };
+  return "reconnect";
 }
 
 // Swarm live tail: attach to services/{id}/logs (multiplexed across replicas,
@@ -154,6 +188,8 @@ async function* tailSwarmServiceLogs(
     // We still poll initially because the user lands on the resource page
     // before the swarm service has been created (DB row inserted first,
     // service-create is a downstream step in the create stream).
+    const follow = input.follow ?? true;
+    const since = sinceToUnixSeconds(input.since);
     let attachedServiceId: string | null = null;
     let waitingMessageShown = false;
     const POLL_INTERVAL_MS = 2_000;
@@ -167,6 +203,14 @@ async function* tailSwarmServiceLogs(
       }
 
       if (!resolved.serviceId) {
+        if (!follow) {
+          yield {
+            stream: "system",
+            line: `No swarm service yet for ${resolved.serviceName}.`,
+            ts: nowIso(),
+          };
+          return;
+        }
         if (!waitingMessageShown) {
           yield {
             stream: "system",
@@ -209,14 +253,23 @@ async function* tailSwarmServiceLogs(
       }
 
       const logsResult = await docker.services.getService(resolved.serviceId).logs({
-        follow: true,
+        follow,
         stdout: true,
         stderr: true,
         tail: String(input.tail ?? 100),
         timestamps: true,
+        ...(since !== undefined ? { since } : {}),
       });
 
       if (logsResult.isErr()) {
+        if (!follow) {
+          yield {
+            stream: "system",
+            line: `services.logs failed: ${logsResult.error.message}`,
+            ts: nowIso(),
+          };
+          return;
+        }
         yield {
           stream: "system",
           line: `services.logs failed: ${logsResult.error.message}. Retrying…`,
@@ -233,6 +286,8 @@ async function* tailSwarmServiceLogs(
       for await (const event of demuxDockerLogs(logsResult.value)) {
         yield event;
       }
+
+      if (!follow) return;
 
       yield {
         stream: "system",

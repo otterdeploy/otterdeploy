@@ -39,10 +39,9 @@ export const statusCommand = defineCommand({
       process.stdout.write(
         `${JSON.stringify(
           {
-            localVersion: "<computed-on-sync>",
             serverVersion: current.version,
             inSync: JSON.stringify(current.manifest) === JSON.stringify(manifest),
-            changesIfSynced: diff.changes,
+            changes: diff.changes,
           },
           null,
           2,

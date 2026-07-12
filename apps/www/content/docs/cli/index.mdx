@@ -1,0 +1,111 @@
+---
+title: CLI
+description: Install, authenticate, and drive Otterdeploy from the terminal.
+icon: Terminal
+---
+
+The `otterdeploy` CLI drives everything the dashboard can — projects, services,
+databases, domains, deployments, logs, backups, and more — from your terminal
+and your CI. It talks to the same typed oRPC API as the web app.
+
+## Install
+
+```bash
+npm install -g @otterdeploy/cli
+# or: bun add -g @otterdeploy/cli
+otterdeploy --version
+```
+
+The npm package runs on Node ≥20 or Bun. For a zero-runtime install, every
+release also attaches a standalone binary per platform (the runtime is bundled
+in, so there is nothing else to install):
+
+| Platform | Asset |
+| --- | --- |
+| Linux x64 | `otterdeploy-linux-x64` |
+| Linux arm64 | `otterdeploy-linux-arm64` |
+| macOS (Intel) | `otterdeploy-darwin-x64` |
+| macOS (Apple Silicon) | `otterdeploy-darwin-arm64` |
+| Windows x64 | `otterdeploy-windows-x64.exe` |
+
+```bash
+curl -fsSL https://github.com/otterdeploy/otterdeploy/releases/latest/download/otterdeploy-linux-x64 -o otterdeploy
+chmod +x otterdeploy && sudo mv otterdeploy /usr/local/bin/
+```
+
+## Authentication
+
+`otterdeploy login <url>` runs a browser device-code flow and stores your token
+at `~/.config/otterdeploy/config.json` (mode `0600`). Commands that need auth
+trigger the same flow automatically the first time. An expired token is
+detected and re-authenticated in place.
+
+### Environment variables
+
+| Variable | Purpose |
+| --- | --- |
+| `OTTERDEPLOY_URL` | Control-plane URL (overrides stored config). |
+| `OTTERDEPLOY_TOKEN` | Auth token — a session token or an `otter_` API key. Bypasses the browser flow entirely (use in CI). |
+| `OTTERDEPLOY_CONFIG_DIR` | Override the config directory. |
+| `NO_COLOR` | Disable ANSI color (also `--no-color`). |
+| `DEBUG` | Print full stack traces on error. |
+
+For CI, mint a scoped key and export it:
+
+```bash
+otterdeploy tokens create --name ci --expires 90d --read-only
+export OTTERDEPLOY_TOKEN=otter_...
+export OTTERDEPLOY_URL=https://deploy.example.com
+```
+
+## The config file
+
+Most commands operate on a project described by an `otterdeploy.config.json`
+(or `.ts`) file in the working directory — a declarative manifest of services,
+databases, and compose stacks. `deploy`/`sync`/`up` reconcile the live project
+to match it; `pull` writes the server's manifest back to disk; `status` shows
+drift.
+
+```json
+{
+  "$schema": "https://deploy.example.com/otterdeploy.schema.json",
+  "version": 1,
+  "project": "my-app",
+  "databases": { "primary": { "engine": "postgres", "version": "16" } },
+  "services": {
+    "web": {
+      "source": "git",
+      "repo": "acme/my-app",
+      "ports": [{ "container": 3000, "appProtocol": "http", "primary": true }],
+      "env": { "DATABASE_URL": "${database:primary.url}" }
+    }
+  }
+}
+```
+
+Commands that target a single resource take `--slug <project>` to override the
+project (otherwise it's read from the config's `project` field) and a resource
+name as a positional argument.
+
+## Global conventions
+
+- **`--json`** — machine-readable output on read commands (raw JSON to stdout,
+  no decoration). Ideal for scripting.
+- **`--yes`** — skip confirmation prompts (destructive actions confirm by
+  default).
+- **`--url <url>`** — override the control-plane URL for a single command.
+- **Exit codes** — non-zero on failure, on pending drift (`status`), on skipped
+  manifest changes, and on a failed `--wait` deploy.
+
+## Shell completions
+
+```bash
+otterdeploy completions bash > /etc/bash_completion.d/otterdeploy
+otterdeploy completions zsh  > "${fpath[1]}/_otterdeploy"
+otterdeploy completions fish > ~/.config/fish/completions/otterdeploy.fish
+```
+
+<Cards>
+  <Card title="Full command reference" href="/docs/cli/commands" />
+  <Card title="Getting started guide" href="/docs/guides/getting-started" />
+</Cards>

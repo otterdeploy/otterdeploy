@@ -1,4 +1,4 @@
-import { orgScopedProcedure, publicProcedure, requirePermission } from "../..";
+import { orgScopedProcedure, requirePermission } from "../..";
 import {
   inspectContainer,
   inspectImage,
@@ -39,14 +39,16 @@ function throwDockerError(result: Failed, errors: MutationErrors): never {
   throw errors.SERVER_ERROR({ message: result.reason });
 }
 
-// Reads (inspect / logs / nodes) require an authenticated org actor, matching
-// terminal.targets. Destructive daemon surgery is install-wide platform
-// administration — gated like system.* on `platform:update` (admins/owners).
+// Every read (list / inspect / logs / nodes) requires an authenticated org
+// actor, matching terminal.targets — the lists were previously publicProcedure,
+// which left raw host-daemon inventory unauthenticated. Destructive daemon
+// surgery is install-wide platform administration, gated like system.* on
+// `platform:update` (admins/owners).
 const platformWrite = requirePermission({ platform: ["update"] });
 
 export const dockerRouter = {
   containers: {
-    list: publicProcedure.docker.containers.list.handler(async ({ input, errors }) => {
+    list: orgScopedProcedure.docker.containers.list.handler(async ({ input, errors }) => {
       const result = await listContainers(input);
       if (!result.ok) throw errors.SERVER_ERROR({ message: result.reason });
       return result.items;
@@ -63,7 +65,7 @@ export const dockerRouter = {
     }),
   },
   images: {
-    list: publicProcedure.docker.images.list.handler(async ({ input, errors }) => {
+    list: orgScopedProcedure.docker.images.list.handler(async ({ input, errors }) => {
       const result = await listImages(input);
       if (!result.ok) throw errors.SERVER_ERROR({ message: result.reason });
       return result.items;
@@ -86,7 +88,7 @@ export const dockerRouter = {
     }),
   },
   volumes: {
-    list: publicProcedure.docker.volumes.list.handler(async ({ errors }) => {
+    list: orgScopedProcedure.docker.volumes.list.handler(async ({ errors }) => {
       const result = await listVolumes();
       if (!result.ok) throw errors.SERVER_ERROR({ message: result.reason });
       return result.items;
@@ -104,7 +106,7 @@ export const dockerRouter = {
     }),
   },
   networks: {
-    list: publicProcedure.docker.networks.list.handler(async ({ errors }) => {
+    list: orgScopedProcedure.docker.networks.list.handler(async ({ errors }) => {
       const result = await listNetworks();
       if (!result.ok) throw errors.SERVER_ERROR({ message: result.reason });
       return result.items;
@@ -122,7 +124,7 @@ export const dockerRouter = {
     }),
   },
   tasks: {
-    list: publicProcedure.docker.tasks.list.handler(async ({ errors }) => {
+    list: orgScopedProcedure.docker.tasks.list.handler(async ({ errors }) => {
       const result = await listTasks();
       if (!result.ok) throw errors.SERVER_ERROR({ message: result.reason });
       return result.items;

@@ -45,24 +45,23 @@
     },
     "apps/cli": {
       "name": "@otterdeploy/cli",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "bin": {
-        "otterdeploy": "./src/index.ts",
+        "otterdeploy": "dist/index.js",
       },
-      "dependencies": {
+      "devDependencies": {
         "@orpc/client": "catalog:",
         "@otterdeploy/api": "workspace:*",
+        "@otterdeploy/config": "workspace:*",
         "@otterdeploy/shared": "workspace:*",
+        "@types/bun": "catalog:",
         "better-auth": "catalog:",
         "better-result": "catalog:",
         "citty": "^0.1.6",
         "consola": "^3.2.3",
-        "zod": "catalog:",
-      },
-      "devDependencies": {
-        "@otterdeploy/config": "workspace:*",
-        "@types/bun": "catalog:",
         "typescript": "catalog:",
+        "vitest": "catalog:",
+        "zod": "catalog:",
       },
     },
     "apps/server": {
@@ -316,6 +315,7 @@
     },
     "packages/api": {
       "name": "@otterdeploy/api",
+      "version": "0.0.0",
       "dependencies": {
         "@orpc/client": "catalog:",
         "@orpc/contract": "^1.14.1",

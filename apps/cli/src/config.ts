@@ -14,6 +14,9 @@ const ConfigSchema = z.object({
   webUrl: z.url().optional(),
   token: z.string().optional(),
   orgId: z.string().optional(),
+  // Slug of the active org — set by `org use`, read by `open` to build
+  // dashboard URLs without an extra round-trip.
+  orgSlug: z.string().optional(),
 });
 export type Config = z.infer<typeof ConfigSchema>;
 
@@ -61,4 +64,18 @@ export function resolveUrl(flag?: string): string | undefined {
 // CI auth: OTTERDEPLOY_TOKEN bypasses the device-code flow entirely.
 export function resolveToken(): string | undefined {
   return env.OTTERDEPLOY_TOKEN ?? loadConfig().token;
+}
+
+// Where the active token came from — the error boundary only clears and
+// re-auths config-file tokens; env tokens belong to the caller (CI).
+export function tokenSource(): "env" | "config" | null {
+  if (env.OTTERDEPLOY_TOKEN) return "env";
+  if (loadConfig().token) return "config";
+  return null;
+}
+
+// Drop only the token — URL, webUrl, and org selection survive re-login.
+export function clearToken(): void {
+  const { token: _token, ...rest } = loadConfig();
+  saveConfig(rest);
 }
