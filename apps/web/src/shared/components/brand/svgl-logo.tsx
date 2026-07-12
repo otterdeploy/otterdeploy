@@ -1,6 +1,7 @@
 import { type CSSProperties, createElement, type ReactNode, type SVGProps } from "react";
 
 import { useTheme } from "@/shared/components/theme-provider";
+import { Authentik } from "@/shared/components/ui/svgs/authentik";
 import { AwsDark } from "@/shared/components/ui/svgs/aws-dark";
 import { AwsLight } from "@/shared/components/ui/svgs/aws-light";
 import { Azure } from "@/shared/components/ui/svgs/azure";
@@ -25,6 +26,7 @@ import { Pagerduty } from "@/shared/components/ui/svgs/pagerduty";
 import { Plausible } from "@/shared/components/ui/svgs/plausible";
 import { Slack } from "@/shared/components/ui/svgs/slack";
 import { Telegram } from "@/shared/components/ui/svgs/telegram";
+import { Twenty } from "@/shared/components/ui/svgs/twenty";
 import { Umami } from "@/shared/components/ui/svgs/umami";
 import { UptimeKuma } from "@/shared/components/ui/svgs/uptime-kuma";
 import { Vaultwarden } from "@/shared/components/ui/svgs/vaultwarden";
@@ -56,7 +58,9 @@ type BrandKey =
   | "Uptime Kuma"
   | "Grafana"
   | "Vaultwarden"
-  | "Excalidraw";
+  | "Excalidraw"
+  | "Authentik"
+  | "Twenty";
 
 interface Props {
   search: string;
@@ -113,6 +117,8 @@ const staticBrands: Record<Exclude<BrandKey, "AWS">, SvgComponent> = {
   Grafana,
   Vaultwarden,
   Excalidraw,
+  Authentik,
+  Twenty,
 };
 
 export function SvglLogo({

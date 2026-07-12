@@ -1,17 +1,10 @@
 import type { SVGProps } from "react";
 
 /**
- * NocoDB mark (official nocodb/nocodb repo). Monochrome — inherits the tile's `color`
- * via `currentColor`, so it stays legible on both canvases.
+ * NocoDB mark (official nocodb/nocodb repo). Rendered in the brand color #4351E8.
  */
 const Nocodb = (props: SVGProps<SVGSVGElement>) => (
-  <svg
-    {...props}
-    role="img"
-    viewBox="0 0 24 24"
-    xmlns="http://www.w3.org/2000/svg"
-    fill="currentColor"
-  >
+  <svg {...props} role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="#4351E8">
     <title>NocoDB</title>
     <path d="M6 10.8676L8.75329 13.6226V17.9842H6V10.8676ZM17.5645 5.01046V17.535C17.5645 17.7921 17.3548 18 17.0977 18C16.9744 18 16.8563 17.9525 16.7683 17.8644L6 8.15303V5.40504C6 5.14785 6.20787 4.94 6.46505 4.94H6.48972C6.61303 4.94 6.7328 4.98933 6.81911 5.07564L14.8094 12.009V5.01046H17.5645Z" />
     <path
