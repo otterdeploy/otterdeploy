@@ -41,6 +41,9 @@
   },
   "devDependencies": {
     "@orpc/client": "catalog:",
+    "@otterdeploy/api": "workspace:*",
+    "@otterdeploy/config": "workspace:*",
+    "@otterdeploy/shared": "workspace:*",
     "@types/bun": "catalog:",
     "better-auth": "catalog:",
     "better-result": "catalog:",
@@ -53,5 +56,5 @@
   "engines": {
     "node": ">=20"
   },
-  "//": "Runtime deps are bundled into dist/index.js at build time (bun build), so the published package has no dependencies. The workspace packages (@otterdeploy/api, @otterdeploy/shared, @otterdeploy/config) resolve at build/typecheck time via workspace hoisting and are intentionally not listed — they carry no npm version and would break `bun publish` resolution."
+  "//": "All deps are devDependencies: they're bundled into dist/index.js at build time (bun build), so the published package installs nothing. The workspace packages are needed at build/typecheck/test time and must be declared for CI's frozen install to resolve them."
 }
