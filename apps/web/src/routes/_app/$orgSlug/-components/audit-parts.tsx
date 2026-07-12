@@ -1,19 +1,98 @@
-import { Alert01Icon } from "@hugeicons/core-free-icons";
+import {
+  Certificate01Icon,
+  ContainerIcon,
+  DatabaseRestoreIcon,
+  Folder01Icon,
+  GlobalIcon,
+  HardDriveIcon,
+  Key01Icon,
+  Layers01Icon,
+  PackageIcon,
+  RouteIcon,
+  ServerStack01Icon,
+  Settings01Icon,
+  UserGroupIcon,
+  UserIcon,
+  WebhookIcon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { type AuditEvent, type Outcome } from "@/features/audit/data/audit";
 import { Badge } from "@/shared/components/ui/badge";
 import { Card, CardContent } from "@/shared/components/ui/card";
-import { JsonView } from "@/shared/components/ui/json-view";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/shared/components/ui/sheet";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { cn } from "@/shared/lib/utils";
 import { formatNumber } from "@otterdeploy/shared/format";
+
+import { type ActionTone, actionTone } from "./audit-helpers";
+
+/** Dot color per action family — the demo's ACTION_COLORS, translated to the
+ *  app's tokens: create=info, destroy=danger, auth/caution=amber, edits and
+ *  everything unclassified stay quiet neutrals. */
+const TONE_DOT: Record<ActionTone, string> = {
+  create: "bg-sky-500",
+  destroy: "bg-destructive",
+  update: "bg-muted-foreground/70",
+  auth: "bg-amber-500",
+  caution: "bg-amber-500",
+  neutral: "bg-muted-foreground/40",
+};
+
+/** Leading color dot for an action — used by the table's action cell and the
+ *  drawer header. */
+export function ActionDot({ action, className }: { action: string; className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "inline-block size-1.5 shrink-0 rounded-full",
+        TONE_DOT[actionTone(action)],
+        className,
+      )}
+    />
+  );
+}
+
+/** targetType → kind icon (demo's RESOURCE_ICON). Kinds come from the audit
+ *  emitters' `target: { type }` values across the API. */
+const TARGET_ICONS: Record<string, typeof PackageIcon> = {
+  project: Folder01Icon,
+  organization: UserGroupIcon,
+  resource: PackageIcon,
+  server: ServerStack01Icon,
+  webhook: WebhookIcon,
+  certificate: Certificate01Icon,
+  environment: Layers01Icon,
+  backup: DatabaseRestoreIcon,
+  ip: GlobalIcon,
+  platform: Settings01Icon,
+  "proxy-route": RouteIcon,
+  "docker-image": ContainerIcon,
+  "docker-network": ContainerIcon,
+  "docker-volume": HardDriveIcon,
+  user: UserIcon,
+  "api-key": Key01Icon,
+};
+
+export function TargetKindIcon({
+  targetType,
+  className,
+}: {
+  targetType: string | null;
+  className?: string;
+}) {
+  if (!targetType) return null;
+  const icon = TARGET_ICONS[targetType];
+  if (!icon) return null;
+  return (
+    <HugeiconsIcon
+      icon={icon}
+      strokeWidth={2}
+      className={cn("size-3.5 shrink-0 text-muted-foreground/60", className)}
+      aria-label={targetType}
+    />
+  );
+}
 
 export function StatTile({
   label,
@@ -73,124 +152,6 @@ export function OutcomeBadge({ outcome }: { outcome: Outcome }) {
         ? "secondary"
         : "destructive";
   return <Badge variant={variant}>{outcome}</Badge>;
-}
-
-export function EventDrawer({
-  event,
-  onClose,
-}: {
-  event: AuditEvent | null;
-  onClose: () => void;
-}) {
-  return (
-    <Sheet open={!!event} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-3xl">
-        {event && (
-          <>
-            <SheetHeader className="border-b">
-              <SheetTitle className="flex items-center gap-2 font-mono text-sm">
-                {event.action}
-                <OutcomeBadge outcome={event.outcome} />
-              </SheetTitle>
-            </SheetHeader>
-            <div className="flex flex-col gap-5 overflow-auto px-4 pb-4">
-              {event.reason && event.outcome !== "success" && (
-                <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2.5 text-[12px] text-amber-600 dark:text-amber-400">
-                  <HugeiconsIcon
-                    icon={Alert01Icon}
-                    strokeWidth={2}
-                    className="mt-0.5 size-3.5 shrink-0"
-                  />
-                  <span>{event.reason}</span>
-                </div>
-              )}
-
-              <Section label="Actor">
-                <ActorChip event={event} />
-                <KV k="ID" v={event.actorId} mono />
-                {event.actorEmail && <KV k="Email" v={event.actorEmail} />}
-              </Section>
-
-              <Section label="Target">
-                <KV k="Type" v={event.targetType ?? "—"} />
-                <KV k="ID" v={event.targetId ?? "—"} mono />
-              </Section>
-
-              <Section label="When · where">
-                <KV
-                  k="Timestamp"
-                  v={new Date(event.timestamp).toLocaleString()}
-                  mono
-                />
-                <KV k="IP" v={event.ip ?? "—"} mono />
-                <KV
-                  k="Duration"
-                  v={event.durationMs != null ? `${event.durationMs} ms` : "—"}
-                  mono
-                />
-                <KV k="User-Agent" v={event.userAgent ?? "—"} mono />
-              </Section>
-
-              {(event.correlationId || event.causationId) && (
-                <Section label="Correlation">
-                  {event.correlationId && (
-                    <KV k="Correlation" v={event.correlationId} mono />
-                  )}
-                  {event.causationId && (
-                    <KV k="Caused by" v={event.causationId} mono />
-                  )}
-                </Section>
-              )}
-
-              {event.changes && (
-                <Section label="Changes">
-                  <JsonView
-                    data={event.changes}
-                    className="max-h-72 rounded-lg border bg-muted/30 p-3.5 text-[13px]"
-                  />
-                </Section>
-              )}
-
-              <Section label="Full event">
-                <JsonView
-                  data={event}
-                  className="max-h-96 rounded-lg border bg-muted/30 p-3.5 text-[13px]"
-                />
-              </Section>
-            </div>
-          </>
-        )}
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-function Section({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
-        {label}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function KV({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
-  return (
-    <div className="flex gap-3 py-1 text-[12px]">
-      <span className="w-24 shrink-0 text-muted-foreground">{k}</span>
-      <span className={cn("min-w-0 flex-1 break-all", mono && "font-mono")}>
-        {v}
-      </span>
-    </div>
-  );
 }
 
 export function AuditPending() {

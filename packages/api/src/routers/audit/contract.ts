@@ -1,4 +1,5 @@
 import { oc } from "@orpc/contract";
+import { zId } from "@otterdeploy/shared/id";
 import * as z from "zod";
 
 const tag = "audit";
@@ -57,9 +58,70 @@ const listAuditOutput = z.object({
   }),
 });
 
+/** Distinct filter values over a time window — feeds the actor / action /
+ *  target-kind dropdowns without shipping the whole event set. */
+const distinctAuditInput = z.object({
+  /** ISO timestamps bounding the window (same semantics as `list`). */
+  from: z.string().optional(),
+  to: z.string().optional(),
+});
+
+const distinctAuditOutput = z.object({
+  actors: z.array(
+    z.object({
+      id: z.string(),
+      type: auditActorTypeSchema,
+      email: z.string().nullable(),
+      label: z.string().nullable(),
+    }),
+  ),
+  actions: z.array(z.string()),
+  targetTypes: z.array(z.string()),
+});
+
+/** Project-scoped feed for the graph workspace's Activity tab. Matches events
+ *  whose target IS the project or whose target carries the project id (the
+ *  `{ type: "resource", id, projectId }` shape most resource mutations set). */
+const listForProjectInput = z.object({
+  projectId: zId("project"),
+  limit: z.number().int().min(1).max(200).default(50),
+  offset: z.number().int().min(0).default(0),
+});
+
+const listForProjectOutput = z.object({
+  items: z.array(auditEventSchema),
+  /** Total matching the project scope, for "load more" honesty. */
+  total: z.number(),
+});
+
+/** Sibling lookup for the drawer's "Correlated events" section: every event
+ *  sharing a correlationId, plus the causing event (causationId is an event
+ *  id). Both optional so callers pass whichever the open event carries. */
+const byCorrelationInput = z.object({
+  correlationId: z.string().optional(),
+  causationId: z.string().optional(),
+  limit: z.number().int().min(1).max(100).default(50),
+});
+
+const byCorrelationOutput = z.object({
+  items: z.array(auditEventSchema),
+});
+
 export const auditContract = {
   list: oc
     .meta({ path: basePath, tag, method: "GET" })
     .input(listAuditInput)
     .output(listAuditOutput),
+  listForProject: oc
+    .meta({ path: `${basePath}/project/{projectId}`, tag, method: "GET" })
+    .input(listForProjectInput)
+    .output(listForProjectOutput),
+  distinct: oc
+    .meta({ path: `${basePath}/distinct`, tag, method: "GET" })
+    .input(distinctAuditInput)
+    .output(distinctAuditOutput),
+  byCorrelation: oc
+    .meta({ path: `${basePath}/by-correlation`, tag, method: "GET" })
+    .input(byCorrelationInput)
+    .output(byCorrelationOutput),
 };

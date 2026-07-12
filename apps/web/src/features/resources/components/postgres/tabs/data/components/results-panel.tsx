@@ -1,23 +1,17 @@
 /**
  * Results pane for the data console. A sub-toolbar (grid / JSON view toggle +
- * CSV export) sits above the body, which renders the active query's grid, a
- * JSON view, or loading / error / empty states. The owner passes a `leftSlot`
- * (filters in browse mode) and `footerSlot` (counts + pagination).
+ * export menu, see {@link ResultsToolbar}) sits above the body, which renders
+ * the active query's grid, a JSON view, or loading / error / empty states. The
+ * owner passes a `leftSlot` (filters in browse mode) and `footerSlot` (counts
+ * + pagination).
  */
 import { useMemo, useState } from "react";
 
-import {
-  Alert02Icon,
-  Database01Icon,
-  Download01Icon,
-  SourceCodeIcon,
-  Table01Icon,
-} from "@hugeicons/core-free-icons";
+import { Alert02Icon, Database01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import type { FkTarget } from "@/shared/components/data-grid/types";
 
-import { Button } from "@/shared/components/ui/button";
 import {
   Empty,
   EmptyDescription,
@@ -27,13 +21,12 @@ import {
 } from "@/shared/components/ui/empty";
 import { JsonView } from "@/shared/components/ui/json-view";
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
-import { ToggleGroup, ToggleGroupItem } from "@/shared/components/ui/toggle-group";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/components/ui/tooltip";
 import { cn } from "@/shared/lib/utils";
 
 import { type ColumnValue, type ColumnVariant, DiceResultGrid } from "./dice-grid";
+import { ResultsToolbar, type ResultView } from "./results-toolbar";
 
-export type ResultView = "grid" | "json";
+export type { ResultView };
 
 interface ResultsPanelProps {
   resourceId: never;
@@ -41,6 +34,10 @@ interface ResultsPanelProps {
   rows: (string | null)[][];
   columnVariants?: Record<string, ColumnVariant>;
   columnFks?: Record<string, FkTarget>;
+  /** Collapsed display types (row-detail field labels). */
+  columnTypes?: Record<string, string>;
+  /** Columns hidden from the grid (never from exports). */
+  hiddenColumns?: string[];
   onOpenRef?: (fk: FkTarget, value: string) => void;
   view: ResultView;
   onViewChange: (v: ResultView) => void;
@@ -54,28 +51,19 @@ interface ResultsPanelProps {
   emptyIcon?: typeof Database01Icon;
   leftSlot?: React.ReactNode;
   footerSlot?: React.ReactNode;
-  /** Suggested filename stem for CSV export. */
+  /** Suggested filename stem for exports. */
   exportName?: string;
   /** Inline edit / delete (table-browse mode, actor has write capability). */
   editable?: boolean;
   primaryKey?: string[];
   onUpdateRow?: (pk: ColumnValue[], set: ColumnValue[]) => Promise<void>;
   onDeleteRow?: (pk: ColumnValue[]) => Promise<void>;
-}
-
-function downloadCsv(columns: string[], rows: (string | null)[][], name: string) {
-  const esc = (v: string | null) => {
-    if (v == null) return "";
-    return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
-  };
-  const csv = [columns.map(esc).join(","), ...rows.map((r) => r.map(esc).join(","))].join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${name}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  /** Multi-select checkbox column + selection mirror (table-browse mode). */
+  selectable?: boolean;
+  selectedRows?: number[];
+  onSelectionChange?: (indices: number[]) => void;
+  /** Per-row detail chevron + right-hand panel (table-browse mode). */
+  enableRowDetail?: boolean;
 }
 
 export function ResultsPanel({
@@ -84,6 +72,8 @@ export function ResultsPanel({
   rows,
   columnVariants,
   columnFks,
+  columnTypes,
+  hiddenColumns,
   onOpenRef,
   view,
   onViewChange,
@@ -101,6 +91,10 @@ export function ResultsPanel({
   primaryKey,
   onUpdateRow,
   onDeleteRow,
+  selectable = false,
+  selectedRows,
+  onSelectionChange,
+  enableRowDetail = false,
 }: ResultsPanelProps) {
   const jsonData = useMemo(
     () =>
@@ -134,41 +128,17 @@ export function ResultsPanel({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* Sub-toolbar */}
-      <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b px-2">
-        <div className="flex min-w-0 items-center gap-2">{leftSlot}</div>
-        <div className="flex items-center gap-1.5">
-          <ToggleGroup
-            size="sm"
-            value={[view]}
-            onValueChange={([v]) => v && onViewChange(v as ResultView)}
-            className="gap-0.5"
-          >
-            <ToggleGroupItem value="grid" aria-label="Grid view" className="h-6 px-1.5">
-              <HugeiconsIcon icon={Table01Icon} strokeWidth={2} className="size-3.5" />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="json" aria-label="JSON view" className="h-6 px-1.5">
-              <HugeiconsIcon icon={SourceCodeIcon} strokeWidth={2} className="size-3.5" />
-            </ToggleGroupItem>
-          </ToggleGroup>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  disabled={!canExport}
-                  onClick={() => downloadCsv(columns, rows, exportName)}
-                  aria-label="Export CSV"
-                />
-              }
-            >
-              <HugeiconsIcon icon={Download01Icon} strokeWidth={2} className="size-3.5" />
-            </TooltipTrigger>
-            <TooltipContent>Export CSV</TooltipContent>
-          </Tooltip>
-        </div>
-      </div>
+      <ResultsToolbar
+        columns={columns}
+        rows={rows}
+        view={view}
+        onViewChange={onViewChange}
+        canExport={canExport}
+        exportName={exportName}
+        selectable={selectable}
+        selectedRows={selectedRows}
+        leftSlot={leftSlot}
+      />
 
       {/* Body */}
       {isLoading ? (
@@ -194,11 +164,16 @@ export function ResultsPanel({
           rows={rows}
           columnVariants={columnVariants}
           columnFks={columnFks}
+          columnTypes={columnTypes}
+          hiddenColumns={hiddenColumns}
           onOpenRef={onOpenRef}
           editable={editable}
           primaryKey={primaryKey}
           onUpdateRow={onUpdateRow}
           onDeleteRow={onDeleteRow}
+          selectable={selectable}
+          onSelectionChange={onSelectionChange}
+          enableRowDetail={enableRowDetail}
         />
       )}
 

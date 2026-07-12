@@ -41,6 +41,21 @@ export class DestinationInUseError extends TaggedError("DestinationInUseError")<
   }
 }
 
+/** Raised on create/update when a destination's config is structurally
+ *  incomplete (e.g. a `local` destination with no `path`) — rejected up front
+ *  so the failure never waits for a backup run to surface. */
+export class DestinationConfigInvalidError extends TaggedError("DestinationConfigInvalidError")<{
+  message: string;
+  reason: string;
+}>() {
+  constructor(args: { reason: string }) {
+    super({
+      reason: args.reason,
+      message: `backup destination configuration invalid: ${args.reason}`,
+    });
+  }
+}
+
 /**
  * Raised when a destination credential fails validation — missing required
  * config, no credentials, or an undecryptable secret. Carries the reason so

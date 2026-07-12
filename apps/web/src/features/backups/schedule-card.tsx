@@ -6,6 +6,7 @@
 import { useState } from "react";
 
 import {
+  Alert02Icon,
   Clock01Icon,
   CloudServerIcon,
   Delete02Icon,
@@ -19,6 +20,7 @@ import { toast } from "sonner";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Switch } from "@/shared/components/ui/switch";
+import { cn } from "@/shared/lib/utils";
 
 import type { Schedule } from "./data/schedules";
 
@@ -60,12 +62,22 @@ export function ScheduleCard({ schedule: s, onEdit }: { schedule: Schedule; onEd
   };
 
   const encryption = encLabel(s.encryption);
+  const missing = s.missingSources ?? [];
+  // Every configured source has lost its backing database — the schedule can't
+  // produce a backup until it's repaired (source re-pointed) or deleted.
+  const orphaned = missing.length > 0 && missing.length >= s.sources.length;
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border bg-card p-4">
+    <div
+      className={cn(
+        "flex flex-col gap-3 rounded-md border bg-card p-4",
+        missing.length > 0 && "border-amber-500/40 bg-amber-500/[0.03]",
+      )}
+    >
       <div className="flex items-center gap-2">
         <HugeiconsIcon icon={Clock01Icon} className="size-3.5 text-muted-foreground" />
         <span className="text-sm font-semibold">{s.name}</span>
+        {missing.length > 0 && <SourceHealthBadge orphaned={orphaned} />}
         <div className="flex-1" />
         <Switch checked={s.enabled} onCheckedChange={toggle} />
       </div>
@@ -74,6 +86,8 @@ export function ScheduleCard({ schedule: s, onEdit }: { schedule: Schedule; onEd
         <span className="font-mono">{s.sources.slice(0, 3).join(", ")}</span>
         {s.sources.length > 3 && <span> +{s.sources.length - 3}</span>}
       </p>
+
+      {missing.length > 0 && <MissingSourceBanner missing={missing} />}
 
       <div className="rounded-md border bg-muted/30 px-2.5 py-2">
         <div className="font-mono text-xs">{s.cron}</div>
@@ -125,15 +139,6 @@ export function ScheduleCard({ schedule: s, onEdit }: { schedule: Schedule; onEd
           </span>
         </div>
         <div className="flex-1" />
-        {s.pitr && (
-          <Badge
-            variant="outline"
-            className="border-blue-500/30 bg-blue-500/10 text-[10px] text-blue-500"
-            title="Point-in-time recovery enabled"
-          >
-            PITR
-          </Badge>
-        )}
         {s.encryption !== "none" && (
           <Badge variant="secondary" className="gap-1 text-[10px]">
             <HugeiconsIcon icon={SquareLock01Icon} className="size-2.5" />
@@ -167,6 +172,44 @@ export function ScheduleCard({ schedule: s, onEdit }: { schedule: Schedule; onEd
           <HugeiconsIcon icon={Delete02Icon} className="size-3" />
           Delete
         </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Header pill flagging a schedule whose source(s) have partly or fully lost
+ *  their backing database. */
+function SourceHealthBadge({ orphaned }: { orphaned: boolean }) {
+  return (
+    <Badge
+      variant="secondary"
+      className="gap-1 border-amber-500/30 bg-amber-500/10 text-[10px] text-amber-700 dark:text-amber-400"
+    >
+      <HugeiconsIcon icon={Alert02Icon} className="size-2.5" />
+      {orphaned ? "Source missing" : "Source degraded"}
+    </Badge>
+  );
+}
+
+/** Explains the orphaned state and names the dead refs — the honest "something
+ *  is wrong here" the card was missing when a backed-up database is deleted. */
+function MissingSourceBanner({ missing }: { missing: string[] }) {
+  const many = missing.length > 1;
+  return (
+    <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/[0.06] px-2.5 py-2 text-[11px] text-amber-800 dark:text-amber-300">
+      <HugeiconsIcon icon={Alert02Icon} className="mt-px size-3.5 shrink-0" />
+      <div className="flex flex-col gap-0.5">
+        <span className="font-medium">
+          {many ? "Backup sources no longer exist" : "Backup source no longer exists"}
+        </span>
+        <span className="text-amber-700/80 dark:text-amber-400/80">
+          The database this schedule backs up was deleted, so runs produce nothing. Repair the
+          source in Edit, or delete the schedule.
+        </span>
+        <span className="mt-0.5 font-mono text-[10px] text-amber-700/70 dark:text-amber-400/70">
+          {missing.slice(0, 3).join(", ")}
+          {missing.length > 3 && ` +${missing.length - 3}`}
+        </span>
       </div>
     </div>
   );

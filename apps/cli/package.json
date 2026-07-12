@@ -13,6 +13,7 @@
   ],
   "homepage": "https://github.com/otterdeploy/otterdeploy/tree/main/apps/cli#readme",
   "bugs": "https://github.com/otterdeploy/otterdeploy/issues",
+  "license": "AGPL-3.0-only",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/otterdeploy/otterdeploy.git",

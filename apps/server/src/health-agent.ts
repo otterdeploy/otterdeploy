@@ -28,12 +28,19 @@ const INTERVAL_MS = Number(process.env.HEALTH_AGENT_INTERVAL_MS) || 60_000;
 /* oxlint-enable no-process-env */
 
 if (!INGEST_URL || !TOKEN) {
-  log.error({ healthAgent: { fatal: "HEALTH_AGENT_INGEST_URL and HEALTH_AGENT_TOKEN are required" } });
+  log.error({
+    healthAgent: { fatal: "HEALTH_AGENT_INGEST_URL and HEALTH_AGENT_TOKEN are required" },
+  });
   process.exit(1);
 }
 
 log.info({
-  healthAgent: { event: "start", hostname: NODE_HOSTNAME, ingest: INGEST_URL, intervalMs: INTERVAL_MS },
+  healthAgent: {
+    event: "start",
+    hostname: NODE_HOSTNAME,
+    ingest: INGEST_URL,
+    intervalMs: INTERVAL_MS,
+  },
 });
 
 let failures = 0;

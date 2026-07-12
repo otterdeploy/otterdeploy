@@ -86,7 +86,11 @@ export function RealResourcePanel({
         restarting={restartMut.isPending}
       />
 
-      <DatabaseStatusBar pending={pending} runtime={resource.runtime} />
+      <DatabaseStatusBar
+        pending={pending}
+        runtime={resource.runtime}
+        latestDeploymentStatus={resource.latestDeploymentStatus}
+      />
 
       <Tabs
         value={tab}

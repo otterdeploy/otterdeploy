@@ -22,7 +22,7 @@ import {
 import { cn } from "@/shared/lib/utils";
 import { formatNumber } from "@otterdeploy/shared/format";
 
-import { ActorChip, AuditPending, OutcomeBadge } from "./audit-parts";
+import { ActionDot, ActorChip, AuditPending, OutcomeBadge, TargetKindIcon } from "./audit-parts";
 import { timeAgo } from "./audit-helpers";
 
 /**
@@ -47,7 +47,7 @@ export function AuditTableSection({
   isFetching: boolean;
   errorMessage?: string;
   onRetry: () => void;
-  onOpen: (id: string) => void;
+  onOpen: (event: AuditEvent) => void;
   onLoadMore: () => void;
 }) {
   if (isLoading) return <AuditPending />;
@@ -100,7 +100,7 @@ export function AuditTableSection({
                 "cursor-pointer",
                 e.outcome !== "success" && "bg-amber-500/5",
               )}
-              onClick={() => onOpen(e.id)}
+              onClick={() => onOpen(e)}
             >
               <TableCell className="pl-4 font-mono text-[11px] text-muted-foreground">
                 {timeAgo(e.timestamp)}
@@ -108,9 +108,19 @@ export function AuditTableSection({
               <TableCell>
                 <ActorChip event={e} />
               </TableCell>
-              <TableCell className="font-mono text-xs">{e.action}</TableCell>
-              <TableCell className="font-mono text-xs text-muted-foreground">
-                {e.targetId ?? e.targetType ?? "—"}
+              <TableCell className="font-mono text-xs">
+                <span className="flex items-center gap-2">
+                  <ActionDot action={e.action} />
+                  {e.action}
+                </span>
+              </TableCell>
+              <TableCell className="max-w-[220px] font-mono text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <TargetKindIcon targetType={e.targetType} />
+                  <span className="truncate" title={e.targetId ?? undefined}>
+                    {e.targetId ?? e.targetType ?? "—"}
+                  </span>
+                </span>
               </TableCell>
               <TableCell>
                 <OutcomeBadge outcome={e.outcome} />

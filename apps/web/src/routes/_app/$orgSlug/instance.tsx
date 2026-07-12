@@ -1,41 +1,13 @@
-/**
- * Instance settings — install-wide configuration, one level above any
- * workspace (the Coolify "instance settings" analog). Everything here edits
- * the platform_settings singleton: the control-plane domain (the dashboard's
- * own address), the public IP behind sslip.io fallbacks, edge-proxy defaults,
- * and the transactional-email transport. Workspace-scoped settings (base
- * domain, Cloudflare, team) stay on the Settings page.
- */
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { createFileRoute, useLoaderData } from "@tanstack/react-router";
-
-import { Page, PageHeader } from "@/shared/components/page";
-
-import { ControlPlaneCard } from "./-components/settings-control-plane";
-import { ServerIpCard } from "./-components/instance-server-ip";
-import { EdgeDefaultsCard } from "./-components/instance-edge";
-import { EmailCard } from "./-components/settings-email";
-import { UpdatesCard } from "./-components/instance-updates";
-
+// Moved into the settings zone. Shim only — keeps old links, bookmarks and
+// in-flight callbacks working; forwards any search params untouched.
 export const Route = createFileRoute("/_app/$orgSlug/instance")({
-  staticData: { crumb: "Instance" },
-  component: InstanceRoute,
+  beforeLoad: ({ params, location }) => {
+    throw redirect({
+      to: "/$orgSlug/settings/instance/general",
+      params: { orgSlug: params.orgSlug },
+      search: location.search,
+    });
+  },
 });
-
-function InstanceRoute() {
-  const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
-  return (
-    <Page width="narrow">
-      <PageHeader
-        title="Instance"
-        description="Install-wide configuration for this server — applies to every workspace."
-      />
-
-      <UpdatesCard />
-      <ControlPlaneCard organizationId={organization.id as never} />
-      <ServerIpCard organizationId={organization.id as never} />
-      <EdgeDefaultsCard organizationId={organization.id as never} />
-      <EmailCard organizationId={organization.id as never} />
-    </Page>
-  );
-}

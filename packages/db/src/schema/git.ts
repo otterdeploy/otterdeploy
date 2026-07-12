@@ -16,6 +16,7 @@ import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import {
   boolean,
   index,
+  integer,
   jsonb,
   pgEnum,
   pgTable,
@@ -125,6 +126,16 @@ export const gitInstallation = pgTable(
     /** Permissions the install was granted, as returned by GitHub. Kept for
      *  diagnostics — we never re-grant based on this snapshot. */
     permissions: jsonb("permissions").$type<Record<string, string>>().notNull().default({}),
+    /**
+     * Repository count as GitHub last reported it — `total_count` from
+     * `GET /installation/repositories`, written on every full sync (install
+     * callback + "Sync now") and delta-adjusted by `installation_repositories`
+     * webhooks. Null = never successfully fetched (or the install was
+     * revoked), so the UI can show "—" instead of a confident-but-wrong 0.
+     * Deliberately NOT derived from `git_repo` rows: those are our local
+     * mirror, which is empty until the first successful sync.
+     */
+    repoCount: integer("repo_count"),
     suspendedAt: timestamp("suspended_at"),
     revokedAt: timestamp("revoked_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),

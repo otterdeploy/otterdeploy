@@ -2,12 +2,13 @@ import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 
 import { useCallback, useState } from "react";
 
+import type { ComposePrefill } from "./compose-wizard-shared";
 import type { Step } from "./schemas";
 
 import { ComposeWizard } from "./compose-wizard";
 import { Stepper } from "./steps";
-import { isKindWired, RequiredHint, WizardFooter, WizardStepBody } from "./wizard-chrome";
 import { useDetectionDefaults } from "./use-repo-detection";
+import { isKindWired, RequiredHint, WizardFooter, WizardStepBody } from "./wizard-chrome";
 import { useWizardForm } from "./wizard-form";
 import { useResourceProvisioner, usePrefetchSourceData } from "./wizard-provisioner";
 
@@ -24,6 +25,9 @@ export interface ResourceWizardProps {
   initialBranch?: string | null;
   initialKind?: string | null;
   initialStep?: Step;
+  /** Template handoff: pair with `initialKind: "compose"` to open the compose
+   *  flow seeded with a template's name + YAML (see features/templates/). */
+  composePrefill?: ComposePrefill;
   onComplete?: () => void;
   onCancel?: () => void;
 }
@@ -47,6 +51,7 @@ function ResourceWizardBody({
   initialKind = null,
   initialGitRepoId = null,
   initialBranch = null,
+  composePrefill,
   onComplete,
   onCancel,
   step,
@@ -114,6 +119,7 @@ function ResourceWizardBody({
         orgSlug={orgSlug}
         projectId={projectId}
         projectSlug={projectSlug}
+        prefill={composePrefill}
         onComplete={onComplete}
         onCancel={onCancel}
       />

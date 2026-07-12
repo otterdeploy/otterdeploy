@@ -1,24 +1,19 @@
 /**
- * Firewall router — reads CrowdSec's active decisions (+ their alert context)
- * for the Firewall view. Org-scoped for access control, but the data is
- * cluster-wide (CrowdSec is identity-blind).
- *
- * The control plane talks to the agent by exec'ing `cscli … -o json` inside the
- * crowdsec container over the Docker socket it already manages — no LAPI
- * credentials or host networking needed. `cscli decisions list -o json` returns
- * the ALERT-wrapped shape, so each decision arrives with its source enrichment
- * (country / ASN / scenario / events) in one call. The bouncer key is still
- * only what Caddy uses to enforce; reads here don't need it.
+ * Firewall router — CrowdSec decisions (read via LAPI, see decisions-read.ts),
+ * block/unblock actions, flagged-IP review, and managed blocklists. Org-scoped
+ * for access control, but the data is cluster-wide (CrowdSec is
+ * identity-blind).
  */
 
 import type { BlocklistId } from "@otterdeploy/shared/id";
 
-import { env } from "@otterdeploy/env/server";
-import { Result } from "better-result";
-
 import { orgScopedProcedure } from "../..";
+import { flaggedIps } from "../../edge-logs/threat-scan";
+import { listOrgDomains } from "../edge-logs/queries";
 import { BLOCKLIST_CATALOG, catalogBySlug } from "./catalog";
 import { cscliRead, cscliRun } from "./cscli";
+import { blockIp, blockManyIps, unblockIp } from "./decision";
+import { configured, fetchDecisions } from "./decisions-read";
 import {
   deleteBlocklist,
   findBlocklistByCatalog,
@@ -30,88 +25,6 @@ import {
   type BlocklistRow,
 } from "./queries";
 import { clearBlocklist, syncBlocklist } from "./sync";
-
-interface Decision {
-  id: number | null;
-  origin: string;
-  type: string;
-  scope: string;
-  value: string;
-  duration: string;
-  scenario: string;
-  country: string | null;
-  asNumber: string | null;
-  asName: string | null;
-  eventsCount: number | null;
-  createdAt: string | null;
-}
-
-/** Enforcement is "configured" when the bouncer env is set — that's what wires
- *  the `crowdsec` gate into the generated Caddyfile. Independent of whether the
- *  control plane can currently read decisions. */
-function configured(): boolean {
-  return Boolean(env.CROWDSEC_LAPI_URL && env.CROWDSEC_BOUNCER_KEY);
-}
-
-/** Parse `cscli … -o json` output. Empty result is printed as `null`. */
-function parseJsonArray(text: string | null): Record<string, unknown>[] {
-  if (!text) return [];
-  const trimmed = text.trim();
-  if (!trimmed || trimmed === "null") return [];
-  const parsed = Result.try({
-    try: () => JSON.parse(trimmed) as unknown,
-    catch: () => null,
-  });
-  if (parsed.isErr() || !Array.isArray(parsed.value)) return [];
-  return parsed.value as Record<string, unknown>[];
-}
-
-const str = (v: unknown): string | null =>
-  v === undefined || v === null || v === "" ? null : String(v);
-
-/** Flatten one CrowdSec decision (within its alert wrapper) into a row. */
-function toDecision(
-  d: Record<string, unknown>,
-  alert: Record<string, unknown>,
-  source: Record<string, unknown>,
-): Decision {
-  return {
-    id: typeof d.id === "number" ? d.id : null,
-    origin: String(d.origin ?? alert.kind ?? "crowdsec"),
-    type: String(d.type ?? "ban"),
-    scope: String(d.scope ?? source.scope ?? "Ip"),
-    value: String(d.value ?? source.value ?? ""),
-    duration: String(d.duration ?? ""),
-    scenario: String(d.scenario ?? alert.scenario ?? ""),
-    country: str(source.cn),
-    asNumber: str(source.as_number),
-    asName: str(source.as_name),
-    eventsCount: typeof alert.events_count === "number" ? alert.events_count : null,
-    createdAt: str(alert.created_at),
-  };
-}
-
-/**
- * Fetch active decisions, flattening CrowdSec's alert wrapper so every active
- * decision becomes one row enriched with its source (country / ASN) + the
- * alert's scenario + event count.
- */
-async function fetchDecisions(): Promise<Decision[] | null> {
-  const text = await cscliRead("cscli decisions list -o json --limit 500");
-  if (text === null) return null; // agent unreachable
-  const alerts = parseJsonArray(text);
-  const rows: Decision[] = [];
-  for (const alert of alerts) {
-    const source = (alert.source as Record<string, unknown> | undefined) ?? {};
-    const decisions = Array.isArray(alert.decisions)
-      ? (alert.decisions as Record<string, unknown>[])
-      : [];
-    for (const d of decisions) {
-      rows.push(toDecision(d, alert, source));
-    }
-  }
-  return rows;
-}
 
 export const firewallRouter = {
   status: orgScopedProcedure.firewall.status.handler(async () => {
@@ -125,6 +38,32 @@ export const firewallRouter = {
 
   decisions: orgScopedProcedure.firewall.decisions.handler(async () => {
     return (await fetchDecisions()) ?? [];
+  }),
+
+  block: orgScopedProcedure.firewall.block.handler(async ({ input, context }) => {
+    context.log.set({ target: { type: "ip", id: input.ip } });
+    const reason = input.reason?.trim() || `manual:${context.session?.user?.id ?? "operator"}`;
+    const res = await blockIp(input.ip, input.durationHours, reason);
+    return { ok: res.ok, error: res.error ?? null };
+  }),
+
+  blockMany: orgScopedProcedure.firewall.blockMany.handler(async ({ input, context }) => {
+    context.log.set({ target: { type: "ip", id: `${input.ips.length} ips` } });
+    const reason = input.reason?.trim() || `manual:${context.session?.user?.id ?? "operator"}`;
+    const res = await blockManyIps(input.ips, input.durationHours, reason);
+    return { ok: res.ok, blocked: res.blocked, error: res.error ?? null };
+  }),
+
+  unblock: orgScopedProcedure.firewall.unblock.handler(async ({ input, context }) => {
+    context.log.set({ target: { type: "ip", id: input.ip } });
+    const res = await unblockIp(input.ip);
+    return { ok: res.ok, error: res.error ?? null };
+  }),
+
+  flagged: orgScopedProcedure.firewall.flagged.handler(async ({ input, context }) => {
+    const hosts = await listOrgDomains(context.activeOrganizationId);
+    const sinceMs = Date.now() - input.windowMinutes * 60_000;
+    return flaggedIps(hosts, sinceMs, 100);
   }),
 
   blocklists: {

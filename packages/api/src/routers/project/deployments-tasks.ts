@@ -11,7 +11,7 @@ import { Result } from "better-result";
 import { resolveDeploymentServiceName } from "./deployments-list";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
 import { getProjectInOrg } from "./queries";
-import { getResourceById } from "./queries/resource";
+import { composeChildSwarmServices, getResourceById } from "./queries/resource";
 import {
   collapseInstanceState,
   listResourceInstances,
@@ -87,9 +87,29 @@ export async function listTasksForDeployment(
     return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
 
-  const serviceName = await resolveDeploymentServiceName(found, input.projectId);
-
   const docker = Docker.fromEnv();
+
+  // A compose STACK deployment tracks the whole rollout; its containers carry
+  // the per-service (child) deployment ids, never the stack row's. Aggregate
+  // every child service's instances and show the current set.
+  if (found.kind === "compose") {
+    const withNames: Array<{ instance: ResourceInstance; serviceName: string }> = [];
+    for (const child of composeChildSwarmServices(found.record)) {
+      const instancesResult = await listResourceInstances(docker, child.serviceName);
+      if (instancesResult.isErr()) continue;
+      for (const instance of instancesResult.value) {
+        withNames.push({ instance, serviceName: child.serviceName });
+      }
+    }
+    const sorted = withNames.sort((a, b) => instanceTime(b.instance) - instanceTime(a.instance));
+    return Result.ok(sorted.map((e) => toDeploymentTaskInfo(e.instance, input, e.serviceName)));
+  }
+
+  const serviceName = await resolveDeploymentServiceName(found, input.projectId);
+  if (!serviceName) {
+    return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
+  }
+
   const instancesResult = await listResourceInstances(docker, serviceName);
   if (instancesResult.isErr()) return Result.ok([]);
 

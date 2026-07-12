@@ -11,6 +11,20 @@ import {
 } from "@otterdeploy/db/schema";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 
+/**
+ * Repo count for an installation, honest about what we actually know:
+ *
+ *   1. `git_installation.repo_count` — GitHub's `total_count`, written by every
+ *      full sync. The source of truth when present.
+ *   2. Fallback for rows that predate the column: the count of synced
+ *      `git_repo` rows — but only when non-zero. Zero mirrored rows means
+ *      "never synced", NOT "the installation has no repos", so it surfaces
+ *      as null and the UI renders "—" instead of a confident wrong 0.
+ */
+const installationRepoCountSql = sql<
+  number | null
+>`coalesce(${gitInstallation.repoCount}, nullif((select count(*) from ${gitRepo} where ${gitRepo.installationId} = ${gitInstallation.id}), 0))::int`;
+
 export async function listProvidersForOrg(organizationId: OrganizationId) {
   const providers = await db
     .select()
@@ -23,7 +37,7 @@ export async function listProvidersForOrg(organizationId: OrganizationId) {
   const installations = await db
     .select({
       installation: gitInstallation,
-      repoCount: sql<number>`coalesce((select count(*) from ${gitRepo} where ${gitRepo.installationId} = ${gitInstallation.id}), 0)::int`,
+      repoCount: installationRepoCountSql,
     })
     .from(gitInstallation)
     .where(inArray(gitInstallation.providerId, providerIds))
@@ -103,14 +117,11 @@ export async function getProviderDetail(args: {
   const [installation] = await db
     .select({
       installation: gitInstallation,
-      repoCount: sql<number>`coalesce((select count(*) from ${gitRepo} where ${gitRepo.installationId} = ${gitInstallation.id}), 0)::int`,
+      repoCount: installationRepoCountSql,
     })
     .from(gitInstallation)
     .where(eq(gitInstallation.providerId, provider.id))
-    .orderBy(
-      sql`(${gitInstallation.revokedAt} is not null) asc`,
-      desc(gitInstallation.createdAt),
-    )
+    .orderBy(sql`(${gitInstallation.revokedAt} is not null) asc`, desc(gitInstallation.createdAt))
     .limit(1);
 
   return { provider, installation: installation ?? null };

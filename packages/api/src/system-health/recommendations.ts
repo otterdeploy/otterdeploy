@@ -5,12 +5,7 @@
  * when the branching-pool block joined memory/disk/docker.
  */
 import type { BranchPoolHealth } from "./branch-pool";
-import type {
-  DockerUsage,
-  HealthRecommendation,
-  HostDisk,
-  HostMemory,
-} from "./host-health";
+import type { DockerUsage, HealthRecommendation, HostDisk, HostMemory } from "./host-health";
 
 const GB = 1024 * 1024 * 1024;
 

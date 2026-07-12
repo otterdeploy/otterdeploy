@@ -1,4 +1,4 @@
-import type { OrganizationId, ServerId } from "@otterdeploy/shared/id";
+import type { OrganizationId, ServerId, SshKeyId } from "@otterdeploy/shared/id";
 import type { InferSelectModel } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
@@ -51,6 +51,84 @@ export async function createServerRecord(input: {
       cpuTotal: input.cpuTotal ?? 0,
       memTotalGb: input.memTotalGb ?? 0,
     })
+    .returning();
+  return row;
+}
+
+/**
+ * Insert a server row in the `pending` provisioning state, carrying the SSH
+ * connection details the runner needs. Capacity stays 0 until the health agent
+ * self-registers; `status` is `down` until the node actually joins.
+ */
+export async function insertProvisioningServer(input: {
+  id?: ServerId;
+  organizationId: OrgId;
+  name: string;
+  host: string;
+  role: "manager" | "worker";
+  sshKeyId?: SshKeyId | null;
+  sshUser: string;
+  sshPort: number;
+  meshProvider?: "none" | "tailscale" | "netbird";
+  buildServer?: boolean;
+}): Promise<ServerRecord | undefined> {
+  const [row] = await db
+    .insert(server)
+    .values({
+      ...input,
+      cpuTotal: 0,
+      memTotalGb: 0,
+      status: "down",
+      provisionStatus: "pending",
+    })
+    .returning();
+  return row;
+}
+
+/** Patch the provisioning lifecycle fields as the runner advances. Org-scoped. */
+export async function patchServerProvision(input: {
+  serverId: ServerId;
+  organizationId: OrgId;
+  provisionStatus?: "pending" | "provisioning" | "joining" | "ready" | "failed";
+  provisionError?: string | null;
+  status?: "ready" | "draining" | "down";
+  hostname?: string | null;
+  daemonVersion?: string | null;
+  meshAddress?: string | null;
+}): Promise<ServerRecord | undefined> {
+  const { serverId, organizationId, ...set } = input;
+  const [row] = await db
+    .update(server)
+    .set(set)
+    .where(and(eq(server.id, serverId), eq(server.organizationId, organizationId)))
+    .returning();
+  return row;
+}
+
+/** Persist a swarm-confirmed promote/demote back onto the server row. */
+export async function updateServerRoleRecord(input: {
+  serverId: ServerId;
+  organizationId: OrgId;
+  role: "manager" | "worker";
+}): Promise<ServerRecord | undefined> {
+  const [row] = await db
+    .update(server)
+    .set({ role: input.role })
+    .where(and(eq(server.id, input.serverId), eq(server.organizationId, input.organizationId)))
+    .returning();
+  return row;
+}
+
+/** Persist a swarm-confirmed availability change back onto the server row. */
+export async function updateServerAvailabilityRecord(input: {
+  serverId: ServerId;
+  organizationId: OrgId;
+  availability: "active" | "drain" | "pause";
+}): Promise<ServerRecord | undefined> {
+  const [row] = await db
+    .update(server)
+    .set({ availability: input.availability })
+    .where(and(eq(server.id, input.serverId), eq(server.organizationId, input.organizationId)))
     .returning();
   return row;
 }

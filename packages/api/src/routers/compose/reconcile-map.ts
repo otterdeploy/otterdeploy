@@ -12,6 +12,7 @@ import { and, eq } from "drizzle-orm";
 import type { StackReconcileContext } from "./reconcile";
 
 import { PLATFORM } from "../../constants";
+import { resolveBindSource } from "../../lib/compose-materialize";
 import {
   composeSwarmServiceName,
   durationMs,
@@ -72,6 +73,31 @@ function toHealthcheck(svc: ParsedComposeService): {
 /** Map a parsed compose service → the create/update shape for its service row.
  *  Image/command/entrypoint/env are interpolated against the project bag, so
  *  what we store + deploy is fully concrete (no `${VAR}` reaches swarm). */
+interface MappedMount {
+  type: "volume" | "bind" | "file";
+  target: string;
+  source: string | null;
+  content: string | null;
+  readOnly: boolean;
+}
+
+/** Bind mounts only, and only when the stack materialized its file tree
+ *  (multi-file inline). Each bind source resolves to an absolute path under
+ *  `stackDir`; the runtime bind-mounts it (materializeServiceMounts already
+ *  supports type:"bind"). Named volumes + tmpfs are left as-is (unchanged from
+ *  today) to avoid touching how every existing compose stack deploys. */
+function toBindMounts(svc: ParsedComposeService, stackDir: string | undefined): MappedMount[] {
+  if (!stackDir) return [];
+  const out: MappedMount[] = [];
+  for (const v of svc.volumes) {
+    if (v.type !== "bind" || !v.source) continue;
+    const abs = resolveBindSource(v.source, stackDir);
+    if (!abs) continue;
+    out.push({ type: "bind", target: v.target, source: abs, content: null, readOnly: v.readOnly });
+  }
+  return out;
+}
+
 export function toServiceFields(
   svc: ParsedComposeService,
   ctx: StackReconcileContext,
@@ -97,6 +123,9 @@ export function toServiceFields(
   >;
   ports: CreateServiceInput["ports"];
   env: Array<{ key: string; value: string }>;
+  /** Bind mounts for a multi-file inline stack (source → materialized host
+   *  path). Empty for single-file / git stacks. Seeded on create only. */
+  mounts: MappedMount[];
 } {
   const projectSlug = sanitizeSlug(ctx.projectSlug);
   // Interpolate compose env against the project bag, then flatten to the
@@ -137,17 +166,23 @@ export function toServiceFields(
     },
     ports,
     env,
+    mounts: toBindMounts(svc, ctx.stackDir),
   };
 }
 
 /** Pick a project-unique resource name for a new stack service. Prefers the
  *  bare compose key (e.g. "web"); if another resource already owns that name,
- *  suffix until free. Matching on re-reconcile keys off serviceName, so a
- *  suffixed display name stays stable. */
+ *  suffix until free. The common collision is the stack's OWN resource (a
+ *  single-service stack named after its service, e.g. stack "uptime-kuma" with
+ *  service "uptime-kuma"), so the first fallback is a descriptive `-service`
+ *  rather than a `-2` that implies a phantom sibling. Matching on re-reconcile
+ *  keys off serviceName, so a suffixed display name stays stable. */
 export async function pickResourceName(projectId: ProjectId, composeName: string): Promise<string> {
   const base = composeName.slice(0, 60);
+  const candidateAt = (i: number) =>
+    i === 0 ? base : i === 1 ? `${base}-service` : `${base}-${i}`;
   for (let i = 0; i < 50; i++) {
-    const candidate = i === 0 ? base : `${base}-${i + 1}`;
+    const candidate = candidateAt(i);
     const [exists] = await db
       .select({ id: resource.id })
       .from(resource)

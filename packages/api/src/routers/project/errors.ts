@@ -33,6 +33,26 @@ export class ProxyRouteNotFoundError extends TaggedError("ProxyRouteNotFoundErro
   }
 }
 
+/**
+ * Raised when a project delete is attempted while service/compose resources
+ * still exist. Project delete tears down its databases itself, but service
+ * runtimes (containers, built images, buildx caches, volumes) are only
+ * reclaimed by the per-resource delete path — deleting the rows underneath
+ * them would orphan the runtime. Honest behavior: refuse and say why.
+ */
+export class ProjectHasServicesError extends TaggedError("ProjectHasServicesError")<{
+  message: string;
+  projectId: ProjectId;
+  serviceCount: number;
+}>() {
+  constructor(args: { projectId: ProjectId; serviceCount: number }) {
+    super({
+      ...args,
+      message: `project still has ${args.serviceCount} service${args.serviceCount === 1 ? "" : "s"} — delete them first`,
+    });
+  }
+}
+
 export class ProjectConflictError extends TaggedError("ProjectConflictError")<{
   message: string;
   slug: string;

@@ -19,18 +19,24 @@ export const backupDestinationsRouter = {
   }),
 
   create: requirePermission({ backup: ["create"] }).backups.destinations.create.handler(
-    async ({ input, context }) => {
-      const row = await createDestination({
+    async ({ input, context, errors }) => {
+      const result = await createDestination({
         organizationId: context.activeOrganizationId,
         name: input.name,
         type: input.type,
         config: input.config,
         secret: input.secret,
       });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          DestinationConfigInvalidError: (err) =>
+            errors.INVALID_CONFIG({ data: { reason: err.reason } }),
+        });
+      }
       context.log.set({
-        target: { type: "backup_destination", id: row.id },
+        target: { type: "backup_destination", id: result.value.id },
       });
-      return presentDestinationResult(row);
+      return presentDestinationResult(result.value);
     },
   ),
 
@@ -49,6 +55,8 @@ export const backupDestinationsRouter = {
       if (result.isErr()) {
         throw matchError(result.error, {
           DestinationNotFoundError: () => errors.NOT_FOUND(),
+          DestinationConfigInvalidError: (err) =>
+            errors.INVALID_CONFIG({ data: { reason: err.reason } }),
         });
       }
       return presentDestinationResult(result.value);

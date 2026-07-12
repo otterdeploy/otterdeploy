@@ -22,18 +22,19 @@ import type { MetricRow } from "./use-resource-metrics";
 
 import { formatClock } from "./format";
 
-export interface MetricSeries {
-  /** Key into `MetricRow` to plot. */
-  dataKey: keyof MetricRow;
+export interface MetricSeries<Row = MetricRow> {
+  /** Key into the row type to plot. `MetricRow` is the canonical per-resource
+   *  shape; project-aggregate / request-series rows plug in via the generic. */
+  dataKey: Extract<keyof Row, string>;
   /** Legend / tooltip label. */
   label: string;
   /** CSS color (e.g. `var(--chart-3)`). */
   color: string;
 }
 
-interface MetricAreaChartProps {
-  data: MetricRow[];
-  series: MetricSeries[];
+interface MetricAreaChartProps<Row extends { ts: number }> {
+  data: Row[];
+  series: MetricSeries<Row>[];
   /** Formats Y-axis ticks and tooltip values (bytes, percent, rate…). */
   format: (value: number) => string;
   /** Upper Y bound; `"auto"` lets recharts fit the data (default). */
@@ -43,14 +44,14 @@ interface MetricAreaChartProps {
   className?: string;
 }
 
-export function MetricAreaChart({
+export function MetricAreaChart<Row extends { ts: number }>({
   data,
   series,
   format,
   max = "auto",
   compact = false,
   className,
-}: MetricAreaChartProps) {
+}: MetricAreaChartProps<Row>) {
   const config: ChartConfig = Object.fromEntries(
     series.map((s) => [s.dataKey, { label: s.label, color: s.color }]),
   );

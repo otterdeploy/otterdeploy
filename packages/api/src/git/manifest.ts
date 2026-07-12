@@ -114,6 +114,11 @@ export function buildManifestRequest(opts: {
       metadata: "read",
       pull_requests: "write",
       checks: "write",
+      // Commit Statuses API (`POST /repos/:o/:r/statuses/:sha`, used by
+      // createCommitStatus in github-app.ts) is gated by `statuses`, a distinct
+      // permission from `checks`. Without it GitHub 403s the preview build
+      // status ("Resource not accessible by integration").
+      statuses: "write",
     },
     // Only permission-backed events go here. `installation` and
     // `installation_repositories` are App-lifecycle events GitHub delivers to

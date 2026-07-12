@@ -43,9 +43,9 @@ addition to `resource-logs.ts`).
 
 ## Security (server-side)
 
-- **`docker.*` router** was `publicProcedure` (unauthenticated host enumeration).
-  Now `requirePermission({ platform: ["read"] })` — the same gate as `system.*`
-  host inspection.
+- **`docker.*` router** list procedures were `publicProcedure` (unauthenticated
+  host enumeration). Now `orgScopedProcedure`, matching the sibling docker
+  reads (inspect/logs/nodes); destructive daemon ops stay on `platform:update`.
 - **`/pty` WebSocket** had no auth: `?host=1` was an open host shell and
   `?container=<id>` exec'd into any container cross-org. Now authenticated on the
   upgrade (cookie or `token` query param → session/API-key), org-scoped for

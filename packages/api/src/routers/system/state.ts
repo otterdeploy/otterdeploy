@@ -14,6 +14,8 @@ import { Result } from "better-result";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
+import { isNewer } from "./compare";
+
 export type UpdateRunStatus = "idle" | "running" | "succeeded" | "failed";
 export type UpdatePhase = "validate" | "pull" | "migrate" | "recreate" | "handoff" | "done";
 export type ProgressLevel = "info" | "success" | "error";
@@ -162,4 +164,35 @@ export async function readPersistedSnapshot(): Promise<UpdateRunSnapshot | null>
     catch: (cause) => cause,
   });
   return res.isOk() ? res.value : null;
+}
+
+/**
+ * Settle a handed-off run after the cutover. The old server dies the moment
+ * the helper recreates the stack, so nobody ever wrote a terminal outcome —
+ * the snapshot stayed "running" forever and the UI showed a perpetually
+ * in-flight update. Called once on server boot: if the persisted run is still
+ * running+handedOff, compare the version we ACTUALLY booted as against the
+ * target, restore the run in memory (so updateState/progress serve the real
+ * outcome), and persist the terminal state.
+ */
+export async function finalizeHandedOffRun(bootedVersion: string): Promise<void> {
+  const snap = await readPersistedSnapshot();
+  if (!snap || snap.status !== "running" || !snap.handedOff || !snap.targetVersion) return;
+
+  const reachedTarget =
+    snap.targetVersion === bootedVersion || isNewer(bootedVersion, snap.targetVersion);
+
+  run = { ...snap, logs: [...snap.logs] };
+  seq = run.logs.reduce((max, l) => Math.max(max, l.seq), 0);
+  emit(
+    "done",
+    reachedTarget
+      ? `Update to ${snap.targetVersion} complete — control plane is running ${bootedVersion}.`
+      : `Control plane came back on ${bootedVersion}, expected ${snap.targetVersion} — the cutover may have failed or rolled back.`,
+    reachedTarget ? "success" : "error",
+  );
+  finish(
+    reachedTarget,
+    reachedTarget ? undefined : `Booted ${bootedVersion} instead of target ${snap.targetVersion}.`,
+  );
 }

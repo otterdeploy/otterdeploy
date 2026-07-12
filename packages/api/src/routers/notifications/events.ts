@@ -28,6 +28,7 @@ const PLATFORM_EVENTS: readonly PlatformEventDef[] = [
   { id: "backup.succeeded", label: "Backup succeeded", severity: "ok" },
   { id: "ssh.rotated", label: "SSH key rotated", severity: "info" },
   { id: "audit.anomaly", label: "Audit anomaly", severity: "warn" },
+  { id: "edge.probe", label: "Suspicious edge traffic", severity: "warn" },
 ] as const;
 
 export const EVENT_IDS = PLATFORM_EVENTS.map((e) => e.id);

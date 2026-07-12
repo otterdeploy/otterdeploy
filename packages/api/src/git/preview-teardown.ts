@@ -1,14 +1,14 @@
 /**
- * Tear down a preview environment when its PR closes (docs/designs/pr-previews.md §8):
- * destroy the env-scoped service containers, destroy + delete the branched
- * databases (container AND volume — a branch's data is disposable), then drop
- * the preview's proxy routes and reconcile Caddy.
+ * Tear down a preview when its PR closes: destroy the preview-scoped service
+ * containers, destroy + delete the branched databases (container AND volume —
+ * a branch's data is disposable), then drop the preview's proxy routes and
+ * reconcile Caddy.
  *
  * Best-effort throughout: a single failure logs and teardown continues, so a
  * stuck container can't strand the rest. Runs inline from the webhook; like
  * branching it should move to a background job before heavy use.
  */
-import type { EnvironmentId, ProjectId } from "@otterdeploy/shared/id";
+import type { GitRepoId, PreviewId, ProjectId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
@@ -18,42 +18,49 @@ import { and, eq, isNull } from "drizzle-orm";
 import { log } from "evlog";
 
 import { reconcile } from "../caddy";
-import { type EnvScope, runtimeServiceName } from "../lib/environment/scoping";
+import { type PreviewScope, runtimeServiceName } from "../lib/environment/scoping";
 import { deleteResourceById, listDatabaseResourceRecords } from "../routers/project/queries";
 import { buildContainerName } from "../routers/project/view-helpers";
 import { runtime } from "../runtime";
 import { removePreviewRoutes } from "./preview-routes";
 
-export interface ClosedPreviewEnv {
-  id: EnvironmentId;
+export interface ClosedPreview {
+  id: PreviewId;
   projectId: ProjectId;
   projectSlug: string;
+  /** The preview's repo — teardown must only destroy containers named for
+   *  THIS repo's PR, never another repo's same-numbered preview. */
+  gitRepoId: GitRepoId;
+  /** The preview's repo-qualified slug (`<repoSlug>-pr-<N>`) — byte-identical
+   *  to what create used, so branch container/volume names resolve. */
   slug: string;
-  pullRequestNumber: number | null;
+  prNumber: number;
 }
 
-export async function teardownPreviewEnvironment(
-  env: ClosedPreviewEnv,
-  rlog?: RequestLogger,
-): Promise<void> {
-  const scope: EnvScope = {
-    id: env.id,
-    kind: "preview",
-    slug: env.slug,
-    pullRequestNumber: env.pullRequestNumber,
+export async function teardownPreview(input: ClosedPreview, rlog?: RequestLogger): Promise<void> {
+  const scope: PreviewScope = {
+    id: input.id,
+    slug: input.slug,
+    prNumber: input.prNumber,
   };
-  const previewSlug = env.pullRequestNumber != null ? `pr-${env.pullRequestNumber}` : env.slug;
 
-  // 1. Destroy the preview's service containers (env-scoped names).
+  // 1. Destroy the preview's service containers (preview-scoped names).
+  // Scoped to services bound to THIS preview's repo — the `pr-<n>` container
+  // suffix is repo-agnostic, so an unscoped sweep would destroy another
+  // repo's live same-numbered preview. Deliberately NOT gated on
+  // previewsEnabled: a service that opted out after a preview deployed must
+  // still be torn down (destroy is a no-op for containers that don't exist).
   const services = await db
     .select({ serviceName: serviceResource.serviceName })
     .from(resource)
     .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
     .where(
       and(
-        eq(resource.projectId, env.projectId),
+        eq(resource.projectId, input.projectId),
         eq(resource.type, "service"),
-        isNull(resource.environmentId),
+        eq(serviceResource.source, "git"),
+        eq(serviceResource.gitRepoId, input.gitRepoId),
+        isNull(resource.previewId),
       ),
     );
   for (const svc of services) {
@@ -65,21 +72,44 @@ export async function teardownPreviewEnvironment(
   }
 
   // 2. Destroy + delete the branched databases (container + volume + row).
-  const branches = (await listDatabaseResourceRecords(env.projectId)).filter(
-    (r) => r.resource.environmentId === env.id,
+  await destroyPreviewBranchDbs(
+    { id: input.id, projectId: input.projectId, projectSlug: input.projectSlug, slug: input.slug },
+    rlog,
+  );
+
+  // 3. Drop the preview's proxy routes and push the shrunken config to the
+  // edge (skip the reconcile when the preview never had a host).
+  await best(
+    async () => {
+      if (await removePreviewRoutes(input.id)) await reconcile(rlog);
+    },
+    { step: "remove-routes", previewId: input.id },
+  );
+}
+
+/** Destroy + delete a preview's branched databases (container + volume + row).
+ *  Branch DBs are named with the preview's full slug (`<repoSlug>-pr-<N>`) —
+ *  the same string create used — so destroy targets the real container. Shared
+ *  by teardown and the DB-branch disable/reset controls. */
+export async function destroyPreviewBranchDbs(
+  input: { id: PreviewId; projectId: ProjectId; projectSlug: string; slug: string },
+  rlog?: RequestLogger,
+): Promise<number> {
+  const branches = (await listDatabaseResourceRecords(input.projectId)).filter(
+    (r) => r.resource.previewId === input.id,
   );
   for (const br of branches) {
     const serviceName = buildContainerName({
       engine: br.database.engine,
-      projectSlug: env.projectSlug,
-      resourceName: `${br.resource.name}-${previewSlug}`,
+      projectSlug: input.projectSlug,
+      resourceName: `${br.resource.name}-${input.slug}`,
     });
     await best(
       () =>
         runtime().destroyDatabaseBranch(
           {
             serviceName,
-            projectId: env.projectId,
+            projectId: input.projectId,
             resourceId: br.resource.id,
             snapshotRef: br.database.branchSnapshotRef ?? null,
           },
@@ -92,11 +122,7 @@ export async function teardownPreviewEnvironment(
       db: br.resource.name,
     });
   }
-  // 3. Drop the preview's proxy routes and push the shrunken config to the
-  // edge (skip the reconcile when the env never had a host).
-  await best(async () => {
-    if (await removePreviewRoutes(env.id)) await reconcile(rlog);
-  }, { step: "remove-routes", environmentId: env.id });
+  return branches.length;
 }
 
 async function best(fn: () => Promise<unknown>, ctx: Record<string, unknown>): Promise<void> {

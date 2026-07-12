@@ -54,3 +54,41 @@ export function timeAgoSeconds(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds <= 0) return "—";
   return timeAgoMs(seconds * 1000);
 }
+
+/** Swarm tasks report RFC3339 strings instead of unix seconds. */
+export function timeAgoIso(iso: string | null): string {
+  if (!iso) return "—";
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return "—";
+  return timeAgoMs(ms);
+}
+
+/** Semantic tone vocabulary for daemon state badges (State-Tint Rule). */
+export type StateTone = "success" | "warning" | "info" | "destructive" | "muted";
+
+/**
+ * Container state → tone, per the design target: running=success,
+ * restarting=warning, paused=info, exited/dead=destructive (the status string
+ * carries the exit code), everything transitional muted. A running-but-
+ * unhealthy container downgrades to warning — the health probe is the truth.
+ */
+export function containerTone(state: string, status?: string): StateTone {
+  const s = state.toLowerCase();
+  if (s === "running") {
+    return status?.toLowerCase().includes("(unhealthy)") ? "warning" : "success";
+  }
+  if (s === "restarting") return "warning";
+  if (s === "paused") return "info";
+  if (s === "exited" || s === "dead") return "destructive";
+  return "muted"; // created / removing / …
+}
+
+/** Swarm task state → tone (running=ok, ready=info, preparing=warn, …). */
+export function taskTone(state: string): StateTone {
+  const s = state.toLowerCase();
+  if (s === "running" || s === "complete") return "success";
+  if (s === "failed" || s === "rejected" || s === "orphaned") return "destructive";
+  if (s === "preparing" || s === "starting") return "warning";
+  if (s === "shutdown" || s === "remove") return "muted";
+  return "info"; // new / pending / assigned / accepted / ready
+}

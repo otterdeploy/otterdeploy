@@ -71,7 +71,9 @@ export function BackupRow({
       >
         <span className="flex min-w-0 items-center gap-2">
           <HugeiconsIcon icon={KIcon} className="size-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate font-mono text-xs font-medium">{b.source ?? b.resourceId}</span>
+          <span className="truncate font-mono text-xs font-medium">
+            {b.source ?? b.volumeName ?? b.resourceId ?? "—"}
+          </span>
           <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
             {kindLabel(b.kind)}
           </span>

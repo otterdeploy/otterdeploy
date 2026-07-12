@@ -1,5 +1,13 @@
 # Database branching — preview & copy-prod environments
 
+> ⚠️ **Superseded (data model) by [`preview-cow-databases.md`](./preview-cow-databases.md).**
+> This doc still models a branch as living *under* an `environment` — that model
+> was removed in `3678b0f3` ("previews are resources, not environments"). The
+> current design is **previews-as-resources + one shared `Preview` environment**,
+> single-node ZFS CoW. The ZFS primitive, pool operations, consistency, and
+> non-goals sections below remain accurate; read the data-model / environment
+> sections as historical background.
+
 Status: **design.** Not built. Owner: platform. Builds on the `runtime()` driver
 (`docs/designs/runtime.md`), the backup engine (`docs/designs/backups.md`), the
 host data folder (`docs/designs/data-folder.md`), and the dormant `environment`

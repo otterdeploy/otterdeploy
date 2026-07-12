@@ -73,26 +73,31 @@ function toEvent(image: string, line: DockerPullLine): ImagePullEvent {
 // locally, emits a single synthetic `Already present` event and returns —
 // no network round-trip wasted. Pass `auth` to authenticate against a
 // private registry (ghcr.io PAT, AWS ECR token, etc.); omit it for public
-// images.
+// images. `skipIfPresent: false` forces the registry pull even when a local
+// image exists — the runtime driver uses it so redeploys of a mutable tag
+// (postgres:18-alpine) pick up the newer digest.
 export async function* streamImagePull(
   docker: Docker,
   image: string,
   auth?: RegistryAuth | null,
+  opts?: { skipIfPresent?: boolean },
 ): AsyncGenerator<ImagePullEvent, void, void> {
-  const inspectResult = await docker.images.getImage(image).inspect();
-  if (inspectResult.isOk()) {
-    yield {
-      image,
-      id: null,
-      status: "Already present",
-      progress: null,
-      current: null,
-      total: null,
-    };
-    return;
-  }
-  if (!(inspectResult.error instanceof DockerNotFoundError)) {
-    throw inspectResult.error;
+  if (opts?.skipIfPresent !== false) {
+    const inspectResult = await docker.images.getImage(image).inspect();
+    if (inspectResult.isOk()) {
+      yield {
+        image,
+        id: null,
+        status: "Already present",
+        progress: null,
+        current: null,
+        total: null,
+      };
+      return;
+    }
+    if (!(inspectResult.error instanceof DockerNotFoundError)) {
+      throw inspectResult.error;
+    }
   }
 
   const pullResult = await docker.pull(image, auth ? { authconfig: auth } : undefined);

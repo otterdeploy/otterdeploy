@@ -3,18 +3,18 @@
  *
  * Encryption is applied at the boundary here: callers pass plaintext,
  * we encryptSecret() before INSERT/UPDATE, and we never SELECT the
- * encrypted_password column for the "view" shape. The decrypted path
- * lives in swarm/registry-auth.ts (resolveRegistryAuth) and the build
- * pipeline (apps/builder/src/pipeline.ts) — those two call sites are
- * the only places plaintext is reconstructed.
+ * encrypted_password column for the "view" shape. The decrypted paths
+ * are swarm/registry-auth.ts (resolveRegistryAuth), the build pipeline
+ * (apps/builder/src/pipeline.ts), and getRegistryCredentialForOrg below
+ * (testConnection probe only — plaintext never leaves the server).
  */
 import type { ContainerRegistryId, OrganizationId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { containerRegistry } from "@otterdeploy/db/schema";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 
-import { encryptSecret } from "../../lib/crypto";
+import { decryptSecret, encryptSecret } from "../../lib/crypto";
 
 type OrgId = OrganizationId;
 type RegistryId = ContainerRegistryId;
@@ -80,6 +80,63 @@ export async function getRegistryForOrg(organizationId: OrgId, id: RegistryId) {
     .where(and(eq(containerRegistry.id, id), eq(containerRegistry.organizationId, organizationId)))
     .limit(1);
   return row ?? null;
+}
+
+/**
+ * host + username + DECRYPTED password for the testConnection probe.
+ * The plaintext is used server-side for the registry handshake and is
+ * never serialized into an RPC response — keep it that way.
+ */
+export async function getRegistryCredentialForOrg(organizationId: OrgId, id: RegistryId) {
+  const [row] = await db
+    .select({
+      id: containerRegistry.id,
+      host: containerRegistry.host,
+      username: containerRegistry.username,
+      encryptedPassword: containerRegistry.encryptedPassword,
+    })
+    .from(containerRegistry)
+    .where(and(eq(containerRegistry.id, id), eq(containerRegistry.organizationId, organizationId)))
+    .limit(1);
+  if (!row) return null;
+  return {
+    id: row.id,
+    host: row.host,
+    username: row.username,
+    password: await decryptSecret(row.encryptedPassword),
+  };
+}
+
+/**
+ * Decrypted credential for a HOST — the same "most recently updated wins"
+ * rule `resolveRegistryAuth` applies at deploy time, so the tag browser
+ * authenticates exactly like the eventual pull will. Null when the org
+ * has no credential for that host (anonymous is the honest fallback).
+ */
+export async function getRegistryCredentialForOrgByHost(organizationId: OrgId, host: string) {
+  const [row] = await db
+    .select({
+      id: containerRegistry.id,
+      host: containerRegistry.host,
+      username: containerRegistry.username,
+      encryptedPassword: containerRegistry.encryptedPassword,
+    })
+    .from(containerRegistry)
+    .where(
+      and(
+        eq(containerRegistry.organizationId, organizationId),
+        eq(containerRegistry.host, canonicalizeHost(host)),
+      ),
+    )
+    .orderBy(desc(containerRegistry.updatedAt))
+    .limit(1);
+  if (!row) return null;
+  return {
+    id: row.id,
+    host: row.host,
+    username: row.username,
+    password: await decryptSecret(row.encryptedPassword),
+  };
 }
 
 export async function createRegistryRecord(input: {

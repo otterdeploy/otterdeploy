@@ -1,11 +1,10 @@
 /**
- * Bottom slide-up "Stack code" panel for the project graph view.
- *
- * Editable YAML driven by `project.stack.diff` (load), `.save`
- * (persist), and `.apply` (push to swarm). Apply walks the saved file
- * and pushes env-var changes through the existing extra-env mutator
- * for database services; service resources are surfaced as "skipped"
- * via toast.
+ * Bottom slide-up drawer for the project graph view: Stack code (editable
+ * YAML via `project.stack.diff` / `.save` / `.apply` — the ⌘S flow), a live
+ * project Activity feed, and a per-host Traffic table. Open/tab/height are
+ * persisted per project (see use-panel-state); the top edge drag-resizes
+ * between 160px and 70vh. The state hook is owned by the graph layout so the
+ * canvas can lift its bottom chrome above the drawer.
  */
 
 import type { ProjectId } from "@otterdeploy/shared/id";
@@ -14,8 +13,11 @@ import { useState } from "react";
 
 import { cn } from "@/shared/lib/utils";
 
+import { ActivityPanel } from "./activity-panel";
 import { PanelFooter, type PanelViewMode } from "./panel-footer";
-import { PanelHeader, type StackTab } from "./panel-header";
+import { PanelHeader } from "./panel-header";
+import { TrafficPanel } from "./traffic-panel";
+import { PANEL_COLLAPSED_HEIGHT, type StackPanelState } from "./use-panel-state";
 import { useStackState } from "./use-stack-state";
 import { YamlEditor } from "./yaml-editor";
 import { YamlView } from "./yaml-view";
@@ -23,11 +25,10 @@ import { YamlView } from "./yaml-view";
 export interface StackCodePanelProps {
   projectId: ProjectId;
   projectSlug: string;
+  panel: StackPanelState;
 }
 
-export function StackCodePanel({ projectId, projectSlug }: StackCodePanelProps) {
-  const [open, setOpen] = useState(true);
-  const [tab, setTab] = useState<StackTab>("stack");
+export function StackCodePanel({ projectId, projectSlug, panel }: StackCodePanelProps) {
   const [view, setView] = useState<PanelViewMode>("edit");
   const stack = useStackState({ projectId });
 
@@ -36,25 +37,41 @@ export function StackCodePanel({ projectId, projectSlug }: StackCodePanelProps) 
 
   return (
     <div
+      style={{ height: panel.open ? panel.height : PANEL_COLLAPSED_HEIGHT }}
       className={cn(
         "pointer-events-auto absolute inset-x-0 bottom-0 z-20",
         "flex flex-col overflow-hidden rounded-t-xl border border-b-0 border-border/60",
-        "bg-background/95 backdrop-blur transition-[height] duration-200 ease-out",
-        open ? "h-[360px]" : "h-10",
+        "bg-background/95 backdrop-blur",
+        // Suppress the height transition mid-drag so the drawer tracks the
+        // pointer 1:1 instead of easing behind it.
+        !panel.dragging && "transition-[height] duration-200 ease-out",
       )}
     >
+      {/* Drag handle — a slim strip along the top edge. */}
+      {panel.open && (
+        <div
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Resize panel"
+          onPointerDown={panel.startDrag}
+          className="group absolute inset-x-0 top-0 z-30 flex h-2 cursor-ns-resize items-start justify-center"
+        >
+          <div className="mt-0.5 h-1 w-10 rounded-full bg-border opacity-0 transition-opacity group-hover:opacity-100" />
+        </div>
+      )}
+
       <PanelHeader
-        tab={tab}
-        onTabChange={setTab}
-        open={open}
-        onToggle={() => setOpen((v) => !v)}
+        tab={panel.tab}
+        onTabChange={panel.setTab}
+        open={panel.open}
+        onToggle={panel.toggleOpen}
         dirty={stack.dirty}
       />
 
-      {open && (
+      {panel.open && (
         <>
           <div className="flex-1 overflow-hidden border-y border-border/40 bg-background/60">
-            {tab === "stack" ? (
+            {panel.tab === "stack" ? (
               <StackBody
                 view={view}
                 editing={stack.editing}
@@ -66,32 +83,30 @@ export function StackCodePanel({ projectId, projectSlug }: StackCodePanelProps) 
                 onSubmit={() => void stack.saveAndApply()}
                 disabled={stack.isSaving}
               />
+            ) : panel.tab === "activity" ? (
+              <ActivityPanel projectId={projectId} />
             ) : (
-              <Placeholder kind={tab} />
+              <TrafficPanel projectId={projectId} />
             )}
           </div>
-          <PanelFooter
-            filename={filename}
-            lineCount={lineCount}
-            view={view}
-            onViewChange={setView}
-            editing={stack.editing}
-            onEditToggle={() => stack.setEditing((p) => !p)}
-            dirty={stack.dirty}
-            isSaving={stack.isSaving}
-            onDiscard={stack.discard}
-            onApply={() => void stack.saveAndApply()}
-          />
+          {/* Footer (filename / edit / diff / ⌘S Apply) belongs to the stack
+              file — the feed tabs stand on their own. */}
+          {panel.tab === "stack" && (
+            <PanelFooter
+              filename={filename}
+              lineCount={lineCount}
+              view={view}
+              onViewChange={setView}
+              editing={stack.editing}
+              onEditToggle={() => stack.setEditing((p) => !p)}
+              dirty={stack.dirty}
+              isSaving={stack.isSaving}
+              onDiscard={stack.discard}
+              onApply={() => void stack.saveAndApply()}
+            />
+          )}
         </>
       )}
-    </div>
-  );
-}
-
-function Placeholder({ kind }: { kind: "activity" | "traffic" }) {
-  return (
-    <div className="flex h-full items-center justify-center text-[12px] text-muted-foreground">
-      {kind === "activity" ? "Activity feed — coming soon" : "Traffic chart — coming soon"}
     </div>
   );
 }

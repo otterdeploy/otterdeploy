@@ -112,11 +112,14 @@ export function Detail({
   v,
   wide,
   wrap,
+  vClass,
 }: {
   k: string;
   v: string;
   wide?: boolean;
   wrap?: boolean;
+  /** Optional tint for the value (e.g. cache HIT/BYPASS status colors). */
+  vClass?: string;
 }) {
   return (
     // min-w-0: without it this flex item (and grid cell) keeps its intrinsic
@@ -124,7 +127,9 @@ export function Detail({
     // truncating. With it, the value span can shrink and truncate/wrap kicks in.
     <div className={cn("flex min-w-0 gap-2", wide && "col-span-2")}>
       <span className="shrink-0 text-muted-foreground">{k}</span>
-      <span className={cn("min-w-0 text-foreground/90", wrap ? "break-all" : "truncate")}>{v}</span>
+      <span className={cn("min-w-0 text-foreground/90", wrap ? "break-all" : "truncate", vClass)}>
+        {v}
+      </span>
     </div>
   );
 }

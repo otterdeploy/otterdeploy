@@ -11,7 +11,7 @@ import { guestSessionHoursFor } from "@otterdeploy/api/authz/guests";
 import { resolveProtectedDomainOrg } from "@otterdeploy/api/authz/membership";
 import { consumeOtp, generateOtp, storeOtp, underRateLimit } from "@otterdeploy/api/authz/otp";
 import { signGuestCookie } from "@otterdeploy/api/authz/tokens";
-import { sendEmail } from "@otterdeploy/email";
+import { AccessCodeEmail, sendEmail } from "@otterdeploy/email";
 import { env } from "@otterdeploy/env/server";
 import { Result } from "better-result";
 import { log } from "evlog";
@@ -20,7 +20,6 @@ import { setCookie } from "hono/cookie";
 import {
   cookieOptions,
   errorPage,
-  escapeHtml,
   guard,
   GUEST_COOKIE,
   GUEST_COOKIE_MAX_AGE,
@@ -141,10 +140,6 @@ async function sendOtpEmail(email: string, code: string, domain: string): Promis
     to: email,
     subject: `Your code for ${domain}: ${code}`,
     text: `Your one-time code to access ${domain} is: ${code}\n\nIt expires in 10 minutes. If you didn't request this, ignore this email.`,
-    html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:420px;margin:0 auto;padding:24px">
-      <p style="color:#444">Your one-time code to access <b>${escapeHtml(domain)}</b>:</p>
-      <p style="font-size:32px;font-weight:700;letter-spacing:6px;font-family:ui-monospace,Menlo,monospace">${code}</p>
-      <p style="color:#888;font-size:13px">Expires in 10 minutes. If you didn't request this, ignore this email.</p>
-    </div>`,
+    react: AccessCodeEmail({ domain, code, expiresInMinutes: 10 }),
   });
 }

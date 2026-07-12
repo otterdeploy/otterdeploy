@@ -21,6 +21,7 @@ import {
 import { mapDatabaseResource, type PostgresResource } from "../views";
 import { prepareCreateContext } from "./create-stream-context";
 import {
+  insertCreateDeployment,
   persistDbRecordStage,
   provisionStage,
   publishAndReconcileStage,
@@ -125,10 +126,15 @@ export async function* createPostgresResourceStream(
   if (!dbRecord.ok) return;
   const created = dbRecord.value;
 
-  const pull = yield* pullImageStage(ctx.dbImage, input.organizationId);
+  // The deployment row spans the FULL create — pull included — so the UI has
+  // an honest `building` to show while the container doesn't exist yet, and a
+  // pull failure lands on the row as a real `failed` + error message.
+  const deploymentRow = await insertCreateDeployment(created.resource.id, ctx);
+
+  const pull = yield* pullImageStage(ctx.dbImage, input.organizationId, deploymentRow.id);
   if (!pull.ok) return;
 
-  const provisioned = yield* provisionStage(created.resource.id, ctx, log);
+  const provisioned = yield* provisionStage(created.resource.id, ctx, log, deploymentRow);
   if (!provisioned.ok) return;
 
   yield* streamBootLogsStage(ctx);

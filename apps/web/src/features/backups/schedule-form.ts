@@ -131,9 +131,7 @@ function saveSchedule(
     preHook,
     destinationIds: value.destinationIds as Schedule["destinationIds"],
     encryption: value.encryptionNone ? "none" : "aes-256-gcm",
-    pitr: false,
     enabled: value.enabled,
-    notifyChannel: null,
     lastRunAt: null,
     lastRunStatus: null,
     nextRunAt: null,
@@ -142,6 +140,8 @@ function saveSchedule(
     destinationNames: value.destinationIds
       .map((id) => destinations.find((d) => d.id === id)?.name)
       .filter((n): n is string => Boolean(n)),
+    // Freshly created — the server resolves real source health on refetch.
+    missingSources: [],
   });
 }
 

@@ -13,6 +13,7 @@ import { tags as t } from "@lezer/highlight";
 import CodeMirror from "@uiw/react-codemirror";
 
 import { ComposeExposedEditor } from "@/features/resources/components/compose/exposed-editor";
+import { TypedConfirmDialog } from "@/shared/components/typed-confirm-dialog";
 import { Button } from "@/shared/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
 import { cn } from "@/shared/lib/utils";
@@ -22,6 +23,7 @@ import type { ComposeService, StackServiceStatus } from "./panel-parts";
 const stackStatusMeta: Record<StackServiceStatus, { label: string; dot: string; text: string }> = {
   running: { label: "Running", dot: "bg-success", text: "text-success" },
   building: { label: "Building", dot: "bg-warning", text: "text-warning" },
+  deploying: { label: "Deploying", dot: "bg-info", text: "text-info" },
   error: { label: "Failed", dot: "bg-destructive", text: "text-destructive" },
   offline: {
     label: "Offline",
@@ -156,12 +158,6 @@ export function ComposeSettingsTab({
   onDelete: () => void;
   deleting: boolean;
 }) {
-  const confirmDelete = () => {
-    if (!window.confirm(`Delete the "${name}" stack and all ${serviceCount} of its services?`)) {
-      return;
-    }
-    onDelete();
-  };
   return (
     <>
       <div className="mb-4">
@@ -173,17 +169,27 @@ export function ComposeSettingsTab({
           Removes every service in this stack from swarm, its routes, and the resource record. This
           can't be undone.
         </p>
-        <Button
-          type="button"
-          variant="destructive"
-          size="sm"
-          className="mt-3"
-          onClick={confirmDelete}
-          disabled={deleting}
-        >
-          <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
-          {deleting ? "Deleting…" : "Delete stack"}
-        </Button>
+        <TypedConfirmDialog
+          trigger={
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className="mt-3"
+              disabled={deleting}
+            >
+              <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
+              {deleting ? "Deleting…" : "Delete stack"}
+            </Button>
+          }
+          title={`Delete the ${name} stack?`}
+          description={`All ${serviceCount} of its services are removed from swarm along with their routes and the resource record. This can't be undone.`}
+          confirmPhrase={name}
+          confirmLabel="Delete stack"
+          pendingLabel="Deleting…"
+          pending={deleting}
+          onConfirm={onDelete}
+        />
       </div>
     </>
   );
@@ -191,7 +197,14 @@ export function ComposeSettingsTab({
 
 function ServiceRow({ service, status }: { service: ComposeService; status: StackServiceStatus }) {
   const meta = stackStatusMeta[status];
-  const label = status === "error" && service.hasBuild ? "Build failed" : meta.label;
+  // Task-derived "building" covers swarm's pre-running phases (pulling,
+  // starting) — for an image-only service nothing builds, so say "Deploying".
+  const label =
+    status === "error" && service.hasBuild
+      ? "Build failed"
+      : status === "building" && !service.hasBuild
+        ? "Deploying"
+        : meta.label;
   return (
     <div className="rounded-lg border bg-card px-4 py-3">
       <div className="flex items-center justify-between gap-3">

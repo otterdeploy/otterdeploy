@@ -42,7 +42,9 @@ export const gitInstallationViewSchema = z.object({
   suspendedAt: z.date().nullable(),
   revokedAt: z.date().nullable(),
   createdAt: z.date(),
-  repoCount: z.number().int().min(0),
+  /** Repos GitHub grants this installation. Null = never successfully
+   *  fetched (or revoked) — render "—", not 0. */
+  repoCount: z.number().int().min(0).nullable(),
 });
 
 export const gitProviderViewSchema = z.object({
@@ -102,6 +104,8 @@ const refreshReposInput = z.object({
 });
 
 const refreshReposOutput = z.object({
+  /** GitHub's `total_count` for the installation — a successful sync always
+   *  yields a real number, so this stays non-null. */
   repoCount: z.number().int().min(0),
 });
 

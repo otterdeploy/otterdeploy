@@ -107,11 +107,32 @@ export const env = createEnv({
       .union([z.boolean(), z.string()])
       .transform((v) => v === true || v === "true" || v === "1")
       .default(true),
-    // Absolute path to a MaxMind GeoLite2-Country .mmdb file. When set (and the
-    // optional `maxmind` package is installed), edge-log rows get a country
-    // code; unset ⇒ the country column stays null. License-gated DB, so the
-    // operator supplies it — see edge-logs/geo.ts.
+    // Absolute path to an IP→country .mmdb file (MaxMind DB format). When set,
+    // the edge-log sink opens it directly and skips the managed download. Unset
+    // ⇒ the sink downloads a free, no-key DB to <DATA_ROOT>/geoip and uses that.
+    // See edge-logs/geo.ts.
     EDGE_LOG_GEOIP_DB: z.string().min(1).optional(),
+    // Source URL for the auto-downloaded country DB when EDGE_LOG_GEOIP_DB is
+    // unset. Defaults to the public-domain DB-IP country-lite MMDB (no license
+    // key, monthly-updated) served from jsDelivr. Override for a mirror or an
+    // air-gapped install; set EDGE_LOG_GEOIP_DB instead to supply your own file.
+    EDGE_LOG_GEOIP_URL: z
+      .url()
+      .default("https://cdn.jsdelivr.net/npm/@ip-location-db/dbip-country-mmdb/dbip-country.mmdb"),
+    // Companion IP→ASN database (AS number + org), same managed-download
+    // semantics — enriches firewall decisions with network ownership. The
+    // default is the public-domain RouteViews-derived build from the same
+    // ip-location-db project. Set to an empty-ish mirror or your own GeoLite2-ASN
+    // via EDGE_LOG_GEOIP_ASN_DB to skip the download.
+    EDGE_LOG_GEOIP_ASN_DB: z.string().min(1).optional(),
+    EDGE_LOG_GEOIP_ASN_URL: z
+      .url()
+      .default("https://cdn.jsdelivr.net/npm/@ip-location-db/asn-mmdb/asn.mmdb"),
+
+    // PR previews: hours of inactivity before the hourly cleanup cron tears an
+    // open preview down (a keep-alive pin sets autoTeardownAt NULL to exempt
+    // it). 0 disables idle teardown entirely. Default 72h.
+    PREVIEW_IDLE_TEARDOWN_HOURS: z.coerce.number().int().min(0).default(72),
 
     // CrowdSec IP-reputation bouncer (deployment-protection.md §10). When
     // both are set, the Caddyfile gains the global `crowdsec` app + a

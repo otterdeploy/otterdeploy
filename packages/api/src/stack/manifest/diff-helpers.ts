@@ -11,7 +11,6 @@ import { diffSourceFields, type FieldChanges } from "./diff-source";
 
 // ── Service field diff ─────────────────────────────────────────────────
 
-
 // Every field below follows the DECLARED-ONLY convention (established by
 // database publicEnabled/extraEnv and the git binding): a key the manifest
 // omits is live-managed — the diff skips it and apply leaves it alone. The
@@ -25,11 +24,17 @@ function diffExecFields(desired: ServiceManifest, current: CurrentService, fc: F
     fc.replicas = { from: current.replicas, to: desired.replicas };
   }
 
-  if (desired.startCommand !== undefined && !sameStringArray(desired.startCommand, current.command)) {
+  if (
+    desired.startCommand !== undefined &&
+    !sameStringArray(desired.startCommand, current.command)
+  ) {
     fc.command = { from: current.command, to: desired.startCommand };
   }
 
-  if (desired.entrypoint !== undefined && !sameStringArray(desired.entrypoint, current.entrypoint)) {
+  if (
+    desired.entrypoint !== undefined &&
+    !sameStringArray(desired.entrypoint, current.entrypoint)
+  ) {
     fc.entrypoint = { from: current.entrypoint, to: desired.entrypoint };
   }
 
@@ -48,7 +53,10 @@ function diffLifecycleFields(
     fc.preDeploy = { from: current.preDeploy, to: desired.preDeploy };
   }
 
-  if (desired.postDeploy !== undefined && !sameStringArray(desired.postDeploy, current.postDeploy)) {
+  if (
+    desired.postDeploy !== undefined &&
+    !sameStringArray(desired.postDeploy, current.postDeploy)
+  ) {
     fc.postDeploy = { from: current.postDeploy, to: desired.postDeploy };
   }
 

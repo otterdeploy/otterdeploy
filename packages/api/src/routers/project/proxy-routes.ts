@@ -51,7 +51,11 @@ export async function listProjectProxyRoutes(
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
 
-  const records = await listProxyRoutesByProject(input.projectId);
+  // Base routes only — preview-scoped hosts are lifecycle-managed by the PR
+  // webhook and must not surface as project domains.
+  const records = (await listProxyRoutesByProject(input.projectId)).filter(
+    (r) => r.previewId == null,
+  );
   return Result.ok(records);
 }
 

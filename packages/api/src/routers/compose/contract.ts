@@ -96,14 +96,27 @@ export const composeContract = {
         name: z.string().max(63).optional(),
         /** `inline` = paste the file; `git` = build it from the project repo. */
         source: z.enum(["inline", "git"]).default("inline"),
-        /** Required for `inline`. */
+        /** Required for `inline` (single-file). */
         composeContent: z.string().optional(),
-        /** Public GitHub repo URL (git source). */
+        /** Multi-file inline stack: the compose file + supporting files
+         *  (Dockerfiles/build contexts, env_file targets, bind-mounted scripts).
+         *  When set, `composePath` names which entry is the compose file. */
+        files: z.array(z.object({ path: z.string(), content: z.string() })).optional(),
+        /** Bound repo id (git source) — the repo picker's selection. Clones via
+         *  the GitHub App installation token, so private repos work. Preferred
+         *  over `gitRepoUrl`. */
+        gitRepoId: z.string().optional(),
+        /** Public GitHub repo URL (git source) — legacy paste path; used when no
+         *  `gitRepoId` is bound. */
         gitRepoUrl: z.string().optional(),
         /** Branch (git source; default the repo's main). */
         gitRef: z.string().optional(),
-        /** Path to the compose file in the repo (git source; default compose.yml). */
+        /** Path to the compose file within `sourceSubdir` (git source; default
+         *  auto-detect compose.yml / docker-compose.yml). */
         composePath: z.string().optional(),
+        /** Root directory within the repo the stack builds from (git source;
+         *  the compose file + `build:` contexts resolve relative to it). */
+        sourceSubdir: z.string().optional(),
         /** Values for the file's `${VAR}` refs — written as project variables. */
         variables: z
           .array(

@@ -115,11 +115,11 @@ services:
   # into the generated Caddyfile (hot reload, no image rebuild; the bouncer
   # plugin is already compiled into infra/caddy/Dockerfile).
   #
-  # Phase 1 (now): the community blocklist (CAPI) — known-bad IPs pulled
-  # automatically on first boot, no log acquisition needed. Local log-based
-  # scenarios (brute-force, path-scanning, …) are a follow-up: Caddy access
-  # logs currently stream `output net` to the control plane, not to a file the
-  # agent can tail.
+  # Detection: the community blocklist (CAPI) plus local log-based scenarios —
+  # the agent tails the HOST's auth log (SSH brute force) and Caddy's rolled
+  # access-log file (http brute force / CVE probes; the reconciler mirrors
+  # access logs to the shared volume via a global `log crowdsec-access`
+  # capture in the generated Caddyfile).
   crowdsec:
     image: crowdsecurity/crowdsec:latest
     container_name: otterdeploy-crowdsec
@@ -129,15 +129,36 @@ services:
       # Auto-register the Caddy bouncer with our shared key on first boot, so
       # the edge authenticates to LAPI with no manual `cscli bouncers add`.
       BOUNCER_KEY_caddy: ${CROWDSEC_BOUNCER_KEY:-}
+      # The native host firewall bouncer's own key (install.sh sets it up as a
+      # systemd service — upstream ships no container image, and it must own
+      # the host's nftables). Separate key so either bouncer can be revoked
+      # without breaking the other. Empty ⇒ registration skipped.
+      BOUNCER_KEY_firewall: ${CROWDSEC_FIREWALL_BOUNCER_KEY:-}
+      # Parsers + scenarios for the two log sources below (installed on boot).
+      COLLECTIONS: "crowdsecurity/sshd crowdsecurity/caddy"
+      # SQLite WAL — without it, concurrent access (cscli + LAPI + blocklist
+      # imports) starves the LAPI into "database is locked" 401s.
+      USE_WAL: "true"
     volumes:
       - otterdeploy-crowdsec-config:/etc/crowdsec
       - otterdeploy-crowdsec-data:/var/lib/crowdsec/data
-    expose:
-      # LAPI — internal only. Reachable on the compose network as
-      # http://crowdsec:8080 by Caddy (the bouncer). The control plane reads
-      # decisions by exec'ing `cscli` inside this container over the Docker
-      # socket, so LAPI never needs to be published to the host.
-      - "8080"
+      # Host logs, read-only — the whole directory rather than auth.log alone,
+      # so logrotate's rename doesn't strand a single-file bind mount on a
+      # stale inode.
+      - /var/log:/var/log/host:ro
+      # Caddy's rolled access-log file (`log crowdsec-access` capture).
+      - otterdeploy-caddy-logs:/var/log/caddy:ro
+    configs:
+      - source: crowdsec-acquis
+        target: /etc/crowdsec/acquis.d/otterdeploy.yaml
+    ports:
+      # LAPI on the host LOOPBACK by default — how the native firewall bouncer
+      # (a host process, outside the compose network) reaches the engine.
+      # Multi-server installs: set CROWDSEC_LAPI_BIND to the manager's
+      # routable/mesh IP so firewall bouncers installed on added nodes can
+      # connect (each authenticates with its own API key). In-network callers
+      # are unaffected: Caddy still uses http://crowdsec:8080 via service DNS.
+      - "${CROWDSEC_LAPI_BIND:-127.0.0.1}:8080:8080"
     healthcheck:
       test: ["CMD", "cscli", "lapi", "status"]
       interval: 15s
@@ -161,6 +182,8 @@ services:
       - ./infra/caddy/config:/etc/caddy
       - otterdeploy-caddy-data:/data
       - otterdeploy-caddy-state:/config
+      # Rolled access-log mirror the CrowdSec agent tails (read-only there).
+      - otterdeploy-caddy-logs:/var/log/caddy
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
@@ -175,5 +198,26 @@ volumes:
   otterdeploy-redis-data:
   otterdeploy-caddy-data:
   otterdeploy-caddy-state:
+  otterdeploy-caddy-logs:
   otterdeploy-crowdsec-config:
   otterdeploy-crowdsec-data:
+
+configs:
+  # CrowdSec log acquisition — which logs the agent parses for its scenarios.
+  # Inline so the compose file stays the single artifact an install carries.
+  crowdsec-acquis:
+    content: |
+      # Host SSH auth log (sshd parser → ssh-bf / ssh-slow-bf scenarios).
+      source: file
+      filenames:
+        - /var/log/host/auth.log
+      labels:
+        type: syslog
+      ---
+      # Caddy access logs (caddy parser → http scenarios). Written by the
+      # generated Caddyfile's `log crowdsec-access` capture.
+      source: file
+      filenames:
+        - /var/log/caddy/access*.json
+      labels:
+        type: caddy

@@ -1,7 +1,9 @@
 /**
  * One-time reveal of a freshly created API key. The plaintext token only exists
  * in the `create` response — once this dialog is dismissed it's gone for good,
- * so the copy action and the warning are the whole point of this screen.
+ * so the copy action and the warning are the whole point of this screen. The
+ * "stored securely" checkbox gates every way out (Done, backdrop, Esc): the
+ * operator must actively acknowledge before the secret disappears forever.
  */
 
 import { useState } from "react";
@@ -11,6 +13,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
+import { Checkbox } from "@/shared/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/components/ui/dialog";
+import { Label } from "@/shared/components/ui/label";
 import { copyToClipboard } from "@/shared/lib/clipboard";
 
 export function RevealKeyDialog({
@@ -30,6 +34,13 @@ export function RevealKeyDialog({
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+
+  const close = () => {
+    setCopied(false);
+    setConfirmed(false);
+    onClose();
+  };
 
   const copy = () => {
     if (!apiKey) return;
@@ -48,13 +59,13 @@ export function RevealKeyDialog({
     <Dialog
       open={apiKey !== null}
       onOpenChange={(v) => {
-        if (!v) {
-          setCopied(false);
-          onClose();
-        }
+        // Block backdrop/Esc dismissal until the operator confirms they've
+        // stored the key — this is the last time it can ever be seen.
+        if (!v && confirmed) close();
       }}
     >
-      <DialogContent className="sm:max-w-lg">
+      {/* No X button: the only way out is Done, unlocked by the checkbox. */}
+      <DialogContent className="sm:max-w-lg" showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>API key created</DialogTitle>
           <DialogDescription>
@@ -79,14 +90,13 @@ export function RevealKeyDialog({
           </Button>
         </div>
 
+        <Label className="mt-1 flex cursor-pointer items-center gap-2 text-[13px] font-normal">
+          <Checkbox checked={confirmed} onCheckedChange={(v) => setConfirmed(v === true)} />I have
+          stored this key securely.
+        </Label>
+
         <DialogFooter className="mt-2">
-          <Button
-            size="sm"
-            onClick={() => {
-              setCopied(false);
-              onClose();
-            }}
-          >
+          <Button size="sm" disabled={!confirmed} onClick={close}>
             Done
           </Button>
         </DialogFooter>

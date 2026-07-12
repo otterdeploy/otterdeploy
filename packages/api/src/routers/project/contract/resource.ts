@@ -27,6 +27,25 @@ export const databaseResourceSchema = z.object({
   name: z.string(),
   type: z.literal("database"),
   status: z.enum(["draft", "valid", "invalid"]),
+  // Status of the most-recent deployment row (same shape as the service
+  // view). For databases this is what distinguishes "container missing
+  // because the image is still pulling / the create is in flight"
+  // (building/pending) from "container genuinely gone" — the graph card
+  // falls back to it before declaring an error. Null when never deployed.
+  latestDeploymentStatus: z
+    .enum([
+      "pending",
+      "building",
+      "starting",
+      "running",
+      "crashed",
+      "failed",
+      "superseded",
+      "removed",
+    ])
+    .nullable(),
+  latestDeploymentStartedAt: z.string().nullable(),
+  latestDeploymentFinishedAt: z.string().nullable(),
   engine: z.enum([
     "postgres",
     "redis",
@@ -94,7 +113,16 @@ export const serviceResourceSchema = z.object({
   // Null when the service has never been deployed. Running services with live
   // tasks still derive their pill from the task rollup, which takes precedence.
   latestDeploymentStatus: z
-    .enum(["pending", "building", "starting", "running", "crashed", "failed", "superseded", "removed"])
+    .enum([
+      "pending",
+      "building",
+      "starting",
+      "running",
+      "crashed",
+      "failed",
+      "superseded",
+      "removed",
+    ])
     .nullable(),
   // Latest deployment timestamps — drive the live build/deploy duration on the
   // graph node. ISO strings; `finishedAt` is null while the deploy is in flight.
@@ -148,7 +176,16 @@ export const composeResourceSchema = z.object({
   type: z.literal("compose"),
   status: z.enum(["draft", "valid", "invalid"]),
   latestDeploymentStatus: z
-    .enum(["pending", "building", "starting", "running", "crashed", "failed", "superseded", "removed"])
+    .enum([
+      "pending",
+      "building",
+      "starting",
+      "running",
+      "crashed",
+      "failed",
+      "superseded",
+      "removed",
+    ])
     .nullable(),
   // Latest deployment timestamps — drive the live build/deploy duration on the
   // graph node. ISO strings; `finishedAt` is null while the deploy is in flight.
@@ -156,6 +193,9 @@ export const composeResourceSchema = z.object({
   latestDeploymentFinishedAt: z.string().nullable(),
   source: z.enum(["inline", "git"]),
   stackName: z.string(),
+  /** SvglLogo search string from the source template; null for hand-authored
+   *  stacks. Drives the stack node's brand tile. */
+  logoBrand: z.string().nullable(),
   services: z.array(
     z.object({
       name: z.string(),

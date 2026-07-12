@@ -4,6 +4,7 @@
  * `platform:update` — admins/owners only. See docs + contract.ts.
  */
 import { requirePermission } from "../..";
+import { renderInstalledCaddyfile } from "../../caddy";
 import { getHostHealth, growBranchPool, reclaimSpace } from "../../system-health";
 import { startApply } from "./apply";
 import { checkForUpdate, getUpdateSettings, getVersionInfo, saveUpdateSettings } from "./check";
@@ -12,6 +13,10 @@ import { snapshot, streamProgress } from "./state";
 export const systemRouter = {
   version: requirePermission({ platform: ["read"] }).system.version.handler(async () => {
     return getVersionInfo();
+  }),
+
+  caddyfile: requirePermission({ platform: ["read"] }).system.caddyfile.handler(async () => {
+    return renderInstalledCaddyfile();
   }),
 
   updateSettings: {

@@ -7,6 +7,8 @@ import { hourlyCleanupJob } from "./jobs/hourly-cleanup";
 import { sendNotificationJob } from "./jobs/notification";
 import { notificationEventJob } from "./jobs/notification-event";
 import { processDataJob } from "./jobs/process-data";
+import { provisionServerJob } from "./jobs/provision";
+import { webhookDeliverJob, webhookEventJob } from "./jobs/webhook";
 import { welcomeSequenceJob } from "./jobs/welcome-sequence";
 
 /**
@@ -19,11 +21,14 @@ export const jobs = [
   sendEmailJob,
   sendNotificationJob,
   notificationEventJob,
+  webhookEventJob,
+  webhookDeliverJob,
   processDataJob,
   hourlyCleanupJob,
   dailyReportJob,
   welcomeSequenceJob,
   deployTriggeredJob,
+  provisionServerJob,
 ] as const satisfies ReadonlyArray<JobDef>;
 
 /** Job name → definition lookup. */

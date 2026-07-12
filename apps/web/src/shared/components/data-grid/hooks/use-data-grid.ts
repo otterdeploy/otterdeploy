@@ -18,8 +18,6 @@ import {
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import { toast } from "sonner";
 
-import { copyToClipboard } from "@/shared/lib/clipboard";
-
 import type {
   CellPosition,
   CellUpdate,
@@ -49,6 +47,7 @@ import {
   parseTsv,
   scrollCellIntoView,
 } from "@/shared/components/data-grid/lib/data-grid";
+import { copyToClipboard } from "@/shared/lib/clipboard";
 
 const DEFAULT_ROW_HEIGHT = "short";
 const OVERSCAN = 6;

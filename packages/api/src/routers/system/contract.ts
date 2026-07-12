@@ -152,11 +152,22 @@ const runSnapshotSchema = z.object({
   logs: z.array(progressEventSchema),
 });
 
+const caddyfileSchema = z.object({
+  caddyfile: z.string(),
+  revision: z.string(),
+});
+
 export const systemContract = {
   version: oc
     .meta({ path: `${base}/version`, tag, method: "GET" })
     .input(emptyInput)
     .output(versionInfoSchema),
+
+  /** Full install-wide rendered Caddyfile (secrets masked) — admin view. */
+  caddyfile: oc
+    .meta({ path: `${base}/caddyfile`, tag, method: "GET" })
+    .input(emptyInput)
+    .output(caddyfileSchema),
 
   updateSettings: {
     get: oc

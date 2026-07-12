@@ -2,6 +2,8 @@ import * as z from "zod";
 
 import type { EdgeLogLine } from "./types";
 
+import { normalizeHost } from "./host";
+
 // TLS numeric codes → human strings (crypto/tls constants).
 const TLS_VERSIONS: Record<number, string> = {
   769: "TLSv1.0",
@@ -144,7 +146,7 @@ export function parseCaddyAccessLog(raw: unknown): EdgeLogLine | null {
     id: `${parsedTs}-${counter++}`,
     ts: parsedTs,
     method: req.method,
-    host: req.host,
+    host: normalizeHost(req.host),
     path: req.uri ?? "/",
     status: status ?? 0,
     latencyMs: duration != null ? Math.round(duration * 1000) : 0,

@@ -1,21 +1,17 @@
 /**
- * `pull_request` webhook — drives preview environments (docs/designs/pr-previews.md §7).
+ * `pull_request` webhook — drives PR previews.
  *
- * opened / reopened / synchronize → ensure the PR's preview environment, insert
- * env-scoped pending deployments for every git-sourced service, trigger a build
- * at the PR head, and report a pending status + sticky comment on the PR.
- * closed → mark the preview env(s) closed and report teardown.
+ * opened / reopened / synchronize → ensure the PR's `preview` row, insert
+ * preview-scoped pending deployments for every opted-in git service, trigger a
+ * build at the PR head, and report a pending status + sticky comment on the PR.
+ * closed → mark the preview(s) closed and tear down their compute.
  *
- * This owns the DB-level orchestration + GitHub reporting. Two infra steps are
- * INVOKED FROM HERE but wired in follow-ups, and are called out inline:
- *   - DB branching: the P2 engine (runtime().branchDatabase) exists; constructing
- *     each branch's spec (fresh creds/hostname/volume) is the remaining glue.
- *   - Runtime teardown + env-scoped build: the builder must thread environmentId
- *     (payload already carries it) so previews deploy under `<svc>-pr-<n>`; until
- *     then there are no preview containers to tear down.
+ * A preview is a first-class entity bound to (project, repo, PR#) — NOT an
+ * environment. Databases are shared with the base by default; only databases
+ * with `previewBranching` enabled get an isolated branch.
  */
 
-import type { EnvironmentId, GitRepoId, ProjectId } from "@otterdeploy/shared/id";
+import type { GitRepoId, ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { gitRepo, project, resource, serviceResource } from "@otterdeploy/db/schema";
@@ -26,12 +22,12 @@ import { log } from "evlog";
 import type { GithubWebhookResult, PullRequestEvent } from "./types";
 
 import { reconcile } from "../caddy";
-import { deployProjectPreview } from "./preview-deploy";
 import { branchProjectDatabases } from "./preview-db";
-import { ensurePreviewEnvironment, markPreviewEnvironmentsClosed } from "./preview-env";
+import { triggerPreviewBuild } from "./preview-deploy";
+import { ensurePreview, markPreviewsClosed } from "./preview-env";
 import { report } from "./preview-report";
 import { ensurePreviewRoutes } from "./preview-routes";
-import { teardownPreviewEnvironment } from "./preview-teardown";
+import { teardownPreview } from "./preview-teardown";
 
 const PREVIEW_ACTIONS = new Set(["opened", "reopened", "synchronize"]);
 
@@ -142,20 +138,17 @@ async function closePreviews(
   const prNumber = ev.pull_request.number;
   let environmentsTouched = 0;
   for (const p of projects) {
-    const closed = await markPreviewEnvironmentsClosed(
-      p.id as ProjectId,
-      repo.id as GitRepoId,
-      prNumber,
-    );
+    const closed = await markPreviewsClosed(p.id as ProjectId, repo.id as GitRepoId, prNumber);
     environmentsTouched += closed.length;
-    // Destroy each closed env's preview containers + branched databases.
-    for (const env of closed) {
-      await teardownPreviewEnvironment({
-        id: env.id,
+    // Destroy each closed preview's containers + branched databases.
+    for (const row of closed) {
+      await teardownPreview({
+        id: row.id,
         projectId: p.id as ProjectId,
         projectSlug: p.slug,
-        slug: env.slug,
-        pullRequestNumber: env.pullRequestNumber,
+        gitRepoId: row.gitRepoId,
+        slug: row.slug,
+        prNumber: row.prNumber,
       });
     }
   }
@@ -182,28 +175,30 @@ async function deployPreviews(
   let environmentsTouched = 0;
   let routesChanged = false;
   for (const p of projects) {
-    const env = await ensurePreviewEnvironment({
+    const row = await ensurePreview({
       projectId: p.id as ProjectId,
-      baseEnvironmentId: p.environmentId ?? null,
       gitRepoId: repo.id as GitRepoId,
       repoSlug: repoSlug(repo),
       prNumber: pr.number,
       prNodeId: pr.node_id ?? null,
-      headRef: pr.head.ref,
+      branch: pr.head.ref,
       headSha: pr.head.sha,
     });
-    if (!env) continue;
+    if (!row) continue;
     environmentsTouched++;
-    // Branch the project's databases into this preview env BEFORE the services
-    // deploy, so their ${{<db>.DATABASE_URL}} resolves to the isolated branch.
-    // Best-effort: a branch failure must not strand the whole preview.
+    // Branch the project's OPT-IN databases into this preview BEFORE the
+    // services deploy, so their ${{<db>.DATABASE_URL}} resolves to the
+    // isolated branch. Databases without previewBranching are shared with the
+    // base (the resolver falls back). Best-effort: a branch failure must not
+    // strand the whole preview.
     const branched = await Result.tryPromise({
       try: () =>
         branchProjectDatabases({
           projectId: p.id as ProjectId,
           projectSlug: p.slug,
-          environmentId: env.id as EnvironmentId,
-          previewSlug: `${repoSlug(repo)}-pr-${pr.number}`,
+          previewId: row.id,
+          previewSlug: row.slug,
+          gitRepoId: repo.id as GitRepoId,
         }),
       catch: (cause) => cause,
     });
@@ -222,12 +217,7 @@ async function deployPreviews(
           projectId: p.id as ProjectId,
           projectSlug: p.slug,
           gitRepoId: repo.id as GitRepoId,
-          env: {
-            id: env.id as EnvironmentId,
-            kind: "preview",
-            slug: env.slug,
-            pullRequestNumber: env.pullRequestNumber,
-          },
+          preview: { id: row.id, slug: row.slug, prNumber: row.prNumber },
         }),
       catch: (cause) => cause,
     });
@@ -239,7 +229,13 @@ async function deployPreviews(
     } else if (routes.value) {
       routesChanged = true;
     }
-    deploymentsCreated += await deployProjectPreview(p, repo, ev, env.id as EnvironmentId);
+    deploymentsCreated += await triggerPreviewBuild({
+      projectId: p.id as ProjectId,
+      gitRepoId: repo.id as GitRepoId,
+      previewId: row.id,
+      sha: pr.head.sha,
+      branch: pr.head.ref,
+    });
   }
 
   if (routesChanged) {

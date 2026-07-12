@@ -26,12 +26,18 @@ interface ComposeArgs {
   cpu: number;
   mem: number;
   replicas: number;
-  storageGb: number;
   publicEnabled: boolean;
+  /** Pre-built image ref for docker-kind services ("" for git builds). */
+  serviceImage: string;
+  healthPath: string;
+  healthInterval: number;
 }
 
+// Preview mirrors what actually deploys: a plain named volume (the
+// provisioner applies no size/driver_opts — see the Storage step) and the
+// hardcoded start-first/rollback update strategy from the swarm driver.
 function generateComposeYaml(args: ComposeArgs): string {
-  const { isDb, kindId, name, dbImage, isPg, extensions, cpu, mem, replicas, storageGb } = args;
+  const { isDb, kindId, name, dbImage, isPg, extensions, cpu, mem, replicas } = args;
   const memStr = mem >= 1024 ? `${mem / 1024}G` : `${mem}M`;
   if (isDb) {
     const mountTarget = traitsFor(kindId).mountTarget;
@@ -49,11 +55,19 @@ function generateComposeYaml(args: ComposeArgs): string {
     networks: [internal${args.publicEnabled ? ", public" : ""}]
 
 volumes:
-  ${name}-data:
-    driver_opts: { size: '${storageGb}G' }`;
+  ${name}-data:`;
   }
+  const imageLine = args.serviceImage
+    ? `\n    image: ${args.serviceImage}`
+    : `\n    # image: built from source on deploy`;
+  const healthBlock =
+    args.healthPath.trim() !== ""
+      ? `\n    healthcheck:
+      test: wget/curl http://127.0.0.1:<primary port>${args.healthPath.trim()}
+      interval: ${args.healthInterval}s`
+      : "";
   return `services:
-  ${name}:
+  ${name}:${imageLine}${healthBlock}
     deploy:
       replicas: ${replicas}
       resources:
@@ -68,8 +82,8 @@ volumes:
  *  Pulling this out of the render prop keeps that callback under the
  *  cyclomatic-complexity cap. */
 function buildReviewModel(kind: ServiceKind, values: ResourceFormState) {
-  const { name, version, presetId, customCpu, customMem, replicas, storageGb } = values;
-  const { backupsEnabled, publicEnabled } = values;
+  const { name, version, presetId, customCpu, customMem, replicas } = values;
+  const { publicEnabled, healthPath, healthInterval } = values;
   const preset = RESOURCE_PRESETS.find((p) => p.id === presetId);
   const cpu = preset?.cpu ?? customCpu;
   const mem = preset?.mem ?? customMem;
@@ -86,6 +100,15 @@ function buildReviewModel(kind: ServiceKind, values: ResourceFormState) {
   const resolved = isPg ? resolvePostgresImage(extensions, `${kind.id}:${version}`) : null;
   const dbImage = resolved && resolved.ok ? resolved.image : `${kind.id}:${version}`;
 
+  // Docker-kind services deploy the exact ref typed on the Image step;
+  // git kinds get their image from the first build.
+  const serviceImage =
+    kind.id === "docker" && values.image
+      ? values.tag
+        ? `${values.image}:${values.tag}`
+        : values.image
+      : "";
+
   const compose = generateComposeYaml({
     isDb,
     kindId: kind.id,
@@ -96,8 +119,10 @@ function buildReviewModel(kind: ServiceKind, values: ResourceFormState) {
     cpu,
     mem,
     replicas,
-    storageGb,
     publicEnabled,
+    serviceImage,
+    healthPath: kind.id === "static" ? "" : healthPath,
+    healthInterval,
   });
 
   return {
@@ -108,12 +133,11 @@ function buildReviewModel(kind: ServiceKind, values: ResourceFormState) {
     isDb,
     isPg,
     replicas,
-    storageGb,
-    backupsEnabled,
     publicEnabled,
     extensions,
     extensionLabels,
     compose,
+    mountTarget: isDb ? traitsFor(kind.id).mountTarget : null,
   };
 }
 
@@ -130,12 +154,11 @@ export function StepReview({ kind }: StepReviewProps) {
           isDb,
           isPg,
           replicas,
-          storageGb,
-          backupsEnabled,
           publicEnabled,
           extensions,
           extensionLabels,
           compose,
+          mountTarget,
         } = buildReviewModel(kind, values);
 
         return (
@@ -156,11 +179,10 @@ export function StepReview({ kind }: StepReviewProps) {
                     label="Resources"
                     value={`${cpu} vCPU · ${mem >= 1024 ? mem / 1024 + " GB" : mem + " MB"} per replica`}
                   />
-                  {isDb && (
-                    <ReviewRow
-                      label="Storage"
-                      value={`${storageGb} GB · backups ${backupsEnabled ? "on" : "off"}`}
-                    />
+                  {isDb && mountTarget && (
+                    // Honest storage summary: a plain named volume with no
+                    // sizing/backup policy — backups are scheduled post-deploy.
+                    <ReviewRow label="Storage" value={`named volume · ${mountTarget}`} />
                   )}
                   {isPg && extensions.length > 0 && (
                     <ReviewRow label="Extensions" value={extensionLabels} />
@@ -207,10 +229,8 @@ export function StepReview({ kind }: StepReviewProps) {
                     <I.copy width={11} height={11} />
                     Copy
                   </Button>
-                  <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
-                    <I.doc width={11} height={11} />
-                    Save as preset
-                  </Button>
+                  {/* "Save as preset" removed — there is no preset store; a
+                      button that saves nothing is a fake control. */}
                   <div className="flex-1" />
                   <span className="self-center font-mono text-[11px] text-muted-foreground">
                     otterdeploy apply

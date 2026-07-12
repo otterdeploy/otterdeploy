@@ -5,14 +5,12 @@
  * itself is untouched and still owned by that hook.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   getCoreRowModel,
-  getExpandedRowModel,
   getSortedRowModel,
   useReactTable,
-  type ExpandedState,
   type RowSelectionState,
   type SortingState,
 } from "@tanstack/react-table";
@@ -30,7 +28,6 @@ interface UseLogsTableArgs {
   query: string;
   timeRange: TimeRange | null;
   paused: boolean;
-  wrap: boolean;
 }
 
 export function useLogsTable({
@@ -40,11 +37,9 @@ export function useLogsTable({
   query,
   timeRange,
   paused,
-  wrap,
 }: UseLogsTableArgs) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
-  const [expanded, setExpanded] = useState<ExpandedState>({});
   // Live tail sticks to the bottom until the operator scrolls up (or sorts).
   const [follow, setFollow] = useState(true);
 
@@ -76,21 +71,28 @@ export function useLogsTable({
   const table = useReactTable({
     data: filtered,
     columns: logColumns,
-    state: { sorting, rowSelection, expanded },
+    state: { sorting, rowSelection },
     onSortingChange: setSorting,
     onRowSelectionChange: setRowSelection,
-    onExpandedChange: setExpanded,
     getRowId: (row) => row.id,
     enableRowSelection: true,
-    getRowCanExpand: () => true,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getExpandedRowModel: getExpandedRowModel(),
-    meta: { wrap },
   });
 
   const rows = table.getRowModel().rows;
   const isDefaultSort = sorting.length === 0;
+
+  // Key virtual rows by row id, NOT index (the default). The live tail is a
+  // capped ring — once the buffer trims, every append shifts all indices, so
+  // index keys would remap React's DOM nodes across rows on every append;
+  // stable ids keep each rendered row glued to its line. Read the live rows
+  // through a ref so the callback keeps ONE identity across renders (a fresh
+  // closure each render, closing over the new `rows` array, would churn the
+  // virtualizer's memoized options every frame).
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
+  const getItemKey = useCallback((index: number) => rowsRef.current[index]?.id ?? index, []);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const virtualizer = useVirtualizer({
@@ -98,13 +100,7 @@ export function useLogsTable({
     getScrollElement: () => scrollRef.current,
     estimateSize: () => 28,
     overscan: 24,
-    // Key measured heights by row id, NOT index (the default). The live tail
-    // is a capped ring — once the buffer trims, every append shifts all
-    // indices, so index-keyed measurements assign each cached height to the
-    // wrong row and the absolutely-positioned rows overlap into garbage.
-    // Filter/sort changes remap indices the same way. Row ids are stable for
-    // a line's lifetime, so heights stay glued to their line.
-    getItemKey: (index) => rows[index]?.id ?? index,
+    getItemKey,
   });
 
   // Sorting fights live tailing — pause follow while a sort is active.

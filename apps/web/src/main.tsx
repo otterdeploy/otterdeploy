@@ -1,7 +1,6 @@
 // Must run before any feature code — installs crypto.randomUUID over plain HTTP
 // (insecure context), where the browser doesn't provide it natively.
 import "./lib/random-uuid-polyfill";
-
 import ReactDOM from "react-dom/client";
 
 import { i18n } from "@otterdeploy/i18n/web";
@@ -10,14 +9,30 @@ import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { I18nextProvider } from "react-i18next";
 
 import { routeTree } from "./route-tree.gen";
+import { Spinner } from "./shared/components/ui/spinner";
 import { NotFound } from "./shared/features/errors/not-found";
 import { ServerError } from "./shared/features/errors/server-error";
 import { orpc, queryClient } from "./shared/server/orpc";
 
+// Fallback shown while a route's beforeLoad/loader resolves and the route
+// defines no pendingComponent of its own. Without this, a navigation whose
+// data hasn't resolved just holds the previous screen with zero feedback —
+// the "I clicked and nothing happened for seconds" symptom.
+function RoutePending() {
+  return (
+    <div className="flex min-h-[40vh] w-full items-center justify-center">
+      <Spinner className="size-5 text-muted-foreground" />
+    </div>
+  );
+}
+
 const router = createRouter({
   routeTree,
   defaultPreload: "intent",
-  // defaultPendingComponent: () => <Loader />,
+  defaultPendingComponent: RoutePending,
+  // Only surface the spinner if a transition actually takes a beat, so fast
+  // (cached) navigations stay flicker-free and feel instant.
+  defaultPendingMs: 150,
   defaultErrorComponent: ServerError,
   defaultNotFoundComponent: NotFound,
   context: { orpc, queryClient },

@@ -1,27 +1,23 @@
 /**
  * The shared results panel for the Data studio — identical in both Table and
  * SQL modes; only the surrounding chrome differs. Wraps {@link ResultsPanel}
- * with a mode-aware left slot (filters / open-in-SQL) and footer (row count +
- * pagination). Driven by the {@link DataStudioController}.
+ * with a mode-aware left slot (Data/Structure toggle · filters · columns · add
+ * record / open-in-SQL) and footer (row count + selection actions +
+ * pagination). Table mode adds multi-select bulk delete (typed-confirm past 10
+ * rows), the Add-record modal, and the read-only Structure view. Driven by the
+ * {@link DataStudioController}.
  */
 
-import { Database01Icon, FilterIcon, PlayIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { useEffect, useState } from "react";
 
-import { Button } from "@/shared/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/components/ui/select";
+import { Database01Icon, PlayIcon } from "@hugeicons/core-free-icons";
 
-import { FilterPopover } from "./components/filter-popover";
 import { ResultsPanel } from "./components/results-panel";
-import { isFilterActive } from "./data/filters";
-import { SQL_RESULT_CAP } from "./data/queries";
-import { type DataStudioController, errMessage, PAGE_SIZES } from "./use-data-studio";
+import { StructureView } from "./components/structure-view";
+import { BulkDeleteConfirm, ResultsFooter } from "./studio-results-footer";
+import { DataStructureToggle, TableActions } from "./studio-results-toolbar";
+import { type DataStudioController, errMessage } from "./use-data-studio";
+import { useBulkDelete } from "./use-data-studio-helpers";
 
 type TableController = DataStudioController["table"];
 
@@ -31,6 +27,8 @@ function resolveResultsProps(t: TableController) {
   return {
     columnVariants: tableMode ? t.columnVariants : undefined,
     columnFks: tableMode ? t.columnFks : undefined,
+    columnTypes: tableMode ? t.columnTypes : undefined,
+    hiddenColumns: tableMode ? t.hiddenColumns : undefined,
     primaryKey: tableMode ? t.primaryKey : undefined,
     onUpdateRow: tableMode ? t.onUpdateRow : undefined,
     onDeleteRow: tableMode ? t.onDeleteRow : undefined,
@@ -46,122 +44,92 @@ function resolveResultsProps(t: TableController) {
 export function StudioResults({ studio }: { studio: DataStudioController }) {
   const t = studio.table;
   const p = resolveResultsProps(t);
-  return (
-    <ResultsPanel
-      resourceId={t.resourceId}
-      columns={t.result?.columns ?? []}
-      rows={t.result?.rows ?? []}
-      columnVariants={p.columnVariants}
-      columnFks={p.columnFks}
-      onOpenRef={t.openRefTable}
-      view={t.view}
-      onViewChange={t.setView}
-      isLoading={t.rowsQuery.isLoading}
-      isError={t.rowsQuery.isError}
-      errorMessage={errMessage(t.rowsQuery.error)}
-      hasResult={Boolean(t.result)}
-      exportName={p.exportName}
-      editable={t.editable}
-      primaryKey={p.primaryKey}
-      onUpdateRow={p.onUpdateRow}
-      onDeleteRow={p.onDeleteRow}
-      emptyIcon={p.emptyIcon}
-      emptyTitle={p.emptyTitle}
-      emptyBody={p.emptyBody}
-      leftSlot={<TableActions studio={studio} />}
-      footerSlot={<ResultsFooter studio={studio} />}
-    />
-  );
-}
 
-function TableActions({ studio }: { studio: DataStudioController }) {
-  const t = studio.table;
-  if (!(t.mode === "table" && t.selected)) return null;
-  const resultColumns = t.result?.columns ?? [];
-  const activeFilterCount = t.filters.filter(isFilterActive).length;
+  // Multi-select mirror (indices into the current result page). The grid owns
+  // the checkbox state; this drives the footer actions + export-selected. Reset
+  // whenever the page's rows change identity (new page / refetch / new table).
+  const [selectedRows, setSelectedRows] = useState<number[]>([]);
+  const resultRows = t.result?.rows;
+  useEffect(() => setSelectedRows([]), [resultRows]);
+
+  const canMutateRows = t.editable && t.primaryKey.length > 0;
+  const bulk = useBulkDelete({
+    resourceId: String(t.resourceId),
+    selected: t.selected,
+    primaryKey: t.primaryKey,
+    result: t.result,
+    rowsQuery: t.rowsQuery,
+  });
+  // Pending bulk-delete confirmation (null = closed).
+  const [confirmDelete, setConfirmDelete] = useState<number[] | null>(null);
+
+  // Structure view replaces the whole results pane (read-only, no filters /
+  // pagination); the Data/Structure toggle stays visible in both.
+  if (t.mode === "table" && t.selected && t.tableView === "structure") {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex h-9 shrink-0 items-center gap-2 border-b px-2">
+          <DataStructureToggle t={t} />
+          <span className="truncate font-mono text-[11px] text-muted-foreground">
+            {t.selected.schema === "public"
+              ? t.selected.name
+              : `${t.selected.schema}.${t.selected.name}`}
+          </span>
+        </div>
+        <StructureView resourceId={String(t.resourceId)} table={t.selected} />
+      </div>
+    );
+  }
+
   return (
     <>
-      <FilterPopover
-        columns={resultColumns}
-        filters={t.filters}
-        onApply={t.changeFilters}
-        trigger={
-          <Button
-            variant={activeFilterCount ? "secondary" : "outline"}
-            size="sm"
-            className="h-6 gap-1.5"
-          >
-            <HugeiconsIcon icon={FilterIcon} strokeWidth={2} className="size-3.5" />
-            Filters{activeFilterCount ? ` · ${activeFilterCount}` : ""}
-          </Button>
+      <ResultsPanel
+        resourceId={t.resourceId}
+        columns={t.result?.columns ?? []}
+        rows={t.result?.rows ?? []}
+        columnVariants={p.columnVariants}
+        columnFks={p.columnFks}
+        columnTypes={p.columnTypes}
+        hiddenColumns={p.hiddenColumns}
+        onOpenRef={t.openRefTable}
+        view={t.view}
+        onViewChange={t.setView}
+        isLoading={t.rowsQuery.isLoading}
+        isError={t.rowsQuery.isError}
+        errorMessage={errMessage(t.rowsQuery.error)}
+        hasResult={Boolean(t.result)}
+        exportName={p.exportName}
+        editable={t.editable}
+        primaryKey={p.primaryKey}
+        onUpdateRow={p.onUpdateRow}
+        onDeleteRow={p.onDeleteRow}
+        selectable={t.mode === "table" && canMutateRows}
+        selectedRows={selectedRows}
+        onSelectionChange={setSelectedRows}
+        enableRowDetail={t.mode === "table"}
+        emptyIcon={p.emptyIcon}
+        emptyTitle={p.emptyTitle}
+        emptyBody={p.emptyBody}
+        leftSlot={<TableActions studio={studio} />}
+        footerSlot={
+          <ResultsFooter
+            studio={studio}
+            selectedRows={selectedRows}
+            deleteProgress={bulk.progress}
+            onDeleteSelected={() => setConfirmDelete(selectedRows)}
+          />
         }
       />
-      <Button variant="ghost" size="sm" className="h-6" onClick={studio.openInSql}>
-        Open in SQL
-      </Button>
-    </>
-  );
-}
 
-function ResultsFooter({ studio }: { studio: DataStudioController }) {
-  const t = studio.table;
-  const result = t.result;
-  if (!result) return null;
-  return (
-    <div className="flex items-center justify-between gap-3 border-t px-3 py-1.5 text-[11px] text-muted-foreground">
-      <div className="flex items-center gap-2 font-mono">
-        <span>{result.rows.length} rows</span>
-        <span className="text-muted-foreground/40">·</span>
-        <span>{result.durationMs}ms</span>
-        {t.mode === "sql" && result.truncated ? (
-          <span className="text-amber-500">· capped at {SQL_RESULT_CAP}</span>
-        ) : null}
-      </div>
-      {t.mode === "table" ? (
-        <div className="flex items-center gap-2">
-          <span className="font-mono">
-            {result.rows.length === 0
-              ? "0"
-              : `${t.page * t.pageSize + 1}–${t.page * t.pageSize + result.rows.length}`}
-          </span>
-          <Select
-            value={String(t.pageSize)}
-            onValueChange={(v) => {
-              t.setPageSize(Number(v));
-              t.setPage(0);
-            }}
-          >
-            <SelectTrigger className="h-6 w-19 text-[11px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PAGE_SIZES.map((s) => (
-                <SelectItem key={s} value={String(s)}>
-                  {s}/page
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            variant="outline"
-            size="icon-sm"
-            disabled={t.page === 0}
-            onClick={() => t.setPage((prev) => Math.max(0, prev - 1))}
-            aria-label="Previous page"
-          >
-            ‹
-          </Button>
-          <Button
-            variant="outline"
-            size="icon-sm"
-            disabled={!t.hasNext}
-            onClick={() => t.setPage((prev) => prev + 1)}
-            aria-label="Next page"
-          >
-            ›
-          </Button>
-        </div>
-      ) : null}
-    </div>
+      <BulkDeleteConfirm
+        pending={confirmDelete}
+        tableName={t.selected?.name}
+        onCancel={() => setConfirmDelete(null)}
+        onConfirm={(indices) => {
+          setConfirmDelete(null);
+          void bulk.deleteRows(indices);
+        }}
+      />
+    </>
   );
 }

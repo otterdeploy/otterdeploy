@@ -11,13 +11,16 @@ import { encryptSecret } from "@otterdeploy/jobs/delivery/secret-crypto";
 
 import { orgScopedProcedure, requirePermission } from "../..";
 import { subscriptionSchema } from "./contract";
+import { listInbox, markInboxAllRead, markInboxRead } from "./inbox";
 import {
   type ChannelView,
   addSubscription,
   deleteChannel,
+  deliveryBreakdown7d,
   getChannelRow,
   insertChannel,
   listChannelRows,
+  listDeliveries,
   listSubscriptionRows,
   removeSubscription,
   statsByChannel,
@@ -143,6 +146,32 @@ export const notificationsRouter = {
     }),
   },
 
+  // ─── per-channel delivery history (the card's "View deliveries") ─────
+  // Read-only and org-scoped like `channels.list`; the channel lookup both
+  // 404s unknown ids and fences cross-tenant reads before touching the log.
+  deliveries: orgScopedProcedure.notifications.deliveries.handler(
+    async ({ input, context, errors }) => {
+      const channel = await getChannelRow({
+        organizationId: context.activeOrganizationId,
+        id: input.channelId,
+      });
+      if (!channel) throw errors.NOT_FOUND();
+      const [breakdown7d, page] = await Promise.all([
+        deliveryBreakdown7d({
+          organizationId: context.activeOrganizationId,
+          channelId: input.channelId,
+        }),
+        listDeliveries({
+          organizationId: context.activeOrganizationId,
+          channelId: input.channelId,
+          limit: input.limit,
+          cursor: input.cursor,
+        }),
+      ]);
+      return { breakdown7d, items: page.items, nextCursor: page.nextCursor };
+    },
+  ),
+
   subscriptions: {
     list: orgScopedProcedure.notifications.subscriptions.list.handler(async ({ context }) => {
       const rows = await listSubscriptionRows(context.activeOrganizationId);
@@ -174,6 +203,39 @@ export const notificationsRouter = {
         });
       }
       return input;
+    }),
+  },
+
+  // ─── in-app inbox (the header bell) ─────────────────────────────────
+  // User-scoped reads/writes on the caller's own `notification` rows. An
+  // API-key actor has no session user and therefore no personal inbox —
+  // reads come back empty and writes are no-ops rather than 401s, so a
+  // key-driven client polling shared endpoints never trips on this one.
+  inbox: {
+    list: orgScopedProcedure.notifications.inbox.list.handler(async ({ input, context }) => {
+      const userId = context.session?.user?.id;
+      if (!userId) return { items: [], unread: 0 };
+      return listInbox({ userId, organizationId: context.activeOrganizationId }, input.limit);
+    }),
+
+    markRead: orgScopedProcedure.notifications.inbox.markRead.handler(
+      async ({ input, context }) => {
+        const userId = context.session?.user?.id;
+        if (userId) {
+          await markInboxRead({ userId, organizationId: context.activeOrganizationId }, input.id);
+        }
+        return { id: input.id };
+      },
+    ),
+
+    markAllRead: orgScopedProcedure.notifications.inbox.markAllRead.handler(async ({ context }) => {
+      const userId = context.session?.user?.id;
+      if (!userId) return { updated: 0 };
+      const updated = await markInboxAllRead({
+        userId,
+        organizationId: context.activeOrganizationId,
+      });
+      return { updated };
     }),
   },
 };

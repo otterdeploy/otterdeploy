@@ -15,6 +15,8 @@ import {
  */
 import { and, eq, sql } from "drizzle-orm";
 
+import { maskChannelTarget } from "./mask-target";
+
 type ChannelKind = NotificationChannelRow["kind"];
 
 export interface ChannelStats {
@@ -109,6 +111,17 @@ export async function listSubscriptionRows(organizationId: OrganizationId) {
     .where(eq(notificationSubscription.organizationId, organizationId));
 }
 
+// ─── Delivery history (per-channel dialog) ─────────────────────────────
+// Lives in queries-deliveries.ts; re-exported so the router's single
+// import site stays stable.
+
+export {
+  deliveryBreakdown7d,
+  listDeliveries,
+  type DeliveryBreakdownRow,
+  type DeliveryItem,
+} from "./queries-deliveries";
+
 // ─── Writes ────────────────────────────────────────────────────────────
 
 export async function insertChannel(values: {
@@ -197,15 +210,6 @@ export async function removeSubscription(input: {
 
 // ─── Presenter ───────────────────────────────────────────────────────────
 
-/** Mask a destination for display. Emails show whole; everything else hides
- * the trailing token. */
-function maskTarget(kind: ChannelKind, target: string): string {
-  if (kind === "email") return target;
-  const stripped = target.replace(/^https?:\/\//, "");
-  if (stripped.length <= 12) return stripped;
-  return `${stripped.slice(0, -6)}••••`;
-}
-
 export function toChannelView(
   row: NotificationChannelRow,
   stats: ChannelStats | undefined,
@@ -227,7 +231,9 @@ export function toChannelView(
     id: row.id,
     kind: row.kind,
     name: row.name,
-    target: maskTarget(row.kind, row.target),
+    // Identity-preserving mask: emails/chat ids show whole, webhook URLs keep
+    // origin+path with tokens hidden, routing keys/device tokens stay masked.
+    target: maskChannelTarget(row.kind, row.target),
     transport: row.transport,
     config: row.config ?? {},
     status,

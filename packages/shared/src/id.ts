@@ -42,6 +42,7 @@ export const ID_PREFIX = {
   projectEnvVar: "penv",
   projectEnvSubscription: "psub",
   environment: "env",
+  preview: "prev",
   proxyRoute: "proxy_route",
   deploymentGuest: "guest",
   server: "server",
@@ -80,8 +81,18 @@ export const ID_PREFIX = {
   // SSH keys — org-scoped keypairs for Git auth + node management
   sshKey: "sshkey",
 
+  // TLS — operator-uploaded custom certificates + trusted CA inventory
+  customCertificate: "cert",
+  trustedCa: "ca",
+
   // ephemeral database credentials — short-lived, auto-disposed DB roles
   databaseEphemeralCredential: "dbeph",
+
+  // webhooks — outbound event subscriptions + delivery log + inbound trigger
+  // endpoints
+  webhook: "wh",
+  webhookDelivery: "whdlv",
+  inboundEndpoint: "inhk",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
@@ -204,6 +215,7 @@ export type ServiceEnvVarId = Id<typeof ID_PREFIX.serviceEnvVar>;
 export type ProjectEnvVarId = Id<typeof ID_PREFIX.projectEnvVar>;
 export type ProjectEnvSubscriptionId = Id<typeof ID_PREFIX.projectEnvSubscription>;
 export type EnvironmentId = Id<typeof ID_PREFIX.environment>;
+export type PreviewId = Id<typeof ID_PREFIX.preview>;
 export type ProxyRouteId = Id<typeof ID_PREFIX.proxyRoute>;
 export type DeploymentGuestId = Id<typeof ID_PREFIX.deploymentGuest>;
 export type ServerId = Id<typeof ID_PREFIX.server>;
@@ -228,9 +240,16 @@ export type BackupLogId = Id<typeof ID_PREFIX.backupLog>;
 export type AuditLogId = Id<typeof ID_PREFIX.auditLog>;
 export type BlocklistId = Id<typeof ID_PREFIX.blocklist>;
 export type SshKeyId = Id<typeof ID_PREFIX.sshKey>;
+export type CustomCertificateId = Id<typeof ID_PREFIX.customCertificate>;
+export type TrustedCaId = Id<typeof ID_PREFIX.trustedCa>;
 export type DatabaseEphemeralCredentialId = Id<typeof ID_PREFIX.databaseEphemeralCredential>;
 
 export type NotificationId = Id<typeof ID_PREFIX.notification>;
+
+// Webhooks
+export type WebhookId = Id<typeof ID_PREFIX.webhook>;
+export type WebhookDeliveryId = Id<typeof ID_PREFIX.webhookDelivery>;
+export type InboundEndpointId = Id<typeof ID_PREFIX.inboundEndpoint>;
 
 // Notification channels
 export type NotificationChannelId = Id<typeof ID_PREFIX.notificationChannel>;

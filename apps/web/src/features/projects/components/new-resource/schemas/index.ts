@@ -57,8 +57,14 @@ export interface ResourceFormState {
   image: string;
   tag: string;
   ports: Port[];
+  /** HTTP health-check path probed on the primary port. Empty = no
+   *  container healthcheck (process liveness only). Mapped to the same
+   *  portable wget||curl `CMD-SHELL` cmd the service settings card writes
+   *  (`healthcheck-http.ts`) — the manifest + swarm driver honor it. */
   healthPath: string;
   healthInterval: number;
+  healthTimeout: number;
+  healthRetries: number;
   /** Static-kind only: serve index.html for unmatched routes (SPA). */
   spa: boolean;
   variables: Var[];
@@ -69,11 +75,6 @@ export interface ResourceFormState {
   replicas: number;
   placement: string;
   pinnedNodeId: string | null;
-  storageGb: number;
-  backupsEnabled: boolean;
-  backupRetention: number;
-  pitr: boolean;
-  highAvailability: boolean;
   /** Database-only: expose via the Caddy public proxy. OFF by default. */
   publicEnabled: boolean;
   /** Postgres-only: enabled extensions (canonical CREATE EXTENSION names).
@@ -99,8 +100,13 @@ export const resourceDefaults: ResourceFormState = {
   image: "",
   tag: "latest",
   ports: [{ port: 3000, protocol: "http", public: true, host: "" }],
-  healthPath: "/healthz",
+  // Empty by default: a prefilled "/healthz" would ship a probe most apps
+  // don't serve, and a failing healthcheck blocks every rollout (swarm
+  // aborts on any failed task). Opt-in, honestly.
+  healthPath: "",
   healthInterval: 10,
+  healthTimeout: 3,
+  healthRetries: 3,
   spa: true,
   variables: [],
   linkedSecrets: {},
@@ -110,11 +116,6 @@ export const resourceDefaults: ResourceFormState = {
   replicas: 1,
   placement: "any",
   pinnedNodeId: null,
-  storageGb: 20,
-  backupsEnabled: false,
-  backupRetention: 7,
-  pitr: false,
-  highAvailability: false,
   publicEnabled: false,
   extensions: [],
 };

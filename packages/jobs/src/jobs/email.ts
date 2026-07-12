@@ -1,4 +1,4 @@
-import { sendEmail } from "@otterdeploy/email";
+import { MessageEmail, sendEmail } from "@otterdeploy/email";
 import * as z from "zod";
 
 import { defineJob } from "../define";
@@ -6,16 +6,14 @@ import { defineJob } from "../define";
 export const EmailPayload = z.object({
   to: z.string().min(1),
   subject: z.string().min(1),
+  /** Plain-text message body. Rendered through the MessageEmail React template —
+   *  never sent as raw HTML. Blank lines become paragraph breaks. */
   body: z.string(),
+  /** Optional heading shown above the body; defaults to the subject. */
+  heading: z.string().optional(),
   templateId: z.string().optional(),
 });
 export type EmailPayload = z.infer<typeof EmailPayload>;
-
-/** Crude HTML detection so we send the right Resend field. A body with angle
- * brackets is treated as HTML; otherwise it's plain text. */
-function looksLikeHtml(body: string): boolean {
-  return /<[a-z][\s\S]*>/i.test(body);
-}
 
 export const sendEmailJob = defineJob({
   name: "email.send",
@@ -29,13 +27,14 @@ export const sendEmailJob = defineJob({
   async handler(payload, { log }) {
     log.info({ email: { step: "send", to: payload.to } });
 
-    const isHtml = looksLikeHtml(payload.body);
+    // Every email renders through a React Email template — the plain-text body
+    // becomes the `text` alternative; the HTML part comes from MessageEmail.
     // sendEmail throws on Resend errors; BullMQ retries per `opts.attempts`.
     const result = await sendEmail({
       to: payload.to,
       subject: payload.subject,
-      html: isHtml ? payload.body : undefined,
-      text: isHtml ? undefined : payload.body,
+      react: MessageEmail({ heading: payload.heading ?? payload.subject, body: payload.body }),
+      text: payload.body,
     });
 
     log.info({ email: { step: "sent", to: payload.to, id: result.data?.id } });

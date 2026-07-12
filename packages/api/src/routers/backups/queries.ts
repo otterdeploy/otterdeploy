@@ -15,7 +15,7 @@ import { backup, backupDestination, backupSchedule } from "@otterdeploy/db/schem
 import { databaseResource, project, resource } from "@otterdeploy/db/schema";
 import { and, asc, desc, eq, ilike, or } from "drizzle-orm";
 
-type BackupKind = "database" | "volume" | "stack";
+type BackupKind = "database" | "volume";
 
 export interface BackupRow {
   backup: typeof backup.$inferSelect;
@@ -46,11 +46,13 @@ function toBackupRow(r: {
   destName: string | null;
   destType: "s3" | "local" | "sftp" | null;
 }): BackupRow {
+  // Volume runs have no resource — their display source is the volume name.
+  const source = r.resourceName ?? r.backup.volumeName;
   return {
     backup: r.backup,
-    source: r.resourceName,
+    source,
     project: r.projectSlug,
-    sourceService: r.resourceName,
+    sourceService: source,
     sourceHost: r.dbHost ? `${r.dbHost}:${r.dbPort ?? ""}` : null,
     destinationName: r.destName,
     destinationType: r.destType,
@@ -73,6 +75,7 @@ export async function listBackupsByOrg(input: {
     const match = or(
       ilike(resource.name, q),
       ilike(backup.id, q),
+      ilike(backup.volumeName, q),
       ilike(databaseResource.internalHostname, q),
     );
     if (match) conditions.push(match);
@@ -81,8 +84,9 @@ export async function listBackupsByOrg(input: {
   const rows = await db
     .select(backupSelection)
     .from(backup)
-    .innerJoin(resource, eq(resource.id, backup.resourceId))
-    .innerJoin(project, eq(project.id, resource.projectId))
+    // Left joins: volume runs carry no resource/project at all.
+    .leftJoin(resource, eq(resource.id, backup.resourceId))
+    .leftJoin(project, eq(project.id, resource.projectId))
     .leftJoin(databaseResource, eq(databaseResource.resourceId, backup.resourceId))
     .leftJoin(backupDestination, eq(backupDestination.id, backup.destinationId))
     .where(and(...conditions))
@@ -98,8 +102,8 @@ export async function getBackupInOrg(input: {
   const [row] = await db
     .select(backupSelection)
     .from(backup)
-    .innerJoin(resource, eq(resource.id, backup.resourceId))
-    .innerJoin(project, eq(project.id, resource.projectId))
+    .leftJoin(resource, eq(resource.id, backup.resourceId))
+    .leftJoin(project, eq(project.id, resource.projectId))
     .leftJoin(databaseResource, eq(databaseResource.resourceId, backup.resourceId))
     .leftJoin(backupDestination, eq(backupDestination.id, backup.destinationId))
     .where(and(eq(backup.id, input.backupId), eq(backup.organizationId, input.organizationId)))
@@ -111,12 +115,17 @@ export interface ScheduleRow {
   schedule: typeof backupSchedule.$inferSelect;
   /** Names for `schedule.destinationIds`, order-preserved, missing ones dropped. */
   destinationNames: string[];
+  /** Source refs that no longer resolve to a live database resource — the
+   *  schedule is orphaned. Empty when every source is healthy. */
+  missingSources: string[];
 }
 
 export async function listSchedulesByOrg(organizationId: OrganizationId): Promise<ScheduleRow[]> {
   // `destinationIds` is a jsonb array, not an FK, so resolve names via a small
-  // org-wide destination lookup rather than a join.
-  const [schedules, dests] = await Promise.all([
+  // org-wide destination lookup rather than a join. `sources` is the same shape,
+  // so resolve its health the same way — one org-wide database-resource lookup,
+  // matched in memory per schedule (avoids an N+1 across schedules).
+  const [schedules, dests, dbResources] = await Promise.all([
     db
       .select()
       .from(backupSchedule)
@@ -126,14 +135,27 @@ export async function listSchedulesByOrg(organizationId: OrganizationId): Promis
       .select({ id: backupDestination.id, name: backupDestination.name })
       .from(backupDestination)
       .where(eq(backupDestination.organizationId, organizationId)),
+    db
+      .select({ id: resource.id, name: resource.name })
+      .from(resource)
+      .innerJoin(project, eq(project.id, resource.projectId))
+      .innerJoin(databaseResource, eq(databaseResource.resourceId, resource.id))
+      .where(eq(project.organizationId, organizationId)),
   ]);
 
   const nameById = new Map(dests.map((d) => [d.id, d.name]));
+  // Every ref (id or name) that currently points at a live database resource.
+  const liveRefs = new Set<string>();
+  for (const r of dbResources) {
+    liveRefs.add(r.id);
+    liveRefs.add(r.name);
+  }
   return schedules.map((schedule) => ({
     schedule,
     destinationNames: schedule.destinationIds
       .map((id) => nameById.get(id))
       .filter((n): n is string => Boolean(n)),
+    missingSources: schedule.sources.filter((s) => !liveRefs.has(s)),
   }));
 }
 

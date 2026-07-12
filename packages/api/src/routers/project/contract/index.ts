@@ -23,6 +23,7 @@ import { projectEventsContractSlice } from "./events";
 import { logsContractSlice } from "./logs";
 import { manifestContractSlice } from "./manifest";
 import { postgresContractSlice } from "./postgres";
+import { previewsContractSlice } from "./previews";
 import { projectContractSlice } from "./project";
 import { projectLogsContractSlice } from "./project-logs";
 import { proxyContractSlice } from "./proxy";
@@ -34,6 +35,7 @@ import { stackContractSlice } from "./stack";
 export const projectContract = {
   ...projectContractSlice,
   proxyRoute: proxyContractSlice,
+  previews: previewsContractSlice,
   dependencies: dependenciesContractSlice,
   serviceTasks: serviceTasksContractSlice,
   manifest: manifestContractSlice,

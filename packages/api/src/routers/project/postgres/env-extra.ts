@@ -8,15 +8,14 @@
 import type { ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
+import { resolvePostgresImage } from "@otterdeploy/shared/postgres-extensions";
 import { Result } from "better-result";
 
 import type { ProjectRef } from "../../scopes";
 
-import { resolvePostgresImage } from "@otterdeploy/shared/postgres-extensions";
-
 import { defaultImageFor } from "../../../swarm";
-import { syncManifestDatabaseExtraEnv } from "../manifest";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "../errors";
+import { syncManifestDatabaseExtraEnv } from "../manifest";
 import {
   getDatabaseResourceRecord,
   getProjectInOrg,

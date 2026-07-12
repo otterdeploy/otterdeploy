@@ -118,6 +118,10 @@ const saveGraphLayoutInput = z.object({
   // Partial map — only the nodes that moved. Merged into the stored layout
   // server-side so other nodes' positions are preserved.
   positions: graphLayoutSchema,
+  // When true, `positions` REPLACES the stored layout instead of merging into
+  // it — `{}` clears every saved position. Powers the graph's "re-run layout"
+  // action, which hands placement back to dagre.
+  replace: z.boolean().optional(),
 });
 
 export const projectContractSlice = {
@@ -148,7 +152,17 @@ export const projectContractSlice = {
     .input(updateProjectInput)
     .output(projectSchema),
   delete: oc
-    .errors(projectNotFoundErrors)
+    .errors({
+      ...projectNotFoundErrors,
+      // Refused while service/compose resources exist — their runtimes are
+      // only reclaimed by the per-resource delete path, so a project delete
+      // underneath them would orphan containers/images on the host.
+      CONFLICT: {
+        status: 409,
+        message: "Project still has services — delete them first" as const,
+        data: z.object({ serviceCount: z.number().int().nonnegative() }),
+      },
+    })
     .meta({ path: `${basePath}/{id}`, tag, method: "DELETE" })
     .input(deleteProjectInput)
     .output(z.object({ ok: z.boolean() })),

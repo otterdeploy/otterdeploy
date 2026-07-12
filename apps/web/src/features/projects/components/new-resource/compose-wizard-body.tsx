@@ -5,7 +5,7 @@
  * line caps.
  */
 
-import type { ProjectId } from "@otterdeploy/shared/id";
+import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 import type { ReactCodeMirrorRef } from "@uiw/react-codemirror";
 
 import { Button } from "@/shared/components/ui/button";
@@ -116,6 +116,7 @@ function ComposeFooter({
 export function ComposeWizardBody({
   form,
   projectId,
+  projectSlug,
   step,
   setStep,
   source,
@@ -136,6 +137,7 @@ export function ComposeWizardBody({
 }: {
   form: ComposeForm;
   projectId: ProjectId;
+  projectSlug: ProjectSlug;
   step: "file" | "vars";
   setStep: (s: "file" | "vars") => void;
   source: "inline" | "git";
@@ -170,7 +172,7 @@ export function ComposeWizardBody({
             />
 
             {source === "git" ? (
-              <ComposeGitFields form={form} derivedName={derivedName} />
+              <ComposeGitFields form={form} derivedName={derivedName} projectSlug={projectSlug} />
             ) : (
               <ComposeInlineFields
                 form={form}

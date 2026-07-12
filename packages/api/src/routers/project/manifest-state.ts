@@ -80,17 +80,25 @@ export async function loadCurrentState(projectId: ProjectId): Promise<CurrentSta
       // stack (stackId set). They reconcile through the stack, not the
       // top-level manifest, so exclude them here — otherwise every deployed
       // stack's children would read back as unmanaged "delete me" services.
-      .where(and(eq(resource.projectId, projectId), isNull(serviceResource.stackId))),
+      .where(
+        and(
+          eq(resource.projectId, projectId),
+          isNull(serviceResource.stackId),
+          isNull(resource.previewId),
+        ),
+      ),
     db
       .select({ resource, database: databaseResource })
       .from(resource)
       .innerJoin(databaseResource, eq(databaseResource.resourceId, resource.id))
-      .where(eq(resource.projectId, projectId)),
+      // Base rows only: a PR preview's branch DB reuses the base name and
+      // would silently overwrite the base entry in the by-name map below.
+      .where(and(eq(resource.projectId, projectId), isNull(resource.previewId))),
     db
       .select({ name: resource.name })
       .from(resource)
       .innerJoin(composeResource, eq(composeResource.resourceId, resource.id))
-      .where(eq(resource.projectId, projectId)),
+      .where(and(eq(resource.projectId, projectId), isNull(resource.previewId))),
   ]);
 
   const services: Record<string, CurrentService> = {};
@@ -98,7 +106,15 @@ export async function loadCurrentState(projectId: ProjectId): Promise<CurrentSta
     const serviceIds = serviceRows.map((r) => r.service.resourceId);
     const [ports, envs] = await Promise.all([
       db.select().from(servicePort).where(inArray(servicePort.serviceResourceId, serviceIds)),
-      db.select().from(serviceEnvVar).where(inArray(serviceEnvVar.serviceResourceId, serviceIds)),
+      db
+        .select()
+        .from(serviceEnvVar)
+        .where(
+          and(
+            inArray(serviceEnvVar.serviceResourceId, serviceIds),
+            isNull(serviceEnvVar.previewId),
+          ),
+        ),
     ]);
 
     const portsBySvc = new Map<string, CurrentServicePort[]>();
@@ -133,6 +149,7 @@ export async function loadCurrentState(projectId: ProjectId): Promise<CurrentSta
       name: row.resource.name,
       engine: row.database.engine,
       publicEnabled: row.database.publicEnabled,
+      previewBranching: row.database.previewBranching,
       extraEnv: row.database.extraEnv,
     };
   }

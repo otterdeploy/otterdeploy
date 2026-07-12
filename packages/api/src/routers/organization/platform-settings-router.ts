@@ -94,20 +94,18 @@ export const platformSettingsRouter = {
     return serverIpView();
   }),
 
-  setServerIp: orgUpdateProcedure.organization.setServerIp.handler(
-    async ({ input, context }) => {
-      context.log.set({
-        target: { type: "organization", id: input.organizationId },
-        instance: { serverIp: input.serverIp || null },
-      });
-      const value = input.serverIp.trim() || null;
-      await db
-        .insert(platformSettings)
-        .values({ id: PLATFORM_SETTINGS_ID, serverIp: value })
-        .onConflictDoUpdate({ target: platformSettings.id, set: { serverIp: value } });
-      return serverIpView();
-    },
-  ),
+  setServerIp: orgUpdateProcedure.organization.setServerIp.handler(async ({ input, context }) => {
+    context.log.set({
+      target: { type: "organization", id: input.organizationId },
+      instance: { serverIp: input.serverIp || null },
+    });
+    const value = input.serverIp.trim() || null;
+    await db
+      .insert(platformSettings)
+      .values({ id: PLATFORM_SETTINGS_ID, serverIp: value })
+      .onConflictDoUpdate({ target: platformSettings.id, set: { serverIp: value } });
+    return serverIpView();
+  }),
 
   getEdgeOptions: orgScopedProcedure.organization.getEdgeOptions.handler(
     async ({ input, context }) => {

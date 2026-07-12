@@ -4,10 +4,11 @@
  * out of compose-wizard.tsx to keep that file under the line caps.
  */
 
-import type { ProjectId } from "@otterdeploy/shared/id";
+import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 
 import { Upload01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useStore } from "@tanstack/react-form";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 
 import { Button } from "@/shared/components/ui/button";
@@ -15,8 +16,12 @@ import { Input } from "@/shared/components/ui/input";
 
 import type { ComposeForm, DetectedService, Preview } from "./compose-wizard-shared";
 
+import { ComposeExtraFiles } from "./compose-extra-files";
 import { ComposePreview } from "./compose-preview";
 import { editorExtensions } from "./compose-wizard-editor";
+import { RepoPicker } from "./steps/repo-picker";
+import { useBindingSummary } from "./steps/source-binding";
+import { BranchPicker } from "./steps/source-pickers";
 
 function ComposeNameField({ form, derivedName }: { form: ComposeForm; derivedName: string }) {
   return (
@@ -41,37 +46,79 @@ function ComposeNameField({ form, derivedName }: { form: ComposeForm; derivedNam
 export function ComposeGitFields({
   form,
   derivedName,
+  projectSlug,
 }: {
   form: ComposeForm;
   derivedName: string;
+  projectSlug: ProjectSlug;
 }) {
+  // Same repo-selection surface git services use: an account/repo picker over
+  // the connected GitHub App installations (private-capable). `gitRepoId` bound
+  // → clone via the installation token; a pasted public URL is the fallback.
+  const { installations, projectId, hasInstallations } = useBindingSummary(projectSlug);
+  const gitRepoId = useStore(form.store, (s) => s.values.gitRepoId);
+  const repoFullName = useStore(form.store, (s) => s.values.repoFullName);
+
   return (
     <>
-      <form.Field name="gitRepoUrl">
-        {(field) => (
-          <label className="flex flex-col gap-1.5">
-            <span className="text-xs text-muted-foreground">Repository URL</span>
-            <Input
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              placeholder="https://github.com/owner/repo"
-              className="font-mono"
-              autoFocus
-            />
-          </label>
-        )}
-      </form.Field>
+      {hasInstallations ? (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs text-muted-foreground">Repository</span>
+          <RepoPicker
+            installations={installations}
+            projectId={projectId}
+            onBound={(repoId, fullName) => {
+              form.setFieldValue("gitRepoId", repoId);
+              form.setFieldValue("repoFullName", fullName);
+              // Bound repo wins over any pasted URL.
+              form.setFieldValue("gitRepoUrl", "");
+            }}
+          />
+          {repoFullName ? (
+            <span className="font-mono text-[11px] text-muted-foreground">
+              Selected: {repoFullName}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      {gitRepoId ? null : (
+        <form.Field name="gitRepoUrl">
+          {(field) => (
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs text-muted-foreground">
+                {hasInstallations ? "Or public repo URL" : "Repository URL"}
+              </span>
+              <Input
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                placeholder="https://github.com/owner/repo"
+                className="font-mono"
+              />
+            </label>
+          )}
+        </form.Field>
+      )}
+
       <div className="grid grid-cols-2 gap-3">
         <form.Field name="gitRef">
           {(field) => (
             <label className="flex flex-col gap-1.5">
               <span className="text-xs text-muted-foreground">Branch</span>
-              <Input
-                value={field.state.value}
-                onChange={(e) => field.handleChange(e.target.value)}
-                placeholder="main"
-                className="font-mono"
-              />
+              {gitRepoId ? (
+                <BranchPicker
+                  gitRepoId={gitRepoId}
+                  value={field.state.value}
+                  onChange={field.handleChange}
+                />
+              ) : (
+                <Input
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  placeholder="main"
+                  className="font-mono"
+                />
+              )}
             </label>
           )}
         </form.Field>
@@ -91,6 +138,23 @@ export function ComposeGitFields({
           )}
         </form.Field>
       </div>
+
+      <form.Field name="sourceSubdir">
+        {(field) => (
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs text-muted-foreground">
+              Root directory <span className="text-muted-foreground/60">(optional)</span>
+            </span>
+            <Input
+              value={field.state.value}
+              onChange={(e) => field.handleChange(e.target.value)}
+              placeholder="repo root"
+              className="font-mono"
+            />
+          </label>
+        )}
+      </form.Field>
+
       <ComposeNameField form={form} derivedName={derivedName} />
       <p className="text-[11px] text-muted-foreground">
         Clones the repo, builds each service with a <code>build:</code> context, then deploys the
@@ -181,6 +245,8 @@ export function ComposeInlineFields({
           </div>
         )}
       </form.Field>
+
+      <ComposeExtraFiles form={form} />
 
       <ComposePreview
         parsing={parsing}

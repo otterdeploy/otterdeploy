@@ -6,13 +6,12 @@
  * a visited set on the active DFS path. Exporter results are cached for the
  * duration of a single `resolveServiceEnv` call.
  */
-import type { EnvironmentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, PreviewId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { Result } from "better-result";
 
 import {
   getDatabaseResourceRecord,
-  getEnvironmentById,
   getProjectRecord,
   loadProjectEnvBag,
   type DatabaseResourceRecord,
@@ -25,8 +24,9 @@ import {
   type ResolveError,
 } from "../../routers/service/errors";
 import {
+  listPreviewServiceEnvVars,
   getServiceRecord,
-  resolveResourceForEnv,
+  resolveResourceForPreview,
   type ResourceRow,
   type ServiceEnvVarRow,
   type ServiceRecord,
@@ -35,11 +35,13 @@ import { postgresExports, serviceExports } from "./exporters";
 import { parseValue, type Token } from "./parser";
 interface ResolveContext {
   projectId: ProjectId;
-  // The environment we're resolving in, plus the env it inherits from (a
-  // preview's base = its project's persistent env; a persistent env's base is
-  // null). Drives both env-var overlay and env-scoped resource lookup.
+  // The persistent environment whose var bags apply (the project's default
+  // env). Drives the env-var overlay for user-managed environments.
   environmentId: EnvironmentId;
-  baseEnvironmentId: EnvironmentId | null;
+  // Preview scoping for RESOURCE lookups: a preview-scoped row (an opt-in DB
+  // branch) wins over the base row; null resolves base rows only. Previews
+  // are NOT environments — their var bags are the base env's, unchanged.
+  previewId: PreviewId | null;
   visited: Set<string>;
   exportsCache: Map<string, Record<string, string>>;
 }
@@ -47,21 +49,20 @@ interface ResolveContext {
 export async function resolveServiceEnv(
   projectId: ProjectId,
   serviceResourceId: ResourceId,
-  environmentId?: EnvironmentId,
+  previewId?: PreviewId | null,
 ): Promise<Result<Record<string, string>, ResolveError | RefMissingResourceError>> {
-  // Default to the project's persistent environment when no env is given —
-  // keeps every existing (non-preview) call site byte-identical to the
-  // pre-env-scoping behavior.
-  const envId = environmentId ?? (await getProjectRecord(projectId))?.environmentId;
+  // Var bags always come from the project's persistent environment — a
+  // preview inherits production's vars verbatim (it is not an environment);
+  // only its RESOURCE refs may re-resolve to preview-scoped branches.
+  const envId = (await getProjectRecord(projectId))?.environmentId;
   if (!envId) {
     return Result.err(new RefMissingResourceError({ refResourceName: "environment" }));
   }
-  const envRow = await getEnvironmentById(envId);
 
   const ctx: ResolveContext = {
     projectId,
     environmentId: envId,
-    baseEnvironmentId: envRow?.baseEnvironmentId ?? null,
+    previewId: previewId ?? null,
     visited: new Set([serviceResourceId]),
     exportsCache: new Map(),
   };
@@ -75,7 +76,7 @@ export async function resolveServiceEnv(
 
 /**
  * A service's env rows for the active environment, in precedence order:
- *   legacy NULL-env rows  <  base-env rows  <  active-env rows
+ *   legacy NULL-env rows  <  active-env rows
  * (later overrides earlier, by key). NULL-env rows are pre-backfill leftovers
  * treated as a universal fallback, so production resolves identically before
  * the environment backfill runs.
@@ -83,13 +84,9 @@ export async function resolveServiceEnv(
 function overlayServiceEnv(
   rows: ServiceEnvVarRow[],
   environmentId: EnvironmentId,
-  baseEnvironmentId: EnvironmentId | null,
 ): ServiceEnvVarRow[] {
   const byKey = new Map<string, ServiceEnvVarRow>();
   for (const r of rows) if (r.environmentId == null) byKey.set(r.key, r);
-  if (baseEnvironmentId) {
-    for (const r of rows) if (r.environmentId === baseEnvironmentId) byKey.set(r.key, r);
-  }
   for (const r of rows) if (r.environmentId === environmentId) byKey.set(r.key, r);
   return [...byKey.values()];
 }
@@ -100,7 +97,22 @@ async function resolveEnvFor(
 ): Promise<Result<Record<string, string>, ResolveError>> {
   const resolved: Record<string, string> = {};
 
-  for (const envVar of overlayServiceEnv(record.env, ctx.environmentId, ctx.baseEnvironmentId)) {
+  // Base overlay (legacy NULL-env < active persistent env), then — inside a
+  // preview — that preview's per-service overrides win by key. Overrides are
+  // fetched here (not via record.env) so they stay invisible to every base
+  // surface by construction.
+  let rows = overlayServiceEnv(record.env, ctx.environmentId);
+  if (ctx.previewId) {
+    const overrides = await listPreviewServiceEnvVars(
+      record.service.resourceId as ResourceId,
+      ctx.previewId,
+    );
+    const byKey = new Map(rows.map((r) => [r.key, r]));
+    for (const r of overrides) byKey.set(r.key, r);
+    rows = [...byKey.values()];
+  }
+
+  for (const envVar of rows) {
     const parsed = parseValue(envVar.value);
     if (!parsed.ok) {
       return Result.err(
@@ -166,9 +178,9 @@ async function loadExports(
     return loadScopeExports(refResourceName, cacheKey, ctx);
   }
 
-  const resourceRow = await resolveResourceForEnv(
+  const resourceRow = await resolveResourceForPreview(
     ctx.projectId,
-    ctx.environmentId,
+    ctx.previewId,
     refResourceName,
   );
   if (!resourceRow) {
@@ -198,17 +210,9 @@ async function loadScopeExports(
   cacheKey: string,
   ctx: ResolveContext,
 ): Promise<Result<Record<string, string>, ResolveError>> {
-  // The bag is keyed by (projectId, environmentId). Inherit-by-reference: start
-  // from the base env's bag (if any) and overlay the active env's own vars, so a
-  // preview sees production's shared vars unless it overrides them. For a
-  // persistent env (no base) this is just its own bag — identical to before.
+  // The bag is keyed by (projectId, environmentId) — the persistent env's own
+  // vars. Previews read the same bag (they are not environments).
   const bag: Record<string, string> = {};
-  if (ctx.baseEnvironmentId) {
-    Object.assign(
-      bag,
-      await loadProjectEnvBag({ projectId: ctx.projectId, environmentId: ctx.baseEnvironmentId }),
-    );
-  }
   Object.assign(
     bag,
     await loadProjectEnvBag({ projectId: ctx.projectId, environmentId: ctx.environmentId }),

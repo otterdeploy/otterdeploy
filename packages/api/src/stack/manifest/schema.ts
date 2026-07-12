@@ -246,6 +246,10 @@ export type ServiceManifest = z.infer<typeof serviceSchema>;
 const databaseCommonSchema = z.object({
   resources: resourcesSchema.optional(),
   publicEnabled: z.boolean().optional(),
+  // Opt this database into PR-preview branching (an isolated per-PR copy).
+  // Declared-only: omitted leaves the live toggle alone. Default off — an
+  // unbranched database is shared with the base by preview services.
+  previews: z.boolean().optional(),
   // Extra container env injected alongside the derived POSTGRES_* / etc.
   // Same ref grammar as service env.
   extraEnv: envMap.optional(),
@@ -315,18 +319,35 @@ const composeExposedSchema = z.object({
 
 const composeInlineSchema = z.object({
   source: z.literal("inline"),
+  // The designated compose file's content (single-file stacks set only this).
   content: z.string().min(1),
+  // Multi-file stack: compose file + supporting files (Dockerfiles/build
+  // contexts, env_file targets, bind-mounted scripts). `composePath` names the
+  // compose entry; `content` mirrors it.
+  files: z.array(z.object({ path: z.string(), content: z.string() })).optional(),
+  composePath: z.string().nullable().optional(),
   env: composeEnvMap.optional(),
   exposed: z.array(composeExposedSchema).optional(),
+  // Brand mark for the graph node (SvglLogo search string), set when the stack
+  // is deployed from a template. Presentation-only.
+  logoBrand: z.string().max(64).optional(),
 });
 
 const composeGitSchema = z.object({
   source: z.literal("git"),
-  gitRepoUrl: z.string().min(1),
+  // Bind by repo id (private-capable, from the repo picker) OR a raw public URL
+  // (legacy paste). At least one must be present; gitRepoId wins when both are.
+  gitRepoId: z.string().nullable().optional(),
+  gitRepoUrl: z.string().nullable().optional(),
   gitRef: z.string().nullable().optional(),
   composePath: z.string().nullable().optional(),
+  // Root directory within the repo the stack builds from.
+  sourceSubdir: z.string().nullable().optional(),
   env: composeEnvMap.optional(),
   exposed: z.array(composeExposedSchema).optional(),
+  // Brand mark for the graph node (SvglLogo search string), set when the stack
+  // is deployed from a template. Presentation-only.
+  logoBrand: z.string().max(64).optional(),
 });
 
 export const composeSchema = z.discriminatedUnion("source", [

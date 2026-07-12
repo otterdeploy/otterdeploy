@@ -41,15 +41,20 @@ function initialsOf(name: string): string {
 
 export const Route = createFileRoute("/_app")({
   beforeLoad: async ({ location }) => {
-    const session = await authClient.getSession();
+    // Fire both independent reads concurrently — the session gate and the org
+    // list don't depend on each other, so there's no reason to await them in
+    // series. getSession is a local cookie read now (better-auth cookieCache),
+    // so this collapses the app-entry gate to a single org.list round-trip.
+    const [session, orgs] = await Promise.all([
+      authClient.getSession(),
+      authClient.organization.list(),
+    ]);
     if (!session.data) {
       throw redirect({
         to: "/sign-in",
         search: { redirect: location.pathname },
       });
     }
-
-    const orgs = await authClient.organization.list();
     if (orgs.error) {
       throw new Error(orgs.error.message ?? "Failed to load organizations");
     }

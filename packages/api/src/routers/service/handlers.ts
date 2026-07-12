@@ -45,6 +45,7 @@ import {
   type ServiceRecord,
 } from "./queries";
 import { provisionFresh, redeployAndFanOut } from "./redeploy";
+import { reclaimServiceHostArtifacts } from "./teardown";
 import {
   isUniqueViolation,
   mapEnvVar,
@@ -73,7 +74,16 @@ export async function listServices(
   if (project.isErr()) return Result.err(project.error);
 
   const records = await listServiceRecordsByProject(input.projectId);
-  const views = await Promise.all(records.map((r) => mapServiceView(r, project.value.slug)));
+  // Resolve every service's live runtime in ONE runtime round-trip, then hand
+  // each pre-resolved status to mapServiceView — instead of mapServiceView
+  // opening a fresh Docker connection + lookup per service (the list N+1).
+  const projectSlug = sanitizeSlug(project.value.slug);
+  const runtimes = await runtime().inspectMany(
+    records.map((r) => ({ serviceName: r.service.serviceName, projectSlug })),
+  );
+  const views = await Promise.all(
+    records.map((r) => mapServiceView(r, project.value.slug, runtimes.get(r.service.serviceName))),
+  );
   return Result.ok(views);
 }
 
@@ -208,6 +218,14 @@ export async function deleteService(
 
   await deleteProxyRoutesByResource(input.resourceId);
   await runtime().destroy({ serviceName: record.service.serviceName }, log);
+  // Reclaim host artifacts (built images, buildx cache, volumes) — the container
+  // teardown above only removes the running container.
+  await reclaimServiceHostArtifacts(
+    record.service.serviceName,
+    input.projectId,
+    input.resourceId,
+    log,
+  );
   await deleteServiceRecord(input.resourceId);
   await reconcile(log);
 

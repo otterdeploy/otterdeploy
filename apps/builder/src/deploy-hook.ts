@@ -19,7 +19,7 @@
  * see migration output inline in the deployment log.
  */
 
-import type { DeploymentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { DeploymentId, ProjectId, ResourceId, PreviewId } from "@otterdeploy/shared/id";
 
 import { resolveDeployHookContext } from "@otterdeploy/api/routers/service/deploy-hook";
 import { Result } from "better-result";
@@ -35,6 +35,9 @@ import { runProcess } from "./run-process";
 export type HookPhase = "pre-deploy" | "post-deploy";
 
 interface RunHooksOpts {
+  /** Preview scoping — forwarded into env resolution so hook refs hit the
+   *  preview's DB branch (when opted in), never production. */
+  previewId?: PreviewId | null;
   phase: HookPhase;
   commands: string[];
   /** The freshly-built image tag the hook container runs off. */
@@ -53,7 +56,12 @@ export async function runDeployHooks(opts: RunHooksOpts): Promise<Result<void, D
   if (commands.length === 0) return Result.ok(undefined);
 
   // Same env + network the service itself gets, so refs (e.g. a DB url) resolve.
-  const ctx = await resolveDeployHookContext(opts.projectId, opts.resourceId, opts.projectSlug);
+  const ctx = await resolveDeployHookContext(
+    opts.projectId,
+    opts.resourceId,
+    opts.projectSlug,
+    opts.previewId ?? null,
+  );
   if (ctx.isErr()) {
     return Result.err(
       new DeployHookError({ phase, reason: `env resolution failed: ${ctx.error.message}` }),

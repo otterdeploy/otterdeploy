@@ -32,7 +32,9 @@ export interface MariadbGrid {
 /** System schemas hidden from the browser. */
 const SYSTEM_SCHEMAS = ["information_schema", "mysql", "performance_schema", "sys"];
 
-async function withMysql<T>(
+// Exported so the org-catalog stats collector can issue its own read-only
+// statements through the same exec channel (password via MYSQL_PWD, off argv).
+export async function withMysql<T>(
   conn: DbConnInfo,
   fn: (run: (sql: string) => Promise<string>) => Promise<T>,
 ): Promise<T> {

@@ -179,8 +179,8 @@ async function notifyCrashed(
       deploymentId: ctx.deploymentId,
       resource: info.resourceName,
       project: info.projectName,
-      exitCode: ctx.exitCode,
-      restartAttempts: ctx.attemptsSoFar,
+      exitCode: ctx.exitCode == null ? "unknown" : String(ctx.exitCode),
+      restartAttempts: String(ctx.attemptsSoFar),
     },
   });
 }

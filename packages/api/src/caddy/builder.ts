@@ -26,6 +26,13 @@ export interface ProxyRouteInput {
    *  (http only) — e.g. `header`, `encode`, `rate_limit`. Indentation is
    *  normalized on emit; null/absent ⇒ none. */
   customDirectives?: string | null;
+  /** Operator-uploaded certificate to serve for this domain instead of
+   *  ACME / tls internal. Paths are CONTAINER paths under the `/etc/caddy`
+   *  mount, set by the reconcile layer only for certs whose files were
+   *  actually materialized (see ./certs.ts) — so an emitted `tls` line never
+   *  references a file the edge can't read. Absent ⇒ normal ACME/internal
+   *  behaviour. */
+  customCert?: { certPath: string; keyPath: string } | null;
 }
 
 /** Re-indent an operator-authored directive block to sit one level inside a
@@ -108,6 +115,25 @@ function edgeLogGlobalLines(sink: string): string[] {
   return ["\tlog {", `\t\toutput net ${sink}`, "\t\tformat json", "\t}"];
 }
 
+/** Mirror every site's access logs to a rolled JSON file for the CrowdSec
+ *  agent to parse (http scenarios: brute force, CVE probes, crawlers). A
+ *  single global capture logger — `include http.log.access` matches every
+ *  per-site access logger — so no site block changes. The file lands on the
+ *  shared `otterdeploy-caddy-logs` volume the agent reads read-only; see the
+ *  crowdsec service's acquis config in docker-compose.yml. */
+function crowdsecAccessFileLines(): string[] {
+  return [
+    "\tlog crowdsec-access {",
+    "\t\tinclude http.log.access",
+    "\t\toutput file /var/log/caddy/access.json {",
+    "\t\t\troll_size 20MiB",
+    "\t\t\troll_keep 2",
+    "\t\t}",
+    "\t\tformat json",
+    "\t}",
+  ];
+}
+
 /** Single source of truth for the global block. ACME registration email
  *  is required by Let's Encrypt for any non-internal cert; omitted when
  *  no usesAcme route exists so a pure-internal install doesn't need to
@@ -119,11 +145,15 @@ export interface CaddyfileOptions {
 
 export function buildHttpBlock(route: ProxyRouteInput, options: HttpBlockOptions = {}): string {
   const lines = [`${route.domain} {`];
-  // Pre-Phase-2 the global `local_certs` covered everything; now we
-  // emit per-site `tls internal` for any route that hasn't earned ACME
-  // so the global block can drop `local_certs` (which conflicts with
-  // ACME issuance).
-  if (!route.usesAcme) {
+  // Operator-uploaded cert wins over both ACME and `tls internal` — Caddy
+  // serves exactly this pair and never tries to manage the domain itself.
+  if (route.customCert) {
+    lines.push(`\ttls ${route.customCert.certPath} ${route.customCert.keyPath}`);
+  } else if (!route.usesAcme) {
+    // Pre-Phase-2 the global `local_certs` covered everything; now we
+    // emit per-site `tls internal` for any route that hasn't earned ACME
+    // so the global block can drop `local_certs` (which conflicts with
+    // ACME issuance).
     lines.push("\ttls internal");
   }
 
@@ -226,6 +256,12 @@ function buildGlobalBlock(o: GlobalBlockOptions): string[] {
   if (o.edgeLogSink) {
     lines.push(...edgeLogGlobalLines(o.edgeLogSink));
   }
+  // Access-log file for CrowdSec's parsers: only when the bouncer is wired
+  // (no point writing files nobody reads) AND sites emit access logs at all
+  // (they only do when the edge-log sink is configured).
+  if (o.crowdsec && o.edgeLogSink) {
+    lines.push(...crowdsecAccessFileLines());
+  }
   if (o.layer4Routes.length > 0) {
     lines.push(buildLayer4Block(o.layer4Routes));
   }
@@ -271,7 +307,9 @@ export function buildCaddyfile(
 ): string {
   const httpRoutes = routes.filter((r) => r.type === "http");
   const layer4Routes = routes.filter((r) => r.type === "layer4");
-  const anyUsesAcme = routes.some((r) => r.usesAcme);
+  // A custom-cert route never triggers ACME (Caddy serves the uploaded pair),
+  // so it does not force the global registration email on its own.
+  const anyUsesAcme = routes.some((r) => r.usesAcme && !r.customCert);
 
   const lines = buildGlobalBlock({
     adminLine: `admin ${adminBind}`,
@@ -315,7 +353,9 @@ export function buildProjectFragment(
     return "";
   }
 
-  const anyUsesAcme = routes.some((r) => r.usesAcme);
+  // A custom-cert route never triggers ACME (Caddy serves the uploaded pair),
+  // so it does not force the global registration email on its own.
+  const anyUsesAcme = routes.some((r) => r.usesAcme && !r.customCert);
   const lines = buildGlobalBlock({
     adminLine: "admin off",
     acmeEmail: options.acmeEmail,

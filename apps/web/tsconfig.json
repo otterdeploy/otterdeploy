@@ -13,5 +13,10 @@
     "paths": {
       "@/*": ["./src/*"]
     }
-  }
+  },
+  // Build-tooling config files are transpiled by vite/vitest, not tsc. They
+  // also trip vite-plus's `defineConfig` type-comparison depth limit ("Excessive
+  // stack depth comparing types … UserConfig"), which is a library limitation,
+  // not an app bug — so keep them out of the app type program.
+  "exclude": ["vite.config.ts", "vitest.config.ts"]
 }

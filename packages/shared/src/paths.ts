@@ -42,6 +42,16 @@ export const backupDir = (projectId: ProjectId, id: ResourceId): string =>
 /** Per-project DR escape hatch — exported manifest + rendered compose. */
 export const projectDir = (id: ProjectId): string => `${DATA_ROOT}/projects/${id}`;
 
+/** Managed GeoIP database — the default location the edge-log sink downloads a
+ *  free IP→country MMDB to when `EDGE_LOG_GEOIP_DB` isn't set. See
+ *  packages/api/src/edge-logs/geo.ts. */
+export const geoDbPath = (): string => `${DATA_ROOT}/geoip/dbip-country.mmdb`;
+
+/** Managed IP→ASN database, sibling of the country DB — enriches firewall
+ *  decisions (and anything else) with AS number/org. Same managed-download
+ *  semantics as `geoDbPath`. */
+export const asnDbPath = (): string => `${DATA_ROOT}/geoip/asn.mmdb`;
+
 /** Managed DB data volume — the canonical, rename-safe placement keyed by the
  *  stable `resourceId` (NOT the Docker volume name). A branch is a new resource
  *  → its own dir automatically. On a ZFS host this tree is a managed dataset so

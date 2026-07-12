@@ -9,6 +9,9 @@ import { Input } from "@/shared/components/ui/input";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
+import { useEdgeBans } from "../data/use-edge-bans";
+import { classifyThreat } from "../threat";
+import { BlockAllButton } from "./edge-logs-block-ip";
 import { BUCKETS, BUCKET_TEXT, METHOD_TEXT, METHODS } from "./edge-logs-constants";
 import { Chips, LiveBadge, RANGES, type Range, Segmented, toggleSet } from "./edge-logs-shared";
 import { exportCsv, HostFooter, LogHistogram, LogTable } from "./edge-logs-view-parts";
@@ -27,6 +30,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
   const [search, setSearch] = useState("");
   const [live, setLive] = useState(true);
   const [wrap, setWrap] = useState(false);
+  const [suspiciousOnly, setSuspiciousOnly] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const query = useQuery({
@@ -43,8 +47,28 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
     refetchInterval: live ? 2000 : false,
   });
 
+  // Active CrowdSec bans + block actions (single from a row, bulk from the
+  // suspicious filter). CrowdSec-enforced; reversible from the Firewall view.
+  const { bannedIps, block, blockMany } = useEdgeBans();
+
   const data = query.data;
-  const rows = data?.rows ?? [];
+  const allRows = data?.rows ?? [];
+  // Client-side narrow to scanner probes. Classification is a pure path check
+  // (see threat.ts); it scopes the visible rows within the fetched window.
+  const suspiciousCount = useMemo(
+    () => allRows.filter((r) => classifyThreat(r.path)).length,
+    [allRows],
+  );
+  const rows = suspiciousOnly ? allRows.filter((r) => classifyThreat(r.path)) : allRows;
+  // Distinct offender IPs behind the suspicious rows that aren't banned yet —
+  // the mass-block target set (contract caps one call at 100).
+  const suspiciousIps = useMemo(
+    () =>
+      [...new Set(allRows.filter((r) => classifyThreat(r.path)).map((r) => r.clientIp))]
+        .filter((ip) => !bannedIps.has(ip))
+        .slice(0, 100),
+    [allRows, bannedIps],
+  );
   const hostOptions = useMemo(
     () => (data?.hostStats ?? []).map((s) => s.host).sort(),
     [data?.hostStats],
@@ -87,6 +111,14 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
           className="h-8 max-w-xs text-[12px]"
         />
         <div className="flex-1" />
+        <SuspiciousControls
+          active={suspiciousOnly}
+          count={suspiciousCount}
+          ips={suspiciousIps}
+          onToggle={() => setSuspiciousOnly((v) => !v)}
+          blocking={blockMany.isPending}
+          onBlockAll={() => blockMany.mutate({ ips: suspiciousIps })}
+        />
         <Button
           variant="outline"
           size="sm"
@@ -113,9 +145,51 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
         expanded={expanded}
         setExpanded={setExpanded}
         isLoading={query.isLoading}
+        onBlockIp={(ip) => block.mutate({ ip })}
+        blocking={block.isPending}
+        bannedIps={bannedIps}
       />
 
       <HostFooter data={data} />
     </div>
+  );
+}
+
+/** Suspicious-only toggle + the bulk "Block N IPs" action that appears while
+ *  the filter is active and unbanned offender IPs remain. */
+function SuspiciousControls({
+  active,
+  count,
+  ips,
+  onToggle,
+  blocking,
+  onBlockAll,
+}: {
+  active: boolean;
+  count: number;
+  ips: string[];
+  onToggle: () => void;
+  blocking: boolean;
+  onBlockAll: () => void;
+}) {
+  return (
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        className={cn(
+          active
+            ? "border-destructive/40 bg-destructive/10 text-destructive hover:text-destructive"
+            : count > 0 && "text-destructive",
+        )}
+        onClick={onToggle}
+        title="Show only scanner-style probe requests (.env, /actuator, *.php, ?cmd=…)"
+      >
+        Suspicious{count > 0 ? ` (${count})` : ""}
+      </Button>
+      {active && ips.length > 0 ? (
+        <BlockAllButton count={ips.length} blocking={blocking} onConfirm={onBlockAll} />
+      ) : null}
+    </>
   );
 }

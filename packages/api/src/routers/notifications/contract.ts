@@ -14,6 +14,7 @@ const tag = "notifications";
 const basePath = "/notifications";
 
 const channelIdField = zId(ID_PREFIX.notificationChannel);
+const notificationIdField = zId(ID_PREFIX.notification);
 
 const channelKind = z.enum([
   "slack",
@@ -55,6 +56,44 @@ const channelSchema = z.object({
 export const subscriptionSchema = z.object({
   channelId: channelIdField,
   eventId,
+});
+
+const deliveryIdField = zId(ID_PREFIX.notificationDelivery);
+
+/** One row of a channel's append-only delivery log. `eventId` is a plain
+ * string (not the catalog enum) — test sends log as "test.ping", which is
+ * deliberately outside the subscribable catalog. */
+const deliveryItemSchema = z.object({
+  id: deliveryIdField,
+  eventId: z.string(),
+  status: z.enum(["delivered", "failed"]),
+  /** Provider error for failed attempts, null when delivered. */
+  error: z.string().nullable(),
+  createdAt: z.date(),
+});
+
+/** Per-event delivered/failed counts over the trailing 7 days. */
+const deliveryBreakdownSchema = z.object({
+  eventId: z.string(),
+  delivered: z.number(),
+  failed: z.number(),
+});
+
+/** One in-app inbox entry — the caller's own `notification` row. */
+const inboxItemSchema = z.object({
+  id: notificationIdField,
+  title: z.string(),
+  message: z.string(),
+  /**
+   * Structured context written by the platform-event fan-out — `eventId` plus
+   * display strings (resource, project, deploymentId, …). Drives the severity
+   * dot and the expandable detail rows in the header-bell popover. Null for
+   * plain `notification.send` rows that carried no payload.
+   */
+  data: z.record(z.string(), z.unknown()).nullable(),
+  /** Null until the user reads it. */
+  readAt: z.date().nullable(),
+  createdAt: z.date(),
 });
 
 // ─── Inputs ────────────────────────────────────────────────────────────
@@ -132,6 +171,28 @@ export const notificationsContract = {
       .errors(channelNotFound),
   },
 
+  // Per-channel delivery history — powers the "View deliveries" dialog on a
+  // channel card. One call returns the 7d per-event breakdown plus a keyset-
+  // paginated page of recent deliveries (cursor = last item's id).
+  deliveries: oc
+    .route({ method: "GET", path: `${basePath}/deliveries`, tags: [tag] })
+    .input(
+      z.object({
+        channelId: channelIdField,
+        limit: z.number().int().min(1).max(100).default(50),
+        cursor: deliveryIdField.optional(),
+      }),
+    )
+    .output(
+      z.object({
+        breakdown7d: z.array(deliveryBreakdownSchema),
+        items: z.array(deliveryItemSchema),
+        /** Pass back as `cursor` to fetch the next page; null = no more. */
+        nextCursor: deliveryIdField.nullable(),
+      }),
+    )
+    .errors(channelNotFound),
+
   subscriptions: {
     list: oc
       .route({ method: "GET", path: `${basePath}/subscriptions`, tags: [tag] })
@@ -142,5 +203,25 @@ export const notificationsContract = {
       .input(toggleSubscriptionInput)
       .output(toggleSubscriptionInput)
       .errors(channelNotFound),
+  },
+
+  // The caller's own in-app feed (the header bell's popover). User-scoped —
+  // rows belong to the session user, filtered to the active org + account-
+  // level rows. One list call carries the unread count so the badge and the
+  // popover share a single poll.
+  inbox: {
+    list: oc
+      .route({ method: "GET", path: `${basePath}/inbox`, tags: [tag] })
+      .input(z.object({ limit: z.number().int().min(1).max(50).default(20) }))
+      .output(z.object({ items: z.array(inboxItemSchema), unread: z.number() })),
+
+    markRead: oc
+      .route({ method: "POST", path: `${basePath}/inbox/read`, tags: [tag] })
+      .input(z.object({ id: notificationIdField }))
+      .output(z.object({ id: notificationIdField })),
+
+    markAllRead: oc
+      .route({ method: "POST", path: `${basePath}/inbox/read-all`, tags: [tag] })
+      .output(z.object({ updated: z.number() })),
   },
 };

@@ -14,6 +14,7 @@ export const deploymentsResourceRouter = {
       const result = await listResourceDeployments({
         projectId: input.projectId,
         resourceId: input.resourceId,
+        previewId: input.previewId ?? null,
         organizationId: context.activeOrganizationId,
       });
       if (result.isErr()) {

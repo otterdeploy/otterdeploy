@@ -2,11 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import type { PreviewCommentRow } from "./preview-comment";
 
-import {
-  formatUpdatedUtc,
-  renderPreviewComment,
-  rowStatusFromDeployment,
-} from "./preview-comment";
+import { formatUpdatedUtc, renderPreviewComment, rowStatusFromDeployment } from "./preview-comment";
 
 const at = new Date(Date.UTC(2026, 6, 6, 15, 38)); // Jul 6, 2026 3:38pm UTC
 

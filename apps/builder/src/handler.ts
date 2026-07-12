@@ -183,51 +183,59 @@ export function makeBuildJob() {
 
       const results: Array<{ deploymentId: string; ok: boolean; error?: string }> = [];
 
+      // The pipeline converges the row to a terminal status (running/failed)
+      // itself, so a helper that exits — with ANY code — while the row is
+      // still `pending`/`building` died before converging it: a no-op build
+      // (redundant deploy of an already-built SHA), a docker start failure
+      // (125/126/127), or a silent event-loop-drain death (Bun 1.3.14
+      // intermittently drops a DB/Redis promise during client warm-up and
+      // exits before markBuilding — observed on ~8-24% of helper runs). The
+      // drain death is random and nothing was built or marked, so re-run the
+      // helper once before repairing the row to a visible failure — never
+      // strand a phantom `pending`/`building` row with an empty log pane.
+      const MAX_ATTEMPTS = 2;
+
       for (const id of payload.deploymentIds) {
         const deploymentId = id as DeploymentId;
-        let outcome: { ok: boolean; error?: string };
-        try {
-          const { exitCode, tail } = await runHelperContainer(deploymentId);
-          if (exitCode === 0) {
-            // A clean exit is only a real success if the pipeline actually
-            // converged the row. A no-op build (e.g. a redundant deploy of an
-            // already-built SHA) can exit 0 without ever running the pipeline —
-            // no markBuilding, no logs — which would otherwise strand the row in
-            // `pending`/`building` forever and surface as a phantom "failed"
-            // with an empty log pane. Repair it to a visible failure instead.
+        let outcome: { ok: boolean; error?: string } = { ok: false, error: "not attempted" };
+
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+          try {
+            const { exitCode, tail } = await runHelperContainer(deploymentId);
             const status = await getDeploymentStatus(deploymentId).catch(() => null);
-            if (status === "pending" || status === "building") {
+            const unconverged = status === "pending" || status === "building";
+
+            if (unconverged && attempt < MAX_ATTEMPTS) {
+              log.warn({
+                build: { event: "retry-unconverged", deploymentId, exitCode, attempt },
+              });
+              continue;
+            }
+            if (unconverged) {
               await markFailed(
                 deploymentId,
-                "build helper exited 0 but the deployment never converged (no image produced)",
+                exitCode === 0
+                  ? "build helper exited 0 but the deployment never converged (no image produced)"
+                  : `${classifyHelperExit(exitCode)}: ${tail.trim().slice(-500)}`,
               ).catch(() => undefined);
               outcome = { ok: false, error: "did not converge" };
-            } else {
+            } else if (exitCode === 0) {
               outcome = { ok: true };
+            } else {
+              // build-one.ts exits 1 after the pipeline has already marked
+              // the row failed — the row is terminal, just report it.
+              outcome = { ok: false, error: `build exited ${exitCode}` };
             }
-          } else {
-            // build-one.ts exits 1 after the pipeline has already marked the
-            // row failed — but NEVER trust that blindly. A helper that was
-            // OOM-killed (137), SIGTERMed (143), or crashed outside the
-            // pipeline exits non-zero *without* having written a terminal
-            // status, and the row would hang "building" until the next builder
-            // restart. Verify, and repair with an exit-code-classified message.
-            const status = await getDeploymentStatus(deploymentId).catch(() => null);
-            if (status === "pending" || status === "building") {
-              await markFailed(
-                deploymentId,
-                `${classifyHelperExit(exitCode)}: ${tail.trim().slice(-500)}`,
-              ).catch(() => undefined);
-            }
-            outcome = { ok: false, error: `build exited ${exitCode}` };
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            await markFailed(deploymentId, `failed to spawn build container: ${message}`).catch(
+              () => undefined,
+            );
+            outcome = { ok: false, error: message };
           }
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          await markFailed(deploymentId, `failed to spawn build container: ${message}`).catch(
-            () => undefined,
-          );
-          outcome = { ok: false, error: message };
+          break;
         }
+
         results.push({ deploymentId: id, ...outcome });
         // Preview deploys converge their PR comment + commit status here, the
         // one place that sees every terminal outcome (pipeline success, build

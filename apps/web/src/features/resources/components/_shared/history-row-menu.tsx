@@ -4,12 +4,15 @@
  * built image). Split out of `deployment-cards.tsx` for file size.
  */
 
+import { useState } from "react";
+
 import { MoreHorizontalCircle01Icon, PlayIcon, RotateLeft01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
+import { TypedConfirmDialog } from "@/shared/components/typed-confirm-dialog";
 import { Button } from "@/shared/components/ui/button";
 import {
   DropdownMenu,
@@ -48,6 +51,10 @@ export function HistoryRowMenu({
 }) {
   const navigate = useNavigate();
   const deploymentId = deployment.id;
+  // Styled confirm (not typed — rollback is recoverable: roll forward again
+  // from this same history). Controlled state because selecting the menu item
+  // closes the dropdown, so the dialog must outlive it.
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Re-points the service at this deployment's image and re-rolls. The live
   // deployments collection picks up the new rollback row on its next sync.
@@ -63,58 +70,69 @@ export function HistoryRowMenu({
   const showRollback = canRollback && isRollbackable(deployment);
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Deployment actions"
-            className="opacity-0 group-hover:opacity-100 data-[popup-open]:opacity-100"
-            onClick={(e) => e.stopPropagation()}
-          />
-        }
-      >
-        <HugeiconsIcon icon={MoreHorizontalCircle01Icon} strokeWidth={2} className="size-3.5" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-44">
-        <DropdownMenuItem
-          onSelect={() =>
-            navigate({
-              to: "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId",
-              params: {
-                orgSlug,
-                projectSlug: projectSlug as never,
-                resourceId,
-                deploymentId,
-              },
-              search: { tab: "details" },
-            })
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Deployment actions"
+              className="opacity-0 group-hover:opacity-100 data-[popup-open]:opacity-100"
+              onClick={(e) => e.stopPropagation()}
+            />
           }
         >
-          <HugeiconsIcon icon={PlayIcon} strokeWidth={2} className="size-3.5" />
-          View logs
-        </DropdownMenuItem>
-        {showRollback && (
+          <HugeiconsIcon icon={MoreHorizontalCircle01Icon} strokeWidth={2} className="size-3.5" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuItem
-            disabled={rollbackMut.isPending}
-            onSelect={() => {
-              if (
-                !window.confirm(
-                  `Roll back to ${deployment.image}? This re-deploys the old image with the service's current config.`,
-                )
-              ) {
-                return;
-              }
-              rollbackMut.mutate({ projectId, resourceId, deploymentId });
-            }}
+            onSelect={() =>
+              navigate({
+                to: "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId",
+                params: {
+                  orgSlug,
+                  projectSlug: projectSlug as never,
+                  resourceId,
+                  deploymentId,
+                },
+                search: { tab: "details" },
+              })
+            }
           >
-            <HugeiconsIcon icon={RotateLeft01Icon} strokeWidth={2} className="size-3.5" />
-            {rollbackMut.isPending ? "Rolling back…" : "Roll back to this"}
+            <HugeiconsIcon icon={PlayIcon} strokeWidth={2} className="size-3.5" />
+            View logs
           </DropdownMenuItem>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+          {showRollback && (
+            <DropdownMenuItem
+              disabled={rollbackMut.isPending}
+              onSelect={() => setConfirmOpen(true)}
+            >
+              <HugeiconsIcon icon={RotateLeft01Icon} strokeWidth={2} className="size-3.5" />
+              {rollbackMut.isPending ? "Rolling back…" : "Roll back to this"}
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <TypedConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Roll back to this deployment?"
+        description={
+          <>
+            Re-deploys <span className="font-mono text-foreground">{deployment.image}</span> with
+            the service's current config, replacing what's running now. You can roll forward again
+            from this same history.
+          </>
+        }
+        confirmLabel="Roll back"
+        onConfirm={() => {
+          setConfirmOpen(false);
+          rollbackMut.mutate({ projectId, resourceId, deploymentId });
+        }}
+      />
+    </>
   );
 }

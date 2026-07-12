@@ -28,3 +28,22 @@ export function bytesToHex(bytes: Uint8Array): string {
   for (const b of bytes) out += b.toString(16).padStart(2, "0");
   return out;
 }
+
+/**
+ * HMAC-SHA256 of a UTF-8 string (or raw bytes) as lowercase hex. The one
+ * canonical implementation for webhook payload signing/verification — the
+ * outbound delivery job (packages/jobs) signs with it and the API's inbound
+ * verifier + tests use the same function, so both sides can never drift.
+ */
+export async function hmacSha256Hex(secret: string, body: string | ArrayBuffer): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const data = typeof body === "string" ? new TextEncoder().encode(body) : new Uint8Array(body);
+  const mac = await crypto.subtle.sign("HMAC", key, data as unknown as ArrayBuffer);
+  return bytesToHex(new Uint8Array(mac));
+}

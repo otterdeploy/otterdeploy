@@ -12,7 +12,7 @@
  * and the docker socket); it calls this for the env + network only.
  */
 
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { PreviewId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { Result } from "better-result";
 
@@ -34,8 +34,11 @@ export async function resolveDeployHookContext(
   projectId: ProjectId,
   resourceId: ResourceId,
   projectSlug: string,
+  // Preview scoping — hooks (db migrations!) must resolve refs exactly like
+  // the container they precede: a preview's opt-in DB branch, never prod.
+  previewId: PreviewId | null = null,
 ): Promise<Result<DeployHookContext, ResolveError | RefMissingResourceError>> {
-  const resolved = await resolveServiceEnv(projectId, resourceId);
+  const resolved = await resolveServiceEnv(projectId, resourceId, previewId);
   if (resolved.isErr()) return Result.err(resolved.error);
   return Result.ok({
     env: resolved.value,

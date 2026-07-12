@@ -24,7 +24,7 @@
 import type { DeploymentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RedisClient } from "bun";
 
-import { loadEnvScope } from "@otterdeploy/api/lib/environment/load";
+import { isPreviewActive, loadPreviewScope } from "@otterdeploy/api/lib/environment/load";
 import { redeployOne } from "@otterdeploy/api/routers/service/redeploy";
 import { db } from "@otterdeploy/db";
 import { serviceResource } from "@otterdeploy/db/schema";
@@ -223,12 +223,26 @@ function runBuildSteps(
     });
 
     // Preview builds must NOT write the base serviceResource.image (it's shared
-    // across environments — writing it would repoint production at the preview's
-    // image). They carry the built tag as a spec override instead. Persistent-env
-    // builds update the row as before; `imageDigest` + `framework` describe THIS
+    // with production — writing it would repoint production at the preview's
+    // image). They carry the built tag as a spec override instead. Base builds
+    // update the row as before; `imageDigest` + `framework` describe THIS
     // build and are only persisted on the base row.
-    const envScope = await loadEnvScope(ctx.deployment.environmentId);
-    const isPreview = envScope?.kind === "preview";
+    const previewScope = await loadPreviewScope(ctx.deployment.previewId);
+    const isPreview = previewScope != null;
+    // The preview may have been torn down (idle reaper / manual / PR close)
+    // while this build ran. Rolling now would recreate containers for a closed
+    // preview with no routes — an orphan nothing reaps. Bail before the roll.
+    if (isPreview && ctx.deployment.previewId) {
+      const stillOpen = await isPreviewActive(ctx.deployment.previewId);
+      if (!stillOpen) {
+        return Result.err(
+          new BuildStepError({
+            step: "preview-closed",
+            cause: new Error("preview was torn down during the build; skipping rollout"),
+          }),
+        );
+      }
+    }
     if (!isPreview) {
       yield* await step("set-image", () =>
         db
@@ -252,7 +266,7 @@ function runBuildSteps(
         ctx.project.slug,
         undefined,
         {
-          environmentId: ctx.deployment.environmentId ?? undefined,
+          previewId: ctx.deployment.previewId ?? undefined,
           imageOverride: isPreview ? image.shaTag : undefined,
         },
       )

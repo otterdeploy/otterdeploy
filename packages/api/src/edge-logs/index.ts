@@ -12,6 +12,7 @@ export type {
   EdgeStatusBucket,
   EdgeTimeRange,
 } from "./types";
+export { normalizeHost } from "./host";
 export { parseCaddyAccessLog } from "./parse";
 export { parseCaddyEvent } from "./event-parse";
 export {

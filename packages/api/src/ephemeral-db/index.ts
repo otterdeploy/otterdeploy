@@ -27,7 +27,14 @@ import { and, eq } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 
 import { getEngineAdapter } from "../swarm";
-import { dropRole, EphemeralDbError, getTarget, literal, quoteIdent, runAsOwner } from "./internals";
+import {
+  dropRole,
+  EphemeralDbError,
+  getTarget,
+  literal,
+  quoteIdent,
+  runAsOwner,
+} from "./internals";
 
 export { EphemeralDbError } from "./internals";
 export { startEphemeralDbSweeper, sweepExpiredEphemeralCredentials } from "./sweeper";

@@ -15,8 +15,9 @@ import type { CreatePostgresProgress } from "./create-stream";
 import { reconcile } from "../../../caddy";
 import { insertProxyRoute } from "../../../caddy/queries";
 import { PLATFORM } from "../../../constants";
+import { createStackDeployLog } from "../../../lib/deploy-log";
 import { provisionSwarmDatabase } from "../../../runtime/db";
-import { resolveRegistryAuth, streamImagePull } from "../../../swarm";
+import { createPullLineSummarizer, resolveRegistryAuth, streamImagePull } from "../../../swarm";
 import { insertDeployment, markDeploymentFailed, reconcileDeploySuccess } from "../deployments";
 import { createDatabaseResourceRecord } from "../queries";
 import { isUniqueViolation } from "../views";
@@ -83,15 +84,49 @@ export async function* persistDbRecordStage(
   return { ok: true, value: created };
 }
 
+// Record the deployment row BEFORE the image pull so the whole create — pull
+// included — reads as one `building` deployment. Without it the graph card
+// sees "container missing + no deployment" during a long pull and shows a
+// phantom error. The id also rides the swarm spec labels so every task links
+// back to this row.
+export async function insertCreateDeployment(
+  resourceId: ResourceId,
+  ctx: CreateContext,
+): Promise<{ id: DeploymentId }> {
+  return insertDeployment({
+    resourceId,
+    image: ctx.dbImage,
+    reason: "create",
+    snapshot: snapshotForPostgresCreate({
+      image: ctx.dbImage,
+      databaseName: ctx.databaseName,
+      username: ctx.username,
+      password: ctx.password,
+      publicEnabled: ctx.publicEnabled,
+      publicHostname: ctx.publicHostname,
+      internalHostname: ctx.internalHostname,
+      extraEnv: ctx.extraEnv,
+      extensions: ctx.extensions,
+    }),
+  });
+}
+
 // Pull the image on the manager before docker.services.create so the service's
 // first task starts immediately instead of stalling on a layer download — and
 // gives the operator live byte-level feedback rather than 30s of silence.
 export async function* pullImageStage(
   image: string,
   organizationId: string,
+  deploymentId: DeploymentId,
 ): AsyncGenerator<CreatePostgresProgress, StageOutcome, void> {
   yield { type: "step", step: "image-pull", status: "start", message: image };
   const pullDocker = Docker.fromEnv();
+  // Mirror pull progress into deployment_log + the Redis live tail. The
+  // wizard stream dies with the request, but the deploy log is what the
+  // Deployments tab can replay later — and recent lines keep the zero-task
+  // stale check from flipping a slow pull to "failed".
+  const deployLog = createStackDeployLog(deploymentId);
+  const summarize = createPullLineSummarizer();
   try {
     // Public image today; resolver returns null, no auth header sent. The
     // wiring is here so private engine builds pick up registry creds without
@@ -99,6 +134,8 @@ export async function* pullImageStage(
     const pullAuth = await resolveRegistryAuth({ image, organizationId });
     let pullError: string | null = null;
     for await (const event of streamImagePull(pullDocker, image, pullAuth)) {
+      const logLine = summarize.push(event);
+      if (logLine) deployLog.line(logLine);
       yield {
         type: "pull",
         image: event.image,
@@ -116,6 +153,7 @@ export async function* pullImageStage(
       }
     }
     if (pullError) {
+      await markDeploymentFailed(deploymentId, `Image pull failed: ${pullError}`);
       yield { type: "step", step: "image-pull", status: "error", message: pullError };
       yield { type: "error", code: "IMAGE_PULL_FAILED", message: pullError };
       return { ok: false };
@@ -124,38 +162,24 @@ export async function* pullImageStage(
     return { ok: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    await markDeploymentFailed(deploymentId, `Image pull failed: ${message}`);
     yield { type: "step", step: "image-pull", status: "error", message };
     yield { type: "error", code: "IMAGE_PULL_FAILED", message };
     return { ok: false };
   } finally {
+    await deployLog.close();
     pullDocker.destroy();
   }
 }
 
-// Record the deployment row (so the rolled spec carries the deployment-id
-// label) then provision the swarm service.
+// Provision the swarm service under the already-recorded deployment row (see
+// insertCreateDeployment — inserted before the pull stage).
 export async function* provisionStage(
   resourceId: ResourceId,
   ctx: CreateContext,
   log: RequestLogger,
+  deploymentRow: { id: DeploymentId },
 ): AsyncGenerator<CreatePostgresProgress, StageOutcome, void> {
-  const deploymentRow = await insertDeployment({
-    resourceId,
-    image: ctx.dbImage,
-    reason: "create",
-    snapshot: snapshotForPostgresCreate({
-      image: ctx.dbImage,
-      databaseName: ctx.databaseName,
-      username: ctx.username,
-      password: ctx.password,
-      publicEnabled: ctx.publicEnabled,
-      publicHostname: ctx.publicHostname,
-      internalHostname: ctx.internalHostname,
-      extraEnv: ctx.extraEnv,
-      extensions: ctx.extensions,
-    }),
-  });
-
   yield { type: "step", step: "provision-swarm", status: "start", message: null };
   let runtime: Awaited<ReturnType<typeof provisionSwarmDatabase>>;
   try {

@@ -16,6 +16,7 @@ import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
 import { projectIdField, resourceIdField } from "../project/contract/shared";
+import { volumeNameField } from "../volumes/contract";
 
 const tag = "backups";
 const basePath = "/backups";
@@ -24,7 +25,9 @@ const backupIdField = zId(ID_PREFIX.backup);
 const backupScheduleIdField = zId(ID_PREFIX.backupSchedule);
 const backupDestinationIdField = zId(ID_PREFIX.backupDestination);
 
-const backupKind = z.enum(["database", "volume", "stack"]);
+// "stack" exists only as a reserved DB-enum value with no engine — it is
+// deliberately NOT offered here (or in the UI filter).
+const backupKind = z.enum(["database", "volume"]);
 const destinationType = z.enum(["s3", "local", "sftp"]);
 
 // ─── Output schemas ────────────────────────────────────────────────────
@@ -32,7 +35,8 @@ const destinationType = z.enum(["s3", "local", "sftp"]);
 /** One backup run, enriched with joined display fields. */
 export const backupSchema = createSelectSchema(backup).extend({
   id: backupIdField,
-  resourceId: resourceIdField,
+  // Null for volume runs (whose source is `volumeName` instead).
+  resourceId: resourceIdField.nullable(),
   // Joined, display-only (nullable: a queued run may not have resolved yet).
   source: z.string().nullable(),
   project: z.string().nullable(),
@@ -50,6 +54,9 @@ export const scheduleSchema = createSelectSchema(backupSchedule).extend({
   destinationIds: z.array(backupDestinationIdField),
   // Resolved names for `destinationIds`, in the same order (best-effort).
   destinationNames: z.array(z.string()),
+  // Source refs that no longer resolve to a live database resource. Non-empty ⇒
+  // the schedule is orphaned (its DB was deleted) and can't run until repaired.
+  missingSources: z.array(z.string()),
 });
 
 /** Destination — never exposes `encryptedSecret`; adds computed usage. */
@@ -85,6 +92,16 @@ const destinationNotFound = {
   },
 };
 
+// Structurally incomplete config (e.g. `local` with no `path`) — rejected at
+// create/update so it can't fail a backup run later.
+const destinationInvalidConfig = {
+  INVALID_CONFIG: {
+    status: 422 as const,
+    message: "Destination configuration is incomplete" as const,
+    data: z.object({ reason: z.string() }),
+  },
+};
+
 // Non-secret connection params (bucket / region / endpoint / prefix / path).
 const destinationConfigInput = z.record(z.string(), z.unknown());
 // Secret creds (S3 access key + secret, SFTP password/key). Encrypted at
@@ -114,12 +131,18 @@ const testResultSchema = z.object({
 
 // ─── Execution + schedule inputs ─────────────────────────────────────────
 
-const runBackupInput = z.object({
-  resourceId: resourceIdField,
-  // One dump fanned out to every destination — one backup record per id.
-  destinationIds: z.array(backupDestinationIdField).min(1),
-  encryption: z.enum(["none", "aes-256-gcm"]).default("aes-256-gcm"),
-});
+const runBackupInput = z
+  .object({
+    // Exactly one source: a database resource, or a named Docker volume.
+    resourceId: resourceIdField.optional(),
+    volumeName: volumeNameField.optional(),
+    // One dump fanned out to every destination — one backup record per id.
+    destinationIds: z.array(backupDestinationIdField).min(1),
+    encryption: z.enum(["none", "aes-256-gcm"]).default("aes-256-gcm"),
+  })
+  .refine((v) => (v.resourceId != null) !== (v.volumeName != null), {
+    message: "Provide exactly one of resourceId or volumeName",
+  });
 
 const restoreBackupInput = z.object({
   id: backupIdField,
@@ -180,13 +203,36 @@ const scheduleNotFound = {
   NOT_FOUND: { status: 404 as const, message: "Schedule not found" as const },
 };
 
+/** A manual run against an orphaned schedule — every source ref has lost its
+ *  backing database — is a 422, not a silent no-op. `missing` lists the dead
+ *  refs so the UI can name what broke. */
+const scheduleRunErrors = {
+  ...scheduleNotFound,
+  NO_SOURCES: {
+    status: 422 as const,
+    message: "This schedule has no live database source to back up" as const,
+    data: z.object({ missing: z.array(z.string()) }),
+  },
+};
+
 const backupRunNotFound = {
   NOT_FOUND: { status: 404 as const, message: "Backup not found" as const },
   INVALID: {
     status: 422 as const,
-    message: "Resource is not a database" as const,
+    message: "Source is not a backupable database or volume" as const,
   },
 };
+
+/** Verify output — an outcome, not an error: an unreachable archive is a
+ *  legitimate result the UI must show, so it's encoded in the payload. */
+const verifyResultSchema = z.object({
+  ok: z.boolean(),
+  match: z.boolean().nullable(),
+  storedChecksum: z.string().nullable(),
+  computedChecksum: z.string().nullable(),
+  archiveSizeBytes: z.number().nullable(),
+  reason: z.string().nullable(),
+});
 
 // ─── Contract ──────────────────────────────────────────────────────────
 
@@ -224,6 +270,13 @@ export const backupsContract = {
       }),
     ),
 
+  // Integrity check: re-fetch the stored archive and recompute its checksum.
+  verify: oc
+    .errors(backupNotFound)
+    .meta({ path: `${basePath}/{id}/verify`, tag, method: "POST" })
+    .input(getBackupInput)
+    .output(verifyResultSchema),
+
   // Paginated per-run log lines (cursor = afterSeq).
   logs: oc
     .meta({ path: `${basePath}/{id}/logs`, tag, method: "GET" })
@@ -255,7 +308,7 @@ export const backupsContract = {
 
     // Trigger a schedule's backups immediately, out-of-band from its cron.
     run: oc
-      .errors(scheduleNotFound)
+      .errors(scheduleRunErrors)
       .meta({ path: `${basePath}/schedules/{id}/run`, tag, method: "POST" })
       .input(scheduleIdInput)
       .output(z.object({ queued: z.number() })),
@@ -268,12 +321,13 @@ export const backupsContract = {
       .output(z.array(destinationSchema)),
 
     create: oc
+      .errors(destinationInvalidConfig)
       .meta({ path: `${basePath}/destinations`, tag, method: "POST" })
       .input(createDestinationInput)
       .output(destinationSchema),
 
     update: oc
-      .errors(destinationNotFound)
+      .errors({ ...destinationNotFound, ...destinationInvalidConfig })
       .meta({ path: `${basePath}/destinations/{id}`, tag, method: "PATCH" })
       .input(updateDestinationInput)
       .output(destinationSchema),

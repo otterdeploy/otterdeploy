@@ -35,44 +35,42 @@ export const gitRouter = {
     return listProvidersForOrg(context.activeOrganizationId);
   }),
 
-  startConnect: orgScopedProcedure.git.startConnect.handler(
-    async ({ input, context, errors }) => {
-      // The App slug is per-org, set when the manifest flow created the
-      // provider row. No App → no slug → can't build an install URL.
-      const [provider] = await db
-        .select()
-        .from(gitProvider)
-        .where(
-          and(
-            eq(gitProvider.organizationId, context.activeOrganizationId),
-            eq(gitProvider.kind, "github"),
-          ),
-        )
-        .limit(1);
-      if (!provider?.appSlug) {
-        throw errors.NOT_CONFIGURED();
-      }
-      // App-install flow binds the GitHub callback to the initiating user —
-      // session-only; API-key actors have no user identity.
-      if (!context.session?.user) {
-        throw new ORPCError("UNAUTHORIZED");
-      }
-      const state = await signInstallState({
-        orgId: context.activeOrganizationId,
-        userId: context.session.user.id,
-        returnTo: sanitizeReturnTo(input.returnTo),
-      });
-      // GitHub App install URL — the user picks repos on GitHub, then GitHub
-      // redirects to the App's configured callback URL with installation_id +
-      // setup_action + our state param. Built off the host on the provider
-      // row so future GHE installs Just Work.
-      const host = provider.host;
-      const base = host === "github.com" ? "https://github.com" : `https://${host}`;
-      const url = new URL(`${base}/apps/${provider.appSlug}/installations/new`);
-      url.searchParams.set("state", state);
-      return { redirectUrl: url.toString() };
-    },
-  ),
+  startConnect: orgScopedProcedure.git.startConnect.handler(async ({ input, context, errors }) => {
+    // The App slug is per-org, set when the manifest flow created the
+    // provider row. No App → no slug → can't build an install URL.
+    const [provider] = await db
+      .select()
+      .from(gitProvider)
+      .where(
+        and(
+          eq(gitProvider.organizationId, context.activeOrganizationId),
+          eq(gitProvider.kind, "github"),
+        ),
+      )
+      .limit(1);
+    if (!provider?.appSlug) {
+      throw errors.NOT_CONFIGURED();
+    }
+    // App-install flow binds the GitHub callback to the initiating user —
+    // session-only; API-key actors have no user identity.
+    if (!context.session?.user) {
+      throw new ORPCError("UNAUTHORIZED");
+    }
+    const state = await signInstallState({
+      orgId: context.activeOrganizationId,
+      userId: context.session.user.id,
+      returnTo: sanitizeReturnTo(input.returnTo),
+    });
+    // GitHub App install URL — the user picks repos on GitHub, then GitHub
+    // redirects to the App's configured callback URL with installation_id +
+    // setup_action + our state param. Built off the host on the provider
+    // row so future GHE installs Just Work.
+    const host = provider.host;
+    const base = host === "github.com" ? "https://github.com" : `https://${host}`;
+    const url = new URL(`${base}/apps/${provider.appSlug}/installations/new`);
+    url.searchParams.set("state", state);
+    return { redirectUrl: url.toString() };
+  }),
 
   /**
    * Manifest flow — first half. Returns the form-action URL + manifest
@@ -143,10 +141,13 @@ export const gitRouter = {
     try {
       const tokenResp = await getInstallationToken(inst.installation.installationId);
       const appConfig = await loadGithubAppForInstallation(inst.installation.installationId);
-      const repos = await listInstallationRepos(tokenResp.token, appConfig);
+      const { repositories, totalCount } = await listInstallationRepos(tokenResp.token, appConfig);
+      // Full sync: upsert everything GitHub granted and unlink what it
+      // didn't — "Sync now" is the repair path, so it must converge the
+      // mirror in both directions.
       await syncRepos(
         inst.installation.id,
-        repos.map((r) => ({
+        repositories.map((r) => ({
           id: r.id,
           node_id: r.node_id,
           full_name: r.full_name,
@@ -155,8 +156,15 @@ export const gitRouter = {
           default_branch: r.default_branch,
           clone_url: r.clone_url,
         })),
+        { prune: true },
       );
-      return { repoCount: repos.length };
+      // Store GitHub's total_count (not repositories.length): it stays
+      // truthful even if the page walk was cut short.
+      await db
+        .update(gitInstallation)
+        .set({ repoCount: totalCount })
+        .where(eq(gitInstallation.id, inst.installation.id));
+      return { repoCount: totalCount };
     } catch (cause) {
       if (cause instanceof GithubAppNotConfiguredError) {
         throw errors.NOT_CONFIGURED();

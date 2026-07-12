@@ -12,114 +12,17 @@ import { log } from "evlog";
 
 import { orgScopedProcedure } from "../..";
 import {
-  type EdgeEventLine,
-  type EdgeLogLine,
-  eventHosts,
   eventPersistenceEnabled,
   persistenceEnabled,
   queryEdgeEvents,
   queryEdgeEventsDb,
   queryEdgeLogs,
   queryEdgeLogsDb,
-  subscribeEdgeEvents,
-  subscribeEdgeLogs,
 } from "../../edge-logs";
-import { listOrgDomains, listProjectDomains, listRouteUpstreams } from "./queries";
-
-/** Resolve the access-log host scope: a project's domains when projectId is
- *  given (org-verified), otherwise all the org's domains. */
-async function resolveHosts(
-  organizationId: Parameters<typeof listOrgDomains>[0],
-  projectId: string | undefined,
-): Promise<string[]> {
-  return projectId
-    ? listProjectDomains(organizationId, projectId as ProjectId)
-    : listOrgDomains(organizationId);
-}
-
-/** Bridge the ring's pub/sub into an abortable async generator with a small
- *  backpressure queue. Only the org's own hosts (optionally one) pass. */
-async function* streamEdgeLogs(
-  hosts: Set<string>,
-  hostFilter: string | undefined,
-  signal: AbortSignal | undefined,
-): AsyncGenerator<EdgeLogLine> {
-  const queue: EdgeLogLine[] = [];
-  let wake: (() => void) | null = null;
-
-  const unsub = subscribeEdgeLogs((line) => {
-    if (!hosts.has(line.host)) return;
-    if (hostFilter && line.host !== hostFilter) return;
-    queue.push(line);
-    wake?.();
-  });
-  const onAbort = () => wake?.();
-  signal?.addEventListener("abort", onAbort);
-
-  try {
-    while (!signal?.aborted) {
-      if (queue.length === 0) {
-        await new Promise<void>((resolve) => {
-          wake = resolve;
-        });
-        wake = null;
-        continue;
-      }
-      const line = queue.shift();
-      if (line === undefined) continue;
-      yield line;
-    }
-  } finally {
-    unsub();
-    signal?.removeEventListener("abort", onAbort);
-  }
-}
-
-/** Operational-event tail: bridge the event ring's pub/sub, scoped to the
- *  caller's hosts. An event passes if any host it's attributable to (its host
- *  or a batch domain) is in scope; batch `domains` are redacted to the owned
- *  subset so a box-wide cert line only shows this tenant's domains. */
-async function* streamEdgeEvents(
-  hosts: Set<string>,
-  hostFilter: string | undefined,
-  signal: AbortSignal | undefined,
-): AsyncGenerator<EdgeEventLine> {
-  const queue: EdgeEventLine[] = [];
-  let wake: (() => void) | null = null;
-
-  const unsub = subscribeEdgeEvents((line) => {
-    const attributable = eventHosts(line);
-    if (!attributable.some((h) => hosts.has(h))) return;
-    if (hostFilter && !attributable.includes(hostFilter)) return;
-    const owned = line.domains.filter((d) => hosts.has(d));
-    queue.push(
-      line.domains.length && owned.length !== line.domains.length
-        ? { ...line, domains: owned }
-        : line,
-    );
-    wake?.();
-  });
-  const onAbort = () => wake?.();
-  signal?.addEventListener("abort", onAbort);
-
-  try {
-    while (!signal?.aborted) {
-      if (queue.length === 0) {
-        await new Promise<void>((resolve) => {
-          wake = resolve;
-        });
-        wake = null;
-        continue;
-      }
-      const line = queue.shift();
-      if (line === undefined) continue;
-      yield line;
-    }
-  } finally {
-    unsub();
-    signal?.removeEventListener("abort", onAbort);
-  }
-}
+import { listProjectRoutes, listRouteUpstreams } from "./queries";
+import { bucketRequestSeries, coveringRange } from "./request-series";
+import { mergeRouteStats } from "./route-stats";
+import { resolveHosts, streamEdgeEvents, streamEdgeLogs } from "./streams";
 
 export const edgeLogsRouter = {
   query: orgScopedProcedure.edgeLogs.query.handler(async ({ input, context }) => {
@@ -192,6 +95,97 @@ export const edgeLogsRouter = {
         upstream: line.upstream ?? upstreams[line.host] ?? null,
       };
     }
+  }),
+
+  // Per-host traffic stats for a project's HTTP routes, joined to the owning
+  // resource. Short windows only (5m/1h) — this backs a ~10s poll on the graph
+  // and the stack panel's Traffic tab. Hosts with no traffic come back
+  // zero-filled so consumers can list every public host honestly.
+  routeStats: orgScopedProcedure.edgeLogs.routeStats.handler(async ({ input, context }) => {
+    const orgId = context.activeOrganizationId;
+    // Org-guarded join — a projectId outside the caller's org yields no routes.
+    const routes = await listProjectRoutes(orgId, input.projectId);
+    if (routes.length === 0) return [];
+
+    // `limit: 1` keeps the row payload minimal — only hostStats are consumed.
+    const filter = { range: input.range, hosts: routes.map((r) => r.host), limit: 1 };
+    const now = Date.now();
+    // Same storage split + fallback as `query` above: DB when persistence is
+    // on (fall back to the ring on error), else the in-memory ring.
+    let result;
+    if (!persistenceEnabled()) {
+      result = queryEdgeLogs(filter, now);
+    } else {
+      const res = await Result.tryPromise({
+        try: () => queryEdgeLogsDb(filter, now),
+        catch: (cause) => cause,
+      });
+      if (res.isOk()) result = res.value;
+      else {
+        log.warn({
+          edgeLog: { routeStats: "db-failed-fallback-ring" },
+          error: res.error instanceof Error ? res.error.message : String(res.error),
+        });
+        result = queryEdgeLogs(filter, now);
+      }
+    }
+
+    return mergeRouteStats(routes, result.hostStats);
+  }),
+
+  // Bucketed rps + per-bucket p95 across all of one project's public hosts —
+  // the request half of the project metrics overview (~30s poll). Same
+  // storage split + ring fallback as `query`/`routeStats`; the fetch is
+  // capped at REQUEST_SERIES_MAX newest rows (mirrors query-db's MAX_FETCH),
+  // and `sampled: true` flags when that cap truncated the window.
+  requestSeries: orgScopedProcedure.edgeLogs.requestSeries.handler(async ({ input, context }) => {
+    const orgId = context.activeOrganizationId;
+    context.log.set({ target: { type: "project", id: input.projectId } });
+
+    // Org-guarded join — a projectId outside the caller's org yields no routes.
+    const routes = await listProjectRoutes(orgId, input.projectId);
+    const source = persistenceEnabled() ? ("db" as const) : ("ring" as const);
+    if (routes.length === 0) {
+      const empty = bucketRequestSeries([], input.windowMinutes, Date.now());
+      return { ...empty, buckets: [], hostCount: 0, source, sampled: false };
+    }
+
+    const REQUEST_SERIES_MAX = 10_000;
+    const range = coveringRange(input.windowMinutes);
+    const filter = {
+      range,
+      hosts: routes.map((r) => r.host),
+      limit: REQUEST_SERIES_MAX,
+    };
+    const now = Date.now();
+    let result;
+    let servedFrom = source;
+    if (source === "ring") {
+      result = queryEdgeLogs(filter, now);
+    } else {
+      const res = await Result.tryPromise({
+        try: () => queryEdgeLogsDb(filter, now),
+        catch: (cause) => cause,
+      });
+      if (res.isOk()) result = res.value;
+      else {
+        log.warn({
+          edgeLog: { requestSeries: "db-failed-fallback-ring" },
+          error: res.error instanceof Error ? res.error.message : String(res.error),
+        });
+        result = queryEdgeLogs(filter, now);
+        servedFrom = "ring";
+      }
+    }
+
+    const { buckets, bucketSeconds } = bucketRequestSeries(result.rows, input.windowMinutes, now);
+    return {
+      buckets,
+      bucketSeconds,
+      hostCount: routes.length,
+      source: servedFrom,
+      sampled: result.rows.length >= REQUEST_SERIES_MAX,
+    };
   }),
 
   // Operational log plane (Phase 3): cert/ACME + upstream-error events, scoped

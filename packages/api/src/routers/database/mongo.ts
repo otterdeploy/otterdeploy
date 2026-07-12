@@ -92,6 +92,18 @@ async function withMongosh<T>(
   }
 }
 
+/**
+ * Evaluate a read-only JS expression in the resource database and return its
+ * EJSON-parsed value. The expression is authored server-side (never caller
+ * input) — used by the org-catalog stats collector for db.stats()/serverStatus.
+ */
+export async function mongoEvalJson<T>(conn: DbConnInfo, jsExpr: string): Promise<T> {
+  return withMongosh(conn, async (run) => {
+    const raw = await run(`print("${S}" + EJSON.stringify(${jsExpr}) + "${S}")`);
+    return JSON.parse(raw) as T;
+  });
+}
+
 /** List the resource database's collections with an estimated doc count. */
 export async function mongoCollections(conn: DbConnInfo): Promise<MongoCollection[]> {
   return withMongosh(conn, async (run) => {

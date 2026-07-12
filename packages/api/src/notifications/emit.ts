@@ -32,7 +32,8 @@ export interface EmitInput {
   eventId: string;
   title: string;
   message?: string;
-  data?: Record<string, unknown>;
+  /** Display context — already-formatted strings, shown as key/value rows. */
+  data?: Record<string, string>;
 }
 
 export async function emitPlatformEvent(input: EmitInput): Promise<void> {

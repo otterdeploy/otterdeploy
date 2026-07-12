@@ -60,6 +60,13 @@ export const backupDestinationStatusEnum = pgEnum("backup_destination_status", [
   "degraded",
 ]);
 
+/**
+ * What a run backs up. `database` = logical dump of a database resource;
+ * `volume` = tar archive of a named Docker volume (helper container, read-only
+ * mount). `stack` is a reserved value with NO engine behind it — nothing ever
+ * writes it and the contract/UI no longer offer it; it stays in the pg enum
+ * only because removing an enum value is a type-rebuild migration.
+ */
 export const backupKindEnum = pgEnum("backup_kind", ["database", "volume", "stack"]);
 
 export const backupStatusEnum = pgEnum("backup_status", [
@@ -161,10 +168,12 @@ export const backupSchedule = pgTable(
     // referential integrity is enforced at write time in the router.
     destinationIds: jsonb("destination_ids").$type<BackupDestinationId[]>().notNull().default([]),
     encryption: backupEncryptionEnum("encryption").notNull().default("aes-256-gcm"),
-    pitr: boolean("pitr").notNull().default(false),
+    // NOTE: former `pitr` + `notify_channel` columns were dropped as vestigial —
+    // no PITR capability exists in the engine (logical dumps only, no WAL
+    // archiving), and failure alerts route through the platform-event matrix
+    // (backup.failed → Notifications), not per-schedule channels.
     enabled: boolean("enabled").notNull().default(true),
     preHook: text("pre_hook"),
-    notifyChannel: text("notify_channel"),
     lastRunAt: timestamp("last_run_at"),
     lastRunStatus: backupStatusEnum("last_run_status"),
     nextRunAt: timestamp("next_run_at"),
@@ -196,10 +205,15 @@ export const backup = pgTable(
       .notNull()
       .$type<OrganizationId>()
       .references(() => organization.id, { onDelete: "cascade" }),
+    // Source discriminator: exactly one of `resourceId` / `volumeName` is set.
+    // kind=database ⇒ resourceId (FK, cascade — a deleted DB takes its run
+    // history with it). kind=volume ⇒ volumeName (no FK: Docker volumes are
+    // daemon objects, not rows; the name is resolved against the daemon at
+    // execution time and the run row outlives the volume).
     resourceId: text("resource_id")
-      .notNull()
       .$type<ResourceId>()
       .references(() => resource.id, { onDelete: "cascade" }),
+    volumeName: text("volume_name"),
     // Null = manual "backup now"; set = produced by a schedule.
     scheduleId: text("schedule_id")
       .$type<BackupScheduleId>()

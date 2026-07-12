@@ -8,6 +8,7 @@ import {
   buildServiceSpec,
   buildFromBuilderId,
   envFromVars,
+  healthcheckFromForm,
   portsToManifest,
   resourcesFromForm,
 } from "./to-manifest";
@@ -93,6 +94,70 @@ describe("buildFromBuilderId", () => {
   });
 });
 
+describe("healthcheckFromForm", () => {
+  const ports = [{ container: 8080, primary: true }, { container: 9090 }];
+
+  it("builds the portable wget||curl probe against the primary port", () => {
+    const hc = healthcheckFromForm({
+      path: "/healthz",
+      intervalSec: 10,
+      timeoutSec: 3,
+      retries: 3,
+      ports,
+    });
+    expect(hc).toEqual({
+      cmd: [
+        "CMD-SHELL",
+        'wget -q -O /dev/null "http://127.0.0.1:8080/healthz" || curl -fsS -o /dev/null "http://127.0.0.1:8080/healthz"',
+      ],
+      intervalMs: 10_000,
+      timeoutMs: 3_000,
+      retries: 3,
+    });
+  });
+
+  it("normalizes a missing leading slash", () => {
+    const hc = healthcheckFromForm({
+      path: "status",
+      intervalSec: 5,
+      timeoutSec: 2,
+      retries: 1,
+      ports,
+    });
+    expect(hc?.cmd[1]).toContain("http://127.0.0.1:8080/status");
+  });
+
+  it("returns undefined for an empty path (opt-in probe) or no ports", () => {
+    expect(
+      healthcheckFromForm({ path: "", intervalSec: 10, timeoutSec: 3, retries: 3, ports }),
+    ).toBeUndefined();
+    expect(
+      healthcheckFromForm({ path: "  ", intervalSec: 10, timeoutSec: 3, retries: 3, ports }),
+    ).toBeUndefined();
+    expect(
+      healthcheckFromForm({
+        path: "/healthz",
+        intervalSec: 10,
+        timeoutSec: 3,
+        retries: 3,
+        ports: [],
+      }),
+    ).toBeUndefined();
+  });
+
+  it("refuses shell-active characters instead of emitting a broken probe", () => {
+    expect(
+      healthcheckFromForm({
+        path: '/x"; rm -rf /',
+        intervalSec: 10,
+        timeoutSec: 3,
+        retries: 3,
+        ports,
+      }),
+    ).toBeUndefined();
+  });
+});
+
 describe("buildServiceSpec", () => {
   const base = {
     kindId: "app",
@@ -104,6 +169,11 @@ describe("buildServiceSpec", () => {
     customMem: 0,
     builderId: "dockerfile",
     spa: true,
+    // Health check off by default ("" = no probe).
+    healthPath: "",
+    healthInterval: 10,
+    healthTimeout: 3,
+    healthRetries: 3,
     root: "apps/web",
   };
 
@@ -166,6 +236,26 @@ describe("buildServiceSpec", () => {
     expect(build).toEqual({ builder: "railpack", staticRoot: "dist" });
   });
 
+  it("emits the manifest healthcheck when a path is set — and never for static kinds", () => {
+    const spec = buildServiceSpec({
+      ...base,
+      source: "git",
+      image: "pending:initial",
+      healthPath: "/healthz",
+    });
+    expect(spec).toMatchObject({
+      healthcheck: { intervalMs: 10_000, timeoutMs: 3_000, retries: 3 },
+    });
+    const staticSpec = buildServiceSpec({
+      ...base,
+      kindId: "static",
+      source: "git",
+      image: "pending:initial",
+      healthPath: "/healthz",
+    });
+    expect(staticSpec).not.toHaveProperty("healthcheck");
+  });
+
   it("assembles an image spec and omits git-only fields", () => {
     const spec = buildServiceSpec({
       ...base,
@@ -215,5 +305,32 @@ describe("buildDatabaseSpec", () => {
     });
     expect(spec).toEqual({ engine: "redis", version: "7.4" });
     expect(spec).not.toHaveProperty("extensions");
+  });
+
+  it("emits no storage/backup/HA fields — the manifest and provisioner don't support them", () => {
+    // Regression guard for the storage-step honesty cleanup: if someone
+    // reintroduces wizard storage controls, they must land as real manifest
+    // fields the reconciler honors, not silently-dropped keys.
+    const spec = buildDatabaseSpec({
+      engine: "postgres",
+      publicEnabled: false,
+      extensions: [],
+      version: "18",
+      presetId: "small",
+      customCpu: 0,
+      customMem: 0,
+    });
+    for (const key of [
+      "storageGb",
+      "autoGrow",
+      "encrypted",
+      "backupsEnabled",
+      "backupRetention",
+      "backupWindow",
+      "pitr",
+      "highAvailability",
+    ]) {
+      expect(spec).not.toHaveProperty(key);
+    }
   });
 });

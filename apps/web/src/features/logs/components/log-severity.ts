@@ -21,7 +21,7 @@ const SEVERITY_PATTERNS: ReadonlyArray<readonly [Exclude<LogSeverity, "normal">,
     [
       /(^|[^a-z])(error|fatal|panic|failed|failure|exception|traceback)([^a-z]|$)/i,
       /\b[A-Z]\w*Error\b/, // TypeError, ReferenceError, …
-      /[✖✗]/,
+      /[✖✗⨯]/, // incl. U+2A2F — Next.js prefixes runtime errors with it
       /^at\s+\S/, // stack frame — keeps a whole trace one contiguous red block
       /^\.\.\.\s*\d+\s*lines? matching/i,
       /^cause:/i,
@@ -33,6 +33,58 @@ const SEVERITY_PATTERNS: ReadonlyArray<readonly [Exclude<LogSeverity, "normal">,
   ["warn", [/(^|[^a-z])(warn|warning|deprecated)([^a-z]|$)/i, /^\(!\)/, /\[plugin\b/i]],
   ["info", [/^\[?(info|notice)\]?[:\s-]/i]],
 ];
+
+// A stack-trace frame — `    at fn (file:line:col)`. Leading whitespace is
+// kept because grouping runs on the ANSI-stripped (un-trimmed) line.
+const STACK_FRAME = /^\s*at\s+\S/;
+
+// Net `{` minus `}` on a line — how the current object dump's depth changes.
+// Good enough for log dumps; we don't try to skip braces inside string values.
+function netBraces(text: string): number {
+  let depth = 0;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === "{") depth++;
+    else if (ch === "}") depth--;
+  }
+  return depth;
+}
+
+/**
+ * Collapse a multi-line thrown error — its header, stack frames, and the
+ * `{ … }` object dump most runtimes print (cause, digest, code, …) — into a
+ * single logical event. Returns a per-line flag (index-aligned to `lines`)
+ * marking the *head* of each event, so callers count incidents instead of
+ * lines and "next error" steps between traces rather than stack frames.
+ *
+ * A line continues the current event when we're already in one and it's either
+ * a stack frame or sits inside an open brace; anything else ends it. So one
+ * trace counts once, while two separate headers still count separately.
+ */
+export function markEventHeads(
+  lines: ReadonlyArray<{ severity: LogSeverity; text: string }>,
+): boolean[] {
+  const heads: boolean[] = new Array(lines.length).fill(false);
+  let inEvent = false;
+  let depth = 0; // open braces of the current object dump
+
+  for (let i = 0; i < lines.length; i++) {
+    const { severity, text } = lines[i];
+    if (inEvent && (depth > 0 || STACK_FRAME.test(text))) {
+      depth = Math.max(0, depth + netBraces(text));
+      continue; // body line — belongs to the open event, not a head
+    }
+    if (severity === "error" || severity === "warn") {
+      heads[i] = true;
+      inEvent = true;
+      depth = Math.max(0, netBraces(text));
+    } else {
+      inEvent = false;
+      depth = 0;
+    }
+  }
+  return heads;
+}
 
 export function classifyLogSeverity(line: string): LogSeverity {
   const s = line.trim();

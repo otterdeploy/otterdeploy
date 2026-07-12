@@ -1,6 +1,8 @@
 /**
  * A single notification channel row: brand mark, delivery stats, status pill,
- * and inline actions (test / edit / pause-resume / delete). Mirrors the
+ * and inline actions (deliveries / test / edit / pause-resume / delete). The
+ * stats row is a button too — both open the per-channel delivery-history
+ * dialog owned by the page. Mirrors the
  * registries card idiom — `rounded-md border bg-card` shell + outline button
  * cluster. Stats + status come from the server (live delivery log).
  *
@@ -12,7 +14,13 @@
 
 import { useState } from "react";
 
-import { Alert02Icon, Delete01Icon, FlashIcon, PencilEdit01Icon } from "@hugeicons/core-free-icons";
+import {
+  Alert02Icon,
+  Clock01Icon,
+  Delete01Icon,
+  FlashIcon,
+  PencilEdit01Icon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
@@ -43,9 +51,12 @@ function StatusPill({ status }: { status: ChannelStatus }) {
 export function ChannelCard({
   channel,
   onEdit,
+  onViewDeliveries,
 }: {
   channel: Channel;
   onEdit: (c: Channel) => void;
+  /** Opens the per-channel delivery-history dialog. */
+  onViewDeliveries: (c: Channel) => void;
 }) {
   const meta = KIND_META[channel.kind];
   const [busy, setBusy] = useState(false);
@@ -106,7 +117,13 @@ export function ChannelCard({
             {channel.target}
           </div>
 
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+          {/* Stats double as the entry point to the delivery history. */}
+          <button
+            type="button"
+            onClick={() => onViewDeliveries(channel)}
+            className="-mx-1 mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-sm px-1 py-0.5 text-left text-[11px] text-muted-foreground transition-colors hover:bg-muted/60"
+            aria-label={`View deliveries for ${channel.name}`}
+          >
             <span>
               <span className="font-mono text-foreground">{channel.events7d}</span> events · 7d
             </span>
@@ -122,10 +139,14 @@ export function ChannelCard({
                 {channel.note}
               </span>
             )}
-          </div>
+          </button>
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5 self-center">
+          <Button size="sm" variant="outline" onClick={() => onViewDeliveries(channel)}>
+            <HugeiconsIcon icon={Clock01Icon} strokeWidth={2} className="size-3.5" />
+            Deliveries
+          </Button>
           <Button size="sm" variant="outline" disabled={busy} onClick={test}>
             <HugeiconsIcon icon={FlashIcon} strokeWidth={2} className="size-3.5" />
             Test

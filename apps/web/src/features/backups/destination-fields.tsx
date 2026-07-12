@@ -15,14 +15,22 @@ import { Field, type DestinationKind } from "./shared";
 export const DEST_TYPE_FIELDS: Record<
   DestinationKind,
   {
-    /** `half` fields pair up two-per-row; the rest span the full width. */
-    config: { key: string; label: string; placeholder?: string; half?: boolean }[];
+    /** `half` fields pair up two-per-row; the rest span the full width.
+     *  `required` gates submit — the server rejects a destination missing
+     *  these, so the form won't offer one. */
+    config: {
+      key: string;
+      label: string;
+      placeholder?: string;
+      half?: boolean;
+      required?: boolean;
+    }[];
     secret: { key: string; label: string }[];
   }
 > = {
   s3: {
     config: [
-      { key: "bucket", label: "Bucket", half: true },
+      { key: "bucket", label: "Bucket", half: true, required: true },
       { key: "region", label: "Region", placeholder: "us-east-1", half: true },
       {
         key: "endpoint",
@@ -37,19 +45,36 @@ export const DEST_TYPE_FIELDS: Record<
     ],
   },
   local: {
-    config: [{ key: "path", label: "Path", placeholder: "/var/backups/otterdeploy" }],
+    config: [
+      { key: "path", label: "Path", placeholder: "/var/backups/otterdeploy", required: true },
+    ],
     secret: [],
   },
   sftp: {
     config: [
-      { key: "host", label: "Host", half: true },
+      { key: "host", label: "Host", half: true, required: true },
       { key: "port", label: "Port", placeholder: "22", half: true },
-      { key: "username", label: "Username" },
+      { key: "username", label: "Username", required: true },
       { key: "path", label: "Remote path", placeholder: "/backups" },
     ],
     secret: [{ key: "password", label: "Password" }],
   },
 };
+
+/** Required config fields still blank — used to hold the submit button. On
+ *  edit, secrets may stay blank (the stored credential is kept); on create,
+ *  non-local types must supply every secret. */
+export function missingRequiredFields(
+  type: DestinationKind,
+  config: Record<string, string>,
+  secret: Record<string, string>,
+  editing: boolean,
+): boolean {
+  const fields = DEST_TYPE_FIELDS[type];
+  if (fields.config.some((f) => f.required && !config[f.key]?.trim())) return true;
+  if (!editing && fields.secret.some((f) => !secret[f.key]?.trim())) return true;
+  return false;
+}
 
 /** Seed the editable config record from an existing destination (or blanks). */
 export function configFromInitial(initial: Destination | null): Record<string, string> {
@@ -86,6 +111,7 @@ export function DestinationTypeFields({
             <Input
               value={config[f.key] ?? ""}
               placeholder={f.placeholder}
+              required={f.required}
               onChange={(e) => onConfig({ ...config, [f.key]: e.target.value })}
             />
           </Field>

@@ -10,7 +10,7 @@ import {
 } from "@/shared/components/ui/table";
 import { cn } from "@/shared/lib/utils";
 
-import { BUCKET_BG, type EdgeLog, type EdgeLogsData } from "./edge-logs-constants";
+import { BUCKET_BG, type EdgeLog, type EdgeLogsData, errRateClass } from "./edge-logs-constants";
 import { EdgeRow } from "./edge-logs-row";
 
 function Bar({ n, total, cls }: { n: number; total: number; cls: string }) {
@@ -70,12 +70,19 @@ export function LogTable({
   expanded,
   setExpanded,
   isLoading,
+  onBlockIp,
+  blocking,
+  bannedIps,
 }: {
   rows: EdgeLog[];
   wrap: boolean;
   expanded: string | null;
   setExpanded: (id: string | null) => void;
   isLoading: boolean;
+  onBlockIp: (ip: string) => void;
+  blocking: boolean;
+  /** Client IPs with an active CrowdSec ban — their rows get a blocked marker. */
+  bannedIps: Set<string>;
 }) {
   return (
     <div className="min-h-0 flex-1 overflow-auto">
@@ -85,7 +92,17 @@ export function LogTable({
         <TableHeader>
           <TableRow className="border-b bg-muted/30 hover:bg-transparent">
             <TableHead className="w-8" />
-            {["Time", "Method", "Status", "Host", "Path", "Latency", "Client IP"].map((h) => (
+            {[
+              "Time",
+              "Method",
+              "Status",
+              "Host",
+              "Path",
+              "Latency",
+              "Client IP",
+              "Country",
+              "UA",
+            ].map((h) => (
               <TableHead
                 key={h}
                 className="h-8 text-[10px] font-semibold tracking-[0.06em] uppercase"
@@ -99,7 +116,7 @@ export function LogTable({
           {rows.length === 0 ? (
             <TableRow className="hover:bg-transparent">
               <TableCell
-                colSpan={8}
+                colSpan={10}
                 className="py-10 text-center text-[13px] text-muted-foreground"
               >
                 {isLoading
@@ -115,6 +132,9 @@ export function LogTable({
                 wrap={wrap}
                 open={expanded === r.id}
                 onToggle={() => setExpanded(expanded === r.id ? null : r.id)}
+                onBlockIp={onBlockIp}
+                blocking={blocking}
+                banned={bannedIps.has(r.clientIp)}
               />
             ))
           )}
@@ -134,7 +154,8 @@ export function HostFooter({ data }: { data: EdgeLogsData | undefined }) {
         <div key={s.host} className="flex items-center gap-2">
           <span className="text-foreground/80">{s.host}</span>
           <span>{s.rps} rps</span>
-          <span className={cn(s.errorRate > 0.05 ? "text-destructive" : "")}>
+          {/* Two-tier tint per the demo: ≥2% red, ≥0.5% amber. */}
+          <span className={cn(errRateClass(s.errorRate))}>
             {(s.errorRate * 100).toFixed(1)}% err
           </span>
           <span>p50 {s.p50}ms</span>
@@ -147,12 +168,20 @@ export function HostFooter({ data }: { data: EdgeLogsData | undefined }) {
 }
 
 export function exportCsv(rows: EdgeLog[]) {
-  const header = "time,method,status,host,path,latency_ms,client_ip,user_agent";
+  const header = "time,method,status,host,path,latency_ms,client_ip,country,user_agent";
   const body = rows
     .map((r) =>
-      [r.ts, r.method, r.status, r.host, r.path, r.latencyMs, r.clientIp, `"${r.userAgent}"`].join(
-        ",",
-      ),
+      [
+        r.ts,
+        r.method,
+        r.status,
+        r.host,
+        r.path,
+        r.latencyMs,
+        r.clientIp,
+        r.country ?? "",
+        `"${r.userAgent}"`,
+      ].join(","),
     )
     .join("\n");
   const blob = new Blob([`${header}\n${body}`], { type: "text/csv" });

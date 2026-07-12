@@ -3,14 +3,14 @@
  * fan out to its transitive dependents (services that reference it via
  * `${{<name>.<VAR>}}` env tokens).
  */
-import type { EnvironmentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { PreviewId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
 
 import type { SwarmServiceRuntime } from "../../swarm";
 
-import { loadEnvScope } from "../../lib/environment/load";
+import { loadPreviewScope } from "../../lib/environment/load";
 import { findTransitiveDependents, resolveServiceEnv } from "../../lib/variables";
 import { runtime } from "../../runtime";
 import { ServiceNotFoundError, type ResolveError } from "./errors";
@@ -97,9 +97,9 @@ function isPendingImage(image: string): boolean {
 }
 
 export interface RedeployOptions {
-  /** Target a specific environment (preview). Omitted → the project's
-   *  persistent env, so production redeploys are unchanged. */
-  environmentId?: EnvironmentId;
+  /** Target a PR preview. Omitted → the base deploy, byte-identical to
+   *  production behavior. */
+  previewId?: PreviewId;
   /** Use this image in the spec instead of the stored serviceResource.image —
    *  preview builds pass their built tag here so they don't clobber the base. */
   imageOverride?: string;
@@ -126,22 +126,27 @@ export async function redeployOne(
     return Result.err(new ServiceNotFoundError({ resourceId }));
   }
 
-  const resolved = await resolveServiceEnv(projectId, resourceId, opts?.environmentId);
+  const resolved = await resolveServiceEnv(projectId, resourceId, opts?.previewId);
   if (resolved.isErr()) {
-    await updateServiceResourceStatus(resourceId, "invalid");
+    // A preview override resolve failure must not corrupt the BASE resource's
+    // status — the base row is shared across production and every preview.
+    if (!opts?.previewId) await updateServiceResourceStatus(resourceId, "invalid");
     return Result.err(resolved.error);
   }
 
-  const envScope = await loadEnvScope(opts?.environmentId);
+  const previewScope = await loadPreviewScope(opts?.previewId);
   const swarmSpec = await buildSwarmSpec(
     record,
     resolved.value,
     sanitizeSlug(projectSlug),
-    envScope,
+    previewScope,
     opts?.imageOverride,
   );
   const result = await runtime().update(swarmSpec, log);
-  await updateServiceResourceStatus(resourceId, result.status === "error" ? "invalid" : "valid");
+  // Same guard: a preview roll's outcome never rewrites the base status.
+  if (!opts?.previewId) {
+    await updateServiceResourceStatus(resourceId, result.status === "error" ? "invalid" : "valid");
+  }
 
   return Result.ok(result);
 }

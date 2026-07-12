@@ -7,11 +7,11 @@
  * whole list.
  */
 import type { ServerId } from "@otterdeploy/shared/id";
+import type * as z from "zod";
 
 import { db } from "@otterdeploy/db";
 import { serverHealthSample } from "@otterdeploy/db/schema/server";
 import { eq } from "drizzle-orm";
-import type * as z from "zod";
 
 import { HEALTH_SAMPLE_INTERVAL_MS } from "../../system-health/agent-ingest";
 import { hostHealthSchema } from "../system/contract";

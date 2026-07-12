@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { toast } from "sonner";
 import { format as formatSql } from "sql-formatter";
 
 import type { ColumnValue } from "./components/dice-grid";
@@ -88,6 +89,13 @@ export function useSnippetBuffer(resourceId: string) {
     }
   };
 
+  // Replace the Playground buffer and make it active (query-history recall).
+  // Deliberately never writes into a named snippet.
+  const loadIntoPlayground = (sql: string) => {
+    setPlayground(sql);
+    setActiveSnippetId(PLAYGROUND_ID);
+  };
+
   return {
     folders,
     snippets,
@@ -102,7 +110,88 @@ export function useSnippetBuffer(resourceId: string) {
     editorValue,
     onEditorChange,
     prettify,
+    loadIntoPlayground,
   };
+}
+
+export interface BulkDeleteProgress {
+  done: number;
+  total: number;
+}
+
+/**
+ * Multi-select bulk delete: sequential `mutateRow` deletes (one audited,
+ * primary-key-guarded statement per row — never a client-built IN list), with
+ * progress and a partial-failure report. Rows are addressed as indices into the
+ * current result page; the PK predicate is read from the result grid itself.
+ */
+export function useBulkDelete({
+  resourceId,
+  selected,
+  primaryKey,
+  result,
+  rowsQuery,
+}: {
+  resourceId: string;
+  selected: TableRef | null;
+  primaryKey: string[];
+  result: { columns: string[]; rows: (string | null)[][] } | null | undefined;
+  rowsQuery: { refetch: () => unknown };
+}) {
+  const mutateRow = useMutateRow();
+  const [progress, setProgress] = useState<BulkDeleteProgress | null>(null);
+
+  const deleteRows = useCallback(
+    async (rowIndices: number[]) => {
+      if (!selected || !result || primaryKey.length === 0 || rowIndices.length === 0) return;
+      const pkIdx = primaryKey.map((c) => result.columns.indexOf(c));
+      if (pkIdx.some((i) => i === -1)) return; // PK column hidden from the result? refuse.
+
+      setProgress({ done: 0, total: rowIndices.length });
+      let failed = 0;
+      let firstError: string | null = null;
+      for (const [i, rowIndex] of rowIndices.entries()) {
+        const row = result.rows[rowIndex];
+        if (!row) {
+          failed += 1;
+        } else {
+          const pk = primaryKey.map((c, k) => ({
+            column: c,
+            value: row[pkIdx[k] ?? -1] ?? null,
+          }));
+          try {
+            await mutateRow.mutateAsync({
+              resourceId: resourceId as never,
+              schema: selected.schema,
+              table: selected.name,
+              op: "delete",
+              pk,
+              set: [],
+            });
+          } catch (err) {
+            failed += 1;
+            if (!firstError) firstError = err instanceof Error ? err.message : String(err);
+          }
+        }
+        setProgress({ done: i + 1, total: rowIndices.length });
+      }
+      setProgress(null);
+      void rowsQuery.refetch();
+
+      const ok = rowIndices.length - failed;
+      if (failed === 0) {
+        toast.success(`Deleted ${ok} row${ok === 1 ? "" : "s"}`);
+      } else {
+        toast.error(
+          `Deleted ${ok} of ${rowIndices.length} rows — ${failed} failed` +
+            (firstError ? `: ${firstError}` : ""),
+        );
+      }
+    },
+    [selected, result, primaryKey, mutateRow, resourceId, rowsQuery],
+  );
+
+  return { deleteRows, progress };
 }
 
 /** Inline edit / delete against the open table (table-browse mode, write-capable). */
