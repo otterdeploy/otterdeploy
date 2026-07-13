@@ -4,6 +4,7 @@
  * URL cannot be re-fetched — closing the dialog discards it for good).
  */
 
+import type { ResourceId } from "@otterdeploy/shared/id";
 import { useState } from "react";
 
 import { useForm } from "@tanstack/react-form";
@@ -88,7 +89,7 @@ export function EphemeralMintDialog({
   onOpenChange,
   onMinted,
 }: {
-  resourceId: never;
+  resourceId: ResourceId;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onMinted: () => Promise<unknown>;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useState } from "react";
 
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -57,25 +57,32 @@ export function LogsHistogram({
   // pointer now. Committed on pointerup (even if released outside the chart).
   const [drag, setDrag] = useState<{ anchor: number; hover: number } | null>(null);
 
+  // Non-reactive: reads the latest drag/earliest/selectedRange/onSelectRange at
+  // pointerup time, so the effect below only re-subscribes when the drag itself
+  // starts or ends — not on every `onSelectRange`/`selectedRange`/`earliest`
+  // identity change.
+  const onCommit = useEffectEvent(() => {
+    if (!drag) return;
+    const lo = Math.min(drag.anchor, drag.hover);
+    const hi = Math.max(drag.anchor, drag.hover);
+    const from = earliest + lo * HISTOGRAM_BUCKET_MS;
+    const to = earliest + (hi + 1) * HISTOGRAM_BUCKET_MS;
+    if (lo === hi) {
+      // Plain click on a single bucket toggles it.
+      const active = selectedRange && from < selectedRange.to && to > selectedRange.from;
+      onSelectRange(active ? null : { from, to });
+    } else {
+      onSelectRange({ from, to });
+    }
+    setDrag(null);
+  });
+
   useEffect(() => {
     if (!drag) return;
-    const commit = () => {
-      const lo = Math.min(drag.anchor, drag.hover);
-      const hi = Math.max(drag.anchor, drag.hover);
-      const from = earliest + lo * HISTOGRAM_BUCKET_MS;
-      const to = earliest + (hi + 1) * HISTOGRAM_BUCKET_MS;
-      if (lo === hi) {
-        // Plain click on a single bucket toggles it.
-        const active = selectedRange && from < selectedRange.to && to > selectedRange.from;
-        onSelectRange(active ? null : { from, to });
-      } else {
-        onSelectRange({ from, to });
-      }
-      setDrag(null);
-    };
+    const commit = () => onCommit();
     window.addEventListener("pointerup", commit);
     return () => window.removeEventListener("pointerup", commit);
-  }, [drag, earliest, selectedRange, onSelectRange]);
+  }, [drag]);
 
   // The contiguous bucket span to frame: the live drag preview takes precedence
   // over the committed range. One [lo, hi] drives a single continuous box rather

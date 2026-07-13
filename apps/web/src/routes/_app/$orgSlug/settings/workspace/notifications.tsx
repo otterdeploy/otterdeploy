@@ -120,7 +120,7 @@ function RouteComponent() {
     const tx = enabled
       ? subscriptionsCollection.insert({
           channelId: channelId as Channel["id"],
-          eventId: eventId as never,
+          eventId,
         })
       : subscriptionsCollection.delete(`${channelId}:${eventId}`);
     tx.isPersisted.promise.catch((err: unknown) =>

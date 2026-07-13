@@ -36,7 +36,7 @@ export function ConnectCliDialog({
   // that can rotate. The configured FQDN is the stable, correct endpoint.
   const domainQuery = useQuery(
     orpc.organization.controlPlaneDomain.queryOptions({
-      input: { organizationId: organization.id as never },
+      input: { organizationId: organization.id },
     }),
   );
   const fqdn = domainQuery.data;

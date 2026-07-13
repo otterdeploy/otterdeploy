@@ -6,6 +6,9 @@
 
 import { Fragment, useState } from "react";
 
+import { AlertDiamondIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+
 import { ReferencePicker } from "@/features/projects/components/variables";
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
@@ -71,6 +74,14 @@ export function VariableRow({
   onPick,
   onClosePicker,
 }: VariableRowProps) {
+  // Reveal a masked secret so the operator can read the auto-generated value
+  // (and copy it). Per-row, defaults to hidden.
+  const [reveal, setReveal] = useState(false);
+  const masked = v.secret && !reveal;
+  // How many trailing buttons sit in the value cell → how much right padding
+  // the input needs so the text doesn't run under them.
+  const trailingButtons = (v.secret ? 1 : 0) + (projectId ? 1 : 0);
+
   return (
     <Fragment>
       <TableRow>
@@ -86,29 +97,61 @@ export function VariableRow({
         <TableCell className="py-2">
           <div className="relative">
             <Input
-              type={v.secret ? "password" : "text"}
+              type={masked ? "password" : "text"}
               value={v.value}
               placeholder={v.secret ? "••••••••" : "value"}
               onChange={(e) => onValueInput(e.target.value)}
-              className="h-8 pr-8 font-mono"
+              className={cn(
+                "h-8 font-mono",
+                trailingButtons >= 2 ? "pr-14" : trailingButtons === 1 ? "pr-8" : "",
+              )}
             />
-            {projectId && (
-              <button
-                type="button"
-                aria-label="Insert reference"
-                title="Insert a ${{ resource.KEY }} reference"
-                onClick={onTogglePicker}
-                className={cn(
-                  "absolute top-1/2 right-1 grid size-6 -translate-y-1/2 place-items-center rounded transition-colors",
-                  pickerOpen
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground/70 hover:bg-muted hover:text-foreground",
-                )}
-              >
-                <span className="font-mono text-[10.5px] leading-none">{"{ }"}</span>
-              </button>
-            )}
+            <div className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-0.5">
+              {v.secret && (
+                <button
+                  type="button"
+                  aria-label={reveal ? "Hide value" : "Reveal value"}
+                  title={reveal ? "Hide value" : "Reveal value"}
+                  onClick={() => setReveal((r) => !r)}
+                  className={cn(
+                    "grid size-6 place-items-center rounded transition-colors",
+                    reveal
+                      ? "bg-muted text-foreground"
+                      : "text-muted-foreground/70 hover:bg-muted hover:text-foreground",
+                  )}
+                >
+                  <I.eye width={12} height={12} />
+                </button>
+              )}
+              {projectId && (
+                <button
+                  type="button"
+                  aria-label="Insert reference"
+                  title="Insert a ${{ resource.KEY }} reference"
+                  onClick={onTogglePicker}
+                  className={cn(
+                    "grid size-6 place-items-center rounded transition-colors",
+                    pickerOpen
+                      ? "bg-muted text-foreground"
+                      : "text-muted-foreground/70 hover:bg-muted hover:text-foreground",
+                  )}
+                >
+                  <span className="font-mono text-[10.5px] leading-none">{"{ }"}</span>
+                </button>
+              )}
+            </div>
           </div>
+        </TableCell>
+        <TableCell className="py-2 text-center">
+          {v.required && v.value.trim() === "" && (
+            <span
+              title="Required — fill this in before the stack can deploy"
+              aria-label="Required, empty"
+              className="inline-flex text-destructive"
+            >
+              <HugeiconsIcon icon={AlertDiamondIcon} strokeWidth={2} className="size-4" />
+            </span>
+          )}
         </TableCell>
         <TableCell className="py-2 text-center">
           <Button
@@ -130,7 +173,7 @@ export function VariableRow({
       </TableRow>
       {projectId && pickerOpen && (
         <TableRow className="hover:bg-transparent">
-          <TableCell colSpan={4} className="py-0 pb-2">
+          <TableCell colSpan={5} className="py-0 pb-2">
             <ReferencePicker projectId={projectId} onPick={onPick} onClose={onClosePicker} />
           </TableCell>
         </TableRow>

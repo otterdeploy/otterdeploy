@@ -124,8 +124,8 @@ function HealthCheckForm({
         queryClient.invalidateQueries({
           queryKey: orpc.service.get.queryKey({
             input: {
-              projectId: resource.projectId as never,
-              resourceId: resource.resourceId as never,
+              projectId: resource.projectId,
+              resourceId: resource.resourceId,
             },
           }),
         }),
@@ -145,8 +145,8 @@ function HealthCheckForm({
   const save = () => {
     if (!formValid || port == null) return;
     saveMut.mutate({
-      projectId: resource.projectId as never,
-      resourceId: resource.resourceId as never,
+      projectId: resource.projectId,
+      resourceId: resource.resourceId,
       healthcheck: buildHealthcheckPatch({
         form,
         normalizedPath,
@@ -191,8 +191,8 @@ export function ServiceHealthCheckCard({ resource }: { resource: HealthCheckReso
   const serviceQuery = useQuery(
     orpc.service.get.queryOptions({
       input: {
-        projectId: resource.projectId as never,
-        resourceId: resource.resourceId as never,
+        projectId: resource.projectId,
+        resourceId: resource.resourceId,
       },
     }),
   );

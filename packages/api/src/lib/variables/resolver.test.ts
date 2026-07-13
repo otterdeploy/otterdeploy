@@ -1,4 +1,4 @@
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { PreviewId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -304,7 +304,7 @@ describe("resolveServiceEnv", () => {
       dbExports("postgres://appuser:secret@db-pr1.internal:5432/appdb"),
     );
 
-    const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID, PREVIEW_ENV as never);
+    const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID, PREVIEW_ENV as PreviewId);
 
     expect(result.isOk()).toBe(true);
     if (result.isErr()) return;

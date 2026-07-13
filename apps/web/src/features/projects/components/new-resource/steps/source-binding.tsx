@@ -42,7 +42,7 @@ export function useBindingSummary(projectSlug: string): {
 } {
   const projectQuery = useQuery({
     ...orpc.project.getBySlug.queryOptions({
-      input: { slug: projectSlug as never },
+      input: { slug: projectSlug },
     }),
     enabled: Boolean(projectSlug),
   });
@@ -55,7 +55,7 @@ export function useBindingSummary(projectSlug: string): {
 
   const reposQuery = useQuery(
     orpc.git.listRepos.queryOptions({
-      input: { installationId: (activeInstallationId ?? "") as never },
+      input: { installationId: (activeInstallationId ?? "") },
       enabled: activeInstallationId != null,
     }),
   );

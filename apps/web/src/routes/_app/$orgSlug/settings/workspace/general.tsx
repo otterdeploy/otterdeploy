@@ -35,8 +35,8 @@ function SettingsRoute() {
         }
       />
 
-      <DomainCard organizationId={organization.id as never} />
-      <CloudflareCard organizationId={organization.id as never} />
+      <DomainCard organizationId={organization.id} />
+      <CloudflareCard organizationId={organization.id} />
     </Page>
   );
 }

@@ -62,7 +62,7 @@ export function ExtensionsCard({
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: orpc.project.resource.list.queryKey({
-          input: { projectId: resource.projectId as never },
+          input: { projectId: resource.projectId },
         }),
       });
       toast.success("Extensions updated");
@@ -70,7 +70,7 @@ export function ExtensionsCard({
     onError: (err) => toast.error(err.message ?? "Failed to update extensions"),
   });
 
-  const stage = useStageManifestChange(resource.projectId as never, {
+  const stage = useStageManifestChange(resource.projectId, {
     successToast: "Extensions staged — Deploy to apply",
   });
 
@@ -112,8 +112,8 @@ export function ExtensionsCard({
     }
 
     setExtensions.mutate({
-      projectId: resource.projectId as never,
-      resourceId: resource.resourceId as never,
+      projectId: resource.projectId,
+      resourceId: resource.resourceId,
       extensions: next,
     });
   };

@@ -6,6 +6,7 @@
  * produce invalid global syntax, so a value here can't take routes offline.
  */
 
+import type { OrganizationId } from "@otterdeploy/shared/id";
 import { EarthIcon } from "@hugeicons/core-free-icons";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -17,7 +18,7 @@ import { Input } from "@/shared/components/ui/input";
 import { Switch } from "@/shared/components/ui/switch";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-export function EdgeDefaultsCard({ organizationId }: { organizationId: never }) {
+export function EdgeDefaultsCard({ organizationId }: { organizationId: OrganizationId }) {
   const query = useQuery(
     orpc.organization.getEdgeOptions.queryOptions({ input: { organizationId } }),
   );

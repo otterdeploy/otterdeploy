@@ -30,7 +30,7 @@ export function useLiveService({
 }): LiveServiceView | undefined {
   const query = useQuery({
     ...orpc.service.get.queryOptions({
-      input: { projectId: projectId as never, resourceId: resourceId as never },
+      input: { projectId, resourceId },
     }),
     enabled,
     // Runtime status/pause can change under us (webhooks, other operators).
@@ -58,7 +58,7 @@ export function usePauseControl({
     await Promise.all([
       queryClient.invalidateQueries({
         queryKey: orpc.service.get.queryKey({
-          input: { projectId: projectId as never, resourceId: resourceId as never },
+          input: { projectId, resourceId },
         }),
       }),
       // The graph node + panel prop read replicas/status from the resource
@@ -66,7 +66,7 @@ export function usePauseControl({
       queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY }),
       queryClient.invalidateQueries({
         queryKey: orpc.project.resource.list.queryKey({
-          input: { projectId: projectId as never },
+          input: { projectId },
         }),
       }),
     ]);
@@ -89,8 +89,8 @@ export function usePauseControl({
   if (!service) return null;
 
   const input = {
-    projectId: projectId as never,
-    resourceId: resourceId as never,
+    projectId,
+    resourceId,
   };
 
   return {

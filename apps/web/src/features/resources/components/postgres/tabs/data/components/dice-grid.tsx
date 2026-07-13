@@ -18,9 +18,10 @@
  *   exports and the detail panel) keeps every column.
  */
 
+import type { ResourceId } from "@otterdeploy/shared/id";
 import type { RowSelectionState, Updater } from "@tanstack/react-table";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import { toast } from "sonner";
 
@@ -115,7 +116,7 @@ export function DiceResultGrid({
   onSelectionChange,
   enableRowDetail = false,
 }: {
-  resourceId: never;
+  resourceId: ResourceId;
   columns: string[];
   rows: (string | null)[][];
   columnVariants?: Record<string, ColumnVariant>;
@@ -145,9 +146,18 @@ export function DiceResultGrid({
   } | null>(null);
   const [detailIndex, setDetailIndex] = useState<number | null>(null);
   const [data, setData] = useState<Row[]>(() => toRows(columns, rows, columnVariants));
-  useEffect(() => {
+  // Re-sync the in-memory grid data when a fresh page of server rows arrives.
+  // Done during render (not in an effect) so new columns never paint against
+  // the previous page's rows for a frame.
+  const [source, setSource] = useState({ columns, rows, columnVariants });
+  if (
+    source.columns !== columns ||
+    source.rows !== rows ||
+    source.columnVariants !== columnVariants
+  ) {
+    setSource({ columns, rows, columnVariants });
     setData(toRows(columns, rows, columnVariants));
-  }, [columns, rows, columnVariants]);
+  }
 
   // A row can only be mutated if we can target it by primary key.
   const canEdit = editable && (primaryKey?.length ?? 0) > 0;

@@ -42,6 +42,7 @@ export function useLogsTable({
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   // Live tail sticks to the bottom until the operator scrolls up (or sorts).
   const [follow, setFollow] = useState(true);
+  const [prevIsDefaultSort, setPrevIsDefaultSort] = useState(true);
 
   const subscribedIds = useMemo(() => (svcFilter === "all" ? undefined : [svcFilter]), [svcFilter]);
   const { lines, status } = useProjectLogStream({
@@ -103,10 +104,13 @@ export function useLogsTable({
     getItemKey,
   });
 
-  // Sorting fights live tailing — pause follow while a sort is active.
-  useEffect(() => {
+  // Sorting fights live tailing — pause follow while a sort is active. Adjust
+  // in render (prev-value compare) rather than an effect so it doesn't trigger
+  // an extra render pass each time a sort turns on.
+  if (prevIsDefaultSort !== isDefaultSort) {
+    setPrevIsDefaultSort(isDefaultSort);
     if (!isDefaultSort) setFollow(false);
-  }, [isDefaultSort]);
+  }
 
   // Stick to bottom on new rows while following the live tail. A time-window
   // filter means we're inspecting history, so don't yank to the bottom.

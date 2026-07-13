@@ -44,14 +44,15 @@ interface DeliveryHistoryDialogProps {
 }
 
 export function DeliveryHistoryDialog({ open, onOpenChange, channel }: DeliveryHistoryDialogProps) {
+  const channelId = channel?.id;
   const query = useInfiniteQuery({
-    queryKey: [...orpc.notifications.deliveries.key(), channel?.id],
+    queryKey: [...orpc.notifications.deliveries.key(), channelId],
     enabled: open && channel !== null,
     initialPageParam: null as string | null,
     queryFn: ({ pageParam }) =>
       client.notifications.deliveries({
         // enabled-gated: only runs with a channel present.
-        channelId: (channel as Channel).id,
+        channelId: channelId as Channel["id"],
         limit: PAGE_SIZE,
         ...(pageParam ? { cursor: pageParam as DeliveriesPage["items"][number]["id"] } : {}),
       }),

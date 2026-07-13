@@ -5,6 +5,7 @@
  * fields, with an action to open that table pre-filtered to the row.
  */
 
+import type { ResourceId } from "@otterdeploy/shared/id";
 import { Link01Icon, ArrowUpRight01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
@@ -23,7 +24,7 @@ export function FkRefPopover({
   onOpenChange,
   onOpenRef,
 }: {
-  resourceId: never;
+  resourceId: ResourceId;
   fk: FkTarget;
   value: string;
   anchor: HTMLElement | null;

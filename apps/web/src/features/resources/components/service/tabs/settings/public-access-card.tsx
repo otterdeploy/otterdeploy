@@ -35,7 +35,7 @@ export function ServicePublicAccessCard({
       // resource list via react-query.
       queryClient.invalidateQueries({
         queryKey: orpc.project.resource.list.queryKey({
-          input: { projectId: resource.projectId as never },
+          input: { projectId: resource.projectId },
         }),
       }),
       // The graph panel reads from the on-demand `resourceCollection`, keyed
@@ -50,8 +50,8 @@ export function ServicePublicAccessCard({
       queryClient.invalidateQueries({
         queryKey: orpc.service.domains.list.queryKey({
           input: {
-            projectId: resource.projectId as never,
-            resourceId: resource.resourceId as never,
+            projectId: resource.projectId,
+            resourceId: resource.resourceId,
           },
         }),
       }),
@@ -98,8 +98,8 @@ export function ServicePublicAccessCard({
             disabled={pending}
             onCheckedChange={(next) => {
               const input = {
-                projectId: resource.projectId as never,
-                resourceId: resource.resourceId as never,
+                projectId: resource.projectId,
+                resourceId: resource.resourceId,
               };
               if (next) expose.mutate(input);
               else unexpose.mutate(input);

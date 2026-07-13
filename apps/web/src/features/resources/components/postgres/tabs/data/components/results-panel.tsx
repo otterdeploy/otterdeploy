@@ -5,6 +5,7 @@
  * owner passes a `leftSlot` (filters in browse mode) and `footerSlot` (counts
  * + pagination).
  */
+import type { ResourceId } from "@otterdeploy/shared/id";
 import { useMemo, useState } from "react";
 
 import { Alert02Icon, Database01Icon } from "@hugeicons/core-free-icons";
@@ -29,7 +30,7 @@ import { ResultsToolbar, type ResultView } from "./results-toolbar";
 export type { ResultView };
 
 interface ResultsPanelProps {
-  resourceId: never;
+  resourceId: ResourceId;
   columns: string[];
   rows: (string | null)[][];
   columnVariants?: Record<string, ColumnVariant>;

@@ -8,7 +8,7 @@
  * {@link DataStudioController}.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Database01Icon, PlayIcon } from "@hugeicons/core-free-icons";
 
@@ -50,7 +50,11 @@ export function StudioResults({ studio }: { studio: DataStudioController }) {
   // whenever the page's rows change identity (new page / refetch / new table).
   const [selectedRows, setSelectedRows] = useState<number[]>([]);
   const resultRows = t.result?.rows;
-  useEffect(() => setSelectedRows([]), [resultRows]);
+  const [prevResultRows, setPrevResultRows] = useState(resultRows);
+  if (resultRows !== prevResultRows) {
+    setPrevResultRows(resultRows);
+    setSelectedRows([]);
+  }
 
   const canMutateRows = t.editable && t.primaryKey.length > 0;
   const bulk = useBulkDelete({

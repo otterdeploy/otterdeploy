@@ -17,6 +17,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/shared/components/ui/tooltip";
+import { toastMessage } from "@/shared/lib/errors";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
@@ -56,7 +57,7 @@ function useResourceActions(id: string, data: ResourceNodeData): NodeAction[] {
       toast.success(`Restarting ${data.name}…`, {
         description: "Track progress in the resource's Deployments tab.",
       }),
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to restart"),
+    onError: (err) => toast.error(toastMessage(err, "Failed to restart")),
   });
   const serviceRestart = useMutation({
     ...orpc.service.restart.mutationOptions(),
@@ -64,14 +65,14 @@ function useResourceActions(id: string, data: ResourceNodeData): NodeAction[] {
       toast.success(`Restarting ${data.name}…`, {
         description: "Track progress in the resource's Deployments tab.",
       }),
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to restart"),
+    onError: (err) => toast.error(toastMessage(err, "Failed to restart")),
   });
 
   function restartResource() {
     if (!data.projectId || !data.resourceId) return;
     const args = {
-      projectId: data.projectId as never,
-      resourceId: data.resourceId as never,
+      projectId: data.projectId,
+      resourceId: data.resourceId,
     };
     // updateNodeData keys by the React-Flow node id (`${kind}:${name}`); the
     // mutation keys by the real resourceId from data — they're not the same.

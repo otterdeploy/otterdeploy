@@ -64,7 +64,7 @@ function persistEndpoint(args: {
           id: args.editing.id,
           name: args.name,
           action: args.action,
-          resourceId: args.action === "redeploy" ? (args.resourceId as never) : null,
+          resourceId: args.action === "redeploy" ? (args.resourceId) : null,
           ipAllowlist: args.ipAllowlist,
         })
         .then(() => {
@@ -76,7 +76,7 @@ function persistEndpoint(args: {
         .create({
           name: args.name,
           action: args.action,
-          ...(args.action === "redeploy" ? { resourceId: args.resourceId as never } : {}),
+          ...(args.action === "redeploy" ? { resourceId: args.resourceId } : {}),
           ipAllowlist: args.ipAllowlist,
         })
         .then((res) => {

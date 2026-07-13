@@ -238,22 +238,24 @@ export const composeRouter = {
     async ({ input, context, errors }) => {
       const rec = await getComposeRecord(input.projectId, input.resourceId);
       if (!rec) throw errors.NOT_FOUND();
-      // Tear down each child service resource (swarm service + routes + row),
-      // then the stack's own routes + record. removeComposeStack also clears any
-      // legacy services still labelled with the stack id (pre-real-resource).
       // Capture the stack's seeded `${VAR}` keys before its record is gone.
       const composeContent = rec.compose.composeContent;
-      await removeStackServices(input.resourceId, context.log);
-      await removeComposeStack({ resourceId: input.resourceId }, context.log);
-      await removeComposeDomains(input.resourceId);
-      await deleteComposeRecord(input.projectId, input.resourceId);
-      // Drop the stack from the project manifest too. Otherwise it lingers in
-      // `manifest.composes` and the next diff re-stages a phantom `create` — the
-      // "pending create" ghost that reappears after delete and then fails.
+      // Strip the stack from the manifest FIRST — before any physical teardown.
+      // Once a delete is initiated the stack is no longer "desired", so even if
+      // a child teardown fails partway, the next diff can only ever show a
+      // (recoverable) delete — NEVER a phantom `create` ghost. A deployed stack
+      // must never revert to pending-create.
       await removeComposeFromManifest(
         { projectId: input.projectId, organizationId: context.activeOrganizationId },
         rec.resource.name,
       );
+      // Tear down each child service resource (swarm service + routes + row),
+      // then the stack's own routes + record. removeComposeStack also clears any
+      // legacy services still labelled with the stack id (pre-real-resource).
+      await removeStackServices(input.resourceId, context.log);
+      await removeComposeStack({ resourceId: input.resourceId }, context.log);
+      await removeComposeDomains(input.resourceId);
+      await deleteComposeRecord(input.projectId, input.resourceId);
       // Drop the stack's host artifact dir (deleteComposeRecord removes the row
       // directly, bypassing deleteResourceById's cleanup). No-op unless the data
       // folder is in use.

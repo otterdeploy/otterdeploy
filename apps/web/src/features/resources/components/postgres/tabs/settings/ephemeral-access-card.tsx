@@ -25,7 +25,7 @@ import { expiresIn } from "./ephemeral-shared";
 export function EphemeralAccessCard({ resource }: { resource: PostgresBodyProps["resource"] }) {
   const [open, setOpen] = useState(false);
 
-  const resourceId = resource.resourceId as never;
+  const resourceId = resource.resourceId;
   const listQuery = useQuery({
     ...orpc.database.ephemeralList.queryOptions({ input: { resourceId } }),
     refetchInterval: 30_000,

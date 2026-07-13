@@ -1,3 +1,4 @@
+import { idSchema, type OrganizationId } from "@otterdeploy/shared/id";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
 import { CommandPalette } from "@/features/command-palette";
@@ -6,7 +7,7 @@ import { ResourceOverlayProvider } from "@/features/projects/components/new-reso
 import { authClient } from "@/lib/auth-client";
 
 export interface Organization {
-  id: string;
+  id: OrganizationId;
   name: string;
   slug: string;
   logo?: string | null;
@@ -58,7 +59,14 @@ export const Route = createFileRoute("/_app")({
     if (orgs.error) {
       throw new Error(orgs.error.message ?? "Failed to load organizations");
     }
-    const organizations = orgs.data ?? [];
+    // Brand every org id at this single entry point (better-auth types them as
+    // plain `string`). Downstream `organization.id` is `OrganizationId` for
+    // free — no per-callsite laundering. Safe at runtime: auth's `generateId`
+    // override always prefixes org ids with `org_` (packages/auth/src/index.ts).
+    const organizations = (orgs.data ?? []).map((o) => ({
+      ...o,
+      id: idSchema.organization.parse(o.id),
+    }));
     if (organizations.length === 0) {
       throw redirect({ to: "/onboarding/create-organization" });
     }

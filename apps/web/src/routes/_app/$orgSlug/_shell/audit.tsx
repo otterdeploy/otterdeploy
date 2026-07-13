@@ -54,7 +54,17 @@ function AuditRoute() {
   // Memoize so `from` (which reads "now") is stable across renders and doesn't
   // thrash the subset / query keys.
   const queryFilter = useMemo(
-    () => ({ ...filter, q: debouncedQ }),
+    () => ({
+      range: filter.range,
+      from: filter.from,
+      to: filter.to,
+      outcome: filter.outcome,
+      actor: filter.actor,
+      action: filter.action,
+      targetType: filter.targetType,
+      q: debouncedQ,
+      limit: filter.limit,
+    }),
     [
       filter.range,
       filter.from,

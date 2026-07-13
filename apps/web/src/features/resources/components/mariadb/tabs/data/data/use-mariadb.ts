@@ -12,7 +12,7 @@ import { orpc } from "@/shared/server/orpc";
 export function useMariadbTables(resourceId: string) {
   return useQuery(
     orpc.database.mariadbTables.queryOptions({
-      input: { resourceId: resourceId as never },
+      input: { resourceId },
     }),
   );
 }
@@ -35,7 +35,7 @@ export function useMariadbRows({
 }) {
   return useQuery({
     ...orpc.database.mariadbRows.queryOptions({
-      input: { resourceId: resourceId as never, schema, table, limit, offset },
+      input: { resourceId, schema, table, limit, offset },
     }),
     enabled: enabled && Boolean(table),
     placeholderData: keepPreviousData,

@@ -11,6 +11,7 @@ import type { ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { useState } from "react";
 
 import { type Diagnostic, setDiagnostics } from "@codemirror/lint";
+import { randomSecret } from "@otterdeploy/shared/crypto";
 
 import { orpc } from "@/shared/server/orpc";
 
@@ -75,19 +76,29 @@ export function useComposeParse(
     }
     setPreview(res);
     applyDiagnostics(res);
-    // Seed the variables editor with the file's `${VAR}` refs (defaults
-    // prefilled, credential-looking keys locked), preserving any rows the user
-    // already added/edited. The user then edits them in the full editor.
+    // Seed the variables editor with the file's `${VAR}` refs, preserving any
+    // rows the user already added/edited. A credential-looking key with no
+    // `:-default` is AUTO-GENERATED (strong random, locked) rather than left
+    // blank — the operator never has to hand-type a password, mirroring how the
+    // Postgres provisioner mints its own credentials. It stays editable, so they
+    // can override or regenerate.
     const current = form.state.values.variables;
     const seeded: Var[] = res.vars.map((ref) => {
+      // No `:-default` in the compose → the operator MUST supply a value (we
+      // auto-fill secrets; non-secrets still need input). Drives the required *.
+      const required = ref.default === null;
       const existing = current.find((c) => c.key === ref.name);
-      return (
-        existing ?? {
-          key: ref.name,
-          value: ref.default ?? "",
-          secret: SECRETISH.test(ref.name),
-        }
-      );
+      // Preserve the operator's edits (value/secret) but ALWAYS refresh
+      // `required` from the current parse — otherwise a row seeded before this
+      // flag existed keeps `required: undefined` and never shows its marker.
+      if (existing) return existing.required === required ? existing : { ...existing, required };
+      const secret = SECRETISH.test(ref.name);
+      return {
+        key: ref.name,
+        value: ref.default ?? (secret ? randomSecret() : ""),
+        secret,
+        required,
+      };
     });
     // Keep any extra rows the user added that aren't refs in the file.
     const extra = current.filter((c) => !res.vars.some((ref) => ref.name === c.key));

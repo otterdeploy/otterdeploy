@@ -31,15 +31,16 @@ function ComposeVarsStep({
         <span className="text-sm font-medium">Environment variables</span>
         <span className="text-xs text-muted-foreground">
           {hasVars
-            ? "The compose file references these — defaults are pre-filled. "
+            ? "The compose file references these — secrets are auto-generated, defaults pre-filled. "
             : "Set any variables this stack needs before it deploys. "}
-          Edit, add more, or toggle the lock to mark a value secret. Saved as project variables.
+          A red marker flags a required value that's still empty; click the eye to reveal or edit a
+          secret. Saved as project variables.
         </span>
       </div>
       {requiredUnset && (
-        <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
-          This stack requires every value above to be set before it can be added — a blank one would
-          deploy with an empty setting (e.g. an empty database password).
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          Fill in the fields flagged in red — they're required and still empty. Secrets are already
+          generated; what's left is usually a URL or name only you know.
         </div>
       )}
       <form.AppField name="variables">

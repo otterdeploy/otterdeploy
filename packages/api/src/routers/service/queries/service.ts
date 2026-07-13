@@ -153,18 +153,26 @@ export async function createServiceRecord(input: CreateServiceInput): Promise<Se
       });
     }
 
-    const ports = await tx
-      .insert(servicePort)
-      .values(
-        input.ports.map((p) => ({
-          serviceResourceId: createdService.resourceId,
-          containerPort: p.containerPort,
-          protocol: p.protocol ?? "tcp",
-          appProtocol: p.appProtocol ?? "http",
-          isPrimary: p.isPrimary ?? false,
-        })),
-      )
-      .returning();
+    // Guard the empty case — a portless service (a worker, a queue consumer, a
+    // compose db/redis with no published port) has `ports: []`, and Drizzle's
+    // `.values([])` throws "values() must be called with at least one value".
+    // That crash inside createServiceRecord is what aborted a whole compose
+    // stack after its first service, collapsing e.g. Authentik to just `server`.
+    const ports =
+      input.ports.length === 0
+        ? []
+        : await tx
+            .insert(servicePort)
+            .values(
+              input.ports.map((p) => ({
+                serviceResourceId: createdService.resourceId,
+                containerPort: p.containerPort,
+                protocol: p.protocol ?? "tcp",
+                appProtocol: p.appProtocol ?? "http",
+                isPrimary: p.isPrimary ?? false,
+              })),
+            )
+            .returning();
 
     const env =
       !input.env || input.env.length === 0

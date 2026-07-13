@@ -86,7 +86,7 @@ export function ProjectDangerZone({ project, orgSlug }: ProjectDangerZoneProps) 
           confirmLabel="Delete project"
           pendingLabel="Deleting…"
           pending={deleteMut.isPending}
-          onConfirm={() => deleteMut.mutate({ id: project.id as never })}
+          onConfirm={() => deleteMut.mutate({ id: project.id })}
         />
       </div>
     </section>

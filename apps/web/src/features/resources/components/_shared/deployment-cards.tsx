@@ -5,6 +5,7 @@
  * live-query wiring and the hero/history split.
  */
 
+import type { ProjectSlug } from "@otterdeploy/shared/id";
 import { ContainerIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link } from "@tanstack/react-router";
@@ -73,7 +74,7 @@ export function ActiveDeploymentCard({
 }: {
   deployment: DeploymentInfo;
   orgSlug: string;
-  projectSlug: string;
+  projectSlug: ProjectSlug;
   resourceId: string;
 }) {
   // Database resources are always single-replica (see swarm/database.ts
@@ -89,7 +90,7 @@ export function ActiveDeploymentCard({
       to="/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
       params={{
         orgSlug,
-        projectSlug: projectSlug as never,
+        projectSlug,
         resourceId,
         deploymentId: deployment.id,
       }}
@@ -172,7 +173,7 @@ export function HistoryRow({
 }: {
   deployment: DeploymentInfo;
   orgSlug: string;
-  projectSlug: string;
+  projectSlug: ProjectSlug;
   projectId: string;
   resourceId: string;
   canRollback: boolean;
@@ -189,7 +190,7 @@ export function HistoryRow({
           to="/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
           params={{
             orgSlug,
-            projectSlug: projectSlug as never,
+            projectSlug,
             resourceId,
             deploymentId: deployment.id,
           }}

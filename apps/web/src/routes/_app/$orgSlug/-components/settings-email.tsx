@@ -1,3 +1,4 @@
+import type { OrganizationId } from "@otterdeploy/shared/id";
 import { Mail01Icon } from "@hugeicons/core-free-icons";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -24,7 +25,7 @@ export type { EmailSettings } from "./settings-email-form";
  * left on "Platform default". Secrets are write-only: blank means "leave
  * unchanged", and the configured state shows as a hint, never the value.
  */
-export function EmailCard({ organizationId }: { organizationId: never }) {
+export function EmailCard({ organizationId }: { organizationId: OrganizationId }) {
   const settingsQuery = useQuery(
     orpc.organization.getEmailSettings.queryOptions({
       input: { organizationId },
@@ -59,7 +60,7 @@ function EmailForm({
   organizationId,
   settings,
 }: {
-  organizationId: never;
+  organizationId: OrganizationId;
   settings: EmailSettings;
 }) {
   const save = useMutation({

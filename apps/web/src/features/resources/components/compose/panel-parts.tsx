@@ -38,11 +38,6 @@ type DeploymentStatus =
   | "removed"
   | null;
 
-interface StackTaskRow {
-  resourceId: string;
-  tasks: ReadonlyArray<{ service?: string | null; state: string }>;
-}
-
 /** Build-time base before live tasks arrive. `building` means an actual image
  *  build; `pending`/`starting` mean the rollout is pulling/starting containers
  *  — image-only stacks never build, so calling that phase "Building" was a
@@ -64,29 +59,6 @@ export function baseStatus(dep: DeploymentStatus): StackServiceStatus | undefine
   }
 }
 
-/** Roll task rows up to a per-service status, worst-state-wins within a
- *  service: error > building > running. */
-export function rollupTaskStatus(
-  taskRows: readonly StackTaskRow[],
-  resourceId: string,
-): Map<string, "running" | "building" | "error"> {
-  const byService = new Map<string, "running" | "building" | "error">();
-  for (const row of taskRows) {
-    if (row.resourceId !== resourceId) continue;
-    for (const task of row.tasks) {
-      if (!task.service) continue;
-      const prev = byService.get(task.service);
-      if (task.state === "error" || prev === "error") {
-        byService.set(task.service, "error");
-      } else if (task.state === "building" || prev === "building") {
-        byService.set(task.service, "building");
-      } else {
-        byService.set(task.service, "running");
-      }
-    }
-  }
-  return byService;
-}
 
 export function ComposePanelHeader({
   name,

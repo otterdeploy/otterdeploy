@@ -17,9 +17,9 @@ export function DeploymentLogsBody({
     open: (signal) =>
       orpc.project.resource.deployments.logs.tail.call(
         {
-          projectId: projectId as never,
-          resourceId: resourceId as never,
-          deploymentId: deploymentId as never,
+          projectId,
+          resourceId,
+          deploymentId,
           tail: 500,
         },
         { signal, context: { retry: Number.POSITIVE_INFINITY } },
@@ -67,7 +67,7 @@ export function BuildLogsBody({ deploymentId }: { deploymentId: string }) {
   const { lines, status } = useLogStream({
     open: (signal) =>
       orpc.project.resource.deployments.buildLogs.stream.call(
-        { deploymentId: deploymentId as never },
+        { deploymentId },
         { signal, context: { retry: Number.POSITIVE_INFINITY } },
       ),
     map: (e, id): LogLine => ({

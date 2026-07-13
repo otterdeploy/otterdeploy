@@ -34,7 +34,7 @@ import { parseStructureRows, type StructureColumn } from "./structure";
 export function useDatabaseTables(resourceId: string) {
   return useQuery(
     orpc.database.tables.queryOptions({
-      input: { resourceId: resourceId as never },
+      input: { resourceId },
     }),
   );
 }
@@ -43,7 +43,7 @@ export function useDatabaseTables(resourceId: string) {
 export function useDataCapabilities(resourceId: string) {
   return useQuery(
     orpc.database.capabilities.queryOptions({
-      input: { resourceId: resourceId as never },
+      input: { resourceId },
     }),
   );
 }
@@ -64,7 +64,7 @@ export function useTablePrimaryKey({
   const query = useQuery({
     ...orpc.database.query.queryOptions({
       input: {
-        resourceId: resourceId as never,
+        resourceId,
         sql: table ? primaryKeysSql(table) : "",
         limit: 100,
       },
@@ -111,7 +111,7 @@ export function useQueryRows({
 }) {
   return useQuery({
     ...orpc.database.query.queryOptions({
-      input: { resourceId: resourceId as never, sql, limit },
+      input: { resourceId, sql, limit },
     }),
     enabled,
     refetchOnWindowFocus: false,
@@ -139,7 +139,7 @@ export function useTableColumnMeta({
   const colTypesQuery = useQuery({
     ...orpc.database.query.queryOptions({
       input: {
-        resourceId: resourceId as never,
+        resourceId,
         sql: table ? columnTypesSql(table) : "",
         limit: 1000,
       },
@@ -150,7 +150,7 @@ export function useTableColumnMeta({
   const fkQuery = useQuery({
     ...orpc.database.query.queryOptions({
       input: {
-        resourceId: resourceId as never,
+        resourceId,
         sql: table ? foreignKeysSql(table) : "",
         limit: 1000,
       },
@@ -213,7 +213,7 @@ export function useTableStructure({
   const query = useQuery({
     ...orpc.database.query.queryOptions({
       input: {
-        resourceId: resourceId as never,
+        resourceId,
         sql: table ? structureSql(table) : "",
         limit: 1000,
       },
@@ -240,7 +240,7 @@ export function useTableColumns({
 }) {
   return useQuery({
     ...orpc.database.query.queryOptions({
-      input: { resourceId: resourceId as never, sql: tableColumnsSql(table), limit: 500 },
+      input: { resourceId, sql: tableColumnsSql(table), limit: 500 },
     }),
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -259,7 +259,7 @@ export function useReferencedRow({
 }) {
   return useQuery(
     orpc.database.query.queryOptions({
-      input: { resourceId: resourceId as never, sql: referencedRowSql(fk, value), limit: 1 },
+      input: { resourceId, sql: referencedRowSql(fk, value), limit: 1 },
     }),
   );
 }

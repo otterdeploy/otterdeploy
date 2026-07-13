@@ -52,7 +52,7 @@ export function RepoPicker({
 
   const reposQuery = useQuery(
     orpc.git.listRepos.queryOptions({
-      input: { installationId: (owner || "") as never },
+      input: { installationId: (owner || "") },
       enabled: Boolean(owner),
     }),
   );
@@ -150,7 +150,7 @@ function SyncReposRow({ installationId }: { installationId: string }) {
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: orpc.git.listRepos.queryKey({
-            input: { installationId: installationId as never },
+            input: { installationId },
           }),
         }),
         queryClient.invalidateQueries({
@@ -174,7 +174,7 @@ function SyncReposRow({ installationId }: { installationId: string }) {
         size="sm"
         variant="outline"
         className="h-7 shrink-0 text-[12px]"
-        onClick={() => refresh.mutate({ installationId: installationId as never })}
+        onClick={() => refresh.mutate({ installationId })}
         disabled={refresh.isPending}
       >
         {refresh.isPending ? (

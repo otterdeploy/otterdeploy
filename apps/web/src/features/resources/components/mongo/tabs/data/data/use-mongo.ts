@@ -12,7 +12,7 @@ import { orpc } from "@/shared/server/orpc";
 export function useMongoCollections(resourceId: string) {
   return useQuery(
     orpc.database.mongoCollections.queryOptions({
-      input: { resourceId: resourceId as never },
+      input: { resourceId },
     }),
   );
 }
@@ -33,7 +33,7 @@ export function useMongoDocuments({
 }) {
   return useQuery({
     ...orpc.database.mongoDocuments.queryOptions({
-      input: { resourceId: resourceId as never, collection, limit, skip },
+      input: { resourceId, collection, limit, skip },
     }),
     enabled: enabled && Boolean(collection),
     placeholderData: keepPreviousData,

@@ -6,6 +6,7 @@
  * resource-node.tsx to keep that file + this component under the line caps.
  */
 
+import type { ProjectSlug } from "@otterdeploy/shared/id";
 import { Loading03Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation } from "@tanstack/react-query";
@@ -20,6 +21,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/shared/components/ui/tooltip";
+import { toastMessage } from "@/shared/lib/errors";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
@@ -166,7 +168,7 @@ export function ComposeGroupNode({ data, selected }: NodeProps<ResourceFlowNode>
   const navigate = useNavigate();
   const params = useParams({ strict: false }) as {
     orgSlug?: string;
-    projectSlug?: string;
+    projectSlug?: ProjectSlug;
   };
   const openService = (resourceId: string) => {
     if (!params.orgSlug || !params.projectSlug) return;
@@ -174,7 +176,7 @@ export function ComposeGroupNode({ data, selected }: NodeProps<ResourceFlowNode>
       to: "/$orgSlug/$projectSlug/graph/$resourceId",
       params: {
         orgSlug: params.orgSlug,
-        projectSlug: params.projectSlug as never,
+        projectSlug: params.projectSlug,
         resourceId,
       },
     });
@@ -188,13 +190,13 @@ export function ComposeGroupNode({ data, selected }: NodeProps<ResourceFlowNode>
       toast.success(`Redeploying ${data.name}…`, {
         description: "Track progress in the stack's Deployments tab.",
       }),
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to redeploy"),
+    onError: (err) => toast.error(toastMessage(err, "Failed to redeploy")),
   });
   const onRedeploy = () => {
     if (!data.projectId || !data.resourceId) return;
     redeploy.mutate({
-      projectId: data.projectId as never,
-      resourceId: data.resourceId as never,
+      projectId: data.projectId,
+      resourceId: data.resourceId,
     });
   };
 

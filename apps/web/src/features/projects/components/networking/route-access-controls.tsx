@@ -63,7 +63,7 @@ function PinSection({ routeId }: { routeId: string }) {
   const [editing, setEditing] = useState(false);
 
   const statusOptions = orpc.project.proxyRoute.accessPin.queryOptions({
-    input: { routeId: routeId as never },
+    input: { routeId },
   });
   const status = useQuery(statusOptions);
   const enabled = status.data?.enabled ?? false;
@@ -83,7 +83,7 @@ function PinSection({ routeId }: { routeId: string }) {
     defaultValues: { pin: "" },
     onSubmit: ({ value }) => {
       if (!PIN_RE.test(value.pin)) return;
-      setAccessPin.mutate({ routeId: routeId as never, pin: value.pin });
+      setAccessPin.mutate({ routeId, pin: value.pin });
     },
   });
 
@@ -110,7 +110,7 @@ function PinSection({ routeId }: { routeId: string }) {
             variant="ghost"
             className="h-8 text-muted-foreground hover:text-destructive"
             disabled={setAccessPin.isPending}
-            onClick={() => setAccessPin.mutate({ routeId: routeId as never, pin: null })}
+            onClick={() => setAccessPin.mutate({ routeId, pin: null })}
           >
             Remove
           </Button>
@@ -197,7 +197,7 @@ function ShareLinkSection({ routeId }: { routeId: string }) {
             disabled={createShareLink.isPending}
             onClick={() =>
               createShareLink.mutate({
-                routeId: routeId as never,
+                routeId,
                 expiresInHours: Number(hours),
               })
             }
@@ -236,7 +236,7 @@ function BypassTokenSection({ routeId }: { routeId: string }) {
             disabled={createBypassToken.isPending}
             onClick={() =>
               createBypassToken.mutate({
-                routeId: routeId as never,
+                routeId,
                 expiresInDays: Number(days),
               })
             }

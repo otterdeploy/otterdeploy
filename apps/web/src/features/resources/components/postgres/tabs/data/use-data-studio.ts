@@ -50,7 +50,7 @@ export const PAGE_SIZES = [50, 100, 200, 500];
 export { errMessage };
 
 function useTableData(resource: Resource) {
-  const resourceId = resource.resourceId as never;
+  const resourceId = resource.resourceId;
   const resourceIdStr = String(resource.resourceId);
 
   const [mode, setMode] = useState<"table" | "sql">("table");
@@ -146,7 +146,7 @@ function useTableData(resource: Resource) {
 
   const schema = useMemo(
     () => buildSchema(tables, selected, columnVariants),
-    [selected, columnVariants],
+    [tables, selected, columnVariants],
   );
 
   const openTable = (t: TableRef) => {
@@ -186,7 +186,7 @@ function useTableData(resource: Resource) {
       autoOpenedRef.current = true;
       openTable(tables[0]);
     }
-  }, [selected]);
+  }, [selected, tables, openTable]);
 
   return {
     resourceId,

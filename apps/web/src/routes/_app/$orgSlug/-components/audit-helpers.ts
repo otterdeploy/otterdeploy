@@ -77,7 +77,12 @@ export function exportCsv(items: AuditEvent[]) {
     "reason",
   ];
   const esc = (v: unknown) => {
-    const s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+    let s: string;
+    if (v == null) s = "";
+    else if (typeof v === "string") s = v;
+    else if (typeof v === "number" || typeof v === "boolean" || typeof v === "bigint")
+      s = String(v);
+    else s = JSON.stringify(v);
     return `"${s.replace(/"/g, '""')}"`;
   };
   const rows = [

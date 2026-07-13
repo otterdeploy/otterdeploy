@@ -30,6 +30,23 @@ export function bytesToHex(bytes: Uint8Array): string {
 }
 
 /**
+ * Cryptographically-strong random secret as a URL-safe base64 string (no
+ * padding). Used to pre-fill secret-shaped template/compose variables (e.g.
+ * `POSTGRES_PASSWORD`) so the operator never hand-types a password — the same
+ * convenience the Postgres provisioner gives itself with
+ * `randomBytes(18).toString("base64url")`. `bytes` sets the entropy (default 24
+ * → 32 chars). Isomorphic: `getRandomValues` + `btoa` exist in both the browser
+ * and Node.
+ */
+export function randomSecret(bytes = 24): string {
+  const buf = new Uint8Array(bytes);
+  crypto.getRandomValues(buf);
+  let bin = "";
+  for (const b of buf) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/**
  * HMAC-SHA256 of a UTF-8 string (or raw bytes) as lowercase hex. The one
  * canonical implementation for webhook payload signing/verification — the
  * outbound delivery job (packages/jobs) signs with it and the API's inbound

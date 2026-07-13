@@ -6,6 +6,7 @@
  * task progression + container logs. The cards/rows live in `deployment-cards`.
  */
 
+import type { ProjectSlug } from "@otterdeploy/shared/id";
 import { ContainerIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
@@ -20,7 +21,7 @@ interface ResourceTasksTabProps {
   projectId: string;
   resourceId: string;
   orgSlug: string;
-  projectSlug: string;
+  projectSlug: ProjectSlug;
   /** Services support one-click image rollback from a past deployment; other
    *  resource kinds (databases, compose) don't. Off by default. */
   canRollback?: boolean;

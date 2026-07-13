@@ -22,7 +22,7 @@ export async function stageBuildConfig(
   nextBuild: BuildRailpackConfig | BuildDockerfileConfig,
 ): Promise<void> {
   const current = await orpc.project.manifest.get.call({
-    id: resource.projectId as never,
+    id: resource.projectId,
   });
   const base = current.manifest;
   if (!base) {
@@ -40,7 +40,7 @@ export async function stageBuildConfig(
     },
   };
   await orpc.project.manifest.save.call({
-    projectId: resource.projectId as never,
+    projectId: resource.projectId,
     manifest: next,
     expectedVersion: current.version,
   });
@@ -62,7 +62,7 @@ export async function stageSource(
   },
 ): Promise<void> {
   const current = await orpc.project.manifest.get.call({
-    id: resource.projectId as never,
+    id: resource.projectId,
   });
   const base = current.manifest;
   if (!base) {
@@ -88,7 +88,7 @@ export async function stageSource(
     },
   };
   await orpc.project.manifest.save.call({
-    projectId: resource.projectId as never,
+    projectId: resource.projectId,
     manifest: nextManifest,
     expectedVersion: current.version,
   });
@@ -98,12 +98,12 @@ export async function invalidateAfterSave(projectId: string): Promise<void> {
   await Promise.all([
     queryClient.invalidateQueries({
       queryKey: orpc.project.manifest.diff.queryKey({
-        input: { projectId: projectId as never },
+        input: { projectId },
       }),
     }),
     queryClient.invalidateQueries({
       queryKey: orpc.project.manifest.get.queryKey({
-        input: { id: projectId as never },
+        input: { id: projectId },
       }),
     }),
     queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY }),

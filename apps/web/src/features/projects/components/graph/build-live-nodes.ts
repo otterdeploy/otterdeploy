@@ -16,7 +16,7 @@ import {
 type Resource = ProjectResource;
 type ServiceResource = Extract<Resource, { type: "service" }>;
 
-interface Task {
+export interface Task {
   label: string;
   /** Compose sub-service this task belongs to; null for a plain service. */
   service: string | null;
@@ -50,8 +50,14 @@ const withReplicas = (node: LiveNode, tasks: Task[]): LiveNode =>
 
 /** Status of a single stack-member service resource — its live-task rollup if
  *  it has tasks, else its build-time deployment state. "offline" is a deployed
- *  service with no running task (the exact failure a single stack pill hides). */
-const childServiceStatus = (child: ServiceResource, tasks: Task[]): StackServiceStatus => {
+ *  service with no running task (the exact failure a single stack pill hides).
+ *  Exported so the compose DETAIL panel derives per-service status identically
+ *  to the graph node — they read the same child resources + tasks and must
+ *  never disagree. */
+export const childServiceStatus = (
+  child: ServiceResource,
+  tasks: Task[],
+): StackServiceStatus => {
   if (tasks.length > 0) return rollupStatus(tasks) as StackServiceStatus;
   switch (child.latestDeploymentStatus) {
     case "starting":

@@ -101,8 +101,8 @@ function ScalingForm({ resource, service }: { resource: ScalingResource; service
         queryClient.invalidateQueries({
           queryKey: orpc.service.get.queryKey({
             input: {
-              projectId: resource.projectId as never,
-              resourceId: resource.resourceId as never,
+              projectId: resource.projectId,
+              resourceId: resource.resourceId,
             },
           }),
         }),
@@ -122,8 +122,8 @@ function ScalingForm({ resource, service }: { resource: ScalingResource; service
     if (!patch || !formValid) return;
     saveMut.mutate(
       {
-        projectId: resource.projectId as never,
-        resourceId: resource.resourceId as never,
+        projectId: resource.projectId,
+        resourceId: resource.resourceId,
         ...(patch.replicas !== undefined ? { replicas: patch.replicas } : {}),
         ...(patch.resources ? { resources: patch.resources } : {}),
       },
@@ -173,8 +173,8 @@ export function ServiceScalingCard({ resource }: { resource: ScalingResource }) 
   const serviceQuery = useQuery(
     orpc.service.get.queryOptions({
       input: {
-        projectId: resource.projectId as never,
-        resourceId: resource.resourceId as never,
+        projectId: resource.projectId,
+        resourceId: resource.resourceId,
       },
     }),
   );

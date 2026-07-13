@@ -15,6 +15,7 @@ import {
   useChildMatches,
   useLoaderData,
 } from "@tanstack/react-router";
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useQuery } from "@tanstack/react-query";
 
@@ -55,8 +56,8 @@ export const Route = createFileRoute(
         .prefetchQuery(
           orpc.service.get.queryOptions({
             input: {
-              projectId: resource.projectId as never,
-              resourceId: resource.resourceId as never,
+              projectId: resource.projectId,
+              resourceId: resource.resourceId,
             },
           }),
         )
@@ -75,13 +76,16 @@ function draftServiceFromManifest(
   manifestData: ManifestData | undefined,
   resourceId: string,
   pendingName: string,
-  projectId: string,
+  projectId: ProjectId,
 ) {
   if (!resourceId.startsWith("service:")) return null;
   const spec = manifestData?.manifest?.services?.[pendingName];
   if (!spec) return null;
   return {
-    resourceId: "",
+    // Pending draft: no resource row exists yet, so there's no ResourceId.
+    // The empty sentinel is safe — pending mode never calls resource-scoped
+    // APIs (see the panel's `pending` short-circuits).
+    resourceId: "" as ResourceId,
     projectId,
     name: pendingName,
     image: spec.source === "image" ? spec.image : "Pending build",

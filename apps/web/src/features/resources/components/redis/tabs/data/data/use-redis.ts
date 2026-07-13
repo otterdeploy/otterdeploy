@@ -15,7 +15,7 @@ import { orpc } from "@/shared/server/orpc";
 export function useRedisKeyspace(resourceId: string) {
   return useQuery(
     orpc.database.redisKeyspace.queryOptions({
-      input: { resourceId: resourceId as never },
+      input: { resourceId },
     }),
   );
 }
@@ -39,7 +39,7 @@ export function useRedisKeys({
 }) {
   return useQuery({
     ...orpc.database.redisKeys.queryOptions({
-      input: { resourceId: resourceId as never, db, match, cursor, count },
+      input: { resourceId, db, match, cursor, count },
     }),
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: false,
@@ -63,7 +63,7 @@ export function useRedisValue({
 }) {
   return useQuery({
     ...orpc.database.redisValue.queryOptions({
-      input: { resourceId: resourceId as never, db, key: key ?? "", limit },
+      input: { resourceId, db, key: key ?? "", limit },
     }),
     enabled: enabled && Boolean(key),
     refetchOnWindowFocus: false,

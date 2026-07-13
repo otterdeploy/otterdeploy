@@ -5,7 +5,7 @@
  * within size + complexity budgets.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { toast } from "sonner";
 import { format as formatSql } from "sql-formatter";
@@ -69,11 +69,12 @@ export function useSnippetBuffer(resourceId: string) {
   // if the snippet was deleted out from under us.
   const activeSnippet =
     activeSnippetId === PLAYGROUND_ID ? null : snippets.find((s) => s.id === activeSnippetId);
-  useEffect(() => {
-    if (activeSnippetId !== PLAYGROUND_ID && !activeSnippet) {
-      setActiveSnippetId(PLAYGROUND_ID);
-    }
-  }, [activeSnippetId, activeSnippet]);
+  // Corrected during render (not an effect) so the buffer never paints a stale
+  // value for a snippet that was deleted out from under us; the guard resolves
+  // itself once we're back on Playground, so there's no render loop.
+  if (activeSnippetId !== PLAYGROUND_ID && !activeSnippet) {
+    setActiveSnippetId(PLAYGROUND_ID);
+  }
   const editorValue = activeSnippetId === PLAYGROUND_ID ? playground : (activeSnippet?.sql ?? "");
 
   const onEditorChange = (v: string) => {
@@ -161,7 +162,7 @@ export function useBulkDelete({
           }));
           try {
             await mutateRow.mutateAsync({
-              resourceId: resourceId as never,
+              resourceId,
               schema: selected.schema,
               table: selected.name,
               op: "delete",
@@ -206,7 +207,7 @@ export function useRowMutations(
     async (pk: ColumnValue[], set: ColumnValue[]) => {
       if (!selected) return;
       await mutateRow.mutateAsync({
-        resourceId: resourceId as never,
+        resourceId,
         schema: selected.schema,
         table: selected.name,
         op: "update",
@@ -223,7 +224,7 @@ export function useRowMutations(
     async (pk: ColumnValue[]) => {
       if (!selected) return;
       await mutateRow.mutateAsync({
-        resourceId: resourceId as never,
+        resourceId,
         schema: selected.schema,
         table: selected.name,
         op: "delete",

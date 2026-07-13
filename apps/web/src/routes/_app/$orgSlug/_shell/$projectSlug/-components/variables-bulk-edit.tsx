@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -74,21 +74,31 @@ export function BulkEditDialog({
     () => currentRows.map((v) => `${v.key}=${v.value}`).join("\n"),
     [currentRows],
   );
-  const [text, setText] = useState(initial);
+  const [text, setText] = useState(prefillText ?? initial);
 
   // Re-hydrate when the dialog opens or the rows refetch so a stale
   // edit doesn't persist between visits to the same env tab. A dropped
-  // .env file (prefillText) wins over the current rows.
-  useEffect(() => {
+  // .env file (prefillText) wins over the current rows. Done in render
+  // (prev-value compare) instead of an effect so the buffer is correct
+  // on the first paint.
+  const [prevInitial, setPrevInitial] = useState(initial);
+  const [prevPrefill, setPrevPrefill] = useState(prefillText);
+  if (initial !== prevInitial || prefillText !== prevPrefill) {
+    setPrevInitial(initial);
+    setPrevPrefill(prefillText);
     setText(prefillText ?? initial);
-  }, [initial, prefillText]);
+  }
 
   // Cross-env targets — the current env is pre-checked each time the
   // dialog opens; others are opt-in.
   const [targetIds, setTargetIds] = useState<Set<string>>(() => new Set([env.id]));
-  useEffect(() => {
+  const [prevOpen, setPrevOpen] = useState(open);
+  const [prevEnvId, setPrevEnvId] = useState(env.id);
+  if (open !== prevOpen || env.id !== prevEnvId) {
+    setPrevOpen(open);
+    setPrevEnvId(env.id);
     if (open) setTargetIds(new Set([env.id]));
-  }, [open, env.id]);
+  }
 
   const toggleTarget = (envId: string) =>
     setTargetIds((s) => {
@@ -111,8 +121,8 @@ export function BulkEditDialog({
     setSaving(true);
     const { applied, failed } = await applyToTargets(targets, (target) =>
       bulkMut.mutateAsync({
-        projectId: projectId as never,
-        environmentId: target.id as never,
+        projectId,
+        environmentId: target.id,
         vars: parsed.map((p) => ({
           key: p.key,
           value: p.value,

@@ -5,6 +5,7 @@
  * domain settings live on the same page.
  */
 
+import type { OrganizationId } from "@otterdeploy/shared/id";
 import { ServerStack01Icon } from "@hugeicons/core-free-icons";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -15,7 +16,7 @@ import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-function invalidateControlPlane(organizationId: never) {
+function invalidateControlPlane(organizationId: OrganizationId) {
   return queryClient.invalidateQueries({
     queryKey: orpc.organization.controlPlaneDomain.queryKey({ input: { organizationId } }),
   });
@@ -28,7 +29,7 @@ function domainStatus(current: string, verifiedAt: unknown): DomainStatus {
   return verifiedAt ? "verified" : "pending";
 }
 
-export function ControlPlaneCard({ organizationId }: { organizationId: never }) {
+export function ControlPlaneCard({ organizationId }: { organizationId: OrganizationId }) {
   const domainQuery = useQuery(
     orpc.organization.controlPlaneDomain.queryOptions({ input: { organizationId } }),
   );
@@ -115,7 +116,7 @@ function StatusFooter({
   status,
   current,
 }: {
-  organizationId: never;
+  organizationId: OrganizationId;
   status: DomainStatus;
   current: string;
 }) {
@@ -164,7 +165,7 @@ function PendingVerification({
   serverIp,
   cloudflareConfigured,
 }: {
-  organizationId: never;
+  organizationId: OrganizationId;
   current: string;
   verifyToken: string;
   serverIp: string | null;
@@ -210,7 +211,7 @@ function PendingVerification({
   );
 }
 
-function CloudflareAutoConfigureButton({ organizationId }: { organizationId: never }) {
+function CloudflareAutoConfigureButton({ organizationId }: { organizationId: OrganizationId }) {
   const auto = useMutation({
     ...orpc.organization.autoConfigureControlPlaneDomain.mutationOptions(),
     onSuccess: async (result) => {

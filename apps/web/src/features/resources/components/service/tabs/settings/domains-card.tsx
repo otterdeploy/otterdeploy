@@ -10,6 +10,7 @@
  * (the Protection card) applies per domain.
  */
 
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import { useState } from "react";
 
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
@@ -33,11 +34,11 @@ import { DnsHint, DomainEditRow, DomainRowActions, StatusBadge } from "./domains
 export function ServiceDomainsCard({
   resource,
 }: {
-  resource: { projectId: string; resourceId: string; publicEnabled: boolean };
+  resource: { projectId: ProjectId; resourceId: ResourceId; publicEnabled: boolean };
 }) {
   const input = {
-    projectId: resource.projectId as never,
-    resourceId: resource.resourceId as never,
+    projectId: resource.projectId,
+    resourceId: resource.resourceId,
   };
 
   const domains = useQuery(orpc.service.domains.list.queryOptions({ input }));
@@ -50,7 +51,7 @@ export function ServiceDomainsCard({
       // The primary mirrors into the resource list (panel header, graph).
       queryClient.invalidateQueries({
         queryKey: orpc.project.resource.list.queryKey({
-          input: { projectId: resource.projectId as never },
+          input: { projectId: resource.projectId },
         }),
       }),
       queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY }),
@@ -183,7 +184,7 @@ function DomainRow({
   onSettled,
 }: {
   domain: DomainView;
-  input: { projectId: never; resourceId: never };
+  input: { projectId: ProjectId; resourceId: ResourceId };
   onSettled: () => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);

@@ -11,13 +11,19 @@
  * deployment cards + per-deployment build logs work unchanged.
  */
 
-import { useState } from "react";
+import type { ProjectSlug } from "@otterdeploy/shared/id";
+import { useMemo, useState } from "react";
 
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import {
+  childServiceStatus,
+  type Task,
+} from "@/features/projects/components/graph/build-live-nodes";
 import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
+import { resourceCollection } from "@/features/resources/data/resource";
 import { serviceTasksCollection } from "@/features/resources/data/service-tasks";
 import {
   Tabs,
@@ -30,7 +36,7 @@ import { orpc } from "@/shared/server/orpc";
 
 import type { ComposeService, StackServiceStatus } from "./panel-parts";
 
-import { baseStatus, ComposePanelHeader, ComposeStatusBar, rollupTaskStatus } from "./panel-parts";
+import { baseStatus, ComposePanelHeader, ComposeStatusBar } from "./panel-parts";
 import { ComposeFileTab, ComposeServicesTab, ComposeSettingsTab } from "./panel-tabs";
 
 type ComposeTab = "deployments" | "services" | "file" | "settings";
@@ -59,7 +65,7 @@ interface ComposeResourcePanelProps {
     logoBrand?: string | null;
   };
   orgSlug: string;
-  projectSlug: string;
+  projectSlug: ProjectSlug;
   onClose: () => void;
 }
 
@@ -71,18 +77,39 @@ export function ComposeResourcePanel({
 }: ComposeResourcePanelProps) {
   const [tab, setTab] = useState<ComposeTab>("deployments");
 
-  // Live per-service status from swarm tasks (the same feed the graph group
-  // uses). Each task carries its compose sub-service key, so we roll up per
-  // service — "which one is down?" is answerable here too.
+  // Per-service status is derived from the EXACT same source the graph node
+  // reads: the stack's real child service resources + their live tasks. A
+  // compose child owns its swarm tasks under its OWN resourceId, so we key
+  // tasks by resourceId and run the shared `childServiceStatus` — the node and
+  // this panel then can never disagree about what's running.
   const { data: taskRows } = useLiveQuery(
     (q) =>
       q.from({ d: serviceTasksCollection }).where(({ d }) => eq(d.projectId, resource.projectId)),
     [resource.projectId],
   );
-  const byService = rollupTaskStatus(taskRows, resource.resourceId);
+  // `stackId` lives only on the service variant, so we can't filter on it in the
+  // typed where-clause — scope by projectId and narrow to this stack's children
+  // in JS below.
+  const { data: projectResources } = useLiveQuery(
+    (q) => q.from({ r: resourceCollection }).where(({ r }) => eq(r.projectId, resource.projectId)),
+    [resource.projectId],
+  );
+  const tasksByResourceId = useMemo(() => {
+    const m = new Map<string, Task[]>();
+    for (const row of taskRows) m.set(row.resourceId, row.tasks as Task[]);
+    return m;
+  }, [taskRows]);
+  const statusByName = useMemo(() => {
+    const m = new Map<string, StackServiceStatus>();
+    for (const c of projectResources) {
+      if (c.type !== "service" || c.stackId !== resource.resourceId) continue;
+      m.set(c.name, childServiceStatus(c, tasksByResourceId.get(c.resourceId) ?? []));
+    }
+    return m;
+  }, [projectResources, tasksByResourceId, resource.resourceId]);
   const base = baseStatus(resource.latestDeploymentStatus);
   const serviceStatus = (name: string): StackServiceStatus =>
-    byService.get(name) ?? base ?? "offline";
+    statusByName.get(name) ?? base ?? "offline";
 
   // The raw compose file (inline source) for the read-only viewer.
   const fileQuery = useQuery(

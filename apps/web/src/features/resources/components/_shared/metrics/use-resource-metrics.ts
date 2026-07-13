@@ -80,7 +80,7 @@ const EMPTY_SUMMARY: MetricSummary = {
 export function useResourceMetrics(resourceId: string, windowMinutes: number): ResourceMetrics {
   const query = useQuery({
     ...orpc.metrics.query.queryOptions({
-      input: { resourceId: resourceId as never, windowMinutes },
+      input: { resourceId, windowMinutes },
     }),
     // Poll in lockstep with the sampler so the panel trails real time by at
     // most one tick. `placeholderData` holds the previous series on screen

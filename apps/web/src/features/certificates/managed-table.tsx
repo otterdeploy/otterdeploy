@@ -5,6 +5,7 @@
  * to the full leaf details. Domains served by an uploaded custom cert are
  * badged, linking the two planes together.
  */
+import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { Fragment, useState } from "react";
 
 import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
@@ -155,7 +156,7 @@ function ManagedRow({
                 to="/$orgSlug/$projectSlug"
                 // Route param is the branded ProjectSlug; the wire type is a
                 // plain string (same pragmatic cast as git-providers/app-detail).
-                params={{ orgSlug, projectSlug: p.slug as never }}
+                params={{ orgSlug, projectSlug: zSlug(ID_PREFIX.project).parse(p.slug) }}
                 className="hover:text-foreground hover:underline"
               >
                 {p.name}

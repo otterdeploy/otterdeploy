@@ -6,7 +6,7 @@
  * typo can never take the project's real routes offline.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Alert02Icon, CheckmarkCircle02Icon, ServerStack01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -27,7 +27,7 @@ redirect.example.com {
 export function CustomConfigEditor({ projectId }: { projectId: string }) {
   const configQuery = useQuery(
     orpc.project.proxyRoute.customConfig.queryOptions({
-      input: { projectId: projectId as never },
+      input: { projectId },
     }),
   );
 
@@ -36,10 +36,15 @@ export function CustomConfigEditor({ projectId }: { projectId: string }) {
   const loaded = configQuery.data?.config ?? "";
 
   // Hydrate the editor once the saved config arrives (and on project switch).
-  useEffect(() => {
-    setValue(configQuery.data?.config ?? "");
+  // Sync during render (prev-value pattern) rather than in an effect so the
+  // editor never paints a stale value between the fetch resolving and a sync.
+  const savedConfig = configQuery.data?.config;
+  const [prevSavedConfig, setPrevSavedConfig] = useState(savedConfig);
+  if (savedConfig !== prevSavedConfig) {
+    setPrevSavedConfig(savedConfig);
+    setValue(savedConfig ?? "");
     setError(null);
-  }, [configQuery.data?.config]);
+  }
 
   const save = useMutation({
     ...orpc.project.proxyRoute.setCustomConfig.mutationOptions(),
@@ -49,12 +54,12 @@ export function CustomConfigEditor({ projectId }: { projectId: string }) {
         toast.success("Custom config applied");
         void queryClient.invalidateQueries({
           queryKey: orpc.project.proxyRoute.customConfig.key({
-            input: { projectId: projectId as never },
+            input: { projectId },
           }),
         });
         void queryClient.invalidateQueries({
           queryKey: orpc.project.proxyRoute.caddyfile.key({
-            input: { projectId: projectId as never },
+            input: { projectId },
           }),
         });
       } else {
@@ -70,7 +75,7 @@ export function CustomConfigEditor({ projectId }: { projectId: string }) {
 
   const onSave = () =>
     save.mutate({
-      projectId: projectId as never,
+      projectId,
       config: value.trim().length === 0 ? null : value,
     });
 

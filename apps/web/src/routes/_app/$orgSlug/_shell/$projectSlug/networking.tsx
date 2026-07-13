@@ -59,12 +59,12 @@ function RouteComponent() {
   );
   const resourcesQuery = useQuery(
     orpc.project.resource.list.queryOptions({
-      input: { projectId: projectId as never },
+      input: { projectId },
     }),
   );
   const caddyfileQuery = useQuery(
     orpc.project.proxyRoute.caddyfile.queryOptions({
-      input: { projectId: projectId as never },
+      input: { projectId },
     }),
   );
 
@@ -111,7 +111,7 @@ function RouteComponent() {
             onClick={() => {
               void queryClient.invalidateQueries({
                 queryKey: orpc.project.proxyRoute.list.queryKey({
-                  input: { projectId: projectId as never },
+                  input: { projectId },
                 }),
               });
               void resourcesQuery.refetch();

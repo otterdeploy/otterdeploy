@@ -83,18 +83,20 @@ function DockerRoute() {
   // its NodeID). Containers/images/volumes/networks are per-daemon state and
   // the control plane only reaches the manager's daemon — those tabs say so
   // instead of pretending to filter.
-  const filteredTasks = useMemo(() => {
-    if (nodeFilter === "all") return tasks;
-    // Pick only the QueryLike fields TasksTable reads instead of spreading the
-    // whole query object (a spread subscribes to every tracked field → churn).
-    return {
-      data: tasks.data?.filter((t) => t.nodeId === nodeFilter),
-      isLoading: tasks.isLoading,
-      isError: tasks.isError,
-      error: tasks.error,
-      refetch: tasks.refetch,
-    };
-  }, [tasks, nodeFilter]);
+  // Pick only the QueryLike fields TasksTable reads instead of depending on the
+  // whole (referentially unstable) query object — that would recompute every
+  // render. Destructure the exact fields so the memo tracks only real changes.
+  const { data: tasksData, isLoading, isError, error, refetch } = tasks;
+  const filteredTasks = useMemo(
+    () => ({
+      data: nodeFilter === "all" ? tasksData : tasksData?.filter((t) => t.nodeId === nodeFilter),
+      isLoading,
+      isError,
+      error,
+      refetch,
+    }),
+    [tasksData, isLoading, isError, error, refetch, nodeFilter],
+  );
 
   const prune = useMutation(
     orpc.docker.images.prune.mutationOptions({

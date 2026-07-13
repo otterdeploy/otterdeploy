@@ -210,7 +210,7 @@ function ComposeFileEditor({
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: orpc.compose.get.queryKey({
-            input: { projectId: projectId as never, resourceId: resourceId as never },
+            input: { projectId, resourceId },
           }),
         }),
         // The graph card reads the parsed service summary off the resource list.
@@ -254,8 +254,8 @@ function ComposeFileEditor({
           disabled={!dirty || save.isPending}
           onClick={() =>
             save.mutate({
-              projectId: projectId as never,
-              resourceId: resourceId as never,
+              projectId,
+              resourceId,
               composeContent: draft,
             })
           }

@@ -1,4 +1,5 @@
 import type { db as DbClient } from "@otterdeploy/db";
+import type { DeploymentId } from "@otterdeploy/shared/id";
 
 import { deployment, deploymentLog, project, resource } from "@otterdeploy/db/schema";
 /**
@@ -242,7 +243,7 @@ async function reconcileDuplicateRunning(db: DbLike): Promise<number> {
  *  reconcile (which has already committed the status flip). */
 async function recordReset(
   db: DbLike,
-  deploymentId: string,
+  deploymentId: DeploymentId,
   message: string,
   emit: boolean,
   emitEvent: (payload: PlatformEventPayload) => Promise<unknown>,
@@ -254,7 +255,7 @@ async function recordReset(
   await db
     .insert(deploymentLog)
     .values({
-      deploymentId: deploymentId as never,
+      deploymentId,
       stream: "system",
       line: `interrupted by restart — marked failed (${message})`,
     })
@@ -269,7 +270,7 @@ async function recordReset(
 
 async function notifyDeployFailed(
   db: DbLike,
-  deploymentId: string,
+  deploymentId: DeploymentId,
   message: string,
   emitEvent: (payload: PlatformEventPayload) => Promise<unknown>,
 ): Promise<void> {
@@ -282,7 +283,7 @@ async function notifyDeployFailed(
     .from(deployment)
     .innerJoin(resource, eq(resource.id, deployment.resourceId))
     .innerJoin(project, eq(project.id, resource.projectId))
-    .where(eq(deployment.id, deploymentId as never));
+    .where(eq(deployment.id, deploymentId));
 
   if (!info) return;
 

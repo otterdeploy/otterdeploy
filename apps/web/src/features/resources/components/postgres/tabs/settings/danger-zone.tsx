@@ -21,11 +21,12 @@ interface DangerZoneProps {
 }
 
 export function DangerZone({ resource, onDeleted }: DangerZoneProps) {
-  const stage = useStageManifestChange(resource.projectId as never);
+  const stage = useStageManifestChange(resource.projectId);
   const stageDelete = () => {
     stage.mutate(
       (current) => {
-        const { [resource.name]: _removed, ...remaining } = current.databases;
+        const remaining = { ...current.databases };
+        delete remaining[resource.name];
         return { ...current, databases: remaining };
       },
       { onSuccess: () => onDeleted() },

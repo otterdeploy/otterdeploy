@@ -34,14 +34,14 @@ export function PublicAccessCard({
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: orpc.project.resource.list.queryKey({
-            input: { projectId: resource.projectId as never },
+            input: { projectId: resource.projectId },
           }),
         }),
         // The backend syncs the manifest's declared publicEnabled with the
         // toggle — refresh the diff so the pending bar drops/updates in step.
         queryClient.invalidateQueries({
           queryKey: orpc.project.manifest.diff.queryKey({
-            input: { projectId: resource.projectId as never },
+            input: { projectId: resource.projectId },
           }),
         }),
       ]);
@@ -50,7 +50,7 @@ export function PublicAccessCard({
     onError: (err) => toast.error(err.message ?? "Failed to update public access"),
   });
 
-  const stage = useStageManifestChange(resource.projectId as never, {
+  const stage = useStageManifestChange(resource.projectId, {
     successToast: "Public access staged — Deploy to apply",
   });
 
@@ -67,8 +67,8 @@ export function PublicAccessCard({
       return;
     }
     setPublic.mutate({
-      projectId: resource.projectId as never,
-      resourceId: resource.resourceId as never,
+      projectId: resource.projectId,
+      resourceId: resource.resourceId,
       publicEnabled: next,
     });
   };

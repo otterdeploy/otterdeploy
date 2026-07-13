@@ -42,10 +42,14 @@ export function CaddyfileViewer({ source, revision, loading, className }: Caddyf
   const { lines, total } = useMemo(() => buildModel(source, query), [source, query]);
 
   // Reset the cursor to the first hit whenever the query (and thus the match
-  // set) changes, so prev/next start from a sane position.
-  useEffect(() => {
+  // set) changes, so prev/next start from a sane position. Done in render via
+  // the prev-value pattern rather than an effect, so it doesn't trigger an
+  // extra render (and re-run the scroll effect below with a stale `active`).
+  const [prevQuery, setPrevQuery] = useState(query);
+  if (query !== prevQuery) {
+    setPrevQuery(query);
     setActive(0);
-  }, [query]);
+  }
 
   // Scroll the active match into view as the user steps through hits.
   useEffect(() => {

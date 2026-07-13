@@ -6,6 +6,7 @@
  * env value re-applies on every boot and would silently win.
  */
 
+import type { OrganizationId } from "@otterdeploy/shared/id";
 import { GlobalIcon } from "@hugeicons/core-free-icons";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -16,7 +17,7 @@ import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-export function ServerIpCard({ organizationId }: { organizationId: never }) {
+export function ServerIpCard({ organizationId }: { organizationId: OrganizationId }) {
   const query = useQuery(orpc.organization.getServerIp.queryOptions({ input: { organizationId } }));
   const save = useMutation({
     ...orpc.organization.setServerIp.mutationOptions(),

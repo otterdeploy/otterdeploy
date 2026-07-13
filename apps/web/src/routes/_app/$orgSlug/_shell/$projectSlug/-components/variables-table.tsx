@@ -64,8 +64,8 @@ export function PerEnvTable({
           ...PROJECT_VARIABLES_COLLECTION_KEY,
           ...orpc.project.envVar.list.queryKey({
             input: {
-              projectId: projectId as never,
-              environmentId: envId as never,
+              projectId,
+              environmentId: envId,
             },
           }),
         ],

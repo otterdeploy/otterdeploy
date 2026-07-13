@@ -2,6 +2,7 @@
 // sensitive marking. Commits the whole diff in one bulkSet call so a 12
 // line .env paste = one deployment, not twelve.
 
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import { useEffect, useRef, useState } from "react";
 
 import { useMutation } from "@tanstack/react-query";
@@ -19,8 +20,8 @@ import { useEditorState } from "./use-editor-state";
 // without dragging in the engine/databaseName/etc. fields the database
 // view carries.
 export interface VariablesEditorResource {
-  projectId: string;
-  resourceId: string;
+  projectId: ProjectId;
+  resourceId: ResourceId;
   extraEnv: Record<string, string>;
   secretKeys: string[];
 }
@@ -66,7 +67,7 @@ export function VariablesEditor({ resource, addRowSignal = 0, onSave }: Variable
       onSuccess: async () => {
         await queryClient.invalidateQueries({
           queryKey: orpc.project.resource.list.queryKey({
-            input: { projectId: resource.projectId as never },
+            input: { projectId: resource.projectId },
           }),
         });
         toast.success("Variables saved — service redeploying");
@@ -94,8 +95,8 @@ export function VariablesEditor({ resource, addRowSignal = 0, onSave }: Variable
     }
 
     saveMut.mutate({
-      projectId: resource.projectId as never,
-      resourceId: resource.resourceId as never,
+      projectId: resource.projectId,
+      resourceId: resource.resourceId,
       env,
       secretKeys,
     });

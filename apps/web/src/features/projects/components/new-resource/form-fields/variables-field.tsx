@@ -19,6 +19,10 @@ export interface Var {
   key: string;
   value: string;
   secret: boolean;
+  /** The stack/template declares this `${VAR}` with no default — a value must be
+   *  set before it can deploy. Drives the required/optional indicator. Absent =
+   *  operator-added / optional. */
+  required?: boolean;
 }
 
 export function VariablesField({ projectId }: { projectId?: string }) {
@@ -70,6 +74,7 @@ export function VariablesField({ projectId }: { projectId?: string }) {
             <TableHead className="text-[11px] font-semibold tracking-[0.06em] uppercase">
               Value
             </TableHead>
+            <TableHead className="w-[44px]" />
             <TableHead className="w-[60px] text-center text-[11px] font-semibold tracking-[0.06em] uppercase">
               Secret
             </TableHead>

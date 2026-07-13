@@ -33,10 +33,10 @@ function InstanceRoute() {
       />
 
       <UpdatesCard />
-      <ControlPlaneCard organizationId={organization.id as never} />
-      <ServerIpCard organizationId={organization.id as never} />
-      <EdgeDefaultsCard organizationId={organization.id as never} />
-      <EmailCard organizationId={organization.id as never} />
+      <ControlPlaneCard organizationId={organization.id} />
+      <ServerIpCard organizationId={organization.id} />
+      <EdgeDefaultsCard organizationId={organization.id} />
+      <EmailCard organizationId={organization.id} />
     </Page>
   );
 }

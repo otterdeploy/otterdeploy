@@ -52,7 +52,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
   const { bannedIps, block, blockMany } = useEdgeBans();
 
   const data = query.data;
-  const allRows = data?.rows ?? [];
+  const allRows = useMemo(() => data?.rows ?? [], [data?.rows]);
   // Client-side narrow to scanner probes. Classification is a pure path check
   // (see threat.ts); it scopes the visible rows within the fetched window.
   const suspiciousCount = useMemo(

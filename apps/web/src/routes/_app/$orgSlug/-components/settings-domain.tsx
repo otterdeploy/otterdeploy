@@ -1,3 +1,4 @@
+import type { OrganizationId } from "@otterdeploy/shared/id";
 import { EarthIcon } from "@hugeicons/core-free-icons";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -8,7 +9,7 @@ import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-function invalidateSettings(organizationId: never) {
+function invalidateSettings(organizationId: OrganizationId) {
   return queryClient.invalidateQueries({
     queryKey: orpc.organization.settings.queryKey({
       input: { organizationId },
@@ -23,7 +24,7 @@ function domainStatus(current: string, verifiedAt: unknown): DomainStatus {
   return verifiedAt ? "verified" : "pending";
 }
 
-export function DomainCard({ organizationId }: { organizationId: never }) {
+export function DomainCard({ organizationId }: { organizationId: OrganizationId }) {
   const settingsQuery = useQuery(
     orpc.organization.settings.queryOptions({ input: { organizationId } }),
   );
@@ -119,7 +120,7 @@ function PendingVerification({
   verifyToken,
   cloudflareConfigured,
 }: {
-  organizationId: never;
+  organizationId: OrganizationId;
   current: string;
   verifyToken: string;
   cloudflareConfigured: boolean;
@@ -167,7 +168,7 @@ function PendingVerification({
 function CloudflareAutoConfigureButton({
   organizationId,
 }: {
-  organizationId: never;
+  organizationId: OrganizationId;
 }) {
   const auto = useMutation({
     ...orpc.organization.autoConfigureBaseDomain.mutationOptions(),

@@ -43,7 +43,7 @@ function SettingsForm({ project }: { project: ProjectSettingsFields }) {
       toast.success("Settings saved");
       void queryClient.invalidateQueries({ queryKey: orpc.project.list.queryKey() });
       void queryClient.invalidateQueries({
-        queryKey: orpc.project.get.queryKey({ input: { id: project.id as never } }),
+        queryKey: orpc.project.get.queryKey({ input: { id: project.id } }),
       });
     },
     onError: (err) => toast.error(err.message ?? "Failed to save"),
@@ -53,7 +53,7 @@ function SettingsForm({ project }: { project: ProjectSettingsFields }) {
     defaultValues: { customDomain: project.customDomain ?? "" },
     onSubmit: ({ value }) => {
       updateMut.mutate({
-        id: project.id as never,
+        id: project.id,
         customDomain: value.customDomain.trim() || null,
       });
     },

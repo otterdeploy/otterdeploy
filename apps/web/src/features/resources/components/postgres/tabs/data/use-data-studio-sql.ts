@@ -105,7 +105,7 @@ export function useWriteConfirm({
     const sql = pendingWrite.sql;
     setPendingWrite(null);
     executeSql.mutate(
-      { resourceId: resourceId as never, sql, limit: SQL_RESULT_CAP },
+      { resourceId, sql, limit: SQL_RESULT_CAP },
       {
         onSuccess: (res) => {
           toast.success(

@@ -11,7 +11,7 @@
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useLoaderData, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { DeploymentsTableSection } from "@/features/deployments/components/deployments-table";
 import { DeploymentsToolbar } from "@/features/deployments/components/deployments-toolbar";
@@ -66,9 +66,15 @@ function RouteComponent() {
   const statusFilter = search.status ?? "any";
 
   // Growing-limit pagination (audit idiom); reset when the filter set changes.
+  // Reset during render (prev-value pattern) instead of in an effect so the
+  // query never runs one commit with the previous limit against a new filter.
   const [limit, setLimit] = useState(PAGE_SIZE);
   const filterKey = `${svcFilter}|${statusFilter}|${windowSel}`;
-  useEffect(() => setLimit(PAGE_SIZE), [filterKey]);
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  if (filterKey !== prevFilterKey) {
+    setPrevFilterKey(filterKey);
+    setLimit(PAGE_SIZE);
+  }
 
   // Lower bound recomputed only when the window selection changes — a fresh
   // "now" every render would thrash the query input identity.
@@ -107,7 +113,7 @@ function RouteComponent() {
         to: "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId",
         params: {
           orgSlug,
-          projectSlug: projectSlug as never,
+          projectSlug,
           resourceId: d.resourceId,
           deploymentId: d.id,
         },

@@ -1,3 +1,4 @@
+import type { ProjectSlug } from "@otterdeploy/shared/id";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 
@@ -8,7 +9,7 @@ import { badgeBase, label, pillClass, type PreviewService } from "./shared";
 
 export function DeploymentHistory(props: {
   orgSlug: string;
-  projectSlug: string;
+  projectSlug: ProjectSlug;
   projectId: string;
   previewId: string;
   service: PreviewService;
@@ -37,7 +38,7 @@ export function DeploymentHistory(props: {
                 to="/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
                 params={{
                   orgSlug,
-                  projectSlug: projectSlug as never,
+                  projectSlug,
                   resourceId: service.resourceId,
                   deploymentId: d.id,
                 }}

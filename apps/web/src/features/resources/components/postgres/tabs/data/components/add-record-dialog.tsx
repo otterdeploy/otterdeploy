@@ -74,7 +74,7 @@ export function AddRecordDialog({
       if (issues.length > 0) return setShowIssues(true);
       mutateRow.mutate(
         {
-          resourceId: resourceId as never,
+          resourceId,
           schema: table.schema,
           table: table.name,
           op: "insert",

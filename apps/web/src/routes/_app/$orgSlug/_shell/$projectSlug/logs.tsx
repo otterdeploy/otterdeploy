@@ -7,7 +7,7 @@
 
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useState } from "react";
 
 import {
   type LogsSearch,
@@ -89,13 +89,15 @@ function RouteComponent() {
   // Search text stays local for input responsiveness and is debounced into the
   // URL below so we don't navigate on every keystroke.
   const [query, setQuery] = useState(search.q ?? "");
+  // `patchSearch` follows router `navigate` identity; keep it out of the
+  // effect's deps so the debounce timer resets only on `query` changes.
+  const commitQuery = useEffectEvent((q: string) => {
+    patchSearch({ q: q.trim() || undefined });
+  });
   useEffect(() => {
-    const id = setTimeout(
-      () => patchSearch({ q: query.trim() || undefined }),
-      300,
-    );
+    const id = setTimeout(() => commitQuery(query), 300);
     return () => clearTimeout(id);
-  }, [query, patchSearch]);
+  }, [query]);
 
   const [paused, setPaused] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);

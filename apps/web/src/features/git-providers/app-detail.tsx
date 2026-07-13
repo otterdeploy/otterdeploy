@@ -1,4 +1,4 @@
-import type { GitProviderId } from "@otterdeploy/shared/id";
+import { ID_PREFIX, zSlug, type GitProviderId } from "@otterdeploy/shared/id";
 
 import { useState, type ReactNode } from "react";
 
@@ -208,7 +208,7 @@ export function ResourcesTab({
               <td className="px-4 py-2.5">
                 <Link
                   to="/$orgSlug/$projectSlug"
-                  params={{ orgSlug, projectSlug: r.projectSlug as never }}
+                  params={{ orgSlug, projectSlug: zSlug(ID_PREFIX.project).parse(r.projectSlug) }}
                   className="font-medium text-foreground hover:text-primary hover:underline"
                 >
                   {r.projectName}

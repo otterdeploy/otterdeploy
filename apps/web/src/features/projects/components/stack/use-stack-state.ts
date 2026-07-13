@@ -9,7 +9,7 @@
 
 import type { ProjectId } from "@otterdeploy/shared/id";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -36,12 +36,12 @@ export function useStackState({ projectId }: UseStackStateInput) {
 
   // Seed the buffer once we have either the saved file or, failing that,
   // the rendered file. Subsequent re-renders skip — the user's in-progress
-  // edits aren't clobbered by a background refetch.
-  useEffect(() => {
-    if (buffer.length > 0) return;
-    if (!diffQuery.data) return;
+  // edits aren't clobbered by a background refetch. Adjust in render (not an
+  // effect) so seeding doesn't cost an extra render pass; React bails out of
+  // the set when the buffer already holds the seed value.
+  if (buffer.length === 0 && diffQuery.data) {
     setBuffer(diffQuery.data.savedYaml ?? diffQuery.data.renderedYaml);
-  }, [diffQuery.data, buffer.length]);
+  }
 
   const saveMut = useMutation(
     orpc.project.stack.save.mutationOptions({

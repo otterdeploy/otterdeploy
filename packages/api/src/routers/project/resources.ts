@@ -218,16 +218,18 @@ export async function deleteProjectResource(
         },
       });
 
-      await deleteProxyRoutesByResource(input.resourceId);
-      await provisioner.destroy({ serviceName }, log);
-      await deleteResourceById(input.resourceId);
-      await reconcile(log);
-      // Strip it from the manifest too, or the next diff re-stages a phantom
-      // `create` ghost — a deployed resource must never revert to pending.
+      // Strip it from the manifest FIRST, before any teardown — once a delete
+      // starts the resource is no longer "desired", so a partial-teardown
+      // failure can only ever diff as a (recoverable) delete, never a phantom
+      // `create` ghost. A deployed resource must never revert to pending.
       await removeDatabaseFromManifest(
         { projectId: input.projectId, organizationId: input.organizationId },
         found.record.resource.name,
       );
+      await deleteProxyRoutesByResource(input.resourceId);
+      await provisioner.destroy({ serviceName }, log);
+      await deleteResourceById(input.resourceId);
+      await reconcile(log);
 
       log.set({
         teardown: { proxyRoutesRemoved: true, swarmDestroyed: true, dbDeleted: true },
@@ -245,15 +247,16 @@ export async function deleteProjectResource(
           name: found.record.resource.name,
         },
       });
-      await deleteProxyRoutesByResource(input.resourceId);
-      await teardownServiceRuntime(found.record.service.serviceName, input, log);
-      await deleteResourceById(input.resourceId);
-      // Strip it from the manifest too, or the next diff re-stages a phantom
-      // `create` ghost — a deployed service must never revert to pending.
+      // Strip it from the manifest FIRST (see the database branch) so a partial
+      // teardown can never leave the service declared-but-absent → phantom
+      // `create`. A deployed service must never revert to pending.
       await removeServiceFromManifest(
         { projectId: input.projectId, organizationId: input.organizationId },
         found.record.resource.name,
       );
+      await deleteProxyRoutesByResource(input.resourceId);
+      await teardownServiceRuntime(found.record.service.serviceName, input, log);
+      await deleteResourceById(input.resourceId);
       log.set({
         teardown: { proxyRoutesRemoved: true, runtimeDestroyed: true, dbDeleted: true },
       });

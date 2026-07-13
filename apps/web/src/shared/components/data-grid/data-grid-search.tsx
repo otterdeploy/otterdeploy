@@ -78,6 +78,15 @@ function DataGridSearchImpl({
   const isComposingRef = React.useRef(false);
   const [hasQuery, setHasQuery] = React.useState(searchQuery.length > 0);
 
+  // Reset the status-text flag when the panel closes, in render via the
+  // prev-value pattern rather than an effect (which would re-render an extra
+  // time just to clear it).
+  const [prevSearchOpen, setPrevSearchOpen] = React.useState(searchOpen);
+  if (prevSearchOpen !== searchOpen) {
+    setPrevSearchOpen(searchOpen);
+    if (!searchOpen) setHasQuery(false);
+  }
+
   React.useEffect(() => {
     if (searchOpen) {
       requestAnimationFrame(() => {
@@ -87,7 +96,6 @@ function DataGridSearchImpl({
     }
 
     isComposingRef.current = false;
-    setHasQuery(false);
   }, [searchOpen]);
 
   React.useEffect(() => {

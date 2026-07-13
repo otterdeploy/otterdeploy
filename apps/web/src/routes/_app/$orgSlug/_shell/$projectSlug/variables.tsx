@@ -165,8 +165,8 @@ function EnvVarsSubscriber({
         .from({ v: variablesCollection })
         .where(({ v }) =>
           and(
-            eq(v.projectId, projectId as never),
-            eq(v.environmentId, envId as never),
+            eq(v.projectId, projectId),
+            eq(v.environmentId, envId),
           ),
         ),
     [projectId, envId],

@@ -710,7 +710,9 @@ function useDataGrid<TData>({
             await propsRef.current.onRowsAdd(rowsNeeded);
           } else if (propsRef.current.onRowAdd) {
             const onRowAdd = propsRef.current.onRowAdd;
-            await Promise.all(Array.from({ length: rowsNeeded }, () => onRowAdd()));
+            await Promise.all(
+              Array.from({ length: rowsNeeded }, () => Promise.resolve(onRowAdd())),
+            );
           }
 
           let attempts = 0;

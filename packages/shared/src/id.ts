@@ -100,14 +100,18 @@ export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
 /**
  * Branded string ID with a known prefix.
  *
- * Uses a plain property-name brand (not a `unique symbol`) so it survives
- * declaration emission across composite projects — a unique-symbol brand
- * trips TS4058 ("cannot be named") in consumers that emit .d.ts files.
- * Same level of safety: a plain string can't satisfy `Id<P>` without a cast.
+ * Uses a plain property-name brand (`__brand`) rather than a `unique symbol`.
+ * A unique-symbol brand trips TS4023/TS4058 ("cannot be named '__brand'") the
+ * moment a consumer emits a type that references `Id<P>` (e.g. an oRPC
+ * router's inferred output) — the emitted declaration has to name a symbol it
+ * isn't allowed to see, so the branded input/output types stop lining up and
+ * callers are forced to launder plain strings through `as never`. A plain
+ * property name is always nameable across module boundaries, so it survives
+ * declaration emission. Same level of safety: a plain string can't satisfy
+ * `Id<P>` without a cast.
  */
-export declare const __brand: unique symbol;
 export type Id<P extends string = string> = string & {
-  readonly [__brand]: P;
+  readonly __brand: P;
 };
 
 /**
@@ -150,12 +154,41 @@ export function hasPrefix<P extends string>(id: string, prefix: P): id is Id<P> 
  * @example
  *   z.object({ projectId: zId("project") })
  */
-export function zId<P extends IdPrefix>(prefix: P) {
+export function zId<P extends IdPrefix>(
+  prefix: P,
+): z.ZodPipe<z.ZodString, z.ZodTransform<Id<P>, string>> {
   return z
     .string()
     .regex(new RegExp(`^${prefix}_`), `ID must start with "${prefix}_"`)
     .transform((s) => s as Id<P>);
 }
+
+/** Per-entity zId schema, keyed by `ID_PREFIX` name. */
+type IdSchemaMap = {
+  [K in keyof typeof ID_PREFIX]: ReturnType<typeof zId<(typeof ID_PREFIX)[K]>>;
+};
+
+/**
+ * Branded-ID validators keyed by entity name — the ergonomic entry point for
+ * branding an untrusted string at a boundary (route `validateSearch`/`params`,
+ * a form field, a raw query param). `string` in, `Id<P>` out.
+ *
+ * @example
+ *   // TanStack route: the param comes out already branded.
+ *   validateSearch: z.object({ id: idSchema.project })   // → ProjectId
+ */
+export const idSchema = Object.fromEntries(
+  Object.entries(ID_PREFIX).map(([key, prefix]) => [key, zId(prefix as IdPrefix)]),
+) as IdSchemaMap;
+
+/**
+ * Branded id types keyed by entity name, derived from {@link idSchema}:
+ * `BrandedIds["project"]` is exactly the output of `idSchema.project`. Handy
+ * when you want the branded type without importing the per-entity alias.
+ */
+export type BrandedIds = {
+  [K in keyof typeof ID_PREFIX]: z.infer<IdSchemaMap[K]>;
+};
 
 /**
  * Branded string slug. URL-safe identifier scoped to an entity kind

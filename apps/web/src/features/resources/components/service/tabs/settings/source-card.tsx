@@ -139,7 +139,7 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
   // Current source block from the saved manifest (the source of truth this card
   // edits). Read straight off manifest.get — the same call stageSource writes.
   const manifest = useQuery(
-    orpc.project.manifest.get.queryOptions({ input: { id: resource.projectId as never } }),
+    orpc.project.manifest.get.queryOptions({ input: { id: resource.projectId } }),
   );
   const gitSvc = useMemo(() => {
     const svc = manifest.data?.manifest?.services?.[resource.name];
@@ -156,14 +156,16 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
     [providersQuery.data],
   );
   const [activeInstallationId, setActiveInstallationId] = useState<string | null>(null);
-  useEffect(() => {
-    if (activeInstallationId || installations.length === 0) return;
+  // Default to the first installation once the list loads and none is picked.
+  // Adjust in render — React bails out when the value is unchanged, so this
+  // self-limits instead of chaining an extra render through an effect.
+  if (!activeInstallationId && installations.length > 0) {
     setActiveInstallationId(installations[0]?.id ?? null);
-  }, [activeInstallationId, installations]);
+  }
 
   const reposQuery = useQuery(
     orpc.git.listRepos.queryOptions({
-      input: { installationId: (activeInstallationId ?? "") as never },
+      input: { installationId: (activeInstallationId ?? "") },
       enabled: activeInstallationId != null,
     }),
   );

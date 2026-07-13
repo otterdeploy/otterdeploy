@@ -9,7 +9,7 @@
  * functional path today.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { FilterIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -34,13 +34,12 @@ export function FilterPopover({
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Filter[]>(filters);
 
-  useEffect(() => {
-    if (open) {
-      setDraft(filters.length ? filters : [newFilter()]);
-    }
-    // Re-seed only when the popover opens.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  // Re-seed the draft when the popover opens — done in the open handler (not an
+  // effect) so the rows are correct on the first paint and we skip an extra render.
+  function handleOpenChange(next: boolean) {
+    if (next) setDraft(filters.length ? filters : [newFilter()]);
+    setOpen(next);
+  }
 
   function apply() {
     onApply(draft.filter(isFilterActive));
@@ -48,7 +47,7 @@ export function FilterPopover({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger render={trigger} />
       <PopoverContent align="start" className="w-115 max-w-[92vw] gap-0 p-0">
         {/* Header */}

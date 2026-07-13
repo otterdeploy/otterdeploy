@@ -1,3 +1,4 @@
+import type { OrganizationId } from "@otterdeploy/shared/id";
 import { CloudIcon } from "@hugeicons/core-free-icons";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -21,7 +22,7 @@ import { orpc, queryClient } from "@/shared/server/orpc";
 const CLOUDFLARE_TOKEN_TEMPLATE_URL =
   "https://dash.cloudflare.com/profile/api-tokens?permissionGroups=Zone.DNS%3AEdit&name=otterdeploy";
 
-function invalidateSettings(organizationId: never) {
+function invalidateSettings(organizationId: OrganizationId) {
   return queryClient.invalidateQueries({
     queryKey: orpc.organization.settings.queryKey({
       input: { organizationId },
@@ -29,7 +30,7 @@ function invalidateSettings(organizationId: never) {
   });
 }
 
-export function CloudflareCard({ organizationId }: { organizationId: never }) {
+export function CloudflareCard({ organizationId }: { organizationId: OrganizationId }) {
   const settingsQuery = useQuery(
     orpc.organization.settings.queryOptions({ input: { organizationId } }),
   );
@@ -57,7 +58,7 @@ function CloudflareConnected({
   organizationId,
   zoneId,
 }: {
-  organizationId: never;
+  organizationId: OrganizationId;
   zoneId: string | null;
 }) {
   const disconnect = useMutation({
@@ -94,7 +95,7 @@ function CloudflareConnected({
 function CloudflareConnectForm({
   organizationId,
 }: {
-  organizationId: never;
+  organizationId: OrganizationId;
 }) {
   const zonesQuery = useMutation({
     ...orpc.organization.cloudflareListZones.mutationOptions(),

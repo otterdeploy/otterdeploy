@@ -6,6 +6,7 @@
  * so the panel component stays within the line budget.
  */
 
+import type { ProjectSlug } from "@otterdeploy/shared/id";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -22,14 +23,14 @@ export function useServiceRuntimeActions({
   projectId: string;
   resourceId: string;
   orgSlug: string;
-  projectSlug: string;
+  projectSlug: ProjectSlug;
   onNoDeployment: () => void;
 }) {
   const navigate = useNavigate();
   const toDeployment = (deploymentId: string, logTab: "build-logs" | "deploy-logs") =>
     navigate({
       to: "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId",
-      params: { orgSlug, projectSlug: projectSlug as never, resourceId, deploymentId },
+      params: { orgSlug, projectSlug, resourceId, deploymentId },
       search: { tab: logTab },
     });
 
@@ -47,8 +48,8 @@ export function useServiceRuntimeActions({
       // Restart re-rolls the current deployment — jump into its Deploy Logs to
       // watch the containers bounce (newest deployment is first in the list).
       const deployments = await orpc.project.resource.deployments.list.call({
-        projectId: projectId as never,
-        resourceId: resourceId as never,
+        projectId,
+        resourceId,
       });
       const latest = deployments[0];
       if (latest) void toDeployment(latest.id, "deploy-logs");

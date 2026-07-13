@@ -22,9 +22,14 @@ import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { markAppliedCreates } from "@/features/projects/components/graph/applied-creates-store";
+import {
+  clearAppliedCreatesForProject,
+  markAppliedCreates,
+} from "@/features/projects/components/graph/applied-creates-store";
+import { clearPendingFrameworksForProject } from "@/features/projects/components/graph/pending-framework-store";
 import { Button } from "@/shared/components/ui/button";
 import { Spinner } from "@/shared/components/ui/spinner";
+import { toastMessage } from "@/shared/lib/errors";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { ChangeGroupCard, type DiffChange, groupChanges } from "./pending-changes-diff";
@@ -102,17 +107,28 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
       }
       setExpanded(false);
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Apply failed"),
+    onError: (err) => toast.error(toastMessage(err, "Apply failed")),
   });
 
   const discardMut = useMutation({
     mutationFn: () => orpc.project.manifest.discard.call({ projectId }),
+    // Clear the graph's ghost-bridge stores up front so a create-ghost recorded
+    // by a prior Deploy (whose resource never landed) vanishes THE INSTANT the
+    // operator discards — otherwise `computePendingByName` keeps re-synthesizing
+    // it from applied-creates until the 30s TTL, the "ghost that won't die". The
+    // diff (the other ghost source) is refreshed in onSuccess. Safe optimistic:
+    // Discard is disabled while a Deploy is in flight, and if discard itself
+    // fails the still-pending change re-renders its ghost from the diff.
+    onMutate: () => {
+      clearAppliedCreatesForProject(projectId);
+      clearPendingFrameworksForProject(projectId);
+    },
     onSuccess: async () => {
       toast.success("Pending changes discarded");
       await refreshAll();
       setExpanded(false);
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Discard failed"),
+    onError: (err) => toast.error(toastMessage(err, "Discard failed")),
   });
 
   const busy = applyMut.isPending || discardMut.isPending;

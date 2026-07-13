@@ -83,13 +83,11 @@ function RouteComponent() {
   }
 
   function closeSession(id: string) {
-    setSessions((prev) => {
-      const next = prev.filter((s) => s.id !== id);
-      if (id === activeId) {
-        setActiveId(next.length > 0 ? (next[next.length - 1]?.id ?? null) : null);
-      }
-      return next;
-    });
+    const next = sessions.filter((s) => s.id !== id);
+    setSessions(next);
+    if (id === activeId) {
+      setActiveId(next.length > 0 ? (next[next.length - 1]?.id ?? null) : null);
+    }
     setConnStates(({ [id]: _closed, ...rest }) => rest);
   }
 

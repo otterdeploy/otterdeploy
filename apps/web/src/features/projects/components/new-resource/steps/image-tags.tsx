@@ -203,7 +203,7 @@ export function ImageTagBrowser({ image, registryId, tag, onPick }: ImageTagBrow
       // idiom the source step uses for GitRepoId.
       input: {
         image: debouncedImage,
-        ...(registryId ? { registryId: registryId as never } : {}),
+        ...(registryId ? { registryId } : {}),
       },
       enabled,
       staleTime: 60_000,

@@ -92,7 +92,7 @@ export function ReferencePicker({
 
   const { data: refs = [], isLoading } = useQuery(
     orpc.project.refs.list.queryOptions({
-      input: { projectId: projectId as never },
+      input: { projectId },
     }),
   );
 

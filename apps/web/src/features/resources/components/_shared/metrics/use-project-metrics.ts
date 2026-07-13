@@ -84,7 +84,7 @@ export function useProjectAggregateMetrics(
 ): ProjectAggregateMetrics {
   const query = useQuery({
     ...orpc.metrics.projectAggregate.queryOptions({
-      input: { projectId: projectId as never, windowMinutes },
+      input: { projectId, windowMinutes },
     }),
     refetchInterval: SAMPLE_INTERVAL_MS,
     placeholderData: (prev) => prev,
@@ -189,7 +189,7 @@ export function useProjectRequestSeries(
 ): ProjectRequestMetrics {
   const query = useQuery({
     ...orpc.edgeLogs.requestSeries.queryOptions({
-      input: { projectId: projectId as never, windowMinutes },
+      input: { projectId, windowMinutes },
     }),
     refetchInterval: SAMPLE_INTERVAL_MS,
     placeholderData: (prev) => prev,

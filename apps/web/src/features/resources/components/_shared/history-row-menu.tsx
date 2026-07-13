@@ -4,6 +4,7 @@
  * built image). Split out of `deployment-cards.tsx` for file size.
  */
 
+import type { ProjectSlug } from "@otterdeploy/shared/id";
 import { useState } from "react";
 
 import { MoreHorizontalCircle01Icon, PlayIcon, RotateLeft01Icon } from "@hugeicons/core-free-icons";
@@ -44,7 +45,7 @@ export function HistoryRowMenu({
 }: {
   deployment: DeploymentInfo;
   orgSlug: string;
-  projectSlug: string;
+  projectSlug: ProjectSlug;
   projectId: string;
   resourceId: string;
   canRollback: boolean;
@@ -93,7 +94,7 @@ export function HistoryRowMenu({
                 to: "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId",
                 params: {
                   orgSlug,
-                  projectSlug: projectSlug as never,
+                  projectSlug,
                   resourceId,
                   deploymentId,
                 },

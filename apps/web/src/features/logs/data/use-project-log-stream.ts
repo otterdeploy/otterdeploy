@@ -119,8 +119,8 @@ export function useProjectLogStream({
     open: (signal) =>
       orpc.project.logs.tail.call(
         {
-          projectId: projectId as never,
-          resourceIds: (resourceIds ?? undefined) as never,
+          projectId,
+          resourceIds: (resourceIds ?? undefined),
           tail: 50,
         },
         { signal, context: { retry: Number.POSITIVE_INFINITY } },

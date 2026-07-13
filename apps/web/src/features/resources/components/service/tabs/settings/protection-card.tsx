@@ -19,7 +19,7 @@ export function ServiceProtectionCard({
 }) {
   const routes = useQuery(
     orpc.project.proxyRoute.list.queryOptions({
-      input: { projectId: resource.projectId as never },
+      input: { projectId: resource.projectId },
     }),
   );
 

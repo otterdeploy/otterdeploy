@@ -52,6 +52,17 @@ export function clearPendingFramework(projectId: string, key: string) {
   if (m?.delete(key)) emit(projectId);
 }
 
+/** Drop every framework hint for a project — called on Discard, alongside
+ *  clearing the applied-creates store, so a discarded staged service leaves no
+ *  stale brand-logo hint behind. */
+export function clearPendingFrameworksForProject(projectId: string) {
+  const m = store.get(projectId);
+  if (m && m.size > 0) {
+    m.clear();
+    emit(projectId);
+  }
+}
+
 function getSnapshot(projectId: string): ReadonlyMap<string, Framework> {
   return snapshots.get(projectId) ?? EMPTY;
 }

@@ -19,6 +19,32 @@ export interface ComposeRecord {
   compose: typeof composeResource.$inferSelect;
 }
 
+/**
+ * Read the postgres SQLSTATE + constraint from a thrown DB error. Drizzle
+ * wraps postgres-js errors with the SQL text as the outer message and stashes
+ * the real PostgresError on `.cause`; depending on the path the diagnostics
+ * live on the wrapper or the cause, so we check both.
+ */
+function pgErrorInfo(err: unknown): { code: string | null; constraint: string | null } {
+  const read = (o: unknown): { code: string | null; constraint: string | null } | null => {
+    if (!o || typeof o !== "object") return null;
+    const r = o as Record<string, unknown>;
+    const code = typeof r.code === "string" ? r.code : null;
+    const constraint =
+      (typeof r.constraint_name === "string" && r.constraint_name) ||
+      (typeof r.constraint === "string" && r.constraint) ||
+      null;
+    return code || constraint ? { code, constraint } : null;
+  };
+  return (
+    read(err) ??
+    read(err && typeof err === "object" ? (err as { cause?: unknown }).cause : null) ?? {
+      code: null,
+      constraint: null,
+    }
+  );
+}
+
 export async function createComposeRecord(input: {
   projectId: ProjectId;
   name: string;
@@ -37,40 +63,55 @@ export async function createComposeRecord(input: {
   /** SvglLogo search string carried from the source template; null otherwise. */
   logoBrand?: string | null;
 }): Promise<ComposeRecord> {
-  return db.transaction(async (tx) => {
-    const [res] = await tx
-      .insert(resource)
-      .values({
-        projectId: input.projectId,
-        name: input.name,
-        type: "compose",
-        status: "valid",
-      })
-      .returning();
-    if (!res) throw new Error("Failed to create compose resource row");
+  try {
+    return await db.transaction(async (tx) => {
+      const [res] = await tx
+        .insert(resource)
+        .values({
+          projectId: input.projectId,
+          name: input.name,
+          type: "compose",
+          status: "valid",
+        })
+        .returning();
+      if (!res) throw new Error("Failed to create compose resource row");
 
-    const [comp] = await tx
-      .insert(composeResource)
-      .values({
-        resourceId: res.id,
-        source: input.source,
-        composeContent: input.composeContent ?? null,
-        files: input.files ?? [],
-        gitRepoId: input.gitRepoId ?? null,
-        gitRepoUrl: input.gitRepoUrl ?? null,
-        gitRef: input.gitRef ?? null,
-        sourceSubdir: input.sourceSubdir ?? null,
-        composePath: input.composePath ?? null,
-        stackName: input.stackName,
-        services: input.services,
-        exposed: input.exposed ?? [],
-        logoBrand: input.logoBrand ?? null,
-      })
-      .returning();
-    if (!comp) throw new Error("Failed to create compose_resource row");
+      const [comp] = await tx
+        .insert(composeResource)
+        .values({
+          resourceId: res.id,
+          source: input.source,
+          composeContent: input.composeContent ?? null,
+          files: input.files ?? [],
+          gitRepoId: input.gitRepoId ?? null,
+          gitRepoUrl: input.gitRepoUrl ?? null,
+          gitRef: input.gitRef ?? null,
+          sourceSubdir: input.sourceSubdir ?? null,
+          composePath: input.composePath ?? null,
+          stackName: input.stackName,
+          services: input.services,
+          exposed: input.exposed ?? [],
+          logoBrand: input.logoBrand ?? null,
+        })
+        .returning();
+      if (!comp) throw new Error("Failed to create compose_resource row");
 
-    return { resource: res, compose: comp };
-  });
+      return { resource: res, compose: comp };
+    });
+  } catch (err) {
+    // The stack name (swarm namespace) is globally unique. Two projects that
+    // share a slug — e.g. a "store" project in two different orgs — both derive
+    // the same stackName for a given template and collide here. Translate the
+    // raw Postgres/Drizzle dump into one actionable line; leaving it raw is what
+    // floods the client toast with the whole failing INSERT + bind params.
+    const { code, constraint } = pgErrorInfo(err);
+    if (code === "23505" && constraint === "compose_resource_stack_name_unique") {
+      throw new Error(
+        `A stack named "${input.stackName}" already exists. Stack names are unique across every project — rename the project or the resource, or open the existing stack.`,
+      );
+    }
+    throw err;
+  }
 }
 
 export async function getComposeRecord(

@@ -3,6 +3,7 @@
  * resource's graph panel; orphans get a warning badge (icon + label, never
  * color alone). Sizes render "—" when the daemon didn't report usage.
  */
+import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import {
   Alert02Icon,
   CubeIcon,
@@ -60,7 +61,7 @@ function AttachmentChip({
         // Route param is the branded Slug<"project">; the API returns the
         // plain string it was derived from (same cast idiom as the graph's
         // own deep links, e.g. history-row-menu).
-        projectSlug: attachment.projectSlug as never,
+        projectSlug: zSlug(ID_PREFIX.project).parse(attachment.projectSlug),
         resourceId: attachment.resourceId,
       }}
       className="inline-flex h-5 max-w-full items-center gap-1 rounded-4xl bg-secondary px-2 text-xs font-medium text-secondary-foreground transition-all hover:bg-muted"

@@ -25,16 +25,17 @@ export function ServiceDangerZone({ resource, onDeleted, pending = false }: Dang
   const deleteMutation = useMutation({
     mutationFn: async () => {
       const current = await orpc.project.manifest.get.call({
-        id: resource.projectId as never,
+        id: resource.projectId,
       });
       const base = current.manifest;
       if (!base) {
         throw new Error("No manifest saved yet — can't stage delete.");
       }
-      const { [resource.name]: _removed, ...remaining } = base.services;
+      const remaining = { ...base.services };
+      delete remaining[resource.name];
       const next = { ...base, services: remaining };
       await orpc.project.manifest.save.call({
-        projectId: resource.projectId as never,
+        projectId: resource.projectId,
         manifest: next,
         expectedVersion: current.version,
       });
@@ -43,12 +44,12 @@ export function ServiceDangerZone({ resource, onDeleted, pending = false }: Dang
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: orpc.project.manifest.diff.queryKey({
-            input: { projectId: resource.projectId as never },
+            input: { projectId: resource.projectId },
           }),
         }),
         queryClient.invalidateQueries({
           queryKey: orpc.project.manifest.get.queryKey({
-            input: { id: resource.projectId as never },
+            input: { id: resource.projectId },
           }),
         }),
       ]);

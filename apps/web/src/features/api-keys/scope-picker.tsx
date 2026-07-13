@@ -25,7 +25,8 @@ export function ScopePicker({
       ? current.filter((a) => a !== action)
       : [...current, action];
     if (next.length === 0) {
-      const { [resource]: _removed, ...rest } = value;
+      const rest = { ...value };
+      delete rest[resource];
       onChange(rest);
       return;
     }

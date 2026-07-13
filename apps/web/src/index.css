@@ -384,3 +384,31 @@
   color: var(--primary-foreground);
   text-shadow: none;
 }
+
+/* Toast size cap. Sonner toasts have no intrinsic height limit, so a message
+   that turns out to be a raw error — e.g. an ORM dump with the full failing
+   SQL and every bind parameter — grows until it fills the viewport. Bound the
+   width, clamp the title/description to a few lines, and hard-break long
+   unbroken tokens (SQL / YAML / hashes) so a toast always stays a toast. This
+   is the safety net for every `toast.*` call; message content is separately
+   kept clean at the call sites. `.cn-toast` is set via the Toaster's
+   toastOptions.classNames.toast. */
+.cn-toast {
+  max-width: min(28rem, calc(100vw - 2rem));
+}
+.cn-toast [data-title],
+.cn-toast [data-description] {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.cn-toast [data-title] {
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+.cn-toast [data-description] {
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+}

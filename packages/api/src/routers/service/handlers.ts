@@ -217,6 +217,16 @@ export async function deleteService(
     );
   }
 
+  // Strip it from the manifest FIRST — before any physical teardown. Once a
+  // delete is initiated the service is no longer "desired", so even if teardown
+  // fails partway the next diff can only ever show a (recoverable) delete —
+  // NEVER a phantom `create` ghost. A deployed service must never revert to
+  // pending-create.
+  await removeServiceFromManifest(
+    { projectId: input.projectId, organizationId: input.organizationId },
+    record.resource.name,
+  );
+
   await deleteProxyRoutesByResource(input.resourceId);
   await runtime().destroy({ serviceName: record.service.serviceName }, log);
   // Reclaim host artifacts (built images, buildx cache, volumes) — the container
@@ -229,13 +239,6 @@ export async function deleteService(
   );
   await deleteServiceRecord(input.resourceId);
   await reconcile(log);
-  // Strip it from the manifest too, or the next diff sees it declared-but-absent
-  // and re-stages a phantom `create` ghost — a deployed service must never
-  // revert to pending-create after it's torn down.
-  await removeServiceFromManifest(
-    { projectId: input.projectId, organizationId: input.organizationId },
-    record.resource.name,
-  );
 
   log.set({ teardown: { service: record.service.serviceName, ok: true } });
 

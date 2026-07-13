@@ -7,6 +7,7 @@
  * databases.
  */
 
+import type { ProjectId, ProjectSlug, ResourceId } from "@otterdeploy/shared/id";
 import { Activity, useState } from "react";
 
 import type { FrameworkKind } from "@/features/projects/components/framework-logo";
@@ -41,8 +42,8 @@ type ServiceTab =
 
 interface ServiceResourcePanelProps {
   resource: {
-    resourceId: string;
-    projectId: string;
+    resourceId: ResourceId;
+    projectId: ProjectId;
     name: string;
     image: string;
     source: "image" | "git" | "upload";
@@ -61,7 +62,7 @@ interface ServiceResourcePanelProps {
    *  or for image-sourced services. */
   framework?: FrameworkKind | null;
   orgSlug: string;
-  projectSlug: string;
+  projectSlug: ProjectSlug;
   onClose: () => void;
   // Pending-create mode: the service isn't deployed yet. Runtime tabs +
   // header actions (restart / build) are disabled, edits target the manifest,
@@ -141,15 +142,15 @@ export function ServiceResourcePanel({
         onClose={onClose}
         onRestart={() =>
           restartMut.mutate({
-            projectId: resource.projectId as never,
-            resourceId: resource.resourceId as never,
+            projectId: resource.projectId,
+            resourceId: resource.resourceId,
           })
         }
         restarting={restartMut.isPending}
         onBuild={() =>
           buildMut.mutate({
-            projectId: resource.projectId as never,
-            resourceId: resource.resourceId as never,
+            projectId: resource.projectId,
+            resourceId: resource.resourceId,
           })
         }
         building={buildMut.isPending}

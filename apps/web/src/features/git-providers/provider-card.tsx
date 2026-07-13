@@ -176,7 +176,7 @@ function InstallationActions({ installation }: { installation: InstallationView 
         <DropdownMenuSeparator />
         <DropdownMenuItem
           className="text-destructive focus:text-destructive"
-          onClick={() => disconnect.mutate({ installationId: installation.id as never })}
+          onClick={() => disconnect.mutate({ installationId: installation.id })}
           disabled={disconnect.isPending}
         >
           Disconnect
@@ -239,7 +239,7 @@ function RefreshButton({
     <Button
       size="sm"
       variant="ghost"
-      onClick={() => refresh.mutate({ installationId: installationId as never })}
+      onClick={() => refresh.mutate({ installationId })}
       disabled={refresh.isPending}
     >
       <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} />

@@ -6,6 +6,7 @@
  * PTY + scrollback survive tab switches.
  */
 
+import type { ProjectSlug } from "@otterdeploy/shared/id";
 import { Activity, useState } from "react";
 
 import { useMutation } from "@tanstack/react-query";
@@ -35,7 +36,7 @@ interface RealResourcePanelProps {
   resource: PostgresBodyProps["resource"];
   projectName: string;
   orgSlug: string;
-  projectSlug: string;
+  projectSlug: ProjectSlug;
   onClose: () => void;
   // Pending-create mode: the database is staged in the manifest but not
   // provisioned. Runtime tabs (deployments/data/metrics/terminal) + Restart
@@ -79,8 +80,8 @@ export function RealResourcePanel({
         onClose={onClose}
         onRestart={() =>
           restartMut.mutate({
-            projectId: resource.projectId as never,
-            resourceId: resource.resourceId as never,
+            projectId: resource.projectId,
+            resourceId: resource.resourceId,
           })
         }
         restarting={restartMut.isPending}

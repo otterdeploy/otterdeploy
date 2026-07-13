@@ -75,8 +75,8 @@ function BackupNowBody({
         await runBackup({
           ...(value.sourceKind === "volume"
             ? { volumeName: value.volumeName }
-            : { resourceId: value.resourceId as never }),
-          destinationIds: value.destinationIds as never,
+            : { resourceId: value.resourceId }),
+          destinationIds: value.destinationIds,
           encryption: value.encrypted ? "aes-256-gcm" : "none",
         });
         toast.success(

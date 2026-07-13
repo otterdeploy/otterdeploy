@@ -86,6 +86,22 @@ export function clearAppliedCreate(projectId: string, key: string) {
   if (m?.delete(key)) emit(projectId);
 }
 
+/**
+ * Drop EVERY recorded create for a project. Called on Discard: discard removes
+ * the pending changes from the manifest, so the diff stops reporting them — but
+ * a create recorded by a prior Deploy (whose resource never landed, e.g. a
+ * failed apply) has nothing to clear it, so the graph would keep re-synthesizing
+ * its ghost from this store until the 30s TTL. Clearing here makes the ghost
+ * vanish the instant the operator discards, not "eventually".
+ */
+export function clearAppliedCreatesForProject(projectId: string) {
+  const m = store.get(projectId);
+  if (m && m.size > 0) {
+    m.clear();
+    emit(projectId);
+  }
+}
+
 function getSnapshot(projectId: string): ReadonlySet<string> {
   return snapshots.get(projectId) ?? EMPTY;
 }

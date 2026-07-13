@@ -138,7 +138,7 @@ function PendingVariables({
   const creds = useQuery(
     orpc.project.resource.database.postgres.draftCredentials.queryOptions({
       input: {
-        projectId: resource.projectId as never,
+        projectId: resource.projectId,
         name: dbName ?? resource.name,
         engine: resource.engine,
       },
