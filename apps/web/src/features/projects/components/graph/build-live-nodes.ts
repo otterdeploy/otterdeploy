@@ -21,7 +21,24 @@ export interface Task {
   /** Compose sub-service this task belongs to; null for a plain service. */
   service: string | null;
   state: ResourceStatus;
+  /** Swarm's desired state — a retired/replaced task is "shutdown". Used only to
+   *  drop retired swarm tasks from the status/replica view (plain Docker leaves
+   *  it null, so nothing is dropped there). */
+  desiredState?: string | null;
+  /** Runtime-agnostic per-task restart contribution, computed server-side:
+   *  plain Docker → the container's own `RestartCount`; swarm → 1 for each
+   *  retired task (each restart spawns a fresh one). Summed per service. */
+  restarts?: number;
 }
+
+/** A swarm task the scheduler has retired — excluded from the live status/replica
+ *  view. Plain-Docker instances have no `desiredState`, so they're never dropped. */
+const isRetired = (t: Task): boolean => t.desiredState === "shutdown";
+
+/** Total restarts for a service — sum of the per-task contributions the server
+ *  already normalized across runtimes (Docker RestartCount / swarm retries). */
+const restartCount = (tasks: Task[]): number =>
+  tasks.reduce((n, t) => n + (t.restarts ?? 0), 0);
 
 type LiveNode = Node<ResourceNodeData, "resource">;
 
@@ -35,18 +52,24 @@ const rollupStatus = (tasks: Task[]): ServiceStatus =>
       ? "building"
       : "running";
 
-/** Enrich a service node with rolled-up status + replica list from live tasks. */
-const withReplicas = (node: LiveNode, tasks: Task[]): LiveNode =>
-  tasks.length === 0
-    ? node
-    : {
-        ...node,
-        data: {
-          ...node.data,
-          status: rollupStatus(tasks),
-          replicas: tasks.map((t) => ({ label: t.label, status: t.state })),
-        },
-      };
+/** Enrich a service node with rolled-up status + replica list from live tasks,
+ *  plus a recent restart count. Retired (restarted) tasks are excluded from the
+ *  status/replica view but counted for the ↻ badge. */
+const withReplicas = (node: LiveNode, tasks: Task[]): LiveNode => {
+  if (tasks.length === 0) return node;
+  const live = tasks.filter((t) => !isRetired(t));
+  const restarts = restartCount(tasks);
+  return {
+    ...node,
+    data: {
+      ...node.data,
+      // Fall back to all tasks when everything's retired (the service is down).
+      status: rollupStatus(live.length > 0 ? live : tasks),
+      replicas: live.map((t) => ({ label: t.label, status: t.state })),
+      ...(restarts > 0 ? { restarts } : {}),
+    },
+  };
+};
 
 /** Status of a single stack-member service resource — its live-task rollup if
  *  it has tasks, else its build-time deployment state. "offline" is a deployed
@@ -184,20 +207,46 @@ export const buildLiveNodes = (
     }
     if (r.type === "compose") {
       const children = stackChildren.get(r.resourceId) ?? [];
-      // Before the first deploy there are no child resources yet — fall back to
-      // the file summary (cards without a resourceId to click into).
-      if (children.length === 0) return [withStackStatus(baseWithExtras, tasks)];
-      // Volumes only live on the file summary; match by compose service name.
-      const volumesByName = new Map(r.services.map((s) => [s.name, s.volumes] as const));
-      const services: ComposeServiceInfo[] = children.map((c) => ({
-        name: c.name,
-        image: c.image,
-        hasBuild: c.source === "git",
-        volumes: volumesByName.get(c.name) ?? [],
-        // Real resource id → the card opens that service's full panel.
-        resourceId: c.resourceId,
-        status: childServiceStatus(c, tasksByResourceId.get(c.resourceId) ?? []),
-      }));
+      const childByName = new Map(children.map((c) => [c.name, c] as const));
+      const liveCard = (c: ServiceResource, volumes: string[]): ComposeServiceInfo => {
+        const all = tasksByResourceId.get(c.resourceId) ?? [];
+        const live = all.filter((t) => !isRetired(t));
+        const restarts = restartCount(all);
+        return {
+          name: c.name,
+          image: c.image,
+          hasBuild: c.source === "git",
+          volumes,
+          // Real resource id → the card opens that service's full panel.
+          resourceId: c.resourceId,
+          status: childServiceStatus(c, live.length > 0 ? live : all),
+          ...(restarts > 0 ? { restarts } : {}),
+        };
+      };
+      // Git stacks carry no inline file summary until their first build — render
+      // whatever children exist, else the base node.
+      if (r.services.length === 0) {
+        if (children.length === 0) return [withStackStatus(baseWithExtras, tasks)];
+        const services = children.map((c) => liveCard(c, []));
+        return [{ ...baseWithExtras, data: { ...baseWithExtras.data, services } }];
+      }
+      // Render EVERY service the file declares, overlaying its live child where
+      // one exists. The reconciler creates children ONE AT A TIME during a
+      // deploy, so rendering only the children that exist yet made the stack
+      // flash 4 cards → 1 → 4 as they landed. Merging with the declared summary
+      // keeps all N cards visible; the not-yet-created ones read as "building".
+      const services: ComposeServiceInfo[] = r.services.map((s) => {
+        const child = childByName.get(s.name);
+        return child
+          ? liveCard(child, s.volumes)
+          : {
+              name: s.name,
+              image: s.image,
+              hasBuild: s.hasBuild,
+              volumes: s.volumes,
+              status: "building",
+            };
+      });
       return [{ ...baseWithExtras, data: { ...baseWithExtras.data, services } }];
     }
     return [baseWithExtras];

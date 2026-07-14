@@ -94,6 +94,9 @@ function toTaskInfo(
     containerId: t.containerId,
     exitCode: t.exitCode,
     timestamp: t.updatedAt,
+    // Docker: the container's own RestartCount. Swarm (no RestartCount): a
+    // retired task ("shutdown") stands in for one restart.
+    restarts: t.restartCount ?? (t.desiredState === "shutdown" ? 1 : 0),
   };
 }
 

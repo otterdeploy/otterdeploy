@@ -6,7 +6,7 @@
  * line caps.
  */
 
-import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
+import { ArrowReloadHorizontalIcon, CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { FrameworkLogo } from "@/features/projects/components/framework-logo";
@@ -61,6 +61,15 @@ function HeaderStatus({ data }: { data: ResourceNodeData }) {
       {showDuration && (
         <span className="font-mono text-[10.5px] text-muted-foreground tabular-nums">
           {buildDuration}
+        </span>
+      )}
+      {data.restarts != null && data.restarts > 0 && (
+        <span
+          className="inline-flex items-center gap-1 rounded-full bg-warning/12 px-1.5 py-0.5 text-[10px] font-medium text-warning tabular-nums"
+          title={`Restarted ${data.restarts} time${data.restarts === 1 ? "" : "s"}`}
+        >
+          <HugeiconsIcon icon={ArrowReloadHorizontalIcon} strokeWidth={2} className="size-3" />
+          {data.restarts}
         </span>
       )}
     </div>

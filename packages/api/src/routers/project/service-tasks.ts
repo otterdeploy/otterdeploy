@@ -47,6 +47,10 @@ export interface ServiceTaskInfo {
   containerId: string | null;
   exitCode: number | null;
   timestamp: string | null;
+  /** Runtime-agnostic restart contribution — plain Docker: the container's own
+   *  `RestartCount`; swarm: 1 for a retired task (each retry is a fresh task).
+   *  The client sums this per service for the ↻ badge. */
+  restarts: number;
 }
 
 export interface ServiceTasks {
@@ -155,6 +159,9 @@ function buildTaskInfo(task: unknown, owner: TaskOwner, serviceName: string): Se
     containerId: status.containerId,
     exitCode: status.exitCode,
     timestamp: status.timestamp,
+    // Swarm doesn't restart a task in place — each retry is a fresh task and the
+    // old one is retired ("shutdown"). So one retired task ≈ one restart.
+    restarts: desiredState === "shutdown" ? 1 : 0,
   };
 }
 
@@ -179,6 +186,9 @@ function instanceToServiceTaskInfo(
     containerId: instance.containerId,
     exitCode: instance.exitCode,
     timestamp: instance.updatedAt,
+    // Plain Docker restarts the SAME container in place, so its own RestartCount
+    // is the exact restart tally.
+    restarts: instance.restartCount ?? 0,
   };
 }
 

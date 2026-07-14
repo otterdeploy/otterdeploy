@@ -7,7 +7,7 @@
 
 import type { CSSProperties } from "react";
 
-import { HardDriveIcon } from "@hugeicons/core-free-icons";
+import { ArrowReloadHorizontalIcon, HardDriveIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Docker } from "@/shared/components/ui/svgs/docker";
@@ -189,6 +189,15 @@ export function StackServiceCard({
       <div className="mt-2 flex items-center gap-2">
         <span className={cn("size-1.5 shrink-0 rounded-full", status.dotClass)} aria-hidden />
         <span className={cn("truncate text-[12.5px] leading-none", status.textClass)}>{label}</span>
+        {service.restarts != null && service.restarts > 0 && (
+          <span
+            className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full bg-warning/12 px-1.5 py-0.5 text-[10px] font-medium text-warning tabular-nums"
+            title={`Restarted ${service.restarts} time${service.restarts === 1 ? "" : "s"}`}
+          >
+            <HugeiconsIcon icon={ArrowReloadHorizontalIcon} strokeWidth={2} className="size-3" />
+            {service.restarts}
+          </span>
+        )}
       </div>
       {service.volumes.length > 0 && (
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t pt-2.5">

@@ -43,6 +43,9 @@ export const serviceTaskSchema = z.object({
   /** Container exit code, when the task is in a terminal state. */
   exitCode: z.number().int().nullable(),
   timestamp: z.string().nullable(),
+  // Restart contribution for this task — plain Docker: the container's own
+  // RestartCount; swarm: 1 for a retired task. The graph sums it per service.
+  restarts: z.number().int().default(0),
 });
 
 export const serviceTasksSchema = z.object({

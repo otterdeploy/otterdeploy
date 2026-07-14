@@ -62,6 +62,8 @@ export interface ComposeServiceInfo {
   /** Real service resource id — present once the stack is deployed, so the
    *  card opens that service's full detail panel. Absent pre-first-deploy. */
   resourceId?: string;
+  /** How many times this service has restarted (0/undefined → hide the badge). */
+  restarts?: number;
 }
 
 export interface GitInfo {
@@ -132,6 +134,9 @@ export interface ResourceNodeData extends Record<string, unknown> {
   /** Service-only: one entry per scheduled task. Renders an inset REPLICAS
    *  tray so the operator can see fan-out + per-task health at a glance. */
   replicas?: ReplicaInfo[];
+  /** Service-only: recent restart count (Docker RestartCount / swarm retries).
+   *  Rendered as a ↻ badge in the header when > 0. */
+  restarts?: number;
   /** Compose-only: the stack's parsed services. Renders an inset SERVICES
    *  tray so the operator sees every container the stack will create. */
   services?: ComposeServiceInfo[];
