@@ -1,14 +1,16 @@
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import {
   composeResource,
   databaseResource,
+  project,
   resource,
   serviceResource,
 } from "@otterdeploy/db/schema/project";
 import { and, eq, isNull } from "drizzle-orm";
 
+import { pruneSchedulesForDeletedResource } from "../../../backups/schedule-cleanup";
 import { removeResourceDir } from "../../../lib/data-dir";
 import { composeSwarmServiceName } from "../../../stack/compose";
 
@@ -110,15 +112,31 @@ export function composeChildSwarmServices(
 }
 
 export async function deleteResourceById(resourceId: ResourceId) {
-  // Capture the project before the row is gone — the artifact dir is nested
-  // under it (`resources/<projectId>/<resourceId>`).
+  // Capture the project + name + org before the row is gone — the artifact dir
+  // is nested under the project (`resources/<projectId>/<resourceId>`), and the
+  // name/org drive backup-schedule cleanup below.
   const [row] = await db
-    .select({ projectId: resource.projectId })
+    .select({
+      projectId: resource.projectId,
+      name: resource.name,
+      organizationId: project.organizationId,
+    })
     .from(resource)
+    .innerJoin(project, eq(project.id, resource.projectId))
     .where(eq(resource.id, resourceId))
     .limit(1);
   await db.delete(resource).where(eq(resource.id, resourceId));
-  // Drop the resource's host artifact dir (no-op unless the data folder is in
-  // use). Best-effort — never blocks the row delete. See lib/data-dir.ts.
-  if (row) await removeResourceDir(row.projectId, resourceId);
+  if (row) {
+    // Drop the resource's host artifact dir (no-op unless the data folder is in
+    // use). Best-effort — never blocks the row delete. See lib/data-dir.ts.
+    await removeResourceDir(row.projectId, resourceId);
+    // Prune this now-deleted resource from any backup schedule that referenced
+    // it (FK-less jsonb `sources`), disabling schedules left with no live
+    // source. Runs AFTER the delete so the live set is accurate; never throws.
+    await pruneSchedulesForDeletedResource({
+      organizationId: row.organizationId as OrganizationId,
+      resourceId,
+      resourceName: row.name,
+    });
+  }
 }
