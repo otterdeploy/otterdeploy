@@ -93,6 +93,9 @@ export const ID_PREFIX = {
   webhook: "wh",
   webhookDelivery: "whdlv",
   inboundEndpoint: "inhk",
+
+  // orphaned remote resources awaiting GC (teardown couldn't reach the daemon)
+  orphanedResource: "orphres",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
@@ -250,6 +253,8 @@ export type NotificationId = Id<typeof ID_PREFIX.notification>;
 export type WebhookId = Id<typeof ID_PREFIX.webhook>;
 export type WebhookDeliveryId = Id<typeof ID_PREFIX.webhookDelivery>;
 export type InboundEndpointId = Id<typeof ID_PREFIX.inboundEndpoint>;
+
+export type OrphanedResourceId = Id<typeof ID_PREFIX.orphanedResource>;
 
 // Notification channels
 export type NotificationChannelId = Id<typeof ID_PREFIX.notificationChannel>;

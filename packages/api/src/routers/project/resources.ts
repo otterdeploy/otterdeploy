@@ -172,10 +172,23 @@ async function teardownServiceRuntime(
   // Lazy-imported: transitively loads @otterdeploy/env/server (validated at
   // module load) — keep it out of resources.ts's import graph.
   const { runtime } = await import("../../runtime");
-  // 1. Stop + remove the running container / swarm service.
+  // 1. Stop + remove the running container / swarm service. If the daemon is
+  //    unreachable this best-effort destroy would silently leak the container;
+  //    record it as an orphan so the GC sweep retries the teardown later
+  //    instead of abandoning it (system-health/orphan-gc.ts).
   await runtime()
     .destroy({ serviceName }, log)
-    .catch(() => undefined);
+    .catch(async (cause) => {
+      const { recordOrphanedResource } = await import("../../system-health/orphan-gc");
+      await recordOrphanedResource({
+        organizationId: ref.organizationId,
+        resourceType: "service",
+        ref: serviceName,
+        projectId: ref.projectId,
+        label: `service teardown failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+        payload: { projectId: ref.projectId, resourceId: ref.resourceId },
+      });
+    });
   // 2-4. Reclaim host artifacts (images, buildx cache, volumes) — shared with
   //      the manifest-apply delete path (service/handlers.ts deleteService).
   await reclaimServiceHostArtifacts(serviceName, ref.projectId, ref.resourceId, log);
