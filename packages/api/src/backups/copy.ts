@@ -29,10 +29,16 @@ export async function pgDumpToBuffer(
   const target: DumpTarget = { engine: "postgres", ...creds };
   const { cmd, env } = dumpCommand(target);
   const dump = await execDump(docker, containerId, cmd, env);
-  if (dump.exitCode !== 0) {
-    throw new Error(`pg_dump exited ${dump.exitCode}: ${dump.stderr.slice(0, 1000)}`);
+  // execDump now streams (backup pipes it into rustic); the copy/branch path
+  // still wants the whole archive, so drain the stream into a buffer here.
+  const chunks: Buffer[] = [];
+  for await (const chunk of dump.stream) chunks.push(chunk as Buffer);
+  const exitCode = await dump.exitCode;
+  if (exitCode !== 0) {
+    const stderr = await dump.stderr();
+    throw new Error(`pg_dump exited ${exitCode}: ${stderr.slice(0, 1000)}`);
   }
-  return dump.archive;
+  return Buffer.concat(chunks);
 }
 
 /** Restore a `pg_dump --format=custom` archive into the branch container. Stages

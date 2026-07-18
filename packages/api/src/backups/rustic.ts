@@ -169,14 +169,20 @@ export class RusticCli {
         env: { ...process.env, NO_COLOR: "1" },
       });
 
+      const { stdout, stderr } = child;
+      if (!stdout || !stderr) {
+        reject(new Error("rustic: child process is missing stdout/stderr"));
+        return;
+      }
+
       const outChunks: Buffer[] = [];
-      if (opts.stdout) child.stdout.pipe(opts.stdout);
-      else child.stdout.on("data", (c: Buffer) => outChunks.push(c));
+      if (opts.stdout) stdout.pipe(opts.stdout);
+      else stdout.on("data", (c: Buffer) => outChunks.push(c));
 
       const errTail: string[] = [];
       let carry = "";
-      child.stderr.setEncoding("utf8");
-      child.stderr.on("data", (chunk: string) => {
+      stderr.setEncoding("utf8");
+      stderr.on("data", (chunk: string) => {
         carry += chunk;
         let idx: number;
         while ((idx = carry.indexOf("\n")) !== -1) {
@@ -198,8 +204,13 @@ export class RusticCli {
       });
 
       if (opts.stdin) {
+        const childStdin = child.stdin;
+        if (!childStdin) {
+          reject(new Error("rustic: child process is missing stdin"));
+          return;
+        }
         opts.stdin.on("error", reject);
-        opts.stdin.pipe(child.stdin);
+        opts.stdin.pipe(childStdin);
       }
     });
   }
