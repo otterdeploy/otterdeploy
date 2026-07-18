@@ -76,6 +76,105 @@ function bufferSink(): { sink: Writable; done: Promise<Buffer> } {
 
 export type RestoreMode = "download" | "in-place";
 
+type VolumeContext = Extract<ExecutionContext, { kind: "volume" }>;
+type DatabaseContext = Extract<ExecutionContext, { kind: "database" }>;
+
+/** In-place restore of a named volume: refuse while any container mounts it,
+ *  then reload the snapshot's tar via the backup path's helper mechanics. */
+async function restoreVolumeInPlace(
+  docker: Docker,
+  ctx: VolumeContext,
+  cli: RusticCli,
+  snapshotId: string,
+): Promise<{ ok: true }> {
+  // Guard: extracting under a container that mounts the volume — even a stopped
+  // one that could restart mid-extract — risks a corrupt half-state.
+  const mounters = await listVolumeMounters(docker, ctx.volumeName);
+  const blocked = volumeRestoreBlockReason(mounters);
+  if (blocked) throw new Error(blocked);
+  await assertVolumeExists(docker, ctx.volumeName);
+  // Stream the tar out of the snapshot, then load it back through the same
+  // helper-container mechanics the backup path uses (clear + putArchive).
+  const { sink, done } = bufferSink();
+  await cli.dumpToStream({ snapshotId, filenameInSnapshot: "volume.tar", out: sink });
+  const tar = await done;
+  await restoreVolumeFromTar(docker, ctx.volumeName, tar);
+  return { ok: true };
+}
+
+/** In-place restore of a Postgres DB: stream the snapshot's dump into an
+ *  in-container pg_restore over a hijacked exec duplex (drained to avoid
+ *  deadlock); fail the run on a non-zero pg_restore exit. */
+async function restorePostgresInPlace(
+  docker: Docker,
+  ctx: DatabaseContext,
+  cli: RusticCli,
+  snapshotId: string,
+): Promise<{ ok: true }> {
+  const serviceName = buildContainerName({
+    engine: ctx.engine,
+    projectSlug: ctx.projectSlug,
+    resourceName: ctx.resourceName,
+  });
+  const containerId = await findResourceContainerId(docker, ctx.resourceId);
+  if (!containerId) throw new Error(`No running container for ${serviceName}`);
+
+  if (ctx.engine !== "postgres") {
+    throw new Error(`in-place restore for ${ctx.engine} is not implemented`);
+  }
+
+  // Stream the custom-format dump straight from the snapshot into an in-container
+  // pg_restore: rustic writes to pg_restore's stdin over the exec's hijacked
+  // duplex, and we demux + capture its stderr. pg_restore exits non-zero on a
+  // genuinely failed restore, so we surface stderr and fail the run — a silent
+  // `{ ok: true }` on a half-restored DB would mislead the caller.
+  const container = docker.containers.getContainer(containerId);
+  const execResult = await container.exec({
+    Cmd: [
+      "pg_restore",
+      "--clean",
+      "--if-exists",
+      "--no-owner",
+      "-U",
+      ctx.username,
+      "-d",
+      ctx.databaseName,
+    ],
+    Env: [`PGPASSWORD=${ctx.password}`],
+    AttachStdin: true,
+    AttachStdout: true,
+    AttachStderr: true,
+    Tty: false,
+  });
+  if (execResult.isErr()) throw execResult.error;
+  const exec = execResult.value;
+
+  const startResult = await exec.start({ Detach: false, Tty: false, stdin: true });
+  if (startResult.isErr()) throw startResult.error;
+  const duplex = startResult.value as Duplex;
+
+  // Drain stdout + capture stderr BEFORE piping the dump in: demux back-pressures
+  // behind unread output, so an unconsumed pg_restore stream would deadlock the
+  // dump we're feeding into stdin.
+  const { stdout, stderr } = demuxStream(duplex);
+  const stdoutDone = collect(stdout);
+  const stderrDone = collect(stderr);
+
+  // rustic's stdout is piped into the duplex (pg_restore stdin); ending it on
+  // completion half-closes stdin (FIN, read side stays open) so pg_restore sees
+  // EOF, finishes, and its exit code becomes observable via inspect().
+  await cli.dumpToStream({ snapshotId, filenameInSnapshot: "dump", out: duplex });
+  await stdoutDone;
+  const stderrText = (await stderrDone).toString("utf8");
+
+  const inspect = await exec.inspect();
+  const exitCode = inspect.isOk() ? (inspect.value.ExitCode ?? 0) : 0;
+  if (exitCode !== 0) {
+    throw new Error(`pg_restore failed (exit ${exitCode}): ${stderrText.slice(0, 2000)}`);
+  }
+  return { ok: true };
+}
+
 /**
  * Restore a succeeded backup. `download` streams the snapshot's file back out
  * (`dump`) and returns its bytes for the caller to hand to the user. `in-place`
@@ -121,86 +220,9 @@ export async function restoreBackup(input: {
 
   const docker = Docker.fromEnv();
   try {
-    if (ctx.kind === "volume") {
-      // Guard: extracting under a container that mounts the volume — even a
-      // stopped one that could restart mid-extract — risks a corrupt half-state.
-      const mounters = await listVolumeMounters(docker, ctx.volumeName);
-      const blocked = volumeRestoreBlockReason(mounters);
-      if (blocked) throw new Error(blocked);
-      await assertVolumeExists(docker, ctx.volumeName);
-      // Stream the tar out of the snapshot, then load it back through the same
-      // helper-container mechanics the backup path uses (clear + putArchive).
-      const { sink, done } = bufferSink();
-      await cli.dumpToStream({ snapshotId, filenameInSnapshot: "volume.tar", out: sink });
-      const tar = await done;
-      await restoreVolumeFromTar(docker, ctx.volumeName, tar);
-      return { ok: true };
-    }
-
-    // in-place: stream the dump back into the live database.
-    const serviceName = buildContainerName({
-      engine: ctx.engine,
-      projectSlug: ctx.projectSlug,
-      resourceName: ctx.resourceName,
-    });
-    const containerId = await findResourceContainerId(docker, ctx.resourceId);
-    if (!containerId) throw new Error(`No running container for ${serviceName}`);
-
-    if (ctx.engine !== "postgres") {
-      throw new Error(`in-place restore for ${ctx.engine} is not implemented`);
-    }
-
-    // Stream the custom-format dump straight from the snapshot into an
-    // in-container pg_restore: rustic writes to pg_restore's stdin over the
-    // exec's hijacked duplex, and we demux + capture its stderr. pg_restore
-    // exits non-zero on a genuinely failed restore, so we surface stderr and
-    // fail the run — a silent `{ ok: true }` on a half-restored DB would
-    // mislead the caller into thinking a corrupted DB is fine.
-    const container = docker.containers.getContainer(containerId);
-    const execResult = await container.exec({
-      Cmd: [
-        "pg_restore",
-        "--clean",
-        "--if-exists",
-        "--no-owner",
-        "-U",
-        ctx.username,
-        "-d",
-        ctx.databaseName,
-      ],
-      Env: [`PGPASSWORD=${ctx.password}`],
-      AttachStdin: true,
-      AttachStdout: true,
-      AttachStderr: true,
-      Tty: false,
-    });
-    if (execResult.isErr()) throw execResult.error;
-    const exec = execResult.value;
-
-    const startResult = await exec.start({ Detach: false, Tty: false, stdin: true });
-    if (startResult.isErr()) throw startResult.error;
-    const duplex = startResult.value as Duplex;
-
-    // Drain stdout + capture stderr BEFORE piping the dump in: demux
-    // back-pressures behind unread output, so an unconsumed pg_restore stream
-    // would deadlock the dump we're feeding into stdin.
-    const { stdout, stderr } = demuxStream(duplex);
-    const stdoutDone = collect(stdout);
-    const stderrDone = collect(stderr);
-
-    // rustic's stdout is piped into the duplex (pg_restore stdin); ending it on
-    // completion half-closes stdin (FIN, read side stays open) so pg_restore
-    // sees EOF, finishes, and its exit code becomes observable via inspect().
-    await cli.dumpToStream({ snapshotId, filenameInSnapshot: "dump", out: duplex });
-    await stdoutDone;
-    const stderrText = (await stderrDone).toString("utf8");
-
-    const inspect = await exec.inspect();
-    const exitCode = inspect.isOk() ? (inspect.value.ExitCode ?? 0) : 0;
-    if (exitCode !== 0) {
-      throw new Error(`pg_restore failed (exit ${exitCode}): ${stderrText.slice(0, 2000)}`);
-    }
-    return { ok: true };
+    return ctx.kind === "volume"
+      ? await restoreVolumeInPlace(docker, ctx, cli, snapshotId)
+      : await restorePostgresInPlace(docker, ctx, cli, snapshotId);
   } finally {
     docker.destroy();
   }
