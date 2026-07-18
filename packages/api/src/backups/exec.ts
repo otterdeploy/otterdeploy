@@ -79,17 +79,30 @@ export async function execCapture(
 }
 
 /**
- * Run a command and return its raw stdout buffer (binary-safe) plus stderr as
- * text. Used for `pg_dump` where stdout is the archive bytes. The exec is
- * fully buffered: fine for typical app databases, but a streaming-to-storage
- * path is the next step for very large dumps (noted in the engine).
+ * A streaming dump exec. `stream` is the command's raw stdout (binary-safe —
+ * the archive bytes) handed to the caller to consume live; `stderr()` and
+ * `exitCode` resolve once the exec has finished. rustic reads `stream` as its
+ * backup stdin, so nothing is buffered in RAM (the old whole-archive-in-memory
+ * limit is gone). Both promises only settle after the stdout side has been
+ * drained — the exit code is meaningless until the process has actually exited,
+ * and demux back-pressures stderr behind an unread stdout — so a caller MUST
+ * consume `stream` before awaiting them (else they hang).
  */
+export interface DumpStream {
+  /** Raw stdout (archive bytes). Consume fully before awaiting the promises. */
+  stream: Readable;
+  /** The command's collected stderr text (resolves at exec completion). */
+  stderr: () => Promise<string>;
+  /** The exec's exit code (resolves at exec completion; 0 default). */
+  exitCode: Promise<number>;
+}
+
 export async function execDump(
   docker: Docker,
   containerId: string,
   cmd: string[],
   env: string[],
-): Promise<{ exitCode: number; archive: Buffer; stderr: string }> {
+): Promise<DumpStream> {
   const container = docker.containers.getContainer(containerId);
   const execResult = await container.exec({
     Cmd: cmd,
@@ -103,15 +116,25 @@ export async function execDump(
 
   const startResult = await exec.start({ Detach: false, Tty: false });
   if (startResult.isErr()) throw startResult.error;
-  const stream = startResult.value as Readable;
+  const source = startResult.value as Readable;
 
-  const { stdout, stderr } = demuxStream(stream);
-  const [archive, err] = await Promise.all([collect(stdout), collect(stderr)]);
+  const { stdout, stderr } = demuxStream(source);
+  // Collect stderr eagerly: it drives the source pump alongside the stdout
+  // consumer, and its completion (source end) is the signal that the exec has
+  // exited and `inspect()` now carries a real exit code. Memoized so repeated
+  // `stderr()` calls share one drain, and non-rejecting (→ "" on a stream
+  // error) so abandoning it — e.g. when the rustic pipe fails before draining
+  // stdout — never surfaces an unhandled rejection.
+  const stderrText = collect(stderr).then(
+    (b) => b.toString("utf8"),
+    () => "",
+  );
+  const exitCode = stderrText.then(async () => {
+    const inspectResult = await exec.inspect();
+    return inspectResult.isOk() ? (inspectResult.value.ExitCode ?? 0) : 0;
+  });
 
-  const inspectResult = await exec.inspect();
-  const exitCode = inspectResult.isOk() ? (inspectResult.value.ExitCode ?? 0) : 0;
-
-  return { exitCode, archive, stderr: err.toString("utf8") };
+  return { stream: stdout, stderr: () => stderrText, exitCode };
 }
 
 function collect(stream: Readable): Promise<Buffer> {

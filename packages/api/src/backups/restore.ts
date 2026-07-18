@@ -1,21 +1,24 @@
 /**
- * Restore + verify for stored backup archives. `restoreBackup` hands back the
- * decrypted bytes (download) or streams them into the live database/volume
- * (in-place, typed-name-confirmed); `verifyBackup` re-fetches the stored body
- * and recomputes its checksum. Split out of engine.ts, which keeps the
- * backup write path (executeBackup).
+ * Restore + verify for rustic snapshots. `restoreBackup` hands back the snapshot
+ * file bytes (download) or streams them into the live database/volume (in-place,
+ * typed-name-confirmed); `verifyBackup` runs a structural repo `check` and
+ * confirms the recorded snapshot still resolves. rustic owns dedup + zstd +
+ * repo-key encryption, so there is no decrypt/gunzip/checksum plumbing here — a
+ * run's `storagePath` is the snapshot id, which is all we need to address it.
+ * Split out of engine.ts, which keeps the backup write path (executeBackup).
  */
-import { Docker } from "@otterdeploy/docker";
-import { createHash } from "node:crypto";
-import { gunzipSync } from "node:zlib";
+import type { Duplex, Readable, Writable } from "node:stream";
 
-import { decryptBytes } from "../lib/crypto";
+import { Docker, demuxStream } from "@otterdeploy/docker";
+import { Writable as NodeWritable } from "node:stream";
+
 import { buildContainerName } from "../routers/project/views";
+import { deriveRepoId, toRusticRepo } from "./backends";
 import { type ExecutionContext, getExecutionContext } from "./db";
-import { archiveShape } from "./engine";
-import { resolveSecret, shellQuote } from "./engine-helpers";
-import { execCapture, findResourceContainerId } from "./exec";
-import { type ResolvedDestination, archiveKey, getArchive } from "./storage";
+import { resolveSecret } from "./engine-helpers";
+import { findResourceContainerId } from "./exec";
+import { RusticCli } from "./rustic";
+import type { ResolvedDestination } from "./backends";
 import {
   assertVolumeExists,
   listVolumeMounters,
@@ -23,37 +26,60 @@ import {
   volumeRestoreBlockReason,
 } from "./volume";
 
-/** Resolve the destination + the archive's storage key for a run. Prefers the
- *  stored `storagePath` (what the engine actually wrote) and falls back to
- *  recomputing the key exactly as the write path built it. */
-async function resolveArchiveLocation(
-  ctx: ExecutionContext,
-): Promise<{ dest: ResolvedDestination; key: string }> {
+/** Open the run's rustic repo: resolve backend creds, derive the (resource ×
+ *  destination) repo id + its password, and build a driver. */
+async function openRepo(ctx: ExecutionContext): Promise<RusticCli> {
   const secret = await resolveSecret(ctx);
   const dest: ResolvedDestination = {
     type: ctx.destination.type,
     config: ctx.destination.config,
     secret,
   };
-  if (ctx.storagePath) return { dest, key: ctx.storagePath };
-  const { ext, scope } = archiveShape(ctx);
-  const key = archiveKey({
-    prefix:
-      typeof ctx.destination.config.prefix === "string" ? ctx.destination.config.prefix : undefined,
-    resourceId: scope,
-    backupId: ctx.backupId,
-    ext,
+  return new RusticCli(toRusticRepo(dest, deriveRepoId(ctx)));
+}
+
+/** Collect a readable stream fully into one Buffer. */
+function collect(stream: Readable): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    stream.on("data", (c: Buffer) => chunks.push(c));
+    stream.on("end", () => resolve(Buffer.concat(chunks)));
+    stream.on("error", reject);
   });
-  return { dest, key };
+}
+
+/** A buffer-collecting Writable + a promise that resolves with the bytes once
+ *  the writer finishes — the sink we hand `dumpToStream` when a caller needs the
+ *  snapshot file materialised (download bytes, or the volume tar to re-extract). */
+function bufferSink(): { sink: Writable; done: Promise<Buffer> } {
+  const chunks: Buffer[] = [];
+  let resolveDone!: (b: Buffer) => void;
+  let rejectDone!: (e: Error) => void;
+  const done = new Promise<Buffer>((res, rej) => {
+    resolveDone = res;
+    rejectDone = rej;
+  });
+  const sink = new NodeWritable({
+    write(chunk: Buffer, _enc, cb) {
+      chunks.push(chunk);
+      cb();
+    },
+    final(cb) {
+      resolveDone(Buffer.concat(chunks));
+      cb();
+    },
+  });
+  sink.on("error", rejectDone);
+  return { sink, done };
 }
 
 export type RestoreMode = "download" | "in-place";
 
 /**
- * Restore a succeeded backup. `download` returns the decrypted, decompressed
- * archive bytes for the caller to hand to the user. `in-place` streams the
- * archive back into the live database (pg only) or, for volume runs, replaces
- * the volume's contents — refused while any container still mounts it.
+ * Restore a succeeded backup. `download` streams the snapshot's file back out
+ * (`dump`) and returns its bytes for the caller to hand to the user. `in-place`
+ * streams it into the live database (pg only) or, for volume runs, replaces the
+ * volume's contents — refused while any container still mounts it.
  */
 export async function restoreBackup(input: {
   backupId: string;
@@ -77,14 +103,19 @@ export async function restoreBackup(input: {
     }
   }
 
-  const { dest, key } = await resolveArchiveLocation(ctx);
-  let body = await getArchive(dest, key);
-  if (ctx.encryption === "aes-256-gcm") body = await decryptBytes(body);
-  const plain = gunzipSync(body);
+  // `storagePath` holds the rustic snapshot id (set when the run succeeded).
+  const snapshotId = ctx.storagePath;
+  if (!snapshotId) throw new Error("backup has no stored snapshot (did the run succeed?)");
+
+  const cli = await openRepo(ctx);
+  const filenameInSnapshot = ctx.kind === "volume" ? "volume.tar" : "dump";
 
   if (input.mode === "download") {
+    const { sink, done } = bufferSink();
+    await cli.dumpToStream({ snapshotId, filenameInSnapshot, out: sink });
+    const bytes = await done;
     const filename = ctx.kind === "volume" ? `${ctx.backupId}.tar` : `${ctx.backupId}.dump`;
-    return { ok: true, bytes: plain, filename };
+    return { ok: true, bytes, filename };
   }
 
   const docker = Docker.fromEnv();
@@ -96,11 +127,16 @@ export async function restoreBackup(input: {
       const blocked = volumeRestoreBlockReason(mounters);
       if (blocked) throw new Error(blocked);
       await assertVolumeExists(docker, ctx.volumeName);
-      await restoreVolumeFromTar(docker, ctx.volumeName, plain);
+      // Stream the tar out of the snapshot, then load it back through the same
+      // helper-container mechanics the backup path uses (clear + putArchive).
+      const { sink, done } = bufferSink();
+      await cli.dumpToStream({ snapshotId, filenameInSnapshot: "volume.tar", out: sink });
+      const tar = await done;
+      await restoreVolumeFromTar(docker, ctx.volumeName, tar);
       return { ok: true };
     }
 
-    // in-place: pipe the dump back into the live database.
+    // in-place: stream the dump back into the live database.
     const serviceName = buildContainerName({
       engine: ctx.engine,
       projectSlug: ctx.projectSlug,
@@ -112,39 +148,56 @@ export async function restoreBackup(input: {
     if (ctx.engine !== "postgres") {
       throw new Error(`in-place restore for ${ctx.engine} is not implemented`);
     }
-    // pg_restore reads the custom-format dump from stdin. We stage it to a
-    // temp file in the container then restore, to avoid stdin-attach plumbing.
-    const b64 = plain.toString("base64");
-    const tmp = `/tmp/restore-${ctx.backupId}.dump`;
-    await execCapture(docker, containerId, [
-      "sh",
-      "-c",
-      `echo ${shellQuote(b64)} | base64 -d > ${tmp}`,
-    ]);
-    // pg_restore exits non-zero on a genuinely failed restore. We allow
-    // non-zero at the exec layer ONLY so we can capture stderr and surface it
-    // — a silent `{ ok: true }` on a failed restore would mislead the caller
-    // into thinking a corrupted/half-restored DB is fine. Always `rm -f` the
-    // temp dump (separate exec so its exit can't mask pg_restore's).
-    const restore = await execCapture(
-      docker,
-      containerId,
-      [
-        "sh",
-        "-c",
-        `pg_restore --clean --if-exists --no-owner -U ${shellQuote(
-          ctx.username,
-        )} -d ${shellQuote(ctx.databaseName)} ${tmp}`,
+
+    // Stream the custom-format dump straight from the snapshot into an
+    // in-container pg_restore: rustic writes to pg_restore's stdin over the
+    // exec's hijacked duplex, and we demux + capture its stderr. pg_restore
+    // exits non-zero on a genuinely failed restore, so we surface stderr and
+    // fail the run — a silent `{ ok: true }` on a half-restored DB would
+    // mislead the caller into thinking a corrupted DB is fine.
+    const container = docker.containers.getContainer(containerId);
+    const execResult = await container.exec({
+      Cmd: [
+        "pg_restore",
+        "--clean",
+        "--if-exists",
+        "--no-owner",
+        "-U",
+        ctx.username,
+        "-d",
+        ctx.databaseName,
       ],
-      { env: [`PGPASSWORD=${ctx.password}`], allowNonZero: true },
-    );
-    await execCapture(docker, containerId, ["rm", "-f", tmp], {
-      allowNonZero: true,
+      Env: [`PGPASSWORD=${ctx.password}`],
+      AttachStdin: true,
+      AttachStdout: true,
+      AttachStderr: true,
+      Tty: false,
     });
-    if (restore.exitCode !== 0) {
-      throw new Error(
-        `pg_restore failed (exit ${restore.exitCode}): ${restore.stderr.slice(0, 2000)}`,
-      );
+    if (execResult.isErr()) throw execResult.error;
+    const exec = execResult.value;
+
+    const startResult = await exec.start({ Detach: false, Tty: false, stdin: true });
+    if (startResult.isErr()) throw startResult.error;
+    const duplex = startResult.value as Duplex;
+
+    // Drain stdout + capture stderr BEFORE piping the dump in: demux
+    // back-pressures behind unread output, so an unconsumed pg_restore stream
+    // would deadlock the dump we're feeding into stdin.
+    const { stdout, stderr } = demuxStream(duplex);
+    const stdoutDone = collect(stdout);
+    const stderrDone = collect(stderr);
+
+    // rustic's stdout is piped into the duplex (pg_restore stdin); ending it on
+    // completion half-closes stdin (FIN, read side stays open) so pg_restore
+    // sees EOF, finishes, and its exit code becomes observable via inspect().
+    await cli.dumpToStream({ snapshotId, filenameInSnapshot: "dump", out: duplex });
+    await stdoutDone;
+    const stderrText = (await stderrDone).toString("utf8");
+
+    const inspect = await exec.inspect();
+    const exitCode = inspect.isOk() ? (inspect.value.ExitCode ?? 0) : 0;
+    if (exitCode !== 0) {
+      throw new Error(`pg_restore failed (exit ${exitCode}): ${stderrText.slice(0, 2000)}`);
     }
     return { ok: true };
   } finally {
@@ -153,23 +206,26 @@ export async function restoreBackup(input: {
 }
 
 export interface VerifyResult {
-  /** False when the archive could not be fetched from its destination. */
+  /** False when the repo could not be reached / checked. */
   ok: boolean;
-  /** sha256(stored body) == recorded checksum; null when unverifiable. */
+  /** Repo `check` passed AND the recorded snapshot still resolves; null when
+   *  verification couldn't run. */
   match: boolean | null;
+  /** The recorded snapshot id (rustic addresses integrity by id, not a blob hash). */
   storedChecksum: string | null;
+  /** Always null — rustic owns integrity structurally; there is no blob hash to recompute. */
   computedChecksum: string | null;
-  /** Bytes actually sitting at the destination (encrypted+compressed body). */
+  /** Not exposed by the rustic check/snapshotExists surface — always null here. */
   archiveSizeBytes: number | null;
-  /** Why verification couldn't run (unreachable archive, no stored checksum). */
+  /** Why verification couldn't run (no snapshot recorded, repo unreachable). */
   reason: string | null;
 }
 
 /**
- * Integrity check for a stored archive: re-fetch the bytes from the run's
- * destination and recompute sha256 over exactly what the engine hashed at
- * write time (the compressed, possibly-encrypted body). No decrypt/restore —
- * this proves the destination still holds the bytes the run recorded.
+ * Integrity check for a stored snapshot: run rustic's structural `check` over
+ * the whole repo, then confirm the run's recorded snapshot id still resolves.
+ * This proves the destination still holds an intact repo containing the exact
+ * snapshot the run recorded — no download/decrypt/restore needed.
  */
 export async function verifyBackup(backupId: string): Promise<VerifyResult> {
   const ctx = await getExecutionContext(backupId as ExecutionContext["backupId"]);
@@ -184,34 +240,37 @@ export async function verifyBackup(backupId: string): Promise<VerifyResult> {
     };
   }
 
-  if (!ctx.checksum) {
+  const snapshotId = ctx.storagePath;
+  if (!snapshotId) {
     return {
       ok: false,
       match: null,
       storedChecksum: null,
       computedChecksum: null,
       archiveSizeBytes: null,
-      reason: "run recorded no checksum (did it succeed?)",
+      reason: "run recorded no snapshot (did it succeed?)",
     };
   }
 
   try {
-    const { dest, key } = await resolveArchiveLocation(ctx);
-    const body = await getArchive(dest, key);
-    const computed = createHash("sha256").update(body).digest("hex");
+    const cli = await openRepo(ctx);
+    // `check` throws on structural repo/pack corruption; `snapshotExists`
+    // confirms the specific snapshot the row points at is still present.
+    await cli.check();
+    const exists = await cli.snapshotExists(snapshotId);
     return {
       ok: true,
-      match: computed === ctx.checksum,
-      storedChecksum: ctx.checksum,
-      computedChecksum: computed,
-      archiveSizeBytes: body.length,
-      reason: null,
+      match: exists,
+      storedChecksum: snapshotId,
+      computedChecksum: null,
+      archiveSizeBytes: null,
+      reason: exists ? null : "recorded snapshot no longer resolves in the repo",
     };
   } catch (cause) {
     return {
       ok: false,
       match: null,
-      storedChecksum: ctx.checksum,
+      storedChecksum: snapshotId,
       computedChecksum: null,
       archiveSizeBytes: null,
       reason: cause instanceof Error ? cause.message : String(cause),
