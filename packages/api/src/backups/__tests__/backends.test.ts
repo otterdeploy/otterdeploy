@@ -6,14 +6,18 @@
  */
 import { describe, expect, it } from "vite-plus/test";
 
-import type { ExecutionContext } from "../db";
 import type { ResolvedDestination } from "../backends";
+import type { ExecutionContext } from "../db";
 
 import { deriveRepoId, repoScope, toRusticRepo } from "../backends";
 
 describe("toRusticRepo — local", () => {
   it("roots the repo at <path>/<repoId>", () => {
-    const dest: ResolvedDestination = { type: "local", config: { path: "/srv/backups" }, secret: {} };
+    const dest: ResolvedDestination = {
+      type: "local",
+      config: { path: "/srv/backups" },
+      secret: {},
+    };
     expect(toRusticRepo(dest, "otterdeploy-backups/res_1")).toEqual({
       repoId: "otterdeploy-backups/res_1",
       repository: "/srv/backups/otterdeploy-backups/res_1",
@@ -22,7 +26,11 @@ describe("toRusticRepo — local", () => {
   });
 
   it("trims a trailing slash on the path", () => {
-    const dest: ResolvedDestination = { type: "local", config: { path: "/srv/backups/" }, secret: {} };
+    const dest: ResolvedDestination = {
+      type: "local",
+      config: { path: "/srv/backups/" },
+      secret: {},
+    };
     expect(toRusticRepo(dest, "r").repository).toBe("/srv/backups/r");
   });
 

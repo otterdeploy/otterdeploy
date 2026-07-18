@@ -1,4 +1,3 @@
-import { Docker } from "@otterdeploy/docker";
 /**
  * Backup execution engine. Streams the run's source straight into `rustic`
  * (dedup + incremental + zstd + repo-key encryption — see rustic.ts) as backup
@@ -18,6 +17,10 @@ import { Docker } from "@otterdeploy/docker";
  */
 import type { Readable } from "node:stream";
 
+import { Docker } from "@otterdeploy/docker";
+
+import type { ResolvedDestination } from "./backends";
+
 import { emitPlatformEvent } from "../notifications/emit";
 import { buildContainerName } from "../routers/project/views";
 import { deriveRepoId, toRusticRepo } from "./backends";
@@ -32,7 +35,6 @@ import {
 import { dumpCommand, resolveSecret, runPreHook } from "./engine-helpers";
 import { execDump, findResourceContainerId } from "./exec";
 import { RusticCli } from "./rustic";
-import type { ResolvedDestination } from "./backends";
 import { assertVolumeExists, dumpVolume } from "./volume";
 
 type LogFn = (stream: "stdout" | "stderr" | "system", line: string) => Promise<void>;
@@ -147,11 +149,7 @@ export async function executeBackup(backupId: string): Promise<void> {
     const result = await cli.backupStdin({
       stdin: source.stream,
       stdinFilename: ctx.kind === "volume" ? "volume.tar" : "dump",
-      tags: [
-        "otterdeploy",
-        `backup:${ctx.backupId}`,
-        `schedule:${ctx.scheduleId ?? "manual"}`,
-      ],
+      tags: ["otterdeploy", `backup:${ctx.backupId}`, `schedule:${ctx.scheduleId ?? "manual"}`],
     });
 
     // The snapshot is only trustworthy if the source producer exited cleanly —

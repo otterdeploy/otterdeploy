@@ -11,6 +11,8 @@
 import { parseExpression } from "cron-parser";
 import { log } from "evlog";
 
+import type { ResolvedDestination } from "./backends";
+
 import { deriveRepoId, toRusticRepo } from "./backends";
 import { createBackupRun, getExecutionContext } from "./db";
 import { executeBackup } from "./engine";
@@ -24,7 +26,6 @@ import {
   resolveScheduleSources,
   updateScheduleAfterRun,
 } from "./schedule-db";
-import type { ResolvedDestination } from "./backends";
 
 function nextFireTime(cron: string, from: Date): Date | null {
   try {

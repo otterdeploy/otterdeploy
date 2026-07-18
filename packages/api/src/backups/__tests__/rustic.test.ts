@@ -34,10 +34,10 @@ describe("deriveRepoPassword", () => {
 describe("buildForgetArgs", () => {
   it("scopes by tags, emits only set tiers, prunes, and asks for json", () => {
     expect(
-      buildForgetArgs(
-        { keepDaily: 7, keepWeekly: 4, keepWithinDays: 30 },
-        ["otterdeploy", "schedule:sch_1"],
-      ),
+      buildForgetArgs({ keepDaily: 7, keepWeekly: 4, keepWithinDays: 30 }, [
+        "otterdeploy",
+        "schedule:sch_1",
+      ]),
     ).toEqual([
       "forget",
       "--filter-tags",
@@ -55,10 +55,9 @@ describe("buildForgetArgs", () => {
 
   it("omits zero/undefined tiers and a null keep-within", () => {
     expect(
-      buildForgetArgs(
-        { keepLast: 3, keepDaily: 0, keepMonthly: undefined, keepWithinDays: null },
-        ["otterdeploy"],
-      ),
+      buildForgetArgs({ keepLast: 3, keepDaily: 0, keepMonthly: undefined, keepWithinDays: null }, [
+        "otterdeploy",
+      ]),
     ).toEqual(["forget", "--filter-tags", "otterdeploy", "--keep-last", "3", "--prune", "--json"]);
   });
 

@@ -1,3 +1,4 @@
+import { env } from "@otterdeploy/env/server";
 /**
  * Thin wrapper around the `rustic` CLI (v0.11.3, GNU x86_64 — vendored into the
  * server image, see apps/server/Dockerfile). rustic is the ONLY backup engine:
@@ -26,15 +27,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable, Writable } from "node:stream";
 
-import { env } from "@otterdeploy/env/server";
-
 import type { RusticRepo } from "./backends";
 
 /** Where run progress/errors are surfaced (matches the engine's log closure). */
-type LogFn = (
-  stream: "stdout" | "stderr" | "system",
-  line: string,
-) => void | Promise<void>;
+type LogFn = (stream: "stdout" | "stderr" | "system", line: string) => void | Promise<void>;
 
 /** Result of a stdin backup — the fields the engine writes onto the run row. */
 export interface BackupStdinResult {
@@ -110,6 +106,7 @@ function tomlString(value: string): string {
 }
 
 export class RusticCli {
+  // oxlint-disable-next-line node/no-process-env -- binary path override; not part of the app env schema.
   private readonly binary = process.env.RUSTIC_BIN ?? "/usr/local/bin/rustic";
 
   constructor(
@@ -156,10 +153,7 @@ export class RusticCli {
   }
 
   /** Spawn rustic; stream stderr to the log, collect (or pipe) stdout, reject non-zero. */
-  private spawn(
-    args: string[],
-    opts: { stdin?: Readable; stdout?: Writable },
-  ): Promise<string> {
+  private spawn(args: string[], opts: { stdin?: Readable; stdout?: Writable }): Promise<string> {
     return new Promise<string>((resolve, reject) => {
       const child = spawn(this.binary, args, {
         stdio: [opts.stdin ? "pipe" : "ignore", "pipe", "pipe"],
@@ -199,7 +193,9 @@ export class RusticCli {
           resolve(Buffer.concat(outChunks).toString("utf8"));
         } else {
           const detail = errTail.slice(-3).join("; ");
-          reject(new Error(`rustic ${args.join(" ")} exited ${code}${detail ? `: ${detail}` : ""}`));
+          reject(
+            new Error(`rustic ${args.join(" ")} exited ${code}${detail ? `: ${detail}` : ""}`),
+          );
         }
       });
 

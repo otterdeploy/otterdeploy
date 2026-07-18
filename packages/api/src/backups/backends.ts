@@ -49,11 +49,11 @@ function str(v: unknown): string | undefined {
 
 /** A rustic repository target: its URL, backend options, and the id that both
  *  scopes the repo (root path) and derives its encryption password. */
-export type RusticRepo = {
+export interface RusticRepo {
   repoId: string;
   repository: string;
   options: Record<string, string>;
-};
+}
 
 /**
  * Storage-scope segment for a run — the same value `engine.archiveShape` uses:
@@ -80,6 +80,56 @@ export function deriveRepoId(ctx: ExecutionContext): string {
   return [prefix, "otterdeploy-backups", repoScope(ctx)].filter(Boolean).join("/");
 }
 
+function localRepo(dest: ResolvedDestination, repoId: string): RusticRepo {
+  const path = str(dest.config.path);
+  if (!path) throw new Error("local destination missing `path`");
+  return { repoId, repository: `${path.replace(/\/+$/, "")}/${repoId}`, options: {} };
+}
+
+function s3Repo(dest: ResolvedDestination, repoId: string): RusticRepo {
+  const bucket = str(dest.config.bucket);
+  if (!bucket) throw new Error("s3 destination missing `bucket`");
+  const accessKeyId = str(dest.secret.accessKeyId);
+  const secretAccessKey = str(dest.secret.secretAccessKey);
+  if (!accessKeyId || !secretAccessKey) throw new Error("s3 destination missing credentials");
+  const options: Record<string, string> = {
+    bucket,
+    root: repoId,
+    access_key_id: accessKeyId,
+    secret_access_key: secretAccessKey,
+  };
+  const region = str(dest.config.region);
+  if (region) options.region = region;
+  const endpoint = str(dest.config.endpoint);
+  if (endpoint) options.endpoint = endpoint;
+  return { repoId, repository: "opendal:s3", options };
+}
+
+function sftpRepo(dest: ResolvedDestination, repoId: string): RusticRepo {
+  const host = str(dest.config.host);
+  if (!host) throw new Error("sftp destination missing `host`");
+  const user = str(dest.secret.username) ?? str(dest.config.username);
+  if (!user) throw new Error("sftp destination missing `username`");
+  // rustic's OpenDAL sftp backend authenticates with an SSH key only — password
+  // auth is not supported. Fail fast with a clear message.
+  const privateKey = str(dest.secret.privateKey);
+  if (!privateKey) {
+    throw new Error(
+      str(dest.secret.password)
+        ? "sftp destination uses password auth, which rustic's SFTP backend does not support — configure an SSH private key instead"
+        : "sftp destination missing an SSH private key (rustic's SFTP backend is key-auth only)",
+    );
+  }
+  const rawPort = dest.config.port;
+  const port =
+    typeof rawPort === "number" ? rawPort : Number.parseInt(str(rawPort) ?? "", 10) || 22;
+  return {
+    repoId,
+    repository: "opendal:sftp",
+    options: { user, endpoint: `ssh://${host}:${port}`, root: repoId },
+  };
+}
+
 /**
  * Map a resolved destination + repo id to the rustic repository URL and OpenDAL
  * options. Throws with an actionable message when required config/creds are
@@ -87,57 +137,11 @@ export function deriveRepoId(ctx: ExecutionContext): string {
  */
 export function toRusticRepo(dest: ResolvedDestination, repoId: string): RusticRepo {
   switch (dest.type) {
-    case "local": {
-      const path = str(dest.config.path);
-      if (!path) throw new Error("local destination missing `path`");
-      return { repoId, repository: `${path.replace(/\/+$/, "")}/${repoId}`, options: {} };
-    }
-    case "s3": {
-      const bucket = str(dest.config.bucket);
-      if (!bucket) throw new Error("s3 destination missing `bucket`");
-      const accessKeyId = str(dest.secret.accessKeyId);
-      const secretAccessKey = str(dest.secret.secretAccessKey);
-      if (!accessKeyId || !secretAccessKey) {
-        throw new Error("s3 destination missing credentials");
-      }
-      const options: Record<string, string> = {
-        bucket,
-        root: repoId,
-        access_key_id: accessKeyId,
-        secret_access_key: secretAccessKey,
-      };
-      const region = str(dest.config.region);
-      if (region) options.region = region;
-      const endpoint = str(dest.config.endpoint);
-      if (endpoint) options.endpoint = endpoint;
-      return { repoId, repository: "opendal:s3", options };
-    }
-    case "sftp": {
-      const host = str(dest.config.host);
-      if (!host) throw new Error("sftp destination missing `host`");
-      const user = str(dest.secret.username) ?? str(dest.config.username);
-      if (!user) throw new Error("sftp destination missing `username`");
-      const privateKey = str(dest.secret.privateKey);
-      if (!privateKey) {
-        // rustic's OpenDAL sftp backend authenticates with an SSH key only —
-        // password auth is not supported. Fail fast with a clear message.
-        const password = str(dest.secret.password);
-        throw new Error(
-          password
-            ? "sftp destination uses password auth, which rustic's SFTP backend does not support — configure an SSH private key instead"
-            : "sftp destination missing an SSH private key (rustic's SFTP backend is key-auth only)",
-        );
-      }
-      const rawPort = dest.config.port;
-      const port =
-        typeof rawPort === "number"
-          ? rawPort
-          : Number.parseInt(str(rawPort) ?? "", 10) || 22;
-      return {
-        repoId,
-        repository: "opendal:sftp",
-        options: { user, endpoint: `ssh://${host}:${port}`, root: repoId },
-      };
-    }
+    case "local":
+      return localRepo(dest, repoId);
+    case "s3":
+      return s3Repo(dest, repoId);
+    case "sftp":
+      return sftpRepo(dest, repoId);
   }
 }

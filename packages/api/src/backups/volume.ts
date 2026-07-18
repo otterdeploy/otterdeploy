@@ -170,7 +170,10 @@ export function dumpVolume(docker: Docker, volumeName: string): VolumeDumpStream
     stderr: () => err.done.then((b) => b.toString("utf8")),
     // Non-rejecting: a failed run resolves non-zero (the real cause rides
     // `stream`), so awaiting `exitCode` never produces an unhandled rejection.
-    exitCode: run.then((r) => r.statusCode, () => 1),
+    exitCode: run.then(
+      (r) => r.statusCode,
+      () => 1,
+    ),
   };
 }
 
