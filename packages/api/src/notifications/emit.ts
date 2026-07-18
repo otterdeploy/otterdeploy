@@ -13,6 +13,8 @@ import type { OrganizationId } from "@otterdeploy/shared/id";
  *
  * Wired today:
  *   - backup.succeeded / backup.failed  (src/backups/engine.ts)
+ *   - backup.orphaned  (src/backups/schedule-cleanup.ts — schedule disabled
+ *     when its last source was deleted)
  *   - deploy.started   (emitDeployStarted, from all 3 deployment-insert paths)
  *   - deploy.succeeded (reconcileDeploySuccess — lazy detector in the list read)
  *   - deploy.failed    (markDeploymentFailed)

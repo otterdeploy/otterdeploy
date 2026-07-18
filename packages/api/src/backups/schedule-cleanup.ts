@@ -8,7 +8,8 @@
  * schedule resolved to zero sources — recorded `failed`, and a manual "run now"
  * enqueued nothing (queued:0). This module closes that gap on the deletion side:
  * when a database resource is removed, prune it from every schedule that
- * referenced it and disable any schedule left with no live source.
+ * referenced it, disable any schedule left with no live source, and emit a
+ * `backup.orphaned` notification for each schedule so disabled.
  *
  * The write-time validation in the router covered adding a bad ref; this covers
  * a good ref going bad underneath the schedule.
@@ -20,6 +21,7 @@ import { backupSchedule, databaseResource, project, resource } from "@otterdeplo
 import { and, eq, sql } from "drizzle-orm";
 import { log } from "evlog";
 
+import { emitPlatformEvent } from "../notifications/emit";
 import { partitionSources } from "./schedule-db";
 
 /**
@@ -64,7 +66,7 @@ export async function pruneSchedulesForDeletedResource(input: {
     // resource's id or name. jsonb containment keeps the scan org-scoped and
     // cheap, and means a deletion that no schedule referenced does one query.
     const candidates = await db
-      .select({ id: backupSchedule.id, sources: backupSchedule.sources })
+      .select({ id: backupSchedule.id, name: backupSchedule.name, sources: backupSchedule.sources })
       .from(backupSchedule)
       .where(
         and(
@@ -104,6 +106,19 @@ export async function pruneSchedulesForDeletedResource(input: {
           disabled: disable,
         },
       });
+      // Only the disable case is notification-worthy: the schedule lost its
+      // last live source and can no longer produce a backup until repaired.
+      // A partial prune (some sources survive) leaves it functional, so it
+      // stays quiet to avoid noise. Best-effort — never blocks the cleanup.
+      if (disable) {
+        await emitPlatformEvent({
+          organizationId,
+          eventId: "backup.orphaned",
+          title: `Backup schedule "${schedule.name}" was disabled`,
+          message: `Its last database source (${resourceName}) was deleted, so the schedule can no longer run. Re-point it at a live database and re-enable it.`,
+          data: { schedule: schedule.name, deletedSource: resourceName },
+        });
+      }
     }
   } catch (cause) {
     log.warn({
