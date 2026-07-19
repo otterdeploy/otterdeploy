@@ -228,7 +228,25 @@ export async function deleteService(
   );
 
   await deleteProxyRoutesByResource(input.resourceId);
-  await runtime().destroy({ serviceName: record.service.serviceName }, log);
+  // Stop + remove the running container / swarm service. If the daemon is
+  // unreachable this used to throw and block the whole delete, stranding the
+  // user with an undeletable service. The DB row is the source of truth and is
+  // removed regardless (see reclaimServiceHostArtifacts' contract), so instead
+  // record the leaked object as an orphan and let the GC sweep retry teardown
+  // (system-health/orphan-gc.ts).
+  await runtime()
+    .destroy({ serviceName: record.service.serviceName }, log)
+    .catch(async (cause) => {
+      const { recordOrphanedResource } = await import("../../system-health/orphan-gc");
+      await recordOrphanedResource({
+        organizationId: input.organizationId,
+        resourceType: "service",
+        ref: record.service.serviceName,
+        projectId: input.projectId,
+        label: `service teardown failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+        payload: { projectId: input.projectId, resourceId: input.resourceId },
+      });
+    });
   // Reclaim host artifacts (built images, buildx cache, volumes) — the container
   // teardown above only removes the running container.
   await reclaimServiceHostArtifacts(

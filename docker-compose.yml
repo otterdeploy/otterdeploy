@@ -37,11 +37,27 @@ services:
     image: redis:7-alpine
     container_name: otterdeploy-redis
     restart: unless-stopped
-    command: >
-      redis-server
-      --appendonly yes
-      --maxmemory 256mb
-      --maxmemory-policy noeviction
+    # Self-heal a corrupt/truncated AOF (e.g. after a disk-full crash) instead of
+    # crash-looping forever on boot. The wrapper repairs the AOF if present, then
+    # execs redis's own entrypoint ("$$0" "$$@" = redis-server …) so its chown +
+    # user-drop still run. A valid AOF makes redis-check-aof a no-op; `yes`
+    # auto-answers its truncation prompt.
+    entrypoint:
+      - sh
+      - -ec
+      - |
+        if [ -f /data/appendonlydir/appendonly.aof.manifest ]; then
+          yes | redis-check-aof --fix /data/appendonlydir/appendonly.aof.manifest || true
+        fi
+        exec docker-entrypoint.sh "$$0" "$$@"
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - noeviction
     ports:
       - "${REDIS_PORT:-6379}:6379"
     volumes:

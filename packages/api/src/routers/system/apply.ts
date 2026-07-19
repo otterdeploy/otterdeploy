@@ -18,6 +18,7 @@ import { env } from "@otterdeploy/env/server";
 import { log } from "evlog";
 
 import { pullImage } from "../../runtime/docker-driver-helpers";
+import { ensureDiskHeadroom } from "../../system-health/disk-guard";
 import { checkForUpdate, currentVersion, resolveDryRun } from "./check";
 import { isNewer } from "./compare";
 import * as state from "./state";
@@ -33,6 +34,12 @@ const errText = (e: unknown): string => (e instanceof Error ? e.message : String
 /** The three otterdeploy images the version tag controls (postgres/redis/crowdsec
  *  are independently pinned and not touched by a version bump). */
 const IMAGES = ["server", "builder", "caddy"] as const;
+
+/** Disk the update must have free before it touches the running stack. A full
+ *  `compose pull`/`up` can corrupt redis's AOF and half-recreate the stack,
+ *  leaving no control plane — so we refuse (after trying to reclaim) below this.
+ *  The server image alone is ~1.2 GB; 2 GB covers a worst-case re-pull + recreate. */
+const UPDATE_DISK_RESERVE_BYTES = 2 * 1024 ** 3;
 
 /**
  * Validate + kick off an update. Fire-and-forget: returns as soon as the run is
@@ -121,6 +128,30 @@ async function applyReal(target: string): Promise<void> {
   const installDir = env.OTTERDEPLOY_INSTALL_DIR;
   const helperImage = env.OTTERDEPLOY_UPDATE_HELPER_IMAGE;
   const docker = Docker.fromEnv();
+
+  // Disk preflight — BEFORE any handoff or pull. A full disk mid-update can
+  // corrupt redis's AOF and leave a half-recreated stack with no control plane
+  // (the exact brick this hardening prevents). Try to reclaim unused images +
+  // cache first; if still short, ABORT while everything is still running.
+  state.emit("validate", "Checking disk headroom for the update…");
+  const headroom = await ensureDiskHeadroom({
+    neededBytes: UPDATE_DISK_RESERVE_BYTES,
+    reclaim: true,
+  });
+  if (!headroom.ok) {
+    state.finish(
+      false,
+      `Update aborted before touching the stack — ${headroom.reason}. Free disk space and retry.`,
+    );
+    return;
+  }
+  if (headroom.reclaimedBytes > 0) {
+    state.emit(
+      "validate",
+      `Freed ${(headroom.reclaimedBytes / 1024 ** 3).toFixed(1)} GB of unused images/cache to make room.`,
+      "success",
+    );
+  }
 
   state.emit("validate", `Preparing update to ${target} (install dir ${installDir}).`);
   state.emit("pull", `Ensuring update helper image ${helperImage} is available…`);

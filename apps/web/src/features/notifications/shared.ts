@@ -34,6 +34,7 @@ export const EVENTS: EventRow[] = [
   { id: "cert.renewed", label: "Cert renewed", severity: "ok" },
   { id: "backup.failed", label: "Backup failed", severity: "err" },
   { id: "backup.succeeded", label: "Backup succeeded", severity: "ok" },
+  { id: "backup.orphaned", label: "Backup schedule orphaned", severity: "warn" },
   { id: "ssh.rotated", label: "SSH key rotated", severity: "info" },
   { id: "audit.anomaly", label: "Audit anomaly", severity: "warn" },
   { id: "edge.probe", label: "Suspicious edge traffic", severity: "warn" },
