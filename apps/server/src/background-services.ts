@@ -17,6 +17,7 @@ import {
   startHealthAgentReconciler,
   startHostHealthMonitor,
   startLocalHealthSampler,
+  startOrphanResourceGc,
 } from "@otterdeploy/api/system-health";
 import { reconcileInterruptedDeployments } from "@otterdeploy/jobs/reconcile";
 import { log } from "evlog";
@@ -82,6 +83,12 @@ export function startBackgroundServices(): () => void {
   // backups) whose owning DB row is gone, e.g. after a crashed teardown
   // (docs/designs/data-folder.md, Phase 5). No-op when /data isn't in use.
   start("data-folder-sweep", startDataFolderSweep);
+
+  // Orphaned-resource GC — the Docker-object analogue of the data-folder sweep.
+  // Retries teardown for runtime objects (swarm services/containers/volumes/
+  // networks/images) whose delete couldn't reach the daemon, recorded in
+  // orphaned_resource. Every 5m; idempotent, backs off per-row.
+  start("orphan-resource-gc", startOrphanResourceGc);
 
   // PR-preview idle GC — hourly, tears down active non-paused previews past
   // their autoTeardownAt (keep-alive pins = NULL deadline, never reaped).

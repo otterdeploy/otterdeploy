@@ -24,6 +24,10 @@ ARG BUN_VERSION=1.3.14
 # Railpack CLI — kept in lockstep with the RAILPACK_FRONTEND tag in
 # apps/builder/src/railpack.ts (a CLI/frontend skew breaks builds).
 ARG RAILPACK_VERSION=0.26.1
+# rustic backup engine (Rust CLI) — vendored into the runtime stage; the server's
+# backup subsystem shells out to it. Pin + literal-hash so the layer is
+# reproducible. Bump both together with the upstream release SHA256.
+ARG RUSTIC_VERSION=0.11.3
 
 # ── build stage: full toolchain, discarded from the final image ───────────────
 FROM oven/bun:${BUN_VERSION}-debian AS build
@@ -73,6 +77,17 @@ RUN apt-get update \
 RUN RAILPACK_VERSION="${RAILPACK_VERSION}" sh -c \
     'curl -sSL https://railpack.com/install.sh | sh -s -- --yes --bin-dir /usr/local/bin' \
  && railpack --version
+# rustic backup engine — glibc x86_64 asset, SHA256-verified. The `rustic` binary
+# sits at the archive root; install it to /usr/local/bin (matches the runtime
+# default RUSTIC_BIN). curl + ca-certificates come from the apt layer above.
+ARG RUSTIC_VERSION
+RUN curl -fsSL -o /tmp/rustic.tar.gz \
+      "https://github.com/rustic-rs/rustic/releases/download/v${RUSTIC_VERSION}/rustic-v${RUSTIC_VERSION}-x86_64-unknown-linux-gnu.tar.gz" \
+ && echo "3860383a38f5c717ff8302574d79a0581452361985346ed1d116216cdb1b04f8  /tmp/rustic.tar.gz" | sha256sum -c - \
+ && tar -xzf /tmp/rustic.tar.gz -C /tmp rustic \
+ && install -m 0755 /tmp/rustic /usr/local/bin/rustic \
+ && rm -f /tmp/rustic.tar.gz /tmp/rustic \
+ && rustic --version
 
 WORKDIR /app
 # Bring the built app + scoped production node_modules across from the build

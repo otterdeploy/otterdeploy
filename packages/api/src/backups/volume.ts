@@ -18,7 +18,7 @@
 import type { Docker, Mount } from "@otterdeploy/docker";
 
 import { DockerNotFoundError, followProgress } from "@otterdeploy/docker";
-import { Readable, Writable } from "node:stream";
+import { PassThrough, Readable, Writable } from "node:stream";
 
 /** Helper image for tar/clear runs — small, ships GNU-compatible busybox tar. */
 export const VOLUME_HELPER_IMAGE = "alpine:3.20";
@@ -127,30 +127,54 @@ export async function assertVolumeExists(docker: Docker, volumeName: string): Pr
   }
 }
 
+/** A streaming volume dump (mirrors exec.ts `DumpStream`): `stream` is the tar
+ *  bytes flowing out of the helper container, `stderr()`/`exitCode` settle once
+ *  the helper exits. The consumer (rustic) MUST drain `stream` — the helper is
+ *  only reaped after its stdout is fully piped, so both promises hang otherwise. */
+export interface VolumeDumpStream {
+  stream: Readable;
+  stderr: () => Promise<string>;
+  exitCode: Promise<number>;
+}
+
 /**
- * Tar the volume's contents into a buffer via a read-only helper container.
+ * Stream a tar of the volume's contents out of a read-only helper container.
  * A live writer can still produce a crash-consistent archive — same guarantee
  * a `tar` of a running system gives — so no in-use guard on the backup side.
+ *
+ * Returns immediately with a `stream` that receives the tar bytes as they flow
+ * (piped `end:true` inside `docker.run`); rustic consumes it as backup stdin —
+ * nothing is buffered in RAM. `runHelper` waits for the helper to exit + be
+ * auto-removed in the background, exposed via `exitCode`.
  */
-export async function dumpVolume(
-  docker: Docker,
-  volumeName: string,
-): Promise<{ archive: Buffer; stderr: string }> {
-  const out = bufferSink();
+export function dumpVolume(docker: Docker, volumeName: string): VolumeDumpStream {
+  const stream = new PassThrough();
   const err = bufferSink();
-  // NOTE: pulls can't race the run — runHelper pulls only after a failed run.
-  const { statusCode } = await runHelper(
+  // NOTE: pulls can't race the run — runHelper pulls only after a failed run,
+  // and only attaches (pipes to `stream`) on the attempt that actually starts.
+  const run = runHelper(
     docker,
     volumeTarCreateArgs(),
     volumeMountSpec(volumeName, { readOnly: true }),
-    [out.sink, err.sink],
+    [stream, err.sink],
   );
-  const [archive, stderrBuf] = await Promise.all([out.done, err.done]);
-  const stderr = stderrBuf.toString("utf8");
-  if (statusCode !== 0) {
-    throw new Error(`volume tar exited ${statusCode}: ${stderr.slice(0, 1000)}`);
-  }
-  return { archive, stderr };
+  // On a run/pull failure the helper never pipes anything: surface the cause on
+  // `stream` so the rustic pipe rejects (rather than hanging on an empty
+  // stdin), and end the stderr sink so `stderr()` still resolves.
+  run.catch((cause) => {
+    stream.destroy(cause instanceof Error ? cause : new Error(String(cause)));
+    err.sink.end();
+  });
+  return {
+    stream,
+    stderr: () => err.done.then((b) => b.toString("utf8")),
+    // Non-rejecting: a failed run resolves non-zero (the real cause rides
+    // `stream`), so awaiting `exitCode` never produces an unhandled rejection.
+    exitCode: run.then(
+      (r) => r.statusCode,
+      () => 1,
+    ),
+  };
 }
 
 /** Names of ALL containers (any state) whose mounts reference the volume. */

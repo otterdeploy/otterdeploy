@@ -227,10 +227,23 @@ export const backup = pgTable(
       .$type<BackupDestinationId>()
       .references(() => backupDestination.id, { onDelete: "restrict" }),
     encryption: backupEncryptionEnum("encryption").notNull().default("aes-256-gcm"),
+    // Result-size columns, REPURPOSED for the rustic engine (no migration — the
+    // physical columns are reused with new semantics; see
+    // packages/api/src/backups/{engine,db}.ts markBackupSucceeded):
+    //   sourceSizeBytes     = rustic summary.total_bytes_processed (dump size).
+    //   compressedSizeBytes = rustic summary.data_added — bytes ADDED to the repo
+    //     this run (post-dedup + zstd), NOT a standalone compressed archive size;
+    //     with incremental dedup an unchanged source can add ~0 bytes.
     sourceSizeBytes: bigint("source_size_bytes", { mode: "number" }),
     compressedSizeBytes: bigint("compressed_size_bytes", { mode: "number" }),
+    // REPURPOSED: no longer a sha256 of the stored blob. rustic owns integrity
+    // (structural `check` in verifyBackup), so the engine writes null here today;
+    // a short snapshot id may be stored later. Do not treat as a content hash.
     checksum: text("checksum"),
-    // S3 key or local path of the produced archive.
+    // REPURPOSED: was the S3 key / local path of the produced archive; now holds
+    // the rustic SNAPSHOT ID (64-hex, from backup JSON `.id`). Combined with the
+    // (resource × destination) repo derivation it fully addresses the snapshot
+    // for dump/restore/forget — there is no per-run file path anymore.
     storagePath: text("storage_path"),
     retention: backupRetentionClassEnum("retention").notNull().default("standard"),
     durationMs: integer("duration_ms"),

@@ -1,27 +1,29 @@
-import { Docker } from "@otterdeploy/docker";
 /**
- * Backup execution engine. Produces an archive for the run's source —
- * `database`: a logical dump exec'd inside the DB's own container (no creds on
- * the wire — see exec.ts); `volume`: a tar of a named Docker volume streamed
- * out of a read-only helper container (see volume.ts) — then compresses it,
- * optionally encrypts at rest, checksums it, and stores it to the run's
- * destination.
+ * Backup execution engine. Streams the run's source straight into `rustic`
+ * (dedup + incremental + zstd + repo-key encryption — see rustic.ts) as backup
+ * stdin, so nothing is buffered in RAM:
+ *   `database`: a logical dump exec'd inside the DB's own container (no creds on
+ *               the wire — see exec.ts);
+ *   `volume`  : a tar of a named Docker volume streamed out of a read-only
+ *               helper container (see volume.ts).
+ * One repo per (resource × destination); each run is one tagged snapshot.
+ * rustic owns compression + encryption, so the old gzip/aes/checksum/stage/put
+ * plumbing is gone. `storagePath` now holds the snapshot id.
  *
  * v1 covers logical dumps for postgres / mariadb / mongodb plus volume tars.
- * redis logical dumps are rejected with a pointer to volume backups. The
- * archive is buffered in memory then stored in a single write — adequate for
- * application databases; streaming-to-storage for very large datasets is the
- * next iteration.
+ * redis logical dumps are rejected with a pointer to volume backups.
  *
- * Restore + verify of stored archives live in restore.ts.
+ * Restore + verify of snapshots live in restore.ts.
  */
-import { createHash } from "node:crypto";
-import { gzipSync } from "node:zlib";
+import type { Readable } from "node:stream";
 
-import { encryptBytes } from "../lib/crypto";
-import { removeStagedBackup, stageBackupArchive } from "../lib/data-dir";
+import { Docker } from "@otterdeploy/docker";
+
+import type { ResolvedDestination } from "./backends";
+
 import { emitPlatformEvent } from "../notifications/emit";
 import { buildContainerName } from "../routers/project/views";
+import { deriveRepoId, toRusticRepo } from "./backends";
 import {
   type ExecutionContext,
   appendBackupLog,
@@ -32,8 +34,8 @@ import {
 } from "./db";
 import { dumpCommand, resolveSecret, runPreHook } from "./engine-helpers";
 import { execDump, findResourceContainerId } from "./exec";
-import { type ResolvedDestination, archiveKey, putArchive } from "./storage";
-import { assertVolumeExists, dumpVolume, volumeArchiveScope } from "./volume";
+import { RusticCli } from "./rustic";
+import { assertVolumeExists, dumpVolume } from "./volume";
 
 type LogFn = (stream: "stdout" | "stderr" | "system", line: string) => Promise<void>;
 
@@ -54,29 +56,31 @@ function eventData(ctx: ExecutionContext): Record<string, string> {
       };
 }
 
-/** Archive extension + storage-key scope for a run (kind-dependent).
- *  Shared with restore.ts, which recomputes keys the same way. */
-export function archiveShape(ctx: ExecutionContext): { ext: string; scope: string } {
-  if (ctx.kind === "volume") {
-    return { ext: "tar.gz", scope: volumeArchiveScope(ctx.volumeName) };
-  }
-  const ext =
-    ctx.engine === "postgres" ? "dump.gz" : ctx.engine === "mariadb" ? "sql.gz" : "archive.gz";
-  return { ext, scope: ctx.resourceId };
+/**
+ * A live dump of the run's source, ready to pipe into rustic. `stream` is the
+ * raw archive bytes (a logical dump or a volume tar); `stderr()`/`exitCode`
+ * settle once the underlying dump/tar exits and can only be awaited after the
+ * stream has been drained (rustic does that). `method` is a human label for the
+ * run row.
+ */
+interface ArchiveStream {
+  stream: Readable;
+  method: string;
+  stderr: () => Promise<string>;
+  exitCode: Promise<number>;
 }
 
-/** Produce the raw (uncompressed) archive bytes for the run's source. */
+/** Open a streaming dump of the run's source (no bytes buffered here). */
 async function produceArchive(
   docker: Docker,
   ctx: ExecutionContext,
   log: LogFn,
-): Promise<{ archive: Buffer; method: string }> {
+): Promise<ArchiveStream> {
   if (ctx.kind === "volume") {
     await assertVolumeExists(docker, ctx.volumeName);
     await log("system", "Streaming tar from a read-only helper container");
-    const { archive, stderr } = await dumpVolume(docker, ctx.volumeName);
-    if (stderr.trim()) await log("stderr", stderr.trim().slice(0, 4000));
-    return { archive, method: "tar (helper container, ro mount) | gzip" };
+    const dump = dumpVolume(docker, ctx.volumeName);
+    return { ...dump, method: "tar (helper container, ro mount) → rustic" };
   }
 
   const serviceName = buildContainerName({
@@ -94,11 +98,7 @@ async function produceArchive(
 
   const { cmd, env, method } = dumpCommand(ctx);
   const dump = await execDump(docker, containerId, cmd, env);
-  if (dump.exitCode !== 0) {
-    throw new Error(`dump exited ${dump.exitCode}: ${dump.stderr.slice(0, 1000)}`);
-  }
-  if (dump.stderr.trim()) await log("stderr", dump.stderr.trim().slice(0, 4000));
-  return { archive: dump.archive, method };
+  return { stream: dump.stream, method, stderr: dump.stderr, exitCode: dump.exitCode };
 }
 
 /**
@@ -107,7 +107,6 @@ async function produceArchive(
  * detached without unhandled rejections.
  */
 export async function executeBackup(backupId: string): Promise<void> {
-  const started = Date.now();
   const ctx = await getExecutionContext(backupId as ExecutionContext["backupId"]);
   if (!ctx) {
     await markBackupFailed(
@@ -129,68 +128,55 @@ export async function executeBackup(backupId: string): Promise<void> {
         : `Starting ${ctx.engine} backup of ${ctx.databaseName}`,
     );
 
-    const { archive, method } = await produceArchive(docker, ctx, log);
-    const sourceSize = archive.length;
-    await log("system", `Dumped ${sourceSize} bytes; compressing`);
+    const source = await produceArchive(docker, ctx, log);
 
-    // Compress, then optionally encrypt at rest.
-    let body: Buffer = gzipSync(archive);
-    if (ctx.encryption === "aes-256-gcm") {
-      body = await encryptBytes(body);
-      await log("system", "Encrypted archive (aes-256-gcm)");
-    } else if (ctx.encryption === "kms-managed" || ctx.encryption === "customer-key") {
-      throw new Error(`encryption mode ${ctx.encryption} is not implemented`);
-    }
-
-    const checksum = createHash("sha256").update(body).digest("hex");
+    // Resolve the (resource × destination) repo, derive its password + backend
+    // options, and open it (idempotent init tolerates an existing repo).
+    const repoId = deriveRepoId(ctx);
     const secret = await resolveSecret(ctx);
     const dest: ResolvedDestination = {
       type: ctx.destination.type,
       config: ctx.destination.config,
       secret,
     };
-    const { ext, scope } = archiveShape(ctx);
-    const key = archiveKey({
-      prefix:
-        typeof ctx.destination.config.prefix === "string"
-          ? ctx.destination.config.prefix
-          : undefined,
-      resourceId: scope,
-      backupId: ctx.backupId,
-      ext,
+    const cli = new RusticCli(toRusticRepo(dest, repoId), log);
+    await cli.ensureInit();
+    await log("system", `Streaming into repo ${repoId}`);
+
+    // Pipe the live dump/tar straight into `rustic backup -` — rustic dedups,
+    // compresses (zstd), and encrypts under the repo key. Draining the stream
+    // is what lets the dump/tar exit be observed, so the exit check comes after.
+    const result = await cli.backupStdin({
+      stdin: source.stream,
+      stdinFilename: ctx.kind === "volume" ? "volume.tar" : "dump",
+      tags: ["otterdeploy", `backup:${ctx.backupId}`, `schedule:${ctx.scheduleId ?? "manual"}`],
     });
-    // Land the archive in the host data folder before the (possibly
-    // off-cluster) upload — predictable staging that stays put if the upload
-    // throws, for inspection/retry. The data-folder sweep reclaims stale ones.
-    // Volume runs skip it: the staging layout is keyed project/resource, and a
-    // volume has neither.
-    const staged =
-      ctx.kind === "database"
-        ? await stageBackupArchive({
-            projectId: ctx.projectId,
-            resourceId: ctx.resourceId,
-            backupId: ctx.backupId,
-            ext,
-            body,
-          })
-        : null;
-    if (staged) await log("system", `Staged archive → ${staged}`);
 
-    const { storagePath } = await putArchive(dest, key, body);
-    await log("system", `Stored ${body.length} bytes → ${storagePath}`);
-
-    // Upload landed — drop the staging copy (kept only when the upload failed).
-    if (staged) await removeStagedBackup(staged);
+    // The snapshot is only trustworthy if the source producer exited cleanly —
+    // a failed pg_dump/tar can still end its stdout, leaving rustic a truncated
+    // archive it happily snapshots. Fail the run so a partial backup never
+    // reads as succeeded.
+    const dumpExit = await source.exitCode;
+    const dumpStderr = (await source.stderr()).trim();
+    if (dumpStderr) await log("stderr", dumpStderr.slice(0, 4000));
+    if (dumpExit !== 0) {
+      const what = ctx.kind === "volume" ? "volume tar" : "dump";
+      throw new Error(`${what} exited ${dumpExit}: ${dumpStderr.slice(0, 1000)}`);
+    }
 
     await markBackupSucceeded(ctx.backupId, {
-      storagePath,
-      checksum,
-      compressedSizeBytes: body.length,
-      sourceSizeBytes: sourceSize,
-      durationMs: Date.now() - started,
-      method,
+      storagePath: result.snapshotId,
+      // rustic owns integrity (`check`); no blob checksum is computed here.
+      checksum: null,
+      compressedSizeBytes: result.addedBytes,
+      sourceSizeBytes: result.sourceSizeBytes,
+      durationMs: result.durationMs,
+      method: source.method,
     });
-    await log("system", "Backup succeeded");
+    await log(
+      "system",
+      `Backup succeeded — snapshot ${result.snapshotId.slice(0, 12)} (+${result.addedBytes} B)`,
+    );
     await emitPlatformEvent({
       organizationId: ctx.organizationId,
       eventId: "backup.succeeded",

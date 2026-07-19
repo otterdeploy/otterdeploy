@@ -8,25 +8,24 @@
  *   3. computes the next fire time from the cron expression
  *   4. applies the retention policy (prune old archives + rows)
  */
-import type { BackupDestinationId } from "@otterdeploy/shared/id";
-
 import { parseExpression } from "cron-parser";
 import { log } from "evlog";
 
-import { decryptSecret } from "../lib/crypto";
-import { createBackupRun } from "./db";
+import type { ResolvedDestination } from "./backends";
+
+import { deriveRepoId, toRusticRepo } from "./backends";
+import { createBackupRun, getExecutionContext } from "./db";
 import { executeBackup } from "./engine";
-import { selectBackupsToPrune } from "./retention";
+import { resolveSecret } from "./engine-helpers";
+import { type ForgetSpec, RusticCli } from "./rustic";
 import {
   type DueSchedule,
   deleteBackupRow,
-  getDestinationByIdWithSecret,
   listDueSchedules,
   listScheduleBackups,
   resolveScheduleSources,
   updateScheduleAfterRun,
 } from "./schedule-db";
-import { type ResolvedDestination, removeArchive } from "./storage";
 
 function nextFireTime(cron: string, from: Date): Date | null {
   try {
@@ -103,59 +102,69 @@ async function runSchedule(schedule: DueSchedule, now: Date): Promise<void> {
   });
 }
 
-/** GFS retention. Keeps the most recent archive per day/week/month/year up to
- *  each tier's count, enforces an optional hard max age and storage ceiling,
- *  then prunes the rest. Both the stored archive AND the row are removed so
- *  usage totals stay honest. */
+/** GFS retention, delegated to rustic. Each (resource × destination) is its own
+ *  rustic repo, so we group the schedule's snapshots by repo and run one
+ *  `forget --prune` per repo with the GFS keep flags + max-age (keep-within).
+ *  rustic owns which snapshots survive; we then reconcile the DB rows to that
+ *  outcome — dropping any succeeded row whose snapshot `forget` pruned — so
+ *  usage totals + history stay honest.
+ *
+ *  Note: `maxStorageGb` has no native rustic flag and can't be enforced at the
+ *  snapshot level via `forget` (which takes a keep policy, not explicit ids), so
+ *  it is NOT applied here; the residual selection lives in retention.ts pending a
+ *  snapshot-level forget. */
 async function applyRetention(schedule: DueSchedule): Promise<void> {
   const all = await listScheduleBackups(schedule.id);
   if (all.length === 0) return;
 
-  // GFS tiers are counted independently per destination — a "keep 7 daily"
-  // policy means 7 in EACH location, so prune per-destination group.
-  const byDest = new Map<BackupDestinationId, typeof all>();
+  // Group snapshots by their rustic repo (one repo per resource × destination).
+  // Each run's execution context yields the repo id + backend creds we need to
+  // build a driver; snapshots for the same repo share one `forget` pass.
+  const repos = new Map<string, { cli: RusticCli; rows: typeof all }>();
   for (const b of all) {
-    const group = byDest.get(b.destinationId);
-    if (group) group.push(b);
-    else byDest.set(b.destinationId, [b]);
+    const ctx = await getExecutionContext(b.id);
+    if (!ctx) continue;
+    const repoId = deriveRepoId(ctx);
+    let entry = repos.get(repoId);
+    if (!entry) {
+      const secret = await resolveSecret(ctx);
+      const dest: ResolvedDestination = {
+        type: ctx.destination.type,
+        config: ctx.destination.config,
+        secret,
+      };
+      entry = { cli: new RusticCli(toRusticRepo(dest, repoId)), rows: [] };
+      repos.set(repoId, entry);
+    }
+    entry.rows.push(b);
   }
 
-  const policy = {
+  // GFS tiers → rustic `--keep-*`; the hard max age → `--keep-within <N>d`.
+  const spec: ForgetSpec = {
     keepDaily: schedule.keepDaily,
     keepWeekly: schedule.keepWeekly,
     keepMonthly: schedule.keepMonthly,
     keepYearly: schedule.keepYearly,
-    retentionDays: schedule.retentionDays,
-    maxStorageGb: schedule.maxStorageGb,
+    keepWithinDays: schedule.retentionDays,
   };
+  const filterTags = ["otterdeploy", `schedule:${schedule.id}`];
 
-  const secretCache = new Map<BackupDestinationId, ResolvedDestination | null>();
-  for (const [destinationId, group] of byDest) {
-    const toPrune = selectBackupsToPrune(group, policy);
-    if (toPrune.length === 0) continue;
-    let secret = secretCache.get(destinationId);
-    if (secret === undefined) {
-      secret = await resolveDestinationSecret(destinationId);
-      secretCache.set(destinationId, secret);
-    }
-    for (const b of toPrune) {
-      if (b.storagePath && secret) {
-        await removeArchive(secret, b.storagePath).catch(() => undefined);
+  for (const [repoId, { cli, rows }] of repos) {
+    try {
+      await cli.forget(spec, filterTags);
+      // Reconcile: drop any succeeded row whose snapshot `forget` just pruned.
+      for (const b of rows) {
+        if (!b.storagePath) continue;
+        const exists = await cli.snapshotExists(b.storagePath);
+        if (!exists) await deleteBackupRow(b.id);
       }
-      await deleteBackupRow(b.id);
+    } catch (cause) {
+      log.error({
+        backups: { scheduler: schedule.id, repo: repoId, status: "retention-error" },
+        error: cause instanceof Error ? cause.message : String(cause),
+      });
     }
   }
-}
-
-async function resolveDestinationSecret(
-  destinationId: BackupDestinationId,
-): Promise<ResolvedDestination | null> {
-  const row = await getDestinationByIdWithSecret(destinationId);
-  if (!row) return null;
-  const secret = row.encryptedSecret
-    ? (JSON.parse(await decryptSecret(row.encryptedSecret)) as Record<string, string>)
-    : {};
-  return { type: row.type, config: row.config, secret };
 }
 
 /** Start the periodic scanner. Returns a stop handle. */

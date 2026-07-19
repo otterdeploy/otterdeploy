@@ -1,8 +1,10 @@
 /**
- * GFS retention policy tests. The scheduler relies on `selectBackupsToPrune`
- * to decide deletions, so each tier (daily/weekly/monthly/yearly), the age
- * cutoff, and the storage ceiling get a case — plus the no-policy guard that
- * must never prune.
+ * Residual storage-ceiling retention. GFS tiers (daily/weekly/monthly/yearly)
+ * and the hard max-age cut now belong to `rustic forget` (driven by the
+ * scheduler), so the only thing left here is the byte-ceiling selection:
+ * `selectBackupsToPrune` picks the oldest survivors to drop until the total
+ * fits `maxStorageGb`. These cases cover the ceiling, the no-policy guard, and
+ * the null-size edge.
  */
 import { describe, expect, it } from "vite-plus/test";
 
@@ -10,83 +12,36 @@ import { selectBackupsToPrune } from "../retention";
 
 const DAY = 24 * 60 * 60 * 1000;
 const HOUR = 60 * 60 * 1000;
-// Anchor to now (the policy compares against Date.now()); the −1h offset keeps
-// each backup clear of an exact day boundary so the age cutoff is deterministic.
 const now = Date.now();
 
-/** N daily backups ending ~now, newest first (id = "d0" is the newest). */
-function daily(n: number) {
+/** N daily backups ending ~now, newest first (id = "d0" is the newest), 1 GB each. */
+function daily(n: number, sizeBytes = 1_000_000_000) {
   return Array.from({ length: n }, (_, i) => ({
     id: `d${i}`,
     completedAt: new Date(now - i * DAY - HOUR),
-    compressedSizeBytes: 1_000_000_000, // 1 GB each
+    compressedSizeBytes: sizeBytes,
   }));
 }
 
-const noPolicy = {
-  keepDaily: 0,
-  keepWeekly: 0,
-  keepMonthly: 0,
-  keepYearly: 0,
-  retentionDays: null,
-  maxStorageGb: null,
-};
-
 describe("selectBackupsToPrune", () => {
-  it("keeps everything when no policy is set", () => {
-    expect(selectBackupsToPrune(daily(10), noPolicy)).toHaveLength(0);
+  it("keeps everything when no ceiling is set", () => {
+    expect(selectBackupsToPrune(daily(10), { maxStorageGb: null })).toHaveLength(0);
   });
 
-  it("keeps the newest N daily and prunes the rest", () => {
-    const pruned = selectBackupsToPrune(daily(10), {
-      ...noPolicy,
-      keepDaily: 3,
-    });
-    // 10 backups on 10 distinct days, keep 3 → prune 7 (the oldest).
+  it("keeps everything when already under the ceiling", () => {
+    expect(selectBackupsToPrune(daily(3), { maxStorageGb: 100 })).toHaveLength(0);
+  });
+
+  it("drops the oldest survivors until the total fits the ceiling", () => {
+    // 10 × 1 GB = 10 GB; a 3 GB cap keeps the 3 newest and drops the 7 oldest.
+    const pruned = selectBackupsToPrune(daily(10), { maxStorageGb: 3 });
     expect(pruned.map((b) => b.id).sort()).toEqual(
       ["d3", "d4", "d5", "d6", "d7", "d8", "d9"].sort(),
     );
   });
 
-  it("keeps one per week for keepWeekly across daily backups", () => {
-    // 21 daily backups span 3 ISO weeks; keepWeekly:2 keeps the newest of the
-    // two most recent weeks (plus nothing else, since other tiers are 0).
-    const kept = new Set(
-      daily(21)
-        .filter(
-          (b) =>
-            !selectBackupsToPrune(daily(21), {
-              ...noPolicy,
-              keepWeekly: 2,
-            }).some((p) => p.id === b.id),
-        )
-        .map((b) => b.id),
-    );
-    expect(kept.size).toBe(2);
-  });
-
-  it("enforces the hard max-age cutoff even on tier-kept archives", () => {
-    const pruned = selectBackupsToPrune(daily(10), {
-      ...noPolicy,
-      keepDaily: 10,
-      retentionDays: 3,
-    });
-    // keepDaily would keep all 10, but anything older than 3 days goes. With the
-    // −1h offset, d0/d1/d2 are <3d old (kept); d3+ are older (pruned).
-    expect(pruned.map((b) => b.id).sort()).toEqual(
-      ["d3", "d4", "d5", "d6", "d7", "d8", "d9"].sort(),
-    );
-  });
-
-  it("enforces the storage ceiling by dropping oldest survivors", () => {
-    // keepDaily:10 keeps all (10 GB); a 3 GB cap drops the 7 oldest.
-    const pruned = selectBackupsToPrune(daily(10), {
-      ...noPolicy,
-      keepDaily: 10,
-      maxStorageGb: 3,
-    });
-    expect(pruned.map((b) => b.id).sort()).toEqual(
-      ["d3", "d4", "d5", "d6", "d7", "d8", "d9"].sort(),
-    );
+  it("treats missing sizes as zero (never pruned by the ceiling)", () => {
+    const backups = daily(3).map((b) => ({ ...b, compressedSizeBytes: null }));
+    expect(selectBackupsToPrune(backups, { maxStorageGb: 1 })).toHaveLength(0);
   });
 });

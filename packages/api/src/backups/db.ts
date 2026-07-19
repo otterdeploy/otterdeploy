@@ -38,6 +38,8 @@ interface ExecutionContextBase {
   checksum: string | null;
   /** Pre-backup command (scheduled runs only) — exec'd in the DB container. */
   preHook: string | null;
+  /** Owning schedule (null for manual runs); tags snapshots for tag-scoped `forget`. */
+  scheduleId: BackupScheduleId | null;
   destination: {
     id: BackupDestinationId;
     type: "s3" | "local" | "sftp";
@@ -90,6 +92,7 @@ export async function getExecutionContext(backupId: BackupId): Promise<Execution
       destSecret: backupDestination.encryptedSecret,
       // Pre-hook lives on the schedule; null for manual (scheduleId null) runs.
       preHook: backupSchedule.preHook,
+      scheduleId: backup.scheduleId,
     })
     .from(backup)
     .leftJoin(resource, eq(resource.id, backup.resourceId))
@@ -108,6 +111,7 @@ export async function getExecutionContext(backupId: BackupId): Promise<Execution
     storagePath: row.storagePath,
     checksum: row.checksum,
     preHook: row.preHook ?? null,
+    scheduleId: row.scheduleId,
     destination: {
       id: row.destId,
       type: row.destType,
@@ -217,7 +221,8 @@ export async function markBackupSucceeded(
   backupId: BackupId,
   fields: {
     storagePath: string;
-    checksum: string;
+    /** rustic owns integrity via `check`; null for rustic-engine runs. */
+    checksum: string | null;
     compressedSizeBytes: number;
     sourceSizeBytes?: number;
     durationMs: number;
