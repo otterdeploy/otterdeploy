@@ -10,7 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { orpc } from "@/shared/server/orpc";
 
-import { useCheckForUpdate } from "../data/use-update-status";
+import { useCheckForUpdate, useUpdateState, useUpdateStatus } from "../data/use-update-status";
 import { UpdateDialog } from "./update-dialog";
 
 const CHECK_STALE_MS = 60 * 60 * 1000; // re-check at most hourly per load
@@ -26,6 +26,24 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   const settings = useQuery({ ...orpc.system.updateSettings.get.queryOptions(), retry: false });
   const check = useCheckForUpdate();
   const checkedRef = useRef(false);
+
+  // Re-attach to a run already in flight (e.g. after the operator reloaded mid
+  // update): auto-open the dialog straight into the progress view. Once per run
+  // (keyed by startedAt) so a manual close isn't fought by the poll.
+  const status = useUpdateStatus();
+  const runState = useUpdateState();
+  const run = runState.data;
+  const autoOpenedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (run?.status === "running" && run.startedAt && autoOpenedRef.current !== run.startedAt) {
+      autoOpenedRef.current = run.startedAt;
+      setOpen(true);
+    }
+  }, [run]);
+  const attached =
+    run?.status === "running" && run.targetVersion
+      ? { target: run.targetVersion, dryRun: status.dryRun }
+      : null;
 
   // Auto-check once per load if the cached result is stale (or never fetched).
   // Failures (e.g. a member without platform:read) are swallowed — the feature
@@ -46,7 +64,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   return (
     <UpdateContext.Provider value={{ openUpdate: () => setOpen(true) }}>
       {children}
-      <UpdateDialog open={open} onOpenChange={setOpen} />
+      <UpdateDialog open={open} onOpenChange={setOpen} attached={attached} />
     </UpdateContext.Provider>
   );
 }

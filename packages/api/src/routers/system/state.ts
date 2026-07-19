@@ -124,6 +124,22 @@ export function finish(ok: boolean, error?: string): void {
   void persist();
 }
 
+/**
+ * Operator escape hatch: force a stuck run to a terminal `failed` state so the
+ * feature un-wedges and a fresh update can start. This is the only recovery for
+ * a real cutover whose detached helper died WITHOUT replacing this server — the
+ * old process survives with `status:"running"` forever, so every subsequent
+ * apply short-circuits to `already-running`. Emits a visible line first so any
+ * re-attached progress viewer explains what happened. No-op (returns false) if
+ * nothing is running.
+ */
+export function cancel(reason: string): boolean {
+  if (run.status !== "running") return false;
+  emit("done", reason, "error");
+  finish(false, reason);
+  return true;
+}
+
 /** Replay accumulated events then tail new ones until the run is terminal (and
  *  fully drained) or the client aborts. A handoff also ends the stream — the
  *  server is going away. */

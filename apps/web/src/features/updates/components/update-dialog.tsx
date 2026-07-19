@@ -20,7 +20,7 @@ import {
   DialogTitle,
 } from "@/shared/components/ui/dialog";
 import { Markdown } from "@/shared/components/ui/markdown";
-import { orpc } from "@/shared/server/orpc";
+import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { useUpdateStatus } from "../data/use-update-status";
 import { UpdateProgress } from "./update-progress";
@@ -39,9 +39,13 @@ function reasonText(reason: "already-running" | "no-update" | "downgrade"): stri
 export function UpdateDialog({
   open,
   onOpenChange,
+  attached,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** A run already in flight (from the persisted state) to re-attach to when
+   *  this browser didn't start it. A fresh local apply takes precedence. */
+  attached?: { target: string; dryRun: boolean } | null;
 }) {
   const status = useUpdateStatus();
   const [applying, setApplying] = useState<{ target: string; dryRun: boolean } | null>(null);
@@ -55,8 +59,15 @@ export function UpdateDialog({
   const apply = useMutation({
     ...orpc.system.apply.mutationOptions(),
     onSuccess: (res) => {
+      // Refresh the persisted run-state either way: on start so the progress
+      // pane doesn't read a PRIOR run's terminal status (it only polls while
+      // running), and on already-running so we re-attach to the live run
+      // instead of leaving the operator with just a toast.
+      void queryClient.invalidateQueries({ queryKey: orpc.system.updateState.queryKey() });
       if (res.started) setApplying({ target: res.targetVersion, dryRun: res.dryRun });
-      else {
+      else if (res.reason === "already-running") {
+        toast.message(reasonText(res.reason));
+      } else {
         toast.message(reasonText(res.reason));
         handleOpenChange(false);
       }
@@ -64,12 +75,15 @@ export function UpdateDialog({
     onError: (e) => toast.error(e.message ?? "Couldn't start the update"),
   });
 
+  // A locally-started apply wins; otherwise fall back to a re-attached run.
+  const active = applying ?? attached ?? null;
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {applying ? "Updating otterdeploy" : "Update otterdeploy"}
+            {active ? "Updating otterdeploy" : "Update otterdeploy"}
             {status.latest && (
               <>
                 <Badge variant="outline" className="font-mono">
@@ -81,7 +95,7 @@ export function UpdateDialog({
             )}
             {status.dryRun && <Badge variant="secondary">dry-run</Badge>}
           </DialogTitle>
-          {!applying && (
+          {!active && (
             <DialogDescription>
               {status.dryRun
                 ? "Dry-run mode: this simulates the full update and streams progress, but changes nothing — no images are pulled and the control plane will not restart."
@@ -90,10 +104,10 @@ export function UpdateDialog({
           )}
         </DialogHeader>
 
-        {applying ? (
+        {active ? (
           <UpdateProgress
-            target={applying.target}
-            dryRun={applying.dryRun}
+            target={active.target}
+            dryRun={active.dryRun}
             onDone={() => handleOpenChange(false)}
           />
         ) : (
@@ -109,7 +123,7 @@ export function UpdateDialog({
           )
         )}
 
-        {!applying && (
+        {!active && (
           <DialogFooter>
             {status.url && (
               <a

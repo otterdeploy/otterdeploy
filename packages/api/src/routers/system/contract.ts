@@ -190,6 +190,12 @@ export const systemContract = {
     .input(emptyInput)
     .output(applyResultSchema),
 
+  /** Operator reset for a wedged run (helper died without cutting over). */
+  cancelUpdate: oc
+    .meta({ path: `${base}/cancel-update`, tag, method: "POST" })
+    .input(emptyInput)
+    .output(z.object({ cancelled: z.boolean(), reason: z.string() })),
+
   updateState: oc
     .meta({ path: `${base}/update-state`, tag, method: "GET" })
     .input(emptyInput)

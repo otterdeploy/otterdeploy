@@ -42,6 +42,22 @@ describe("update run state", () => {
     expect(collected).toEqual(["checking", "pulling"]);
   });
 
+  it("cancel() forces a running run to failed and emits a final line", () => {
+    state.begin("v4.0.0");
+    const cancelled = state.cancel("reset by operator");
+    expect(cancelled).toBe(true);
+    const snap = state.snapshot();
+    expect(snap.status).toBe("failed");
+    expect(snap.error).toBe("reset by operator");
+    expect(snap.logs.at(-1)?.message).toBe("reset by operator");
+    expect(snap.logs.at(-1)?.level).toBe("error");
+  });
+
+  it("cancel() is a no-op when nothing is running", () => {
+    state.finish(true); // ensure terminal/idle
+    expect(state.cancel("nothing to do")).toBe(false);
+  });
+
   it("ends the stream on handoff (server about to be replaced)", async () => {
     state.begin("v3.0.0");
     const consume = (async () => {

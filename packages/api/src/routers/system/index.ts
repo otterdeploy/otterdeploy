@@ -6,7 +6,7 @@
 import { requirePermission } from "../..";
 import { renderInstalledCaddyfile } from "../../caddy";
 import { getHostHealth, growBranchPool, reclaimSpace } from "../../system-health";
-import { startApply } from "./apply";
+import { cancelUpdate, startApply } from "./apply";
 import { checkForUpdate, getUpdateSettings, getVersionInfo, saveUpdateSettings } from "./check";
 import { snapshot, streamProgress } from "./state";
 
@@ -41,6 +41,13 @@ export const systemRouter = {
     context.log.set({ target: { type: "platform" }, action: "platform.update" });
     return startApply();
   }),
+
+  cancelUpdate: requirePermission({ platform: ["update"] }).system.cancelUpdate.handler(
+    async ({ context }) => {
+      context.log.set({ target: { type: "platform" }, action: "platform.update-cancel" });
+      return cancelUpdate();
+    },
+  ),
 
   updateState: requirePermission({ platform: ["read"] }).system.updateState.handler(async () => {
     return snapshot();

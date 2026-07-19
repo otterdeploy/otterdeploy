@@ -84,6 +84,33 @@ export function useCheckForUpdate() {
   });
 }
 
+function invalidateRunState() {
+  return queryClient.invalidateQueries({
+    queryKey: orpc.system.updateState.queryKey(),
+  });
+}
+
+/**
+ * The persisted apply run-state (`system.updateState`). Drives re-attach after a
+ * reload and surfaces a terminal failure the ended progress stream can't carry.
+ * Polls only while a run is in flight; otherwise a single fetch on mount.
+ */
+export function useUpdateState() {
+  return useQuery({
+    ...orpc.system.updateState.queryOptions(),
+    retry: false,
+    refetchInterval: (q) => (q.state.data?.status === "running" ? 2000 : false),
+  });
+}
+
+/** Operator reset for a wedged update — clears the stuck run so apply works. */
+export function useCancelUpdate() {
+  return useMutation({
+    ...orpc.system.cancelUpdate.mutationOptions(),
+    onSuccess: () => void invalidateRunState(),
+  });
+}
+
 export function useDismissUpdate() {
   return useMutation({
     ...orpc.system.updateSettings.save.mutationOptions(),
