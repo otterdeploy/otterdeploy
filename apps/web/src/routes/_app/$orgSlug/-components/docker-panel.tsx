@@ -169,9 +169,9 @@ function TablePager({
             }}
           />
         </PaginationItem>
-        {pageWindow(page, pageCount).map((it, i) =>
+        {pageWindow(page, pageCount).map((it, i, arr) =>
           it === "ellipsis" ? (
-            <PaginationItem key={`ellipsis-${i}`}>
+            <PaginationItem key={`ellipsis-after-${arr[i - 1]}`}>
               <PaginationEllipsis />
             </PaginationItem>
           ) : (

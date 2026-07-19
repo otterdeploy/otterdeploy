@@ -6,7 +6,7 @@
  * + pagination).
  */
 import type { ResourceId } from "@otterdeploy/shared/id";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { Alert02Icon, Database01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -97,15 +97,11 @@ export function ResultsPanel({
   onSelectionChange,
   enableRowDetail = false,
 }: ResultsPanelProps) {
-  const jsonData = useMemo(
-    () =>
-      rows.map((r) => {
-        const obj: Record<string, string | null> = {};
-        columns.forEach((c, i) => (obj[c] = r[i] ?? null));
-        return obj;
-      }),
-    [columns, rows],
-  );
+  const jsonData = rows.map((r) => {
+    const obj: Record<string, string | null> = {};
+    columns.forEach((c, i) => (obj[c] = r[i] ?? null));
+    return obj;
+  });
 
   const canExport = hasResult && columns.length > 0;
 

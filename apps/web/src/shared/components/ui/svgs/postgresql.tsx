@@ -1,19 +1,19 @@
-import type { SVGProps } from "react";
+import type { CSSProperties, SVGProps } from "react";
+
+const strokeGroupStyle: CSSProperties = {
+  fillRule: "nonzero",
+  clipRule: "nonzero",
+  fill: "none",
+  stroke: "#fff",
+  strokeWidth: "12.4651",
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+  strokeMiterlimit: "4",
+};
 
 const Postgresql = (props: SVGProps<SVGSVGElement>) => (
   <svg {...props} xmlSpace="preserve" viewBox="0 0 432.071 445.383">
-    <g
-      style={{
-        fillRule: "nonzero",
-        clipRule: "nonzero",
-        fill: "none",
-        stroke: "#fff",
-        strokeWidth: "12.4651",
-        strokeLinecap: "round",
-        strokeLinejoin: "round",
-        strokeMiterlimit: "4",
-      }}
-    >
+    <g style={strokeGroupStyle}>
       <path
         d="M323.205 324.227c2.833-23.601 1.984-27.062 19.563-23.239l4.463.392c13.517.615 31.199-2.174 41.587-7 22.362-10.376 35.622-27.7 13.572-23.148-50.297 10.376-53.755-6.655-53.755-6.655 53.111-78.803 75.313-178.836 56.149-203.322-52.27-66.789-142.748-35.206-144.262-34.386l-.482.089c-9.938-2.062-21.06-3.294-33.554-3.496-22.761-.374-40.032 5.967-53.133 15.904 0 0-161.408-66.498-153.899 83.628 1.597 31.936 45.777 241.655 98.47 178.31 19.259-23.163 37.871-42.748 37.871-42.748 9.242 6.14 20.307 9.272 31.912 8.147l.897-.765c-.281 2.876-.157 5.689.359 9.019-13.572 15.167-9.584 17.83-36.723 23.416-27.457 5.659-11.326 15.734-.797 18.367 12.768 3.193 42.305 7.716 62.268-20.224l-.795 3.188c5.325 4.26 4.965 30.619 5.72 49.452.756 18.834 2.017 36.409 5.856 46.771 3.839 10.36 8.369 37.05 44.036 29.406 29.809-6.388 52.6-15.582 54.677-101.107"
         style={{

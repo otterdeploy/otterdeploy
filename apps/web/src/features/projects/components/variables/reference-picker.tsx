@@ -18,7 +18,7 @@
  * or the full token — same fuzzy intuition as Railway's picker.
  */
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { useQuery } from "@tanstack/react-query";
 
@@ -96,7 +96,7 @@ export function ReferencePicker({
     }),
   );
 
-  const filtered = useMemo(() => {
+  const filtered = (() => {
     const q = query.trim().toLowerCase();
     const base = excludeToken ? refs.filter((r) => r.token !== excludeToken) : refs;
     if (q.length === 0) return base;
@@ -106,12 +106,12 @@ export function ReferencePicker({
         r.sourceName.toLowerCase().includes(q) ||
         r.token.toLowerCase().includes(q),
     );
-  }, [refs, excludeToken, query]);
+  })();
 
   // Group by source so each row's owner is unambiguous: resource exports sit
   // under the resource's own name, shared project/environment vars under
   // "Shared variables". Databases first, then services, then shared.
-  const groups = useMemo(() => {
+  const groups = (() => {
     const order = { database: 0, service: 1, project: 2, environment: 3 };
     const map = new Map<string, RefGroup>();
     for (const r of filtered) {
@@ -136,7 +136,7 @@ export function ReferencePicker({
     return [...map.values()].sort(
       (a, b) => order[a.kind] - order[b.kind] || a.label.localeCompare(b.label),
     );
-  }, [filtered]);
+  })();
 
   return (
     <div

@@ -28,9 +28,9 @@ export function GraphSkeleton() {
       <div
         className="absolute inset-0 opacity-40 [background-image:radial-gradient(var(--color-border)_1px,transparent_1px)] [background-size:20px_20px]"
       />
-      {GHOST_NODES.map((pos, i) => (
+      {GHOST_NODES.map((pos) => (
         <div
-          key={i}
+          key={`${pos.top}-${pos.left}`}
           className="absolute flex w-56 flex-col gap-2 rounded-xl border bg-card/60 p-4"
           style={{ top: pos.top, left: pos.left }}
         >

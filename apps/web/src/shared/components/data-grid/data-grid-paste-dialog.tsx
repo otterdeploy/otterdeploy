@@ -62,20 +62,17 @@ function PasteDialogImpl({ pasteDialog, onPasteDialogOpenChange, onCellsPaste }:
 
   const expandRadioRef = React.useRef<HTMLInputElement | null>(null);
 
-  const onOpenChange = React.useCallback(
-    (open: boolean) => {
-      propsRef.current.onPasteDialogOpenChange?.(open);
-    },
-    [propsRef],
-  );
+  const onOpenChange = (open: boolean) => {
+    propsRef.current.onPasteDialogOpenChange?.(open);
+  };
 
-  const onCancel = React.useCallback(() => {
+  const onCancel = () => {
     propsRef.current.onPasteDialogOpenChange?.(false);
-  }, [propsRef]);
+  };
 
-  const onContinue = React.useCallback(() => {
+  const onContinue = () => {
     propsRef.current.onCellsPaste?.(expandRadioRef.current?.checked ?? false);
-  }, [propsRef]);
+  };
 
   return (
     <Dialog open={pasteDialog.open} onOpenChange={onOpenChange}>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { createFileRoute } from "@tanstack/react-router";
 import { useLiveQuery } from "@tanstack/react-db";
@@ -55,13 +55,13 @@ function ServersRoute() {
   const { data: swarmArr = [] } = useLiveQuery(() => swarmNodesCollection);
   const swarmView = swarmArr[0] ?? null;
   const [openServerId, setOpenServerId] = useState<string | null>(null);
-  const healthByServer = useMemo(() => {
+  const healthByServer = (() => {
     type HealthEntry = (typeof healthArr)[number];
     const map = new Map<string, HealthEntry>();
     for (const h of healthArr) map.set(h.serverId, h);
     return map;
-  }, [healthArr]);
-  const nodesByServer = useMemo(() => {
+  })();
+  const nodesByServer = (() => {
     const map = new Map<string, SwarmNode>();
     if (swarmView?.swarm) {
       for (const n of swarmView.nodes) {
@@ -69,22 +69,22 @@ function ServersRoute() {
       }
     }
     return map;
-  }, [swarmView]);
+  })();
   const cluster = clusterArr[0] ?? null;
-  const perServerStats = useMemo(() => {
+  const perServerStats = (() => {
     type StatEntry = (typeof perServerArr)[number];
     const map = new Map<string, StatEntry>();
     for (const s of perServerArr) map.set(s.serverId, s);
     return map;
-  }, [perServerArr]);
+  })();
 
-  const visibleServers = useMemo(() => {
-    if (projectFilter === "all") return servers;
-    return servers.filter((s) => {
-      const ps = perServerStats.get(s.id);
-      return ps?.projects.includes(projectFilter);
-    });
-  }, [servers, perServerStats, projectFilter]);
+  const visibleServers =
+    projectFilter === "all"
+      ? servers
+      : servers.filter((s) => {
+          const ps = perServerStats.get(s.id);
+          return ps?.projects.includes(projectFilter);
+        });
 
   const nodeCount = servers.length;
 

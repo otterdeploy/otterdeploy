@@ -1,7 +1,7 @@
 import { Maximize01Icon, PlusSignIcon, TerminalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Activity, useMemo, useState } from "react";
+import { Activity, useState } from "react";
 
 import { OpenTerminalDialog } from "@/features/terminal/components/open-terminal-dialog";
 import { SessionTab } from "@/features/terminal/components/session-tab";
@@ -38,10 +38,7 @@ function RouteComponent() {
   // drives the status dot on the tab strip.
   const [connStates, setConnStates] = useState<Record<string, ConnState>>({});
 
-  const activeSession = useMemo(
-    () => sessions.find((s) => s.id === activeId) ?? null,
-    [sessions, activeId],
-  );
+  const activeSession = sessions.find((s) => s.id === activeId) ?? null;
 
   function openSession(source: SessionSource) {
     const id =

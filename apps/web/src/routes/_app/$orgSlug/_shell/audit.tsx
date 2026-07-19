@@ -14,7 +14,7 @@ import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useStore } from "@tanstack/react-form";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import {
   auditCollection,
@@ -51,34 +51,19 @@ function AuditRoute() {
   // reaches the queries while the input itself stays instant.
   const debouncedQ = useDebouncedValue(filter.q, 250);
 
-  // Memoize so `from` (which reads "now") is stable across renders and doesn't
-  // thrash the subset / query keys.
-  const queryFilter = useMemo(
-    () => ({
-      range: filter.range,
-      from: filter.from,
-      to: filter.to,
-      outcome: filter.outcome,
-      actor: filter.actor,
-      action: filter.action,
-      targetType: filter.targetType,
-      q: debouncedQ,
-      limit: filter.limit,
-    }),
-    [
-      filter.range,
-      filter.from,
-      filter.to,
-      filter.outcome,
-      filter.actor,
-      filter.action,
-      filter.targetType,
-      debouncedQ,
-      filter.limit,
-    ],
-  );
-  const input = useMemo(() => toAuditInput(queryFilter), [queryFilter]);
-  const key = useMemo(() => auditSubsetKey(queryFilter), [queryFilter]);
+  const queryFilter = {
+    range: filter.range,
+    from: filter.from,
+    to: filter.to,
+    outcome: filter.outcome,
+    actor: filter.actor,
+    action: filter.action,
+    targetType: filter.targetType,
+    q: debouncedQ,
+    limit: filter.limit,
+  };
+  const input = toAuditInput(queryFilter);
+  const key = auditSubsetKey(queryFilter);
 
   // Companion read for the server-truth aggregates the collection can't hold.
   // `limit: 1` keeps the payload tiny — `counts`/`total` span the whole filtered

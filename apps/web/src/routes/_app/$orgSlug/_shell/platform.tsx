@@ -71,10 +71,11 @@ function PlatformRoute() {
   );
 }
 
+const peak = (s: Array<{ value: number }>) =>
+  s.reduce((m, p) => Math.max(m, p.value), 0);
+
 function PlatformBody({ data }: { data: PlatformData }) {
   const { deploy, queueSnapshot, waitingSeries, activeSeries } = data;
-  const peak = (s: Array<{ value: number }>) =>
-    s.reduce((m, p) => Math.max(m, p.value), 0);
 
   return (
     <div className="flex flex-col gap-6">

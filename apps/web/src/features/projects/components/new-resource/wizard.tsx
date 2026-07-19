@@ -1,6 +1,6 @@
 import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 
 import type { ComposePrefill } from "./compose-wizard-shared";
 import type { Step } from "./schemas";
@@ -104,11 +104,11 @@ function ResourceWizardBody({
   // Database engine sub-view of the first (Source) step. Owned here so its
   // "Back" can live in the footer next to Continue instead of inline.
   const [dbEngineView, setDbEngineView] = useState(false);
-  const exitDbEngineView = useCallback(() => {
+  const exitDbEngineView = () => {
     setDbEngineView(false);
     form.setFieldValue("kindId", "");
     form.setFieldValue("version", null);
-  }, [form]);
+  };
   const showDbBack = step === "kind" && dbEngineView;
 
   // Compose is its own resource type, not a manifest-staged service — once it's

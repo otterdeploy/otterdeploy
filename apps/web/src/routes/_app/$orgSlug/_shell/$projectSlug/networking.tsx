@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import {
   CodeIcon,
   Link01Icon,
@@ -68,13 +67,13 @@ function RouteComponent() {
     }),
   );
 
-  const rows = useMemo<RouteRow[]>(() => {
+  const rows: RouteRow[] = (() => {
     const routes = routesData ?? [];
     const resources = resourcesQuery.data ?? [];
     const byResourceId = new Map<string, ResourceListItem>();
     for (const r of resources) byResourceId.set(r.resourceId, r);
     return routes.map((r) => mapRoute(r, byResourceId));
-  }, [routesData, resourcesQuery.data]);
+  })();
 
   const isLoading = routesLoading || resourcesQuery.isLoading;
 

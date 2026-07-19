@@ -1,7 +1,7 @@
 import type { Framework } from "@otterdeploy/shared/framework";
 import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -88,73 +88,67 @@ export function useResourceProvisioner({
   // Without this the wizard just closed in place and the resource appeared
   // "nowhere". useStageManifestChange owns the staged/failed toasts, so
   // this only handles routing.
-  const finish = useCallback(() => {
+  const finish = () => {
     onComplete?.();
     void navigate({
       to: "/$orgSlug/$projectSlug/graph",
       params: { orgSlug, projectSlug },
     });
-  }, [navigate, onComplete, orgSlug, projectSlug]);
+  };
 
-  const runDatabaseCreate = useCallback(
-    async (payload: DatabaseCreatePayload) => {
-      try {
-        const seen = await orpc.project.manifest.get.call({ id: projectId });
-        if (seen.manifest?.databases[payload.name]) {
-          toast.error(`Database "${payload.name}" already exists in the manifest.`);
-          return;
-        }
-        await stage.mutateAsync((current) => ({
-          ...current,
-          project: current.project || projectSlug,
-          databases: {
-            ...current.databases,
-            [payload.name]: buildDatabaseSpec(payload),
-          },
-        }));
-        finish();
-      } catch {
-        // Network/version-conflict errors are toasted by the stage hook;
-        // keep the dialog open so the operator can adjust and retry.
+  const runDatabaseCreate = async (payload: DatabaseCreatePayload) => {
+    try {
+      const seen = await orpc.project.manifest.get.call({ id: projectId });
+      if (seen.manifest?.databases[payload.name]) {
+        toast.error(`Database "${payload.name}" already exists in the manifest.`);
+        return;
       }
-    },
-    [projectId, projectSlug, stage, finish],
-  );
+      await stage.mutateAsync((current) => ({
+        ...current,
+        project: current.project || projectSlug,
+        databases: {
+          ...current.databases,
+          [payload.name]: buildDatabaseSpec(payload),
+        },
+      }));
+      finish();
+    } catch {
+      // Network/version-conflict errors are toasted by the stage hook;
+      // keep the dialog open so the operator can adjust and retry.
+    }
+  };
 
-  const runServiceCreate = useCallback(
-    async (payload: ServiceCreatePayload) => {
-      try {
-        // Git-sourced services build with railpack straight into the swarm
-        // node's docker daemon — no container registry required. A project
-        // may still bind an external registry (for remote/multi-node pulls);
-        // when it does, the builder pushes there, but it's never a gate on
-        // creating the service.
-        const seen = await orpc.project.manifest.get.call({ id: projectId });
-        if (seen.manifest?.services[payload.name]) {
-          toast.error(`Service "${payload.name}" already exists in the manifest.`);
-          return;
-        }
-        await stage.mutateAsync((current) => ({
-          ...current,
-          project: current.project || projectSlug,
-          services: {
-            ...current.services,
-            [payload.name]: buildServiceSpec(payload),
-          },
-        }));
-        // Seed the ghost node's brand logo from the framework the wizard already
-        // detected — the manifest is framework-free, so this client hint carries
-        // it until the real resource lands with its persisted value.
-        if (payload.framework) {
-          setPendingFramework(projectId, `service:${payload.name}`, payload.framework);
-        }
-        finish();
-      } catch {
-        // See runDatabaseCreate — stage hook owns failure toasts.
+  const runServiceCreate = async (payload: ServiceCreatePayload) => {
+    try {
+      // Git-sourced services build with railpack straight into the swarm
+      // node's docker daemon — no container registry required. A project
+      // may still bind an external registry (for remote/multi-node pulls);
+      // when it does, the builder pushes there, but it's never a gate on
+      // creating the service.
+      const seen = await orpc.project.manifest.get.call({ id: projectId });
+      if (seen.manifest?.services[payload.name]) {
+        toast.error(`Service "${payload.name}" already exists in the manifest.`);
+        return;
       }
-    },
-    [projectId, projectSlug, stage, finish],
-  );
+      await stage.mutateAsync((current) => ({
+        ...current,
+        project: current.project || projectSlug,
+        services: {
+          ...current.services,
+          [payload.name]: buildServiceSpec(payload),
+        },
+      }));
+      // Seed the ghost node's brand logo from the framework the wizard already
+      // detected — the manifest is framework-free, so this client hint carries
+      // it until the real resource lands with its persisted value.
+      if (payload.framework) {
+        setPendingFramework(projectId, `service:${payload.name}`, payload.framework);
+      }
+      finish();
+    } catch {
+      // See runDatabaseCreate — stage hook owns failure toasts.
+    }
+  };
 
   return { isCreating: stage.isPending, runDatabaseCreate, runServiceCreate };
 }

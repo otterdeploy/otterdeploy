@@ -26,17 +26,17 @@ function enabledProviders(): ProviderId[] {
     .filter((s): s is ProviderId => s in PROVIDER_LABELS);
 }
 
+const start = (provider: ProviderId) => {
+  void authClient.signIn
+    .social({ provider, callbackURL: `${window.location.origin}/` })
+    .catch((error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "Couldn't start sign-in"),
+    );
+};
+
 export function SocialSignIn({ dividerLabel }: { dividerLabel: string }) {
   const providers = enabledProviders();
   if (providers.length === 0) return null;
-
-  const start = (provider: ProviderId) => {
-    void authClient.signIn
-      .social({ provider, callbackURL: `${window.location.origin}/` })
-      .catch((error: unknown) =>
-        toast.error(error instanceof Error ? error.message : "Couldn't start sign-in"),
-      );
-  };
 
   return (
     <div className="mt-6 space-y-3">

@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import {
   ArrowRight01Icon,
   EarthIcon,
@@ -45,7 +44,7 @@ export function RoutesTab({
   projectId: string;
   isLoading: boolean;
 }) {
-  const groups = useMemo<RouteGroup[]>(() => groupRoutes(rows), [rows]);
+  const groups: RouteGroup[] = groupRoutes(rows);
   const acmeCount = rows.filter(
     (r) => r.tls === "letsencrypt" && r.enabled,
   ).length;

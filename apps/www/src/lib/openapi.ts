@@ -50,12 +50,11 @@ async function loadSpec(): Promise<Document> {
     // server emits a valid OpenAPI document, validated at generation time.
     const spec: Document = await res.json();
     return spec;
-  } catch (error) {
+  } catch {
     // Don't let an unreachable/erroring spec endpoint take the site down — the
     // docs + landing must render regardless. The API reference is empty until
     // the spec is reachable (set OTTERSTACK_OPENAPI_SPEC_URL to the deployed
     // API's /api/reference/spec.json).
-    console.error(`Failed to load OpenAPI spec from ${specUrl}:`, error);
     return EMPTY_SPEC;
   }
 }

@@ -96,7 +96,7 @@ interface DataGridStore {
 }
 
 function useStore<T>(store: DataGridStore, selector: (state: DataGridState) => T): T {
-  const getSnapshot = React.useCallback(() => selector(store.getState()), [store, selector]);
+  const getSnapshot = () => selector(store.getState());
 
   return React.useSyncExternalStore(store.subscribe, getSnapshot, getSnapshot);
 }

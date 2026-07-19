@@ -113,7 +113,7 @@ export function useBadgeOverflow<T>({
     };
   }, [containerRef, containerPadding]);
 
-  const result = React.useMemo(() => {
+  const result = ((): UseBadgeOverflowReturn<T> => {
     if (!containerWidth || items.length === 0) {
       return { visibleItems: items, hiddenCount: 0, containerWidth };
     }
@@ -155,18 +155,7 @@ export function useBadgeOverflow<T>({
       hiddenCount: Math.max(0, items.length - visible.length),
       containerWidth,
     };
-  }, [
-    items,
-    getLabel,
-    containerWidth,
-    lineCount,
-    cacheKeyPrefix,
-    iconSize,
-    maxWidth,
-    className,
-    badgeGap,
-    overflowBadgeWidth,
-  ]);
+  })();
 
   return result;
 }

@@ -8,7 +8,7 @@
  * The imperative ref exposes run-all / run-selection / run-current for the
  * toolbar's Run dropdown.
  */
-import { forwardRef, useImperativeHandle, useMemo, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 
 import { PostgreSQL, sql } from "@codemirror/lang-sql";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
@@ -132,9 +132,11 @@ export const SqlEditor = forwardRef<SqlEditorHandle, SqlEditorProps>(function Sq
   const cmRef = useRef<ReactCodeMirrorRef>(null);
   // Keep the latest onRun without reconfiguring the editor on every render.
   const onRunRef = useRef(onRun);
-  onRunRef.current = onRun;
+  useEffect(() => {
+    onRunRef.current = onRun;
+  }, [onRun]);
 
-  const extensions = useMemo(() => {
+  const extensions = (() => {
     const runGutter = gutter({
       class: "cm-run-gutter",
       lineMarker: (view, line) => (statementOnLine(view, line.from) ? runMarker : null),
@@ -172,7 +174,7 @@ export const SqlEditor = forwardRef<SqlEditorHandle, SqlEditorProps>(function Sq
       editorTheme,
       EditorView.lineWrapping,
     ];
-  }, [schema]);
+  })();
 
   useImperativeHandle(
     ref,

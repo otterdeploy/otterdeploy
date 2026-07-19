@@ -36,7 +36,6 @@ function DialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Props) 
     />
   );
 }
-const MemoizedDialogOverlay = React.memo(DialogOverlay);
 
 function DialogContent({
   className,
@@ -48,7 +47,7 @@ function DialogContent({
 }) {
   return (
     <DialogPortal>
-      <MemoizedDialogOverlay />
+      <DialogOverlay />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(

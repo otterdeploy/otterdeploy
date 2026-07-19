@@ -100,8 +100,8 @@ export function ProjectSidebar({
   return (
     <Sidebar className="top-(--header-height) h-[calc(100svh-var(--header-height))]!" {...props}>
       <SidebarContent>
-        {OPERATIONAL_NAV.map((group, index) => (
-          <SidebarGroup key={group.label ?? `top-${index}`}>
+        {OPERATIONAL_NAV.map((group) => (
+          <SidebarGroup key={group.label ?? group.items[0]?.title ?? "top"}>
             {group.label ? (
               <SidebarGroupLabel className="text-[11px] tracking-wider text-sidebar-foreground/50 uppercase">
                 {group.label}

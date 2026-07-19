@@ -43,12 +43,11 @@ function truncateFingerprint(fp: string): string {
   return `${fp.slice(0, 14)}…${fp.slice(-10)}`;
 }
 
+const invalidate = () => queryClient.invalidateQueries({ queryKey: orpc.sshKeys.list.queryKey() });
+
 export function KeyCard({ sshKey, canManage }: { sshKey: SshKey; canManage: boolean }) {
   const [copied, setCopied] = useState(false);
   const [revealed, setRevealed] = useState(false);
-
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: orpc.sshKeys.list.queryKey() });
 
   const rotate = useMutation(
     orpc.sshKeys.rotate.mutationOptions({
@@ -202,9 +201,9 @@ function KeyUsedBy({ usedBy }: { usedBy: SshKey["usedBy"] }) {
         <span className="text-xs text-muted-foreground">Not in use</span>
       ) : (
         <div className="flex flex-wrap gap-1">
-          {usedBy.map((u, i) => (
+          {usedBy.map((u) => (
             <span
-              key={i}
+              key={`${u.kind}-${u.label}`}
               className="flex items-center gap-1 rounded-full border bg-muted/40 px-2 py-0.5 text-[11px]"
             >
               <HugeiconsIcon

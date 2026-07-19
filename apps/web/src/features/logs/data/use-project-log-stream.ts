@@ -8,8 +8,6 @@
 // Transport + buffering are the shared `useLogStream`; this hook only adds the
 // project-fan-in line shape (service/level/resource) and level inference.
 
-import { useMemo } from "react";
-
 import { displayServiceName } from "@/shared/lib/service-name";
 import { orpc } from "@/shared/server/orpc";
 
@@ -153,6 +151,6 @@ export function useProjectLogStream({
     deps: [projectId, key, bufferSize],
   });
 
-  const lines = useMemo(() => coalesceMultiline(rawLines), [rawLines]);
+  const lines = coalesceMultiline(rawLines);
   return { lines, status };
 }

@@ -33,6 +33,13 @@ import {
   SectionHeader,
 } from "./route-access-shared";
 
+function removeGuest(guestId: string) {
+  const tx = routeGuestsCollection.delete(guestId);
+  tx.isPersisted.promise.catch((err) =>
+    toast.error(err instanceof Error ? err.message : "Failed to remove"),
+  );
+}
+
 /** Invited-guest rows. Split out of GuestsSection to keep it under the
  *  max-lines-per-function cap. */
 function GuestList({
@@ -97,12 +104,6 @@ export function GuestsSection({ routeId }: { routeId: string }) {
     },
   });
 
-  const onRemove = (guestId: string) => {
-    const tx = routeGuestsCollection.delete(guestId);
-    tx.isPersisted.promise.catch((err) =>
-      toast.error(err instanceof Error ? err.message : "Failed to remove"),
-    );
-  };
   const cancelAdd = () => {
     form.resetField("email");
     setAdding(false);
@@ -121,7 +122,7 @@ export function GuestsSection({ routeId }: { routeId: string }) {
             No guests invited yet.
           </div>
         ) : (
-          <GuestList rows={rows} onRemove={onRemove} />
+          <GuestList rows={rows} onRemove={removeGuest} />
         )}
 
         <div className="border-t border-border/40 bg-muted/20 px-3 py-2">

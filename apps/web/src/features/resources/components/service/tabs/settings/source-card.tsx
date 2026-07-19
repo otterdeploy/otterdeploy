@@ -11,7 +11,7 @@
  * host-match is transparent, not magic.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useLiveQuery } from "@tanstack/react-db";
 import { useForm, useStore } from "@tanstack/react-form";
@@ -141,19 +141,13 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
   const manifest = useQuery(
     orpc.project.manifest.get.queryOptions({ input: { id: resource.projectId } }),
   );
-  const gitSvc = useMemo(() => {
-    const svc = manifest.data?.manifest?.services?.[resource.name];
-    return svc && svc.source === "git" ? svc : null;
-  }, [manifest.data, resource.name]);
+  const svc = manifest.data?.manifest?.services?.[resource.name];
+  const gitSvc = svc && svc.source === "git" ? svc : null;
 
   // Installations + repos for the pickers (same endpoints the wizard uses).
   const providersQuery = useQuery(orpc.git.list.queryOptions({ input: undefined }));
-  const installations = useMemo(
-    () =>
-      (providersQuery.data ?? []).flatMap((p) =>
-        p.installations.map((inst) => ({ id: inst.id, label: `${p.kind}: ${inst.accountLogin}` })),
-      ),
-    [providersQuery.data],
+  const installations = (providersQuery.data ?? []).flatMap((p) =>
+    p.installations.map((inst) => ({ id: inst.id, label: `${p.kind}: ${inst.accountLogin}` })),
   );
   const [activeInstallationId, setActiveInstallationId] = useState<string | null>(null);
   // Default to the first installation once the list loads and none is picked.
@@ -171,7 +165,7 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
   );
 
   // Local edit state (seeded from the manifest source block) + dirty flag.
-  const seeded = useMemo(() => seedSource(gitSvc), [gitSvc]);
+  const seeded = seedSource(gitSvc);
 
   const saveMut = useMutation({
     mutationFn: (value: typeof seeded) =>
@@ -208,19 +202,14 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
 
   // Ensure the currently-bound repo is always selectable even when it lives in a
   // different installation than the active one (or is a public-URL repo).
-  const repoOptions = useMemo(() => {
-    const opts = (reposQuery.data ?? []).map((r) => r.fullName);
-    if (repo && !opts.includes(repo)) return [repo, ...opts];
-    return opts;
-  }, [reposQuery.data, repo]);
+  const repoBaseOptions = (reposQuery.data ?? []).map((r) => r.fullName);
+  const repoOptions =
+    repo && !repoBaseOptions.includes(repo) ? [repo, ...repoBaseOptions] : repoBaseOptions;
 
   // Resolve the bound repo's gitRepoId for the folder picker (it walks the repo
   // via git.inspectRepo). Unresolvable (repo in another installation) → the
   // picker shows its own disabled "(no repo bound)" state.
-  const selectedRepoId = useMemo(
-    () => reposQuery.data?.find((r) => r.fullName === repo)?.id ?? null,
-    [reposQuery.data, repo],
-  );
+  const selectedRepoId = reposQuery.data?.find((r) => r.fullName === repo)?.id ?? null;
 
   return (
     <SettingsCard

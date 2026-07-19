@@ -10,7 +10,7 @@
  * highlighted read surface; the Routes tab is where config is mutated.
  */
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 
 import { useHotkey } from "@tanstack/react-hotkeys";
 
@@ -39,7 +39,7 @@ export function CaddyfileViewer({ source, revision, loading, className }: Caddyf
   const inputRef = useRef<HTMLInputElement>(null);
   const matchRefs = useRef(new Map<number, HTMLElement | null>());
 
-  const { lines, total } = useMemo(() => buildModel(source, query), [source, query]);
+  const { lines, total } = buildModel(source, query);
 
   // Reset the cursor to the first hit whenever the query (and thus the match
   // set) changes, so prev/next start from a sane position. Done in render via

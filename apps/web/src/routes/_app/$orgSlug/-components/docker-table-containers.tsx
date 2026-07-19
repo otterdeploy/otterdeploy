@@ -23,6 +23,22 @@ interface Container {
   createdAt: number;
 }
 
+// Deep-link into the popout terminal targeting this container. The /pty
+// exec path only needs the container id; the other token fields label the
+// session tab.
+function execInto(c: Container) {
+  const token = encodeSessionToken({
+    kind: "container",
+    project: "docker",
+    service: c.name,
+    replica: shortId(c.id),
+    containerId: c.id,
+  });
+  const params = new URLSearchParams();
+  params.append("session", token);
+  window.open(`/terminal?${params.toString()}`, "_blank", "noopener");
+}
+
 export function ContainersTable({ query }: { query: QueryLike<Container> }) {
   const [logsFor, setLogsFor] = useState<Container | null>(null);
   const [inspectFor, setInspectFor] = useState<Container | null>(null);
@@ -33,22 +49,6 @@ export function ContainersTable({ query }: { query: QueryLike<Container> }) {
     }),
     enabled: inspectFor !== null,
   });
-
-  // Deep-link into the popout terminal targeting this container. The /pty
-  // exec path only needs the container id; the other token fields label the
-  // session tab.
-  function execInto(c: Container) {
-    const token = encodeSessionToken({
-      kind: "container",
-      project: "docker",
-      service: c.name,
-      replica: shortId(c.id),
-      containerId: c.id,
-    });
-    const params = new URLSearchParams();
-    params.append("session", token);
-    window.open(`/terminal?${params.toString()}`, "_blank", "noopener");
-  }
 
   return (
     <>

@@ -37,6 +37,18 @@ export const Route = createFileRoute("/_app/$orgSlug/settings/workspace/notifica
   component: RouteComponent,
 });
 
+function toggleSub(channelId: string, eventId: string, enabled: boolean) {
+  const tx = enabled
+    ? subscriptionsCollection.insert({
+        channelId: channelId as Channel["id"],
+        eventId,
+      })
+    : subscriptionsCollection.delete(`${channelId}:${eventId}`);
+  tx.isPersisted.promise.catch((err: unknown) =>
+    toast.error(err instanceof Error ? err.message : "Couldn't update routing"),
+  );
+}
+
 function RouteComponent() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Channel | null>(null);
@@ -114,20 +126,6 @@ function RouteComponent() {
           err instanceof Error ? err.message : "Couldn't save channel",
         ),
       );
-  };
-
-  const toggleSub = (channelId: string, eventId: string, enabled: boolean) => {
-    const tx = enabled
-      ? subscriptionsCollection.insert({
-          channelId: channelId as Channel["id"],
-          eventId,
-        })
-      : subscriptionsCollection.delete(`${channelId}:${eventId}`);
-    tx.isPersisted.promise.catch((err: unknown) =>
-      toast.error(
-        err instanceof Error ? err.message : "Couldn't update routing",
-      ),
-    );
   };
 
   return (

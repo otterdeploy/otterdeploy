@@ -32,122 +32,104 @@ export function DataGridCellWrapper<TData>({
   const cellMapRef = tableMeta?.cellMapRef;
   const cellPresence = useDataGridPresence(getCellKey(rowIndex, columnId));
 
-  const onCellChange = React.useCallback(
-    (node: HTMLDivElement | null) => {
-      if (!cellMapRef) return;
+  const onCellChange = (node: HTMLDivElement | null) => {
+    if (!cellMapRef) return;
 
-      const cellKey = getCellKey(rowIndex, columnId);
+    const cellKey = getCellKey(rowIndex, columnId);
 
-      if (node) {
-        cellMapRef.current.set(cellKey, node);
-      } else {
-        cellMapRef.current.delete(cellKey);
-      }
-    },
-    [rowIndex, columnId, cellMapRef],
-  );
+    if (node) {
+      cellMapRef.current.set(cellKey, node);
+    } else {
+      cellMapRef.current.delete(cellKey);
+    }
+  };
 
   const composedRef = useComposedRefs(ref, onCellChange);
 
-  const onClick = React.useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
-      if (!isEditing) {
+  const onClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!isEditing) {
+      event.preventDefault();
+      onClickProp?.(event);
+      if (isFocused && !readOnly) {
+        tableMeta?.onCellEditingStart?.(rowIndex, columnId);
+      } else {
+        tableMeta?.onCellClick?.(rowIndex, columnId, event);
+      }
+    }
+  };
+
+  const onContextMenu = (event: React.MouseEvent) => {
+    if (!isEditing) {
+      tableMeta?.onCellContextMenu?.(rowIndex, columnId, event);
+    }
+  };
+
+  const onDoubleClick = (event: React.MouseEvent) => {
+    if (!isEditing) {
+      event.preventDefault();
+      tableMeta?.onCellDoubleClick?.(rowIndex, columnId);
+    }
+  };
+
+  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    onKeyDownProp?.(event);
+
+    if (event.defaultPrevented) return;
+
+    if (
+      event.key === "ArrowUp" ||
+      event.key === "ArrowDown" ||
+      event.key === "ArrowLeft" ||
+      event.key === "ArrowRight" ||
+      event.key === "Home" ||
+      event.key === "End" ||
+      event.key === "PageUp" ||
+      event.key === "PageDown" ||
+      event.key === "Tab"
+    ) {
+      return;
+    }
+
+    if (isFocused && !isEditing && !readOnly) {
+      if (event.key === "F2" || event.key === "Enter") {
         event.preventDefault();
-        onClickProp?.(event);
-        if (isFocused && !readOnly) {
-          tableMeta?.onCellEditingStart?.(rowIndex, columnId);
-        } else {
-          tableMeta?.onCellClick?.(rowIndex, columnId, event);
-        }
-      }
-    },
-    [tableMeta, rowIndex, columnId, isEditing, isFocused, readOnly, onClickProp],
-  );
-
-  const onContextMenu = React.useCallback(
-    (event: React.MouseEvent) => {
-      if (!isEditing) {
-        tableMeta?.onCellContextMenu?.(rowIndex, columnId, event);
-      }
-    },
-    [tableMeta, rowIndex, columnId, isEditing],
-  );
-
-  const onDoubleClick = React.useCallback(
-    (event: React.MouseEvent) => {
-      if (!isEditing) {
-        event.preventDefault();
-        tableMeta?.onCellDoubleClick?.(rowIndex, columnId);
-      }
-    },
-    [tableMeta, rowIndex, columnId, isEditing],
-  );
-
-  const onKeyDown = React.useCallback(
-    (event: React.KeyboardEvent<HTMLDivElement>) => {
-      onKeyDownProp?.(event);
-
-      if (event.defaultPrevented) return;
-
-      if (
-        event.key === "ArrowUp" ||
-        event.key === "ArrowDown" ||
-        event.key === "ArrowLeft" ||
-        event.key === "ArrowRight" ||
-        event.key === "Home" ||
-        event.key === "End" ||
-        event.key === "PageUp" ||
-        event.key === "PageDown" ||
-        event.key === "Tab"
-      ) {
+        event.stopPropagation();
+        tableMeta?.onCellEditingStart?.(rowIndex, columnId);
         return;
       }
 
-      if (isFocused && !isEditing && !readOnly) {
-        if (event.key === "F2" || event.key === "Enter") {
-          event.preventDefault();
-          event.stopPropagation();
-          tableMeta?.onCellEditingStart?.(rowIndex, columnId);
-          return;
-        }
-
-        if (event.key === " ") {
-          event.preventDefault();
-          event.stopPropagation();
-          tableMeta?.onCellEditingStart?.(rowIndex, columnId);
-          return;
-        }
-
-        if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
-          event.preventDefault();
-          event.stopPropagation();
-          tableMeta?.onCellEditingStart?.(rowIndex, columnId);
-        }
+      if (event.key === " ") {
+        event.preventDefault();
+        event.stopPropagation();
+        tableMeta?.onCellEditingStart?.(rowIndex, columnId);
+        return;
       }
-    },
-    [onKeyDownProp, isFocused, isEditing, readOnly, tableMeta, rowIndex, columnId],
-  );
 
-  const onMouseDown = React.useCallback(
-    (event: React.MouseEvent) => {
-      if (!isEditing) {
-        tableMeta?.onCellMouseDown?.(rowIndex, columnId, event);
+      if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
+        event.preventDefault();
+        event.stopPropagation();
+        tableMeta?.onCellEditingStart?.(rowIndex, columnId);
       }
-    },
-    [tableMeta, rowIndex, columnId, isEditing],
-  );
+    }
+  };
 
-  const onMouseEnter = React.useCallback(() => {
+  const onMouseDown = (event: React.MouseEvent) => {
+    if (!isEditing) {
+      tableMeta?.onCellMouseDown?.(rowIndex, columnId, event);
+    }
+  };
+
+  const onMouseEnter = () => {
     if (!isEditing) {
       tableMeta?.onCellMouseEnter?.(rowIndex, columnId);
     }
-  }, [tableMeta, rowIndex, columnId, isEditing]);
+  };
 
-  const onMouseUp = React.useCallback(() => {
+  const onMouseUp = () => {
     if (!isEditing) {
       tableMeta?.onCellMouseUp?.();
     }
-  }, [tableMeta, isEditing]);
+  };
 
   return (
     <div

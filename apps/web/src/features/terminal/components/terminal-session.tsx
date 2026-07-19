@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { env } from "@otterdeploy/env/web";
 // @ts-expect-error — CSS-only side-effect import; @wterm/react ships a
@@ -105,7 +105,7 @@ export function TerminalSession({ source, active, onConnChange }: Props) {
   // there's actually scrollback to move through, so a terminal that fits its
   // viewport still lets the page scroll normally.
   const detachWheelRef = useRef<(() => void) | null>(null);
-  const handleReady = useCallback((wt: WTerm) => {
+  const handleReady = (wt: WTerm) => {
     const el = wt.element;
     const onWheel = (e: WheelEvent) => {
       // scrollHeight > clientHeight means there's history above the viewport.
@@ -119,7 +119,7 @@ export function TerminalSession({ source, active, onConnChange }: Props) {
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     detachWheelRef.current = () => el.removeEventListener("wheel", onWheel);
-  }, []);
+  };
   useEffect(() => () => detachWheelRef.current?.(), []);
 
   useEffect(() => {

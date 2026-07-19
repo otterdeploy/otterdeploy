@@ -12,7 +12,7 @@
  * passes it through.
  */
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { Maximize01Icon, Minimize01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -47,16 +47,14 @@ interface ResourceTerminalProps {
 export function ResourceTerminal({ match, fallbackLabel, projectSlug }: ResourceTerminalProps) {
   const { data: containers = [] } = useLiveQuery(() => terminalContainersCollection);
 
-  const target = useMemo(() => {
-    if (match.kind === "service") {
-      return containers.find(
-        (c) => c.resourceType === "service" && c.serviceResourceId === match.resourceId,
-      );
-    }
-    return containers.find(
-      (c) => c.resourceType === match.engine && c.serviceName === match.serviceName,
-    );
-  }, [containers, match]);
+  const target =
+    match.kind === "service"
+      ? containers.find(
+          (c) => c.resourceType === "service" && c.serviceResourceId === match.resourceId,
+        )
+      : containers.find(
+          (c) => c.resourceType === match.engine && c.serviceName === match.serviceName,
+        );
 
   const [generation, setGeneration] = useState(0);
   const [expanded, setExpanded] = useState(false);

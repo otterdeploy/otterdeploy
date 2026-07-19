@@ -4,8 +4,6 @@
  * rows can carry a "blocked" marker and block buttons stay honest) and the
  * single/bulk block mutations, refreshing the set after every successful block.
  */
-import { useMemo } from "react";
-
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -16,12 +14,8 @@ export function useEdgeBans(onBlocked?: () => void) {
     ...orpc.firewall.decisions.queryOptions(),
     refetchInterval: 30_000,
   });
-  const bannedIps = useMemo(
-    () =>
-      new Set(
-        (decisions.data ?? []).flatMap((d) => (d.scope.toLowerCase() === "ip" ? [d.value] : [])),
-      ),
-    [decisions.data],
+  const bannedIps = new Set(
+    (decisions.data ?? []).flatMap((d) => (d.scope.toLowerCase() === "ip" ? [d.value] : [])),
   );
 
   const settled = () => {

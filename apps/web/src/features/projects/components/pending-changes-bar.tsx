@@ -190,8 +190,8 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
         {expanded && (
           <div className="max-h-[60vh] overflow-auto border-t bg-muted/30">
             <ul className="flex flex-col gap-3 p-3">
-              {groups.map((g, i) => (
-                <li key={`${g.resource}-${g.name}-${i}`}>
+              {groups.map((g) => (
+                <li key={`${g.resource}-${g.name}`}>
                   <ChangeGroupCard group={g} />
                 </li>
               ))}

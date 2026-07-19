@@ -13,7 +13,6 @@ import { Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useForm } from "@tanstack/react-form";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
 
 import {
   auditWindow,
@@ -67,28 +66,20 @@ function useFilterOptions(filter: AuditFilter, queryFilter: AuditFilter) {
     staleTime: 60_000,
   });
 
-  const actorOptions = useMemo(() => {
-    const opts = (distinct.data?.actors ?? []).map((a) => ({
+  const actorOptions = withCurrent(
+    (distinct.data?.actors ?? []).map((a) => ({
       value: a.id,
       label: a.label ?? a.email ?? a.id,
-    }));
-    return withCurrent(opts, filter.actor);
-  }, [distinct.data?.actors, filter.actor]);
-  const actionOptions = useMemo(
-    () =>
-      withCurrent(
-        (distinct.data?.actions ?? []).map((a) => ({ value: a, label: a })),
-        filter.action,
-      ),
-    [distinct.data?.actions, filter.action],
+    })),
+    filter.actor,
   );
-  const targetOptions = useMemo(
-    () =>
-      withCurrent(
-        (distinct.data?.targetTypes ?? []).map((t) => ({ value: t, label: t })),
-        filter.targetType,
-      ),
-    [distinct.data?.targetTypes, filter.targetType],
+  const actionOptions = withCurrent(
+    (distinct.data?.actions ?? []).map((a) => ({ value: a, label: a })),
+    filter.action,
+  );
+  const targetOptions = withCurrent(
+    (distinct.data?.targetTypes ?? []).map((t) => ({ value: t, label: t })),
+    filter.targetType,
   );
 
   return { actorOptions, actionOptions, targetOptions };
@@ -247,10 +238,9 @@ function FilterCombobox({
   className?: string;
   searchPlaceholder?: string;
 }) {
-  const items = useMemo<FilterOption[]>(
-    () => (anyLabel ? [{ value: "any", label: anyLabel }, ...options] : options),
-    [anyLabel, options],
-  );
+  const items: FilterOption[] = anyLabel
+    ? [{ value: "any", label: anyLabel }, ...options]
+    : options;
   const selected = items.find((o) => o.value === value) ?? items[0] ?? null;
 
   return (

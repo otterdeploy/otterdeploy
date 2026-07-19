@@ -16,8 +16,6 @@
  * convention as `use-resource-metrics`.
  */
 
-import { useMemo } from "react";
-
 import { useQuery } from "@tanstack/react-query";
 
 import { orpc } from "@/shared/server/orpc";
@@ -93,7 +91,7 @@ export function useProjectAggregateMetrics(
   const points = query.data?.points;
   const bucketSeconds = query.data?.bucketSeconds;
 
-  const { rows, summary } = useMemo(() => {
+  const { rows, summary } = (() => {
     if (!points || points.length === 0 || !bucketSeconds) {
       return { rows: [] as AggregateRow[], summary: EMPTY_AGGREGATE };
     }
@@ -125,7 +123,7 @@ export function useProjectAggregateMetrics(
       sampleCount: measured.length,
     };
     return { rows, summary };
-  }, [points, bucketSeconds]);
+  })();
 
   return {
     rows,
@@ -197,7 +195,7 @@ export function useProjectRequestSeries(
 
   const data = query.data;
 
-  const { rows, summary } = useMemo(() => {
+  const { rows, summary } = (() => {
     const buckets = data?.buckets;
     if (!buckets || buckets.length === 0 || !data.bucketSeconds) {
       return { rows: [] as RequestRow[], summary: EMPTY_REQUESTS };
@@ -222,7 +220,7 @@ export function useProjectRequestSeries(
       errorRate: total > 0 ? errors / total : 0,
     };
     return { rows, summary };
-  }, [data]);
+  })();
 
   return {
     rows,

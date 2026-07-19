@@ -5,7 +5,7 @@
  * editable we can swap in CodeMirror without changing the panel shell.
  */
 
-import { Fragment, useMemo } from "react";
+import { Fragment } from "react";
 
 import { cn } from "@/shared/lib/utils";
 
@@ -80,7 +80,7 @@ function tokenizeValue(value: string): Token[] {
 }
 
 export function YamlView({ source, className }: YamlViewProps) {
-  const lines = useMemo(() => source.split("\n"), [source]);
+  const lines = source.split("\n");
   const gutterWidth = String(lines.length).length;
   return (
     <pre className={cn("h-full overflow-auto font-mono text-[12px] leading-[1.55]", className)}>

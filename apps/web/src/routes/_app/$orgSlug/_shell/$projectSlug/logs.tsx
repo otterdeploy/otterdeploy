@@ -7,7 +7,7 @@
 
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
-import { useCallback, useEffect, useEffectEvent, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 
 import {
   type LogsSearch,
@@ -27,6 +27,13 @@ import { useLogsTable } from "@/features/logs/components/use-logs-table";
 import { resourceCollection } from "@/features/resources/data/resource";
 import { copyToClipboard } from "@/shared/lib/clipboard";
 
+function copyLines(ls: LogLine[]) {
+  const text = ls
+    .map((l) => `${l.tsIso ?? l.ts} ${l.level.toUpperCase()} ${l.svc}  ${l.msg}`)
+    .join("\n");
+  void copyToClipboard(text);
+}
+
 export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/logs")({
   staticData: { crumb: "Logs" },
   validateSearch: zLogsSearch,
@@ -40,15 +47,12 @@ function RouteComponent() {
 
   // Replace (not push) so filtering doesn't spam the back-stack; the URL still
   // reflects the current view for sharing / reload.
-  const patchSearch = useCallback(
-    (patch: Partial<LogsSearch>) => {
-      void navigate({
-        search: (prev) => ({ ...prev, ...patch }),
-        replace: true,
-      });
-    },
-    [navigate],
-  );
+  const patchSearch = (patch: Partial<LogsSearch>) => {
+    void navigate({
+      search: (prev) => ({ ...prev, ...patch }),
+      replace: true,
+    });
+  };
 
   // Per-project resources, same source the graph reads from. Only services
   // populate the filter — database log streams land in a separate surface
@@ -60,31 +64,18 @@ function RouteComponent() {
         .where(({ r }) => eq(r.projectId, project.id)),
     [project.id],
   );
-  const services = useMemo(
-    () =>
-      resources.flatMap((r) =>
-        r.type === "service" ? [{ id: r.resourceId, name: r.name }] : [],
-      ),
-    [resources],
+  const services = resources.flatMap((r) =>
+    r.type === "service" ? [{ id: r.resourceId, name: r.name }] : [],
   );
 
   // Filters live in the URL (shareable / reproducible). Service is keyed by
   // resource id — names collide across forks/renames, ids are stable.
   const svcFilter = search.service ?? "all";
-  const lvlFilter = useMemo<Set<LogLevel>>(
-    () => new Set(search.levels ?? LOG_LEVELS),
-    [search.levels],
-  );
-  // Memoized on the primitive bounds: a fresh `{ from, to }` each render would
-  // give `filtered` a new identity, which feeds the table + virtualizer and
-  // spins them into an infinite re-render loop.
-  const timeRange = useMemo<TimeRange | null>(
-    () =>
-      search.from != null && search.to != null
-        ? { from: search.from, to: search.to }
-        : null,
-    [search.from, search.to],
-  );
+  const lvlFilter: Set<LogLevel> = new Set(search.levels ?? LOG_LEVELS);
+  const timeRange: TimeRange | null =
+    search.from != null && search.to != null
+      ? { from: search.from, to: search.to }
+      : null;
 
   // Search text stays local for input responsiveness and is debounced into the
   // URL below so we don't navigate on every keystroke.
@@ -123,17 +114,7 @@ function RouteComponent() {
     paused,
   });
 
-  const selectedLine = useMemo(
-    () => t.filtered.find((l) => l.id === selectedId) ?? null,
-    [t.filtered, selectedId],
-  );
-
-  const copyLines = (ls: LogLine[]) => {
-    const text = ls
-      .map((l) => `${l.tsIso ?? l.ts} ${l.level.toUpperCase()} ${l.svc}  ${l.msg}`)
-      .join("\n");
-    void copyToClipboard(text);
-  };
+  const selectedLine = t.filtered.find((l) => l.id === selectedId) ?? null;
 
   const badge = statusBadge(t.status, paused);
 

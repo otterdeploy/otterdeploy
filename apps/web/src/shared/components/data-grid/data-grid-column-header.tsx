@@ -48,55 +48,49 @@ export function DataGridColumnHeader<TData, TValue>({
   const isPinnedLeft = pinnedPosition === "left";
   const isPinnedRight = pinnedPosition === "right";
 
-  const onSortingChange = React.useCallback(
-    (direction: SortDirection) => {
-      table.setSorting((prev: SortingState) => {
-        const existingSortIndex = prev.findIndex((sort) => sort.id === column.id);
-        const newSort: ColumnSort = {
-          id: column.id,
-          desc: direction === "desc",
-        };
+  const onSortingChange = (direction: SortDirection) => {
+    table.setSorting((prev: SortingState) => {
+      const existingSortIndex = prev.findIndex((sort) => sort.id === column.id);
+      const newSort: ColumnSort = {
+        id: column.id,
+        desc: direction === "desc",
+      };
 
-        if (existingSortIndex >= 0) {
-          const updated = [...prev];
-          updated[existingSortIndex] = newSort;
-          return updated;
-        } else {
-          return [...prev, newSort];
-        }
-      });
-    },
-    [column.id, table],
-  );
-
-  const onSortRemove = React.useCallback(() => {
-    table.setSorting((prev: SortingState) => prev.filter((sort) => sort.id !== column.id));
-  }, [column.id, table]);
-
-  const onLeftPin = React.useCallback(() => {
-    column.pin("left");
-  }, [column]);
-
-  const onRightPin = React.useCallback(() => {
-    column.pin("right");
-  }, [column]);
-
-  const onUnpin = React.useCallback(() => {
-    column.pin(false);
-  }, [column]);
-
-  const onTriggerPointerDown = React.useCallback(
-    (event: React.PointerEvent<HTMLButtonElement>) => {
-      (onPointerDown as ((e: unknown) => void) | undefined)?.(event);
-      if (event.defaultPrevented) return;
-
-      if (event.button !== 0) {
-        return;
+      if (existingSortIndex >= 0) {
+        const updated = [...prev];
+        updated[existingSortIndex] = newSort;
+        return updated;
+      } else {
+        return [...prev, newSort];
       }
-      table.options.meta?.onColumnClick?.(column.id);
-    },
-    [table.options.meta, column.id, onPointerDown],
-  );
+    });
+  };
+
+  const onSortRemove = () => {
+    table.setSorting((prev: SortingState) => prev.filter((sort) => sort.id !== column.id));
+  };
+
+  const onLeftPin = () => {
+    column.pin("left");
+  };
+
+  const onRightPin = () => {
+    column.pin("right");
+  };
+
+  const onUnpin = () => {
+    column.pin(false);
+  };
+
+  const onTriggerPointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+    (onPointerDown as ((e: unknown) => void) | undefined)?.(event);
+    if (event.defaultPrevented) return;
+
+    if (event.button !== 0) {
+      return;
+    }
+    table.options.meta?.onColumnClick?.(column.id);
+  };
 
   return (
     <>
@@ -233,9 +227,9 @@ function DataGridColumnResizerImpl<TData, TValue>({
 }: DataGridColumnResizerProps<TData, TValue>) {
   const defaultColumnDef = table._getDefaultColumnDef();
 
-  const onDoubleClick = React.useCallback(() => {
+  const onDoubleClick = () => {
     header.column.resetSize();
-  }, [header.column]);
+  };
 
   return (
     <div

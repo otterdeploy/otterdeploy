@@ -9,7 +9,7 @@
  * input. "Open editor" expands the same studio to fullscreen.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Database01Icon, SquareArrowExpand01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -97,11 +97,8 @@ function RedisStudio({
   const appliedRef = useRef<string>("");
 
   const keyspaceQuery = useRedisKeyspace(resourceId);
-  const dbCounts = useMemo(() => {
-    const m = new Map<number, number>();
-    for (const d of keyspaceQuery.data?.databases ?? []) m.set(d.index, d.keys);
-    return m;
-  }, [keyspaceQuery.data]);
+  const dbCounts = new Map<number, number>();
+  for (const d of keyspaceQuery.data?.databases ?? []) dbCounts.set(d.index, d.keys);
 
   const keysQuery = useRedisKeys({
     resourceId,

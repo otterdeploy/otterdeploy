@@ -11,8 +11,6 @@
  * viewer's `use-database` hooks.
  */
 
-import { useMemo } from "react";
-
 import { useQuery } from "@tanstack/react-query";
 
 import { orpc } from "@/shared/server/orpc";
@@ -91,7 +89,7 @@ export function useResourceMetrics(resourceId: string, windowMinutes: number): R
 
   const points = query.data?.points;
 
-  const { rows, summary } = useMemo(() => {
+  const { rows, summary } = (() => {
     if (!points || points.length === 0) {
       return { rows: [] as MetricRow[], summary: EMPTY_SUMMARY };
     }
@@ -140,7 +138,7 @@ export function useResourceMetrics(resourceId: string, windowMinutes: number): R
     };
 
     return { rows, summary };
-  }, [points]);
+  })();
 
   return {
     rows,

@@ -12,8 +12,6 @@
  * storage events) — nothing here touches the server. These are the user's
  * personal scratchpads.
  */
-import { useCallback } from "react";
-
 import { createCollection, localStorageCollectionOptions } from "@tanstack/db";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { z } from "zod";
@@ -115,7 +113,7 @@ export function useSqlSnippets(resourceId: string) {
   );
   const playground = playgroundRows[0]?.sql ?? DEFAULT_PLAYGROUND;
 
-  const setPlayground = useCallback((sql: string) => {
+  const setPlayground = (sql: string) => {
     if (sqlPlaygroundCollection.has(PLAYGROUND_ROW_ID)) {
       sqlPlaygroundCollection.update(PLAYGROUND_ROW_ID, (draft) => {
         draft.sql = sql;
@@ -123,75 +121,70 @@ export function useSqlSnippets(resourceId: string) {
     } else {
       sqlPlaygroundCollection.insert({ id: PLAYGROUND_ROW_ID, sql });
     }
-  }, []);
+  };
 
-  const addFolder = useCallback(
-    (name: string): SqlFolder => {
-      const folder: SqlFolder = {
-        id: uid(),
-        resourceId,
-        name: name.trim() || "New folder",
-      };
-      sqlFolderCollection.insert(folder);
-      return folder;
-    },
-    [resourceId],
-  );
+  const addFolder = (name: string): SqlFolder => {
+    const folder: SqlFolder = {
+      id: uid(),
+      resourceId,
+      name: name.trim() || "New folder",
+    };
+    sqlFolderCollection.insert(folder);
+    return folder;
+  };
 
-  const renameFolder = useCallback((id: string, name: string) => {
+  const renameFolder = (id: string, name: string) => {
     const next = name.trim();
     if (!next) return;
     sqlFolderCollection.update(id, (draft) => {
       draft.name = next;
     });
-  }, []);
+  };
 
   /** Deleting a folder keeps its snippets, moving them to the top level. */
-  const deleteFolder = useCallback(
-    (id: string) => {
-      for (const s of snippets) {
-        if (s.folderId === id) {
-          sqlSnippetCollection.update(s.id, (draft) => {
-            draft.folderId = null;
-          });
-        }
+  const deleteFolder = (id: string) => {
+    for (const s of snippets) {
+      if (s.folderId === id) {
+        sqlSnippetCollection.update(s.id, (draft) => {
+          draft.folderId = null;
+        });
       }
-      sqlFolderCollection.delete(id);
-    },
-    [snippets],
-  );
+    }
+    sqlFolderCollection.delete(id);
+  };
 
-  const addSnippet = useCallback(
-    (init?: { name?: string; sql?: string; folderId?: string | null }): SqlSnippet => {
-      const snippet: SqlSnippet = {
-        id: uid(),
-        resourceId,
-        name: init?.name?.trim() || "Untitled query",
-        sql: init?.sql ?? "",
-        folderId: init?.folderId ?? null,
-        updatedAt: Date.now(),
-      };
-      sqlSnippetCollection.insert(snippet);
-      return snippet;
-    },
-    [resourceId],
-  );
+  const addSnippet = (init?: {
+    name?: string;
+    sql?: string;
+    folderId?: string | null;
+  }): SqlSnippet => {
+    const snippet: SqlSnippet = {
+      id: uid(),
+      resourceId,
+      name: init?.name?.trim() || "Untitled query",
+      sql: init?.sql ?? "",
+      folderId: init?.folderId ?? null,
+      updatedAt: Date.now(),
+    };
+    sqlSnippetCollection.insert(snippet);
+    return snippet;
+  };
 
-  const updateSnippet = useCallback(
-    (id: string, patch: Partial<Pick<SqlSnippet, "name" | "sql" | "folderId">>) => {
-      sqlSnippetCollection.update(id, (draft) => {
-        if (patch.name !== undefined) draft.name = patch.name;
-        if (patch.sql !== undefined) draft.sql = patch.sql;
-        if (patch.folderId !== undefined) draft.folderId = patch.folderId;
-        draft.updatedAt = Date.now();
-      });
-    },
-    [],
-  );
+  const updateSnippet = (
+    id: string,
+    patch: Partial<Pick<SqlSnippet, "name" | "sql" | "folderId">>,
+  ) => {
+    sqlSnippetCollection.update(id, (draft) => {
+      if (patch.name !== undefined) draft.name = patch.name;
+      if (patch.sql !== undefined) draft.sql = patch.sql;
+      if (patch.folderId !== undefined) draft.folderId = patch.folderId;
+      draft.updatedAt = Date.now();
+    });
+  };
 
-  const deleteSnippet = useCallback((id: string) => {
+  const deleteSnippet = (id: string) => {
     sqlSnippetCollection.delete(id);
-  }, []);
+  };
 
   return {
     folders,

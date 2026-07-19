@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -70,10 +70,7 @@ export function BulkEditDialog({
   /** When set (drag-drop .env import), seeds the editor instead of the current rows. */
   prefillText?: string | null;
 }) {
-  const initial = useMemo(
-    () => currentRows.map((v) => `${v.key}=${v.value}`).join("\n"),
-    [currentRows],
-  );
+  const initial = currentRows.map((v) => `${v.key}=${v.value}`).join("\n");
   const [text, setText] = useState(prefillText ?? initial);
 
   // Re-hydrate when the dialog opens or the rows refetch so a stale
@@ -108,7 +105,7 @@ export function BulkEditDialog({
       return next;
     });
 
-  const parsed = useMemo<ParsedVar[]>(() => parseDotEnv(text), [text]);
+  const parsed: ParsedVar[] = parseDotEnv(text);
 
   const targets = allEnvs.filter((e) => targetIds.has(e.id));
   const targetNames = targets.map((e) => e.name || e.slug).join(", ");

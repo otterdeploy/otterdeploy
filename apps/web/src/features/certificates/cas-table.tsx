@@ -116,9 +116,9 @@ export function TrustedCasTable({
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/30 hover:bg-transparent">
-              {["Name", "Subject", "Fingerprint (SHA-256)", "Expires", ""].map((h, i) => (
+              {["Name", "Subject", "Fingerprint (SHA-256)", "Expires", ""].map((h) => (
                 <TableHead
-                  key={i}
+                  key={h || "actions"}
                   className="h-9 text-[10px] font-semibold tracking-[0.06em] uppercase"
                 >
                   {h}

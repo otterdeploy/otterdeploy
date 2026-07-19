@@ -4,7 +4,7 @@
  * all mutation lives on the collections (or the run/restore actions). Filtering
  * stays client-side over the full list.
  */
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Clock01Icon, Upload01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
@@ -63,37 +63,29 @@ function BackupsRoute() {
   const [destEditor, setDestEditor] = useState<Destination | "new" | null>(null);
   const [restoreFor, setRestoreFor] = useState<Backup | null>(null);
 
-  const projects = useMemo(() => {
-    const ids = Array.from(
-      new Set(backups.map((b) => b.project).filter((p): p is string => !!p)),
-    );
-    return ids.sort();
-  }, [backups]);
+  const projects = Array.from(
+    new Set(backups.map((b) => b.project).filter((p): p is string => !!p)),
+  ).sort();
 
-  const projectCounts = useMemo(() => {
-    const out: Record<string, number> = {};
-    for (const id of projects)
-      out[id] = backups.filter((b) => b.project === id).length;
-    return out;
-  }, [backups, projects]);
+  const projectCounts: Record<string, number> = {};
+  for (const id of projects)
+    projectCounts[id] = backups.filter((b) => b.project === id).length;
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return backups.filter((b) => {
-      if (projectFilter !== ALL_PROJECTS && b.project !== projectFilter)
-        return false;
-      if (kindFilter !== "all" && b.kind !== kindFilter) return false;
-      if (destFilter !== "all" && b.destinationId !== destFilter) return false;
-      if (
-        q &&
-        !(b.source ?? b.volumeName ?? b.resourceId ?? "").toLowerCase().includes(q) &&
-        !b.id.toLowerCase().includes(q) &&
-        !(b.sourceHost ?? "").toLowerCase().includes(q)
-      )
-        return false;
-      return true;
-    });
-  }, [backups, projectFilter, kindFilter, destFilter, search]);
+  const q = search.trim().toLowerCase();
+  const filtered = backups.filter((b) => {
+    if (projectFilter !== ALL_PROJECTS && b.project !== projectFilter)
+      return false;
+    if (kindFilter !== "all" && b.kind !== kindFilter) return false;
+    if (destFilter !== "all" && b.destinationId !== destFilter) return false;
+    if (
+      q &&
+      !(b.source ?? b.volumeName ?? b.resourceId ?? "").toLowerCase().includes(q) &&
+      !b.id.toLowerCase().includes(q) &&
+      !(b.sourceHost ?? "").toLowerCase().includes(q)
+    )
+      return false;
+    return true;
+  });
 
   const storedBytes = backups
     .filter((b) => b.status === "succeeded")

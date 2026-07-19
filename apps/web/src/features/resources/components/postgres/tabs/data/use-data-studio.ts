@@ -14,7 +14,7 @@
  * consume the returned {@link DataStudioController}.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useHotkey } from "@tanstack/react-hotkeys";
 
@@ -71,12 +71,10 @@ function useTableData(resource: Resource) {
 
   const tablesQuery = useDatabaseTables(resourceIdStr);
   const tables = tablesQuery.data?.tables ?? [];
-  const filteredTables = useMemo(() => {
-    const q = tableSearch.trim().toLowerCase();
-    if (!q) return tables;
-    return tables.filter((t) => `${t.schema}.${t.name}`.toLowerCase().includes(q));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tableSearch, tablesQuery.data]);
+  const tableFilter = tableSearch.trim().toLowerCase();
+  const filteredTables = tableFilter
+    ? tables.filter((t) => `${t.schema}.${t.name}`.toLowerCase().includes(tableFilter))
+    : tables;
 
   const where = buildWhere(filters);
   const tableSql = selected ? browseRowsSql(selected, where, pageSize + 1, page * pageSize) : "";
@@ -144,10 +142,7 @@ function useTableData(resource: Resource) {
     if (selected) saveHiddenColumns(resourceIdStr, selected, next);
   };
 
-  const schema = useMemo(
-    () => buildSchema(tables, selected, columnVariants),
-    [tables, selected, columnVariants],
-  );
+  const schema = buildSchema(tables, selected, columnVariants);
 
   const openTable = (t: TableRef) => {
     switchToTable(t);

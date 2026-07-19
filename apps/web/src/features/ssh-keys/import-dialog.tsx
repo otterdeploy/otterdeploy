@@ -4,8 +4,6 @@
  * for instant feedback, but the server re-validates with `ssh-keygen` on submit.
  */
 
-import { useMemo } from "react";
-
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -164,7 +162,7 @@ function DetectField({
   onBlur: () => void;
   errors: string[];
 }) {
-  const detected = useMemo(() => detectType(value), [value]);
+  const detected = detectType(value);
   return (
     <Field>
       <FieldLabel htmlFor="ssh-public-key">Public key</FieldLabel>

@@ -8,7 +8,7 @@
  * "no logs match this filter", etc.) without forking the scroller.
  */
 
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { toast } from "sonner";
 
@@ -115,33 +115,20 @@ export function LogViewer({
   }, []);
 
   // Classify once, then reuse for the counts, the match lists, and the rows.
-  const classified = useMemo(
-    () =>
-      lines.map((line) => {
-        const text = stripAnsi(line.line);
-        return { line, text, severity: classifyLogSeverity(text) };
-      }),
-    [lines],
-  );
+  const classified = lines.map((line) => {
+    const text = stripAnsi(line.line);
+    return { line, text, severity: classifyLogSeverity(text) };
+  });
 
   const q = query.trim().toLowerCase();
   // Text search narrows the visible set; the level chips navigate *within*
   // whatever is currently shown.
-  const visible = useMemo(
-    () => classified.filter((c) => (q ? c.text.toLowerCase().includes(q) : true)),
-    [classified, q],
-  );
+  const visible = classified.filter((c) => (q ? c.text.toLowerCase().includes(q) : true));
   // A thrown error spans a header + its stack frames + a `{ … }` object dump;
   // count and step through those *events*, not every line the trace paints red.
-  const eventHeads = useMemo(() => markEventHeads(visible), [visible]);
-  const errorMatches = useMemo(
-    () => visible.filter((c, i) => eventHeads[i] && c.severity === "error"),
-    [visible, eventHeads],
-  );
-  const warnMatches = useMemo(
-    () => visible.filter((c, i) => eventHeads[i] && c.severity === "warn"),
-    [visible, eventHeads],
-  );
+  const eventHeads = markEventHeads(visible);
+  const errorMatches = visible.filter((c, i) => eventHeads[i] && c.severity === "error");
+  const warnMatches = visible.filter((c, i) => eventHeads[i] && c.severity === "warn");
   const errorCount = errorMatches.length;
   const warnCount = warnMatches.length;
 

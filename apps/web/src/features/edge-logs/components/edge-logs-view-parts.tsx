@@ -1,5 +1,3 @@
-import { useMemo } from "react";
-
 import {
   Table,
   TableBody,
@@ -20,9 +18,9 @@ function Bar({ n, total, cls }: { n: number; total: number; cls: string }) {
 
 /** Volume histogram, stacked by status bucket. */
 export function LogHistogram({ data, range }: { data: EdgeLogsData | undefined; range: string }) {
-  const maxBucket = useMemo(
-    () => Math.max(1, ...(data?.histogram ?? []).map((b) => b.c2xx + b.c3xx + b.c4xx + b.c5xx)),
-    [data?.histogram],
+  const maxBucket = Math.max(
+    1,
+    ...(data?.histogram ?? []).map((b) => b.c2xx + b.c3xx + b.c4xx + b.c5xx),
   );
   return (
     <div className="border-b px-4 pt-3 pb-2">

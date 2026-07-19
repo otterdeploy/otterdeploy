@@ -149,8 +149,6 @@ function DataGridRowImpl<TData>({
   measureElement,
   rowMapRef,
   rowHeight,
-  columnVisibility,
-  columnPinning,
   focusedCell,
   editingCell,
   cellSelectionKeys,
@@ -167,31 +165,22 @@ function DataGridRowImpl<TData>({
 }: DataGridRowProps<TData>) {
   const virtualRowIndex = virtualItem.index;
 
-  const onRowChange = React.useCallback(
-    (node: HTMLDivElement | null) => {
-      if (typeof virtualRowIndex === "undefined") return;
+  const onRowChange = (node: HTMLDivElement | null) => {
+    if (typeof virtualRowIndex === "undefined") return;
 
-      if (node) {
-        measureElement(node);
-        rowMapRef.current?.set(virtualRowIndex, node);
-      } else {
-        rowMapRef.current?.delete(virtualRowIndex);
-      }
-    },
-    [virtualRowIndex, measureElement, rowMapRef],
-  );
+    if (node) {
+      measureElement(node);
+      rowMapRef.current?.set(virtualRowIndex, node);
+    } else {
+      rowMapRef.current?.delete(virtualRowIndex);
+    }
+  };
 
   const rowRef = useComposedRefs(ref, onRowChange);
 
   const isRowSelected = row.getIsSelected();
 
-  // Memoize visible cells to avoid recreating cell array on every render
-  // Though TanStack returns new Cell wrappers, memoizing the array helps React's reconciliation
-  // biome-ignore lint/correctness/useExhaustiveDependencies: columnVisibility and columnPinning are used for calculating the visible cells
-  const visibleCells = React.useMemo(
-    () => row.getVisibleCells(),
-    [row, columnVisibility, columnPinning],
-  );
+  const visibleCells = row.getVisibleCells();
 
   return (
     <div

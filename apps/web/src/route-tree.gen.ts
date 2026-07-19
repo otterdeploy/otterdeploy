@@ -437,7 +437,7 @@ export interface FileRoutesByFullPath {
   "/preview": typeof PreviewRoute
   "/sign-in": typeof SignInRoute
   "/terminal": typeof TerminalRoute
-  "/$orgSlug": typeof AppOrgSlugLayoutRouteWithChildren
+  "/$orgSlug": typeof AppOrgSlugShellLayoutRouteWithChildren
   "/accept-invite/$invitationId": typeof AcceptInviteInvitationIdRoute
   "/onboarding/create-organization": typeof OnboardingCreateOrganizationRoute
   "/$orgSlug/settings": typeof AppOrgSlugSettingsLayoutRouteWithChildren

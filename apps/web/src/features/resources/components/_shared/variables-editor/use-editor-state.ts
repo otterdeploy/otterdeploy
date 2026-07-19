@@ -3,7 +3,7 @@
 // "Save" can commit the whole diff in one bulkSet and "Discard" can
 // revert to the snapshot.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type RowStatus = "unchanged" | "added" | "edited" | "deleted";
 
@@ -68,10 +68,7 @@ export function useEditorState({ serverEnv, serverSecretKeys }: UseEditorStateAr
   // edits — otherwise an unrelated invalidate would clobber the operator's
   // in-progress draft.
   const lastServerKey = useRef("");
-  const snapshotKey = useMemo(
-    () => JSON.stringify({ serverEnv, serverSecretKeys }),
-    [serverEnv, serverSecretKeys],
-  );
+  const snapshotKey = JSON.stringify({ serverEnv, serverSecretKeys });
   useEffect(() => {
     if (snapshotKey === lastServerKey.current) return;
     lastServerKey.current = snapshotKey;
@@ -142,11 +139,9 @@ export function useEditorState({ serverEnv, serverSecretKeys }: UseEditorStateAr
 
   const visible = rows.filter((r) => !r.deleted);
   const deleted = rows.filter((r) => r.deleted && r.baseline !== null);
-  const diff = useMemo(() => {
-    const added = rows.filter((r) => !r.deleted && !r.baseline).length;
-    const edited = rows.filter((r) => !r.deleted && r.baseline && statusOf(r) === "edited").length;
-    return { added, edited, deleted: deleted.length };
-  }, [rows, deleted.length]);
+  const added = rows.filter((r) => !r.deleted && !r.baseline).length;
+  const edited = rows.filter((r) => !r.deleted && r.baseline && statusOf(r) === "edited").length;
+  const diff = { added, edited, deleted: deleted.length };
   const hasPending = diff.added + diff.edited + diff.deleted > 0;
 
   return {

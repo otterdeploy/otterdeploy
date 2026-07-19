@@ -7,7 +7,7 @@
 
 import type { ProjectId } from "@otterdeploy/shared/id";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { eq } from "@tanstack/db";
 import { useLiveQuery } from "@tanstack/react-db";
@@ -37,10 +37,7 @@ export function TrafficPanel({ projectId }: { projectId: ProjectId }) {
     (q) => q.from({ r: resourceCollection }).where(({ r }) => eq(r.projectId, projectId)),
     [projectId],
   );
-  const nameByResourceId = useMemo(
-    () => new Map(resources.map((r) => [r.resourceId as string, r.name])),
-    [resources],
-  );
+  const nameByResourceId = new Map(resources.map((r) => [r.resourceId as string, r.name]));
 
   if (query.isLoading) return <TrafficPending />;
   if (query.isError) {

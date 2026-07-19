@@ -7,7 +7,7 @@
  * follow-the-tail scroller.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   Copy01Icon,
@@ -110,15 +110,13 @@ export function ServiceLogsTab({
   const [query, setQuery] = useState("");
   const [lvlFilter, setLvlFilter] = useState<Set<LogLevel>>(() => new Set(LOG_LEVELS));
 
-  const resourceIds = useMemo(() => [resourceId], [resourceId]);
+  const resourceIds = [resourceId];
   const { lines, status } = useProjectLogStream({ projectId, resourceIds, paused });
 
-  const visible = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return lines.filter(
-      (l) => lvlFilter.has(l.level) && (!needle || l.msg.toLowerCase().includes(needle)),
-    );
-  }, [lines, lvlFilter, query]);
+  const needle = query.trim().toLowerCase();
+  const visible = lines.filter(
+    (l) => lvlFilter.has(l.level) && (!needle || l.msg.toLowerCase().includes(needle)),
+  );
 
   // Follow the tail while the operator sits at the bottom; release on scroll-up.
   const scrollerRef = useRef<HTMLDivElement | null>(null);

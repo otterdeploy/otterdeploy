@@ -5,7 +5,7 @@
  * within size + complexity budgets.
  */
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 
 import { toast } from "sonner";
 import { format as formatSql } from "sql-formatter";
@@ -142,55 +142,52 @@ export function useBulkDelete({
   const mutateRow = useMutateRow();
   const [progress, setProgress] = useState<BulkDeleteProgress | null>(null);
 
-  const deleteRows = useCallback(
-    async (rowIndices: number[]) => {
-      if (!selected || !result || primaryKey.length === 0 || rowIndices.length === 0) return;
-      const pkIdx = primaryKey.map((c) => result.columns.indexOf(c));
-      if (pkIdx.some((i) => i === -1)) return; // PK column hidden from the result? refuse.
+  const deleteRows = async (rowIndices: number[]) => {
+    if (!selected || !result || primaryKey.length === 0 || rowIndices.length === 0) return;
+    const pkIdx = primaryKey.map((c) => result.columns.indexOf(c));
+    if (pkIdx.some((i) => i === -1)) return; // PK column hidden from the result? refuse.
 
-      setProgress({ done: 0, total: rowIndices.length });
-      let failed = 0;
-      let firstError: string | null = null;
-      for (const [i, rowIndex] of rowIndices.entries()) {
-        const row = result.rows[rowIndex];
-        if (!row) {
-          failed += 1;
-        } else {
-          const pk = primaryKey.map((c, k) => ({
-            column: c,
-            value: row[pkIdx[k] ?? -1] ?? null,
-          }));
-          try {
-            await mutateRow.mutateAsync({
-              resourceId,
-              schema: selected.schema,
-              table: selected.name,
-              op: "delete",
-              pk,
-              set: [],
-            });
-          } catch (err) {
-            failed += 1;
-            if (!firstError) firstError = err instanceof Error ? err.message : String(err);
-          }
-        }
-        setProgress({ done: i + 1, total: rowIndices.length });
-      }
-      setProgress(null);
-      void rowsQuery.refetch();
-
-      const ok = rowIndices.length - failed;
-      if (failed === 0) {
-        toast.success(`Deleted ${ok} row${ok === 1 ? "" : "s"}`);
+    setProgress({ done: 0, total: rowIndices.length });
+    let failed = 0;
+    let firstError: string | null = null;
+    for (const [i, rowIndex] of rowIndices.entries()) {
+      const row = result.rows[rowIndex];
+      if (!row) {
+        failed += 1;
       } else {
-        toast.error(
-          `Deleted ${ok} of ${rowIndices.length} rows — ${failed} failed` +
-            (firstError ? `: ${firstError}` : ""),
-        );
+        const pk = primaryKey.map((c, k) => ({
+          column: c,
+          value: row[pkIdx[k] ?? -1] ?? null,
+        }));
+        try {
+          await mutateRow.mutateAsync({
+            resourceId,
+            schema: selected.schema,
+            table: selected.name,
+            op: "delete",
+            pk,
+            set: [],
+          });
+        } catch (err) {
+          failed += 1;
+          if (!firstError) firstError = err instanceof Error ? err.message : String(err);
+        }
       }
-    },
-    [selected, result, primaryKey, mutateRow, resourceId, rowsQuery],
-  );
+      setProgress({ done: i + 1, total: rowIndices.length });
+    }
+    setProgress(null);
+    void rowsQuery.refetch();
+
+    const ok = rowIndices.length - failed;
+    if (failed === 0) {
+      toast.success(`Deleted ${ok} row${ok === 1 ? "" : "s"}`);
+    } else {
+      toast.error(
+        `Deleted ${ok} of ${rowIndices.length} rows — ${failed} failed` +
+          (firstError ? `: ${firstError}` : ""),
+      );
+    }
+  };
 
   return { deleteRows, progress };
 }
@@ -203,38 +200,32 @@ export function useRowMutations(
 ) {
   const mutateRow = useMutateRow();
 
-  const onUpdateRow = useCallback(
-    async (pk: ColumnValue[], set: ColumnValue[]) => {
-      if (!selected) return;
-      await mutateRow.mutateAsync({
-        resourceId,
-        schema: selected.schema,
-        table: selected.name,
-        op: "update",
-        pk,
-        set,
-      });
-      // Reconcile with server truth (triggers / computed columns / defaults).
-      void rowsQuery.refetch();
-    },
-    [selected, mutateRow, resourceId, rowsQuery],
-  );
+  const onUpdateRow = async (pk: ColumnValue[], set: ColumnValue[]) => {
+    if (!selected) return;
+    await mutateRow.mutateAsync({
+      resourceId,
+      schema: selected.schema,
+      table: selected.name,
+      op: "update",
+      pk,
+      set,
+    });
+    // Reconcile with server truth (triggers / computed columns / defaults).
+    void rowsQuery.refetch();
+  };
 
-  const onDeleteRow = useCallback(
-    async (pk: ColumnValue[]) => {
-      if (!selected) return;
-      await mutateRow.mutateAsync({
-        resourceId,
-        schema: selected.schema,
-        table: selected.name,
-        op: "delete",
-        pk,
-        set: [],
-      });
-      void rowsQuery.refetch();
-    },
-    [selected, mutateRow, resourceId, rowsQuery],
-  );
+  const onDeleteRow = async (pk: ColumnValue[]) => {
+    if (!selected) return;
+    await mutateRow.mutateAsync({
+      resourceId,
+      schema: selected.schema,
+      table: selected.name,
+      op: "delete",
+      pk,
+      set: [],
+    });
+    void rowsQuery.refetch();
+  };
 
   return { onUpdateRow, onDeleteRow };
 }

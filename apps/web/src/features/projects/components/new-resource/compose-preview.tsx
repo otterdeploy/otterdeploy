@@ -106,8 +106,8 @@ export function ComposePreview({
           </span>
         </div>
       ) : null}
-      {preview.warnings.map((w, i) => (
-        <p key={i} className="text-[11px] text-muted-foreground">
+      {preview.warnings.map((w) => (
+        <p key={w} className="text-[11px] text-muted-foreground">
           · {w}
         </p>
       ))}

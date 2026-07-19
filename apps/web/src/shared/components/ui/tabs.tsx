@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
 import { cva, type VariantProps } from "class-variance-authority";
-import { motion, type HTMLMotionProps, type Transition } from "motion/react";
+import { domAnimation, LazyMotion, m, type HTMLMotionProps, type Transition } from "motion/react";
 
 import { cn } from "@/shared/lib/utils";
 
@@ -233,17 +233,19 @@ function TabsContents({
   }, []);
 
   return (
-    <motion.div
-      ref={containerRef}
-      data-slot="tabs-contents"
-      animate={{ height }}
-      transition={transition}
-      style={{ overflow: "hidden", ...style }}
-      className={cn("relative", className)}
-      {...props}
-    >
-      {children}
-    </motion.div>
+    <LazyMotion features={domAnimation}>
+      <m.div
+        ref={containerRef}
+        data-slot="tabs-contents"
+        animate={{ height }}
+        transition={transition}
+        style={{ overflow: "hidden", ...style }}
+        className={cn("relative", className)}
+        {...props}
+      >
+        {children}
+      </m.div>
+    </LazyMotion>
   );
 }
 

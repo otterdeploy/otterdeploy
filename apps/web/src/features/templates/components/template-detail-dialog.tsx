@@ -6,7 +6,7 @@
  * that up and opens the compose wizard prefilled, so the normal staged
  * manifest flow (review vars → stage → Deploy) takes over from there.
  */
-import { useMemo, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { parseCompose } from "@otterdeploy/api/stack/compose/parse";
 import { useQuery } from "@tanstack/react-query";
@@ -72,7 +72,7 @@ function TemplateDetailBody({
 }) {
   // Same parser the wizard preview and the deploy reconciler run — the
   // diagram and tables below can't drift from what would actually deploy.
-  const parsed = useMemo(() => parseCompose(template.compose), [template.compose]);
+  const parsed = parseCompose(template.compose);
 
   return (
     <>

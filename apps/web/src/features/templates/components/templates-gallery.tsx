@@ -4,7 +4,7 @@
  * (which is itself parser-verified); there are no install counts, stars, or
  * trending lists because we don't measure those.
  */
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -45,11 +45,8 @@ export function TemplatesGallery({
   const [sort, setSort] = useState<TemplateSort>("az");
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const counts = useMemo(() => categoryCounts(TEMPLATES), []);
-  const visible = useMemo(
-    () => sortTemplates(filterTemplates(TEMPLATES, { category, query }), sort),
-    [category, query, sort],
-  );
+  const counts = categoryCounts(TEMPLATES);
+  const visible = sortTemplates(filterTemplates(TEMPLATES, { category, query }), sort);
   const open = openId ? (TEMPLATES.find((t) => t.id === openId) ?? null) : null;
 
   return (

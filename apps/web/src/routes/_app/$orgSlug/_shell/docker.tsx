@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import * as z from "zod";
 
@@ -73,11 +73,8 @@ function DockerRoute() {
   });
 
   const swarm = nodes.data?.swarm ?? false;
-  const nodeList = useMemo(() => nodes.data?.nodes ?? [], [nodes.data]);
-  const nodeNames = useMemo(
-    () => new Map(nodeList.map((n) => [n.id, n.hostname])),
-    [nodeList],
-  );
+  const nodeList = nodes.data?.nodes ?? [];
+  const nodeNames = new Map(nodeList.map((n) => [n.id, n.hostname]));
 
   // Node scoping is only genuinely possible for swarm TASKS (each task carries
   // its NodeID). Containers/images/volumes/networks are per-daemon state and
@@ -87,16 +84,13 @@ function DockerRoute() {
   // whole (referentially unstable) query object — that would recompute every
   // render. Destructure the exact fields so the memo tracks only real changes.
   const { data: tasksData, isLoading, isError, error, refetch } = tasks;
-  const filteredTasks = useMemo(
-    () => ({
-      data: nodeFilter === "all" ? tasksData : tasksData?.filter((t) => t.nodeId === nodeFilter),
-      isLoading,
-      isError,
-      error,
-      refetch,
-    }),
-    [tasksData, isLoading, isError, error, refetch, nodeFilter],
-  );
+  const filteredTasks = {
+    data: nodeFilter === "all" ? tasksData : tasksData?.filter((t) => t.nodeId === nodeFilter),
+    isLoading,
+    isError,
+    error,
+    refetch,
+  };
 
   const prune = useMutation(
     orpc.docker.images.prune.mutationOptions({
@@ -107,19 +101,15 @@ function DockerRoute() {
             : "Nothing to prune — no dangling images",
         );
         setPruneOpen(false);
-        images.refetch();
+        void images.refetch();
       },
       onError: (err) => toast.error(err.message),
     }),
   );
 
-  const danglingCount = useMemo(
-    () =>
-      (images.data ?? []).filter(
-        (img) => img.repoTags.length === 0 || img.repoTags[0] === "<none>:<none>",
-      ).length,
-    [images.data],
-  );
+  const danglingCount = (images.data ?? []).filter(
+    (img) => img.repoTags.length === 0 || img.repoTags[0] === "<none>:<none>",
+  ).length;
 
   const tabs: Array<[DockerTab, string, number | undefined]> = [
     ["containers", "Containers", containers.data?.length],
@@ -129,16 +119,13 @@ function DockerRoute() {
     ["tasks", "Tasks", tasks.data?.length],
   ];
 
-  const nodeItems = useMemo(
-    () => [
-      { value: "all", label: "All nodes" },
-      ...nodeList.map((n) => ({
-        value: n.id,
-        label: n.leader ? `${n.hostname} (leader)` : n.hostname,
-      })),
-    ],
-    [nodeList],
-  );
+  const nodeItems = [
+    { value: "all", label: "All nodes" },
+    ...nodeList.map((n) => ({
+      value: n.id,
+      label: n.leader ? `${n.hostname} (leader)` : n.hostname,
+    })),
+  ];
 
   return (
     <Tabs

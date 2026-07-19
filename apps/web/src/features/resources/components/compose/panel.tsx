@@ -12,7 +12,7 @@
  */
 
 import type { ProjectSlug } from "@otterdeploy/shared/id";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -94,19 +94,19 @@ export function ComposeResourcePanel({
     (q) => q.from({ r: resourceCollection }).where(({ r }) => eq(r.projectId, resource.projectId)),
     [resource.projectId],
   );
-  const tasksByResourceId = useMemo(() => {
+  const tasksByResourceId = (() => {
     const m = new Map<string, Task[]>();
     for (const row of taskRows) m.set(row.resourceId, row.tasks as Task[]);
     return m;
-  }, [taskRows]);
-  const statusByName = useMemo(() => {
+  })();
+  const statusByName = (() => {
     const m = new Map<string, StackServiceStatus>();
     for (const c of projectResources) {
       if (c.type !== "service" || c.stackId !== resource.resourceId) continue;
       m.set(c.name, childServiceStatus(c, tasksByResourceId.get(c.resourceId) ?? []));
     }
     return m;
-  }, [projectResources, tasksByResourceId, resource.resourceId]);
+  })();
   const base = baseStatus(resource.latestDeploymentStatus);
   const serviceStatus = (name: string): StackServiceStatus =>
     statusByName.get(name) ?? base ?? "offline";

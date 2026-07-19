@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import {
   ArrowDown01Icon,
@@ -41,13 +41,10 @@ export function OverviewMatrix({
 
   // Count defined keys per env — every row counts (both `set` and
   // `empty`); only `missing` (no row) doesn't contribute.
-  const counts = useMemo(() => {
-    const out = new Map<string, number>();
-    for (const env of envs) {
-      out.set(env.id, (byEnv.get(env.id) ?? []).length);
-    }
-    return out;
-  }, [envs, byEnv]);
+  const counts = new Map<string, number>();
+  for (const env of envs) {
+    counts.set(env.id, (byEnv.get(env.id) ?? []).length);
+  }
 
   const toggleAll = () => {
     if (selected.size === filtered.length) setSelected(new Set());

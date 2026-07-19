@@ -93,9 +93,9 @@ export function CustomCertsTable({
           <TableHeader>
             <TableRow className="bg-muted/30 hover:bg-transparent">
               {["Hostname", "Issuer", "SANs", "Expires", "Key", "Status", "Uploaded", ""].map(
-                (h, i) => (
+                (h) => (
                   <TableHead
-                    key={i}
+                    key={h || "actions"}
                     className="h-9 text-[10px] font-semibold tracking-[0.06em] uppercase"
                   >
                     {h}

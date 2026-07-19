@@ -5,7 +5,7 @@
  * kind picker, where Database is one tile). Data comes from one polled
  * endpoint; see features/databases/data.ts.
  */
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { Database02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -38,20 +38,16 @@ import { ALL_PROJECTS } from "./shared";
 
 export function DatabasesPage({ orgSlug }: { orgSlug: string }) {
   const { data, isPending, isError, refetch } = useDatabaseCatalog();
-  const databases = useMemo(() => data?.databases ?? [], [data]);
+  const databases = data?.databases ?? [];
   const [filter, setFilter] = useState<string>(ALL_PROJECTS);
 
   // Chips for every project that actually has a database, with counts.
-  const projectCounts = useMemo(() => {
-    const out = new Map<string, number>();
-    for (const db of databases) out.set(db.projectSlug, (out.get(db.projectSlug) ?? 0) + 1);
-    return out;
-  }, [databases]);
+  const projectCounts = new Map<string, number>();
+  for (const db of databases)
+    projectCounts.set(db.projectSlug, (projectCounts.get(db.projectSlug) ?? 0) + 1);
 
-  const filtered = useMemo(
-    () => (filter === ALL_PROJECTS ? databases : databases.filter((d) => d.projectSlug === filter)),
-    [databases, filter],
-  );
+  const filtered =
+    filter === ALL_PROJECTS ? databases : databases.filter((d) => d.projectSlug === filter);
 
   return (
     <Page>

@@ -43,8 +43,8 @@ export function SelectField({ label, items, placeholder, className }: SelectFiel
           ))}
         </SelectContent>
       </Select>
-      {errors.map((err, i) => (
-        <FieldError key={i}>{String(err?.message ?? err)}</FieldError>
+      {errors.map((err) => (
+        <FieldError key={String(err?.message ?? err)}>{String(err?.message ?? err)}</FieldError>
       ))}
     </Field>
   );

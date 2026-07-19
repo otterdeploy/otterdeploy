@@ -16,7 +16,7 @@
  * "Reinstall" action (startConnect), not this creation form.
  */
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { ArrowDown01Icon, GitBranchIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -67,7 +67,7 @@ function errMessages(errors: readonly unknown[]): string[] {
 
 export function ConnectDialog({ open, onOpenChange, returnTo }: ConnectDialogProps) {
   // GitHub App names must be unique across all of GitHub — seed a random one.
-  const defaultName = useMemo(() => `otterdeploy-${crypto.randomUUID().slice(0, 8)}`, []);
+  const defaultName = `otterdeploy-${crypto.randomUUID().slice(0, 8)}`;
   const [enterpriseOpen, setEnterpriseOpen] = useState(false);
 
   const startManifest = useMutation({

@@ -104,24 +104,25 @@ interface EmailLayoutProps {
   children: ReactNode;
 }
 
+const chip: CSSProperties = {
+  width: "30px",
+  height: "30px",
+  borderRadius: "8px",
+  backgroundColor: brand.ink,
+  textAlign: "center",
+  verticalAlign: "middle",
+};
+const core: CSSProperties = {
+  display: "inline-block",
+  width: "11px",
+  height: "11px",
+  borderRadius: "3px",
+  backgroundColor: brand.accent,
+};
+
 /** The brand lockup: an ink chip with a blue core + the wordmark. Renders as a
  *  table so it survives every client. */
 function Wordmark() {
-  const chip: CSSProperties = {
-    width: "30px",
-    height: "30px",
-    borderRadius: "8px",
-    backgroundColor: brand.ink,
-    textAlign: "center",
-    verticalAlign: "middle",
-  };
-  const core: CSSProperties = {
-    display: "inline-block",
-    width: "11px",
-    height: "11px",
-    borderRadius: "3px",
-    backgroundColor: brand.accent,
-  };
   return (
     <table
       cellPadding={0}

@@ -6,7 +6,7 @@
  * and lift its bottom-anchored chrome (Controls / legend) above it.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { StackTab } from "./panel-header";
 
@@ -86,10 +86,10 @@ export function useStackPanelState(projectId: string): StackPanelState {
     }
   }, [projectId, state]);
 
-  const setOpen = useCallback((open: boolean) => setState((s) => ({ ...s, open })), []);
-  const toggleOpen = useCallback(() => setState((s) => ({ ...s, open: !s.open })), []);
+  const setOpen = (open: boolean) => setState((s) => ({ ...s, open }));
+  const toggleOpen = () => setState((s) => ({ ...s, open: !s.open }));
   // Picking a tab always opens the drawer — a hidden tab switch is a no-op.
-  const setTab = useCallback((tab: StackTab) => setState((s) => ({ ...s, tab, open: true })), []);
+  const setTab = (tab: StackTab) => setState((s) => ({ ...s, tab, open: true }));
 
   // Mirror of the current height for the drag closure (avoids re-creating the
   // handler per resize tick).
@@ -98,7 +98,7 @@ export function useStackPanelState(projectId: string): StackPanelState {
     heightRef.current = state.height;
   }, [state.height]);
 
-  const startDrag = useCallback((event: React.PointerEvent) => {
+  const startDrag = (event: React.PointerEvent) => {
     event.preventDefault();
     const startY = event.clientY;
     const startHeight = heightRef.current;
@@ -114,7 +114,7 @@ export function useStackPanelState(projectId: string): StackPanelState {
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
-  }, []);
+  };
 
   return {
     ...state,

@@ -4,7 +4,7 @@
 
 import type { ProjectId } from "@otterdeploy/shared/id";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { useQuery } from "@tanstack/react-query";
 
@@ -42,8 +42,8 @@ export function PostgresVariablesTabBody({
 }
 
 function ProvisionedVariables({ resource }: { resource: PostgresBodyProps["resource"] }) {
-  const serviceVars = useMemo(() => buildEngineServiceVars(resource), [resource]);
-  const systemVars = useMemo(() => buildSystemVars(resource), [resource]);
+  const serviceVars = buildEngineServiceVars(resource);
+  const systemVars = buildSystemVars(resource);
 
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -149,19 +149,15 @@ function PendingVariables({
 
   // Build the engine var list with the REAL minted values (same per-engine
   // shape the deployed panel renders).
-  const engineVars = useMemo(
-    () =>
-      creds.data
-        ? buildEngineServiceVars({
-            ...resource,
-            username: creds.data.username,
-            password: creds.data.password,
-            databaseName: creds.data.databaseName,
-            internalConnectionString: creds.data.internalConnectionString,
-          })
-        : [],
-    [creds.data, resource],
-  );
+  const engineVars = creds.data
+    ? buildEngineServiceVars({
+        ...resource,
+        username: creds.data.username,
+        password: creds.data.password,
+        databaseName: creds.data.databaseName,
+        internalConnectionString: creds.data.internalConnectionString,
+      })
+    : [];
 
   const toggleReveal = (name: string) =>
     setRevealed((prev) => {

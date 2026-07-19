@@ -25,15 +25,13 @@ export function GraphLegend() {
   const [open, setOpen] = useState(readOpen);
 
   const toggle = () => {
-    setOpen((prev) => {
-      const next = !prev;
-      try {
-        window.localStorage.setItem(STORAGE_KEY, String(next));
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
+    const next = !open;
+    try {
+      window.localStorage.setItem(STORAGE_KEY, String(next));
+    } catch {
+      /* ignore */
+    }
+    setOpen(next);
   };
 
   return (

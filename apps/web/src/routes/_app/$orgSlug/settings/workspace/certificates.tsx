@@ -40,6 +40,11 @@ export const Route = createFileRoute("/_app/$orgSlug/settings/workspace/certific
   component: RouteComponent,
 });
 
+function recheck() {
+  void queryClient.invalidateQueries({ queryKey: orpc.certificates.inventory.queryKey() });
+  void queryClient.invalidateQueries({ queryKey: orpc.certificates.listCustom.queryKey() });
+}
+
 function RouteComponent() {
   const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
   const { orgSlug } = Route.useParams();
@@ -55,11 +60,6 @@ function RouteComponent() {
 
   const [uploadCertOpen, setUploadCertOpen] = useState(false);
   const [uploadCaOpen, setUploadCaOpen] = useState(false);
-
-  const recheck = () => {
-    void queryClient.invalidateQueries({ queryKey: orpc.certificates.inventory.queryKey() });
-    void queryClient.invalidateQueries({ queryKey: orpc.certificates.listCustom.queryKey() });
-  };
 
   return (
     <Page>

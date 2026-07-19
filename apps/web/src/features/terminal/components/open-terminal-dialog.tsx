@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { Database02Icon, ServerStack01Icon, FlashIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -55,7 +55,7 @@ export function OpenTerminalDialog({ open, onOpenChange, onPick, defaultProject 
   // here is one entry in the list — its replicas are the individual
   // containers exec is targeting. Postgres containers come through as
   // single-replica services keyed by their service name.
-  const services = useMemo<PickerService[]>(() => {
+  const services: PickerService[] = (() => {
     const byKey = new Map<string, PickerService>();
     for (const c of containers) {
       if (!c.projectSlug || !c.serviceName) continue;
@@ -76,10 +76,10 @@ export function OpenTerminalDialog({ open, onOpenChange, onPick, defaultProject 
       });
     }
     return [...byKey.values()];
-  }, [containers]);
+  })();
 
   // Derive available projects + counts from the live container set.
-  const projects = useMemo(() => {
+  const projects = (() => {
     const counts = new Map<string, number>();
     let total = 0;
     for (const s of services) {
@@ -93,12 +93,10 @@ export function OpenTerminalDialog({ open, onOpenChange, onPick, defaultProject 
     }));
     list.sort((a, b) => b.count - a.count);
     return { total, list };
-  }, [services]);
+  })();
 
-  const filteredServices = useMemo(() => {
-    if (projectFilter === "all") return services;
-    return services.filter((s) => s.project === projectFilter);
-  }, [projectFilter, services]);
+  const filteredServices =
+    projectFilter === "all" ? services : services.filter((s) => s.project === projectFilter);
 
   function pick(source: SessionSource) {
     onPick(source);

@@ -6,7 +6,7 @@
  * with storage + state.
  */
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 
 export const HISTORY_LIMIT = 50;
 
@@ -60,21 +60,18 @@ function saveHistory(resourceId: string, entries: QueryHistoryEntry[]) {
 export function useQueryHistory(resourceId: string) {
   const [entries, setEntries] = useState<QueryHistoryEntry[]>(() => loadHistory(resourceId));
 
-  const record = useCallback(
-    (e: Omit<QueryHistoryEntry, "id" | "at">) => {
-      setEntries((prev) => {
-        const next = pushHistory(prev, { ...e, id: crypto.randomUUID(), at: Date.now() });
-        saveHistory(resourceId, next);
-        return next;
-      });
-    },
-    [resourceId],
-  );
+  const record = (e: Omit<QueryHistoryEntry, "id" | "at">) => {
+    setEntries((prev) => {
+      const next = pushHistory(prev, { ...e, id: crypto.randomUUID(), at: Date.now() });
+      saveHistory(resourceId, next);
+      return next;
+    });
+  };
 
-  const clear = useCallback(() => {
+  const clear = () => {
     setEntries([]);
     saveHistory(resourceId, []);
-  }, [resourceId]);
+  };
 
   return { entries, record, clear };
 }

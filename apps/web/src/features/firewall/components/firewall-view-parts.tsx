@@ -49,9 +49,9 @@ export function DecisionsTable({
               "Expires",
               "Origin",
               "",
-            ].map((h, i) => (
+            ].map((h) => (
               <TableHead
-                key={h || `col-${i}`}
+                key={h || "row-actions"}
                 className="h-8 text-[10px] font-semibold tracking-[0.06em] uppercase"
               >
                 {h}

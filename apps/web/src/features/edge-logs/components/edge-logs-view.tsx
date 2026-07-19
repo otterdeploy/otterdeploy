@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { Download01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -52,27 +52,19 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
   const { bannedIps, block, blockMany } = useEdgeBans();
 
   const data = query.data;
-  const allRows = useMemo(() => data?.rows ?? [], [data?.rows]);
+  const allRows = data?.rows ?? [];
   // Client-side narrow to scanner probes. Classification is a pure path check
   // (see threat.ts); it scopes the visible rows within the fetched window.
-  const suspiciousCount = useMemo(
-    () => allRows.filter((r) => classifyThreat(r.path)).length,
-    [allRows],
-  );
+  const suspiciousCount = allRows.filter((r) => classifyThreat(r.path)).length;
   const rows = suspiciousOnly ? allRows.filter((r) => classifyThreat(r.path)) : allRows;
   // Distinct offender IPs behind the suspicious rows that aren't banned yet —
   // the mass-block target set (contract caps one call at 100).
-  const suspiciousIps = useMemo(
-    () =>
-      [...new Set(allRows.flatMap((r) => (classifyThreat(r.path) ? [r.clientIp] : [])))]
-        .filter((ip) => !bannedIps.has(ip))
-        .slice(0, 100),
-    [allRows, bannedIps],
-  );
-  const hostOptions = useMemo(
-    () => (data?.hostStats ?? []).map((s) => s.host).sort(),
-    [data?.hostStats],
-  );
+  const suspiciousIps = [
+    ...new Set(allRows.flatMap((r) => (classifyThreat(r.path) ? [r.clientIp] : []))),
+  ]
+    .filter((ip) => !bannedIps.has(ip))
+    .slice(0, 100);
+  const hostOptions = (data?.hostStats ?? []).map((s) => s.host).sort();
 
   return (
     <div className="flex h-full min-w-0 flex-col overflow-hidden">

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 
 import { useStore } from "@tanstack/react-form";
 
@@ -148,31 +148,25 @@ export function useWizardForm({
 
   const advancedSetup = useStore(form.store, (s) => s.values.advancedSetup);
   const setAdvanced = (next: boolean) => form.setFieldValue("advancedSetup", next);
-  const steps = useMemo(() => flowFor(kind, advancedSetup), [kind, advancedSetup]);
+  const steps = flowFor(kind, advancedSetup);
   const idx = steps.findIndex((s) => s[0] === step);
   const isLast = idx === steps.length - 1;
 
   // Failing steps the user has PASSED (i < idx). The current step is
   // mid-edit; its blockers surface in the footer's "Required" line.
   const formValues = useStore(form.store, (s) => s.values);
-  const failingSteps = useMemo(() => {
-    const out = new Set<Step>();
-    steps.forEach(([id], i) => {
-      if (i >= idx) return;
-      const probe = { ...formValues, __step: id };
-      if (!resourceFormSchema.safeParse(probe).success) out.add(id);
-    });
-    return out;
-  }, [formValues, steps, idx]);
+  const failingSteps = new Set<Step>();
+  steps.forEach(([id], i) => {
+    if (i >= idx) return;
+    const probe = { ...formValues, __step: id };
+    if (!resourceFormSchema.safeParse(probe).success) failingSteps.add(id);
+  });
 
   // Issues for the CURRENT step's arm — feeds the footer's
   // "Required: …" hint so the operator always knows why Continue
   // won't advance.
-  const currentStepIssues = useMemo(() => {
-    const probe = { ...formValues, __step: step };
-    const r = resourceFormSchema.safeParse(probe);
-    return r.success ? [] : r.error.issues;
-  }, [formValues, step]);
+  const currentStepParse = resourceFormSchema.safeParse({ ...formValues, __step: step });
+  const currentStepIssues = currentStepParse.success ? [] : currentStepParse.error.issues;
 
   const handleContinue = async () => {
     // Validate against the CURRENT step's arm. __step is already set

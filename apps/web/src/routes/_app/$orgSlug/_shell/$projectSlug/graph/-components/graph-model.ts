@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { eq } from "@tanstack/db";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useQuery } from "@tanstack/react-query";
@@ -171,21 +171,17 @@ export function useGraphModel(project: { id: ProjectId }) {
     [project.id],
   );
 
-  const edgesFromDeps = useMemo<Edge[]>(
-    () =>
-      dependencyEdges.map((d) => ({
-        id: `${d.source}->${d.target}`,
-        source: d.source,
-        target: d.target,
-      })),
-    [dependencyEdges],
-  );
+  const edgesFromDeps: Edge[] = dependencyEdges.map((d) => ({
+    id: `${d.source}->${d.target}`,
+    source: d.source,
+    target: d.target,
+  }));
 
-  const tasksByResourceId = useMemo(() => {
+  const tasksByResourceId = (() => {
     const m = new Map<string, (typeof serviceTasks)[number]["tasks"]>();
     for (const entry of serviceTasks) m.set(entry.resourceId, entry.tasks);
     return m;
-  }, [serviceTasks]);
+  })();
 
   // Pending manifest changes — overlay as ghost nodes for creates and markers
   // on existing nodes for updates/deletes. Polled on the same 5s cadence as the
@@ -204,9 +200,11 @@ export function useGraphModel(project: { id: ProjectId }) {
   // Wizard-detected frameworks for staged service ghosts (instant brand logo).
   const pendingFrameworks = usePendingFrameworks(project.id);
 
-  const pendingByName = useMemo<PendingByName>(
-    () => computePendingByName(resources, diff.data?.changes ?? [], appliedCreates, pendingFrameworks),
-    [resources, diff.data, appliedCreates, pendingFrameworks],
+  const pendingByName: PendingByName = computePendingByName(
+    resources,
+    diff.data?.changes ?? [],
+    appliedCreates,
+    pendingFrameworks,
   );
 
   // Once a just-Deployed create's resource has landed, stop bridging it so the
@@ -247,7 +245,7 @@ export function useGraphModel(project: { id: ProjectId }) {
   // dashed edges together, so an edge can never reference a node that wasn't
   // emitted). The framework brand logo rides on each resource record — no
   // per-service git-API lookup.
-  const graph = useMemo(() => {
+  const graph = (() => {
     const base = buildLiveNodes(resources, tasksByResourceId, pendingByName);
     const serviceIds = new Set(base.map((n) => n.id));
     const satellites = buildPreviewSatellites(previews.data ?? [], serviceIds);
@@ -255,10 +253,10 @@ export function useGraphModel(project: { id: ProjectId }) {
       nodes: [...base, ...satellites.nodes],
       edges: [...edgesFromDeps, ...satellites.edges],
     };
-  }, [resources, tasksByResourceId, pendingByName, edgesFromDeps, previews.data]);
+  })();
 
   // Corner chip rollup — null (chip omitted) when no host saw traffic.
-  const traffic = useMemo(() => summarizeTraffic(routeStats.data), [routeStats.data]);
+  const traffic = summarizeTraffic(routeStats.data);
 
   return { liveNodes: graph.nodes, liveEdges: graph.edges, traffic };
 }

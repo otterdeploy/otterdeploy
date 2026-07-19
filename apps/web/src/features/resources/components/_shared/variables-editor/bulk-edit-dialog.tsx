@@ -3,7 +3,7 @@
 // replaceAll on the draft (baselines for unchanged keys survive so the
 // per-row status pills still tell the truth).
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { Copy01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -42,14 +42,11 @@ export function BulkEditDialog({ open, rows, onClose, onApply }: BulkEditDialogP
 }
 
 function BulkEditBody({ rows, onClose, onApply }: Omit<BulkEditDialogProps, "open">) {
-  const initial = useMemo(
-    () => serializeDotenv(rows.map((r) => ({ key: r.key, value: r.value }))),
-    [rows],
-  );
+  const initial = serializeDotenv(rows.map((r) => ({ key: r.key, value: r.value })));
   const [text, setText] = useState(initial);
 
-  const parsed = useMemo(() => parseDotenv(text), [text]);
-  const secretMap = useMemo(() => new Map(rows.map((r) => [r.key, r.isSecret] as const)), [rows]);
+  const parsed = parseDotenv(text);
+  const secretMap = new Map(rows.map((r) => [r.key, r.isSecret] as const));
   const secretCount = parsed.filter((e) => secretMap.get(e.key)).length;
 
   const pasteFromClipboard = async () => {

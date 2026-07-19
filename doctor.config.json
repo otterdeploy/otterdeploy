@@ -1,0 +1,4 @@
+{
+  "$schema": "https://react.doctor/schema/config.json",
+  "projects": ["web", "www", "@otterdeploy/email", "@otterdeploy/i18n"]
+}

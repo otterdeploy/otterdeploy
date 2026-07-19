@@ -8,8 +8,6 @@
  * the plain resource id.
  */
 
-import { useMemo } from "react";
-
 import { useMutation, useQuery } from "@tanstack/react-query";
 
 import type { FkTarget } from "@/shared/components/data-grid/types";
@@ -72,10 +70,9 @@ export function useTablePrimaryKey({
     enabled: enabled && Boolean(table),
     staleTime: 5 * 60 * 1000,
   });
-  const pkColumns = useMemo(
-    () => (query.data?.rows ?? []).map((r) => r[0]).filter((c): c is string => c != null),
-    [query.data],
-  );
+  const pkColumns = (query.data?.rows ?? [])
+    .map((r) => r[0])
+    .filter((c): c is string => c != null);
   return pkColumns;
 }
 
@@ -158,27 +155,27 @@ export function useTableColumnMeta({
     enabled: on,
   });
 
-  const columnVariants = useMemo(() => {
+  const columnVariants = (() => {
     const m: Record<string, ColumnVariant> = {};
     for (const row of colTypesQuery.data?.rows ?? []) {
       const name = row[0];
       if (name) m[name] = pgTypeToVariant(row[1] ?? "");
     }
     return m;
-  }, [colTypesQuery.data]);
+  })();
 
   // Collapsed display types ("varchar", "timestamp") — the Columns popover and
   // row-detail panel label columns with these.
-  const columnTypes = useMemo(() => {
+  const columnTypes = (() => {
     const m: Record<string, string> = {};
     for (const row of colTypesQuery.data?.rows ?? []) {
       const name = row[0];
       if (name) m[name] = shortType(row[1] ?? "");
     }
     return m;
-  }, [colTypesQuery.data]);
+  })();
 
-  const columnFks = useMemo(() => {
+  const columnFks = (() => {
     const m: Record<string, FkTarget> = {};
     for (const row of fkQuery.data?.rows ?? []) {
       const [col, refSchema, refTable, refCol] = row;
@@ -191,7 +188,7 @@ export function useTableColumnMeta({
       }
     }
     return m;
-  }, [fkQuery.data]);
+  })();
 
   return { columnVariants, columnFks, columnTypes };
 }
@@ -221,10 +218,7 @@ export function useTableStructure({
     enabled: enabled && Boolean(table),
     staleTime: 5 * 60 * 1000,
   });
-  const structure: StructureColumn[] = useMemo(
-    () => parseStructureRows(query.data?.rows ?? []),
-    [query.data],
-  );
+  const structure: StructureColumn[] = parseStructureRows(query.data?.rows ?? []);
   return { query, structure };
 }
 

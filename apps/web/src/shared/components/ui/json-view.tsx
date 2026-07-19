@@ -6,8 +6,6 @@
  * caller's container styling via `className`.
  */
 
-import { useMemo } from "react";
-
 import { cn } from "@/shared/lib/utils";
 
 export interface JsonViewProps {
@@ -71,15 +69,13 @@ function tokenizeJson(src: string): JsonToken[] {
 }
 
 export function JsonView({ data, className }: JsonViewProps) {
-  const tokens = useMemo(() => {
-    let src: string;
-    try {
-      src = JSON.stringify(data, null, 2) ?? "null";
-    } catch {
-      src = String(data);
-    }
-    return tokenizeJson(src);
-  }, [data]);
+  let src: string;
+  try {
+    src = JSON.stringify(data, null, 2) ?? "null";
+  } catch {
+    src = String(data);
+  }
+  const tokens = tokenizeJson(src);
 
   return (
     <pre className={cn("overflow-auto font-mono leading-relaxed", className)}>

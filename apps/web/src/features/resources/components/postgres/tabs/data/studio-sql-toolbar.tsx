@@ -109,9 +109,15 @@ export function SqlToolbar({
             <Separator orientation="vertical" className="mx-1 h-4" />
             <Tooltip>
               <TooltipTrigger
-                render={<label className="flex cursor-pointer items-center gap-1.5 text-[12px]" />}
+                render={
+                  <label
+                    htmlFor="sql-write-mode"
+                    className="flex cursor-pointer items-center gap-1.5 text-[12px]"
+                  />
+                }
               >
                 <Switch
+                  id="sql-write-mode"
                   checked={t.writeMode}
                   onCheckedChange={t.setWriteMode}
                   disabled={t.executeSql.isPending}

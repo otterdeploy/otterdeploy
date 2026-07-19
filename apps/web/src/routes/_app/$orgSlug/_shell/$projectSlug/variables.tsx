@@ -13,7 +13,7 @@
 
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { BalanceScaleIcon, Refresh01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -57,23 +57,23 @@ function VariablesRoute() {
   // Populated by the per-env subscribers below; the on-demand
   // `variablesCollection` loads one (projectId, environmentId) subset each.
   const [byEnv, setByEnv] = useState<Map<string, EnvVarRow[]>>(new Map());
-  const registerEnv = useCallback((envId: string, rows: EnvVarRow[]) => {
+  const registerEnv = (envId: string, rows: EnvVarRow[]) => {
     setByEnv((prev) => {
       const next = new Map(prev);
       next.set(envId, rows);
       return next;
     });
-  }, []);
+  };
 
   // Union of every key seen in any env — the rows of the overview
   // matrix. Sorted alphabetically so the order matches the demo.
-  const allKeys = useMemo(() => {
+  const allKeys = (() => {
     const set = new Set<string>();
     for (const rows of byEnv.values()) {
       for (const r of rows) set.add(r.key);
     }
     return Array.from(set).sort();
-  }, [byEnv]);
+  })();
 
   const envRefs: EnvironmentRef[] = environments.map((e) => ({
     id: e.id,

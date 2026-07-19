@@ -6,8 +6,6 @@
  * whether CrowdSec is configured (the data is edge-log-derived); Block just
  * needs the agent running to enforce.
  */
-import { useMemo } from "react";
-
 import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/shared/components/ui/button";
@@ -35,16 +33,12 @@ export function FlaggedPanel() {
   const { bannedIps, block, blockMany } = useEdgeBans(() => void flagged.refetch());
 
   const rows = flagged.data ?? [];
-  const unblockedIps = useMemo(
-    () =>
-      (flagged.data ?? [])
-        .reduce<string[]>((acc, r) => {
-          if (!bannedIps.has(r.ip)) acc.push(r.ip);
-          return acc;
-        }, [])
-        .slice(0, 100),
-    [flagged.data, bannedIps],
-  );
+  const unblockedIps = (flagged.data ?? [])
+    .reduce<string[]>((acc, r) => {
+      if (!bannedIps.has(r.ip)) acc.push(r.ip);
+      return acc;
+    }, [])
+    .slice(0, 100);
 
   return (
     <div className="min-h-0 flex-1 overflow-auto">
@@ -64,9 +58,9 @@ export function FlaggedPanel() {
       <Table className="[&_td:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:first-child]:pl-4 [&_th:last-child]:pr-4">
         <TableHeader>
           <TableRow className="border-b bg-muted/30 hover:bg-transparent">
-            {["Client IP", "Country", "Probes", "Sample paths", "Last seen", ""].map((h, i) => (
+            {["Client IP", "Country", "Probes", "Sample paths", "Last seen", ""].map((h) => (
               <TableHead
-                key={h || `col-${i}`}
+                key={h || "row-actions"}
                 className="h-8 text-[10px] font-semibold tracking-[0.06em] uppercase"
               >
                 {h}

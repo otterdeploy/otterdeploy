@@ -6,7 +6,7 @@
  * handler so long files don't drift.
  */
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import { cn } from "@/shared/lib/utils";
 
@@ -22,7 +22,7 @@ export function YamlEditor({ value, onChange, onSubmit, disabled, className }: Y
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const gutterRef = useRef<HTMLDivElement>(null);
 
-  const lines = useMemo(() => value.split("\n"), [value]);
+  const lines = value.split("\n");
   const gutterWidth = String(lines.length).length;
 
   // Sync the gutter's scrollTop to the textarea on every render so the

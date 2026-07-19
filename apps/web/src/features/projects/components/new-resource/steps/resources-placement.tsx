@@ -4,7 +4,7 @@
  * caps. `useSwarmNodes` is also consumed by the Size section's capacity copy.
  */
 
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 
 import { useLiveQuery } from "@tanstack/react-db";
 import { useStore } from "@tanstack/react-form";
@@ -37,31 +37,22 @@ export function useSwarmNodes() {
     // operator is configuring — same cadence the servers page uses.
     refetchInterval: 5000,
   });
-  const statsById = useMemo(() => {
-    type Row = NonNullable<typeof stats>["perServer"][number];
-
-    const m = (stats?.perServer ?? []).reduce((acc, row) => {
-      acc.set(row.serverId, row);
-      return acc;
-    }, new Map<string, Row>());
-
-    return m;
-  }, [stats]);
-  const nodes: SwarmNode[] = useMemo(
-    () =>
-      servers.map((s) => {
-        const live = statsById.get(s.id);
-        return {
-          id: s.id,
-          name: s.name,
-          cpuTotal: s.cpuTotal,
-          cpuUsed: live?.cpuAllocatedVcpu ?? 0,
-          memTotalGb: s.memTotalGb,
-          memUsedGb: live?.memoryAllocatedGb ?? 0,
-        };
-      }),
-    [servers, statsById],
-  );
+  type Row = NonNullable<typeof stats>["perServer"][number];
+  const statsById = (stats?.perServer ?? []).reduce((acc, row) => {
+    acc.set(row.serverId, row);
+    return acc;
+  }, new Map<string, Row>());
+  const nodes: SwarmNode[] = servers.map((s) => {
+    const live = statsById.get(s.id);
+    return {
+      id: s.id,
+      name: s.name,
+      cpuTotal: s.cpuTotal,
+      cpuUsed: live?.cpuAllocatedVcpu ?? 0,
+      memTotalGb: s.memTotalGb,
+      memUsedGb: live?.memoryAllocatedGb ?? 0,
+    };
+  });
   return { nodes, loading: serversLoading || statsLoading };
 }
 

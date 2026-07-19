@@ -33,8 +33,8 @@ export function TextField({
         className={className}
       />
       {description && <div className="mt-1 text-[11px] text-muted-foreground">{description}</div>}
-      {errors.map((err, i) => (
-        <FieldError key={i}>{String(err?.message ?? err)}</FieldError>
+      {errors.map((err) => (
+        <FieldError key={String(err?.message ?? err)}>{String(err?.message ?? err)}</FieldError>
       ))}
     </Field>
   );

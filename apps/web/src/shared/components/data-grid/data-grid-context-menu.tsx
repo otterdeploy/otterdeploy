@@ -110,33 +110,30 @@ function ContextMenuImpl<TData>({
     columns,
   });
 
-  const triggerStyle = React.useMemo<React.CSSProperties>(
-    () => ({
-      position: "fixed",
-      left: `${contextMenu.x}px`,
-      top: `${contextMenu.y}px`,
-      width: "1px",
-      height: "1px",
-      padding: 0,
-      margin: 0,
-      border: "none",
-      background: "transparent",
-      pointerEvents: "none",
-      opacity: 0,
-    }),
-    [contextMenu.x, contextMenu.y],
-  );
+  const triggerStyle: React.CSSProperties = {
+    position: "fixed",
+    left: `${contextMenu.x}px`,
+    top: `${contextMenu.y}px`,
+    width: "1px",
+    height: "1px",
+    padding: 0,
+    margin: 0,
+    border: "none",
+    background: "transparent",
+    pointerEvents: "none",
+    opacity: 0,
+  };
 
   // Base UI's Menu manages close-focus itself; no onCloseAutoFocus hook.
-  const onCopy = React.useCallback(() => {
+  const onCopy = () => {
     propsRef.current.onCellsCopy?.();
-  }, [propsRef]);
+  };
 
-  const onCut = React.useCallback(() => {
+  const onCut = () => {
     propsRef.current.onCellsCut?.();
-  }, [propsRef]);
+  };
 
-  const onClear = React.useCallback(() => {
+  const onClear = () => {
     const { selectionState, columns, onDataUpdate } = propsRef.current;
 
     if (!selectionState?.selectedCells || selectionState.selectedCells.size === 0) return;
@@ -169,9 +166,9 @@ function ContextMenuImpl<TData>({
     onDataUpdate?.(updates);
 
     toast.success(`${updates.length} cell${updates.length !== 1 ? "s" : ""} cleared`);
-  }, [propsRef]);
+  };
 
-  const onDelete = React.useCallback(async () => {
+  const onDelete = async () => {
     const { selectionState, onRowsDelete } = propsRef.current;
 
     if (!selectionState?.selectedCells || selectionState.selectedCells.size === 0) return;
@@ -188,7 +185,7 @@ function ContextMenuImpl<TData>({
     await onRowsDelete?.(rowIndicesArray);
 
     toast.success(`${rowCount} row${rowCount !== 1 ? "s" : ""} deleted`);
-  }, [propsRef]);
+  };
 
   return (
     <DropdownMenu open={contextMenu.open} onOpenChange={onContextMenuOpenChange}>

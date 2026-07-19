@@ -3,7 +3,7 @@
 // the message is valid JSON it's pretty-printed via the shared JsonView, with a
 // raw/prettify toggle.
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -40,7 +40,7 @@ export function LogDetailsPanel({ line, onClose }: { line: LogLine | null; onClo
 }
 
 function Panel({ line, onClose }: { line: LogLine; onClose: () => void }) {
-  const json = useMemo(() => parseJson(line.msg), [line.msg]);
+  const json = parseJson(line.msg);
   const [raw, setRaw] = useState(false);
 
   return (

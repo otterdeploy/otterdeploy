@@ -28,8 +28,8 @@ export function NumberField({ label, min, max, step, className }: NumberFieldPro
         aria-invalid={errors.length > 0}
         className={className}
       />
-      {errors.map((err, i) => (
-        <FieldError key={i}>{String(err?.message ?? err)}</FieldError>
+      {errors.map((err) => (
+        <FieldError key={String(err?.message ?? err)}>{String(err?.message ?? err)}</FieldError>
       ))}
     </Field>
   );

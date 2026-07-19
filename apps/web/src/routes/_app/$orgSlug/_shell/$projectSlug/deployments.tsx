@@ -11,7 +11,7 @@
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useLoaderData, useNavigate } from "@tanstack/react-router";
-import { useCallback, useMemo, useState } from "react";
+import { useState } from "react";
 
 import { DeploymentsTableSection } from "@/features/deployments/components/deployments-table";
 import { DeploymentsToolbar } from "@/features/deployments/components/deployments-toolbar";
@@ -44,22 +44,20 @@ function RouteComponent() {
 
   // Replace (not push) so filter changes don't spam the back-stack; the URL
   // still reflects the current view for sharing / reload.
-  const patchSearch = useCallback(
-    (patch: Partial<DeploymentsSearch>) => {
-      void navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true });
-    },
-    [navigate],
-  );
+  const patchSearch = (patch: Partial<DeploymentsSearch>) => {
+    void navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true });
+  };
 
   // Resource filter options — same collection the graph and logs pages read.
   const { data: resources } = useLiveQuery(
     (q) => q.from({ r: resourceCollection }).where(({ r }) => eq(r.projectId, project.id)),
     [project.id],
   );
-  const resourceOptions = useMemo(
-    () => resources.map((r) => ({ id: r.resourceId as string, name: r.name, kind: r.type })),
-    [resources],
-  );
+  const resourceOptions = resources.map((r) => ({
+    id: r.resourceId as string,
+    name: r.name,
+    kind: r.type,
+  }));
 
   const windowSel = search.window ?? "7d";
   const svcFilter = search.service ?? "all";
@@ -78,7 +76,7 @@ function RouteComponent() {
 
   // Lower bound recomputed only when the window selection changes — a fresh
   // "now" every render would thrash the query input identity.
-  const since = useMemo(() => windowSince(windowSel), [windowSel]);
+  const since = windowSince(windowSel);
 
   const query = useQuery({
     ...orpc.deployment.listByProject.queryOptions({
@@ -107,21 +105,18 @@ function RouteComponent() {
 
   const [rollbackTarget, setRollbackTarget] = useState<ProjectDeployment | null>(null);
 
-  const openDetail = useCallback(
-    (d: ProjectDeployment) => {
-      void rootNavigate({
-        to: "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId",
-        params: {
-          orgSlug,
-          projectSlug,
-          resourceId: d.resourceId,
-          deploymentId: d.id,
-        },
-        search: { tab: "details" },
-      });
-    },
-    [rootNavigate, orgSlug, projectSlug],
-  );
+  const openDetail = (d: ProjectDeployment) => {
+    void rootNavigate({
+      to: "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId",
+      params: {
+        orgSlug,
+        projectSlug,
+        resourceId: d.resourceId,
+        deploymentId: d.id,
+      },
+      search: { tab: "details" },
+    });
+  };
 
   const emptyVariant =
     search.service || search.status ? "filters" : windowSel !== "all" ? "window" : "none";

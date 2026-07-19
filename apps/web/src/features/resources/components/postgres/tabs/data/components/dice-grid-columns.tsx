@@ -7,8 +7,6 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 
-import { useMemo } from "react";
-
 import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
@@ -33,9 +31,8 @@ export function useDiceColumnDefs({
   enableRowDetail: boolean;
   onOpenDetail: (rowIndex: number) => void;
 }): ColumnDef<Row>[] {
-  return useMemo<ColumnDef<Row>[]>(() => {
-    const defs: ColumnDef<Row>[] = [];
-    // Function header/cell → the grid flexRenders them; keyboard navigation
+  const defs: ColumnDef<Row>[] = [];
+  // Function header/cell → the grid flexRenders them; keyboard navigation
     // skips the "select" / "actions" column ids by design.
     if (selectable) {
       defs.push({
@@ -92,6 +89,5 @@ export function useDiceColumnDefs({
         meta: { cell: { variant } },
       });
     }
-    return defs;
-  }, [columns, columnVariants, hiddenColumns, selectable, enableRowDetail, onOpenDetail]);
+  return defs;
 }

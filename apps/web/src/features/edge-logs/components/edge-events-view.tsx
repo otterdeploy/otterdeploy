@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { useQuery } from "@tanstack/react-query";
 
@@ -53,14 +53,14 @@ export function EdgeEventsView({ projectId }: { projectId?: string }) {
   const rows = data?.rows ?? [];
   // No hostStats here — derive the filter options from the rows themselves
   // (each event's host plus any batch domains).
-  const hostOptions = useMemo(() => {
+  const hostOptions = (() => {
     const set = new Set<string>();
     for (const r of data?.rows ?? []) {
       if (r.host) set.add(r.host);
       for (const d of r.domains) set.add(d);
     }
     return [...set].sort();
-  }, [data?.rows]);
+  })();
 
   return (
     <div className="flex h-full min-w-0 flex-col overflow-hidden">

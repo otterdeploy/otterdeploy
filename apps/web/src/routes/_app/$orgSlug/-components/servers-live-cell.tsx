@@ -6,14 +6,15 @@
  */
 import { type ServerHealthEntry } from "@/features/servers/data/health";
 
+const tone = (pct: number) =>
+  pct >= 90 ? "text-destructive" : pct >= 75 ? "text-warning" : "text-foreground";
+
 export function LiveHealthCell({ health }: { health: ServerHealthEntry | null }) {
   if (!health?.health) {
     return <span className="font-mono text-[11px] text-muted-foreground/40">—</span>;
   }
   const mem = health.health.memory.usedPct;
   const disk = health.health.disk?.usedPct ?? null;
-  const tone = (pct: number) =>
-    pct >= 90 ? "text-destructive" : pct >= 75 ? "text-warning" : "text-foreground";
   return (
     <div className="flex items-center gap-2 font-mono text-[11px] tabular-nums">
       <span>

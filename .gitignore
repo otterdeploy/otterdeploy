@@ -68,3 +68,7 @@ photos/
 *.db
 .beads-credential-key
 .beads/proxieddb/
+
+# React Doctor local analysis dumps
+react-doctor-report.txt
+react-doctor-report.clean.txt

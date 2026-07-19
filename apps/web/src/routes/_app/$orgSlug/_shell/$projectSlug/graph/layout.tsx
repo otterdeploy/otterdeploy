@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createFileRoute,
   Outlet,
@@ -167,7 +167,7 @@ function GraphCanvas({ bottomInset }: { bottomInset: number }) {
   // freeze the rendered set so no poll can add/remove a node until you drop.
   const [dragging, setDragging] = useState(false);
 
-  const onNodesChange = useCallback((changes: NodeChange[]) => {
+  const onNodesChange = (changes: NodeChange[]) => {
     setDragged((prev) => {
       let next = prev;
       for (const c of changes) {
@@ -186,7 +186,7 @@ function GraphCanvas({ bottomInset }: { bottomInset: number }) {
         setDragging(c.dragging);
       }
     }
-  }, []);
+  };
 
   // Last node set we handed React Flow. Reused while dragging so a mid-drag
   // poll can't churn the array (render-cache ref pattern, like layoutCache).
@@ -261,7 +261,7 @@ function GraphCanvas({ bottomInset }: { bottomInset: number }) {
   // the persisted project layout via `replace: true`) so the next render's
   // dagre pass owns placement again, then refit. The server write is
   // best-effort — the local reset already re-laid the graph.
-  const onRelayout = useCallback(() => {
+  const onRelayout = () => {
     layoutCache.current = { sig: "", positions: new Map() };
     setDragged(new Map());
     void orpc.project.saveGraphLayout
@@ -270,7 +270,7 @@ function GraphCanvas({ bottomInset }: { bottomInset: number }) {
     requestAnimationFrame(() => {
       void fitView({ padding: 0.2, duration: 400 });
     });
-  }, [project.id, fitView]);
+  };
 
   return (
     <GraphFlow
