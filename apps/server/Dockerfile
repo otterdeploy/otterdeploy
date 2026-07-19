@@ -77,13 +77,22 @@ RUN apt-get update \
 RUN RAILPACK_VERSION="${RAILPACK_VERSION}" sh -c \
     'curl -sSL https://railpack.com/install.sh | sh -s -- --yes --bin-dir /usr/local/bin' \
  && railpack --version
-# rustic backup engine — glibc x86_64 asset, SHA256-verified. The `rustic` binary
-# sits at the archive root; install it to /usr/local/bin (matches the runtime
-# default RUSTIC_BIN). curl + ca-certificates come from the apt layer above.
+# rustic backup engine — glibc asset, SHA256-verified, per-arch. The `rustic`
+# binary sits at the archive root; install it to /usr/local/bin (matches the
+# runtime default RUSTIC_BIN). curl + ca-certificates come from the apt layer
+# above. TARGETARCH is provided by BuildKit (the images workflow builds each
+# arch natively), so we pick the matching rustic target + checksum — the old
+# hardcoded x86_64 asset installed a non-executable binary on arm64 (exit 126).
 ARG RUSTIC_VERSION
-RUN curl -fsSL -o /tmp/rustic.tar.gz \
-      "https://github.com/rustic-rs/rustic/releases/download/v${RUSTIC_VERSION}/rustic-v${RUSTIC_VERSION}-x86_64-unknown-linux-gnu.tar.gz" \
- && echo "3860383a38f5c717ff8302574d79a0581452361985346ed1d116216cdb1b04f8  /tmp/rustic.tar.gz" | sha256sum -c - \
+ARG TARGETARCH
+RUN case "${TARGETARCH}" in \
+      amd64) RUSTIC_ARCH=x86_64  RUSTIC_SHA=3860383a38f5c717ff8302574d79a0581452361985346ed1d116216cdb1b04f8 ;; \
+      arm64) RUSTIC_ARCH=aarch64 RUSTIC_SHA=84c16234d4dabe8d52a0f6f1c7fe24101afc1d2eab681924be072666b1dc9b22 ;; \
+      *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+ && curl -fsSL -o /tmp/rustic.tar.gz \
+      "https://github.com/rustic-rs/rustic/releases/download/v${RUSTIC_VERSION}/rustic-v${RUSTIC_VERSION}-${RUSTIC_ARCH}-unknown-linux-gnu.tar.gz" \
+ && echo "${RUSTIC_SHA}  /tmp/rustic.tar.gz" | sha256sum -c - \
  && tar -xzf /tmp/rustic.tar.gz -C /tmp rustic \
  && install -m 0755 /tmp/rustic /usr/local/bin/rustic \
  && rm -f /tmp/rustic.tar.gz /tmp/rustic \
