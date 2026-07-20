@@ -189,8 +189,12 @@ export async function reconcileStackServices(
         continue;
       }
       if (rolled.value.status === "error") {
-        await markDeploymentFailed(dep.id, `Swarm reported ${svc.name} errored`);
-        progress(`Service ${svc.name}: failed — swarm reported an error state.`);
+        // Prefer the swarm task's own failure reason (e.g. an image that can't
+        // be pulled) over a generic "errored" — that message is all the user
+        // sees on a stack that never came up.
+        const detail = rolled.value.errorMessage ?? "swarm reported an error state";
+        await markDeploymentFailed(dep.id, `${svc.name}: ${detail}`);
+        progress(`Service ${svc.name}: failed — ${detail}`);
         failed.push(svc.name);
         continue;
       }

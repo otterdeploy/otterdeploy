@@ -214,21 +214,66 @@ export async function inspectSwarmService(
     throw tasksResult.error;
   }
 
-  const latestTask = tasksResult.value
-    .sort((a, b) => {
-      const aTime = new Date(a.CreatedAt ?? 0).getTime();
-      const bTime = new Date(b.CreatedAt ?? 0).getTime();
-      return bTime - aTime;
-    })
-    .at(0);
+  const latestTask = [...tasksResult.value].sort(byCreatedDesc).at(0);
+  const { status, errorMessage } = resolveTaskStatus(tasksResult.value);
 
-  const taskState = latestTask?.Status?.State;
   return {
     serviceId: service.ID ?? null,
     serviceName,
     networkName,
-    status: mapTaskStateToStatus(taskState),
+    status,
     health: mapTaskHealth(latestTask),
+    errorMessage,
+  };
+}
+
+/** Terminal task states that mean the attempt hard-failed (as opposed to still
+ *  converging). A failed task records its reason in `Status.Err`. */
+const FAILED_TASK_STATES = new Set(["failed", "rejected", "orphaned"]);
+
+/** Minimal shape of a swarm task we reason over. `Status.Err` isn't declared on
+ *  the client's task type, but the engine always populates it on a failed task. */
+interface TaskLike {
+  CreatedAt?: string | null;
+  Status?: { State?: string; Err?: string };
+}
+
+/** Newest-first comparator by CreatedAt. */
+function byCreatedDesc(a: TaskLike, b: TaskLike): number {
+  return new Date(b.CreatedAt ?? 0).getTime() - new Date(a.CreatedAt ?? 0).getTime();
+}
+
+/** A swarm task's failure reason, or null. */
+function taskErr(task: TaskLike | undefined): string | null {
+  const err = task?.Status?.Err;
+  return typeof err === "string" && err.length > 0 ? err : null;
+}
+
+/**
+ * Decide a service's runtime status + failure reason from its tasks. PURE and
+ * exported for testing.
+ *
+ * The newest task drives the live status. But swarm keeps spawning replacement
+ * tasks when one can't start (its image isn't pullable, the container exits
+ * immediately, …), so the newest task is frequently a fresh "preparing"/"pending"
+ * retry even while every attempt fails — which `mapTaskStateToStatus` reads as
+ * "starting". Unless a task is actually running, surface the most recent hard
+ * failure's reason so a stuck rollout reports as "error" (and the deploy is
+ * marked failed) instead of an eternal "starting" a caller mistakes for success.
+ */
+export function resolveTaskStatus(tasks: TaskLike[]): {
+  status: SwarmServiceRuntime["status"];
+  errorMessage: string | null;
+} {
+  const sorted = [...tasks].sort(byCreatedDesc);
+  const currentStatus = mapTaskStateToStatus(sorted.at(0)?.Status?.State);
+  const recentFailure =
+    currentStatus === "running"
+      ? undefined
+      : sorted.find((t) => FAILED_TASK_STATES.has(t.Status?.State ?? "") && taskErr(t));
+  return {
+    status: recentFailure ? "error" : currentStatus,
+    errorMessage: taskErr(recentFailure),
   };
 }
 
@@ -288,6 +333,7 @@ export async function waitForServiceReady(
       networkName,
       status: "error",
       health: null,
+      errorMessage: "swarm service not found after deploy",
     }
   );
 }

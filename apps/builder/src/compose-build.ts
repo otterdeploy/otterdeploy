@@ -276,9 +276,9 @@ export async function runComposeBuild(
     });
 
     // Apply the stack against THIS deployment row (ownsDeployment=false →
-    // deployCompose won't open a second deployment or flip status; the build
-    // worker's mark-running does that).
-    yield* await Result.tryPromise({
+    // deployCompose won't open a second deployment or settle status; the build
+    // worker settles it below, based on the reported outcome).
+    const outcome = yield* await Result.tryPromise({
       try: async () => {
         const r = await deployCompose(
           {
@@ -293,6 +293,24 @@ export async function runComposeBuild(
       },
       catch: (cause) => new BuildStepError({ step: "deploy", cause }),
     });
+
+    // A service whose image never becomes runnable (e.g. a registry-less local
+    // build that swarm can't pull on the scheduling node) leaves its swarm
+    // service with 0 running tasks. deployCompose reports that as `partial` or
+    // `failed`, but with ownsDeployment=false it can't settle THIS row — so the
+    // worker must fail it here. Without this the deployment is marked "running"
+    // over an empty shell (the pull error is swallowed as a false success).
+    if (outcome.status !== "running") {
+      const detail = outcome.failed.length
+        ? `${outcome.failed.join(", ")} failed to start`
+        : "no services became healthy";
+      return Result.err(
+        new BuildStepError({
+          step: "deploy",
+          cause: new Error(`stack deploy ${outcome.status} — ${detail}`),
+        }),
+      );
+    }
 
     yield* await Result.tryPromise({
       try: () => markRunning(opts.deploymentId),

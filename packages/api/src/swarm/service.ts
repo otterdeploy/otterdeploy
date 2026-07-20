@@ -13,6 +13,10 @@ export interface SwarmServiceRuntime {
   networkName: string;
   status: "running" | "starting" | "stopped" | "missing" | "error";
   health: "healthy" | "unhealthy" | "starting" | null;
+  /** When `status` is "error", the swarm task's failure reason (e.g. an image
+   *  that can't be pulled), so callers can report *why* instead of a generic
+   *  error. Absent/null on healthy or still-converging services. */
+  errorMessage?: string | null;
 }
 
 export interface SwarmServicePort {
