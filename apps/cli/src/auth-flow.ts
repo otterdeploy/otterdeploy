@@ -1,6 +1,6 @@
 /**
- * Implicit device-code login. Runs automatically the first time a
- * command needs a token — there's no separate `login` verb on this CLI.
+ * Device-code login. Driven explicitly by `otterdeploy login`, and implicitly
+ * the first time any other command needs a token.
  *
  *   - Token already present (config file or OTTERDEPLOY_TOKEN env)? Use it.
  *   - Token missing? Walk the OAuth device-code flow against the URL,
@@ -12,7 +12,15 @@ import { sleep } from "@otterdeploy/shared/promise";
 import { consola } from "consola";
 
 import { CLI_CLIENT_ID, createCliAuthClient, type CliAuthClient } from "./auth-client";
-import { loadConfig, normalizeUrl, resolveToken, resolveUrl, saveConfig } from "./config";
+import {
+  knownHosts,
+  loadConfig,
+  normalizeUrl,
+  rememberHost,
+  resolveToken,
+  resolveUrl,
+  saveConfig,
+} from "./config";
 import { openInBrowser } from "./lib/browser";
 
 type DeviceCodeData = NonNullable<Awaited<ReturnType<CliAuthClient["device"]["code"]>>["data"]>;
@@ -29,6 +37,37 @@ type DeviceCodeData = NonNullable<Awaited<ReturnType<CliAuthClient["device"]["co
  */
 export async function promptForUrl(): Promise<string | null> {
   if (!process.stdin.isTTY) return null;
+
+  // Offer the control planes this machine has signed into before, so the
+  // common case is an arrow-key pick rather than retyping a domain from
+  // memory. First run (no history) goes straight to the text prompt.
+  //
+  // The currently-configured `url` is folded in so a CLI upgrading from a
+  // version that predates the history list still shows the domain already in
+  // use, instead of an empty pick-list on the first run after upgrade.
+  const stored = normalizeUrl(loadConfig().url);
+  const remembered = knownHosts();
+  const known =
+    stored && !remembered.includes(stored) ? [stored, ...remembered] : remembered;
+  if (known.length > 0) {
+    const ENTER_NEW = "__enter_new__";
+    const picked = await consola.prompt("Which control plane?", {
+      type: "select",
+      options: [
+        ...known.map((host) => ({ label: host, value: host })),
+        { label: "Enter a different domain…", value: ENTER_NEW },
+      ],
+    });
+    if (typeof picked !== "string") return null; // cancelled (Ctrl-C)
+    if (picked !== ENTER_NEW) return picked; // already normalized when stored
+  }
+
+  return promptForNewUrl();
+}
+
+/** Free-text control plane prompt — the first-run path, and the escape hatch
+ *  from the pick-list above. */
+async function promptForNewUrl(): Promise<string | null> {
   const raw = await consola.prompt("Control plane URL (e.g. https://otter.acme.com):", {
     type: "text",
   });
@@ -61,6 +100,7 @@ export async function ensureAuthenticated(urlOverride?: string): Promise<AuthedS
   consola.info(`Not authenticated — starting browser-based login at ${url}.`);
   const { token, webUrl } = await deviceCodeLogin(url);
   saveConfig({ ...loadConfig(), url, webUrl, token });
+  rememberHost(url);
   consola.success("Logged in.");
   return { url, token };
 }

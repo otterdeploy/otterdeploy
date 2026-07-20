@@ -230,14 +230,16 @@ export const auth = betterAuth({
       // so a relative path would send users to the API server's /device,
       // which doesn't exist. We use the first CORS_ORIGIN as the web host.
       //
-      // KNOWN LIMITATION: unlike the invite email (resolveCanonicalWebOrigin),
-      // this CANNOT prefer the verified control-plane FQDN. better-auth
-      // validates the option with a zod schema (`verificationUri:
-      // z.string().optional()` in the device-authorization plugin), so only a
-      // static string evaluated at module load is accepted — no function/async
-      // resolution. A domain verified after boot isn't picked up until
-      // restart, and env-only installs show the raw IP/host here. Revisit if
-      // better-auth ever accepts a callback for this option.
+      // This value is only a FALLBACK. better-auth validates the option with
+      // `verificationUri: z.string().optional()`, so it accepts a static
+      // string evaluated at module load and no function/async resolution —
+      // meaning it can't prefer the verified control-plane FQDN, and on a
+      // default install it resolves to `http://<ip>:3000`.
+      //
+      // The server therefore rebases the emitted URLs onto the canonical
+      // origin on the way out; see apps/server/src/handlers/auth/
+      // device-origin.ts. Keep this fallback sane anyway — it's what ships if
+      // that rewrite ever fails or is bypassed.
       verificationUri: `${(env.CORS_ORIGIN[0] ?? env.BETTER_AUTH_URL).replace(/\/$/, "")}/device`,
       // Accept any client_id for now — the CLI sends "otterdeploy-cli".
       // Tighten when we ship third-party integrations.

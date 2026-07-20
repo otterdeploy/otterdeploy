@@ -1,3 +1,4 @@
+export { withCanonicalDeviceOrigin } from "./auth/device-origin";
 export { githubInstallCallbackHandler, githubManifestCallbackHandler } from "./github/install";
 export { githubWebhookHandler } from "./github/webhook";
 export { inboundWebhookHandler } from "./webhooks/inbound";
