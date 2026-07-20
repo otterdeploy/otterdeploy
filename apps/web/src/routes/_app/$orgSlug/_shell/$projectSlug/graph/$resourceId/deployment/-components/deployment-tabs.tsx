@@ -96,7 +96,7 @@ export function DeploymentTabs({
           <TabsContent
             value="build-logs"
             keepMounted
-            className="flex h-full min-h-0 flex-col px-6 pt-5 pb-6"
+            className="flex h-full min-h-0 flex-col px-6 pt-5 pb-8"
           >
             <Activity mode={tab === "build-logs" ? "visible" : "hidden"}>
               <BuildLogsBody deploymentId={deploymentId} />
@@ -105,7 +105,7 @@ export function DeploymentTabs({
           <TabsContent
             value="deploy-logs"
             keepMounted
-            className="flex h-full min-h-0 flex-col px-6 pt-5 pb-6"
+            className="flex h-full min-h-0 flex-col px-6 pt-5 pb-8"
           >
             <Activity mode={tab === "deploy-logs" ? "visible" : "hidden"}>
               <DeploymentLogsBody

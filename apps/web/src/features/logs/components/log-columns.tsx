@@ -15,6 +15,7 @@ import {
   type LogLevel,
   type LogLine,
 } from "../data/use-project-log-stream";
+import { stripAnsi } from "./ansi";
 
 const levelRank = (lv: LogLevel) => LOG_LEVELS.indexOf(lv);
 
@@ -83,7 +84,9 @@ export const logColumns: ColumnDef<LogLine>[] = [
     enableSorting: false,
     header: "Message",
     cell: ({ row }) => {
-      const msg = row.original.msg;
+      // Strip ANSI/SGR escapes: build/runtime tools emit color codes that would
+      // otherwise render as literal `[32m…` garbage in the (uncolored) table.
+      const msg = stripAnsi(row.original.msg);
       // Every row is ALWAYS a single truncated line, so all rows share one
       // fixed height. That is what keeps the virtualizer's size estimate exact
       // and its absolutely-positioned rows from overlapping: a soft-wrapped row

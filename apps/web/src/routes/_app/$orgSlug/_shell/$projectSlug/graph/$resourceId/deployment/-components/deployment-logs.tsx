@@ -1,3 +1,4 @@
+import { stripAnsi } from "@/features/logs/components/ansi";
 import { LogViewer, type LogLine } from "@/features/logs/components/log-viewer";
 import { useLogStream } from "@/features/logs/data/use-log-stream";
 import { orpc } from "@/shared/server/orpc";
@@ -24,10 +25,11 @@ export function DeploymentLogsBody({
         },
         { signal, context: { retry: Number.POSITIVE_INFINITY } },
       ),
+    // Strip ANSI/SGR escapes so deploy logs render as clean text, not `[32m…`.
     map: (e, id): LogLine => ({
       id,
       stream: e.stream,
-      line: e.line,
+      line: stripAnsi(e.line),
       ts: e.ts,
     }),
     onError: (err, id): LogLine => ({

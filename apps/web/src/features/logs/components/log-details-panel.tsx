@@ -15,6 +15,7 @@ import { JsonView } from "@/shared/components/ui/json-view";
 import { cn } from "@/shared/lib/utils";
 
 import { LEVEL_TEXT, type LogLine } from "../data/use-project-log-stream";
+import { stripAnsi } from "./ansi";
 
 function parseJson(msg: string): unknown {
   const t = msg.trim();
@@ -40,7 +41,10 @@ export function LogDetailsPanel({ line, onClose }: { line: LogLine | null; onClo
 }
 
 function Panel({ line, onClose }: { line: LogLine; onClose: () => void }) {
-  const json = parseJson(line.msg);
+  // Strip ANSI/SGR escapes so the full entry (and its JSON detection) works on
+  // clean text instead of showing literal `[32m…` codes.
+  const msg = stripAnsi(line.msg);
+  const json = parseJson(msg);
   const [raw, setRaw] = useState(false);
 
   return (
@@ -101,7 +105,7 @@ function Panel({ line, onClose }: { line: LogLine; onClose: () => void }) {
           />
         ) : (
           <pre className="mt-1.5 overflow-auto rounded-md border bg-background/60 p-3 font-mono text-[11.5px] leading-relaxed break-words whitespace-pre-wrap text-foreground/90">
-            {line.msg}
+            {msg}
           </pre>
         )}
       </div>
