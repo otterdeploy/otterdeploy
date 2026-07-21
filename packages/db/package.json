@@ -19,7 +19,7 @@
     "db:push": "bun --env-file ../../.env -- drizzle-kit push",
     "db:start": "docker compose up -d",
     "db:stop": "docker compose stop",
-    "db:studio": "bun --env-file ../../ drizzle-kit studio",
+    "db:studio": "bun --env-file ../../.env drizzle-kit studio",
     "db:watch": "docker compose up",
     "dev": ""
   },
