@@ -37,6 +37,7 @@ import {
 } from "../service/queries";
 import { provisionFresh, redeployOne } from "../service/redeploy";
 import { interpolate } from "./env";
+import { friendlyServiceCollisionMessage } from "./queries";
 import { pickResourceName, toServiceFields } from "./reconcile-map";
 
 export interface StackReconcileContext {
@@ -61,6 +62,16 @@ export interface StackReconcileContext {
 export interface StackReconcileResult {
   deployed: number;
   failed: string[];
+}
+
+function toErrorMessage(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
+/** User-facing failure line for one compose service: a friendly collision
+ *  message when the throw is a DB unique-violation, else the raw error text. */
+function describeReconcileFailure(e: unknown, svcName: string): string {
+  return friendlyServiceCollisionMessage(e, svcName) ?? toErrorMessage(e);
 }
 
 /**
@@ -182,7 +193,7 @@ export async function reconcileStackServices(
         : await redeployOne(ctx.projectId, resourceId, ctx.projectSlug, log);
 
       if (rolled.isErr()) {
-        const message = rolled.error instanceof Error ? rolled.error.message : String(rolled.error);
+        const message = toErrorMessage(rolled.error);
         await markDeploymentFailed(dep.id, message);
         progress(`Service ${svc.name}: failed — ${message}`);
         failed.push(svc.name);
@@ -205,8 +216,9 @@ export async function reconcileStackServices(
       progress(`Service ${svc.name}: rolled out.`);
       deployed++;
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      progress(`Service ${svc.name}: failed — ${message}`);
+      // A DB unique-violation (name / hostname / domain collision) otherwise
+      // leaks the raw drizzle INSERT into the deploy log — map it to one line.
+      progress(`Service ${svc.name}: failed — ${describeReconcileFailure(e, svc.name)}`);
       failed.push(svc.name);
     }
   }

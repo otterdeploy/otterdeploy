@@ -25,7 +25,7 @@ export interface ComposeRecord {
  * the real PostgresError on `.cause`; depending on the path the diagnostics
  * live on the wrapper or the cause, so we check both.
  */
-function pgErrorInfo(err: unknown): { code: string | null; constraint: string | null } {
+export function pgErrorInfo(err: unknown): { code: string | null; constraint: string | null } {
   const read = (o: unknown): { code: string | null; constraint: string | null } | null => {
     if (!o || typeof o !== "object") return null;
     const r = o as Record<string, unknown>;
@@ -43,6 +43,30 @@ function pgErrorInfo(err: unknown): { code: string | null; constraint: string | 
       constraint: null,
     }
   );
+}
+
+/**
+ * Map a Postgres unique-violation on a `service_resource` constraint to one
+ * actionable line, or null when the error is anything else (let the caller
+ * surface it as-is). Without this, a compose stack whose inner service name /
+ * internal hostname / public domain collides with an existing resource dumps
+ * the raw `Failed query: insert into "service_resource" …` INSERT — bind params
+ * and all — into the user-facing deploy log. `label` is the compose service key
+ * the user controls in their file (e.g. "waves").
+ */
+export function friendlyServiceCollisionMessage(err: unknown, label: string): string | null {
+  const { code, constraint } = pgErrorInfo(err);
+  if (code !== "23505") return null;
+  switch (constraint) {
+    case "service_resource_service_name_unique":
+      return `a service named "${label}" already exists in this project — rename the compose service, or remove the standalone service that owns that name.`;
+    case "service_resource_network_hostname_unique":
+      return `a service with the internal hostname "${label}" already exists in this project — rename the compose service, or remove the standalone service using that name.`;
+    case "service_resource_public_domain_unique":
+      return `the public domain for "${label}" is already in use by another service — change the exposed domain.`;
+    default:
+      return null;
+  }
 }
 
 export async function createComposeRecord(input: {
