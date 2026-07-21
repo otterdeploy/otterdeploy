@@ -142,7 +142,36 @@ export async function redeployOne(
     previewScope,
     opts?.imageOverride,
   );
-  const result = await runtime().update(swarmSpec, log);
+  // runtime().update() THROWS on any Docker/Swarm infra error (unreachable
+  // manager, image pull failure, …) — exactly like provisionFresh's provision
+  // call. Unwrapped, that throw escapes to the caller and 500s an operation
+  // whose DB write already succeeded: `env set` persists the variable, then
+  // this throw surfaces as INTERNAL_SERVER_ERROR even though the value was
+  // saved (and the handler's manifest back-sync is skipped). Mirror
+  // provisionFresh — convert the throw into an errored runtime so the write
+  // reports success and the resource shows an error node, recoverable via a
+  // later redeploy once the infra is reachable.
+  const updated = await Result.tryPromise({
+    try: () => runtime().update(swarmSpec, log),
+    catch: (cause) => (cause instanceof Error ? cause.message : String(cause)),
+  });
+  const result: SwarmServiceRuntime = updated.isOk()
+    ? updated.value
+    : {
+        serviceId: null,
+        serviceName: record.service.serviceName,
+        networkName: record.service.networkName,
+        status: "error",
+        health: null,
+      };
+  if (updated.isErr()) {
+    log?.set({
+      redeployError: {
+        service: record.service.serviceName,
+        reason: updated.error,
+      },
+    });
+  }
   // Same guard: a preview roll's outcome never rewrites the base status.
   if (!opts?.previewId) {
     await updateServiceResourceStatus(resourceId, result.status === "error" ? "invalid" : "valid");
