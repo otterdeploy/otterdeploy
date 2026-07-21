@@ -22,11 +22,19 @@ import {
   EmptyTitle,
 } from "@/shared/components/ui/empty";
 import { Page, PageHeader } from "@/shared/components/page";
-import { orpc } from "@/shared/server/orpc";
+import { orpc, queryClient } from "@/shared/server/orpc";
 
 export const Route = createFileRoute("/_app/$orgSlug/_shell/networking")({
   staticData: { crumb: "Networking" },
   component: RouteComponent,
+  // Warm the rendered-Caddyfile query on hover (intent-preload) so the page
+  // renders from cache instead of spinning. Non-blocking + best-effort: a
+  // permission-gated or failed prefetch just falls back to fetch-on-mount.
+  loader: () => {
+    void queryClient
+      .prefetchQuery(orpc.system.caddyfile.queryOptions())
+      .catch(() => undefined);
+  },
 });
 
 function RouteComponent() {

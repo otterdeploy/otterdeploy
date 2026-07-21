@@ -29,6 +29,13 @@ function RoutePending() {
 const router = createRouter({
   routeTree,
   defaultPreload: "intent",
+  // Let TanStack Query's own staleTime govern data freshness, not the router's
+  // separate preload cache. Our route loaders warm the Query cache (via
+  // ensureQueryData/prefetchQuery); with a non-zero preloadStaleTime the router
+  // would skip re-running a loader within its window and mask Query as the
+  // single source of truth. prefetchQuery still dedupes against the query's
+  // staleTime, so re-firing a loader on every hover is cheap, not a refetch.
+  defaultPreloadStaleTime: 0,
   defaultPendingComponent: RoutePending,
   // Only surface the spinner if a transition actually takes a beat, so fast
   // (cached) navigations stay flicker-free and feel instant.

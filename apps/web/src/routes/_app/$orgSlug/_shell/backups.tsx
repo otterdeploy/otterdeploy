@@ -35,6 +35,13 @@ import { ALL_PROJECTS, type BackupKind } from "@/features/backups/shared";
 export const Route = createFileRoute("/_app/$orgSlug/_shell/backups")({
   staticData: { crumb: "Backups" },
   component: BackupsRoute,
+  // Warm the three eager collections on hover (intent-preload) so the page
+  // renders from cache instead of spinning. Non-blocking + idempotent.
+  loader: () => {
+    void backupsCollection.preload();
+    void schedulesCollection.preload();
+    void destinationsCollection.preload();
+  },
 });
 
 function BackupsRoute() {

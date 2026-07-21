@@ -38,6 +38,17 @@ import { orpc, queryClient } from "@/shared/server/orpc";
 export const Route = createFileRoute("/_app/$orgSlug/settings/workspace/certificates")({
   staticData: { crumb: "Certificates" },
   component: RouteComponent,
+  loader: () => {
+    void queryClient
+      .prefetchQuery(orpc.certificates.inventory.queryOptions())
+      .catch(() => undefined);
+    void queryClient
+      .prefetchQuery(orpc.certificates.listCustom.queryOptions())
+      .catch(() => undefined);
+    void queryClient
+      .prefetchQuery(orpc.certificates.listCas.queryOptions())
+      .catch(() => undefined);
+  },
 });
 
 function recheck() {

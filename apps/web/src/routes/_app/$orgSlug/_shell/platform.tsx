@@ -9,11 +9,18 @@ import { PageHeader } from "@/shared/components/page";
 import { Card } from "@/shared/components/ui/card";
 import { ErrorState } from "@/shared/components/ui/error-state";
 import { Skeleton } from "@/shared/components/ui/skeleton";
-import { orpc } from "@/shared/server/orpc";
+import { orpc, queryClient } from "@/shared/server/orpc";
 
 export const Route = createFileRoute("/_app/$orgSlug/_shell/platform")({
   staticData: { crumb: "Platform" },
   component: PlatformRoute,
+  // Warm the platform-metrics query on hover (intent-preload) so the page
+  // renders from cache instead of spinning. Non-blocking + best-effort.
+  loader: () => {
+    void queryClient
+      .prefetchQuery(orpc.metrics.platform.queryOptions({ input: { windowMinutes: 60 } }))
+      .catch(() => undefined);
+  },
 });
 
 interface PlatformData {

@@ -23,6 +23,11 @@ import { Skeleton } from "@/shared/components/ui/skeleton";
 export const Route = createFileRoute("/_app/$orgSlug/settings/workspace/registries")({
   staticData: { crumb: "Registries" },
   component: RegistriesRoute,
+  // Warm the collection(s) on hover (intent-preload) so the page renders
+  // from cache instead of spinning. Non-blocking + best-effort.
+  loader: () => {
+    void registryCollection.preload();
+  },
 });
 
 function RegistriesRoute() {

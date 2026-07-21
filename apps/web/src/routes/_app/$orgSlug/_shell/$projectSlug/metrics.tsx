@@ -12,7 +12,9 @@ import {
   type ProjectMetricWindowLabel,
 } from "@/features/resources/components/_shared/metrics/use-project-metrics";
 import type { ProjectResource } from "@/features/projects/components/graph/resource-to-node";
+import { projectIdBySlug } from "@/features/projects/data/project";
 import { resourceCollection } from "@/features/resources/data/resource";
+import { orpc, queryClient } from "@/shared/server/orpc";
 import {
   ToggleGroup,
   ToggleGroupItem,
@@ -27,6 +29,21 @@ import {
 export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/metrics")({
   staticData: { crumb: "Metrics" },
   component: RouteComponent,
+  // Warm the project-aggregate series on hover (intent-preload) for the default
+  // 30m window the page opens on — so the chart renders from cache instead of
+  // spinning. Non-blocking + best-effort; per-resource cards still fetch on
+  // mount (their inputs depend on the rendered resource list).
+  loader: ({ params }) => {
+    const projectId = projectIdBySlug(params.projectSlug);
+    if (!projectId) return;
+    void queryClient
+      .prefetchQuery(
+        orpc.metrics.projectAggregate.queryOptions({
+          input: { projectId, windowMinutes: 30 },
+        }),
+      )
+      .catch(() => undefined);
+  },
 });
 
 function RouteComponent() {

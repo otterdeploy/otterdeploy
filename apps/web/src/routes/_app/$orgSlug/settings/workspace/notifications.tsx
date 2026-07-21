@@ -35,6 +35,12 @@ import {
 export const Route = createFileRoute("/_app/$orgSlug/settings/workspace/notifications")({
   staticData: { crumb: "Notifications" },
   component: RouteComponent,
+  // Warm the collection(s) on hover (intent-preload) so the page renders
+  // from cache instead of spinning. Non-blocking + best-effort.
+  loader: () => {
+    void channelsCollection.preload();
+    void subscriptionsCollection.preload();
+  },
 });
 
 function toggleSub(channelId: string, eventId: string, enabled: boolean) {

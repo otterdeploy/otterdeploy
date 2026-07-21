@@ -25,11 +25,16 @@ import {
   EmptyTitle,
 } from "@/shared/components/ui/empty";
 import { Skeleton } from "@/shared/components/ui/skeleton";
-import { orpc } from "@/shared/server/orpc";
+import { orpc, queryClient } from "@/shared/server/orpc";
 
 export const Route = createFileRoute("/_app/$orgSlug/settings/workspace/ssh-keys")({
   staticData: { crumb: "SSH keys" },
   component: RouteComponent,
+  loader: () => {
+    void queryClient
+      .prefetchQuery(orpc.sshKeys.list.queryOptions())
+      .catch(() => undefined);
+  },
 });
 
 function RouteComponent() {
