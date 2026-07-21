@@ -51,8 +51,8 @@ const projectQueryOptions = queryCollectionOptions({
           newPersistentEnvRow({
             id: environmentId,
             projectId: null,
-            name: "Development",
-            slug: "development",
+            name: "production",
+            slug: "production",
           }),
         );
         await envTx.isPersisted.promise;
