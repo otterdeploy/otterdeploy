@@ -285,6 +285,33 @@ const listDomainsInput = z.object({
   resourceId: resourceIdField,
 });
 
+// Persistent volume mounts. A container path (absolute) backed by a docker
+// named volume that survives redeploys — first-class storage for a plain
+// service, the thing the compose detour used to be required for.
+const mountPathField = z
+  .string()
+  .min(1)
+  .regex(/^\//, "mount path must be absolute (start with /)");
+
+const serviceMountSchema = z.object({
+  mountPath: z.string(),
+  volumeName: z.string(),
+  readOnly: z.boolean(),
+});
+
+const addMountInput = z.object({
+  projectId: projectIdField,
+  resourceId: resourceIdField,
+  mountPath: mountPathField,
+  readOnly: z.boolean().optional(),
+});
+
+const removeMountInput = z.object({
+  projectId: projectIdField,
+  resourceId: resourceIdField,
+  mountPath: mountPathField,
+});
+
 const addDomainInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
@@ -559,6 +586,29 @@ export const serviceContract = {
       })
       .meta({ path: `${basePath}/{resourceId}/domains/{routeId}`, tag, method: "DELETE" })
       .input(domainRouteInput)
+      .output(z.object({ ok: z.boolean() })),
+  },
+
+  // Persistent volumes attached to a plain service. `add` provisions (docker
+  // auto-creates the named volume on next schedule) and redeploys so the mount
+  // takes effect; `remove` detaches it (the volume's data is left intact).
+  mounts: {
+    list: oc
+      .errors({ NOT_FOUND: sharedErrors.NOT_FOUND })
+      .meta({ path: `${basePath}/{resourceId}/mounts`, tag, method: "GET" })
+      .input(getServiceInput)
+      .output(z.array(serviceMountSchema)),
+
+    add: oc
+      .errors({ NOT_FOUND: sharedErrors.NOT_FOUND })
+      .meta({ path: `${basePath}/{resourceId}/mounts`, tag, method: "POST" })
+      .input(addMountInput)
+      .output(serviceMountSchema),
+
+    remove: oc
+      .errors({ NOT_FOUND: sharedErrors.NOT_FOUND })
+      .meta({ path: `${basePath}/{resourceId}/mounts`, tag, method: "DELETE" })
+      .input(removeMountInput)
       .output(z.object({ ok: z.boolean() })),
   },
 };

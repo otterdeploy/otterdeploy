@@ -14,6 +14,7 @@ import {
 } from "./handlers";
 import { serviceDomainsRouter } from "./router-domains";
 import { serviceEnvRouter } from "./router-env";
+import { serviceMountsRouter } from "./router-mounts";
 import { serviceRuntimeRouter } from "./router-runtime";
 
 export const serviceRouter = {
@@ -200,4 +201,6 @@ export const serviceRouter = {
   env: serviceEnvRouter,
 
   domains: serviceDomainsRouter,
+
+  mounts: serviceMountsRouter,
 };
