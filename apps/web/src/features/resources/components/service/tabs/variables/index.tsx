@@ -5,7 +5,7 @@
 
 import type { ProjectId } from "@otterdeploy/shared/id";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { PlusSignIcon, Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -14,6 +14,7 @@ import { useStageManifestChange } from "@/features/projects/hooks/use-manifest-s
 import { VariableRefHint } from "@/features/resources/components/_shared/hint-banner";
 import {
   VariablesEditor,
+  type VariablesEditorHandle,
   type VariablesEditorResource,
 } from "@/features/resources/components/_shared/variables-editor";
 import { Button } from "@/shared/components/ui/button";
@@ -55,7 +56,7 @@ export function ServiceVariablesTabBody({
   const [hintDismissed, setHintDismissed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [addingSignal, setAddingSignal] = useState(0);
+  const editorRef = useRef<VariablesEditorHandle>(null);
   void query; // search is wired by the editor's own filter once the surface lands
 
   const varCount = Object.keys(resource.extraEnv ?? {}).length;
@@ -77,7 +78,7 @@ export function ServiceVariablesTabBody({
         <Button
           size="sm"
           className="h-8 gap-1.5 text-[12px]"
-          onClick={() => setAddingSignal((n) => n + 1)}
+          onClick={() => editorRef.current?.addRow()}
         >
           <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
           New Variable
@@ -96,7 +97,7 @@ export function ServiceVariablesTabBody({
 
       {!hintDismissed && <VariableRefHint onDismiss={() => setHintDismissed(true)} />}
 
-      <VariablesEditor resource={resource} addRowSignal={addingSignal} onSave={onSave} />
+      <VariablesEditor ref={editorRef} resource={resource} onSave={onSave} />
     </div>
   );
 }

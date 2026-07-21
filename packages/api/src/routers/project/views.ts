@@ -94,6 +94,13 @@ export async function mapServiceResource(
     type: "service" as const,
     status: record.resource.status,
     ...latestDeploymentFields(await resolveLatest(record.resource.id, opts?.latest)),
+    // A paused service is scaled to zero on purpose — surface "paused" on the
+    // graph node instead of the stale last-known "running" the deployment row
+    // still carries (0 tasks can't be corrected by the live-task rollup, so the
+    // base status is what shows). Only services carry a pause marker.
+    ...(record.service.pausedReplicas != null
+      ? { latestDeploymentStatus: "paused" as const }
+      : {}),
     image: record.service.image,
     imageDigest: record.service.imageDigest,
     source: record.service.source,

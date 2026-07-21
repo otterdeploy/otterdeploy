@@ -116,6 +116,7 @@ export const serviceResourceSchema = z.object({
       "starting",
       "running",
       "crashed",
+      "paused",
       "failed",
       "superseded",
       "removed",
@@ -256,6 +257,12 @@ export const resourceEnvBulkSetInput = z.object({
   // values still travel the wire in plain. Optional so callers that don't
   // care about masking can omit it.
   secretKeys: z.array(z.string()).optional(),
+  // Whether to re-apply the resource to Swarm after persisting. A container's
+  // env is fixed at creation, so the change only takes effect on redeploy.
+  // The Variables tab passes `false` — it persists the diff and leaves the
+  // running container alone until the operator hits Deploy. Omitted/`true`
+  // preserves the eager-redeploy behaviour for the CLI and other callers.
+  redeploy: z.boolean().optional(),
 });
 
 /**

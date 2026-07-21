@@ -477,9 +477,24 @@ export const serviceContract = {
     .errors({
       NOT_FOUND: sharedErrors.NOT_FOUND,
       NO_HTTP_PORT: sharedErrors.NO_HTTP_PORT,
+      // The service has no real domain, so the only host we can publish it on
+      // is a throwaway `<slug>.<ip>.sslip.io`. Expose refuses rather than doing
+      // that silently; `data.generatedDomain` is the host the caller can opt
+      // into by retrying with `allowGeneratedDomain: true`.
+      NO_PUBLIC_DOMAIN: {
+        status: 409 as const,
+        message:
+          "This service has no domain, so it can only go public on a temporary sslip.io URL." as const,
+        data: z.object({ generatedDomain: z.string() }),
+      },
     })
     .meta({ path: `${basePath}/{resourceId}/expose`, tag, method: "POST" })
-    .input(getServiceInput)
+    .input(
+      // `allowGeneratedDomain` is the operator's explicit opt-in to being
+      // published on the sslip.io fallback when no real domain is configured.
+      // Absent/false ⇒ expose refuses with NO_PUBLIC_DOMAIN instead.
+      getServiceInput.extend({ allowGeneratedDomain: z.boolean().optional() }),
+    )
     .output(serviceSchema),
 
   unexpose: oc

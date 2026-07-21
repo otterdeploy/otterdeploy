@@ -28,7 +28,6 @@ import { serviceTasksCollection } from "@/features/resources/data/service-tasks"
 import {
   Tabs,
   TabsContent,
-  TabsContents,
   TabsList,
   TabsTrigger,
 } from "@/shared/components/ui/tabs";
@@ -53,6 +52,7 @@ interface ComposeResourcePanelProps {
       | "starting"
       | "running"
       | "crashed"
+      | "paused"
       | "failed"
       | "superseded"
       | "removed"
@@ -190,7 +190,7 @@ export function ComposeResourcePanel({
 
         <div className="relative min-h-0 flex-1">
           <div className="h-full overflow-y-auto">
-            <TabsContents>
+            <div className="relative">
               <TabsContent value="deployments" className="px-6 pt-5 pb-6">
                 <ResourceTasksTab
                   projectId={resource.projectId}
@@ -233,7 +233,7 @@ export function ComposeResourcePanel({
                   deleting={remove.isPending}
                 />
               </TabsContent>
-            </TabsContents>
+            </div>
           </div>
         </div>
       </Tabs>

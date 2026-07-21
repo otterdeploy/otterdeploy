@@ -20,6 +20,8 @@ import type { ProjectId } from "@otterdeploy/shared/id";
 import { useState } from "react";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { AnimatePresence, type Transition, useReducedMotion } from "motion/react";
+import * as m from "motion/react-client";
 import { toast } from "sonner";
 
 import {
@@ -41,6 +43,11 @@ interface PendingChangesBarProps {
 
 export function PendingChangesBar({ projectId, environment }: PendingChangesBarProps) {
   const [expanded, setExpanded] = useState(false);
+
+  // Calm, fast morph (DESIGN: 150–250ms). Framer's JS animations aren't covered
+  // by the CSS prefers-reduced-motion reset, so collapse to instant ourselves.
+  const reduce = useReducedMotion();
+  const morph: Transition = reduce ? { duration: 0 } : { duration: 0.28, ease: [0.2, 0.7, 0.2, 1] };
 
   const diff = useQuery(
     orpc.project.manifest.diff.queryOptions({
@@ -145,8 +152,13 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
 
   return (
     <div className="pointer-events-none fixed inset-x-0 top-20 z-40 flex justify-center">
-      <div
-        className={`pointer-events-auto flex flex-col items-stretch overflow-hidden rounded-2xl border bg-card/95 shadow-lg backdrop-blur ${
+      {/* `layout` morphs the pill↔panel width; the body handles its own height
+          reveal below. No backdrop-blur — it flickers while the box resizes and
+          is invisible at bg-card/95 anyway. */}
+      <m.div
+        layout
+        transition={morph}
+        className={`pointer-events-auto flex flex-col items-stretch overflow-hidden rounded-2xl border bg-card/95 shadow-lg ${
           expanded ? "w-[min(640px,calc(100vw-2rem))]" : ""
         }`}
       >
@@ -167,7 +179,14 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
               ? "Deploying…"
               : `Apply ${meaningful.length} change${meaningful.length === 1 ? "" : "s"}`}
           </button>
-          <Button size="sm" variant="ghost" onClick={() => discardMut.mutate()} disabled={busy}>
+          {/* ml-auto pins the actions to the trailing end once the bar widens. */}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="ml-auto"
+            onClick={() => discardMut.mutate()}
+            disabled={busy}
+          >
             Discard
           </Button>
           <Button
@@ -175,30 +194,40 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
             variant="default"
             onClick={() => applyMut.mutate()}
             disabled={busy}
-            className="gap-1.5"
+            aria-label={applyMut.isPending ? "Deploying" : undefined}
           >
-            {applyMut.isPending ? (
-              <>
-                <Spinner className="size-3.5" />
-                Deploying…
-              </>
-            ) : (
-              "Deploy"
-            )}
+            {/* Header already reads "Deploying…" — the button is spinner-only. */}
+            {applyMut.isPending ? <Spinner className="size-3.5" /> : "Deploy"}
           </Button>
         </div>
-        {expanded && (
-          <div className="max-h-[60vh] overflow-auto border-t bg-muted/30">
-            <ul className="flex flex-col gap-3 p-3">
-              {groups.map((g) => (
-                <li key={`${g.resource}-${g.name}`}>
-                  <ChangeGroupCard group={g} />
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
+        <AnimatePresence initial={false}>
+          {expanded && (
+            <m.div
+              key="diff"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={morph}
+              className="overflow-hidden border-t bg-muted/30"
+            >
+              <div className="max-h-[60vh] overflow-auto">
+                <ul className="flex flex-col gap-3 p-3">
+                  {groups.map((g, i) => (
+                    <m.li
+                      key={`${g.resource}-${g.name}`}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ ...morph, delay: reduce ? 0 : 0.03 + i * 0.04 }}
+                    >
+                      <ChangeGroupCard group={g} />
+                    </m.li>
+                  ))}
+                </ul>
+              </div>
+            </m.div>
+          )}
+        </AnimatePresence>
+      </m.div>
     </div>
   );
 }

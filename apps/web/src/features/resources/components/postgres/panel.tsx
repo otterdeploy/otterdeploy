@@ -18,7 +18,6 @@ import { ResourceTerminal } from "@/features/resources/components/_shared/resour
 import {
   Tabs,
   TabsContent,
-  TabsContents,
   TabsList,
   TabsTrigger,
 } from "@/shared/components/ui/tabs";
@@ -127,7 +126,7 @@ export function RealResourcePanel({
 
         <div className="relative min-h-0 flex-1">
           <div className="h-full overflow-y-auto">
-            <TabsContents>
+            <div className="relative">
               {/* Runtime tabs query tasks/data/metrics by resourceId, which
                   doesn't exist for a staged create — only mount once deployed. */}
               {!pending && (
@@ -176,10 +175,10 @@ export function RealResourcePanel({
                   dbName={dbName}
                 />
               </TabsContent>
-            </TabsContents>
+            </div>
           </div>
 
-          {/* Terminal lives OUTSIDE the height-animated <TabsContents> (which
+          {/* Terminal lives OUTSIDE the height-animated <div className="relative"> (which
               sizes to its content) so it can absolutely fill this region
               instead of collapsing. keepMounted via Activity keeps the PTY +
               scrollback alive across tab switches. */}

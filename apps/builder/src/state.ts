@@ -21,6 +21,13 @@ import { db } from "@otterdeploy/db";
 import { deployment } from "@otterdeploy/db/schema";
 import { eq } from "drizzle-orm";
 
+// Build error tails routinely carry ANSI color codes (pino pretty output, tool
+// progress bars, the captured container stderr). Strip them at the storage
+// boundary so the stored errorMessage is clean everywhere the UI reads it —
+// the deployment timeline, history rows, toasts — instead of literal `[2m…`.
+const ANSI = /\x1b(?:\[[0-9;?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)?|[@-Z\\-_])/g;
+const stripAnsi = (s: string): string => (s.includes("\x1b") ? s.replace(ANSI, "") : s);
+
 /** Every status write pushes a resource-changed event to the project stream —
  *  build-phase transitions happen in THIS process and produce no docker event,
  *  so without the publish the UI only notices on its 5s poll fallback.
@@ -45,8 +52,10 @@ export async function markFailed(deploymentId: DeploymentId, errorMessage: strin
   const rows = await db
     .update(deployment)
     .set({
+      // Strip ANSI first, then cap — so the 2000-char budget counts real
+      // characters, not escape bytes.
       status: "failed",
-      errorMessage: errorMessage.slice(0, 2000),
+      errorMessage: stripAnsi(errorMessage).slice(0, 2000),
       completedAt: new Date(),
     })
     .where(eq(deployment.id, deploymentId))

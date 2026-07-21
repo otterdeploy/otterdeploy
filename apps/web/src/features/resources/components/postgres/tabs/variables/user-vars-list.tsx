@@ -1,16 +1,21 @@
 // Thin wrapper that mounts the staged variables editor inside the
-// existing tab. The `addingSignal` prop comes from the tab header's
-// "New Variable" button so the editor can react to that external action.
+// existing tab. Forwards a ref so the tab header's "New Variable" button
+// can call the editor's `addRow` imperative handle.
 
-import type { VariablesEditorResource } from "@/features/resources/components/_shared/variables-editor";
+import type { Ref } from "react";
+
+import type {
+  VariablesEditorHandle,
+  VariablesEditorResource,
+} from "@/features/resources/components/_shared/variables-editor";
 
 import { VariablesEditor } from "@/features/resources/components/_shared/variables-editor";
 
 interface UserVarsListProps {
   resource: VariablesEditorResource;
-  addingSignal: number;
+  ref?: Ref<VariablesEditorHandle>;
 }
 
-export function UserVarsList({ resource, addingSignal }: UserVarsListProps) {
-  return <VariablesEditor resource={resource} addRowSignal={addingSignal} />;
+export function UserVarsList({ resource, ref }: UserVarsListProps) {
+  return <VariablesEditor ref={ref} resource={resource} />;
 }

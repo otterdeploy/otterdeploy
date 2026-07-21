@@ -233,6 +233,9 @@ function runBuildSteps(
     });
 
     yield* await step("image-ready", () => markImageReady(opts.deploymentId, image.shaTag));
+    // Image build is done; everything from here (rollout + health watch) is the
+    // deploy phase — tag it so it lands in Deploy Logs, not Build Logs.
+    sink.setPhase("deploy");
     sink.system(`image-ready: ${image.shaTag} — updating swarm service`);
 
     // Capture the detected framework from the just-analysed work tree (local

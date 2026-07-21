@@ -4,13 +4,16 @@
 
 import type { ProjectId } from "@otterdeploy/shared/id";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { useQuery } from "@tanstack/react-query";
 
 import { useStageManifestChange } from "@/features/projects/hooks/use-manifest-stage";
 import { VariableRefHint } from "@/features/resources/components/_shared/hint-banner";
-import { VariablesEditor } from "@/features/resources/components/_shared/variables-editor";
+import {
+  VariablesEditor,
+  type VariablesEditorHandle,
+} from "@/features/resources/components/_shared/variables-editor";
 import { copyToClipboard } from "@/shared/lib/clipboard";
 import { orpc } from "@/shared/server/orpc";
 
@@ -50,7 +53,7 @@ function ProvisionedVariables({ resource }: { resource: PostgresBodyProps["resou
   const [hintDismissed, setHintDismissed] = useState(false);
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const [addingSignal, setAddingSignal] = useState(0);
+  const editorRef = useRef<VariablesEditorHandle>(null);
 
   const matches = (name: string) => !query || name.toLowerCase().includes(query.toLowerCase());
 
@@ -84,7 +87,7 @@ function ProvisionedVariables({ resource }: { resource: PostgresBodyProps["resou
         searchOpen={searchOpen}
         onToggleSearch={() => setSearchOpen((p) => !p)}
         onQueryChange={setQuery}
-        onAdd={() => setAddingSignal((n) => n + 1)}
+        onAdd={() => editorRef.current?.addRow()}
       />
 
       {!hintDismissed && <VariableRefHint onDismiss={() => setHintDismissed(true)} />}
@@ -98,7 +101,7 @@ function ProvisionedVariables({ resource }: { resource: PostgresBodyProps["resou
         onCopy={copyValue}
       />
 
-      <UserVarsList resource={resource} addingSignal={addingSignal} />
+      <UserVarsList ref={editorRef} resource={resource} />
 
       <SystemVarsList
         systemVars={systemVars}
@@ -129,7 +132,7 @@ function PendingVariables({
     successToast: "Variables staged — Deploy to apply",
   });
   const [hintDismissed, setHintDismissed] = useState(false);
-  const [addingSignal, setAddingSignal] = useState(0);
+  const editorRef = useRef<VariablesEditorHandle>(null);
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -229,10 +232,10 @@ function PendingVariables({
           searchOpen={false}
           onToggleSearch={() => {}}
           onQueryChange={() => {}}
-          onAdd={() => setAddingSignal((n) => n + 1)}
+          onAdd={() => editorRef.current?.addRow()}
         />
         {!hintDismissed && <VariableRefHint onDismiss={() => setHintDismissed(true)} />}
-        <VariablesEditor resource={resource} addRowSignal={addingSignal} onSave={onSave} />
+        <VariablesEditor ref={editorRef} resource={resource} onSave={onSave} />
       </div>
     </div>
   );

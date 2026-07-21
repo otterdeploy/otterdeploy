@@ -1,24 +1,22 @@
 /**
  * Server-side implementation of the deployment build-log stream.
  *
- * Mirrors `streamProjectEvents` in shape: an async generator scoped to
- * one deployment, with org membership as the auth boundary. Yields
- * scrollback from `deployment_log` first, then live-tail messages
- * forwarded from the Redis pub/sub channel the builder publishes to
- * (see apps/builder/src/log-stream.ts).
+ * An async generator scoped to one deployment, with org membership as the auth
+ * boundary. Yields scrollback from `deployment_log` immediately, then live-tails
+ * by POLLING `deployment_log` for newly-inserted rows until the deployment
+ * reaches a terminal state.
  *
- * Live-vs-scrollback handoff:
- *   The builder publishes each line to Redis BEFORE the batched DB
- *   insert lands (the flush is 50-lines / 250ms). So we must
- *   `SUBSCRIBE` first, buffer everything that arrives, *then* run the
- *   scrollback query, *then* drain the buffer. A short overlap window
- *   means a line that's both already in scrollback and still in the
- *   buffer can appear twice — acceptable for an operational log view.
- *   Tightening would require an explicit dedup key (seq in the
- *   pub/sub payload), which the builder doesn't ship today.
- *
- * Terminal deployments (running/failed/superseded/removed) get
- * scrollback only — the generator returns immediately after.
+ * Why polling, not Redis pub/sub:
+ *   This used to `SUBSCRIBE` to the builder's Redis channel first and only THEN
+ *   run the scrollback query. But Bun's RedisClient can drop/hang its
+ *   subscribe promise on a cold connect (the same 1.3.x flakiness the builder's
+ *   warmUpClients guards against). Because scrollback was awaited BEHIND that
+ *   subscribe, the whole backfill stalled for in-progress (non-terminal)
+ *   deployments — the logs only appeared once the build went terminal (which
+ *   skips the subscribe). Polling the DB the builder already writes to every
+ *   ~250ms is reliable, needs no second Redis client, and tails near-live.
+ *   Every line carries its DB `seq` as the event id, so a client reconnect
+ *   resumes via `lastEventId` without replaying the whole log.
  */
 import type { DeploymentId, OrganizationId } from "@otterdeploy/shared/id";
 
@@ -26,9 +24,14 @@ import { db } from "@otterdeploy/db";
 import { deployment, deploymentLog, resource, project } from "@otterdeploy/db/schema";
 import { and, asc, eq, gt } from "drizzle-orm";
 
-import { createRedis } from "../../lib/redis";
-
 type OrgId = OrganizationId;
+type LogPhase = "build" | "deploy";
+
+/** Poll cadence for new log rows. The builder flushes inserts every ~250ms, so
+ *  ~500ms tails near-live without hammering the DB. */
+const POLL_INTERVAL_MS = 500;
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 export interface DeploymentLogLine {
   /** Insert-order id for DB rows; null for live messages that haven't
@@ -75,89 +78,84 @@ async function authorizeDeployment(input: StreamInput) {
   return row ?? null;
 }
 
+/** Fetch log rows for one phase with seq strictly greater than `afterSeq` (0 →
+ *  all rows, since seq starts at 1), oldest-first. */
+export async function fetchLogsAfter(
+  deploymentId: DeploymentId,
+  afterSeq: number,
+  phase: LogPhase,
+): Promise<DeploymentLogLine[]> {
+  const rows = await db
+    .select({
+      seq: deploymentLog.seq,
+      stream: deploymentLog.stream,
+      line: deploymentLog.line,
+      ts: deploymentLog.ts,
+    })
+    .from(deploymentLog)
+    .where(
+      and(
+        eq(deploymentLog.deploymentId, deploymentId),
+        eq(deploymentLog.phase, phase),
+        gt(deploymentLog.seq, afterSeq),
+      ),
+    )
+    .orderBy(asc(deploymentLog.seq))
+    // Bypass the global query cache: a live tail must read fresh rows every
+    // poll, not a 60s-TTL snapshot that would hide new lines.
+    .$withCache(false);
+  return rows.map((r) => ({ seq: r.seq, stream: r.stream, line: r.line, ts: r.ts.toISOString() }));
+}
+
+/** Current lifecycle status, or null if the row vanished (deleted mid-stream). */
+async function currentStatus(deploymentId: DeploymentId): Promise<string | null> {
+  const [row] = await db
+    .select({ status: deployment.status })
+    .from(deployment)
+    .where(eq(deployment.id, deploymentId))
+    .limit(1)
+    // Fresh read — a cached status would keep the tail polling after the build
+    // already reached a terminal state (or end it early on a stale terminal).
+    .$withCache(false);
+  return row?.status ?? null;
+}
+
 export async function* streamDeploymentLogs(
   input: StreamInput,
 ): AsyncGenerator<DeploymentLogLine, void, undefined> {
   const auth = await authorizeDeployment(input);
   if (!auth) return;
 
-  const isTerminal = TERMINAL_STATUSES.has(auth.deployment.status);
+  // Resume cursor: yield only rows after this seq (0 ⇒ from the top).
+  let lastSeq =
+    typeof input.afterSeq === "number" && Number.isFinite(input.afterSeq) ? input.afterSeq : 0;
 
-  // Subscribe FIRST, then run scrollback — see file header comment.
-  const subscriber = isTerminal ? null : createRedis();
-  const channel = `deployment:${input.deploymentId}:logs`;
-  const liveBuffer: DeploymentLogLine[] = [];
-  let resolveLive: (() => void) | null = null;
-
-  if (subscriber) {
-    await subscriber.subscribe(channel, (payload) => {
-      try {
-        const parsed = JSON.parse(payload) as {
-          stream: DeploymentLogLine["stream"];
-          line: string;
-          ts: string;
-        };
-        liveBuffer.push({ seq: null, ...parsed });
-        if (resolveLive) {
-          const r = resolveLive;
-          resolveLive = null;
-          r();
-        }
-      } catch {
-        // Skip malformed payloads; the builder is the only writer
-        // and uses JSON.stringify, so this is defensive only.
-      }
-    });
+  // Scrollback FIRST — renders the existing log immediately, with no Redis
+  // dependency in the critical path.
+  for (const line of await fetchLogsAfter(input.deploymentId, lastSeq, "build")) {
+    if (line.seq != null) lastSeq = line.seq;
+    yield line;
   }
 
-  try {
-    const afterSeq =
-      typeof input.afterSeq === "number" && Number.isFinite(input.afterSeq) ? input.afterSeq : null;
-    const scrollback = await db
-      .select({
-        seq: deploymentLog.seq,
-        stream: deploymentLog.stream,
-        line: deploymentLog.line,
-        ts: deploymentLog.ts,
-      })
-      .from(deploymentLog)
-      .where(
-        afterSeq == null
-          ? eq(deploymentLog.deploymentId, input.deploymentId)
-          : and(
-              eq(deploymentLog.deploymentId, input.deploymentId),
-              gt(deploymentLog.seq, afterSeq),
-            ),
-      )
-      .orderBy(asc(deploymentLog.seq));
+  // Terminal deployments produce no further output.
+  if (TERMINAL_STATUSES.has(auth.deployment.status)) return;
 
-    for (const row of scrollback) {
-      yield {
-        seq: row.seq,
-        stream: row.stream,
-        line: row.line,
-        ts: row.ts.toISOString(),
-      };
+  // Live-tail by polling for newly-inserted rows until terminal. On the poll
+  // that observes a terminal status, drain once more so lines flushed right at
+  // completion aren't dropped.
+  while (true) {
+    await sleep(POLL_INTERVAL_MS);
+    for (const line of await fetchLogsAfter(input.deploymentId, lastSeq, "build")) {
+      if (line.seq != null) lastSeq = line.seq;
+      yield line;
     }
-
-    if (!subscriber) return;
-
-    // Live-tail loop. `resolveLive` is signalled by the subscriber
-    // callback when a new line arrives. On each wakeup we drain the
-    // buffer and wait for the next.
-    while (true) {
-      if (liveBuffer.length === 0) {
-        await new Promise<void>((res) => {
-          resolveLive = res;
-        });
+    const status = await currentStatus(input.deploymentId);
+    if (status == null || TERMINAL_STATUSES.has(status)) {
+      for (const line of await fetchLogsAfter(input.deploymentId, lastSeq, "build")) {
+        if (line.seq != null) lastSeq = line.seq;
+        yield line;
       }
-      const drain = liveBuffer.splice(0, liveBuffer.length);
-      for (const line of drain) yield line;
-    }
-  } finally {
-    if (subscriber) {
-      await subscriber.unsubscribe(channel).catch(() => undefined);
-      subscriber.close();
+      return;
     }
   }
 }

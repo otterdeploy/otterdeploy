@@ -89,6 +89,16 @@ export const deploymentLogStreamEnum = pgEnum("deployment_log_stream", [
 ]);
 
 /**
+ * Which half of the pipeline a line belongs to. `build` = making the image
+ * (clone → install → compile → image-ready); `deploy` = getting it running
+ * (swarm/docker rollout + the crash-watcher's restart/health lines). The Build
+ * Logs tab shows only `build`; Deploy Logs shows `deploy` (merged with the
+ * container's own stdout/stderr). Defaults to `build` so pre-migration rows and
+ * any un-tagged writer stay in the build view.
+ */
+export const deploymentLogPhaseEnum = pgEnum("deployment_log_phase", ["build", "deploy"]);
+
+/**
  * Append-only build/deploy log lines. Keyed on a bigserial so the order
  * matches insertion regardless of clock skew on the writer side; `ts` is
  * still recorded for display.
@@ -106,6 +116,7 @@ export const deploymentLog = pgTable(
       .$type<DeploymentId>()
       .references(() => deployment.id, { onDelete: "cascade" }),
     stream: deploymentLogStreamEnum("stream").notNull(),
+    phase: deploymentLogPhaseEnum("phase").notNull().default("build"),
     line: text("line").notNull(),
     ts: timestamp("ts").defaultNow().notNull(),
   },

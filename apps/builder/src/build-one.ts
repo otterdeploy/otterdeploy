@@ -45,16 +45,18 @@ async function warmUpClients(): Promise<void> {
       new Promise<false>((resolve) => setTimeout(() => resolve(false), 2_000)),
     ]);
     if (ok) return;
-    log.warn({ build: { event: "warmup-retry", attempt } } as Record<string, unknown>);
+    log.warn({ build: { event: "warmup-retry", attempt } } );
   }
 }
+
+
 
 async function main(): Promise<never> {
   const deploymentId = process.argv[2] as DeploymentId | undefined;
   if (!deploymentId) {
     log.error({
       build: { event: "build-one-missing-id" },
-    } as Record<string, unknown>);
+    });
     process.exit(2);
   }
 
@@ -67,13 +69,13 @@ async function main(): Promise<never> {
     log.warn({
       build: { event: "build-one-failed", deploymentId },
       error: result.error,
-    } as Record<string, unknown>);
+    });
     process.exit(1);
   }
 
   log.info({
     build: { event: "build-one-ok", deploymentId, image: result.value },
-  } as Record<string, unknown>);
+  });
   process.exit(0);
 }
 

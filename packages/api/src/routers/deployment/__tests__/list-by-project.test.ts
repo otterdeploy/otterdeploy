@@ -231,7 +231,7 @@ describe("listProjectDeployments", () => {
     ]);
     vi.mocked(resourceQueries.getResourceById).mockResolvedValue({
       kind: "service",
-      record: {},
+      record: { service: { pausedReplicas: null } },
     } as never);
     vi.mocked(derivation.resolveDeploymentServiceName).mockResolvedValue("svc");
     vi.mocked(derivation.loadTaskStatesByDeployment).mockResolvedValue(new Map());

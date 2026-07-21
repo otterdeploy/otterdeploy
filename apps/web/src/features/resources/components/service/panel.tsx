@@ -15,13 +15,8 @@ import type { FrameworkKind } from "@/features/projects/components/framework-log
 import { MetricsTab } from "@/features/resources/components/_shared/metrics/metrics-tab";
 import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
 import { ResourceTerminal } from "@/features/resources/components/_shared/resource-terminal";
-import {
-  Tabs,
-  TabsContent,
-  TabsContents,
-  TabsList,
-  TabsTrigger,
-} from "@/shared/components/ui/tabs";
+import { cn } from "@/shared/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 
 import { ServicePanelHeader, ServiceStatusBar } from "./panel-parts";
 import { ServiceLogsTab } from "./tabs/logs";
@@ -112,6 +107,10 @@ export function ServiceResourcePanel({
   pending = false,
 }: ServiceResourcePanelProps) {
   const [tab, setTab] = useState<ServiceTab>(pending ? "variables" : "overview");
+  // Latches true the first time Logs is opened. From then on the Logs panel
+  // stays mounted (hidden when inactive) so its SSE stream survives tab
+  // switches — see the Logs block below.
+  const [logsVisited, setLogsVisited] = useState(false);
   const { buildMut, restartMut } = useServiceRuntimeActions({
     projectId: resource.projectId,
     resourceId: resource.resourceId,
@@ -169,6 +168,7 @@ export function ServiceResourcePanel({
         value={tab}
         onValueChange={(v) => {
           if (v) setTab(v as ServiceTab);
+          if (v === "logs") setLogsVisited(true);
         }}
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
@@ -176,7 +176,10 @@ export function ServiceResourcePanel({
 
         <div className="relative min-h-0 flex-1">
           <div className="h-full overflow-y-auto">
-            <TabsContents>
+            {/* Plain container, not the animated <TabsContents> — panels snap to
+                their content instead of the height-spring "drop-in" on every
+                tab switch. */}
+            <div className="relative">
               {/* Runtime tabs only mount their live components once deployed —
                   they query tasks/metrics by resourceId, which doesn't exist
                   for a staged create. Overview/Deployments/Metrics stay
@@ -187,6 +190,8 @@ export function ServiceResourcePanel({
                   <ServiceOverviewTab
                     resource={resource}
                     service={service}
+                    orgSlug={orgSlug}
+                    projectSlug={projectSlug}
                     onGoTab={(t) => setTab(t)}
                   />
                 </TabsContent>
@@ -236,17 +241,23 @@ export function ServiceResourcePanel({
               <TabsContent value="settings" keepMounted className="px-6 pt-5 pb-8">
                 <ServiceSettingsBody resource={resource} onDeleted={onClose} pending={pending} />
               </TabsContent>
-            </TabsContents>
+            </div>
           </div>
 
-          {/* Logs + Terminal live OUTSIDE the height-animated <TabsContents>
-              (which sizes to its content) so they can absolutely fill this
-              region instead of collapsing. Logs mounts only while its tab is
-              active — leaving the tab closes the SSE stream. Terminal stays
-              keepMounted via Activity so its PTY + scrollback survive tab
-              switches. Neither mounts for a staged create. */}
-          {!pending && tab === "logs" && (
-            <div className="absolute inset-0 flex flex-col bg-card px-6 pt-5 pb-6">
+          {/* Logs + Terminal fill this region absolutely. Both stay mounted
+              across tab switches — Logs via CSS `hidden` (display:none keeps its
+              effects running, so its SSE stream + buffered lines survive and it
+              never re-flashes "connecting"); Terminal via Activity (its PTY +
+              scrollback survive). Logs mounts on first visit (`logsVisited`) so
+              a panel opened only for Overview never spins up a stream. Neither
+              mounts for a staged create. */}
+          {!pending && logsVisited && (
+            <div
+              className={cn(
+                "absolute inset-0 flex flex-col bg-card px-6 pt-5 pb-6",
+                tab !== "logs" && "hidden",
+              )}
+            >
               <ServiceLogsTab projectId={resource.projectId} resourceId={resource.resourceId} />
             </div>
           )}

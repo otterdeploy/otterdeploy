@@ -184,9 +184,15 @@ export async function listResourceEnv(
 }
 
 export async function bulkSetResourceEnv(
-  input: ResourceRef & { env: EnvEntry[]; secretKeys?: string[] },
+  input: ResourceRef & { env: EnvEntry[]; secretKeys?: string[]; redeploy?: boolean },
   log: RequestLogger,
 ): Promise<Result<EnvEntry[], ProjectNotFoundError | PostgresResourceNotFoundError>> {
+  // Env is baked into a container at creation, so the write only takes effect
+  // on a re-apply. `redeploy: false` (the Variables tab) persists the diff and
+  // leaves the running container untouched until an explicit Deploy; the next
+  // deploy re-resolves env from these rows and picks the change up. Omitted ⇒
+  // eager redeploy, preserving the CLI / manifest-reconciler behaviour.
+  const shouldRedeploy = input.redeploy !== false;
   const project = await getProjectInOrg({
     projectId: input.projectId,
     organizationId: input.organizationId,
@@ -217,7 +223,7 @@ export async function bulkSetResourceEnv(
     await setDatabaseResourceExtraEnv(input.resourceId, next, filteredSecrets);
 
     const dbRecord = await getDatabaseResourceRecord(input.projectId, input.resourceId);
-    if (dbRecord) {
+    if (dbRecord && shouldRedeploy) {
       const projectSlug = sanitizeProjectSlug(project.slug);
       const resourceName = dbRecord.resource.name;
       // Use the engine from the row — not "postgres" — so redis/mariadb/
@@ -292,6 +298,10 @@ export async function bulkSetResourceEnv(
     input.resourceId,
     input.env.map((e) => ({ ...e, isSecret: secretSet.has(e.key) })),
   );
+  if (!shouldRedeploy) {
+    log.set({ env: { outcome: "saved_no_redeploy" } });
+    return Result.ok(input.env);
+  }
   const redeployed = await redeployAndFanOut(input.projectId, input.resourceId, project.slug, log);
   if (redeployed.isErr()) {
     log.set({

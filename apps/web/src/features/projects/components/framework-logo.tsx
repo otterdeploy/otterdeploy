@@ -4,9 +4,9 @@
  * tile in place of the generic kind icon when a framework was detected
  * for a service.
  *
- * "hono" doesn't ship a simple-icons SVG and falls through to the
- * generic Node mark — close enough since Hono is a Node/Bun framework.
- * "static" routes to HTML5.
+ * "hono" ships no simple-icons SVG, so we draw its flame mark ourselves
+ * (svgs/hono) rather than fall back to the generic Node logo. "static"
+ * routes to HTML5.
  */
 
 import type { Framework } from "@otterdeploy/shared/framework";
@@ -18,6 +18,7 @@ import { BunLogo } from "@/shared/components/ui/svgs/bun";
 import { Express } from "@/shared/components/ui/svgs/express";
 import { Fastify } from "@/shared/components/ui/svgs/fastify";
 import { Go } from "@/shared/components/ui/svgs/go";
+import { Hono } from "@/shared/components/ui/svgs/hono";
 import { Html5 } from "@/shared/components/ui/svgs/html5";
 import { Nestjs } from "@/shared/components/ui/svgs/nestjs";
 import { Nextjs } from "@/shared/components/ui/svgs/nextjs";
@@ -51,7 +52,7 @@ const FRAMEWORK_SVGS: Record<FrameworkKind, BrandSvg> = {
   vue: Vuejs,
   express: Express,
   fastify: Fastify,
-  hono: Nodejs, // no brand mark on simple-icons; Hono runs on Node/Bun
+  hono: Hono,
   nest: Nestjs,
   node: Nodejs,
   bun: BunLogo,

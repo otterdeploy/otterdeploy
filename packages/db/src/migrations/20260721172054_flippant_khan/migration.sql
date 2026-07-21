@@ -1,0 +1,2 @@
+CREATE TYPE "deployment_log_phase" AS ENUM('build', 'deploy');--> statement-breakpoint
+ALTER TABLE "deployment_log" ADD COLUMN "phase" "deployment_log_phase" DEFAULT 'build'::"deployment_log_phase" NOT NULL;

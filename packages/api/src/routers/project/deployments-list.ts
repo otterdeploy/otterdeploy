@@ -177,6 +177,7 @@ function toDeploymentWithStats(
   instances: InstanceGlimpse[],
   buildActive: boolean,
   restartMaxAttempts: number | null,
+  paused: boolean,
 ): DeploymentWithStats {
   const status = deriveDeploymentStatus(
     row.status,
@@ -184,6 +185,7 @@ function toDeploymentWithStats(
     instances,
     row.createdAt,
     buildActive,
+    paused,
   );
   const failed = instances.filter((i) => FAILED_TASK_COUNT_STATES.has(i.state)).length;
   const running = instances.filter((i) => i.state === "running").length;
@@ -258,6 +260,10 @@ export async function listResourceDeployments(
   const latestId = rows[0]?.id;
   const latestBuildActive = await isBuildStillLogging(rows[0], tasksByDeployment);
   const restartMaxAttempts = resolveRestartMaxAttempts(found);
+  // Paused services scale to zero deliberately; their latest deployment reads
+  // "paused" rather than the stale last-known "running". Only services carry a
+  // pause marker (`pausedReplicas`); databases/compose stacks never pause.
+  const paused = found.kind === "service" && found.record.service.pausedReplicas != null;
   const justSucceeded: DeploymentId[] = [];
   const justDied: DeploymentId[] = [];
   const result = rows.map((row) => {
@@ -269,6 +275,7 @@ export async function listResourceDeployments(
       states,
       row.id === latestId && latestBuildActive,
       restartMaxAttempts,
+      paused,
     );
     // A row stored building/pending whose tasks are now running has just
     // succeeded — flag it for the reconcile + emit below.

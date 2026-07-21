@@ -7,12 +7,9 @@
 import type { CSSProperties } from "react";
 import { useEffect } from "react";
 
-import { Tick02Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
 
 import { FrameworkLogo, type FrameworkKind } from "@/features/projects/components/framework-logo";
-import { Badge } from "@/shared/components/ui/badge";
 import {
   Combobox,
   ComboboxContent,
@@ -26,7 +23,7 @@ import { Spinner } from "@/shared/components/ui/spinner";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
-import { frameworkLabel, monorepoLabel } from "../frameworks";
+import { frameworkLabel } from "../frameworks";
 
 /**
  * Workload-type picker for a git-sourced service. Source and role are
@@ -169,55 +166,21 @@ export function RepoCheck({ gitRepoId, root }: { gitRepoId: string; root: string
     staleTime: 5 * 60 * 1000,
   });
 
-  if (inspect.isLoading) {
-    return (
-      <div className="mt-2.5 flex items-center gap-2 rounded-md border bg-muted/20 px-3 py-2 text-[12px] text-muted-foreground">
-        <Spinner className="size-3.5" />
-        Checking repository…
-      </div>
-    );
-  }
-
-  if (inspect.isError) {
-    return (
-      <div className="mt-2.5 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">
-        Couldn't read the repository
-        {root ? (
-          <>
-            {" "}
-            at <span className="font-mono">/{root}</span>
-          </>
-        ) : null}
-        {" — "}
-        {inspect.error?.message ?? "check the URL and try again."}
-      </div>
-    );
-  }
-
-  const framework = frameworkLabel(inspect.data?.framework);
-  const monorepo = monorepoLabel(inspect.data?.monorepo);
-
-  // The detected framework's logo lives in DetectedFrameworkBadge (top-right of
-  // the card), not here — this banner just states reachability.
+  // The "reachable · detected X" and the checking spinner are shown by the
+  // framework badge (top-right of the card) now, so the success/loading banner
+  // is redundant. Only surface an actual read/unreachable error.
+  if (!inspect.isError) return null;
   return (
-    <div className="mt-2.5 flex items-center gap-2 rounded-md border border-success/30 bg-success/5 px-3 py-2 text-[12px]">
-      <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="size-3.5 shrink-0 text-success" />
-      <span className="text-muted-foreground">
-        Repository reachable
-        {framework ? (
-          <>
-            {" · detected "}
-            <span className="font-medium text-foreground">{framework}</span>
-          </>
-        ) : (
-          " · no framework auto-detected"
-        )}
-      </span>
-      {monorepo && (
-        <Badge variant="outline" className="ml-auto font-normal">
-          {monorepo}
-        </Badge>
-      )}
+    <div className="mt-2.5 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">
+      Couldn't read the repository
+      {root ? (
+        <>
+          {" "}
+          at <span className="font-mono">/{root}</span>
+        </>
+      ) : null}
+      {" — "}
+      {inspect.error?.message ?? "check the URL and try again."}
     </div>
   );
 }

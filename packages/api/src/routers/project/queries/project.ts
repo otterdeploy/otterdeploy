@@ -42,16 +42,14 @@ export async function listProjectRecordsByOrg(organizationId: OrganizationId) {
       // `resource` and `proxy_route` would fan them into each other's rows and
       // multiply the tallies. Each count is an independent scalar subquery.
       databaseCount: sql<number>`(select count(*) from ${resource} where ${resource.projectId} = ${project.id} and ${resource.type} = 'database')::int`,
-      // Count individually-runnable services: standalone services AND compose
-      // members (each materialized from the stack file as its own `service`
-      // resource). The compose *parent* (type 'compose') is only a grouping
-      // wrapper with no container of its own — the graph renders it as
-      // "Stack · N services", counting the members, not the wrapper. Excluding
-      // it here keeps the card's running/total the SAME set the running tally
-      // matches (which can only ever match member/standalone containers), so a
-      // 4-service stack with 2 up plus a running app reads 3/5, not a skewed
-      // fraction over a parent that never has a container.
-      serviceCount: sql<number>`(select count(*) from ${resource} where ${resource.projectId} = ${project.id} and ${resource.type} = 'service')::int`,
+      // Total workloads for the card's `running/total` fraction. This MUST count
+      // the same universe the running tally does — `countRunningServicesByProject`
+      // matches live containers across service AND compose resources — otherwise
+      // a project whose workloads are compose stacks shows more running than
+      // total (the old `type='service'`-only count rendered `5/0`: the stack's
+      // containers counted as running, but its `compose` resource wasn't in this
+      // denominator). Counting `service` + `compose` keeps running ⊆ total.
+      serviceCount: sql<number>`(select count(*) from ${resource} where ${resource.projectId} = ${project.id} and ${resource.type} in ('service', 'compose'))::int`,
       // Enabled routes only: disabled/custom-pending routes never reach the edge.
       routeCount: sql<number>`(select count(*) from ${proxyRoute} where ${proxyRoute.projectId} = ${project.id} and ${proxyRoute.enabled} = true)::int`,
     })

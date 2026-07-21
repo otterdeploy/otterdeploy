@@ -16,6 +16,7 @@ import type { OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 
 import { Result } from "better-result";
 
+import { listProxyRoutesByResourceId } from "../../caddy/queries";
 import { postgresExports, serviceExports } from "../../lib/variables/exporters";
 import { listServiceEnvVars, listServicePorts } from "../service/queries";
 import { ProjectNotFoundError } from "./errors";
@@ -107,15 +108,17 @@ export async function listAvailableRefs(
   // service's OWN env keys (post-resolution at deploy time those are
   // what consumers see), which is enough for the dropdown's purpose.
   for (const row of services) {
-    const [env, ports] = await Promise.all([
+    const [env, ports, routes] = await Promise.all([
       listServiceEnvVars(row.service.resourceId),
       listServicePorts(row.service.resourceId),
+      listProxyRoutesByResourceId(row.service.resourceId),
     ]);
     const exported = serviceExports({
       resource: row.resource,
       service: row.service,
       ports,
       resolvedEnv: Object.fromEntries(env.map((e) => [e.key, e.value])),
+      domains: routes.map((r) => r.domain),
     });
     for (const key of Object.keys(exported)) {
       refs.push({

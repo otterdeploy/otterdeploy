@@ -58,13 +58,22 @@ function serviceDeploymentStatus(
   switch (status) {
     case "running":
       return "running";
+    // Queued but not yet building — the job is enqueued and the builder hasn't
+    // started the image build. Distinct from "building" so the pill matches the
+    // Details phase stepper (which shows "Queued") instead of claiming a build
+    // is underway before it is.
+    case "pending":
+      return "queued";
     case "starting":
     case "building":
-    case "pending":
       return "building";
     case "crashed":
     case "failed":
       return "error";
+    // Scaled to zero on purpose — surface a calm "paused" pill (the live-task
+    // rollup keeps this base since a paused service has no tasks).
+    case "paused":
+      return "paused";
     default:
       return undefined;
   }

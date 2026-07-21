@@ -9,7 +9,9 @@
  * collection — no invented numbers.
  */
 
+import type { ProjectSlug } from "@otterdeploy/shared/id";
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
+import { Link } from "@tanstack/react-router";
 
 import {
   DeploymentStatusBadge,
@@ -41,15 +43,20 @@ export interface OverviewLiveService {
   runtime: { status: ServiceRuntimeStatus };
 }
 
-/** The three most recent deployments (click-through to the Deployments tab). */
+/** The three most recent deployments — each links straight to that
+ *  deployment's detail (not just the Deployments tab). */
 function RecentDeployments({
   recent,
   now,
-  onGoTab,
+  orgSlug,
+  projectSlug,
+  resourceId,
 }: {
   recent: DeploymentInfo[];
   now: number;
-  onGoTab: (tab: "deployments") => void;
+  orgSlug: string;
+  projectSlug: ProjectSlug;
+  resourceId: string;
 }) {
   return (
     <div>
@@ -64,10 +71,11 @@ function RecentDeployments({
         <div className="mt-2 overflow-hidden rounded-md border bg-card">
           <div className="divide-y divide-border/40">
             {recent.map((d) => (
-              <button
+              <Link
                 key={d.id}
-                type="button"
-                onClick={() => onGoTab("deployments")}
+                to="/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
+                params={{ orgSlug, projectSlug, resourceId, deploymentId: d.id }}
+                search={{ tab: "details" }}
                 className="grid w-full grid-cols-[92px_1fr_auto] items-center gap-3 px-3 py-2 text-left hover:bg-muted/20"
               >
                 <DeploymentStatusBadge status={d.status} compact />
@@ -77,7 +85,7 @@ function RecentDeployments({
                 <span className="font-mono text-[11px] text-muted-foreground">
                   {relativeTime(d.createdAt, now)}
                 </span>
-              </button>
+              </Link>
             ))}
           </div>
         </div>
@@ -89,10 +97,14 @@ function RecentDeployments({
 export function ServiceOverviewTab({
   resource,
   service,
+  orgSlug,
+  projectSlug,
   onGoTab,
 }: {
   resource: OverviewResource;
   service: OverviewLiveService | undefined;
+  orgSlug: string;
+  projectSlug: ProjectSlug;
   onGoTab: (tab: "deployments" | "variables" | "settings") => void;
 }) {
   const now = useNowTick();
@@ -130,7 +142,13 @@ export function ServiceOverviewTab({
         latest={latest}
         onGoTab={onGoTab}
       />
-      <RecentDeployments recent={recent} now={now} onGoTab={onGoTab} />
+      <RecentDeployments
+        recent={recent}
+        now={now}
+        orgSlug={orgSlug}
+        projectSlug={projectSlug}
+        resourceId={resource.resourceId}
+      />
     </div>
   );
 }

@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import {
+  ContainerIcon,
   Copy01Icon,
   PauseIcon,
   PlayIcon,
@@ -118,6 +119,11 @@ export function ServiceLogsTab({
     (l) => lvlFilter.has(l.level) && (!needle || l.msg.toLowerCase().includes(needle)),
   );
 
+  // Real container output vs. the stream's own control lines ("Tailing N
+  // services", "no container yet"). With no real output we show a proper empty
+  // state instead of rendering those system lines as if they were app logs.
+  const hasOutput = lines.some((l) => l.stream !== "system");
+
   // Follow the tail while the operator sits at the bottom; release on scroll-up.
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [follow, setFollow] = useState(true);
@@ -213,15 +219,29 @@ export function ServiceLogsTab({
           const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
           if (atBottom !== follow) setFollow(atBottom);
         }}
-        className="min-h-0 flex-1 overflow-auto rounded-md border bg-[oklch(0.12_0_0)] p-3 font-mono text-[11.5px] leading-relaxed"
+        className="min-h-0 flex-1 overflow-auto rounded-md border bg-terminal text-terminal-foreground p-3 font-mono text-[11.5px] leading-relaxed"
       >
-        {lines.length === 0 ? (
-          <div className="grid h-full min-h-40 place-items-center text-center text-[12px] text-muted-foreground">
-            {status === "connecting"
-              ? "Connecting to the log stream…"
-              : status === "error"
-                ? "The log stream errored — retrying automatically."
-                : "No log output yet. New lines from this service appear here live."}
+        {!hasOutput ? (
+          <div className="grid h-full min-h-40 place-items-center text-center">
+            <div className="flex max-w-sm flex-col items-center gap-2.5">
+              <div className="grid size-11 place-items-center rounded-full border border-border/50 bg-foreground/[0.03] text-muted-foreground/70">
+                <HugeiconsIcon icon={ContainerIcon} strokeWidth={1.8} className="size-5" />
+              </div>
+              <div className="text-[13px] font-medium text-foreground/80">
+                {status === "connecting"
+                  ? "Connecting to the log stream…"
+                  : status === "error"
+                    ? "Log stream disconnected"
+                    : "No container running yet"}
+              </div>
+              <div className="text-[12px] text-muted-foreground">
+                {status === "connecting"
+                  ? "Attaching to this service's live output."
+                  : status === "error"
+                    ? "Retrying automatically."
+                    : "Deploy this service and its container logs will stream here live."}
+              </div>
+            </div>
           </div>
         ) : visible.length === 0 ? (
           <div className="grid h-full min-h-40 place-items-center text-center text-[12px] text-muted-foreground">

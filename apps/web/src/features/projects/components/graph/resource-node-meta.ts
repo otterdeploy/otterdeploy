@@ -125,6 +125,20 @@ export const statusMeta: Record<
     pillClass: "bg-destructive/12 text-destructive",
     dotClass: "bg-destructive shadow-[0_0_0_3px] shadow-destructive/20",
   },
+  // Deliberately stopped — calm neutral pill, no glow, so a paused service
+  // never wears the green "running" dot it did before it was scaled to zero.
+  paused: {
+    label: "paused",
+    pillClass: "bg-muted text-muted-foreground",
+    dotClass: "bg-muted-foreground/50",
+  },
+  // Enqueued, waiting for the builder to start — amber like building (both
+  // in-flight) but no active glow, since no work is happening yet.
+  queued: {
+    label: "queued",
+    pillClass: "bg-warning/12 text-warning",
+    dotClass: "bg-warning/70",
+  },
 };
 
 /**

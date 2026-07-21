@@ -41,6 +41,9 @@ export interface ServiceExportInput {
   service: ServiceResourceRow;
   ports: ServicePortRow[];
   resolvedEnv: Record<string, string>;
+  /** All public domains of the service (its proxy routes), ordered
+   *  primary-first. Empty/omitted when it isn't exposed on a domain yet. */
+  domains?: string[];
 }
 
 /**
@@ -48,7 +51,11 @@ export interface ServiceExportInput {
  *   - every resolved env var by its literal key
  *   - HOST = internalHostname
  *   - PORT = primary HTTP port (or first port)
- *   - URL  = http://<host>:<port>  (only if primary port is http)
+ *   - URL  = http://<host>:<port>  (only if primary port is http; internal)
+ *   - DOMAIN     = primary public domain          (only if exposed)
+ *   - PUBLIC_URL = https://<primary-domain>        (only if exposed)
+ *   - DOMAINS    = every public domain, comma-joined (only if exposed) — so a
+ *                  consumer can wire up all of them, not just the primary
  */
 export function serviceExports(input: ServiceExportInput): Record<string, string> {
   const primary =
@@ -66,6 +73,16 @@ export function serviceExports(input: ServiceExportInput): Record<string, string
     if (primary.appProtocol === "http") {
       out.URL = `http://${input.service.internalHostname}:${primary.containerPort}`;
     }
+  }
+
+  // Public domains — omitted (not empty) when the service has no route yet, so
+  // the tokens simply don't appear rather than resolving to blank strings.
+  const domains = input.domains ?? [];
+  const primaryDomain = domains[0];
+  if (primaryDomain) {
+    out.DOMAIN = primaryDomain;
+    out.PUBLIC_URL = `https://${primaryDomain}`;
+    out.DOMAINS = domains.join(",");
   }
 
   return out;

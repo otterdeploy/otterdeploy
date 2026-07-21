@@ -122,6 +122,8 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
+  --color-terminal: var(--terminal);
+  --color-terminal-foreground: var(--terminal-foreground);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -179,6 +181,11 @@
   --success-foreground: #1f7a3f;
   --warning: #8a6a00;
   --warning-foreground: #8a6a00;
+  /* Log / console surface — a light warm panel in light mode, near-black in
+     dark. Read-only log viewers use `bg-terminal`; interactive xterm
+     terminals keep their own (dark) theme. */
+  --terminal: #f4f4f2;
+  --terminal-foreground: #141412;
 }
 
 .dark {
@@ -220,6 +227,9 @@
   --success-foreground: #4ade80;
   --warning: #fbbf24;
   --warning-foreground: #fbbf24;
+  /* Near-black console surface — preserves the prior hardcoded terminal look. */
+  --terminal: oklch(0.12 0 0);
+  --terminal-foreground: #f5f5f0;
 }
 
 @layer base {

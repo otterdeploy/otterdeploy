@@ -60,7 +60,7 @@
     "dev:web": "turbo -F web dev",
     "dev:www": "turbo -F www dev",
     "format": "oxfmt --write",
-    "infra": "docker compose up -d  --remove-orphans",
+    "infra": "docker compose --profile build up -d --remove-orphans",
     "lint": "oxlint --type-aware --threads=4 --fix",
     "proxy": "sudo portless proxy start --https --lan -p 443",
     "test": "turbo test --filter=!web-demo",

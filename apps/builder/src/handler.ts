@@ -102,10 +102,27 @@ function runHelperContainer(
   deploymentId: DeploymentId,
   opts: { sourceTarball?: string } = {},
 ): Promise<HelperResult> {
-  const envFlags = FORWARDED_ENV.filter(
+  // A DATABASE_URL/REDIS_URL of `localhost` in the worker's env points at the
+  // HELPER container itself, not the host datastore. When the worker IS the
+  // compose service these already use service DNS (`postgres`/`redis`), so
+  // nothing matches and we forward the raw value. But when the worker runs on
+  // the HOST for local dev (`bun dev`), rewrite the loopback host to
+  // `host.docker.internal` (resolvable via `--add-host` below) so the helper
+  // reaches the host's Postgres/Redis. Only connection URLs are rewritten;
+  // everything else forwards its raw value unchanged.
+  const CONNECTION_KEYS = new Set(["DATABASE_URL", "DATABASE_PROVISIONER_URL", "REDIS_URL"]);
+  const toHostGateway = (v: string): string =>
+    v.replace(/([@/])(localhost|127\.0\.0\.1)(?=[:/])/g, "$1host.docker.internal");
+
+  const envFlags = FORWARDED_ENV.flatMap((key) => {
     // eslint-disable-next-line node/no-process-env
-    (key) => process.env[key] !== undefined,
-  ).flatMap((key) => ["-e", key]);
+    const value = process.env[key];
+    if (value === undefined) return [];
+    if (CONNECTION_KEYS.has(key) && /(localhost|127\.0\.0\.1)/.test(value)) {
+      return ["-e", `${key}=${toHostGateway(value)}`];
+    }
+    return ["-e", key];
+  });
 
   // Mount the staged source tarball read-only at its own host path so the
   // extract step finds it (the bind source resolves on the host daemon). Gated
@@ -138,6 +155,12 @@ function runHelperContainer(
     `otterbuild-${deploymentId}`,
     "--network",
     env.BUILDER_HELPER_NETWORK,
+    // Make `host.docker.internal` resolve to the host gateway inside the helper
+    // (Docker Desktop provides it automatically; Linux needs this explicit
+    // mapping). Harmless when unused — it only matters for the localhost→host
+    // rewrite above when the worker runs on the host for local dev.
+    "--add-host",
+    "host.docker.internal:host-gateway",
     // Docker-out-of-Docker: the build's `buildx --load` and swarm calls speak
     // to the host daemon through this socket — same one the worker uses.
     "-v",

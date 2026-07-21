@@ -15,6 +15,7 @@ export interface DeploymentRow {
     | "starting"
     | "running"
     | "crashed"
+    | "paused"
     | "failed"
     | "superseded"
     | "removed";
@@ -160,6 +161,10 @@ export function buildTimeline(d: TimelineInput): {
           p("run", "Post-deploy", "failed", err ?? "Container keeps restarting (crash loop)"),
         ],
       };
+    case "paused":
+      // Deployed cleanly, then scaled to zero on purpose — every phase ran, it
+      // just isn't serving right now.
+      return { title: "Paused — scaled to zero", tone: "neutral", totalMs, phases: allDone };
     case "superseded":
       // A benign replacement — this deploy was live/building when a newer one
       // took over (a FAILED deploy keeps its `failed` status, never lands here).

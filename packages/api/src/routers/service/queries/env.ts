@@ -16,12 +16,21 @@ import type { ResourceRow, ServiceEnvVarRow } from ".";
 export async function listServiceEnvVars(
   serviceResourceId: ResourceId,
 ): Promise<ServiceEnvVarRow[]> {
-  return db
-    .select()
-    .from(serviceEnvVar)
-    .where(
-      and(eq(serviceEnvVar.serviceResourceId, serviceResourceId), isNull(serviceEnvVar.previewId)),
-    );
+  return (
+    db
+      .select()
+      .from(serviceEnvVar)
+      .where(
+        and(
+          eq(serviceEnvVar.serviceResourceId, serviceResourceId),
+          isNull(serviceEnvVar.previewId),
+        ),
+      )
+      // Bypass the global query cache: an edit that just landed must be visible
+      // on the very next read (the resource list polls every 5s), not up to 60s
+      // later when the cache TTL expires or a flaky invalidation propagates.
+      .$withCache(false)
+  );
 }
 
 /** Base env rows for a SET of service resources — one query instead of N
@@ -41,7 +50,11 @@ export async function listServiceEnvVarsForResources(
         inArray(serviceEnvVar.serviceResourceId, serviceResourceIds as ResourceId[]),
         isNull(serviceEnvVar.previewId),
       ),
-    );
+    )
+    // Fresh read — this feeds the resource list's `extraEnv`, which the panel's
+    // Variables tab renders; a stale cache hit hides a just-saved var until the
+    // 60s TTL lapses (the "I saved it but it's not in the UI" bug).
+    .$withCache(false);
   for (const row of rows) {
     const list = result.get(row.serviceResourceId as ResourceId);
     if (list) list.push(row);

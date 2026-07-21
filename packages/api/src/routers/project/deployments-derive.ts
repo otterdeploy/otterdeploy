@@ -9,12 +9,16 @@ import type { DeploymentRow } from "./deployments";
 /**
  * Status as SHOWN to the client: the stored lifecycle status plus the
  * derived-only runtime states. `crashed` (came up once, now crash-looping or
- * gave up) and `starting` (image built, container coming up) are computed live
- * from task states and NEVER persisted — the DB row stays at its lifecycle
- * status, so they live here at the derivation boundary rather than in the
- * `deployment_status` DB enum.
+ * gave up), `starting` (image built, container coming up), and `paused`
+ * (operator scaled the service to zero) are computed live and NEVER persisted —
+ * the DB row stays at its lifecycle status, so they live here at the derivation
+ * boundary rather than in the `deployment_status` DB enum.
  */
-export type DerivedDeploymentStatus = DeploymentRow["status"] | "crashed" | "starting";
+export type DerivedDeploymentStatus =
+  | DeploymentRow["status"]
+  | "crashed"
+  | "starting"
+  | "paused";
 
 /** The slice of a live container/task the derivation needs. Swarm tasks carry
  *  exitCode on failed tasks; plain-docker fills exitCode/restartCount/oomKilled
@@ -150,7 +154,15 @@ export function deriveDeploymentStatus(
   instances: InstanceGlimpse[],
   createdAt: Date,
   buildActive: boolean,
+  paused: boolean,
 ): DerivedDeploymentStatus {
+  // A paused service is scaled to zero on purpose. That overrides the runtime
+  // status of its current deployment — otherwise the last-known "running"
+  // sticks (0 tasks derives back to the stored status) and the card shows a
+  // green RUNNING badge over a service the operator explicitly stopped. Mirrors
+  // the service panel, where `pausedReplicas` overrides the runtime status.
+  // Only the latest row is "paused"; historical rows keep their real outcome.
+  if (isLatest && paused) return "paused";
   if (instances.length === 0) {
     return deriveZeroInstanceStatus(stored, isLatest, createdAt, buildActive);
   }

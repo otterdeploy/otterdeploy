@@ -84,6 +84,7 @@ export interface ProjectDeployment {
     | "starting"
     | "running"
     | "crashed"
+    | "paused"
     | "failed"
     | "superseded"
     | "removed";

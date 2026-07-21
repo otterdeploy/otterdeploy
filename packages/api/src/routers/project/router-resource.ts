@@ -96,6 +96,7 @@ export const resourceRouter = {
             organizationId: context.activeOrganizationId,
             env: input.env,
             secretKeys: input.secretKeys,
+            redeploy: input.redeploy,
           },
           context.log,
         );

@@ -6,6 +6,7 @@ import {
   useLoaderData,
   useMatch,
   useNavigate,
+  useRouter,
 } from "@tanstack/react-router";
 import { AnimatePresence } from "motion/react";
 import {
@@ -124,6 +125,7 @@ function useDetailPanelRefit(fitView: ReturnType<typeof useReactFlow>["fitView"]
 
 function GraphCanvas({ bottomInset }: { bottomInset: number }) {
   const navigate = useNavigate();
+  const router = useRouter();
   const { orgSlug, projectSlug } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
   const { setCenter, fitView } = useReactFlow();
@@ -307,6 +309,34 @@ function GraphCanvas({ bottomInset }: { bottomInset: number }) {
           .call({
             id: project.id,
             positions: { [node.id]: { x: node.position.x, y: node.position.y } },
+          })
+          .catch(() => {});
+      }}
+      onNodeMouseEnter={(_event, node) => {
+        // Preload the panel route's code-split chunk (and float its data
+        // prefetch, wired in that route's loader) on hover, so a subsequent
+        // click mounts the drawer with no network wait. Mirrors the target
+        // computation in onNodeClick below. Best-effort — a rejected/cancelled
+        // preload must never surface.
+        if (node.data.pending === "delete") return;
+        if (node.data.kind === "preview") {
+          const preview = node.data.preview as { id?: string } | undefined;
+          if (typeof preview?.id === "string" && preview.id.length > 0) {
+            void router
+              .preloadRoute({
+                to: "/$orgSlug/$projectSlug/graph/preview/$previewId",
+                params: { orgSlug, projectSlug, previewId: preview.id },
+              })
+              .catch(() => {});
+          }
+          return;
+        }
+        const real = node.data.resourceId;
+        const resourceId = typeof real === "string" ? real : node.id;
+        void router
+          .preloadRoute({
+            to: "/$orgSlug/$projectSlug/graph/$resourceId",
+            params: { resourceId, orgSlug, projectSlug },
           })
           .catch(() => {});
       }}

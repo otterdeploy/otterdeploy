@@ -71,7 +71,10 @@ export function TableView({
               copied={copiedId === row.id}
               pickerOpen={pickerOpen === row.id}
               onChange={(patch) => onUpdate(row.id, patch)}
-              onTogglePicker={() => setPickerOpen((cur) => (cur === row.id ? null : row.id))}
+              // Idempotent by target state — the popover's own outside-click /
+              // Escape close and an explicit close-on-pick can both land in one
+              // tick; a plain toggle would reopen on the second call.
+              onPickerOpenChange={(open) => setPickerOpen(open ? row.id : null)}
               onToggleReveal={() => toggleReveal(row.id)}
               onCopy={() => copyValue(row.id, row.value)}
               onDelete={() => onDelete(row.id)}

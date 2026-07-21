@@ -9,6 +9,8 @@
  * whole panel rather than mutating in place.
  */
 
+import { useState } from "react";
+
 import {
   createFileRoute,
   Outlet,
@@ -18,6 +20,8 @@ import {
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useQuery } from "@tanstack/react-query";
+
+import { useReactFlow } from "@xyflow/react";
 
 import * as m from "motion/react-client";
 import { AnimatePresence } from "motion/react";
@@ -47,7 +51,7 @@ export const Route = createFileRoute(
   // panel mounts (and animates) exactly once and populates in place as the
   // query resolves. Best-effort: a cold collection or failed inspect just means
   // the panel does its own fetch on mount, as before.
-  loader: ({ params }) => {
+  loader: ({ params,  }) => {
     const resource = resourceCollection.toArray.find(
       (r) => r.resourceId === params.resourceId || `${r.type}:${r.name}` === params.resourceId,
     );
@@ -130,6 +134,16 @@ function RouteComponent() {
   const { orgSlug, projectSlug, resourceId } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
   const navigate = Route.useNavigate();
+  // Drives the slide-OUT. Closing the panel navigates away, which makes
+  // TanStack's <Outlet> render null immediately — so the unmount-time `exit`
+  // animation has nothing left to animate and the panel just vanishes. Instead
+  // we animate to x:"100%" on `closing`, then navigate once that finishes (see
+  // onAnimationComplete on the drawer below).
+  const [closing, setClosing] = useState(false);
+  // Same ReactFlow instance the canvas uses (shared provider) — lets close
+  // pan the graph back to the overview AT THE SAME TIME the panel slides out,
+  // instead of after the route change (which now waits for the slide-out).
+  const { fitView } = useReactFlow();
   // Key the inner Outlet by the active child match so AnimatePresence
   // sees the deployment overlay come and go. Without this the same
   // <Outlet /> element renders for every navigation and the exit never
@@ -202,7 +216,14 @@ function RouteComponent() {
       ? (resource.framework ?? null)
       : null;
 
-  const close = () => navigate({ to: "/$orgSlug/$projectSlug/graph" });
+  const close = () => {
+    setClosing(true);
+    // Pan back to the wide overview in lockstep with the slide-out (same 400ms
+    // as the drawer spring settle). The route-change refit in useDetailPanelRefit
+    // still fires when navigation lands, but by then the camera is already
+    // there, so it's a no-op — no second, delayed pan.
+    void fitView({ padding: 0.2, duration: 400 });
+  };
 
   const panel = () => {
     if (resource && resource.type === "database") {
@@ -272,15 +293,23 @@ function RouteComponent() {
     <m.div
       key={resourceId}
       initial={{ x: "100%" }}
-      animate={{ x: 0 }}
+      animate={{ x: closing ? "100%" : 0 }}
       exit={{ x: "100%" }}
       transition={{ type: "spring", stiffness: 320, damping: 32 }}
+      onAnimationComplete={() => {
+        // Only the close (slide-out) animation navigates; the mount slide-in
+        // completes with closing=false and is a no-op. By now the drawer is
+        // fully off-screen, so the route unmount is invisible.
+        if (closing) void navigate({ to: "/$orgSlug/$projectSlug/graph" });
+      }}
       className="pointer-events-auto relative h-full w-full bg-card rounded-lg rounded-tr-none border border-r-0 border-border lg:w-4/5 xl:w-3/5"
     >
       {panel()}
 
       <AnimatePresence mode="wait">
-        {deploymentKey ? <Outlet key={deploymentKey} /> : null}
+        <div className="contents" key={deploymentKey}>
+        <Outlet />
+        </div>
       </AnimatePresence>
     </m.div>
   );

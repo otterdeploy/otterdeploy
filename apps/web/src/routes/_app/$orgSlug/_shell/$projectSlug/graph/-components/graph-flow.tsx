@@ -39,6 +39,7 @@ export function GraphFlow({
   edges,
   onNodesChange,
   onNodeClick,
+  onNodeMouseEnter,
   onNodeDragStart,
   onNodeDragStop,
   traffic,
@@ -49,6 +50,10 @@ export function GraphFlow({
   edges: Edge[];
   onNodesChange: (changes: NodeChange[]) => void;
   onNodeClick: NonNullable<ReactFlowProps["onNodeClick"]>;
+  // Hover intent — preloads the clicked-panel route chunk so the drawer opens
+  // instantly on click (graph nodes navigate imperatively, so they miss the
+  // `<Link>` intent-preload that lists get for free).
+  onNodeMouseEnter: NonNullable<ReactFlowProps["onNodeMouseEnter"]>;
   onNodeDragStart: NonNullable<ReactFlowProps["onNodeDragStart"]>;
   onNodeDragStop: NonNullable<ReactFlowProps["onNodeDragStop"]>;
   traffic: TrafficSummary | null;
@@ -70,6 +75,7 @@ export function GraphFlow({
       onNodeDragStart={onNodeDragStart}
       onNodeDragStop={onNodeDragStop}
       onNodeClick={onNodeClick}
+      onNodeMouseEnter={onNodeMouseEnter}
     >
       <Background gap={20} size={1} />
       <Controls

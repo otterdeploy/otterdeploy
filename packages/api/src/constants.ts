@@ -31,6 +31,12 @@ export const PLATFORM = {
     root: process.env.OTTERDEPLOY_FILES_ROOT ?? "/var/lib/otterdeploy/files",
   },
   service: {
-    serviceNamePrefix: "otterdeploy-svc-",
+    // Swarm service / image-repo prefix. Kept short (`od-`, not the old
+    // `otterdeploy-svc-`): the image already lives under the `otterdeploy-local/`
+    // registry namespace, so a second full "otterdeploy" was pure redundancy,
+    // and the 16-char prefix ate a quarter of Docker's 63-char service-name
+    // budget (see the `.slice(0, 63)` in service/handlers.ts). Display strippers
+    // in the web app still recognise the legacy prefix for pre-rename services.
+    serviceNamePrefix: "od-",
   },
 } as const;

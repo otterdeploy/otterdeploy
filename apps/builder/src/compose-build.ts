@@ -274,6 +274,8 @@ export async function runComposeBuild(
       try: () => markImageReady(opts.deploymentId, ctx.compose.stackName),
       catch: (cause) => new BuildStepError({ step: "image-ready", cause }),
     });
+    // Images built; the stack rollout below is the deploy phase.
+    sink.setPhase("deploy");
 
     // Apply the stack against THIS deployment row (ownsDeployment=false →
     // deployCompose won't open a second deployment or settle status; the build

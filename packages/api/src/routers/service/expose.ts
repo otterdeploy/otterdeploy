@@ -19,9 +19,9 @@ import {
   updateProxyRoute,
 } from "../../caddy/queries";
 import { loadDomainSourcesForProject } from "../../lib/domain-sources";
-import { resolvePublicDomain } from "../../lib/domains";
+import { resolvePublicDomain, type ResolvedDomain } from "../../lib/domains";
 import { loadResource } from "./context";
-import { NoHttpPortError, ServiceNotFoundError } from "./errors";
+import { NoHttpPortError, NoPublicDomainError, ServiceNotFoundError } from "./errors";
 import { getService } from "./handlers";
 import { type ResourceRef } from "./inputs";
 import { getPrimaryHttpPort, setPublicExposure, type ServiceRecord } from "./queries";
@@ -44,15 +44,15 @@ async function refreshRouteUpstreams(
   }
 }
 
-/** Nothing live — either a first expose or every host is still a pending
- *  custom. Mint the generated host so expose actually exposes something. */
-async function mintGeneratedRoute(
+/** Resolve the host expose *would* mint when nothing else is serving — the
+ *  chain resource-override → project → org → local → sslip fallback. Kept
+ *  separate from the insert so the caller can inspect `source` (and refuse the
+ *  sslip fallback) before anything is written. */
+async function resolveGeneratedDomain(
   input: ResourceRef,
   record: ServiceRecord,
   projectSlug: string,
-  upstreamPort: number,
-  routes: ProxyRoutes,
-): Promise<void> {
+): Promise<ResolvedDomain> {
   const resourceSlug = sanitizeSlug(record.resource.name);
   // Walk the chain (resource override → project → org → sslip). The
   // per-resource `publicDomain` column on serviceResource is what feeds
@@ -67,10 +67,22 @@ async function mintGeneratedRoute(
     localBaseDomain: null,
     serverIp: null,
   };
-  const resolved = resolvePublicDomain(
+  return resolvePublicDomain(
     { resourceSlug, projectSlug, kind: "service" },
     { ...sources, resourceOverride: record.service.publicDomain },
   );
+}
+
+/** Nothing live — either a first expose or every host is still a pending
+ *  custom. Mint the already-resolved host so expose actually exposes
+ *  something. */
+async function insertGeneratedRoute(
+  input: ResourceRef,
+  record: ServiceRecord,
+  resolved: ResolvedDomain,
+  upstreamPort: number,
+  routes: ProxyRoutes,
+): Promise<void> {
   await insertProxyRoute({
     projectId: input.projectId,
     resourceId: input.resourceId,
@@ -110,8 +122,9 @@ async function settlePrimaryRoute(
 
 export async function exposeService(
   input: ResourceRef,
+  allowGeneratedDomain: boolean,
   log: RequestLogger,
-): Promise<Result<ServiceView, NotFound | NoHttpPortError>> {
+): Promise<Result<ServiceView, NotFound | NoHttpPortError | NoPublicDomainError>> {
   const ctx = await loadResource(input);
   if (ctx.isErr()) return Result.err(ctx.error);
   const { project, record } = ctx.value;
@@ -135,13 +148,20 @@ export async function exposeService(
 
   let routes = await listProxyRoutesByResourceId(input.resourceId);
   if (!routes.some((r) => r.enabled)) {
-    await mintGeneratedRoute(
-      input,
-      record,
-      sanitizeSlug(project.slug),
-      primary.containerPort,
-      routes,
-    );
+    const resolved = await resolveGeneratedDomain(input, record, sanitizeSlug(project.slug));
+    // No real domain resolved — the only host we could publish on is the
+    // throwaway sslip.io fallback. Refuse unless the operator explicitly opted
+    // in; the UI turns this into a "publish on <host>?" confirmation so a
+    // service is never silently made public on a temporary URL.
+    if (resolved.source === "sslip-fallback" && !allowGeneratedDomain) {
+      return Result.err(
+        new NoPublicDomainError({
+          resourceId: input.resourceId,
+          generatedDomain: resolved.fqdn,
+        }),
+      );
+    }
+    await insertGeneratedRoute(input, record, resolved, primary.containerPort, routes);
     routes = await listProxyRoutesByResourceId(input.resourceId);
   }
 

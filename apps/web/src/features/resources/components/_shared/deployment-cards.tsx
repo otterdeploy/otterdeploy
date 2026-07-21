@@ -32,6 +32,7 @@ export interface DeploymentInfo {
     | "starting"
     | "running"
     | "crashed"
+    | "paused"
     | "failed"
     | "superseded"
     | "removed";
@@ -131,6 +132,9 @@ const STATUS_LABEL: Record<DeploymentInfo["status"], string> = {
   starting: "starting",
   running: "running",
   crashed: "crashed",
+  // Deliberately stopped (scaled to zero) — rendered calm grey, no pulse, so it
+  // never reads as the green live "running" it replaces.
+  paused: "paused",
   failed: "failed",
   superseded: "replaced",
   removed: "removed",

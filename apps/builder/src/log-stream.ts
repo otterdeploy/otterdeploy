@@ -26,9 +26,14 @@ import { deploymentLog } from "@otterdeploy/db/schema";
 import { log as globalLog } from "evlog";
 
 type Stream = "stdout" | "stderr" | "system";
+/** Which half of the pipeline a line belongs to — drives which log tab shows
+ *  it. The sink starts in `build`; the pipeline flips it to `deploy` once the
+ *  image is ready and the rollout begins (see `setPhase`). */
+type Phase = "build" | "deploy";
 
 interface PendingLine {
   stream: Stream;
+  phase: Phase;
   line: string;
   ts: Date;
 }
@@ -39,6 +44,8 @@ const FLUSH_BATCH_SIZE = 50;
 export interface LogSink {
   write(stream: Stream, line: string): void;
   system(line: string): void;
+  /** Switch the phase tag applied to all subsequent lines (build → deploy). */
+  setPhase(phase: Phase): void;
   close(): Promise<void>;
 }
 
@@ -50,6 +57,7 @@ export function createLogSink(opts: {
   let buffer: PendingLine[] = [];
   let timer: ReturnType<typeof setTimeout> | null = null;
   let closed = false;
+  let currentPhase: Phase = "build";
 
   async function flush() {
     if (timer) {
@@ -64,6 +72,7 @@ export function createLogSink(opts: {
         batch.map((b) => ({
           deploymentId: opts.deploymentId,
           stream: b.stream,
+          phase: b.phase,
           line: b.line,
           ts: b.ts,
         })),
@@ -92,12 +101,13 @@ export function createLogSink(opts: {
     // Strip a single trailing newline so callers can pass raw lines
     // from a line-splitter without `\n` showing up in the DB column.
     const clean = line.endsWith("\n") ? line.slice(0, -1) : line;
-    buffer.push({ stream, line: clean, ts });
+    const phase = currentPhase;
+    buffer.push({ stream, phase, line: clean, ts });
     // Fire-and-forget pub/sub — the subscriber side is allowed to be
     // absent (no live tail viewer), and a publish failure here is
     // never worth failing the build over.
     opts.publisher
-      .publish(channel, JSON.stringify({ stream, line: clean, ts: ts.toISOString() }))
+      .publish(channel, JSON.stringify({ stream, phase, line: clean, ts: ts.toISOString() }))
       .catch((err) =>
         globalLog.warn({
           build: {
@@ -120,6 +130,9 @@ export function createLogSink(opts: {
     },
     system(line) {
       append("system", line);
+    },
+    setPhase(phase) {
+      currentPhase = phase;
     },
     async close() {
       closed = true;

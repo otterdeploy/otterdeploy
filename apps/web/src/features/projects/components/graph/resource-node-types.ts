@@ -25,7 +25,7 @@ export type ResourceEngine =
   | "docker"
   | "clickhouse";
 
-export type ResourceStatus = "running" | "building" | "error";
+export type ResourceStatus = "running" | "building" | "error" | "paused" | "queued";
 
 export interface VolumeAttachment {
   name: string;

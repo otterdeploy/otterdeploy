@@ -51,7 +51,7 @@ export function ChangeGroupCard({ group }: { group: GroupedChange }) {
         <div className="flex flex-col gap-2 border-t px-3 py-2">
           {group.spec.length > 0 && <SpecTable spec={group.spec} />}
           {group.fields.length > 0 && <FieldTable fields={group.fields} />}
-          {group.env.length > 0 && <EnvChangeList rows={group.env} />}
+          {group.env.length > 0 && <EnvChangeTable rows={group.env} />}
           {group.reason !== undefined && (
             <div className="text-xs text-muted-foreground">{group.reason}</div>
           )}
@@ -104,48 +104,59 @@ function FieldTable({ fields }: { fields: GroupedChange["fields"] }) {
   );
 }
 
-// Each env key on its own +/~/− line with its value(s), like a VCS diff.
-function EnvChangeList({ rows }: { rows: EnvRow[] }) {
+// Env changes in the same table shell as fields — Variable / Current / New —
+// with a colored +/~/− gutter glyph so add / update / delete still read at a
+// glance. Mono keeps the glyph column aligned without an explicit width.
+function EnvChangeTable({ rows }: { rows: EnvRow[] }) {
   return (
-    <div className="flex flex-col gap-0.5 font-mono text-xs">
-      {rows.map((r) => (
-        <EnvChangeLine key={`${r.kind}-${r.key}`} row={r} />
-      ))}
-    </div>
+    <table className="w-full font-mono text-xs">
+      <thead>
+        <tr className="text-muted-foreground">
+          <th className="py-1 text-left font-medium">Variable</th>
+          <th className="py-1 text-left font-medium">Current</th>
+          <th className="py-1 text-left font-medium">New</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <EnvChangeRow key={`${r.kind}-${r.key}`} row={r} />
+        ))}
+      </tbody>
+    </table>
   );
 }
 
-function EnvChangeLine({ row }: { row: EnvRow }) {
-  if (row.kind === "delete") {
-    return (
-      <div className="flex gap-2">
-        <span className="text-destructive">−</span>
-        <span className="break-all text-muted-foreground line-through">{row.key}</span>
-      </div>
-    );
-  }
-  if (row.kind === "update") {
-    return (
-      <div className="flex gap-2">
-        <span className="text-info">~</span>
-        <span className="break-all">
-          <span className="text-foreground">{row.key}</span>
-          <span className="text-muted-foreground"> {clip(row.from)} → </span>
-          <span className="text-foreground">{clip(row.to)}</span>
-        </span>
-      </div>
-    );
-  }
+const ENV_SIGN = { create: "+", update: "~", delete: "−" } as const;
+const ENV_SIGN_TINT = {
+  create: "text-success",
+  update: "text-info",
+  delete: "text-destructive",
+} as const;
+
+function EnvChangeRow({ row }: { row: EnvRow }) {
+  const current = row.kind === "update" ? clip(row.from) : "—";
+  const next =
+    row.kind === "delete"
+      ? "—"
+      : row.kind === "update"
+        ? clip(row.to)
+        : row.secret
+          ? "${secret} (set server-side)"
+          : clip(row.value);
   return (
-    <div className="flex gap-2">
-      <span className="text-success">+</span>
-      <span className="break-all">
-        <span className="text-foreground">{row.key}</span>
-        <span className="text-muted-foreground">
-          {" = "}
-          {row.secret ? "${secret} (set server-side)" : clip(row.value)}
+    <tr className="border-t border-border/40">
+      <td className="py-1 pr-3 align-top break-all">
+        <span className={`${ENV_SIGN_TINT[row.kind]} font-semibold`} aria-hidden>
+          {ENV_SIGN[row.kind]}
+        </span>{" "}
+        <span
+          className={row.kind === "delete" ? "text-muted-foreground line-through" : "text-foreground"}
+        >
+          {row.key}
         </span>
-      </span>
-    </div>
+      </td>
+      <td className="py-1 pr-3 align-top break-all text-muted-foreground">{current}</td>
+      <td className="py-1 align-top break-all text-foreground">{next}</td>
+    </tr>
   );
 }

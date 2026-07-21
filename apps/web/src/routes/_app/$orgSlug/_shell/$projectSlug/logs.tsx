@@ -38,6 +38,11 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/logs")(
   staticData: { crumb: "Logs" },
   validateSearch: zLogsSearch,
   component: RouteComponent,
+  // Warm the resource collection (drives the log source filter) on hover so the
+  // tab renders from cache. Non-blocking + best-effort.
+  loader: () => {
+    void resourceCollection.preload();
+  },
 });
 
 function RouteComponent() {

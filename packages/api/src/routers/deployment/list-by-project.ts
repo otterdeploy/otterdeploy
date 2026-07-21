@@ -161,12 +161,14 @@ async function refineLatestStatuses(
       if (!serviceName) continue;
       const tasks = await loadTaskStatesByDeployment(serviceName);
       const buildActive = await isBuildStillLogging(row, tasks);
+      const paused = found.kind === "service" && found.record.service.pausedReplicas != null;
       const derived = deriveDeploymentStatus(
         row.status,
         true,
         tasks.get(row.id) ?? [],
         row.createdAt,
         buildActive,
+        paused,
       );
       if (derived === "running" && (row.status === "building" || row.status === "pending")) {
         await reconcileDeploySuccess([row.id], row.resourceId);

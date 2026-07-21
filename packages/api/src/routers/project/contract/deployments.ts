@@ -41,14 +41,16 @@ export const deploymentSchema = z.object({
     "git-push",
     "rollback",
   ]),
-  // `crashed`/`starting` are derived-only (computed live from task states) —
-  // never stored DB values; see DerivedDeploymentStatus.
+  // `crashed`/`starting`/`paused` are derived-only (computed live from task
+  // states / the service's pause marker) — never stored DB values; see
+  // DerivedDeploymentStatus.
   status: z.enum([
     "pending",
     "building",
     "starting",
     "running",
     "crashed",
+    "paused",
     "failed",
     "superseded",
     "removed",

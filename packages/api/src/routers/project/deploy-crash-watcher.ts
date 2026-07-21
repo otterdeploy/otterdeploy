@@ -149,7 +149,9 @@ async function inspectRestartState(
 async function appendSystemLine(deploymentId: string, line: string): Promise<void> {
   await db
     .insert(deploymentLog)
-    .values({ deploymentId: deploymentId as DeploymentId, stream: "system", line })
+    // Runtime restart/health events are deploy-phase — they belong in Deploy
+    // Logs, not Build Logs.
+    .values({ deploymentId: deploymentId as DeploymentId, stream: "system", phase: "deploy", line })
     .catch(() => undefined);
 }
 

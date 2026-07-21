@@ -33,6 +33,7 @@ type DeploymentStatus =
   | "starting"
   | "running"
   | "crashed"
+  | "paused"
   | "failed"
   | "superseded"
   | "removed"

@@ -1,5 +1,7 @@
 // oxlint-disable-next-line unicorn/filename-case -- TanStack route-param file; the `$deploymentId.tsx` name is a framework requirement, not a style choice.
-import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
+import { useState } from "react";
+
+import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -50,6 +52,11 @@ function RouteComponent() {
   const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
   const { tab, previewId } = Route.useSearch();
   const navigate = Route.useNavigate();
+  // Drives the slide-OUT. Closing navigates back to the resource, which makes
+  // TanStack's <Outlet> render null at once — so the unmount-time `exit` has
+  // nothing to animate and the overlay just vanishes. Animate to x:"100%" on
+  // `closing`, then navigate when it finishes (see onAnimationComplete below).
+  const [closing, setClosing] = useState(false);
   const setTab = (next: DeploymentTab) =>
     void navigate({ search: (prev) => ({ ...prev, tab: next }), replace: true });
 
@@ -98,9 +105,19 @@ function RouteComponent() {
     <m.div
       key={deploymentId}
       initial={{ x: "100%" }}
-      animate={{ x: 0 }}
+      animate={{ x: closing ? "100%" : 0 }}
       exit={{ x: "100%" }}
       transition={{ type: "spring", stiffness: 320, damping: 32 }}
+      onAnimationComplete={() => {
+        // Only the close (slide-out) navigates; the mount slide-in completes
+        // with closing=false and is a no-op. By now the overlay is off-screen,
+        // so removing the route is invisible.
+        if (closing)
+          void navigate({
+            to: "/$orgSlug/$projectSlug/graph/$resourceId",
+            params: { orgSlug, projectSlug, resourceId },
+          });
+      }}
       className="absolute size-full bg-muted -top-5 -right-4 border rounded-tl-lg shadow-md overflow-hidden"
     >
       <div className="pointer-events-auto absolute inset-0 flex flex-col overflow-hidden bg-background">
@@ -130,9 +147,9 @@ function RouteComponent() {
                 ? new Date(deployment.createdAt).toLocaleString()
                 : "—"}
             </span>
-            <Link
-              to="/$orgSlug/$projectSlug/graph/$resourceId"
-              params={{ orgSlug, projectSlug, resourceId }}
+            <button
+              type="button"
+              onClick={() => setClosing(true)}
               aria-label="Close deployment"
               className="grid size-7 place-items-center rounded text-muted-foreground/70 hover:bg-muted hover:text-foreground"
             >
@@ -141,7 +158,7 @@ function RouteComponent() {
                 strokeWidth={2}
                 className="size-4"
               />
-            </Link>
+            </button>
           </div>
         </div>
 

@@ -42,6 +42,27 @@ export class NoHttpPortError extends TaggedError("NoHttpPortError")<{
   }
 }
 
+/**
+ * Raised when enabling public exposure on a service that has no real domain —
+ * the only host we could resolve is the throwaway `<slug>.<ip>.sslip.io`
+ * fallback. Rather than silently publish the service on that URL, expose
+ * refuses and hands back the host it *would* have minted so the UI can ask the
+ * operator to explicitly opt in (re-calling with `allowGeneratedDomain`).
+ */
+export class NoPublicDomainError extends TaggedError("NoPublicDomainError")<{
+  message: string;
+  resourceId: ResourceId;
+  generatedDomain: string;
+}>() {
+  constructor(args: { resourceId: ResourceId; generatedDomain: string }) {
+    super({
+      resourceId: args.resourceId,
+      generatedDomain: args.generatedDomain,
+      message: `service ${args.resourceId} has no domain; refusing to auto-expose on ${args.generatedDomain} without opt-in`,
+    });
+  }
+}
+
 export class ServiceInUseError extends TaggedError("ServiceInUseError")<{
   message: string;
   resourceId: ResourceId;

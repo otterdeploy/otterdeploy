@@ -20,6 +20,27 @@ describe("classifyLogSeverity", () => {
     expect(classifyLogSeverity("⨯ unhandledRejection: connect ECONNREFUSED")).toBe("error");
   });
 
+  test("crash headers marked only by a ❌ emoji classify as errors", () => {
+    // Regression: the t3-env/zod env-validation crash header renders as plain
+    // text because ❌ (U+274C) wasn't in the cross-mark set and the phrase has
+    // no error keyword — the single most important line in the log went white.
+    expect(classifyLogSeverity("❌ Invalid environment variables: [")).toBe("error");
+    expect(classifyLogSeverity("🛑 build aborted")).toBe("error");
+    // The phrase alone catches it even if the terminal strips the emoji.
+    expect(classifyLogSeverity("Invalid environment variables")).toBe("error");
+  });
+
+  test("non-zero container exit lines classify as errors", () => {
+    // Docker/otterdeploy print "Exited (1)"; the old `exit code:` pattern (with
+    // a literal colon) missed both this and "exited with code N".
+    expect(classifyLogSeverity("── abc123 · state: exited — Exited (1) 11 seconds ago ──")).toBe(
+      "error",
+    );
+    expect(classifyLogSeverity('error: script "start" exited with code 137')).toBe("error");
+    // A clean exit (code 0) is not an error.
+    expect(classifyLogSeverity("container Exited (0)")).toBe("normal");
+  });
+
   test("warnings and plain output keep their buckets", () => {
     expect(classifyLogSeverity("WARN  deprecated package")).toBe("warn");
     expect(classifyLogSeverity("GET /api/products 200 in 14ms")).toBe("normal");

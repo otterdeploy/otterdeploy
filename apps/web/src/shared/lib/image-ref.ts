@@ -1,9 +1,11 @@
 /** Platform-generated service name prefix — mirrors
  *  `config.service.serviceNamePrefix` in packages/api/src/constants.ts.
  *  EVERY image built on the control plane is named
- *  `otterdeploy-local/otterdeploy-svc-<project>-<service>:<sha>`, so the whole
- *  name portion is derivable boilerplate next to the service it belongs to. */
-const PLATFORM_SVC_PREFIX = "otterdeploy-svc-";
+ *  `otterdeploy-local/od-<project>-<service>:<sha>`, so the whole name portion
+ *  is derivable boilerplate next to the service it belongs to. The legacy
+ *  prefix is still matched for images built before the rename. */
+const PLATFORM_SVC_PREFIX = "od-";
+const LEGACY_PLATFORM_SVC_PREFIX = "otterdeploy-svc-";
 
 /**
  * Shorten an image ref for display. Platform-built refs collapse to their
@@ -21,6 +23,10 @@ export function shortImageRef(image: string): string {
   const tag = colon > slash ? ref.slice(colon + 1) : null;
   const name = repo.split("/").pop() ?? repo;
   const shortTag = tag && /^[0-9a-f]{12,}$/i.test(tag) ? tag.slice(0, 7) : tag;
-  if (name.startsWith(PLATFORM_SVC_PREFIX) && shortTag) return `build ${shortTag}`;
+  if (
+    (name.startsWith(PLATFORM_SVC_PREFIX) || name.startsWith(LEGACY_PLATFORM_SVC_PREFIX)) &&
+    shortTag
+  )
+    return `build ${shortTag}`;
   return shortTag ? `${name}:${shortTag}` : name;
 }

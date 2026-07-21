@@ -172,7 +172,7 @@ export function ContainerLogsDialog({
             </Button>
           </div>
         </DialogHeader>
-        <div className="max-h-[65vh] overflow-auto bg-[oklch(0.12_0_0)] p-4">
+        <div className="max-h-[65vh] overflow-auto bg-terminal text-terminal-foreground p-4">
           {logs.isLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -188,7 +188,7 @@ export function ContainerLogsDialog({
               {(logs.error as Error | null)?.message ?? "Couldn't fetch logs."}
             </p>
           ) : lines.length === 0 ? (
-            <p className="font-mono text-xs text-white/40">No log output.</p>
+            <p className="font-mono text-xs text-terminal-foreground/40">No log output.</p>
           ) : (
             <pre className="font-mono text-[11px] leading-relaxed">
               {lines.map((l, i) => (
@@ -196,7 +196,7 @@ export function ContainerLogsDialog({
                   key={i}
                   className={cn(
                     "whitespace-pre-wrap break-all",
-                    l.stream === "stderr" ? "text-red-300/90" : "text-white/80",
+                    l.stream === "stderr" ? "text-destructive" : "text-terminal-foreground/80",
                   )}
                 >
                   {l.line}

@@ -202,7 +202,7 @@ export function LogViewer({
           const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
           if (atBottom !== autoScroll) setAutoScroll(atBottom);
         }}
-        className="min-h-0 flex-1 overflow-auto rounded-md border bg-[oklch(0.12_0_0)] p-3 font-mono text-[11.5px] leading-relaxed"
+        className="min-h-0 flex-1 overflow-auto rounded-md border bg-terminal text-terminal-foreground p-3 font-mono text-[11.5px] leading-relaxed"
       >
         {!hasLines ? (
           empty

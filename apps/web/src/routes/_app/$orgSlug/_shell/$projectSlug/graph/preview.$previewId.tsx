@@ -15,7 +15,7 @@ import { ArrowUpRight01Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Button } from "@/shared/components/ui/button";
-import { Tabs, TabsContent, TabsContents, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
@@ -123,7 +123,7 @@ function PreviewPanel() {
               </TabsList>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-              <TabsContents>
+              <div className="relative">
                 <TabsContent value="overview">
                   <OverviewTab preview={preview} />
                 </TabsContent>
@@ -152,7 +152,7 @@ function PreviewPanel() {
                 <TabsContent value="settings">
                   <SettingsTab projectId={project.id} preview={preview} />
                 </TabsContent>
-              </TabsContents>
+              </div>
             </div>
           </Tabs>
         ) : null}

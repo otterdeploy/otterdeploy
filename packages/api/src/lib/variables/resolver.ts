@@ -10,6 +10,7 @@ import type { EnvironmentId, PreviewId, ProjectId, ResourceId } from "@otterdepl
 
 import { Result } from "better-result";
 
+import { listProxyRoutesByResourceId } from "../../caddy/queries";
 import {
   getDatabaseResourceRecord,
   getProjectRecord,
@@ -264,11 +265,15 @@ async function loadServiceExports(
   ctx.visited.delete(resourceRow.id);
   if (nestedResult.isErr()) return Result.err(nestedResult.error);
 
+  // Public domains (ordered primary-first) → DOMAIN / PUBLIC_URL / DOMAINS.
+  const routes = await listProxyRoutesByResourceId(resourceRow.id);
+
   const exports = serviceExports({
     resource: resourceRow,
     service: record.service,
     ports: record.ports,
     resolvedEnv: nestedResult.value,
+    domains: routes.map((r) => r.domain),
   });
   ctx.exportsCache.set(resourceRow.id, exports);
   return Result.ok(exports);

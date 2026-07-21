@@ -167,7 +167,10 @@ export async function seedServiceDomains(args: {
   const routesAdded = primaryRouteId !== null || skips.length < args.domains.length;
   if (!routesAdded) return skips;
 
-  const exposed = await exposeService(ref, args.log);
+  // Custom routes were just added above, so expose enables them in place and
+  // never reaches the sslip fallback — pass `false` (no silent sslip opt-in);
+  // if it ever did, refusing here becomes a non-fatal skip, which is correct.
+  const exposed = await exposeService(ref, false, args.log);
   if (exposed.isErr()) {
     skip(`expose skipped: ${exposed.error.message}`);
     return skips;

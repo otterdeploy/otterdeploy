@@ -9,10 +9,11 @@
  * exited tasks replay what docker has on disk and then close, advancing to
  * the next.
  */
-import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { Docker } from "@otterdeploy/docker";
 
+import { fetchLogsAfter } from "../deployment/log-stream";
 import {
   demuxDockerLogs,
   nowIso,
@@ -94,6 +95,14 @@ export async function* tailDeploymentLogs(
     return;
   }
 
+  // Deploy-phase platform log first — the rollout + restart/health lines the
+  // builder ("updating swarm service", "deployment running") and crash-watcher
+  // ("container exited — restarting…") recorded. These belong with Deploy, not
+  // Build. The containers' own stdout/stderr streams underneath.
+  for (const line of await fetchLogsAfter(input.deploymentId as DeploymentId, 0, "deploy")) {
+    yield { stream: line.stream, line: line.line, ts: line.ts };
+  }
+
   // One swarm service for a plain resource; every `${stack}-${key}` child for
   // a compose stack (the stack deployment tracks the rollout as a whole).
   const serviceNames = await resolveServiceNames(input.projectId, input.resourceId);
@@ -126,12 +135,13 @@ export async function* tailDeploymentLogs(
     const tagged = all.filter((t) => t.deploymentId === input.deploymentId);
     const instances = tagged.length > 0 ? tagged : all;
 
+    // No container ran for this deployment. Emit nothing and let the stream end
+    // cleanly — the client renders a proper empty state (icon + "check Build
+    // Logs" hint) for a deploy-logs stream that ends with zero lines. A stream
+    // where a container DID run always carries at least the trailing "End of
+    // deployment logs." line below, so ended-with-zero-lines unambiguously
+    // means "no container".
     if (instances.length === 0) {
-      yield {
-        stream: "system",
-        line: "No container has run for this deployment yet. If the build is still in progress or failed, check the Build Logs tab.",
-        ts: nowIso(),
-      };
       return;
     }
 

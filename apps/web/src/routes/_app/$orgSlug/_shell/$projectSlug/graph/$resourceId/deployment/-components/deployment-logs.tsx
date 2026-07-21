@@ -1,3 +1,6 @@
+import { ContainerIcon, SourceCodeIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
+
 import { stripAnsi } from "@/features/logs/components/ansi";
 import { LogViewer, type LogLine } from "@/features/logs/components/log-viewer";
 import { useLogStream } from "@/features/logs/data/use-log-stream";
@@ -46,12 +49,22 @@ export function DeploymentLogsBody({
       <LogViewer
         lines={lines}
         empty={
-          <LogEmpty
-            title={
-              status === "connecting" ? "Loading deployment logs…" : "No logs in this time range"
-            }
-            hint="Logs will show up here as they are found."
-          />
+          status === "connecting" ? (
+            <LogEmpty
+              icon={ContainerIcon}
+              title="Loading deployment logs…"
+              hint="Fetching this deployment's container output."
+            />
+          ) : (
+            // The stream ended (or is live) with zero lines. Because a
+            // deployment whose container ran always streams at least a trailing
+            // line, an empty deploy-logs stream means no container has run.
+            <LogEmpty
+              icon={ContainerIcon}
+              title="No container has run for this deployment yet"
+              hint="If the build is still in progress or failed, check the Build Logs tab."
+            />
+          )
         }
       />
     </div>
@@ -93,6 +106,7 @@ export function BuildLogsBody({ deploymentId }: { deploymentId: string }) {
         lines={lines}
         empty={
           <LogEmpty
+            icon={SourceCodeIcon}
             title={
               status === "connecting"
                 ? "Connecting to build log stream…"
@@ -124,7 +138,7 @@ export function NotImplementedTab({
 
 function EmptyTab({ title, hint }: { title: string; hint: string }) {
   return (
-    <div className="grid h-full place-items-center rounded-md border bg-[oklch(0.12_0_0)] p-6 text-center">
+    <div className="grid h-full place-items-center rounded-md border bg-terminal text-terminal-foreground p-6 text-center">
       <div className="flex max-w-md flex-col items-center gap-2">
         <div className="text-[14px] font-medium text-foreground/80">
           {title}
@@ -135,11 +149,16 @@ function EmptyTab({ title, hint }: { title: string; hint: string }) {
   );
 }
 
-// Centered empty/loading copy rendered inside a LogViewer's scroller.
-function LogEmpty({ title, hint }: { title: string; hint: string }) {
+// Centered empty/loading state rendered inside a LogViewer's scroller — a muted
+// icon over a title + hint, so an empty pane reads as a deliberate state rather
+// than a stray line of text.
+function LogEmpty({ icon, title, hint }: { icon: IconSvgElement; title: string; hint: string }) {
   return (
     <div className="grid h-full place-items-center text-center">
-      <div className="flex flex-col items-center gap-2">
+      <div className="flex max-w-sm flex-col items-center gap-2.5">
+        <div className="grid size-11 place-items-center rounded-full border border-border/50 bg-foreground/[0.03] text-muted-foreground/70">
+          <HugeiconsIcon icon={icon} strokeWidth={1.8} className="size-5" />
+        </div>
         <div className="text-[14px] font-medium text-foreground/80">{title}</div>
         <div className="text-[12px] text-muted-foreground">{hint}</div>
       </div>

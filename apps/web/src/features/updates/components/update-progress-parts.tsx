@@ -182,7 +182,7 @@ export function LogPane({
   return (
     <div
       ref={scrollRef}
-      className="h-[320px] overflow-auto rounded-md border bg-[oklch(0.12_0_0)] p-2.5 font-mono text-[11px] leading-relaxed text-foreground/85"
+      className="h-[320px] overflow-auto rounded-md border bg-terminal p-2.5 font-mono text-[11px] leading-relaxed text-terminal-foreground/85"
     >
       {lines.length === 0 ? (
         <div className="text-muted-foreground/60">Starting…</div>

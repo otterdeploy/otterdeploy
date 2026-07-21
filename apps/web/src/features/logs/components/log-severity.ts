@@ -21,11 +21,13 @@ const SEVERITY_PATTERNS: ReadonlyArray<readonly [Exclude<LogSeverity, "normal">,
     [
       /(^|[^a-z])(error|fatal|panic|failed|failure|exception|traceback)([^a-z]|$)/i,
       /\b[A-Z]\w*Error\b/, // TypeError, ReferenceError, …
-      /[✖✗⨯]/, // incl. U+2A2F — Next.js prefixes runtime errors with it
+      /[✖✗⨯❌🛑⛔]/, // cross/stop marks tools & apps prefix errors with (U+2716/2717/2A2F/274C/1F6D1/26D4)
       /^at\s+\S/, // stack frame — keeps a whole trace one contiguous red block
       /^\.\.\.\s*\d+\s*lines? matching/i,
       /^cause:/i,
       /exit code:\s*[1-9]/i,
+      /\bexit(?:ed)?\b[^)\n]*\(?\s*[1-9]\d*\)?/i, // "Exited (1)", "exited with code 137" — any non-zero container exit
+      /\binvalid environment variables\b/i, // t3-env / zod env validation crash header (often only marked by an ❌ emoji)
       /\bdid not complete successfully\b/i,
     ],
   ],

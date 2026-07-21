@@ -33,6 +33,16 @@ import {
 import { orpc } from "@/shared/server/orpc";
 
 import { isRateLimitedError } from "./root-directory-picker-data";
+
+/**
+ * Parent of a repo-relative folder path, used to open the picker one level
+ * ABOVE the committed value so that value shows as a selected row in its
+ * parent's listing rather than the picker browsing into it.
+ * "apps/web" → "apps", "apps" → "" (root), "" → "".
+ */
+function parentPath(path: string): string {
+  return path.includes("/") ? path.split("/").slice(0, -1).join("/") : "";
+}
 import {
   BrowsePaneBody,
   BrowsePaneHeader,
@@ -60,9 +70,12 @@ export function RootDirectoryPicker({
   // Two independent paths inside the dialog:
   //   browsePath  — which folder's contents are currently visible
   //   selected    — the radio-picked folder, what "Use this folder" commits
-  // They diverge whenever the operator drills into a subfolder without
-  // picking it (e.g. opens `apps/` to confirm `apps/web` is in there).
-  const [browsePath, setBrowsePath] = useState<string>(value);
+  // They start diverged: browsePath opens at the PARENT of the committed
+  // value so the value renders as a highlighted row in its parent's listing
+  // (e.g. value `apps/web` opens `apps/` with `web` selected) instead of
+  // browsing into `apps/web`. They also diverge when the operator drills into
+  // a subfolder without picking it.
+  const [browsePath, setBrowsePath] = useState<string>(() => parentPath(value));
   const [selected, setSelected] = useState<string>(value);
 
   // Cache-warm the current folder before the dialog opens. Runs above the
@@ -78,7 +91,7 @@ export function RootDirectoryPicker({
 
   const onOpenChange = (next: boolean) => {
     if (next) {
-      setBrowsePath(value);
+      setBrowsePath(parentPath(value));
       setSelected(value);
     }
     setOpen(next);

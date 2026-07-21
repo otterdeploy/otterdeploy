@@ -44,10 +44,13 @@ import {
 export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/networking")({
   staticData: { crumb: "Networking" },
   component: RouteComponent,
-  // Warm the two on-mount queries on hover (intent-preload) so the tab renders
-  // from cache instead of spinning. Non-blocking + best-effort: a cold project
-  // row or failed prefetch just falls back to fetch-on-mount, as before.
+  // Warm the on-mount data on hover (intent-preload) so the tab renders from
+  // cache instead of spinning. Non-blocking + best-effort: a cold project row
+  // or failed prefetch just falls back to fetch-on-mount, as before.
   loader: ({ params }) => {
+    // The Routes table's own data is a live react-db collection, not an orpc
+    // query — preload it too, or the main panel still fetches on mount.
+    void proxyRoutesCollection.preload();
     const projectId = projectIdBySlug(params.projectSlug);
     if (!projectId) return;
     void queryClient

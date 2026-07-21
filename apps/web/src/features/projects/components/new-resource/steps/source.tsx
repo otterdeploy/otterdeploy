@@ -17,7 +17,7 @@
  * check itself.
  */
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { useStore } from "@tanstack/react-form";
 import { skipToken, useQuery } from "@tanstack/react-query";
@@ -28,6 +28,7 @@ import { orpc } from "@/shared/server/orpc";
 
 import { useFormContext } from "../form-context";
 import { SectionHeader } from "../form-primitives";
+import { frameworkDefaultServiceType, pickDefaultMonorepoApp } from "../frameworks";
 import { RootDirectoryPicker } from "../root-directory-picker";
 import { BindingSummary, useBindingSummary } from "./source-binding";
 import {
@@ -79,6 +80,40 @@ export function StepSource() {
     if (derived && derived !== name) form.setFieldValue("name", derived);
   }, [repo, boundFullName, name, kindId, form]);
 
+  // The same repo inspection RepoCheck / the badge run (react-query dedupes on
+  // the shared key), used here to pre-select the service type from what we
+  // detected: an SPA/static framework (Vite, React, …) → "Static site"; a server
+  // framework → "Web app". Only until the operator picks one (kindTouched); we
+  // keep the name placeholder in lockstep so derive-from-repo still fires.
+  const inspect = useQuery({
+    ...orpc.git.inspectRepo.queryOptions({
+      input: repo ? { gitRepoId: repo, path: root || "" } : skipToken,
+    }),
+    staleTime: 5 * 60 * 1000,
+  });
+  const kindTouched = useRef(false);
+  useEffect(() => {
+    if (kindTouched.current) return;
+    const fw = inspect.data?.framework;
+    if (!fw) return;
+    const desired = frameworkDefaultServiceType(fw);
+    if (desired === kindId) return;
+    if (name === kindId) form.setFieldValue("name", desired);
+    form.setFieldValue("kindId", desired);
+  }, [inspect.data?.framework, kindId, name, form]);
+
+  // Monorepo: the deployable app almost never sits at the repo root, so point
+  // the root at the best-guess `apps/*` package (from the detected workspace
+  // packages). Detection then re-runs against that folder, so the framework +
+  // service type reflect the actual app. Only while the root is still empty and
+  // the operator hasn't browsed to a folder themselves.
+  const rootTouched = useRef(false);
+  useEffect(() => {
+    if (rootTouched.current || root !== "" || !inspect.data?.monorepo) return;
+    const app = pickDefaultMonorepoApp(inspect.data.monorepoPackages ?? []);
+    if (app) form.setFieldValue("root", app);
+  }, [inspect.data?.monorepo, inspect.data?.monorepoPackages, root, form]);
+
   // Bind the repo; leave `branch` empty so the BranchPicker below can seed it
   // from the repo's real default branch once `git.listBranches` resolves
   // (forcing "main" here would mask a master/develop default). Both bind paths
@@ -116,6 +151,10 @@ export function StepSource() {
           form.setFieldValue("repoFullName", "");
           form.setFieldValue("branch", "");
           form.setFieldValue("name", kindId);
+          form.setFieldValue("root", "");
+          // Let the new repo's framework + layout re-default the type and root.
+          kindTouched.current = false;
+          rootTouched.current = false;
         }}
       />
 
@@ -139,7 +178,12 @@ export function StepSource() {
               />
               <ServiceTypeSelector
                 kindId={kindId}
-                onChange={(next) => form.setFieldValue("kindId", next)}
+                onChange={(next) => {
+                  // The operator chose a type — stop auto-defaulting it from the
+                  // detected framework.
+                  kindTouched.current = true;
+                  form.setFieldValue("kindId", next);
+                }}
               />
               <form.AppField name="name">
                 {(f) => (
@@ -157,7 +201,12 @@ export function StepSource() {
                     gitRepoId={repo || null}
                     value={root}
                     repoFullName={boundFullName}
-                    onChange={(next) => form.setFieldValue("root", next)}
+                    onChange={(next) => {
+                      // The operator picked a folder — stop auto-pointing it at
+                      // the guessed monorepo app.
+                      rootTouched.current = true;
+                      form.setFieldValue("root", next);
+                    }}
                   />
                 </label>
                 <p className="text-[11px] text-muted-foreground">

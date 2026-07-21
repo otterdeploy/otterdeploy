@@ -22,6 +22,7 @@ describe("deriveDeploymentStatus", () => {
       [glimpse({ state: "running" })],
       fresh(),
       false,
+      false,
     );
     expect(status).toBe("running");
   });
@@ -36,6 +37,7 @@ describe("deriveDeploymentStatus", () => {
       [glimpse({ state: "exited", exitCode: 1, restartCount: 5 })],
       fresh(),
       false,
+      false,
     );
     expect(status).toBe("crashed");
   });
@@ -46,6 +48,7 @@ describe("deriveDeploymentStatus", () => {
       true,
       [glimpse({ state: "exited", oomKilled: true })],
       fresh(),
+      false,
       false,
     );
     expect(status).toBe("crashed");
@@ -58,6 +61,7 @@ describe("deriveDeploymentStatus", () => {
       [glimpse({ state: "exited", exitCode: 0, restartCount: 3 })],
       fresh(),
       false,
+      false,
     );
     expect(status).toBe("crashed");
   });
@@ -68,6 +72,7 @@ describe("deriveDeploymentStatus", () => {
       true,
       [glimpse({ state: "restarting" })],
       fresh(),
+      false,
       false,
     );
     expect(status).toBe("crashed");
@@ -85,6 +90,7 @@ describe("deriveDeploymentStatus", () => {
       ],
       fresh(),
       false,
+      false,
     );
     expect(status).toBe("crashed");
   });
@@ -99,6 +105,7 @@ describe("deriveDeploymentStatus", () => {
       [glimpse({ state: "exited", exitCode: 0, restartCount: 0 })],
       fresh(),
       false,
+      false,
     );
     expect(status).toBe("running");
   });
@@ -109,6 +116,7 @@ describe("deriveDeploymentStatus", () => {
       true,
       [glimpse({ state: "failed", exitCode: 1 }), glimpse({ state: "preparing" })],
       fresh(),
+      false,
       false,
     );
     expect(status).toBe("running");
@@ -123,39 +131,40 @@ describe("deriveDeploymentStatus", () => {
       [glimpse({ state: "starting" })],
       fresh(),
       false,
+      false,
     );
     expect(status).toBe("starting");
   });
 
   test("fresh zero-task building row stays building", () => {
-    const status = deriveDeploymentStatus("building", true, [], fresh(), false);
+    const status = deriveDeploymentStatus("building", true, [], fresh(), false, false);
     expect(status).toBe("building");
   });
 
   test("stale zero-task building row with no build output is failed", () => {
-    const status = deriveDeploymentStatus("building", true, [], stale(), false);
+    const status = deriveDeploymentStatus("building", true, [], stale(), false, false);
     expect(status).toBe("failed");
   });
 
   test("stale zero-task building row with an active build log stays building", () => {
-    const status = deriveDeploymentStatus("building", true, [], stale(), true);
+    const status = deriveDeploymentStatus("building", true, [], stale(), true, false);
     expect(status).toBe("building");
   });
 
   test("stale zero-task pending row is failed (enqueue died)", () => {
-    const status = deriveDeploymentStatus("pending", true, [], stale(), false);
+    const status = deriveDeploymentStatus("pending", true, [], stale(), false, false);
     expect(status).toBe("failed");
   });
 
   // ─── history rows ────────────────────────────────────────────────────
 
   test("non-latest row with no tasks is superseded", () => {
-    const status = deriveDeploymentStatus("running", false, [], fresh(), false);
+    const status = deriveDeploymentStatus("running", false, [], fresh(), false, false);
     expect(status).toBe("superseded");
   });
 
   test("non-latest FAILED row with no tasks stays failed (superseded must not hide a failure)", () => {
-    const status = deriveDeploymentStatus("failed", false, [], fresh(), false);
+    const status = deriveDeploymentStatus("failed", false, [], fresh(), false, false);
     expect(status).toBe("failed");
   });
 
@@ -165,6 +174,7 @@ describe("deriveDeploymentStatus", () => {
       false,
       [glimpse({ state: "exited", exitCode: 1 })],
       fresh(),
+      false,
       false,
     );
     expect(status).toBe("failed");
@@ -177,6 +187,7 @@ describe("deriveDeploymentStatus", () => {
       [glimpse({ state: "failed", exitCode: 1 })],
       fresh(),
       false,
+      false,
     );
     expect(status).toBe("failed");
   });
@@ -187,6 +198,7 @@ describe("deriveDeploymentStatus", () => {
       true,
       [glimpse({ state: "restarting" })],
       fresh(),
+      false,
       false,
     );
     expect(status).toBe("crashed");
@@ -199,7 +211,34 @@ describe("deriveDeploymentStatus", () => {
       [glimpse({ state: "failed", exitCode: 1 })],
       fresh(),
       false,
+      false,
     );
     expect(status).toBe("failed");
+  });
+
+  // ─── paused ──────────────────────────────────────────────────────────
+
+  test("paused latest service reads paused, overriding the stale running status", () => {
+    // Pausing scales to zero, so the (formerly running) task is gone. Without
+    // the pause override this derives back to the stored "running".
+    const status = deriveDeploymentStatus("running", true, [], fresh(), false, true);
+    expect(status).toBe("paused");
+  });
+
+  test("paused overrides even a still-lingering running task on the latest row", () => {
+    const status = deriveDeploymentStatus(
+      "running",
+      true,
+      [glimpse({ state: "running" })],
+      fresh(),
+      false,
+      true,
+    );
+    expect(status).toBe("paused");
+  });
+
+  test("paused only applies to the latest row — history keeps its real outcome", () => {
+    const status = deriveDeploymentStatus("running", false, [], fresh(), false, true);
+    expect(status).toBe("superseded");
   });
 });

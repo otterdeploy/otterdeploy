@@ -3,11 +3,12 @@
 // line .env paste = one deployment, not twelve.
 
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
-import { useEffect, useRef, useState } from "react";
+import { useImperativeHandle, useState, type Ref } from "react";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { BulkEditDialog } from "./bulk-edit-dialog";
@@ -26,11 +27,15 @@ export interface VariablesEditorResource {
   secretKeys: string[];
 }
 
+export interface VariablesEditorHandle {
+  /** Append a blank row — driven by an external "New Variable" button. */
+  addRow: () => void;
+}
+
 interface VariablesEditorProps {
   resource: VariablesEditorResource;
-  // Bumped by the tab header's "New Variable" button — when it advances
-  // the editor adds an empty row.
-  addRowSignal?: number;
+  // Imperative handle for the tab header's "New Variable" button to add a row.
+  ref?: Ref<VariablesEditorHandle>;
   // Override persistence. Default = the live-resource `env.bulkSet` mutation.
   // A pending-create resource has no resourceId yet, so it passes a handler
   // that stages the env onto its manifest entry instead. Secret keys are
@@ -38,7 +43,7 @@ interface VariablesEditorProps {
   onSave?: (env: Array<{ key: string; value: string }>, secretKeys: string[]) => Promise<void>;
 }
 
-export function VariablesEditor({ resource, addRowSignal = 0, onSave }: VariablesEditorProps) {
+export function VariablesEditor({ resource, ref, onSave }: VariablesEditorProps) {
   const [bulkOpen, setBulkOpen] = useState(false);
 
   // Tolerate undefined here — the resource list cache predates the
@@ -50,27 +55,33 @@ export function VariablesEditor({ resource, addRowSignal = 0, onSave }: Variable
     serverSecretKeys: resource.secretKeys ?? [],
   });
 
-  const lastAddSignal = useRef(0);
-  useEffect(() => {
-    if (addRowSignal > lastAddSignal.current) {
-      lastAddSignal.current = addRowSignal;
-      editor.addRow();
-    }
-    // editor.addRow is stable enough for this single-shot effect — it's
-    // recreated each render but we only consult it when the signal advances.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [addRowSignal]);
+  // Warm the reference list once for the whole editor so a row's { } picker
+  // opens instantly. Each row's ReferencePicker reads the same query key, so
+  // it hits this cache instead of firing (and spinning) on first click.
+  useQuery(
+    orpc.project.refs.list.queryOptions({
+      input: { projectId: resource.projectId },
+      staleTime: 30_000,
+    }),
+  );
+
+  // Imperative handle for the header's "New Variable" button — replaces the old
+  // useRef+useEffect signal counter (an anti-pattern: it bumped a monotonic
+  // prop through an effect purely to fire a local action). addRow is local
+  // editor state, so this exposes it directly rather than round-tripping a prop.
+  useImperativeHandle(ref, () => ({ addRow: () => void editor.addRow() }), [editor]);
 
   const [stagingSave, setStagingSave] = useState(false);
   const saveMut = useMutation(
     orpc.project.resource.env.bulkSet.mutationOptions({
       onSuccess: async () => {
-        await queryClient.invalidateQueries({
-          queryKey: orpc.project.resource.list.queryKey({
-            input: { projectId: resource.projectId },
-          }),
-        });
-        toast.success("Variables saved — service redeploying");
+        // The panel reads env from the react-db `resourceCollection`, whose
+        // cache key is prefixed by RESOURCE_COLLECTION_KEY — invalidating the
+        // bare orpc list key (as before) never matched it, so the edit only
+        // surfaced on the collection's 5s poll. Invalidate the collection so the
+        // just-saved var appears at once.
+        await queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY });
+        toast.success("Variables saved — Deploy to apply");
       },
       onError: (err) => toast.error(err.message ?? "Failed to save"),
     }),
@@ -99,6 +110,10 @@ export function VariablesEditor({ resource, addRowSignal = 0, onSave }: Variable
       resourceId: resource.resourceId,
       env,
       secretKeys,
+      // Persist only — a container's env is fixed at creation, so applying it
+      // means recreating the task. Saving no longer forces that; the operator
+      // hits Deploy when ready (the redeploy re-resolves env from these rows).
+      redeploy: false,
     });
   };
 

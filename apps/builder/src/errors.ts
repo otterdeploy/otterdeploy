@@ -12,6 +12,20 @@ import type { DeploymentId } from "@otterdeploy/shared/id";
 
 import { TaggedError } from "better-result";
 
+/** Join an Error's `.cause` chain into one message. Drizzle wraps the real
+ *  driver error (connection refused, `relation … does not exist`, …) as the
+ *  `.cause` of its opaque "Failed query: …" — so without walking the chain the
+ *  actual reason never reaches the deployment's stored errorMessage, leaving
+ *  operators staring at "Failed query" with no cause. Capped at a few levels
+ *  and de-duplicated so a message that already embeds its cause isn't doubled. */
+function describeCause(cause: unknown, depth = 0): string {
+  if (cause instanceof Error) {
+    const inner = depth < 5 ? describeCause((cause as { cause?: unknown }).cause, depth + 1) : "";
+    return inner && !cause.message.includes(inner) ? `${cause.message}: ${inner}` : cause.message;
+  }
+  return cause == null ? "" : String(cause);
+}
+
 /** A build step that shells out (clone, railpack, docker) or hits the DB
  *  threw. Wraps the cause with the step label so the failure stays
  *  attributable without a raw `throw new Error`. */
@@ -21,7 +35,7 @@ export class BuildStepError extends TaggedError("BuildStepError")<{
   cause: unknown;
 }>() {
   constructor(args: { step: string; cause: unknown }) {
-    const detail = args.cause instanceof Error ? args.cause.message : String(args.cause);
+    const detail = describeCause(args.cause) || String(args.cause);
     super({
       step: args.step,
       cause: args.cause,

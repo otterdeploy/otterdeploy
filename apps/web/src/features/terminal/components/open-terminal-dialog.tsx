@@ -19,7 +19,6 @@ import {
 import {
   Tabs,
   TabsContent,
-  TabsContents,
   TabsList,
   TabsTrigger,
 } from "@/shared/components/ui/tabs";
@@ -135,7 +134,7 @@ export function OpenTerminalDialog({ open, onOpenChange, onPick, defaultProject 
             </TabsTrigger>
           </TabsList>
 
-          <TabsContents>
+          <div className="relative">
             <TabsContent value="container" className="mt-4">
               <ContainerTab
                 projectFilter={projectFilter}
@@ -153,7 +152,7 @@ export function OpenTerminalDialog({ open, onOpenChange, onPick, defaultProject 
             <TabsContent value="database" className="mt-4 space-y-2 pb-8">
               <DatabaseTab databases={databases} onPick={pick} />
             </TabsContent>
-          </TabsContents>
+          </div>
         </Tabs>
 
         <div className="h-4" />

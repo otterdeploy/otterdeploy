@@ -5,7 +5,6 @@ import type { ProjectResource } from "@/features/projects/components/graph/resou
 import {
   Tabs,
   TabsContent,
-  TabsContents,
   TabsList,
   TabsTrigger,
 } from "@/shared/components/ui/tabs";
@@ -55,7 +54,7 @@ export function DeploymentTabs({
       onValueChange={(v) => {
         if (v) onTabChange(v as DeploymentTab);
       }}
-      className="mt-4 flex min-h-0 flex-1 flex-col gap-0"
+      className="mt-4 flex min-h-0 flex-1 flex-col gap-0 pb-15"
     >
       <div className="border-b border-border/60 px-6">
         <TabsList variant="line" className="h-auto bg-transparent p-0">
@@ -77,7 +76,7 @@ export function DeploymentTabs({
         </TabsList>
       </div>
       <div className="min-h-0 flex-1 overflow-hidden">
-        <TabsContents className="h-full">
+        <div className="relative h-full">
           <TabsContent
             value="details"
             keepMounted
@@ -139,7 +138,7 @@ export function DeploymentTabs({
               />
             </Activity>
           </TabsContent>
-        </TabsContents>
+        </div>
       </div>
     </Tabs>
   );
