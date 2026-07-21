@@ -23,6 +23,7 @@ import {
   resolveServiceId,
   resolveServiceName,
   type ResourceLogEvent,
+  unresolvedLogTargetMessage,
 } from "./log-stream-shared";
 import { getProjectInOrg } from "./queries";
 import { listResourceInstances } from "./resource-instances";
@@ -84,7 +85,8 @@ async function* tailContainerLogs(
 ): AsyncGenerator<ResourceLogEvent, void, void> {
   const serviceName = await resolveServiceName(input.projectId, input.resourceId);
   if (!serviceName) {
-    yield { stream: "system", line: "Resource not found", ts: nowIso() };
+    const line = await unresolvedLogTargetMessage(input.projectId, input.resourceId);
+    yield { stream: "system", line, ts: nowIso() };
     return;
   }
   const follow = input.follow ?? true;
@@ -198,7 +200,8 @@ async function* tailSwarmServiceLogs(
     while (true) {
       const resolved = await resolveServiceId(input.projectId, input.resourceId, docker);
       if (!resolved) {
-        yield { stream: "system", line: "Resource not found", ts: nowIso() };
+        const line = await unresolvedLogTargetMessage(input.projectId, input.resourceId);
+        yield { stream: "system", line, ts: nowIso() };
         return;
       }
 

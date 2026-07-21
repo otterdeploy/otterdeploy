@@ -55,6 +55,26 @@ export async function resolveServiceName(
   return null;
 }
 
+// System line for a resource whose runtime logs can't be tailed as a single
+// stream. Distinguishes a genuinely-missing resource from a compose stack —
+// which exists but owns no swarm service of its own, so "Resource not found"
+// (the old message) was a lie that sent users hunting for a non-problem.
+export async function unresolvedLogTargetMessage(
+  projectId: ProjectId,
+  resourceId: ResourceId,
+): Promise<string> {
+  const found = await getResourceById(projectId, resourceId);
+  if (!found) return "Resource not found";
+  if (found.kind === "compose") {
+    return (
+      "This is a compose stack — it has no combined runtime log stream yet. " +
+      "Tail one of its services with `otterdeploy logs <service>`, " +
+      "or use `otterdeploy logs <stack> --build` for the stack's build logs."
+    );
+  }
+  return "Resource not found";
+}
+
 // Every swarm service a resource maps to: one name for databases/services,
 // the full `${stack}-${key}` fan-out for a compose stack.
 export async function resolveServiceNames(

@@ -22,10 +22,14 @@ function truncate(text: string, max: number): string {
 export const deploymentsCommand = defineCommand({
   meta: {
     name: "deployments",
-    description: "List deployment history for a service",
+    description: "List deployment history for a service or compose stack",
   },
   args: {
-    service: { type: "positional", required: false, description: "Service name" },
+    service: {
+      type: "positional",
+      required: false,
+      description: "Service or compose stack name",
+    },
     config: { type: "string", description: "Path to config file" },
     slug: { type: "string", description: "Project slug (defaults to config)" },
     url: { type: "string", description: "Override control plane URL" },
@@ -33,7 +37,10 @@ export const deploymentsCommand = defineCommand({
     json: { type: "boolean", description: "Output as JSON" },
   },
   async run({ args }) {
-    const ctx = await resolveResource(args, args.service, "service");
+    // No kind filter: deployment history is resource-type-agnostic on the
+    // server (project.resource.deployments.list keys off resourceId), so a
+    // compose stack lists its own deploy rows here too.
+    const ctx = await resolveResource(args, args.service);
     const rows = await ctx.client.project.resource.deployments.list({
       projectId: ctx.projectId,
       resourceId: ctx.resourceId,

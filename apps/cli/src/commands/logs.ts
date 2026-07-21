@@ -224,7 +224,9 @@ export const logsCommand = defineCommand({
     });
 
     if (args.build) {
-      const ctx = await resolveResource(args, args.resource, "service");
+      // No kind filter: build logs stream by deployment id (kind-agnostic on
+      // the server), so a compose stack's build logs are reachable here too.
+      const ctx = await resolveResource(args, args.resource);
       await runBuildLogs(ctx, args.deployment, json, follow, () => stopping);
       process.exit(0);
     }

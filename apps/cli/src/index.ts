@@ -25,6 +25,7 @@ import { orgCommand } from "./commands/org";
 import { platformCommand } from "./commands/platform";
 import { projectCommand } from "./commands/project";
 import { pullCommand } from "./commands/pull";
+import { redeployCommand } from "./commands/redeploy";
 import { removeCommand } from "./commands/remove";
 import { restartCommand } from "./commands/restart";
 import { rollbackCommand } from "./commands/rollback";
@@ -32,6 +33,7 @@ import { statusCommand } from "./commands/status";
 import { syncCommand } from "./commands/sync";
 import { tokensCommand } from "./commands/tokens";
 import { upCommand } from "./commands/up";
+import { volumeCommand } from "./commands/volume";
 import { whoamiCommand } from "./commands/whoami";
 import { applyColorPreference } from "./lib/color";
 import { wrapCommand } from "./lib/errors";
@@ -66,10 +68,12 @@ const main = defineCommand({
     restart: restartCommand,
     rollback: rollbackCommand,
     build: buildCommand,
+    redeploy: redeployCommand,
     deployments: deploymentsCommand,
     logs: logsCommand,
     exec: execCommand,
     domains: domainsCommand,
+    volume: volumeCommand,
     env: envCommand,
     environments: environmentsCommand,
     // ─── Data & backups ──────────────────────────────────────────────
