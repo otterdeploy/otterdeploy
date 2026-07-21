@@ -1,4 +1,5 @@
-import { describe, expect, mock, test } from "vite-plus/test";
+import { mock } from "bun:test";
+import { describe, expect, test } from "vite-plus/test";
 
 /**
  * The device flow hands the CLI an absolute URL to open in a browser. Because
