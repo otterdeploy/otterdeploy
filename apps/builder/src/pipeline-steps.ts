@@ -23,9 +23,12 @@ import { log as globalLog } from "evlog";
 import type { PipelineContext } from "./load";
 import type { LogSink } from "./log-stream";
 
+import { readFileSync } from "node:fs";
+
 import { runDeployHooks } from "./deploy-hook";
 import { dockerPush } from "./docker-push";
 import { dockerfileBuild, resolveDockerfileBuild } from "./dockerfile";
+import { assertDockerfileValid } from "./dockerfile-validate";
 import {
   BuildStepError,
   DeployHookError,
@@ -134,6 +137,9 @@ export function runImageBuild(args: {
   for (const warning of resolution.warnings) sink.system(warning);
 
   if (resolution.kind === "dockerfile") {
+    // Fail fast on unsupported instructions BEFORE invoking docker — a clear
+    // `file:line + reason + fix` beats a silent-wrong build (the VOLUME case).
+    assertDockerfileValid(readFileSync(resolution.dockerfilePath, "utf8"), (m) => sink.system(m));
     return dockerfileBuild({
       workDir,
       sourceSubdir,

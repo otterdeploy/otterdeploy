@@ -15,9 +15,12 @@ import { Result } from "better-result";
 
 import type { LogSink } from "./log-stream";
 
+import { readFileSync } from "node:fs";
+
 import { cachePathFor } from "./buildx";
 import { dockerPush } from "./docker-push";
 import { dockerfileBuild, resolveDockerfileBuild } from "./dockerfile";
+import { assertDockerfileValid } from "./dockerfile-validate";
 import { BuildStepError } from "./errors";
 import { railpackBuild } from "./railpack";
 
@@ -50,6 +53,10 @@ export function buildComposeService(args: {
         });
         for (const w of resolution.warnings) sink.system(w);
         if (resolution.kind === "dockerfile") {
+          // Fail fast on unsupported instructions before docker runs.
+          assertDockerfileValid(readFileSync(resolution.dockerfilePath, "utf8"), (m) =>
+            sink.system(m),
+          );
           return dockerfileBuild({
             workDir,
             sourceSubdir: subdir || null,
