@@ -257,8 +257,8 @@ export async function createProjectRecord(input: {
         .values({
           id: environmentId,
           projectId,
-          name: "Development",
-          slug: `${input.slug}-development`,
+          name: "production",
+          slug: `${input.slug}-production`,
         })
         .returning();
       createdEnvironment = inserted;
