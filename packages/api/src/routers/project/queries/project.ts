@@ -42,9 +42,16 @@ export async function listProjectRecordsByOrg(organizationId: OrganizationId) {
       // `resource` and `proxy_route` would fan them into each other's rows and
       // multiply the tallies. Each count is an independent scalar subquery.
       databaseCount: sql<number>`(select count(*) from ${resource} where ${resource.projectId} = ${project.id} and ${resource.type} = 'database')::int`,
-      // A "service" is a service OR a compose resource — a compose stack is one
-      // authored unit even though it fans out to several containers at runtime.
-      serviceCount: sql<number>`(select count(*) from ${resource} where ${resource.projectId} = ${project.id} and ${resource.type} in ('service', 'compose'))::int`,
+      // Count individually-runnable services: standalone services AND compose
+      // members (each materialized from the stack file as its own `service`
+      // resource). The compose *parent* (type 'compose') is only a grouping
+      // wrapper with no container of its own — the graph renders it as
+      // "Stack · N services", counting the members, not the wrapper. Excluding
+      // it here keeps the card's running/total the SAME set the running tally
+      // matches (which can only ever match member/standalone containers), so a
+      // 4-service stack with 2 up plus a running app reads 3/5, not a skewed
+      // fraction over a parent that never has a container.
+      serviceCount: sql<number>`(select count(*) from ${resource} where ${resource.projectId} = ${project.id} and ${resource.type} = 'service')::int`,
       // Enabled routes only: disabled/custom-pending routes never reach the edge.
       routeCount: sql<number>`(select count(*) from ${proxyRoute} where ${proxyRoute.projectId} = ${project.id} and ${proxyRoute.enabled} = true)::int`,
     })
