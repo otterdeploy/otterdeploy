@@ -53,10 +53,18 @@ export function useUpdateStatus(): UpdateStatus {
 
   const parts = fromSettings(settings.data);
   const dryRun = version.data?.dryRun ?? true;
-  const available = parts.latest !== null;
+  const current = version.data?.current;
+  // A newer version is "available" only when the cached latest differs from the
+  // version we're actually running. Without the `!== current` guard the banner
+  // (and header/dialog/Platform card) stay lit after a successful update — the
+  // server keeps the just-installed version cached as `availableVersion`, and a
+  // no-op check when already current caches current-as-latest too, so
+  // `latest !== null` alone never clears. Gate on a known `current` so a
+  // still-loading version doesn't flash the banner.
+  const available = parts.latest !== null && current !== undefined && parts.latest !== current;
 
   return {
-    current: version.data?.current ?? "…",
+    current: current ?? "…",
     dryRun,
     available,
     latest: parts.latest,
