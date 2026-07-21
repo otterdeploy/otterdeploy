@@ -116,7 +116,11 @@ export const projectCollection = persistence
         // stale "2/0 services · 0 routes".
         // v3: dropped previewsEnabled — the PR-preview opt-in moved to the
         // service (serviceResource.previewsEnabled, Source card).
-        schemaVersion: 3,
+        // v4: serviceCount now counts individual services (compose members +
+        // standalone) and excludes the compose group parent, so running/total
+        // is consistent with the graph. Persisted v3 rows hold the old inflated
+        // count (the "5/0"-style skew) — bump to rebuild them from the server.
+        schemaVersion: 4,
       }),
     )
   : createCollection(projectQueryOptions);
