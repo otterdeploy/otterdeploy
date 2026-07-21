@@ -11,6 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 
+import { projectIdBySlug } from "@/features/projects/data/project";
 import { proxyRoutesCollection } from "@/features/projects/data/proxy-routes";
 
 import { Button } from "@/shared/components/ui/button";
@@ -43,6 +44,19 @@ import {
 export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/networking")({
   staticData: { crumb: "Networking" },
   component: RouteComponent,
+  // Warm the two on-mount queries on hover (intent-preload) so the tab renders
+  // from cache instead of spinning. Non-blocking + best-effort: a cold project
+  // row or failed prefetch just falls back to fetch-on-mount, as before.
+  loader: ({ params }) => {
+    const projectId = projectIdBySlug(params.projectSlug);
+    if (!projectId) return;
+    void queryClient
+      .prefetchQuery(orpc.project.resource.list.queryOptions({ input: { projectId } }))
+      .catch(() => undefined);
+    void queryClient
+      .prefetchQuery(orpc.project.proxyRoute.caddyfile.queryOptions({ input: { projectId } }))
+      .catch(() => undefined);
+  },
 });
 
 function RouteComponent() {

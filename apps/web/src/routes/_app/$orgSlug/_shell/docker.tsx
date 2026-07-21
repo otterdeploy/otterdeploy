@@ -9,7 +9,7 @@ import { VolumesSection } from "@/features/volumes/volumes-section";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Tabs, TabsContent } from "@/shared/components/ui/tabs";
-import { orpc } from "@/shared/server/orpc";
+import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { ConfirmRemoveDialog } from "../-components/docker-dialogs";
 import { formatBytes } from "../-components/docker-format";
@@ -33,6 +33,27 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/docker")({
   staticData: { crumb: "Docker" },
   validateSearch: dockerSearch,
   component: DockerRoute,
+  // Warm the on-mount daemon queries on hover (intent-preload) so the tab
+  // renders from cache instead of spinning. Non-blocking + best-effort: each
+  // prefetch falls back to fetch-on-mount, as before.
+  loader: () => {
+    void queryClient
+      .prefetchQuery(orpc.docker.containers.list.queryOptions({ input: { all: true } }))
+      .catch(() => undefined);
+    void queryClient
+      .prefetchQuery(orpc.docker.images.list.queryOptions({ input: { all: false } }))
+      .catch(() => undefined);
+    void queryClient
+      .prefetchQuery(orpc.docker.networks.list.queryOptions({ input: {} }))
+      .catch(() => undefined);
+    void queryClient
+      .prefetchQuery(orpc.docker.tasks.list.queryOptions({ input: {} }))
+      .catch(() => undefined);
+    void queryClient
+      .prefetchQuery(orpc.docker.nodes.list.queryOptions({ input: {} }))
+      .catch(() => undefined);
+    void queryClient.prefetchQuery(volumesListQuery()).catch(() => undefined);
+  },
 });
 
 function DockerRoute() {

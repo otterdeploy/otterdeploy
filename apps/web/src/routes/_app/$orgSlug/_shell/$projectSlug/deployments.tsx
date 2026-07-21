@@ -23,15 +23,46 @@ import {
   windowSince,
   zDeploymentsSearch,
 } from "@/features/deployments/data/deployments-search";
+import { projectIdBySlug } from "@/features/projects/data/project";
 import { resourceCollection } from "@/features/resources/data/resource";
 import { Page, PageHeader } from "@/shared/components/page";
-import { orpc } from "@/shared/server/orpc";
+import { orpc, queryClient } from "@/shared/server/orpc";
 
 const PAGE_SIZE = 50;
 
 export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/deployments")({
   staticData: { crumb: "Deployments" },
   validateSearch: zDeploymentsSearch,
+  // Warm the deployments list on hover (intent-preload) under the SAME custom
+  // key the component reads (keyed on the filter selection + limit, not the
+  // resolved `since` — see the useQuery below), so a visit renders from cache
+  // instead of spinning. Non-blocking + best-effort. `loaderDeps` pulls the
+  // filter search params through so the preloaded entry matches the URL.
+  loaderDeps: ({ search }) => ({
+    service: search.service,
+    status: search.status,
+    window: search.window,
+  }),
+  loader: ({ params, deps }) => {
+    const projectId = projectIdBySlug(params.projectSlug);
+    if (!projectId) return;
+    const windowSel = deps.window ?? "7d";
+    const filterKey = `${deps.service ?? "all"}|${deps.status ?? "any"}|${windowSel}`;
+    void queryClient
+      .prefetchQuery({
+        ...orpc.deployment.listByProject.queryOptions({
+          input: {
+            projectId,
+            resourceId: deps.service,
+            status: deps.status ? statusFilterToApi(deps.status) : undefined,
+            since: windowSince(windowSel),
+            limit: PAGE_SIZE,
+          },
+        }),
+        queryKey: [...orpc.deployment.listByProject.key(), projectId, filterKey, PAGE_SIZE],
+      })
+      .catch(() => undefined);
+  },
   component: RouteComponent,
 });
 

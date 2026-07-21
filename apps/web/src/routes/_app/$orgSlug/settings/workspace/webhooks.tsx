@@ -39,6 +39,12 @@ import { InboundTab, OutboundTab } from "../../-components/webhooks-tabs";
 export const Route = createFileRoute("/_app/$orgSlug/settings/workspace/webhooks")({
   staticData: { crumb: "Webhooks" },
   component: RouteComponent,
+  // Warm the collection(s) on hover (intent-preload) so the page renders
+  // from cache instead of spinning. Non-blocking + best-effort.
+  loader: () => {
+    void outboundCollection.preload();
+    void inboundCollection.preload();
+  },
 });
 
 function RouteComponent() {

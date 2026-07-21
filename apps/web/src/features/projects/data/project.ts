@@ -120,3 +120,15 @@ export const projectCollection = persistence
       }),
     )
   : createCollection(projectQueryOptions);
+
+/**
+ * Resolve a project's id from its slug via the already-loaded collection.
+ * For use in child route loaders (intent-preload) that need the id to warm a
+ * project-scoped query: the parent `$projectSlug` layout loader awaits
+ * `projectCollection.preload()` before any child loader runs, so the row is
+ * present by then. Returns undefined if not found — the caller then no-ops and
+ * the component fetches on mount as before.
+ */
+export function projectIdBySlug(slug: string): string | undefined {
+  return projectCollection.toArray.find((p) => p.slug === slug)?.id;
+}

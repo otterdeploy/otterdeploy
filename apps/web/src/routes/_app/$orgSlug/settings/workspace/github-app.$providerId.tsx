@@ -19,6 +19,15 @@ import { orpc, queryClient } from "@/shared/server/orpc";
 export const Route = createFileRoute("/_app/$orgSlug/settings/workspace/github-app/$providerId")({
   staticData: { crumb: "GitHub App" },
   component: GitProviderDetailRoute,
+  loader: ({ params }) => {
+    void queryClient
+      .prefetchQuery(
+        orpc.git.getProvider.queryOptions({
+          input: { providerId: params.providerId as GitProviderId },
+        }),
+      )
+      .catch(() => undefined);
+  },
 });
 
 function GitProviderDetailRoute() {
