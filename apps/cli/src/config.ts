@@ -17,6 +17,11 @@ const ConfigSchema = z.object({
   // Slug of the active org — set by `org use`, read by `open` to build
   // dashboard URLs without an extra round-trip.
   orgSlug: z.string().optional(),
+  // Control planes this machine has logged into before, most-recent first.
+  // Login offers these as a pick-list instead of asking the operator to
+  // retype a domain from memory. Survives `logout` — the whole point is to
+  // still know your domains after signing out. Never contains credentials.
+  hosts: z.array(z.url()).optional(),
 });
 export type Config = z.infer<typeof ConfigSchema>;
 
@@ -51,9 +56,33 @@ export function saveConfig(config: Config): void {
 
 export function clearConfig(): void {
   if (existsSync(CONFIG_PATH)) {
-    writeFileSync(CONFIG_PATH, "{}");
+    // Keep the known-host list: signing out shouldn't make the operator
+    // retype a domain they've used before. Everything else (token, url,
+    // org selection) goes.
+    const { hosts } = loadConfig();
+    writeFileSync(CONFIG_PATH, JSON.stringify(hosts?.length ? { hosts } : {}, null, 2));
     chmodSync(CONFIG_PATH, 0o600);
   }
+}
+
+/** Control planes this machine has logged into, most-recent first. */
+export function knownHosts(): string[] {
+  return loadConfig().hosts ?? [];
+}
+
+/**
+ * Record a successful login's control plane, most-recent first, de-duplicated.
+ * Capped so a machine that talks to many short-lived environments doesn't grow
+ * an unbounded pick-list.
+ */
+const MAX_REMEMBERED_HOSTS = 10;
+export function rememberHost(url: string): void {
+  const config = loadConfig();
+  const next = [url, ...(config.hosts ?? []).filter((h) => h !== url)].slice(
+    0,
+    MAX_REMEMBERED_HOSTS,
+  );
+  saveConfig({ ...config, hosts: next });
 }
 
 /**

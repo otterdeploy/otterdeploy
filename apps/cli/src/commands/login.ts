@@ -2,7 +2,7 @@ import { defineCommand } from "citty";
 import { consola } from "consola";
 
 import { deviceCodeLogin, promptForUrl } from "../auth-flow";
-import { loadConfig, normalizeUrl, saveConfig } from "../config";
+import { loadConfig, normalizeUrl, rememberHost, saveConfig } from "../config";
 
 export const loginCommand = defineCommand({
   meta: {
@@ -22,8 +22,13 @@ export const loginCommand = defineCommand({
     // Explicit inputs are normalized (bare host → https://) and validated up
     // front, so `login --url deploy.acme.com` works and a typo fails with a
     // clear message instead of a downstream "Invalid base URL".
+    // Interactively, a stored `url` is NOT treated as explicit: bare
+    // `otterdeploy login` should offer the domains you already have (the
+    // stored one among them) rather than silently reusing the last one —
+    // that pick-list is the point. Non-interactively there's nobody to ask,
+    // so the stored URL still wins and CI behaviour is unchanged.
     const positional = args._?.[0];
-    const explicit = args.url ?? positional ?? loadConfig().url;
+    const explicit = args.url ?? positional ?? (process.stdin.isTTY ? undefined : loadConfig().url);
     let url: string | null;
     if (explicit) {
       url = normalizeUrl(explicit);
@@ -45,6 +50,7 @@ export const loginCommand = defineCommand({
     // to write a working $schema URL, so persist it alongside the token.
     const { token, webUrl } = await deviceCodeLogin(url);
     saveConfig({ ...loadConfig(), url, webUrl, token });
+    rememberHost(url);
     consola.success("Logged in.");
   },
 });

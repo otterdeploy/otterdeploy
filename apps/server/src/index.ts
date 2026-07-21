@@ -42,6 +42,7 @@ import {
   githubWebhookHandler,
   inboundWebhookHandler,
   terminalWebSocketHandler,
+  withCanonicalDeviceOrigin,
 } from "./handlers";
 import { uploadSourceHandler } from "./handlers/upload/source";
 import { invalidate } from "./lib/invalidate";
@@ -132,7 +133,12 @@ app.onError((error, c) => {
   );
 });
 
-app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
+// Device-code responses get their verification URLs rebased onto the canonical
+// control-plane origin on the way out — better-auth can only take a static
+// string for that option. See handlers/auth/device-origin.ts.
+app.on(["POST", "GET"], "/api/auth/*", async (c) =>
+  withCanonicalDeviceOrigin(c.req.path, await auth.handler(c.req.raw)),
+);
 
 function logRpcError(transport: "openapi" | "rpc") {
   return (error: unknown) => {
