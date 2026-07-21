@@ -4,6 +4,7 @@
  * that file under the max-lines cap.
  */
 
+import type { CSSProperties } from "react";
 import { useEffect } from "react";
 
 import { Tick02Icon } from "@hugeicons/core-free-icons";
@@ -193,21 +194,14 @@ export function RepoCheck({ gitRepoId, root }: { gitRepoId: string; root: string
     );
   }
 
-  const frameworkKind = (inspect.data?.framework ?? null) as FrameworkKind | null;
   const framework = frameworkLabel(inspect.data?.framework);
   const monorepo = monorepoLabel(inspect.data?.monorepo);
 
+  // The detected framework's logo lives in DetectedFrameworkBadge (top-right of
+  // the card), not here — this banner just states reachability.
   return (
     <div className="mt-2.5 flex items-center gap-2 rounded-md border border-success/30 bg-success/5 px-3 py-2 text-[12px]">
-      {frameworkKind ? (
-        <FrameworkLogo framework={frameworkKind} className="size-4 shrink-0" />
-      ) : (
-        <HugeiconsIcon
-          icon={Tick02Icon}
-          strokeWidth={2}
-          className="size-3.5 shrink-0 text-success"
-        />
-      )}
+      <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} className="size-3.5 shrink-0 text-success" />
       <span className="text-muted-foreground">
         Repository reachable
         {framework ? (
@@ -224,6 +218,52 @@ export function RepoCheck({ gitRepoId, root }: { gitRepoId: string; root: string
           {monorepo}
         </Badge>
       )}
+    </div>
+  );
+}
+
+/**
+ * The detected-framework badge — a round tile at the top-right of the service
+ * card. While `git.inspectRepo` runs it shows a glowing comet ring (the same
+ * travelling-light loader the graph uses for pending nodes); once resolved it
+ * shows the detected framework's logo. Shares RepoCheck's query key, so
+ * react-query dedupes the single inspect call.
+ */
+export function DetectedFrameworkBadge({
+  gitRepoId,
+  root,
+  className,
+}: {
+  gitRepoId: string;
+  root: string;
+  className?: string;
+}) {
+  const inspect = useQuery({
+    ...orpc.git.inspectRepo.queryOptions({ input: { gitRepoId, path: root || "" } }),
+    staleTime: 5 * 60 * 1000,
+  });
+  const frameworkKind = (inspect.data?.framework ?? null) as FrameworkKind | null;
+
+  // Once we know there's no framework there's nothing to badge — RepoCheck
+  // already carries reachability + errors, so leave the corner empty.
+  if (!inspect.isLoading && !frameworkKind) return null;
+
+  return (
+    <div
+      className={cn(
+        "relative grid size-11 shrink-0 place-items-center rounded-full border bg-background",
+        className,
+      )}
+      title={inspect.isLoading ? "Detecting framework…" : (frameworkLabel(inspect.data?.framework) ?? undefined)}
+    >
+      {inspect.isLoading ? (
+        <span
+          className="comet-border rounded-full"
+          style={{ "--comet-color": "var(--primary)" } as CSSProperties}
+        />
+      ) : frameworkKind ? (
+        <FrameworkLogo framework={frameworkKind} className="size-5" />
+      ) : null}
     </div>
   );
 }

@@ -30,7 +30,13 @@ import { useFormContext } from "../form-context";
 import { SectionHeader } from "../form-primitives";
 import { RootDirectoryPicker } from "../root-directory-picker";
 import { BindingSummary, useBindingSummary } from "./source-binding";
-import { BranchPicker, deriveServiceName, RepoCheck, ServiceTypeSelector } from "./source-pickers";
+import {
+  BranchPicker,
+  deriveServiceName,
+  DetectedFrameworkBadge,
+  RepoCheck,
+  ServiceTypeSelector,
+} from "./source-pickers";
 
 export function StepSource() {
   const form = useFormContext();
@@ -123,7 +129,14 @@ export function StepSource() {
           </div>
           <RepoCheck gitRepoId={repo} root={root} />
           <Card className="mt-2.5 rounded-md">
-            <CardContent className="flex flex-col gap-3">
+            <CardContent className="relative flex flex-col gap-3">
+              {/* Detected-framework badge — top-right of the card. Glowing comet
+                  loader while inspecting, the framework logo once detected. */}
+              <DetectedFrameworkBadge
+                gitRepoId={repo}
+                root={root}
+                className="absolute top-3 right-3 z-10"
+              />
               <ServiceTypeSelector
                 kindId={kindId}
                 onChange={(next) => form.setFieldValue("kindId", next)}
