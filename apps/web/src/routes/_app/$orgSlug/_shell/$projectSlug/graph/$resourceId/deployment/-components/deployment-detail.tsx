@@ -14,13 +14,18 @@ import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import type { ProjectResource } from "@/features/projects/components/graph/resource-to-node";
 import type { ServiceTaskInfo } from "@otterdeploy/api/routers/project/service-tasks";
 
-import type { DeploymentRow, Phase, PhaseState, Tone } from "./deployment-timeline-model";
+import type {
+  DeploymentRow,
+  Phase,
+  PhaseState,
+  Tone,
+} from "@/features/resources/components/_shared/deployment-timeline-model";
 
+import { buildTimeline } from "@/features/resources/components/_shared/deployment-timeline-model";
 import { deploymentTasksCollection } from "@/features/resources/data/deployments";
 import { useLiveDuration } from "@/shared/lib/duration";
 import { Spinner } from "@/shared/components/ui/spinner";
 import { cn } from "@/shared/lib/utils";
-import { buildTimeline } from "./deployment-timeline-model";
 
 export type { DeploymentRow };
 

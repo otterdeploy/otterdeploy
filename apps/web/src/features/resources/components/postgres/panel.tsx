@@ -137,6 +137,12 @@ export function RealResourcePanel({
                     resourceId={resource.resourceId}
                     orgSlug={orgSlug}
                     projectSlug={projectSlug}
+                    logoNode={{
+                      kind: "database",
+                      name: resource.name,
+                      description: resource.engine,
+                      engine: resource.engine,
+                    }}
                   />
                 </TabsContent>
               )}

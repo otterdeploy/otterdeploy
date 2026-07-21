@@ -82,14 +82,29 @@ const ENGINE_LOGO: Partial<Record<ResourceEngine, BrandSvg>> = {
  * generic kinds fall back to a tinted hugeicon — matching the graph
  * node rendering for visual continuity between graph + detail panel.
  */
-export function PanelIcon({ node }: { node: ResourceNodeData }) {
+/** Tile + glyph sizing. `md` is the panel-header tile; `sm` is the compact
+ *  tile the deployment card uses beside the trigger. */
+const PANEL_ICON_SIZE = {
+  md: { tile: "size-10", glyph: "size-5", svgl: 22 },
+  sm: { tile: "size-7", glyph: "size-4", svgl: 16 },
+} as const;
+
+export function PanelIcon({
+  node,
+  size = "md",
+}: {
+  node: ResourceNodeData;
+  size?: "sm" | "md";
+}) {
+  const s = PANEL_ICON_SIZE[size];
+  const tile = cn("grid shrink-0 place-items-center rounded-lg border bg-background", s.tile);
   // Detected framework wins for git-sourced services — same precedence as
   // the graph node header tile (framework > engine > kind), so the drawer
   // header matches the node the operator just clicked.
   if (node.framework) {
     return (
-      <div className="grid size-10 shrink-0 place-items-center rounded-lg border bg-background">
-        <FrameworkLogo framework={node.framework} className="size-5" />
+      <div className={tile}>
+        <FrameworkLogo framework={node.framework} className={s.glyph} />
       </div>
     );
   }
@@ -97,8 +112,8 @@ export function PanelIcon({ node }: { node: ResourceNodeData }) {
     const Brand = ENGINE_LOGO[node.engine];
     if (Brand) {
       return (
-        <div className="grid size-10 shrink-0 place-items-center rounded-lg border bg-background">
-          <Brand className="size-5" aria-label={node.engine} />
+        <div className={tile}>
+          <Brand className={s.glyph} aria-label={node.engine} />
         </div>
       );
     }
@@ -109,11 +124,11 @@ export function PanelIcon({ node }: { node: ResourceNodeData }) {
   // blue container icon.
   if (node.logoBrand) {
     return (
-      <div className="grid size-10 shrink-0 place-items-center rounded-lg border bg-background">
+      <div className={tile}>
         <SvglLogo
           search={node.logoBrand}
           fallback={node.name}
-          size={22}
+          size={s.svgl}
           border="none"
           background="transparent"
         />
@@ -122,8 +137,8 @@ export function PanelIcon({ node }: { node: ResourceNodeData }) {
   }
   const { icon, tint } = KIND_ICON[node.kind];
   return (
-    <div className={cn("grid size-10 shrink-0 place-items-center rounded-lg", tint)}>
-      <HugeiconsIcon icon={icon} strokeWidth={1.8} className="size-5" />
+    <div className={cn("grid shrink-0 place-items-center rounded-lg", s.tile, tint)}>
+      <HugeiconsIcon icon={icon} strokeWidth={1.8} className={s.glyph} />
     </div>
   );
 }

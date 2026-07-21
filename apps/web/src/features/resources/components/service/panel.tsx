@@ -200,6 +200,18 @@ export function ServiceResourcePanel({
                     orgSlug={orgSlug}
                     projectSlug={projectSlug}
                     canRollback
+                    logoNode={{
+                      kind: "service",
+                      name: resource.name,
+                      description: resource.image,
+                      framework,
+                    }}
+                    statusHeader={{
+                      publicEnabled: resource.publicEnabled,
+                      publicDomain: resource.publicDomain,
+                      replicas: resource.replicas,
+                      running: service?.runtime?.status === "running",
+                    }}
                   />
                 </TabsContent>
               )}

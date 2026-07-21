@@ -7,7 +7,8 @@
  */
 
 import type { ProjectSlug } from "@otterdeploy/shared/id";
-import { ContainerIcon } from "@hugeicons/core-free-icons";
+import type { ResourceNodeData } from "@/features/projects/components/graph/resource-node";
+import { ContainerIcon, EarthIcon, Layers01Icon, ViewOffIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
 
@@ -15,7 +16,18 @@ import { deploymentsCollection } from "@/features/resources/data/deployments";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
 
 import { SectionLabel } from "./atoms";
-import { ActiveDeploymentCard, HistoryRow } from "./deployment-cards";
+import { HistoryRow } from "./deployment-cards";
+import { StagedDeploymentCard } from "./staged-deployment-card";
+
+/** Exposure + scale summary shown above the active deployment (the mockup's
+ *  "Service offline · 1 Replica" line). Optional — only services pass it. */
+export interface DeploymentStatusHeader {
+  publicEnabled: boolean;
+  publicDomain: string | null;
+  replicas: number;
+  /** Whether the active deployment is currently serving (running). */
+  running: boolean;
+}
 
 interface ResourceTasksTabProps {
   projectId: string;
@@ -25,6 +37,34 @@ interface ResourceTasksTabProps {
   /** Services support one-click image rollback from a past deployment; other
    *  resource kinds (databases, compose) don't. Off by default. */
   canRollback?: boolean;
+  statusHeader?: DeploymentStatusHeader;
+  /** Resource node data so the active card shows the real service/engine logo. */
+  logoNode?: ResourceNodeData;
+}
+
+function ExposureRow({ header }: { header: DeploymentStatusHeader }) {
+  const exposed = header.publicEnabled && header.publicDomain;
+  const label = exposed
+    ? header.running
+      ? `Public on ${header.publicDomain}`
+      : "Service offline"
+    : "Unexposed service";
+  return (
+    <div className="flex items-center justify-between gap-3 text-[12.5px] text-muted-foreground">
+      <span className="inline-flex min-w-0 items-center gap-1.5">
+        <HugeiconsIcon
+          icon={exposed ? EarthIcon : ViewOffIcon}
+          strokeWidth={2}
+          className="size-3.5 shrink-0"
+        />
+        <span className="truncate">{label}</span>
+      </span>
+      <span className="inline-flex shrink-0 items-center gap-1.5">
+        <HugeiconsIcon icon={Layers01Icon} strokeWidth={2} className="size-3.5" />
+        {header.replicas} {header.replicas === 1 ? "Replica" : "Replicas"}
+      </span>
+    </div>
+  );
 }
 
 export function ResourceTasksTab({
@@ -33,6 +73,8 @@ export function ResourceTasksTab({
   orgSlug,
   projectSlug,
   canRollback = false,
+  statusHeader,
+  logoNode,
 }: ResourceTasksTabProps) {
   const { data: deployments, status } = useLiveQuery(
     (q) =>
@@ -57,23 +99,22 @@ export function ResourceTasksTab({
 
   return (
     <div className="flex flex-col gap-5">
-      <div>
-        <SectionLabel>Active deployment</SectionLabel>
-        <p className="mt-1.5 text-[12px] text-muted-foreground">
-          The deployment currently serving this resource. Click to see its tasks (containers) and
-          tail their swarm progression + logs.
-        </p>
-        <div className="mt-3">
+      <div className="flex flex-col gap-3">
+        {statusHeader && <ExposureRow header={statusHeader} />}
+        <div>
           {isLoading ? (
             <div className="rounded-lg border bg-card px-4 py-6 text-center text-[12px] text-muted-foreground">
               Loading deployments…
             </div>
           ) : active ? (
-            <ActiveDeploymentCard
+            <StagedDeploymentCard
               deployment={active}
+              logoNode={logoNode}
               orgSlug={orgSlug}
               projectSlug={projectSlug}
+              projectId={projectId}
               resourceId={resourceId}
+              canRollback={canRollback}
             />
           ) : (
             <Empty className="rounded-md border border-dashed bg-muted/20 py-12">

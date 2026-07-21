@@ -6,8 +6,6 @@
  */
 
 import type { ProjectSlug } from "@otterdeploy/shared/id";
-import { ContainerIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { Link } from "@tanstack/react-router";
 
 import { useLiveDuration } from "@/shared/lib/duration";
@@ -46,121 +44,12 @@ export interface DeploymentInfo {
    *  = unlimited. */
   restartCount: number | null;
   restartMaxAttempts: number | null;
+  /** Commit author name + their GitHub avatar (git-push deploys only). */
+  gitCommitAuthor: string | null;
+  gitCommitAuthorAvatar: string | null;
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
-}
-
-/** One plain sentence about the restart loop for a crashed deployment —
- *  answers "is it still trying?" and "how many times did it die?". */
-function restartSummary(deployment: DeploymentInfo): string | null {
-  if (deployment.status !== "crashed") return null;
-  const attempts = deployment.restartCount ?? 0;
-  const limit = deployment.restartMaxAttempts;
-  if (limit != null && attempts >= limit) {
-    return `Gave up after ${attempts} restart ${attempts === 1 ? "attempt" : "attempts"} (limit ${limit}) — see the logs for the crash reason. Redeploy to try again.`;
-  }
-  if (attempts > 0) {
-    return `Crash-looping — restart attempt ${attempts}${limit != null ? ` of ${limit}` : ""}.`;
-  }
-  return "Container keeps dying — check the logs for the crash reason.";
-}
-
-export function ActiveDeploymentCard({
-  deployment,
-  orgSlug,
-  projectSlug,
-  resourceId,
-}: {
-  deployment: DeploymentInfo;
-  orgSlug: string;
-  projectSlug: ProjectSlug;
-  resourceId: string;
-}) {
-  // Database resources are always single-replica (see swarm/database.ts
-  // `Replicated: { Replicas: 1 }`). When this panel grows service support
-  // it should read the actual replica count off the resource.
-  const replicas = 1;
-  const runningCount = deployment.runningTaskCount;
-  // Ticks while building/deploying (no completedAt), settles once terminal.
-  const duration = useLiveDuration(deployment.createdAt, deployment.completedAt);
-
-  return (
-    <Link
-      to="/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
-      params={{
-        orgSlug,
-        projectSlug,
-        resourceId,
-        deploymentId: deployment.id,
-      }}
-      search={{ tab: "details" }}
-      className={cn(
-        "group flex flex-col gap-3 rounded-lg border bg-card p-4 text-left transition-colors hover:bg-muted/30",
-        deployment.status === "running"
-          ? "border-success/30"
-          : deployment.status === "failed" || deployment.status === "crashed"
-            ? "border-destructive/30"
-            : "border-border",
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <DeploymentStatusBadge status={deployment.status} />
-          <span className="font-mono text-[10.5px] tracking-[0.16em] text-muted-foreground uppercase">
-            {deployment.reason}
-          </span>
-        </div>
-        {/* The count only earns its spot when it says something the status
-            badge doesn't: real fan-out (>1) or a shortfall (0/1 running). */}
-        {(replicas > 1 || runningCount !== replicas || deployment.failedTaskCount > 0) && (
-          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5">
-              <HugeiconsIcon icon={ContainerIcon} strokeWidth={2} className="size-3.5" />
-              {runningCount}/{replicas} {replicas === 1 ? "instance" : "instances"}
-            </span>
-            {deployment.failedTaskCount > 0 && (
-              <span className="text-destructive">{deployment.failedTaskCount} failed</span>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-1">
-        {/* The full ref (namespace + 40-char sha tag) is a machine artifact —
-            lead with the short form and keep the whole thing on hover. */}
-        <span
-          className="truncate font-mono text-[14px] font-semibold text-foreground"
-          title={deployment.image}
-        >
-          {shortImageRef(deployment.image)}
-        </span>
-        <span className="text-[11.5px] text-muted-foreground">
-          Deployed {new Date(deployment.createdAt).toLocaleString()}
-          {duration && (
-            <>
-              {" · "}
-              <span className="tabular-nums">
-                {deployment.completedAt ? `took ${duration}` : `${duration} elapsed`}
-              </span>
-            </>
-          )}
-        </span>
-      </div>
-
-      {restartSummary(deployment) && (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[11.5px] text-destructive">
-          {restartSummary(deployment)}
-        </p>
-      )}
-
-      {deployment.errorMessage && (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 font-mono text-[11px] text-destructive">
-          {deployment.errorMessage}
-        </p>
-      )}
-    </Link>
-  );
 }
 
 export function HistoryRow({

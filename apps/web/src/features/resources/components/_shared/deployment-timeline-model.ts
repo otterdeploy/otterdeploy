@@ -41,6 +41,14 @@ export interface Phase {
 }
 export type Tone = "success" | "failed" | "active" | "neutral";
 
+/** The subset of a deployment the timeline actually reads — so both the fuller
+ *  `DeploymentRow` (detail page) and the leaner deployments-collection row
+ *  (drawer card) can drive the stepper without a shared shape. */
+export type TimelineInput = Pick<
+  DeploymentRow,
+  "status" | "errorMessage" | "taskCount" | "completedAt" | "createdAt"
+>;
+
 /**
  * Map our coarse deployment lifecycle (pending → building → running/failed,
  * plus swarm task rollup) onto a Railway-style phase stepper. We only track
@@ -48,7 +56,7 @@ export type Tone = "success" | "failed" | "active" | "neutral";
  * fabricate per-phase timings, so each phase shows state only; the header
  * carries the one real duration we have (created → completed).
  */
-export function buildTimeline(d: DeploymentRow): {
+export function buildTimeline(d: TimelineInput): {
   title: string;
   tone: Tone;
   phases: Phase[];
@@ -65,10 +73,10 @@ export function buildTimeline(d: DeploymentRow): {
     detail,
   });
   const allDone = [
-    p("init", "Initialize", "done"),
+    p("init", "Initialization", "done"),
     p("build", "Build", "done"),
     p("deploy", "Deploy", "done"),
-    p("run", "Running", "done"),
+    p("run", "Post-deploy", "done"),
   ];
 
   switch (d.status) {
@@ -78,26 +86,26 @@ export function buildTimeline(d: DeploymentRow): {
       // Image built; containers are coming up (pre-running) — the deploy phase
       // is active, the build one is done.
       return {
-        title: "Starting…",
+        title: "Starting up…",
         tone: "active",
         totalMs: null,
         phases: [
-          p("init", "Initialize", "done"),
+          p("init", "Initialization", "done"),
           p("build", "Build", "done"),
           p("deploy", "Deploy", "active"),
-          p("run", "Running", "pending"),
+          p("run", "Post-deploy", "pending"),
         ],
       };
     case "building":
       return {
-        title: "Building & deploying…",
+        title: "Deploying…",
         tone: "active",
         totalMs: null,
         phases: [
-          p("init", "Initialize", "done"),
-          p("build", "Build", "active"),
+          p("init", "Initialization", "done"),
+          p("build", "Build › Build image", "active"),
           p("deploy", "Deploy", "pending"),
-          p("run", "Running", "pending"),
+          p("run", "Post-deploy", "pending"),
         ],
       };
     case "pending":
@@ -106,10 +114,10 @@ export function buildTimeline(d: DeploymentRow): {
         tone: "active",
         totalMs: null,
         phases: [
-          p("init", "Initialize", "active"),
+          p("init", "Initialization", "active"),
           p("build", "Build", "pending"),
           p("deploy", "Deploy", "pending"),
-          p("run", "Running", "pending"),
+          p("run", "Post-deploy", "pending"),
         ],
       };
     case "failed":
@@ -117,43 +125,45 @@ export function buildTimeline(d: DeploymentRow): {
       // failure is on the deploy side. No tasks ⇒ it never got past the build.
       return d.taskCount > 0
         ? {
-            title: "Deployment failed",
+            title: "Deployment failed during rollout",
             tone: "failed",
             totalMs,
             phases: [
-              p("init", "Initialize", "done"),
+              p("init", "Initialization", "done"),
               p("build", "Build", "done"),
               p("deploy", "Deploy", "failed", err ?? "Containers failed to start"),
-              p("run", "Running", "pending"),
+              p("run", "Post-deploy", "pending"),
             ],
           }
         : {
-            title: "Build failed",
+            title: "Deployment failed during build process",
             tone: "failed",
             totalMs,
             phases: [
-              p("init", "Initialize", "done"),
-              p("build", "Build", "failed", err ?? "Build did not complete"),
+              p("init", "Initialization", "done"),
+              p("build", "Build › Build image", "failed", err ?? "Build did not complete"),
               p("deploy", "Deploy", "pending"),
-              p("run", "Running", "pending"),
+              p("run", "Post-deploy", "pending"),
             ],
           };
     case "crashed":
       // Built + deployed fine, but the container keeps exiting and restarting
       // (e.g. a bad env var) — the run phase is the one that's failing.
       return {
-        title: "Crash-looping",
+        title: "Crash-looping after deploy",
         tone: "failed",
         totalMs,
         phases: [
-          p("init", "Initialize", "done"),
+          p("init", "Initialization", "done"),
           p("build", "Build", "done"),
           p("deploy", "Deploy", "done"),
-          p("run", "Running", "failed", err ?? "Container keeps restarting (crash loop)"),
+          p("run", "Post-deploy", "failed", err ?? "Container keeps restarting (crash loop)"),
         ],
       };
     case "superseded":
-      return { title: "Superseded by a newer deployment", tone: "neutral", totalMs, phases: allDone };
+      // A benign replacement — this deploy was live/building when a newer one
+      // took over (a FAILED deploy keeps its `failed` status, never lands here).
+      return { title: "Replaced by a newer deployment", tone: "neutral", totalMs, phases: allDone };
     default:
       return { title: "Removed", tone: "neutral", totalMs, phases: allDone };
   }
