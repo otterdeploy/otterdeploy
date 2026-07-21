@@ -109,16 +109,31 @@ function diedAbnormally(i: InstanceGlimpse): boolean {
   return (i.restartCount ?? 0) > 0;
 }
 
+/**
+ * Status for a non-latest (replaced) row. It keeps its real OUTCOME: `failed`
+ * whenever it failed by any signal (stored failed, observed task failures, or a
+ * crash loop), otherwise `superseded`. `superseded` must ONLY mean "was
+ * live/in-flight when a newer deploy took over" — never a swallowed failure,
+ * which would erase the one thing you want to know about an old deployment (did
+ * it succeed or fail?). A failed deploy stays failed forever.
+ */
+function deriveReplacedStatus(
+  stored: DeploymentRow["status"],
+  failedCount: number,
+  crashLooping: boolean,
+): DerivedDeploymentStatus {
+  return stored === "failed" || failedCount > 0 || crashLooping ? "failed" : "superseded";
+}
+
 /** Status for a row with NO live instances: no tasks yet, or docker GC'd them
- *  all. Only "superseded" when this isn't the most recent — otherwise we'd
- *  lose info on a fresh deploy that hasn't scheduled tasks yet. */
+ *  all. A non-latest row keeps its real outcome (see deriveReplacedStatus). */
 function deriveZeroInstanceStatus(
   stored: DeploymentRow["status"],
   isLatest: boolean,
   createdAt: Date,
   buildActive: boolean,
 ): DerivedDeploymentStatus {
-  if (!isLatest) return "superseded";
+  if (!isLatest) return deriveReplacedStatus(stored, 0, false);
   // Latest row sitting at building/pending with nothing scheduled past
   // the wait-ready window AND no recent build output is a dead
   // deployment — surface it as failed instead of pinning on BUILDING.
@@ -180,7 +195,8 @@ export function deriveDeploymentStatus(
   // Still actively bringing a task up — only show "building" while at
   // least one task is in a pre-running phase (build-phase rows only).
   if (hasBuilding) return "starting";
-  if (!isLatest) return "superseded";
+  // Non-latest: keep the real outcome (failed stays failed after replacement).
+  if (!isLatest) return deriveReplacedStatus(stored, failedCount, crashLooping);
   if (failedCount > 0) return "failed";
   // Fallthrough: tasks exist but in unknown state. Honour the DB row.
   return stored;

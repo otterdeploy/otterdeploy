@@ -154,6 +154,33 @@ describe("deriveDeploymentStatus", () => {
     expect(status).toBe("superseded");
   });
 
+  test("non-latest FAILED row with no tasks stays failed (superseded must not hide a failure)", () => {
+    const status = deriveDeploymentStatus("failed", false, [], fresh(), false);
+    expect(status).toBe("failed");
+  });
+
+  test("non-latest FAILED row with lingering non-running tasks stays failed", () => {
+    const status = deriveDeploymentStatus(
+      "failed",
+      false,
+      [glimpse({ state: "exited", exitCode: 1 })],
+      fresh(),
+      false,
+    );
+    expect(status).toBe("failed");
+  });
+
+  test("non-latest row whose tasks all failed reads failed, not superseded", () => {
+    const status = deriveDeploymentStatus(
+      "building",
+      false,
+      [glimpse({ state: "failed", exitCode: 1 })],
+      fresh(),
+      false,
+    );
+    expect(status).toBe("failed");
+  });
+
   test("stored failed never rewinds to starting while docker still bounces the container", () => {
     const status = deriveDeploymentStatus(
       "failed",
