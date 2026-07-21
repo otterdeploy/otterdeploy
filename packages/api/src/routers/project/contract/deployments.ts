@@ -70,6 +70,8 @@ export const deploymentSchema = z.object({
   gitRef: z.string().nullable(),
   gitCommitMessage: z.string().nullable(),
   gitCommitAuthor: z.string().nullable(),
+  /** Avatar URL of the GitHub user who pushed — the card shows their face. */
+  gitCommitAuthorAvatar: z.string().nullable(),
   // Content hash of an uploaded source tarball (source:"upload") — the upload
   // analog of gitSha. Null for git / image-only deploys.
   sourceSha: z.string().nullable(),

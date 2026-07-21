@@ -706,6 +706,10 @@ export const deployment = pgTable(
     gitRef: text("git_ref"),
     gitCommitMessage: text("git_commit_message"),
     gitCommitAuthor: text("git_commit_author"),
+    // Avatar URL of the GitHub user who pushed (webhook `sender.avatar_url`) —
+    // shown on the deployment card so a git-push deploy carries the author's
+    // face, not just their name. Null for CLI/image/database deploys.
+    gitCommitAuthorAvatar: text("git_commit_author_avatar"),
     // Content hash (sha256, hex) of an uploaded source tarball — the
     // source: "upload" analog of gitSha, giving CLI/local deploys a stable
     // content identifier where there's no commit. Null for git / image-only

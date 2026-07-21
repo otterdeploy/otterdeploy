@@ -48,6 +48,7 @@ export interface DeploymentRow {
   gitRef: string | null;
   gitCommitMessage: string | null;
   gitCommitAuthor: string | null;
+  gitCommitAuthorAvatar: string | null;
   sourceSha: string | null;
   errorMessage: string | null;
   completedAt: Date | null;

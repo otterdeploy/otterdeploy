@@ -1,0 +1,1 @@
+ALTER TABLE "deployment" ADD COLUMN "git_commit_author_avatar" text;

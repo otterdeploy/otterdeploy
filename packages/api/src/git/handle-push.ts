@@ -142,6 +142,7 @@ async function fanOutDeploys(
           gitRef: ev.ref,
           gitCommitMessage: ev.head_commit?.message,
           gitCommitAuthor: ev.head_commit?.author?.name,
+          gitCommitAuthorAvatar: ev.sender?.avatar_url ?? null,
         })),
       )
       .returning({ id: deployment.id });

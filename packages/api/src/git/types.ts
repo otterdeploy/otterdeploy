@@ -61,6 +61,9 @@ export interface PushEvent {
   installation?: { id: number | string };
   head_commit?: GithubCommitPayload;
   commits?: GithubCommitPayload[];
+  /** The GitHub user who pushed — carries their `avatar_url` + `login`, which
+   *  the deployment card shows as the author's face. */
+  sender?: GithubAccountPayload;
 }
 
 /** `pull_request` webhook — drives preview environments. We read the action
