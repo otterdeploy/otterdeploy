@@ -55,7 +55,13 @@ export async function listProjectRecordsByOrg(organizationId: OrganizationId) {
     })
     .from(project)
     .where(eq(project.organizationId, organizationId))
-    .orderBy(asc(project.createdAt), asc(project.name));
+    .orderBy(asc(project.createdAt), asc(project.name))
+    // Bypass the global query cache. The service/database/route tallies are raw
+    // correlated subqueries over `resource`/`proxy_route`, but the query's
+    // `.from()` is `project`, so the cache only tags it with `project` and never
+    // invalidates it when a resource/route is added — the card would show a
+    // stale "0/0 services" over a project that already has some.
+    .$withCache(false);
 }
 
 /**
