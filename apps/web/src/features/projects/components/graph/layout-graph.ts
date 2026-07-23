@@ -17,6 +17,11 @@ const NODE_HEIGHT = 220;
 const RANK_SEP = 140;
 const NODE_SEP = 80;
 
+// Breathing room enforced by the collision pass when it nudges a newly-placed
+// node off a pinned one. Tighter than dagre's nodesep so a nudge lands the card
+// adjacent rather than a full rank away, but wide enough to read as separate.
+const NODE_GAP = 56;
+
 // A compose stack renders as a group: a header plus one card per service, so
 // it's far taller than a single resource card. Estimate its height from the
 // service count so dagre doesn't overlap it with the node below. Keep roughly
@@ -36,6 +41,109 @@ function nodeHeight(node: Node): number {
 export interface XY {
   x: number;
   y: number;
+}
+
+interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+function rectFor(node: Node, pos: XY): Rect {
+  return { x: pos.x, y: pos.y, w: NODE_WIDTH, h: nodeHeight(node) };
+}
+
+/**
+ * Minimum-translation vector that pushes `a` clear of `b` (both inflated by
+ * `gap`), or null when they don't overlap. Only `a` is ever moved — the caller
+ * treats `b` as an immovable obstacle. Resolves along the axis of least
+ * penetration so the nudge is as small as possible.
+ */
+function separationVector(a: Rect, b: Rect, gap: number): XY | null {
+  // How far to move `a` in each direction to just clear `b` plus the gap.
+  const penLeft = a.x + a.w + gap - b.x; // move left by this
+  const penRight = b.x + b.w + gap - a.x; // move right by this
+  const penUp = a.y + a.h + gap - b.y; // move up by this
+  const penDown = b.y + b.h + gap - a.y; // move down by this
+  // Any non-positive penetration ⇒ already clear on that side ⇒ no overlap.
+  if (penLeft <= 0 || penRight <= 0 || penUp <= 0 || penDown <= 0) return null;
+
+  const minX = Math.min(penLeft, penRight);
+  const minY = Math.min(penUp, penDown);
+  if (minX < minY) {
+    return { x: penLeft < penRight ? -penLeft : penRight, y: 0 };
+  }
+  return { x: 0, y: penUp < penDown ? -penUp : penDown };
+}
+
+/**
+ * Nudge newly-placed nodes so none overlaps a pinned node (or an earlier new
+ * node). Pinned nodes are NEVER moved — that's the whole point of the
+ * incremental layout, so collision is resolved by moving only the newcomers.
+ *
+ * Greedy insertion in reading order (top-to-bottom, then left-to-right): each
+ * new node is separated against every already-committed rect, then itself
+ * becomes an obstacle for the ones after it. This keeps dagre's relative
+ * arrangement of the new cluster intact while guaranteeing no card lands on top
+ * of another. Mutates `positions` in place.
+ */
+export function resolveNewCollisions(
+  positions: Map<string, XY>,
+  nodes: Node[],
+  isNew: (id: string) => boolean,
+): void {
+  // Every pinned node is a fixed obstacle from the start. New nodes are the
+  // movable set — resolved greedily in reading order (top-to-bottom, then
+  // left-to-right) so dagre's relative arrangement is disturbed as little as
+  // possible. Snapshot each node's rect up front so the loop below never has to
+  // re-read (and re-narrow) the positions map.
+  const obstacles: Rect[] = [];
+  const movable: { id: string; rect: Rect }[] = [];
+  for (const n of nodes) {
+    const p = positions.get(n.id);
+    if (!p) continue;
+    if (isNew(n.id)) movable.push({ id: n.id, rect: rectFor(n, p) });
+    else obstacles.push(rectFor(n, p));
+  }
+  movable.sort((a, b) => a.rect.y - b.rect.y || a.rect.x - b.rect.x);
+
+  for (const m of movable) {
+    let rect = m.rect;
+
+    // Phase 1 — minimal least-penetration nudges. Keeps the card near dagre's
+    // spot (and in its rank band) while sliding it off its neighbours. Resolves
+    // essentially every real case in a couple of passes.
+    for (let iter = 0; iter < 32; iter++) {
+      let moved = false;
+      for (const o of obstacles) {
+        const sep = separationVector(rect, o, NODE_GAP);
+        if (sep) {
+          rect = { x: rect.x + sep.x, y: rect.y + sep.y, w: rect.w, h: rect.h };
+          moved = true;
+        }
+      }
+      if (!moved) break;
+    }
+
+    // Phase 2 — guarantee. If a card is boxed in on opposing sides, phase 1 can
+    // oscillate without ever clearing. Drop it straight below the lowest card it
+    // still conflicts with; `y` increases every pass so this terminates, and the
+    // card lands in guaranteed-free space beneath the pile.
+    for (let iter = 0; iter <= obstacles.length; iter++) {
+      let lowestBottom = -Infinity;
+      for (const o of obstacles) {
+        if (separationVector(rect, o, NODE_GAP)) {
+          lowestBottom = Math.max(lowestBottom, o.y + o.h);
+        }
+      }
+      if (lowestBottom === -Infinity) break;
+      rect = { ...rect, y: lowestBottom + NODE_GAP };
+    }
+
+    positions.set(m.id, { x: rect.x, y: rect.y });
+    obstacles.push(rect);
+  }
 }
 
 /**
@@ -88,6 +196,11 @@ export function incrementalLayout(
     const f = fresh.get(n.id);
     next.set(n.id, f ? { x: f.x + dx, y: f.y + dy } : { x: 0, y: 0 });
   }
+
+  // The anchor-delta only lines up one node; pinned cards sit at cached /
+  // dragged / persisted spots dagre never saw, so a shifted newcomer can land
+  // on top of one. Nudge the new nodes clear — pinned ones stay put.
+  resolveNewCollisions(next, nodes, isNew);
   return next;
 }
 

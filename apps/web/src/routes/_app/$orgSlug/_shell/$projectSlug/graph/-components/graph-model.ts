@@ -1,8 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { eq } from "@tanstack/db";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useQuery } from "@tanstack/react-query";
 import type { Edge } from "@xyflow/react";
+
+import * as z from "zod";
 
 import type { Framework } from "@otterdeploy/shared/framework";
 import type { ProjectId } from "@otterdeploy/shared/id";
@@ -38,6 +40,12 @@ interface ResourceLike {
   resourceId: string;
 }
 
+const svcSchema = z.object({
+  name: z.string(),
+  image: z.string(),
+  hasBuild: z.boolean(),
+  volumes: z.array(z.string())
+})
 /** Map a compose `create` change's parsed `details.services` (set server-side
  *  by enrichComposeCreates) into the ghost group's member cards. Every service
  *  reads `pending` — the stack hasn't deployed yet, so nothing is running. */
@@ -47,19 +55,12 @@ function composeGhostServices(
   const raw = details?.services;
   if (!Array.isArray(raw)) return [];
   return raw.map((s) => {
-    const svc = s as {
-      name?: unknown;
-      image?: unknown;
-      hasBuild?: unknown;
-      volumes?: unknown;
-    };
+    const svc = svcSchema.parse(s);
     return {
-      name: typeof svc.name === "string" ? svc.name : "",
-      image: typeof svc.image === "string" ? svc.image : null,
+      name: svc.name ,
+      image: svc.image ,
       hasBuild: svc.hasBuild === true,
-      volumes: Array.isArray(svc.volumes)
-        ? svc.volumes.filter((v): v is string => typeof v === "string")
-        : [],
+      volumes:svc.volumes,
       status: "pending" as const,
     };
   });
@@ -81,6 +82,26 @@ function resourceIdByName(
 
 /** Resolve staged manifest changes into ghost creates + update/delete markers,
  *  bridging the apply gap for just-Deployed creates that haven't streamed in. */
+/** Optional ghost fields for a create entry. A compose ghost carries its parsed
+ *  member services (enrichComposeCreates on the server) plus the template brand,
+ *  so the group renders member cards + logo before the first deploy; a service
+ *  ghost carries the wizard-detected framework logo (client hint, no round-trip);
+ *  a database ghost carries neither. */
+function createGhostExtra(
+  c: ManifestChange,
+  key: string,
+  frameworks: ReadonlyMap<string, Framework>,
+): Omit<PendingByName["creates"][number], "resource" | "name"> {
+  if (c.resource === "compose") {
+    return {
+      services: composeGhostServices(c.details),
+      ...(typeof c.details?.logoBrand === "string" ? { logoBrand: c.details.logoBrand } : {}),
+    };
+  }
+  if (c.resource === "service") return { framework: frameworks.get(key) };
+  return {};
+}
+
 function computePendingByName(
   resources: readonly ResourceLike[],
   changes: readonly ManifestChange[],
@@ -96,25 +117,7 @@ function computePendingByName(
     const key = `${c.resource}:${c.name}`;
     const id = idByName.get(key);
     if (c.kind === "create" && !id) {
-      creates.push({
-        resource: c.resource,
-        name: c.name,
-        // Compose creates carry a parsed service summary (enrichComposeCreates
-        // on the server) so the ghost group renders its member cards, plus the
-        // template brand so the ghost shows its logo before the first deploy.
-        ...(c.resource === "compose"
-          ? {
-              services: composeGhostServices(c.details),
-              ...(typeof c.details?.logoBrand === "string"
-                ? { logoBrand: c.details.logoBrand }
-                : {}),
-            }
-          : // A staged service ghost shows the wizard-detected framework logo
-            // immediately (client hint — no build/persist round-trip).
-            c.resource === "service"
-            ? { framework: frameworks.get(key) }
-            : {}),
-      });
+      creates.push({ resource: c.resource, name: c.name, ...createGhostExtra(c, key, frameworks) });
       createKeys.add(key);
     } else if (id && (c.kind === "update" || c.kind === "delete")) {
       // Key by the node id (`${resource}:${name}`), which is what the node
@@ -171,18 +174,6 @@ export function useGraphModel(project: { id: ProjectId }) {
     [project.id],
   );
 
-  const edgesFromDeps: Edge[] = dependencyEdges.map((d) => ({
-    id: `${d.source}->${d.target}`,
-    source: d.source,
-    target: d.target,
-  }));
-
-  const tasksByResourceId = (() => {
-    const m = new Map<string, (typeof serviceTasks)[number]["tasks"]>();
-    for (const entry of serviceTasks) m.set(entry.resourceId, entry.tasks);
-    return m;
-  })();
-
   // Pending manifest changes — overlay as ghost nodes for creates and markers
   // on existing nodes for updates/deletes. Polled on the same 5s cadence as the
   // pending-changes bar.
@@ -199,13 +190,6 @@ export function useGraphModel(project: { id: ProjectId }) {
   const appliedCreates = useAppliedCreates(project.id);
   // Wizard-detected frameworks for staged service ghosts (instant brand logo).
   const pendingFrameworks = usePendingFrameworks(project.id);
-
-  const pendingByName: PendingByName = computePendingByName(
-    resources,
-    diff.data?.changes ?? [],
-    appliedCreates,
-    pendingFrameworks,
-  );
 
   // Once a just-Deployed create's resource has landed, stop bridging it so the
   // store doesn't pin a ghost over the now-real node — and drop its framework
@@ -245,7 +229,28 @@ export function useGraphModel(project: { id: ProjectId }) {
   // dashed edges together, so an edge can never reference a node that wasn't
   // emitted). The framework brand logo rides on each resource record — no
   // per-service git-API lookup.
-  const graph = (() => {
+  //
+  // Memoized on the underlying data (not recomputed per render): a drag
+  // re-renders this hook's consumer ~60×/s via setState, and rebuilding the
+  // node/edge arrays each frame handed React Flow fresh object identities,
+  // re-rendering every card. With the inputs unchanged mid-drag, the same
+  // arrays are returned so only the dragged node's identity changes downstream.
+  const graph = useMemo(() => {
+    const edgesFromDeps: Edge[] = dependencyEdges.map((d) => ({
+      id: `${d.source}->${d.target}`,
+      source: d.source,
+      target: d.target,
+    }));
+    const tasksByResourceId = new Map<string, (typeof serviceTasks)[number]["tasks"]>();
+    for (const entry of serviceTasks) tasksByResourceId.set(entry.resourceId, entry.tasks);
+
+    const pendingByName: PendingByName = computePendingByName(
+      resources,
+      diff.data?.changes ?? [],
+      appliedCreates,
+      pendingFrameworks,
+    );
+
     const base = buildLiveNodes(resources, tasksByResourceId, pendingByName);
     const serviceIds = new Set(base.map((n) => n.id));
     const satellites = buildPreviewSatellites(previews.data ?? [], serviceIds);
@@ -253,10 +258,18 @@ export function useGraphModel(project: { id: ProjectId }) {
       nodes: [...base, ...satellites.nodes],
       edges: [...edgesFromDeps, ...satellites.edges],
     };
-  })();
+  }, [
+    resources,
+    dependencyEdges,
+    serviceTasks,
+    diff.data,
+    previews.data,
+    appliedCreates,
+    pendingFrameworks,
+  ]);
 
   // Corner chip rollup — null (chip omitted) when no host saw traffic.
-  const traffic = summarizeTraffic(routeStats.data);
+  const traffic = useMemo(() => summarizeTraffic(routeStats.data), [routeStats.data]);
 
   return { liveNodes: graph.nodes, liveEdges: graph.edges, traffic };
 }
