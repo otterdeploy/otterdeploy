@@ -72,3 +72,4 @@ photos/
 # React Doctor local analysis dumps
 react-doctor-report.txt
 react-doctor-report.clean.txt
+bettershot_*.png
