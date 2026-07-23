@@ -33,6 +33,9 @@ export interface AvailableReference {
   key: string;
   token: string;
   isSecret: boolean;
+  /** Platform-generated export (HOST/PORT/URL/DOMAIN/DATABASE_URL/…) vs a
+   *  user-defined variable. Drives the "platform" tag in the picker. */
+  platform: boolean;
 }
 
 interface Input {
@@ -99,6 +102,8 @@ export async function listAvailableRefs(
         key,
         token: `\${{${row.resource.name}.${key}}}`,
         isSecret: isSecretKey(key),
+        // Every database export (DATABASE_URL, PG*, …) is platform-generated.
+        platform: true,
       });
     }
   }
@@ -113,6 +118,9 @@ export async function listAvailableRefs(
       listServicePorts(row.service.resourceId),
       listProxyRoutesByResourceId(row.service.resourceId),
     ]);
+    // User-defined keys come from the service's own env bag; everything else
+    // serviceExports adds (HOST/PORT/URL/DOMAIN/PUBLIC_URL/DOMAINS) is platform.
+    const userKeys = new Set(env.map((e) => e.key));
     const exported = serviceExports({
       resource: row.resource,
       service: row.service,
@@ -128,6 +136,7 @@ export async function listAvailableRefs(
         key,
         token: `\${{${row.resource.name}.${key}}}`,
         isSecret: isSecretKey(key),
+        platform: !userKeys.has(key),
       });
     }
   }
@@ -153,6 +162,8 @@ export async function listAvailableRefs(
         key,
         token: `\${{project.${key}}}`,
         isSecret: isSecretKey(key),
+        // Operator-defined shared vars, never platform-generated.
+        platform: false,
       });
     }
   }

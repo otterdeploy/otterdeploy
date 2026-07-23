@@ -32,6 +32,11 @@ const availableReferenceSchema = z.object({
   /** Whether the underlying value is sensitive. Picker masks the
    *  rendered sample for secret rows. */
   isSecret: z.boolean(),
+  /** True when the key is platform-generated (networking/connection exports
+   *  like HOST/PORT/URL/DOMAIN or a database's DATABASE_URL/PG*) rather than a
+   *  variable the operator defined. The picker tags these so they're
+   *  distinguishable from the service's own env keys sitting beside them. */
+  platform: z.boolean(),
 });
 
 const listAvailableRefsInput = z.object({

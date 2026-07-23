@@ -18,7 +18,7 @@
  * or the full token — same fuzzy intuition as Railway's picker.
  */
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 import { useQuery } from "@tanstack/react-query";
 
@@ -39,7 +39,7 @@ interface RefGroup {
   label: string;
   /** Small qualifier under the label (e.g. "database", "service"). */
   sub: string;
-  items: Array<{ key: string; token: string; isSecret: boolean }>;
+  items: Array<{ key: string; token: string; isSecret: boolean; platform: boolean }>;
 }
 
 export interface ReferencePickerProps {
@@ -96,7 +96,7 @@ export function ReferencePicker({
     }),
   );
 
-  const filtered = (() => {
+  const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const base = excludeToken ? refs.filter((r) => r.token !== excludeToken) : refs;
     if (q.length === 0) return base;
@@ -106,12 +106,12 @@ export function ReferencePicker({
         r.sourceName.toLowerCase().includes(q) ||
         r.token.toLowerCase().includes(q),
     );
-  })();
+  }, [query, refs, excludeToken]);
 
   // Group by source so each row's owner is unambiguous: resource exports sit
   // under the resource's own name, shared project/environment vars under
   // "Shared variables". Databases first, then services, then shared.
-  const groups = (() => {
+  const groups = useMemo(() => {
     const order = { database: 0, service: 1, project: 2, environment: 3 };
     const map = new Map<string, RefGroup>();
     for (const r of filtered) {
@@ -136,7 +136,7 @@ export function ReferencePicker({
     return [...map.values()].sort(
       (a, b) => order[a.kind] - order[b.kind] || a.label.localeCompare(b.label),
     );
-  })();
+  }, [filtered]);
 
   return (
     <div
@@ -191,9 +191,19 @@ export function ReferencePicker({
                   className="flex w-full items-center gap-2 py-1.5 pr-3 pl-9 text-left hover:bg-accent/40"
                 >
                   <span className="font-mono text-[11.5px]">{r.key}</span>
-                  {r.isSecret && (
-                    <span className="ml-auto text-[10px] text-muted-foreground/70">secret</span>
-                  )}
+                  <span className="ml-auto flex items-center gap-2">
+                    {/* Platform-generated (HOST/PORT/URL/DOMAIN/DATABASE_URL/…)
+                        vs the service's own env keys — tagged so they're not
+                        mistaken for each other. */}
+                    {r.platform && (
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] tracking-wide text-muted-foreground/70 uppercase">
+                        platform
+                      </span>
+                    )}
+                    {r.isSecret && (
+                      <span className="text-[10px] text-muted-foreground/70">secret</span>
+                    )}
+                  </span>
                 </button>
               ))}
             </div>
