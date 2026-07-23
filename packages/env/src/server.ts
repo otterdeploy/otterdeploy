@@ -57,7 +57,20 @@ export const env = createEnv({
     // and hits the Caddy edge on :443 — instead of the `127.0.0.1.sslip.io`
     // form. Ignored in production (real installs issue ACME certs off
     // org/project domains, so the local wildcard must never leak in).
-    LOCAL_BASE_DOMAIN: z.string().min(1).optional(),
+    //
+    // Left unset, it defaults to `otterdeploy.localhost` IN DEVELOPMENT ONLY,
+    // so a fresh local install publishes clean names out of the box. Prod/test
+    // stay undefined (the consumer also gates on NODE_ENV, so this never leaks
+    // in), and any explicit value the operator sets wins.
+    LOCAL_BASE_DOMAIN: z
+      .string()
+      .min(1)
+      .optional()
+      .transform((v) => {
+        if (v) return v;
+        // oxlint-disable-next-line node/no-process-env -- dev-only default keyed off the raw runtime env, read at the env boundary
+        return process.env.NODE_ENV === "development" ? "otterdeploy.localhost" : undefined;
+      }),
 
     // Deployment protection (docs/designs/deployment-protection.md).
     // host:port Caddy proxies forward_auth + the reserved-path auth
