@@ -9,154 +9,24 @@ import type {
   BackupId,
   BackupScheduleId,
   OrganizationId,
-  ProjectId,
   ResourceId,
 } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import {
-  backup,
-  backupDestination,
-  backupLog,
-  backupSchedule,
-  databaseResource,
-  project,
-  resource,
-} from "@otterdeploy/db/schema";
+import { backup, backupLog, databaseResource, project, resource } from "@otterdeploy/db/schema";
 import { and, asc, eq, sql } from "drizzle-orm";
 
-export type DatabaseEngine = "postgres" | "redis" | "mariadb" | "mongodb";
+// The execution-context read (source + destination + credentials → engine ctx)
+// lives in ./context; re-exported here so the engine's existing `./db` imports
+// are unchanged.
+export type { DatabaseEngine, ExecutionContext } from "./context";
+export { getExecutionContext } from "./context";
 
-/** Fields common to every run, regardless of what it backs up. */
-interface ExecutionContextBase {
-  backupId: BackupId;
-  organizationId: OrganizationId;
-  encryption: "none" | "aes-256-gcm" | "kms-managed" | "customer-key";
-  /** Where the produced archive landed (null until the run succeeds). */
-  storagePath: string | null;
-  /** sha256 of the stored archive body (null until the run succeeds). */
-  checksum: string | null;
-  /** Pre-backup command (scheduled runs only) — exec'd in the DB container. */
-  preHook: string | null;
-  /** Owning schedule (null for manual runs); tags snapshots for tag-scoped `forget`. */
-  scheduleId: BackupScheduleId | null;
-  destination: {
-    id: BackupDestinationId;
-    type: "s3" | "local" | "sftp";
-    config: Record<string, unknown>;
-    encryptedSecret: string | null;
-  };
-}
-
-/** Discriminated by source: a database resource dump, or a named-volume tar. */
-export type ExecutionContext =
-  | (ExecutionContextBase & {
-      kind: "database";
-      resourceId: ResourceId;
-      resourceName: string;
-      projectId: ProjectId;
-      projectSlug: string;
-      engine: DatabaseEngine;
-      databaseName: string;
-      username: string;
-      password: string;
-    })
-  | (ExecutionContextBase & {
-      kind: "volume";
-      volumeName: string;
-    });
-
-/** Everything the engine needs to run + store a backup, in one read. Left-joins
- *  the resource/database rows because volume runs have no resource at all. */
-export async function getExecutionContext(backupId: BackupId): Promise<ExecutionContext | null> {
-  const [row] = await db
-    .select({
-      backupId: backup.id,
-      organizationId: backup.organizationId,
-      kind: backup.kind,
-      resourceId: backup.resourceId,
-      volumeName: backup.volumeName,
-      encryption: backup.encryption,
-      storagePath: backup.storagePath,
-      checksum: backup.checksum,
-      resourceName: resource.name,
-      projectId: resource.projectId,
-      projectSlug: project.slug,
-      engine: databaseResource.engine,
-      databaseName: databaseResource.databaseName,
-      username: databaseResource.username,
-      password: databaseResource.password,
-      destId: backupDestination.id,
-      destType: backupDestination.type,
-      destConfig: backupDestination.config,
-      destSecret: backupDestination.encryptedSecret,
-      // Pre-hook lives on the schedule; null for manual (scheduleId null) runs.
-      preHook: backupSchedule.preHook,
-      scheduleId: backup.scheduleId,
-    })
-    .from(backup)
-    .leftJoin(resource, eq(resource.id, backup.resourceId))
-    .leftJoin(project, eq(project.id, resource.projectId))
-    .leftJoin(databaseResource, eq(databaseResource.resourceId, backup.resourceId))
-    .innerJoin(backupDestination, eq(backupDestination.id, backup.destinationId))
-    .leftJoin(backupSchedule, eq(backupSchedule.id, backup.scheduleId))
-    .where(eq(backup.id, backupId))
-    .limit(1);
-
-  if (!row) return null;
-  const base: ExecutionContextBase = {
-    backupId: row.backupId,
-    organizationId: row.organizationId,
-    encryption: row.encryption,
-    storagePath: row.storagePath,
-    checksum: row.checksum,
-    preHook: row.preHook ?? null,
-    scheduleId: row.scheduleId,
-    destination: {
-      id: row.destId,
-      type: row.destType,
-      config: row.destConfig,
-      encryptedSecret: row.destSecret,
-    },
-  };
-
-  if (row.kind === "volume") {
-    if (!row.volumeName) return null;
-    return { ...base, kind: "volume", volumeName: row.volumeName };
-  }
-
-  // database (and the reserved, never-written "stack") — require the full
-  // resource + database join to have resolved, same as the old inner joins.
-  if (
-    row.kind !== "database" ||
-    !row.resourceId ||
-    !row.resourceName ||
-    !row.projectId ||
-    !row.projectSlug ||
-    !row.engine ||
-    row.databaseName == null ||
-    row.username == null ||
-    row.password == null
-  ) {
-    return null;
-  }
-  return {
-    ...base,
-    kind: "database",
-    resourceId: row.resourceId,
-    resourceName: row.resourceName,
-    projectId: row.projectId,
-    projectSlug: row.projectSlug,
-    engine: row.engine as DatabaseEngine,
-    databaseName: row.databaseName,
-    username: row.username,
-    password: row.password,
-  };
-}
-
-/** Source of a new run — exactly one of the two shapes. */
+/** Source of a new run. `database` (managed) and `stack` (compose-service DB)
+ *  both key off a resourceId; `volume` off a volume name. */
 export type BackupRunSource =
   | { kind: "database"; resourceId: ResourceId }
+  | { kind: "stack"; resourceId: ResourceId }
   | { kind: "volume"; volumeName: string };
 
 export async function createBackupRun(input: {
@@ -171,7 +41,7 @@ export async function createBackupRun(input: {
     .insert(backup)
     .values({
       organizationId: input.organizationId,
-      resourceId: input.source.kind === "database" ? input.source.resourceId : null,
+      resourceId: input.source.kind === "volume" ? null : input.source.resourceId,
       volumeName: input.source.kind === "volume" ? input.source.volumeName : null,
       destinationId: input.destinationId,
       scheduleId: input.scheduleId ?? null,

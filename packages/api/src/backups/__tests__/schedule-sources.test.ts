@@ -11,50 +11,60 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { partitionSources } from "../schedule-db";
 
-const db = (id: string, name: string) => ({ id: id as ResourceId, name });
+const db = (id: string, name: string) => ({ id: id as ResourceId, name, kind: "database" as const });
+const stack = (id: string, name: string) => ({ id: id as ResourceId, name, kind: "stack" as const });
+
+const ids = (r: ReturnType<typeof partitionSources>) => r.resolved.map((x) => x.id).sort();
 
 const resources = [db("resource_a", "postgres-main"), db("resource_b", "redis-cache")];
 
 describe("partitionSources", () => {
   it("resolves refs by resource id", () => {
     const r = partitionSources(["resource_a"], resources);
-    expect(r.resolvedIds).toEqual(["resource_a"]);
+    expect(r.resolved).toEqual([{ id: "resource_a", kind: "database" }]);
     expect(r.missing).toEqual([]);
   });
 
   it("resolves refs by resource name", () => {
     const r = partitionSources(["postgres-main"], resources);
-    expect(r.resolvedIds).toEqual(["resource_a"]);
+    expect(r.resolved).toEqual([{ id: "resource_a", kind: "database" }]);
+    expect(r.missing).toEqual([]);
+  });
+
+  it("tags a compose-stack DB service as a `stack` source", () => {
+    const candidates = [db("resource_a", "postgres-main"), stack("svc_x", "authentik-postgres")];
+    const r = partitionSources(["svc_x"], candidates);
+    expect(r.resolved).toEqual([{ id: "svc_x", kind: "stack" }]);
     expect(r.missing).toEqual([]);
   });
 
   it("flags a ref whose backing database no longer exists as missing", () => {
     // The real prod bug: schedule points at a deleted database resource.
     const r = partitionSources(["resource_gone"], resources);
-    expect(r.resolvedIds).toEqual([]);
+    expect(r.resolved).toEqual([]);
     expect(r.missing).toEqual(["resource_gone"]);
   });
 
   it("partitions a mix of live and dead refs", () => {
     const r = partitionSources(["resource_a", "resource_gone", "redis-cache"], resources);
-    expect(r.resolvedIds.sort()).toEqual(["resource_a", "resource_b"]);
+    expect(ids(r)).toEqual(["resource_a", "resource_b"]);
     expect(r.missing).toEqual(["resource_gone"]);
   });
 
   it("treats every ref as missing when all databases are gone (fully orphaned)", () => {
     const r = partitionSources(["resource_a", "postgres-main"], []);
-    expect(r.resolvedIds).toEqual([]);
+    expect(r.resolved).toEqual([]);
     expect(r.missing).toEqual(["resource_a", "postgres-main"]);
   });
 
   it("returns empty partitions for a schedule with no sources", () => {
-    expect(partitionSources([], resources)).toEqual({ resolvedIds: [], missing: [] });
+    expect(partitionSources([], resources)).toEqual({ resolved: [], missing: [] });
   });
 
   it("fans a by-name ref out to every same-named resource", () => {
     const dupes = [db("resource_a", "db"), db("resource_b", "db")];
     const r = partitionSources(["db"], dupes);
-    expect(r.resolvedIds.sort()).toEqual(["resource_a", "resource_b"]);
+    expect(ids(r)).toEqual(["resource_a", "resource_b"]);
     expect(r.missing).toEqual([]);
   });
 });

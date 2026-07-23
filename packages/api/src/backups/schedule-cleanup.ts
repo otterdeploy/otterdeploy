@@ -18,6 +18,8 @@ import type { OrganizationId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { backupSchedule, databaseResource, project, resource } from "@otterdeploy/db/schema";
+
+import { listStackDatabaseResources } from "./stack";
 import { and, eq, sql } from "drizzle-orm";
 import { log } from "evlog";
 
@@ -36,7 +38,12 @@ export function planSchedulePrune(
   sources: string[],
   live: Array<{ id: ResourceId; name: string }>,
 ): { nextSources: string[]; changed: boolean; disable: boolean } {
-  const { missing } = partitionSources(sources, live);
+  // Kind is irrelevant to which refs are *missing* (this only prunes dead
+  // refs), so tag every candidate `database` for the pure matcher.
+  const { missing } = partitionSources(
+    sources,
+    live.map((r) => ({ ...r, kind: "database" as const })),
+  );
   if (missing.length === 0) {
     return { nextSources: sources, changed: false, disable: false };
   }
@@ -76,14 +83,20 @@ export async function pruneSchedulesForDeletedResource(input: {
       );
     if (candidates.length === 0) return;
 
-    // Live database resources in the org, post-deletion — the authority for
-    // what a ref still resolves to (id or name, matching the scheduler).
-    const live = await db
-      .select({ id: resource.id, name: resource.name })
-      .from(resource)
-      .innerJoin(project, eq(project.id, resource.projectId))
-      .innerJoin(databaseResource, eq(databaseResource.resourceId, resource.id))
-      .where(eq(project.organizationId, organizationId));
+    // Live databases in the org, post-deletion — the authority for what a ref
+    // still resolves to (id or name, matching the scheduler). Managed database
+    // resources AND compose-stack DB services, so a stack-backed schedule isn't
+    // pruned as orphaned just because its source isn't a `database_resource`.
+    const [dbRows, stackRows] = await Promise.all([
+      db
+        .select({ id: resource.id, name: resource.name })
+        .from(resource)
+        .innerJoin(project, eq(project.id, resource.projectId))
+        .innerJoin(databaseResource, eq(databaseResource.resourceId, resource.id))
+        .where(eq(project.organizationId, organizationId)),
+      listStackDatabaseResources(organizationId),
+    ]);
+    const live = [...dbRows, ...stackRows];
 
     for (const schedule of candidates) {
       const { nextSources, changed, disable } = planSchedulePrune(schedule.sources, live);

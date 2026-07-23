@@ -83,11 +83,17 @@ async function produceArchive(
     return { ...dump, method: "tar (helper container, ro mount) → rustic" };
   }
 
-  const serviceName = buildContainerName({
-    engine: ctx.engine,
-    projectSlug: ctx.projectSlug,
-    resourceName: ctx.resourceName,
-  });
+  // Managed DBs use the derived `otterdeploy-<engine>-…` container name; a stack
+  // DB's container is `<stack>-<service>`, so just label the log with the
+  // service name (the actual lookup is by the resource-id label, either way).
+  const serviceName =
+    ctx.kind === "database"
+      ? buildContainerName({
+          engine: ctx.engine,
+          projectSlug: ctx.projectSlug,
+          resourceName: ctx.resourceName,
+        })
+      : ctx.resourceName;
   const containerId = await findResourceContainerId(docker, ctx.resourceId);
   if (!containerId) {
     throw new Error(`No running container for service ${serviceName} — is the database up?`);
@@ -195,7 +201,7 @@ export async function executeBackup(backupId: string): Promise<void> {
       organizationId: ctx.organizationId,
       eventId: "backup.failed",
       title: "Backup failed",
-      message: `${sourceLabel(ctx)}${ctx.kind === "database" ? ` (${ctx.projectSlug})` : ""}: ${message}`,
+      message: `${sourceLabel(ctx)}${ctx.kind !== "volume" ? ` (${ctx.projectSlug})` : ""}: ${message}`,
       data: eventData(ctx),
     });
   } finally {

@@ -23,6 +23,8 @@ import {
 } from "@otterdeploy/db/schema";
 import { and, desc, eq, isNull, lte, or } from "drizzle-orm";
 
+import { listStackDatabaseResources } from "./stack";
+
 export interface DueSchedule {
   id: BackupScheduleId;
   organizationId: OrganizationId;
@@ -131,62 +133,77 @@ export async function updateScheduleAfterRun(
   await db.update(backupSchedule).set(fields).where(eq(backupSchedule.id, scheduleId));
 }
 
-/** Outcome of matching a schedule's source refs against live db resources. */
+/** A resolved source, tagged so the run gets the right engine path: `database`
+ *  (managed) or `stack` (a DB living inside a compose stack). */
+export interface ResolvedSource {
+  id: ResourceId;
+  kind: "database" | "stack";
+}
+
+/** Outcome of matching a schedule's source refs against live resources. */
 export interface ScheduleSourceResolution {
-  /** Database resource ids the schedule can actually back up right now. */
-  resolvedIds: ResourceId[];
-  /** Source refs that no longer match any live database resource — the
-   *  schedule was orphaned (its DB/volume was deleted out from under it). */
+  /** Resources the schedule can actually back up right now, with their kind. */
+  resolved: ResolvedSource[];
+  /** Source refs that no longer match any live database — the schedule was
+   *  orphaned (its DB/volume/stack service was deleted out from under it). */
   missing: string[];
 }
 
-/** Pure matcher (no DB): partition `sources` against a set of live database
- *  resources. A ref counts as matched if *any* resource carries it as its id or
- *  name (name is not unique across projects, so a by-name ref can fan out to
- *  several); an unmatched ref is "missing" — its backing database is gone. */
+/** Pure matcher (no DB): partition `sources` against a set of candidate
+ *  resources (managed DBs + stack DB services). A ref counts as matched if *any*
+ *  candidate carries it as its id or name (name is not unique across projects,
+ *  so a by-name ref can fan out to several); an unmatched ref is "missing". */
 export function partitionSources(
   sources: string[],
-  dbResources: Array<{ id: ResourceId; name: string }>,
+  candidates: Array<{ id: ResourceId; name: string; kind: "database" | "stack" }>,
 ): ScheduleSourceResolution {
-  if (sources.length === 0) return { resolvedIds: [], missing: [] };
+  if (sources.length === 0) return { resolved: [], missing: [] };
   const wanted = new Set(sources);
-  const resolvedIds: ResourceId[] = [];
+  const resolved: ResolvedSource[] = [];
   const matchedRefs = new Set<string>();
-  for (const r of dbResources) {
-    if (wanted.has(r.id)) {
-      resolvedIds.push(r.id);
-      matchedRefs.add(r.id);
-    } else if (wanted.has(r.name)) {
-      resolvedIds.push(r.id);
-      matchedRefs.add(r.name);
+  for (const c of candidates) {
+    if (wanted.has(c.id)) {
+      resolved.push({ id: c.id, kind: c.kind });
+      matchedRefs.add(c.id);
+    } else if (wanted.has(c.name)) {
+      resolved.push({ id: c.id, kind: c.kind });
+      matchedRefs.add(c.name);
     }
   }
-  return { resolvedIds, missing: sources.filter((s) => !matchedRefs.has(s)) };
+  return { resolved, missing: sources.filter((s) => !matchedRefs.has(s)) };
 }
 
-/** Match a schedule's source refs against the org's live database resources,
- *  partitioning them into what still resolves and what has gone missing. */
+/** Match a schedule's source refs against the org's live databases — both
+ *  managed database resources and compose-stack DB services — partitioning them
+ *  into what still resolves (with its kind) and what has gone missing. */
 export async function classifyScheduleSources(
   organizationId: OrganizationId,
   sources: string[],
 ): Promise<ScheduleSourceResolution> {
-  if (sources.length === 0) return { resolvedIds: [], missing: [] };
-  const rows = await db
-    .select({ id: resource.id, name: resource.name })
-    .from(resource)
-    .innerJoin(project, eq(project.id, resource.projectId))
-    .innerJoin(databaseResource, eq(databaseResource.resourceId, resource.id))
-    .where(eq(project.organizationId, organizationId));
-  return partitionSources(sources, rows);
+  if (sources.length === 0) return { resolved: [], missing: [] };
+  const [dbRows, stackRows] = await Promise.all([
+    db
+      .select({ id: resource.id, name: resource.name })
+      .from(resource)
+      .innerJoin(project, eq(project.id, resource.projectId))
+      .innerJoin(databaseResource, eq(databaseResource.resourceId, resource.id))
+      .where(eq(project.organizationId, organizationId)),
+    listStackDatabaseResources(organizationId),
+  ]);
+  const candidates = [
+    ...dbRows.map((r) => ({ ...r, kind: "database" as const })),
+    ...stackRows.map((r) => ({ ...r, kind: "stack" as const })),
+  ];
+  return partitionSources(sources, candidates);
 }
 
-/** Resolve a schedule's source refs (resource ids or names) to database
- *  resource ids in the same org. Thin wrapper over `classifyScheduleSources`. */
+/** Resolve a schedule's source refs (resource ids or names) to runnable sources
+ *  in the same org. Thin wrapper over `classifyScheduleSources`. */
 export async function resolveScheduleSources(
   organizationId: OrganizationId,
   sources: string[],
-): Promise<ResourceId[]> {
-  return (await classifyScheduleSources(organizationId, sources)).resolvedIds;
+): Promise<ResolvedSource[]> {
+  return (await classifyScheduleSources(organizationId, sources)).resolved;
 }
 
 /** Succeeded backups for a schedule, newest first — drives retention. */

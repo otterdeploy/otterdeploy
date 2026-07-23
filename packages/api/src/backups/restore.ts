@@ -77,7 +77,8 @@ function bufferSink(): { sink: Writable; done: Promise<Buffer> } {
 export type RestoreMode = "download" | "in-place";
 
 type VolumeContext = Extract<ExecutionContext, { kind: "volume" }>;
-type DatabaseContext = Extract<ExecutionContext, { kind: "database" }>;
+// The DB-ish arm — managed `database` and compose `stack` share one field set.
+type DatabaseContext = Exclude<ExecutionContext, { kind: "volume" }>;
 
 /** In-place restore of a named volume: refuse while any container mounts it,
  *  then reload the snapshot's tar via the backup path's helper mechanics. */
