@@ -10,6 +10,7 @@ import type { DeploymentId, ResourceId } from "@otterdeploy/shared/id";
 import { db } from "@otterdeploy/db";
 import { deploymentLog } from "@otterdeploy/db/schema/build";
 import { deployment } from "@otterdeploy/db/schema/project";
+import { inFlightDeploys } from "@otterdeploy/jobs";
 import { and, desc, eq, inArray } from "drizzle-orm";
 
 import type { DeploymentRow } from "./deployments";
@@ -86,6 +87,15 @@ export async function isBuildStillLogging(
   if (latest.status !== "building" && latest.status !== "pending") return false;
   if ((tasksByDeployment.get(latest.id) ?? []).length > 0) return false;
   if (Date.now() - latest.createdAt.getTime() <= ZERO_TASK_STALE_MS) return false;
+  // Queue-aware guard: a deployment owned by an in-flight `deploy.triggered`
+  // job WHILE the worker is actively building something is legitimately in the
+  // pipeline — queued behind another build (concurrency=1) or building itself —
+  // so its log-silence must NOT fail it. If it's owned but nothing is active,
+  // the builder isn't consuming the queue (likely down); fall through to the
+  // log-recency check, which fails it after the stale window ("is the builder
+  // running?"). A row with no owning job at all also falls through.
+  const { ownedIds, anyActive } = await inFlightDeploys();
+  if (ownedIds.has(latest.id) && anyActive) return true;
   const [lastLine] = await db
     .select({ ts: deploymentLog.ts })
     .from(deploymentLog)

@@ -40,6 +40,7 @@ export { jobs, jobsByName } from "./registry";
 
 // Boot-time reconciliation — reset deployments stranded by a crash.
 export { reconcileInterruptedDeployments } from "./reconcile";
+export { inFlightDeploys, type InFlightDeploys } from "./in-flight";
 
 // Definition helper — exported for callers adding new jobs in apps.
 export { defineJob } from "./define";
