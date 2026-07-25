@@ -47,7 +47,7 @@ New `compose_resource` table (parallel to `service_resource`):
 | gitRepoUrl/gitRef/sourceSubdir | text | git source |
 | stackName | text unique | swarm namespace (`<projectSlug>-<resourceSlug>`) |
 | services | jsonb | **derived** parse summary for UI (name, image, hasBuild, ports) — refreshed on save/deploy, never authoritative |
-| exposed | jsonb | which `service:port` get a public domain |
+| exposed | jsonb | wizard/manifest SEED of which `service:port` start out public — applied once, the first time each service is created (`reconcileStackServices`), via the same `exposeService` primitive a standalone service's Settings toggle calls. Not read again after that: each child `service_resource`'s own `publicEnabled`/`publicDomain` is the single source of truth from then on (od-80d) — there is no stack-level "edit exposures" write path. |
 | forceUpdateCounter | int | force swarm task diff |
 
 `${VAR}` interpolation: compose `${FOO}` refs resolve against the project/env
@@ -73,8 +73,12 @@ surfaced as "promote to project variable" in the UI (Phase 5).
 5. **Frontend** — wizard compose step (paste/upload → server-parse preview of
    detected services) ; `${VAR}` promotion; expose-which-service mapping; graph
    group node; remove `comingSoon`.
-6. **Networking/domains** — exposed `service:port` → Caddy route (reuse the
-   proxy_route path), one host per exposed service.
+6. **Networking/domains** — exposed `service:port` → Caddy route, minted by
+   seeding the CHILD service's own `publicEnabled`/`publicDomain` (reuses the
+   per-service `proxy_route` path standalone services already use) the first
+   time it's created. Public exposure afterwards is owned exclusively by that
+   child's own Settings tab — the stack panel only shows a read-only summary
+   with a "Manage" link into it (od-80d).
 
 ## Deferred / non-goals (v1)
 

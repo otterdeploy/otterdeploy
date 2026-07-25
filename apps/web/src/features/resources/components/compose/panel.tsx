@@ -203,6 +203,8 @@ export function ComposeResourcePanel({
                 <ComposeSettingsTab
                   projectId={resource.projectId}
                   resourceId={resource.resourceId}
+                  orgSlug={orgSlug}
+                  projectSlug={projectSlug}
                   name={resource.name}
                   serviceCount={resource.services.length}
                   onDelete={() =>

@@ -75,7 +75,7 @@ export function inboxRowsFor(
     channel: "in-app" as const,
     title: event.title,
     message: event.message,
-    data: { ...(event.data ?? {}), eventId: event.eventId, occurrence: occurrenceKey },
+    data: { ...event.data, eventId: event.eventId, occurrence: occurrenceKey },
   }));
 }
 

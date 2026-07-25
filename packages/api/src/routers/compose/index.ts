@@ -7,11 +7,10 @@ import { removeResourceDir } from "../../lib/data-dir";
 import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { removeComposeStack } from "../../swarm";
 import { removeComposeFromManifest, syncManifestComposeContent } from "../project/manifest";
-import { getProjectInOrg } from "../project/queries";
 import { enqueueComposeBuild, enqueueInlineComposeBuild } from "./build-trigger";
 import { cleanupOrphanedComposeVars } from "./cleanup-vars";
 import { createComposeResource } from "./create";
-import { deployCompose, reconcileComposeDomains, removeComposeDomains } from "./deploy";
+import { deployCompose, removeComposeDomains } from "./deploy";
 import { collectVarRefs, interpolate } from "./env";
 import {
   type ComposeRecord,
@@ -19,7 +18,6 @@ import {
   getComposeRecord,
   listComposeRecords,
   updateComposeContent,
-  updateComposeExposed,
 } from "./queries";
 import { removeStackServices } from "./reconcile";
 
@@ -158,10 +156,8 @@ export const composeRouter = {
     },
   ),
 
-  // Change which service:port pairs are publicly exposed on a live stack. Drops
-  // exposures that don't reference a real service, persists the list, then
-  // re-mints the Caddy routes (reconcileComposeDomains is idempotent: it clears
-  // the stack's generated routes and re-creates one per exposure).
+  // Replace the stored compose YAML of an inline stack (re-parses + re-syncs
+  // the manifest). Takes effect on the next redeploy.
   updateContent: requirePermission({ service: ["update"] }).compose.updateContent.handler(
     async ({ input, context, errors }) => {
       const rec = await getComposeRecord(input.projectId, input.resourceId);
@@ -205,31 +201,6 @@ export const composeRouter = {
         files,
       );
       const updated = (await getComposeRecord(input.projectId, input.resourceId)) ?? rec;
-      return toView(updated);
-    },
-  ),
-
-  setExposed: requirePermission({ service: ["update"] }).compose.setExposed.handler(
-    async ({ input, context, errors }) => {
-      const rec = await getComposeRecord(input.projectId, input.resourceId);
-      if (!rec) throw errors.NOT_FOUND();
-      const project = await getProjectInOrg({
-        projectId: input.projectId,
-        organizationId: context.activeOrganizationId,
-      });
-      if (!project) throw errors.NOT_FOUND();
-
-      const known = new Set(rec.compose.services.map((s) => s.name));
-      const exposed = input.exposed
-        .filter((e) => known.has(e.service))
-        .map((e) => ({ service: e.service, port: e.port, domain: e.domain }));
-
-      await updateComposeExposed({ resourceId: input.resourceId, exposed });
-      const updated = (await getComposeRecord(input.projectId, input.resourceId)) ?? rec;
-      await reconcileComposeDomains(updated, {
-        id: input.projectId,
-        slug: project.slug,
-      });
       return toView(updated);
     },
   ),

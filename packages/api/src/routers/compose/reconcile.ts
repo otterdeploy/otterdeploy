@@ -1,4 +1,4 @@
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
@@ -19,6 +19,7 @@ import { Result } from "better-result";
  * Variables tab survive re-deploys). See docs/designs/compose.md.
  */
 import { eq } from "drizzle-orm";
+import { createLogger } from "evlog";
 
 import { deleteProxyRoutesByResource } from "../../caddy/queries";
 import { runtime } from "../../runtime";
@@ -29,6 +30,7 @@ import {
 } from "../../stack/compose";
 import { insertDeployment, markDeploymentFailed } from "../project/deployments";
 import { deleteResourceById } from "../project/queries";
+import { exposeService } from "../service/expose";
 import {
   bulkReplaceServiceMounts,
   createServiceRecord,
@@ -42,6 +44,15 @@ import { pickResourceName, toServiceFields } from "./reconcile-map";
 
 export interface StackReconcileContext {
   projectId: ProjectId;
+  /** Owning org — needed to seed public exposure via the same `exposeService`
+   *  path a standalone service's Settings toggle calls. */
+  organizationId: OrganizationId;
+  /** Compose-service names (the file's `service:` key) to auto-expose the
+   *  FIRST time each is materialized — the wizard/manifest's `exposed` seed.
+   *  Seed only: applied once per service on create, never again, so an
+   *  operator's later imperative expose/unexpose on the child's own Settings
+   *  tab is the single source of truth from then on. */
+  exposedSeedServiceNames: ReadonlySet<string>;
   /** The compose resource id — written as `service_resource.stackId`. */
   stackResourceId: ResourceId;
   projectSlug: string;
@@ -72,6 +83,49 @@ function toErrorMessage(e: unknown): string {
  *  message when the throw is a DB unique-violation, else the raw error text. */
 function describeReconcileFailure(e: unknown, svcName: string): string {
   return friendlyServiceCollisionMessage(e, svcName) ?? toErrorMessage(e);
+}
+
+/**
+ * Seed-only public exposure: the wizard/manifest's `exposed` selection
+ * applies ONCE, the moment a compose service is first materialized as a real
+ * service_resource — via the exact same `exposeService` primitive the
+ * child's own Settings toggle calls, so it lands in the single per-service
+ * source of truth instead of a stack-level shadow record. Callers only fire
+ * this when `isCreate` is true, so it never re-fires on a later reconcile and
+ * never undoes an operator's own expose/unexpose. Best-effort: an exposure
+ * failure is logged to the deploy progress but never fails the service's
+ * otherwise-successful rollout.
+ */
+async function seedServiceExposure(
+  ctx: StackReconcileContext,
+  isCreate: boolean,
+  svcName: string,
+  resourceId: ResourceId,
+  log: RequestLogger | undefined,
+  progress: (line: string) => void,
+): Promise<void> {
+  if (!isCreate || !ctx.exposedSeedServiceNames.has(svcName)) return;
+  const seedLog = log ?? createLogger({ operation: "compose.seed-expose" });
+  const seeded = await Result.tryPromise({
+    try: () =>
+      exposeService(
+        { projectId: ctx.projectId, organizationId: ctx.organizationId, resourceId },
+        // Skip the "confirm the sslip.io fallback" prompt a manual toggle
+        // would show — there's no operator present to answer it mid-rollout.
+        true,
+        seedLog,
+      ),
+    catch: (e) => (e instanceof Error ? e : new Error(String(e))),
+  });
+  if (seeded.isErr()) {
+    progress(`Service ${svcName}: seed expose failed — ${toErrorMessage(seeded.error)}`);
+  } else if (seeded.value.isErr()) {
+    progress(`Service ${svcName}: seed expose failed — ${seeded.value.error.message}`);
+  } else {
+    progress(
+      `Service ${svcName}: exposed publicly at ${seeded.value.value.publicDomain ?? "generated host"}.`,
+    );
+  }
 }
 
 /**
@@ -215,6 +269,8 @@ export async function reconcileStackServices(
         .where(eq(deployment.id, dep.id));
       progress(`Service ${svc.name}: rolled out.`);
       deployed++;
+
+      await seedServiceExposure(ctx, isCreate, svc.name, resourceId, log, progress);
     } catch (e) {
       // A DB unique-violation (name / hostname / domain collision) otherwise
       // leaks the raw drizzle INSERT into the deploy log — map it to one line.

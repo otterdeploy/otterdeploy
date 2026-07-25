@@ -171,24 +171,4 @@ export const composeContract = {
       }),
     )
     .output(composeViewSchema),
-
-  // Replace which service:port pairs are publicly exposed on a LIVE stack —
-  // re-mints the Caddy routes without re-staging the manifest.
-  setExposed: oc
-    .errors({ NOT_FOUND: sharedErrors.NOT_FOUND })
-    .meta({ path: `${basePath}/{resourceId}/exposed`, tag, method: "POST" })
-    .input(
-      z.object({
-        projectId: projectIdField,
-        resourceId: resourceIdField,
-        exposed: z.array(
-          z.object({
-            service: z.string(),
-            port: z.number().int(),
-            domain: z.string().default(""),
-          }),
-        ),
-      }),
-    )
-    .output(composeViewSchema),
 };

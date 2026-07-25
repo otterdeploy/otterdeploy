@@ -1,4 +1,4 @@
-import type { DeploymentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { resourceDir } from "@otterdeploy/shared/paths";
@@ -15,11 +15,9 @@ import { Result } from "better-result";
  */
 
 import { reconcile } from "../../caddy";
-import { deleteProxyRoutesByResource, insertProxyRoute } from "../../caddy/queries";
+import { deleteProxyRoutesByResource } from "../../caddy/queries";
 import { materializeComposeFiles, readEnvFiles } from "../../lib/compose-materialize";
 import { createStackDeployLog } from "../../lib/deploy-log";
-import { loadDomainSourcesForProject } from "../../lib/domain-sources";
-import { resolvePublicDomain } from "../../lib/domains";
 import { parseCompose } from "../../stack/compose";
 import { insertDeployment, markDeploymentFailed } from "../project/deployments";
 import { getProjectById, loadProjectEnvBag } from "../project/queries";
@@ -27,12 +25,6 @@ import { finalizeStackDeployment } from "./deploy-finalize";
 import { interpolate } from "./env";
 import { type ComposeRecord, getComposeRecord } from "./queries";
 import { reconcileStackServices } from "./reconcile";
-
-const sanitize = (s: string) =>
-  s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
 
 class ComposeDeployError extends Error {
   constructor(message: string) {
@@ -183,12 +175,25 @@ export async function deployCompose(
     // Materialize each compose service as a real service_resource owned by the
     // stack, then deploy each via the normal per-service path. This is what makes
     // logs / variables / settings / public-private work per service unchanged.
+    //
+    // Seed-only exposure: `record.compose.exposed` is the wizard/manifest's
+    // one-time selection of which compose services should start out public —
+    // never edited after create (there is no stack-level "Save exposures"
+    // path anymore; public exposure is owned exclusively by each child
+    // service's own Settings tab). reconcileStackServices applies this seed
+    // via the normal per-service `exposeService` primitive, ONLY the first
+    // time each service is materialized, so it never overwrites an operator's
+    // later imperative expose/unexpose.
+    const exposedSeedServiceNames = new Set(record.compose.exposed.map((e) => e.service));
+
     const reconciled = await Result.tryPromise({
       try: () =>
         reconcileStackServices(
           parsed.value,
           {
             projectId: input.projectId,
+            organizationId: project.organizationId as OrganizationId,
+            exposedSeedServiceNames,
             stackResourceId: input.resourceId,
             projectSlug: project.slug,
             stackName: record.compose.stackName,
@@ -219,79 +224,15 @@ export async function deployCompose(
       log: (line) => dlog.line(line),
     });
 
-    // Best-effort: publish Caddy routes for any exposed service:port. A domain
-    // failure must not fail an otherwise-successful stack deploy.
-    if (record.compose.exposed.length > 0) {
-      dlog.line(`Publishing ${record.compose.exposed.length} public route(s).`);
-    }
-    await Result.tryPromise({
-      try: () =>
-        reconcileComposeDomains(record, {
-          id: input.projectId,
-          slug: project.slug,
-        }),
-      catch: (e) => (e instanceof Error ? e : new Error(String(e))),
-    });
-
     return Result.ok({ status, deployed, failed });
   } finally {
     await dlog.close();
   }
 }
 
-/**
- * Rebuild this stack's public routes from its `exposed` list. Idempotent:
- * drops the stack's existing generated routes and re-mints one per exposed
- * `service:port`, pointing Caddy at the swarm service's network alias.
- */
-export async function reconcileComposeDomains(
-  record: ComposeRecord,
-  project: { id: ProjectId; slug: string },
-): Promise<void> {
-  await deleteProxyRoutesByResource(record.resource.id);
-
-  const exposed = record.compose.exposed;
-  if (exposed.length > 0) {
-    const sources = (await loadDomainSourcesForProject(project.id)) ?? {
-      resourceOverride: null,
-      projectCustomDomain: null,
-      projectCustomDomainVerifiedAt: null,
-      orgBaseDomain: null,
-      orgBaseDomainVerifiedAt: null,
-      localBaseDomain: null,
-      serverIp: null,
-    };
-
-    let first = true;
-    for (const ex of exposed) {
-      const serviceName = sanitize(`${record.compose.stackName}-${ex.service}`).slice(0, 63);
-      const resolved = resolvePublicDomain(
-        { resourceSlug: serviceName, projectSlug: project.slug, kind: "service" },
-        { ...sources, resourceOverride: ex.domain || null },
-      );
-      await insertProxyRoute({
-        projectId: project.id,
-        resourceId: record.resource.id,
-        type: "http",
-        domain: resolved.fqdn,
-        // Caddy reaches the service by its swarm alias on the project network.
-        upstreamHost: serviceName,
-        upstreamPort: ex.port,
-        protocol: "http",
-        usesAcme: resolved.verified && resolved.source !== "sslip-fallback",
-        enabled: true,
-        source: "generated",
-        isPrimary: first,
-        dnsState: "pointed",
-      });
-      first = false;
-    }
-  }
-
-  await reconcile();
-}
-
-/** Drop a stack's routes + re-render Caddy (used on stack delete). */
+/** Drop a stack's routes + re-render Caddy (used on stack delete — cleans up
+ *  both the child services' own routes and any legacy stack-level route a
+ *  pre-migration exposure left behind). */
 export async function removeComposeDomains(resourceId: ResourceId): Promise<void> {
   await deleteProxyRoutesByResource(resourceId);
   await reconcile();

@@ -4,7 +4,7 @@
  * parsers stay pinned to what's in the wild.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import {
   TAG_PAGE_LIMIT,
