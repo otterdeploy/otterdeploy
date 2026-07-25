@@ -83,7 +83,7 @@ export function useGraphContextMenu({
         void navigate({
           to: "/$orgSlug/$projectSlug/logs",
           params: { orgSlug, projectSlug },
-          search: { service: node.data.resourceId },
+          search: { service: node.data.resourceId, source: "runtime" },
         });
         return;
       }

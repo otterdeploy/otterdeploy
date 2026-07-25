@@ -39,11 +39,9 @@ const tabs: readonly Tab[] = [
   { titleKey: "nav.metrics", to: "/$orgSlug/$projectSlug/metrics" },
   { titleKey: "nav.variables", to: "/$orgSlug/$projectSlug/variables" },
   { titleKey: "nav.networking", to: "/$orgSlug/$projectSlug/networking" },
-  {
-    titleKey: "nav.edgeLogs",
-    to: "/$orgSlug/$projectSlug/edge-logs",
-    fallback: "Edge logs",
-  },
+  // No "Edge logs" tab (od-u63.5) — merged into Logs as a Runtime | Edge
+  // source toggle (see $projectSlug/logs.tsx). The route still exists as a
+  // redirect shim for old links.
   { titleKey: "nav.settings", to: "/$orgSlug/$projectSlug/settings" },
 ] as const;
 

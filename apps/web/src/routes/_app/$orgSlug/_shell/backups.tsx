@@ -27,6 +27,7 @@ import {
 } from "@/features/backups/backups-sections";
 import { BackupsStats } from "@/features/backups/backups-stats";
 import { BackupsTable } from "@/features/backups/backups-table";
+import { DatabasesSection } from "@/features/backups/databases-section";
 import { DestinationEditorDialog } from "@/features/backups/destination-editor-dialog";
 import { RestoreWizard } from "@/features/backups/restore-wizard";
 import { ScheduleEditorDialog } from "@/features/backups/schedule-editor-dialog";
@@ -45,6 +46,7 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/backups")({
 });
 
 function BackupsRoute() {
+  const { orgSlug } = Route.useParams();
   const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
   const organizationId = organization.id;
 
@@ -133,6 +135,8 @@ function BackupsRoute() {
         lastSuccess={backups.find((b) => b.status === "succeeded")}
         lastFail={backups.find((b) => b.status === "failed")}
       />
+
+      <DatabasesSection orgSlug={orgSlug} />
 
       <BackupsFilters
         projects={projects}

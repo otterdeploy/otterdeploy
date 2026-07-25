@@ -1,11 +1,13 @@
 /**
- * Instance settings — install-wide configuration, one level above any
- * workspace (the Coolify "instance settings" analog). Everything here edits
- * the platform_settings singleton: the control-plane domain (the dashboard's
- * own address), the public IP behind sslip.io fallbacks, edge-proxy defaults,
- * and the transactional-email transport. Workspace-scoped settings (base
- * domain, Cloudflare, team) live under Workspace → General. Pages are
- * visible to every member; mutations are RBAC-gated inside each card.
+ * Instance settings (od-u63.7 label-only rename; path unchanged — this file
+ * still lives at `/settings/instance/general`) — install-wide configuration,
+ * one level above any workspace (the Coolify "instance settings" analog).
+ * Everything here edits the platform_settings singleton: the control-plane
+ * domain (the dashboard's own address), the public IP behind sslip.io
+ * fallbacks, edge-proxy defaults, and the transactional-email transport.
+ * Workspace-scoped settings (base domain, Cloudflare, team) live under
+ * Workspace → Domains. Pages are visible to every member; mutations are
+ * RBAC-gated inside each card.
  */
 
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
@@ -19,7 +21,7 @@ import { EmailCard } from "../../-components/settings-email";
 import { UpdatesCard } from "../../-components/instance-updates";
 
 export const Route = createFileRoute("/_app/$orgSlug/settings/instance/general")({
-  staticData: { crumb: "General" },
+  staticData: { crumb: "Instance" },
   component: InstanceRoute,
 });
 

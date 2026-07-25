@@ -32,6 +32,6 @@ export function useProjectNavHotkeys(go: (to: RoutePath) => void): void {
   useHotkeySequence(["G", "M"], () => go("/$orgSlug/$projectSlug/metrics"), { enabled });
   useHotkeySequence(["G", "V"], () => go("/$orgSlug/$projectSlug/variables"), { enabled });
   useHotkeySequence(["G", "N"], () => go("/$orgSlug/$projectSlug/networking"), { enabled });
-  useHotkeySequence(["G", "E"], () => go("/$orgSlug/$projectSlug/edge-logs"), { enabled });
+  // No "G E" — Edge logs merged into Logs (od-u63.5); "G L" already covers it.
   useHotkeySequence(["G", "S"], () => go("/$orgSlug/$projectSlug/settings"), { enabled });
 }

@@ -7,6 +7,7 @@ import { Key01Icon } from "@hugeicons/core-free-icons";
 import * as z from "zod";
 
 import { PageHeader } from "@/shared/components/page";
+import { orpc, queryClient } from "@/shared/server/orpc";
 import { JoinTokenDialog } from "@/features/servers/components/join-token-dialog";
 import { ServerCreateDialog } from "@/features/servers/components/server-create-dialog";
 import { serverCollection } from "@/features/servers/data/server";
@@ -15,12 +16,15 @@ import {
   serverClusterStatsCollection,
   serverNodeStatsCollection,
 } from "@/features/servers/data/stats";
-import { swarmNodesCollection, type SwarmNode } from "@/features/servers/data/swarm";
+import {
+  swarmNodesCollection,
+  type SwarmNode,
+  type SwarmNodesView,
+} from "@/features/servers/data/swarm";
 import { Button } from "@/shared/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 
-import type { DockerTab } from "../-components/docker-page-header";
-
+import { InstallHealthSection } from "../-components/install-health";
 import { RawDockerPanel } from "../-components/raw-docker-panel";
 import { ServerHealthCard } from "../-components/servers-health";
 import { ServerHealthSheet } from "../-components/servers-health-sheet";
@@ -28,11 +32,30 @@ import { ManagersQuorumCard } from "../-components/servers-managers-card";
 import { ClusterStatTiles, FilterPill, ServersPending } from "../-components/servers-parts";
 import { ServersTable } from "../-components/servers-table";
 
-// `tab` picks the section (Overview / Raw Docker — Install health joins in
-// od-u63.4); `dockerTab` is forwarded from the old `/docker?tab=` deep links
-// so a specific Docker sub-tab (containers/images/volumes/networks/tasks)
-// stays reachable through the redirect shim.
-const SERVERS_TABS = ["overview", "docker"] as const;
+// Pulled out of ServersRoute (rather than inline IIFEs) to keep the
+// component's own branching under the complexity budget — these are pure
+// reshapes with no hook or JSX involvement.
+function toMapBy<T>(items: readonly T[], keyOf: (item: T) => string): Map<string, T> {
+  const map = new Map<string, T>();
+  for (const item of items) map.set(keyOf(item), item);
+  return map;
+}
+
+function swarmNodesByServer(view: SwarmNodesView | null): Map<string, SwarmNode> {
+  const map = new Map<string, SwarmNode>();
+  if (!view?.swarm) return map;
+  for (const n of view.nodes) {
+    if (n.serverId) map.set(n.serverId, n);
+  }
+  return map;
+}
+
+// `tab` picks the section (Overview / Raw Docker / Install health — the
+// latter merged in from the standalone Platform page, od-u63.4); `dockerTab`
+// is forwarded from the old `/docker?tab=` deep links so a specific Docker
+// sub-tab (containers/images/volumes/networks/tasks) stays reachable through
+// the redirect shim.
+const SERVERS_TABS = ["overview", "docker", "install-health"] as const;
 type ServersTab = (typeof SERVERS_TABS)[number];
 const serversSearch = z.object({
   tab: z.enum(SERVERS_TABS).catch("overview"),
@@ -44,6 +67,12 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/servers")({
   validateSearch: serversSearch,
   loader: async () => {
     await serverCollection.preload();
+    // Warm the Install health tab's platform-metrics query on hover
+    // (intent-preload), same as the standalone Platform page used to.
+    // Non-blocking + best-effort.
+    void queryClient
+      .prefetchQuery(orpc.metrics.platform.queryOptions({ input: { windowMinutes: 60 } }))
+      .catch(() => undefined);
   },
   component: ServersRoute,
   pendingComponent: ServersPending,
@@ -75,28 +104,10 @@ function ServersRoute() {
   const { data: swarmArr = [] } = useLiveQuery(() => swarmNodesCollection);
   const swarmView = swarmArr[0] ?? null;
   const [openServerId, setOpenServerId] = useState<string | null>(null);
-  const healthByServer = (() => {
-    type HealthEntry = (typeof healthArr)[number];
-    const map = new Map<string, HealthEntry>();
-    for (const h of healthArr) map.set(h.serverId, h);
-    return map;
-  })();
-  const nodesByServer = (() => {
-    const map = new Map<string, SwarmNode>();
-    if (swarmView?.swarm) {
-      for (const n of swarmView.nodes) {
-        if (n.serverId) map.set(n.serverId, n);
-      }
-    }
-    return map;
-  })();
+  const healthByServer = toMapBy(healthArr, (h) => h.serverId);
+  const nodesByServer = swarmNodesByServer(swarmView);
   const cluster = clusterArr[0] ?? null;
-  const perServerStats = (() => {
-    type StatEntry = (typeof perServerArr)[number];
-    const map = new Map<string, StatEntry>();
-    for (const s of perServerArr) map.set(s.serverId, s);
-    return map;
-  })();
+  const perServerStats = toMapBy(perServerArr, (s) => s.serverId);
 
   const visibleServers =
     projectFilter === "all"
@@ -146,6 +157,7 @@ function ServersRoute() {
         <TabsList variant="line" className="mt-3.5 h-9 justify-start gap-1">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="docker">Raw Docker</TabsTrigger>
+          <TabsTrigger value="install-health">Install health</TabsTrigger>
         </TabsList>
       </div>
 
@@ -195,6 +207,10 @@ function ServersRoute() {
 
       <TabsContent value="docker" className="flex min-h-0 flex-1 flex-col">
         <RawDockerPanel orgSlug={orgSlug} initialTab={dockerTab} />
+      </TabsContent>
+
+      <TabsContent value="install-health" className="flex min-h-0 flex-1 flex-col">
+        <InstallHealthSection />
       </TabsContent>
 
       <ServerHealthSheet

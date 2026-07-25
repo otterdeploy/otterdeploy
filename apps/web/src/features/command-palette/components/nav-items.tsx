@@ -24,7 +24,12 @@ import { HugeiconsIcon } from "@hugeicons/react";
 
 import type { RoutePath } from "@/features/shell/components/sidebar";
 
-import { OPERATIONAL_NAV, SETTINGS_NAV, type NavManifestItem } from "@/features/shell/nav-manifest";
+import {
+  OPERATIONAL_NAV,
+  PALETTE_EXTRA_NAV,
+  SETTINGS_NAV,
+  type NavManifestItem,
+} from "@/features/shell/nav-manifest";
 import { CommandGroup, CommandItem } from "@/shared/components/ui/command";
 import { Kbd, KbdGroup } from "@/shared/components/ui/kbd";
 
@@ -60,7 +65,15 @@ export const PROJECT_NAV: readonly NavEntry[] = [
     chord: "D",
     keywords: ["deploys", "rollback", "history"],
   },
-  { to: "/$orgSlug/$projectSlug/logs", label: "Logs", icon: File01Icon, chord: "L" },
+  {
+    to: "/$orgSlug/$projectSlug/logs",
+    label: "Logs",
+    icon: File01Icon,
+    chord: "L",
+    // Edge logs folded in as a source toggle (od-u63.5) — keep its old
+    // search terms so the palette still finds this from either name.
+    keywords: ["edge", "access", "traffic"],
+  },
   { to: "/$orgSlug/$projectSlug/metrics", label: "Metrics", icon: ChartLineData01Icon, chord: "M" },
   {
     to: "/$orgSlug/$projectSlug/variables",
@@ -76,13 +89,9 @@ export const PROJECT_NAV: readonly NavEntry[] = [
     chord: "N",
     keywords: ["domains", "routes", "caddy"],
   },
-  {
-    to: "/$orgSlug/$projectSlug/edge-logs",
-    label: "Edge logs",
-    icon: EarthIcon,
-    chord: "E",
-    keywords: ["access", "traffic"],
-  },
+  // No "Edge logs" entry (od-u63.5) — merged into Logs (chord "L") as a
+  // Runtime | Edge source toggle; "access"/"traffic" keywords moved onto the
+  // Logs entry above so the palette still finds it from either name.
   { to: "/$orgSlug/$projectSlug/settings", label: "Settings", icon: Settings01Icon, chord: "S" },
 ];
 
@@ -94,11 +103,18 @@ const toEntry = (item: NavManifestItem): NavEntry => ({
 });
 
 // Org-scoped destinations, grouped + ordered to match the operational
-// sidebar. The unlabeled top group renders under "Workspace".
+// sidebar. The unlabeled top group renders under "Workspace" and also picks
+// up PALETTE_EXTRA_NAV — creation paths (Templates, od-u63.2) that aren't
+// sidebar slots but still need to be reachable from the palette. Folded into
+// the same group (rather than a second one) so `heading` stays a unique
+// React key across ORG_NAV_GROUPS.
 export const ORG_NAV_GROUPS: readonly { heading: string; items: readonly NavEntry[] }[] = [
-  ...OPERATIONAL_NAV.map((group) => ({
+  ...OPERATIONAL_NAV.map((group, i) => ({
     heading: group.label ?? "Workspace",
-    items: group.items.map(toEntry),
+    items: [
+      ...group.items.map(toEntry),
+      ...(i === 0 ? PALETTE_EXTRA_NAV.map(toEntry) : []),
+    ],
   })),
   // Settings-zone destinations, one palette group per rail group, so
   // "Settings · Workspace › Git providers" stays searchable from anywhere.

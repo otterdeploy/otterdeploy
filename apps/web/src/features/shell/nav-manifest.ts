@@ -77,12 +77,9 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         icon: Home01Icon,
         exact: true,
       },
-      {
-        title: "Templates",
-        to: "/$orgSlug/templates",
-        icon: PackageIcon,
-        keywords: ["gallery", "stacks", "deploy", "catalog"],
-      },
+      // No "Templates" slot (od-u63.2) — it's a creation path (the + New
+      // service wizard's "From template" source), not a destination. The
+      // gallery page + its palette entry stay reachable via PALETTE_EXTRA_NAV.
       {
         title: "Terminal",
         i18nKey: "nav.terminal",
@@ -100,20 +97,30 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         i18nKey: "nav.servers",
         to: "/$orgSlug/servers",
         icon: ServerStack01Icon,
-        keywords: ["nodes", "swarm"],
-      },
-      {
-        title: "Docker",
-        to: "/$orgSlug/docker",
-        icon: ServerStack01Icon,
-        // Volumes folded into Docker as a tab — keep its old search terms.
-        keywords: ["containers", "images", "volumes", "storage", "disk", "orphan"],
+        // Docker (od-u63.3), Volumes ("Raw Docker" tab) and Platform
+        // (od-u63.4, "Install health" tab) all fold in here — keep every
+        // surface's old search terms so the palette still finds this page.
+        keywords: [
+          "nodes",
+          "swarm",
+          "docker",
+          "containers",
+          "images",
+          "volumes",
+          "storage",
+          "disk",
+          "orphan",
+          "platform",
+          "health",
+          "queues",
+          "deploys",
+        ],
       },
       {
         title: "Backups",
         to: "/$orgSlug/backups",
         icon: DatabaseIcon,
-        keywords: ["restore", "snapshot"],
+        keywords: ["restore", "snapshot", "database", "databases", "connections"],
       },
       {
         title: "Edge",
@@ -139,17 +146,9 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
           "certs",
         ],
       },
-    ],
-  },
-  {
-    label: "Observability",
-    items: [
-      {
-        title: "Platform",
-        to: "/$orgSlug/platform",
-        icon: FlashIcon,
-        keywords: ["health", "queues", "deploys"],
-      },
+      // Audit folds in here rather than keeping its own single-item
+      // "Observability" group now that Platform is gone (od-u63.4) — one
+      // less group heading for one destination reads calmer.
       {
         title: "Audit",
         to: "/$orgSlug/audit",
@@ -157,6 +156,21 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         keywords: ["activity", "history"],
       },
     ],
+  },
+];
+
+/**
+ * Destinations that are reachable (palette, deep link) but intentionally NOT
+ * sidebar slots — creation paths rather than places you "go" (od-u63.2).
+ * Merged into the palette only; see `ORG_NAV_GROUPS` in
+ * `command-palette/components/nav-items.tsx`.
+ */
+export const PALETTE_EXTRA_NAV: readonly NavManifestItem[] = [
+  {
+    title: "Templates",
+    to: "/$orgSlug/templates",
+    icon: PackageIcon,
+    keywords: ["gallery", "stacks", "deploy", "catalog"],
   },
 ];
 
@@ -205,10 +219,13 @@ export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
     label: "Workspace",
     items: [
       {
-        title: "General",
+        // Label-only rename (od-u63.7) — path is unchanged. "General" was
+        // ambiguous with Instance → General; this page is base domain +
+        // Cloudflare, so "Domains" says what it actually does.
+        title: "Domains",
         to: "/$orgSlug/settings/workspace/general",
         icon: Settings01Icon,
-        keywords: ["domain", "cloudflare", "workspace settings"],
+        keywords: ["domain", "cloudflare", "workspace settings", "general"],
       },
       {
         title: "Team",
@@ -258,7 +275,10 @@ export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
     label: "Instance",
     items: [
       {
-        title: "General",
+        // Label-only rename (od-u63.7) — path is unchanged. No page should be
+        // named "General" twice in the same rail; "Instance" says whose
+        // config this is (install-wide, not workspace-scoped).
+        title: "Instance",
         to: "/$orgSlug/settings/instance/general",
         icon: ServerStack01Icon,
         keywords: [
@@ -269,6 +289,7 @@ export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
           "acme",
           "email",
           "updates",
+          "general",
         ],
       },
     ],
