@@ -29,8 +29,6 @@ const containerSchema = z.object({
   id: z.string(),
   name: z.string(),
   image: z.string(),
-  /** Entrypoint + args as docker reports them, e.g. "node server.js". */
-  command: z.string(),
   state: z.string(),
   status: z.string(),
   /** Human port strings, e.g. "3000/tcp" or "0.0.0.0:8080→80/tcp". */
@@ -50,7 +48,6 @@ const imageSchema = z.object({
 const volumeSchema = z.object({
   name: z.string(),
   driver: z.string(),
-  mountpoint: z.string(),
   scope: z.string(),
   createdAt: z.number().nullable(),
   /** Bytes on disk; -1 when the daemon doesn't report usage. */
@@ -108,6 +105,62 @@ const logLineSchema = z.object({
   ts: z.string().nullable(),
 });
 
+const containerInspectSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  image: z.string().nullable(),
+  imageId: z.string().nullable(),
+  createdAt: z.string().nullable(),
+  platform: z.string().nullable(),
+  driver: z.string().nullable(),
+  restartCount: z.number(),
+  state: z.object({
+    status: z.string().nullable(),
+    running: z.boolean(),
+    paused: z.boolean(),
+    restarting: z.boolean(),
+    oomKilled: z.boolean(),
+    dead: z.boolean(),
+    exitCode: z.number(),
+    startedAt: z.string().nullable(),
+    finishedAt: z.string().nullable(),
+    health: z.string().nullable(),
+    healthFailingStreak: z.number(),
+  }),
+});
+
+const imageInspectSchema = z.object({
+  id: z.string(),
+  repoTags: z.array(z.string()),
+  repoDigests: z.array(z.string()),
+  createdAt: z.string().nullable(),
+  architecture: z.string().nullable(),
+  os: z.string().nullable(),
+  variant: z.string().nullable(),
+  size: z.number(),
+});
+
+const volumeInspectSchema = z.object({
+  name: z.string(),
+  driver: z.string(),
+  scope: z.string(),
+  createdAt: z.string().nullable(),
+});
+
+const networkInspectSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  createdAt: z.string().nullable(),
+  driver: z.string(),
+  scope: z.string(),
+  internal: z.boolean(),
+  attachable: z.boolean(),
+  ingress: z.boolean(),
+  ipv6: z.boolean(),
+  subnets: z.array(z.object({ subnet: z.string(), gateway: z.string().nullable() })),
+  attachedContainers: z.number(),
+});
+
 const listContainersInput = z.object({
   all: z.boolean().optional(),
 });
@@ -129,7 +182,7 @@ export const dockerContract = {
       .errors({ ...serverError, ...notFoundError })
       .meta({ path: `${basePath}/containers/inspect`, tag, method: "GET" })
       .input(idInput)
-      .output(z.unknown()),
+      .output(containerInspectSchema),
     logs: oc
       .errors({ ...serverError, ...notFoundError })
       .meta({ path: `${basePath}/containers/logs`, tag, method: "GET" })
@@ -152,7 +205,7 @@ export const dockerContract = {
       .errors({ ...serverError, ...notFoundError })
       .meta({ path: `${basePath}/images/inspect`, tag, method: "GET" })
       .input(idInput)
-      .output(z.unknown()),
+      .output(imageInspectSchema),
     remove: oc
       .errors({ ...serverError, ...notFoundError, ...conflictError })
       .meta({ path: `${basePath}/images/remove`, tag, method: "POST" })
@@ -176,7 +229,7 @@ export const dockerContract = {
       .errors({ ...serverError, ...notFoundError })
       .meta({ path: `${basePath}/volumes/inspect`, tag, method: "GET" })
       .input(z.object({ name: z.string().min(1) }))
-      .output(z.unknown()),
+      .output(volumeInspectSchema),
     remove: oc
       .errors({ ...serverError, ...notFoundError, ...conflictError })
       .meta({ path: `${basePath}/volumes/remove`, tag, method: "POST" })
@@ -193,7 +246,7 @@ export const dockerContract = {
       .errors({ ...serverError, ...notFoundError })
       .meta({ path: `${basePath}/networks/inspect`, tag, method: "GET" })
       .input(idInput)
-      .output(z.unknown()),
+      .output(networkInspectSchema),
     remove: oc
       .errors({ ...serverError, ...notFoundError, ...conflictError })
       .meta({ path: `${basePath}/networks/remove`, tag, method: "POST" })

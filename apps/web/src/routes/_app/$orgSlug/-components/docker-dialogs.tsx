@@ -1,5 +1,5 @@
 /**
- * Shared dialogs for the Docker raw page's row actions: raw-JSON inspect,
+ * Shared dialogs for the Docker raw page's row actions: redacted inspect,
  * a bounded container-log tail, and a styled destructive confirm (never
  * window.confirm — the consequence copy is the point).
  */
@@ -41,7 +41,7 @@ async function copyText(text: string, what: string) {
   }
 }
 
-// ─── Inspect (raw JSON) ──────────────────────────────────────────────────────
+// ─── Inspect (typed, server-redacted JSON) ───────────────────────────────────
 
 export interface InspectQueryLike {
   data?: unknown;

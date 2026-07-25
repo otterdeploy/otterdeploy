@@ -1,9 +1,3 @@
-/**
- * Volumes inventory table. Attached-to chips deep-link to the owning
- * resource's graph panel; orphans get a warning badge (icon + label, never
- * color alone). Sizes render "—" when the daemon didn't report usage.
- */
-import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import {
   Alert02Icon,
   CubeIcon,
@@ -14,6 +8,12 @@ import {
   MoreVerticalIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+/**
+ * Volumes inventory table. Attached-to chips deep-link to the owning
+ * resource's graph panel; orphans get a warning badge (icon + label, never
+ * color alone). Sizes render "—" when the daemon didn't report usage.
+ */
+import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { Link } from "@tanstack/react-router";
 
 import { Badge } from "@/shared/components/ui/badge";
@@ -156,7 +156,6 @@ export function VolumesTable({
             <TableHead className="pl-4">Name</TableHead>
             <TableHead>Driver</TableHead>
             <TableHead>Size</TableHead>
-            <TableHead>Mountpoint</TableHead>
             <TableHead>Attached to</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Created</TableHead>
@@ -180,12 +179,6 @@ export function VolumesTable({
                 className={cn("text-muted-foreground", v.sizeBytes >= 0 && "font-mono text-xs")}
               >
                 {fmtBytes(v.sizeBytes)}
-              </TableCell>
-              <TableCell
-                className="max-w-[240px] truncate font-mono text-xs text-muted-foreground"
-                title={v.mountpoint}
-              >
-                {v.mountpoint}
               </TableCell>
               <TableCell className="max-w-[260px]">
                 {v.attachedTo.length > 0 ? (

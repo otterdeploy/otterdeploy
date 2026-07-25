@@ -1,6 +1,6 @@
 /**
- * Raw `docker volume inspect` JSON for one volume — the honest, unabridged
- * daemon view, fetched on open. Mirrors the Docker page's InspectDialog
+ * Redacted `docker volume inspect` view for one volume, fetched on open.
+ * Mirrors the Docker page's InspectDialog
  * composition (title + mono subtitle + Copy JSON) so the two read as one
  * vocabulary.
  */
@@ -42,7 +42,7 @@ function InspectBody({ name }: { name: string }) {
 
   const copyJson = async () => {
     try {
-      await navigator.clipboard.writeText(JSON.stringify(inspect.data?.raw, null, 2));
+      await navigator.clipboard.writeText(JSON.stringify(inspect.data?.details, null, 2));
       toast.success("JSON copied to clipboard");
     } catch {
       toast.error("Couldn't access the clipboard");
@@ -84,7 +84,7 @@ function InspectBody({ name }: { name: string }) {
             onRetry={() => void inspect.refetch()}
           />
         ) : (
-          <JsonView data={inspect.data?.raw} className="text-xs" />
+          <JsonView data={inspect.data?.details} className="text-xs" />
         )}
       </div>
     </DialogContent>

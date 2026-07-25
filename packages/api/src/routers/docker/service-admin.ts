@@ -6,6 +6,17 @@
 import { demuxDockerStream, readLines, splitDockerTimestamp } from "../../swarm/stream-parse";
 import { docker, failure, type Listed } from "./client";
 import { guardImageRemoval, guardNetworkRemoval, guardVolumeRemoval } from "./guards";
+import {
+  redactSensitiveText,
+  safeContainerInspect,
+  safeImageInspect,
+  safeNetworkInspect,
+  safeVolumeInspect,
+  type SafeContainerInspect,
+  type SafeImageInspect,
+  type SafeNetworkInspect,
+  type SafeVolumeInspect,
+} from "./safe-view";
 
 export interface LogLine {
   stream: "stdout" | "stderr";
@@ -13,30 +24,30 @@ export interface LogLine {
   ts: string | null;
 }
 
-// ─── inspect (raw JSON passthrough) ─────────────────────────────────────────
+// ─── inspect (typed allowlisted views) ──────────────────────────────────────
 
-export async function inspectContainer(id: string): Promise<Listed<unknown>> {
+export async function inspectContainer(id: string): Promise<Listed<SafeContainerInspect>> {
   const result = await docker.containers.inspect(id);
   if (result.isErr()) return failure(result.error);
-  return { ok: true, items: result.value };
+  return { ok: true, items: safeContainerInspect(result.value) };
 }
 
-export async function inspectImage(id: string): Promise<Listed<unknown>> {
+export async function inspectImage(id: string): Promise<Listed<SafeImageInspect>> {
   const result = await docker.images.getImage(id).inspect();
   if (result.isErr()) return failure(result.error);
-  return { ok: true, items: result.value };
+  return { ok: true, items: safeImageInspect(result.value) };
 }
 
-export async function inspectVolume(name: string): Promise<Listed<unknown>> {
+export async function inspectVolume(name: string): Promise<Listed<SafeVolumeInspect>> {
   const result = await docker.volumes.inspect(name);
   if (result.isErr()) return failure(result.error);
-  return { ok: true, items: result.value };
+  return { ok: true, items: safeVolumeInspect(result.value) };
 }
 
-export async function inspectNetwork(id: string): Promise<Listed<unknown>> {
+export async function inspectNetwork(id: string): Promise<Listed<SafeNetworkInspect>> {
   const result = await docker.networks.inspect(id);
   if (result.isErr()) return failure(result.error);
-  return { ok: true, items: result.value };
+  return { ok: true, items: safeNetworkInspect(result.value) };
 }
 
 // ─── container logs (bounded tail, no follow) ───────────────────────────────
@@ -63,12 +74,12 @@ export async function tailContainerLogs(id: string, tail: number): Promise<Liste
   if (tty) {
     for await (const raw of readLines(logsResult.value)) {
       const { ts, line } = splitDockerTimestamp(raw);
-      lines.push({ stream: "stdout", line, ts });
+      lines.push({ stream: "stdout", line: redactSensitiveText(line), ts });
     }
   } else {
     for await (const chunk of demuxDockerStream(logsResult.value)) {
       const { ts, line } = splitDockerTimestamp(chunk.line);
-      lines.push({ stream: chunk.stream, line, ts });
+      lines.push({ stream: chunk.stream, line: redactSensitiveText(line), ts });
     }
   }
   // `tail` bounds what the daemon sends, but clamp anyway in case a TTY

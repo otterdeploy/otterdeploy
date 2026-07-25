@@ -1,8 +1,6 @@
 /**
- * Volumes oRPC contract — org-scoped inventory of the daemon's named volumes,
- * enriched with the platform resource each volume belongs to (databases claim
- * volumes by naming convention, services via `service_mount` rows, compose
- * stacks via the swarm stack-namespace prefix) plus orphan detection.
+ * Volumes oRPC contract — installation-admin inventory of the daemon's named
+ * volumes, enriched with the platform resource each volume belongs to.
  *
  * Sizes are the daemon's *measured* bytes from `docker system df -v`
  * (`UsageData.Size`) — the `local` driver has no provisioned/quota size, so
@@ -55,10 +53,8 @@ export const volumeAttachmentSchema = z.object({
 export const volumeSchema = z.object({
   name: z.string(),
   driver: z.string(),
-  mountpoint: z.string(),
   scope: z.string(),
   createdAt: z.number().nullable(),
-  labels: z.record(z.string(), z.string()),
   /** Measured bytes on disk from `system df`; -1 when the daemon doesn't report usage. */
   sizeBytes: z.number(),
   /** Containers (any state) whose mounts reference this volume. */
@@ -94,12 +90,16 @@ const createVolumeInput = z.object({
 const createdVolumeSchema = z.object({
   name: z.string(),
   driver: z.string(),
-  mountpoint: z.string(),
   createdAt: z.number().nullable(),
-  labels: z.record(z.string(), z.string()),
 });
 
 const nameInput = z.object({ name: volumeNameField });
+const inspectedVolumeSchema = z.object({
+  name: z.string(),
+  driver: z.string(),
+  scope: z.string(),
+  createdAt: z.string().nullable(),
+});
 
 export const volumesContract = {
   list: oc
@@ -112,7 +112,7 @@ export const volumesContract = {
     .errors({ ...serverError, ...notFound })
     .meta({ path: `${basePath}/{name}`, tag, method: "GET" })
     .input(nameInput)
-    .output(z.object({ raw: z.record(z.string(), z.unknown()) })),
+    .output(z.object({ details: inspectedVolumeSchema })),
 
   create: oc
     .errors({

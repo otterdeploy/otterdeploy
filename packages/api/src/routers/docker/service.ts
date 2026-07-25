@@ -23,7 +23,6 @@ export interface ListedContainer {
   id: string;
   name: string;
   image: string;
-  command: string;
   state: string;
   status: string;
   ports: string[];
@@ -41,7 +40,6 @@ export interface ListedImage {
 export interface ListedVolume {
   name: string;
   driver: string;
-  mountpoint: string;
   scope: string;
   createdAt: number | null;
   size: number;
@@ -109,7 +107,6 @@ export async function listContainers(opts: { all?: boolean }): Promise<Listed<Li
       id: c.Id,
       name: (c.Names?.[0] ?? c.Id).replace(/^\//, ""),
       image: c.Image,
-      command: c.Command ?? "",
       state: c.State,
       status: c.Status,
       ports: formatPorts(c.Ports),
@@ -141,7 +138,6 @@ export async function listVolumes(): Promise<Listed<ListedVolume[]>> {
     items: (result.value.Volumes ?? []).map((v) => ({
       name: v.Name,
       driver: v.Driver,
-      mountpoint: v.Mountpoint,
       scope: v.Scope,
       createdAt: epochSeconds(v.CreatedAt),
       size: v.UsageData?.Size ?? -1,

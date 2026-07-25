@@ -1,3 +1,5 @@
+import type { Context } from "../../context";
+
 import { requireInstallAdmin } from "../..";
 import {
   inspectContainer,
@@ -28,6 +30,17 @@ interface MutationErrors {
   CONFLICT?: (opts: { message: string }) => Error;
 }
 
+function auditSensitiveRead(context: Context, action: string, target: string): void {
+  context.log.set({ target: { type: "docker", id: target } });
+  const user = context.session?.user;
+  if (!user) return;
+  context.log.audit?.({
+    action,
+    actor: { type: "user", id: user.id, email: user.email },
+    outcome: "success",
+  });
+}
+
 /** Map a service-layer failure onto the matching contract error. */
 function throwDockerError(result: Failed, errors: MutationErrors): never {
   if (result.kind === "not_found" && errors.NOT_FOUND) {
@@ -46,16 +59,22 @@ export const dockerRouter = {
       if (!result.ok) throw errors.SERVER_ERROR({ message: result.reason });
       return result.items;
     }),
-    inspect: requireInstallAdmin().docker.containers.inspect.handler(async ({ input, errors }) => {
-      const result = await inspectContainer(input.id);
-      if (!result.ok) throwDockerError(result, errors);
-      return result.items;
-    }),
-    logs: requireInstallAdmin().docker.containers.logs.handler(async ({ input, errors }) => {
-      const result = await tailContainerLogs(input.id, input.tail ?? 200);
-      if (!result.ok) throwDockerError(result, errors);
-      return { lines: result.items };
-    }),
+    inspect: requireInstallAdmin().docker.containers.inspect.handler(
+      async ({ input, errors, context }) => {
+        const result = await inspectContainer(input.id);
+        if (!result.ok) throwDockerError(result, errors);
+        auditSensitiveRead(context, "docker.containers.inspect", input.id);
+        return result.items;
+      },
+    ),
+    logs: requireInstallAdmin().docker.containers.logs.handler(
+      async ({ input, errors, context }) => {
+        const result = await tailContainerLogs(input.id, input.tail ?? 200);
+        if (!result.ok) throwDockerError(result, errors);
+        auditSensitiveRead(context, "docker.containers.logs", input.id);
+        return { lines: result.items };
+      },
+    ),
   },
   images: {
     list: requireInstallAdmin().docker.images.list.handler(async ({ input, errors }) => {
@@ -63,11 +82,14 @@ export const dockerRouter = {
       if (!result.ok) throw errors.SERVER_ERROR({ message: result.reason });
       return result.items;
     }),
-    inspect: requireInstallAdmin().docker.images.inspect.handler(async ({ input, errors }) => {
-      const result = await inspectImage(input.id);
-      if (!result.ok) throwDockerError(result, errors);
-      return result.items;
-    }),
+    inspect: requireInstallAdmin().docker.images.inspect.handler(
+      async ({ input, errors, context }) => {
+        const result = await inspectImage(input.id);
+        if (!result.ok) throwDockerError(result, errors);
+        auditSensitiveRead(context, "docker.images.inspect", input.id);
+        return result.items;
+      },
+    ),
     remove: requireInstallAdmin().docker.images.remove.handler(
       async ({ input, errors, context }) => {
         context.log.set({ target: { type: "docker-image", id: input.id } });
@@ -88,11 +110,14 @@ export const dockerRouter = {
       if (!result.ok) throw errors.SERVER_ERROR({ message: result.reason });
       return result.items;
     }),
-    inspect: requireInstallAdmin().docker.volumes.inspect.handler(async ({ input, errors }) => {
-      const result = await inspectVolume(input.name);
-      if (!result.ok) throwDockerError(result, errors);
-      return result.items;
-    }),
+    inspect: requireInstallAdmin().docker.volumes.inspect.handler(
+      async ({ input, errors, context }) => {
+        const result = await inspectVolume(input.name);
+        if (!result.ok) throwDockerError(result, errors);
+        auditSensitiveRead(context, "docker.volumes.inspect", input.name);
+        return result.items;
+      },
+    ),
     remove: requireInstallAdmin().docker.volumes.remove.handler(
       async ({ input, errors, context }) => {
         context.log.set({ target: { type: "docker-volume", id: input.name } });
@@ -108,11 +133,14 @@ export const dockerRouter = {
       if (!result.ok) throw errors.SERVER_ERROR({ message: result.reason });
       return result.items;
     }),
-    inspect: requireInstallAdmin().docker.networks.inspect.handler(async ({ input, errors }) => {
-      const result = await inspectNetwork(input.id);
-      if (!result.ok) throwDockerError(result, errors);
-      return result.items;
-    }),
+    inspect: requireInstallAdmin().docker.networks.inspect.handler(
+      async ({ input, errors, context }) => {
+        const result = await inspectNetwork(input.id);
+        if (!result.ok) throwDockerError(result, errors);
+        auditSensitiveRead(context, "docker.networks.inspect", input.id);
+        return result.items;
+      },
+    ),
     remove: requireInstallAdmin().docker.networks.remove.handler(
       async ({ input, errors, context }) => {
         context.log.set({ target: { type: "docker-network", id: input.id } });
