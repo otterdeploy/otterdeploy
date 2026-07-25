@@ -41,18 +41,20 @@ function ctx(apiKey: ApiKeyActor | null, activeOrganizationId = "org_1"): Contex
 
 function selectedKey(projectIds: string[]): ApiKeyActor {
   return {
+    kind: "api-key",
     id: "key_1",
     permissions: null,
-    referenceId: "org_1",
+    organizationId: "org_1",
     projectScope: "selected",
     projectIds,
   };
 }
 
 const allKey: ApiKeyActor = {
+  kind: "api-key",
   id: "key_all",
   permissions: null,
-  referenceId: "org_1",
+  organizationId: "org_1",
   projectScope: "all",
 };
 
@@ -223,23 +225,19 @@ describe("enforceScheduleScope", () => {
 describe("enforceEnvScope", () => {
   test("project env, in-scope ⇒ allowed", async () => {
     const { client } = dbReturning([{ projectId: "proj_1" }]);
-    expect(
-      enforceEnvScope(ctx(selectedKey(["proj_1"])), ENV_ID, client),
-    ).resolves.toBeUndefined();
+    expect(enforceEnvScope(ctx(selectedKey(["proj_1"])), ENV_ID, client)).resolves.toBeUndefined();
   });
 
   test("project env, out-of-scope ⇒ FORBIDDEN", async () => {
     const { client } = dbReturning([{ projectId: "proj_2" }]);
-    expect(
-      enforceEnvScope(ctx(selectedKey(["proj_1"])), ENV_ID, client),
-    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(enforceEnvScope(ctx(selectedKey(["proj_1"])), ENV_ID, client)).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
   });
 
   test("standalone/org env (not joinable) ⇒ no-op", async () => {
     const { client } = dbReturning([]);
-    expect(
-      enforceEnvScope(ctx(selectedKey(["proj_1"])), ENV_ID, client),
-    ).resolves.toBeUndefined();
+    expect(enforceEnvScope(ctx(selectedKey(["proj_1"])), ENV_ID, client)).resolves.toBeUndefined();
   });
 
   test("scope 'all' key ⇒ skips DB", async () => {

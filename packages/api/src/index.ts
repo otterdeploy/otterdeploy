@@ -1,19 +1,15 @@
 import type { PermissionCheck } from "@otterdeploy/auth/permissions";
 import type { Id } from "@otterdeploy/shared/id";
 
-import { implement, ORPCError, os as orpc } from "@orpc/server";
-import { auth } from "@otterdeploy/auth";
+import { implement, os as orpc } from "@orpc/server";
 import { ID_PREFIX } from "@otterdeploy/shared/id";
 
 import type { Context } from "./context";
 
-import {
-  authorizeKeyScope,
-  authorizeRoleScope,
-  isReadAction as isReadActionPath,
-  requireProjectScope,
-} from "./authz/api-key-scope";
-import { isInstallAdminActor } from "./authz/install-admin";
+import { requireProjectScope } from "./authz/api-key-scope";
+import { authorizeCapability } from "./authz/capability";
+import { classifyTraceError, traceActor } from "./authz/procedure-audit";
+import { isReadAction, isReadMethod } from "./authz/procedure-mode";
 import { apiKeysContract } from "./routers/apiKeys/contract";
 import { auditContract } from "./routers/audit/contract";
 import { backupsContract } from "./routers/backups/contract";
@@ -38,72 +34,7 @@ import { systemContract } from "./routers/system/contract";
 import { terminalContract } from "./routers/terminal/contract";
 import { volumesContract } from "./routers/volumes/contract";
 import { webhooksContract } from "./routers/webhooks/contract";
-// Per-procedure compliance trail, shaped to the evlog audit schema
-// (https://www.evlog.dev/use-cases/audit/schema). Stamps the request-scoped
-// wide event with action, actor, outcome, duration, and reason so every RPC
-// call lands in the drain as a single, fully-attributed audit record.
-// Handlers add `target` (and any domain-specific fields) via
-// context.log.set(...).
-const DENIED_ORPC_CODES = new Set(["UNAUTHORIZED", "FORBIDDEN", "NO_ACTIVE_ORGANIZATION"]);
-
-// Read-ish verbs that aren't worth a persisted audit row on success. We still
-// audit every *denial* (even of a read) — a blocked read is exactly what
-// auditors want — and every non-read mutation.
-//
-// This is the FALLBACK only — see `isReadProcedure` below. A name-prefix
-// allowlist drifts as endpoints are added with verbs it doesn't know (that's
-// exactly how od-1kc.2 happened: `edgeLogs.query`, `system.version`,
-// `metrics.platform`, `firewall.decisions` all read data but none of their
-// last path segments matched this list, so every poll of them landed a row —
-// 982 in one 90-minute session). Kept around for the handful of procedures
-// that don't carry REST `method` meta.
-const READ_VERB =
-  /^(list|get|inspect|stream|search|count|fetch|read|resolve|view|preview|status|events|logs|metrics|stats)/i;
-/** Exported for unit tests only — the audit gate itself always goes through
- *  `isReadMethod` first (see `traceProcedure`). */
-export function isReadAction(action: string): boolean {
-  return READ_VERB.test(action.split(".").pop() ?? action);
-}
-
-/** Authoritative HTTP-method read/write split. Most contracts in this repo
- *  declare their method inside `.meta({ method })` (audit, postgres, system,
- *  metrics, firewall, edge-logs, …); a handful (sshKeys, apiKeys,
- *  certificates, notifications, webhooks) use oRPC's own `.route({ method })`
- *  instead, which lands on a *different* field (`route`, not `meta`) —
- *  checking only one would silently go blind on the other convention. `null`
- *  when neither carries a method at all, so the caller falls back to the name
- *  heuristic instead of silently treating it as a mutation (or a read). */
-export function isReadMethod(
-  meta: Record<string, unknown> | undefined,
-  route: { method?: string } | undefined,
-): boolean | null {
-  const method = route?.method ?? meta?.method;
-  return typeof method === "string" ? method.toUpperCase() === "GET" : null;
-}
-
-/** Resolve the audit actor from the request context (user session or API key). */
-function traceActor(context: Context) {
-  const user = context.session?.user;
-  return user
-    ? { type: "user" as const, id: user.id, email: user.email }
-    : { type: "api" as const, id: context.apiKey?.id ?? "anonymous" };
-}
-
-/** Shape a thrown error into audit fields: denial flag, reason, and the wide-event
- *  `error` detail (ORPC code-bearing, plain Error, or raw value). */
-function classifyTraceError(error: unknown) {
-  const isOrpc = error instanceof ORPCError;
-  const code = isOrpc ? error.code : undefined;
-  const reason = error instanceof Error ? error.message : String(error);
-  const denied = Boolean(code && DENIED_ORPC_CODES.has(code));
-  const detail = isOrpc
-    ? { name: error.name, message: error.message, code: error.code }
-    : error instanceof Error
-      ? { name: error.name, message: error.message }
-      : error;
-  return { reason, denied, detail };
-}
-
+// Per-procedure evlog compliance trail. Handlers add target/domain fields.
 const traceProcedure = orpc
   .$context<Context>()
   .middleware(async ({ context, path, procedure, next }) => {
@@ -195,11 +126,12 @@ const authMiddleware = orpc
     // A session/cookie/CLI-bearer user OR a verified API-key actor counts as
     // authenticated. Session-identity handlers still read `context.session`
     // directly (null for key actors) — guard there if they need a real user.
-    if (!context.session?.user && !context.apiKey) {
+    if (!context.actor) {
       throw errors.UNAUTHORIZED();
     }
     return next({
       context: {
+        actor: context.actor,
         session: context.session,
         apiKey: context.apiKey,
       },
@@ -225,7 +157,7 @@ const orgScopedMiddleware = orpc
     // Session/cookie/CLI-bearer user OR a verified API-key actor. For a key
     // actor `activeOrganizationId` was already populated from the key's owning
     // org in createContext, so the NO_ACTIVE_ORGANIZATION gate still holds.
-    if (!context.session?.user && !context.apiKey) {
+    if (!context.actor) {
       throw errors.UNAUTHORIZED();
     }
     if (!context.activeOrganizationId) {
@@ -233,6 +165,7 @@ const orgScopedMiddleware = orpc
     }
     return next({
       context: {
+        actor: context.actor,
         session: context.session,
         apiKey: context.apiKey,
         activeOrganizationId: context.activeOrganizationId as Id<typeof ID_PREFIX.organization>,
@@ -244,8 +177,7 @@ export const orgScopedProcedure = publicProcedure.use(orgScopedMiddleware);
 
 /**
  * Installation administration is a server-owned user attribute, never an
- * organization role and never an organization API key. Keep this narrow gate
- * distinct while the broader capability service is built under od-5j8.2.
+ * organization role and never an organization API key.
  */
 const installAdminMiddleware = orpc
   .$context<Context>()
@@ -255,9 +187,21 @@ const installAdminMiddleware = orpc
       message: "Installation administrator access is required.",
     },
   })
-  .middleware(async ({ context, next, errors }) => {
-    if (!isInstallAdminActor(context)) {
-      throw errors.FORBIDDEN();
+  .middleware(async ({ context, procedure, next, errors }) => {
+    const definition = procedure["~orpc"];
+    const mode =
+      (isReadMethod(
+        definition.meta as Record<string, unknown> | undefined,
+        definition.route as { method?: string } | undefined,
+      ) ?? false)
+        ? "read"
+        : "write";
+    const decision = await authorizeCapability(context.actor, {
+      scope: "install",
+      mode,
+    });
+    if (!decision.allowed) {
+      throw errors.FORBIDDEN({ message: decision.reason });
     }
     return next();
   });
@@ -317,34 +261,31 @@ export function requirePermission(permission: PermissionCheck) {
         message: "You don't have permission to perform this action.",
       },
     })
-    .middleware(async ({ context, path, next, errors }) => {
-      // API-key actor: session-bound `hasPermission` can't see the key, so we
-      // enforce scope ourselves. Effective permission = min(key scope, member
-      // role) — DECISION A in authz/api-key-scope.ts. A read-only key
-      // additionally blocks any non-read action.
-      if (context.apiKey) {
-        if (context.apiKey.accessLevel === "read" && !isReadActionPath(path.join("."))) {
-          throw errors.FORBIDDEN({ message: "This API key is read-only." });
-        }
-        const ok =
-          authorizeKeyScope(context.apiKey.permissions, permission) &&
-          authorizeRoleScope(permission);
-        if (!ok) {
-          throw errors.FORBIDDEN();
-        }
-        return next();
+    .middleware(async ({ context, path, procedure, next, errors }, input: unknown) => {
+      if (!context.activeOrganizationId) {
+        throw errors.FORBIDDEN({ message: "An active organization is required." });
       }
-
-      // Session actor (cookie / CLI device-grant bearer) — unchanged path:
-      // delegate role resolution to better-auth's session-bound check.
-      const { success } = await auth.api.hasPermission({
-        headers: context.headers,
-        body: {
-          permissions: permission as Record<string, string[]>,
-        },
+      const definition = procedure["~orpc"];
+      const mode =
+        (isReadMethod(
+          definition.meta as Record<string, unknown> | undefined,
+          definition.route as { method?: string } | undefined,
+        ) ?? isReadAction(path.join(".")))
+          ? "read"
+          : "write";
+      const projectId =
+        input && typeof input === "object" && "projectId" in input
+          ? (input as { projectId?: unknown }).projectId
+          : undefined;
+      const decision = await authorizeCapability(context.actor, {
+        scope: "organization",
+        mode,
+        organizationId: context.activeOrganizationId,
+        permission,
+        projectId: typeof projectId === "string" ? projectId : undefined,
       });
-      if (!success) {
-        throw errors.FORBIDDEN();
+      if (!decision.allowed) {
+        throw errors.FORBIDDEN({ message: decision.reason });
       }
       return next();
     });
@@ -359,3 +300,5 @@ export function requirePermission(permission: PermissionCheck) {
  * which layers the RBAC check on top of this same project-scope guard.
  */
 export const projectScopedProcedure = orgScopedProcedure.use(projectScopeMiddleware);
+
+export { isReadAction, isReadMethod } from "./authz/procedure-mode";

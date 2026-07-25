@@ -11,12 +11,15 @@ function actor(input: {
   return {
     apiKey: input.apiKey
       ? {
+          kind: "api-key",
           id: "key",
           permissions: null,
-          referenceId: "org",
+          organizationId: "org",
         }
       : null,
     session: {
+      kind: "session",
+      headers: new Headers(),
       user: {
         id: "user",
         email: "owner@example.test",

@@ -1,8 +1,10 @@
+import type { ResolvedActor } from "@otterdeploy/api/authz/actor";
 import type { OrganizationId } from "@otterdeploy/shared/id";
 import type { Context } from "hono";
 
+import { resolveRequestActor } from "@otterdeploy/api/authz/actor";
+import { authorizeCapability } from "@otterdeploy/api/authz/capability";
 import { listTerminalTargets } from "@otterdeploy/api/routers/terminal/handlers";
-import { auth } from "@otterdeploy/auth";
 import { Result, TaggedError } from "better-result";
 
 import type { Target } from "./pty";
@@ -19,9 +21,6 @@ import type { Target } from "./pty";
 // real user session — never an API key.
 // ---------------------------------------------------------------------------
 
-/** Same minted-key prefix as packages/api/src/context.ts. */
-const API_KEY_PREFIX = "otter_";
-
 export class PtyAuthError extends TaggedError("PtyAuthError")<{
   status: 401 | 403;
   message: string;
@@ -32,60 +31,24 @@ export interface PtyActor {
   organizationId: OrganizationId;
 }
 
-interface ResolvedActor {
-  userId: string | null;
-  organizationId: OrganizationId | null;
-  isApiKey: boolean;
-  // Effective auth headers — what session-bound better-auth checks
-  // (hasPermission) resolve against. Empty for API-key actors, which never
-  // reach a session-bound check (host shells reject them first).
-  headers: Headers;
-}
-
-async function resolveSession(headers: Headers): Promise<ResolvedActor | null> {
-  const session = await auth.api.getSession({ headers });
-  if (!session) return null;
-  return {
-    userId: session.user.id,
-    organizationId: (session.session.activeOrganizationId ?? null) as OrganizationId | null,
-    isApiKey: false,
-    headers,
-  };
-}
-
-/**
- * Verify WITHOUT a `permissions` argument — mirrors packages/api/src/context.ts
- * (`verifyApiKey` throws on a null-permission full-access key when permissions
- * are passed). Any verify failure yields null → the upgrade is rejected as
- * unauthenticated.
- */
-async function resolveApiKey(key: string): Promise<ResolvedActor | null> {
-  const verified = await Result.tryPromise({
-    try: () => auth.api.verifyApiKey({ body: { key } }),
-    catch: (cause) => cause,
-  });
-  if (verified.isErr()) return null;
-
-  const { valid, key: apiKey } = verified.value;
-  if (!valid || !apiKey) return null;
-
-  return {
-    // Org-referenced keys carry no owning user, so OTTERDEPLOY_USER stays unset.
-    userId: null,
-    organizationId: (apiKey.referenceId ?? null) as OrganizationId | null,
-    isApiKey: true,
-    headers: new Headers(),
-  };
-}
-
 async function resolveActor(c: Context): Promise<ResolvedActor | null> {
-  const fromRequest = await resolveSession(c.req.raw.headers);
+  const fromRequest = await resolveRequestActor(c.req.raw.headers);
   if (fromRequest) return fromRequest;
 
+  // Temporary compatibility for non-browser clients that cannot set WS
+  // headers. This transport is removed in od-5j8.9 in favor of one-time,
+  // origin-bound upgrade tickets.
   const token = c.req.query("token");
   if (!token) return null;
-  if (token.startsWith(API_KEY_PREFIX)) return resolveApiKey(token);
-  return resolveSession(new Headers({ authorization: `Bearer ${token}` }));
+  const headers = new Headers(c.req.raw.headers);
+  headers.set("authorization", `Bearer ${token}`);
+  return resolveRequestActor(headers);
+}
+
+function actorOrganizationId(actor: Exclude<ResolvedActor, null>): OrganizationId | null {
+  const value =
+    actor.kind === "api-key" ? actor.organizationId : actor.session.activeOrganizationId;
+  return (value ?? null) as OrganizationId | null;
 }
 
 /**
@@ -102,7 +65,7 @@ export async function authorizePty(
   if (!actor) {
     return Result.err(new PtyAuthError({ status: 401, message: "Authentication required" }));
   }
-  const organizationId = actor.organizationId;
+  const organizationId = actorOrganizationId(actor);
   if (!organizationId) {
     return Result.err(new PtyAuthError({ status: 403, message: "No active organization" }));
   }
@@ -111,33 +74,41 @@ export async function authorizePty(
     // Same org-scoped discovery the terminal picker uses — the container must
     // be one this org could have selected, never a raw daemon-wide docker id.
     const targets = await listTerminalTargets({ organizationId });
-    const owned = targets.containers.some((ct) => ct.containerId === target.id);
+    const owned = targets.containers.find((ct) => ct.containerId === target.id);
     if (!owned) {
       return Result.err(
         new PtyAuthError({ status: 403, message: "Container not found in this organization" }),
       );
     }
+    const decision = await authorizeCapability(actor, {
+      scope: "organization",
+      mode: "write",
+      organizationId,
+      projectId: owned.projectId,
+      permission: { terminal: ["open"] },
+    });
+    if (!decision.allowed) {
+      return Result.err(new PtyAuthError({ status: decision.status, message: decision.reason }));
+    }
   }
 
   if (target?.kind === "host") {
-    if (actor.isApiKey) {
-      return Result.err(
-        new PtyAuthError({ status: 403, message: "Host shell requires a user session" }),
-      );
-    }
-    const session = await Result.tryPromise({
-      try: () => auth.api.getSession({ headers: actor.headers }),
-      catch: (cause) => cause,
+    const decision = await authorizeCapability(actor, {
+      scope: "install",
+      mode: "write",
     });
-    if (session.isErr() || session.value?.user.isInstallAdmin !== true) {
+    if (!decision.allowed) {
       return Result.err(
         new PtyAuthError({
-          status: 403,
-          message: "Host shell requires installation administrator access",
+          status: decision.status,
+          message: decision.reason,
         }),
       );
     }
   }
 
-  return Result.ok({ userId: actor.userId, organizationId });
+  return Result.ok({
+    userId: actor.kind === "session" ? actor.user.id : null,
+    organizationId,
+  });
 }

@@ -1,14 +1,16 @@
 import type { OrganizationId, ResourceId } from "@otterdeploy/shared/id";
 import type { Context } from "hono";
 
+import { resolveRequestActor } from "@otterdeploy/api/authz/actor";
+import { authorizeCapability } from "@otterdeploy/api/authz/capability";
 import { prepareSourceTarballPath, removeSourceTarball } from "@otterdeploy/api/lib/data-dir";
 import { markDeploymentFailed } from "@otterdeploy/api/routers/project/deployments";
 import {
   createUploadDeployment,
+  resolveUploadSourceTarget,
   setUploadDeploymentSourceSha,
   triggerUploadBuild,
 } from "@otterdeploy/api/routers/project/upload-source";
-import { auth } from "@otterdeploy/auth";
 import { Result } from "better-result";
 
 /**
@@ -26,27 +28,6 @@ import { Result } from "better-result";
 /** Hard cap on an uploaded tarball. gzip'd source; generous for real projects,
  *  a wall against a runaway/hostile upload filling the disk. */
 const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
-const API_KEY_PREFIX = "otter_";
-
-async function resolveOrganizationId(c: Context): Promise<OrganizationId | null> {
-  // Bearer session token (what the CLI sends) or browser cookies.
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (session?.session.activeOrganizationId) {
-    return session.session.activeOrganizationId as OrganizationId;
-  }
-  // `otter_`-prefixed org API key (OTTERDEPLOY_TOKEN in CI).
-  const token = c.req.header("authorization")?.replace(/^Bearer\s+/i, "");
-  if (token?.startsWith(API_KEY_PREFIX)) {
-    const verified = await Result.tryPromise({
-      try: () => auth.api.verifyApiKey({ body: { key: token } }),
-      catch: (cause) => cause,
-    });
-    if (verified.isOk() && verified.value.valid && verified.value.key) {
-      return (verified.value.key.referenceId ?? null) as OrganizationId | null;
-    }
-  }
-  return null;
-}
 
 /** Stream the request body into `path`, enforcing the byte cap and hashing the
  *  bytes as they pass through. Returns the sha256 (hex) content digest of the
@@ -79,13 +60,41 @@ async function streamBodyToFile(c: Context, path: string): Promise<string> {
 }
 
 export async function uploadSourceHandler(c: Context): Promise<Response> {
-  const organizationId = await resolveOrganizationId(c);
+  const actor = await resolveRequestActor(c.req.raw.headers);
+  if (!actor) {
+    return c.json({ error: "Authentication required." }, 401);
+  }
+
+  const organizationId =
+    actor.kind === "api-key" ? actor.organizationId : actor.session.activeOrganizationId;
   if (!organizationId) {
-    return c.json({ error: "Authentication required (or no active organization)." }, 401);
+    return c.json({ error: "An active organization is required." }, 403);
   }
 
   const resourceId = c.req.param("resourceId") as ResourceId;
-  const created = await createUploadDeployment({ resourceId, organizationId });
+  const target = await resolveUploadSourceTarget({
+    resourceId,
+    organizationId: organizationId as OrganizationId,
+  });
+  if (!target) {
+    return c.json({ error: "service not found" }, 404);
+  }
+
+  const decision = await authorizeCapability(actor, {
+    scope: "organization",
+    mode: "write",
+    organizationId: target.organizationId,
+    projectId: target.projectId,
+    permission: { service: ["deploy"] },
+  });
+  if (!decision.allowed) {
+    return c.json({ error: decision.reason }, decision.status);
+  }
+
+  const created = await createUploadDeployment({
+    resourceId,
+    organizationId: target.organizationId,
+  });
   if (created.isErr()) {
     return c.json({ error: created.error }, 404);
   }

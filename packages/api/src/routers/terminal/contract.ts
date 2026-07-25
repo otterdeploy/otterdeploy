@@ -7,7 +7,7 @@ import { oc } from "@orpc/contract";
 import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import * as z from "zod";
 
-import { resourceIdField } from "../project/contract/shared";
+import { projectIdField, resourceIdField } from "../project/contract/shared";
 
 const tag = "terminal";
 const basePath = "/terminal";
@@ -15,6 +15,8 @@ const basePath = "/terminal";
 const terminalContainerSchema = z.object({
   /** Container id — passed to /pty?container=… to start the exec. */
   containerId: z.string(),
+  /** Server-resolved project ownership used for capability scoping. */
+  projectId: projectIdField,
   /** Display name (last segment of docker Names, slash-stripped). */
   name: z.string(),
   /** Image string for context display under the container row. */

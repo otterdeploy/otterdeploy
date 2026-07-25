@@ -59,6 +59,9 @@ export const statements = {
   // trusted-CA inventory (certificates oRPC router). Private keys are
   // secret-bearing infra material, so mutation stays admin/owner like sshKey.
   certificate: ["create", "read", "update", "delete"],
+  // Interactive container shells are a distinct high-risk capability. Do not
+  // infer shell access from the ability to deploy or update a service.
+  terminal: ["open"],
   // Kept in the statement catalog while platform endpoints migrate to the
   // dedicated installation-principal middleware. No organization role grants
   // these actions: organization ownership must never imply host authority.
@@ -90,6 +93,7 @@ export const member = ac.newRole({
   sshKey: ["read"],
   // Certificates: members can inspect the inventory, not touch key material.
   certificate: ["read"],
+  terminal: ["open"],
 });
 
 /** Everything except deleting the org. */
@@ -108,6 +112,7 @@ export const admin = ac.newRole({
   apiKey: ["create", "read", "update", "delete"],
   sshKey: ["create", "read", "update", "delete"],
   certificate: ["create", "read", "update", "delete"],
+  terminal: ["open"],
 });
 
 /** Full control. */
@@ -126,6 +131,7 @@ export const owner = ac.newRole({
   apiKey: ["create", "read", "update", "delete"],
   sshKey: ["create", "read", "update", "delete"],
   certificate: ["create", "read", "update", "delete"],
+  terminal: ["open"],
 });
 
 export const roles = { member, admin, owner };
