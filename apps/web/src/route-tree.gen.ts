@@ -41,6 +41,7 @@ import { Route as AppOrgSlugShellServersRouteImport } from "./routes/_app/$orgSl
 import { Route as AppOrgSlugShellPlatformRouteImport } from "./routes/_app/$orgSlug/_shell/platform"
 import { Route as AppOrgSlugShellNetworkingRouteImport } from "./routes/_app/$orgSlug/_shell/networking"
 import { Route as AppOrgSlugShellEdgeLogsRouteImport } from "./routes/_app/$orgSlug/_shell/edge-logs"
+import { Route as AppOrgSlugShellEdgeRouteImport } from "./routes/_app/$orgSlug/_shell/edge"
 import { Route as AppOrgSlugShellDockerRouteImport } from "./routes/_app/$orgSlug/_shell/docker"
 import { Route as AppOrgSlugShellDatabasesRouteImport } from "./routes/_app/$orgSlug/_shell/databases"
 import { Route as AppOrgSlugShellBackupsRouteImport } from "./routes/_app/$orgSlug/_shell/backups"
@@ -236,6 +237,11 @@ const AppOrgSlugShellNetworkingRoute =
 const AppOrgSlugShellEdgeLogsRoute = AppOrgSlugShellEdgeLogsRouteImport.update({
   id: "/edge-logs",
   path: "/edge-logs",
+  getParentRoute: () => AppOrgSlugShellLayoutRoute,
+} as any)
+const AppOrgSlugShellEdgeRoute = AppOrgSlugShellEdgeRouteImport.update({
+  id: "/edge",
+  path: "/edge",
   getParentRoute: () => AppOrgSlugShellLayoutRoute,
 } as any)
 const AppOrgSlugShellDockerRoute = AppOrgSlugShellDockerRouteImport.update({
@@ -450,6 +456,7 @@ export interface FileRoutesByFullPath {
   "/$orgSlug/backups": typeof AppOrgSlugShellBackupsRoute
   "/$orgSlug/databases": typeof AppOrgSlugShellDatabasesRoute
   "/$orgSlug/docker": typeof AppOrgSlugShellDockerRoute
+  "/$orgSlug/edge": typeof AppOrgSlugShellEdgeRoute
   "/$orgSlug/edge-logs": typeof AppOrgSlugShellEdgeLogsRoute
   "/$orgSlug/networking": typeof AppOrgSlugShellNetworkingRoute
   "/$orgSlug/platform": typeof AppOrgSlugShellPlatformRoute
@@ -511,6 +518,7 @@ export interface FileRoutesByTo {
   "/$orgSlug/backups": typeof AppOrgSlugShellBackupsRoute
   "/$orgSlug/databases": typeof AppOrgSlugShellDatabasesRoute
   "/$orgSlug/docker": typeof AppOrgSlugShellDockerRoute
+  "/$orgSlug/edge": typeof AppOrgSlugShellEdgeRoute
   "/$orgSlug/edge-logs": typeof AppOrgSlugShellEdgeLogsRoute
   "/$orgSlug/networking": typeof AppOrgSlugShellNetworkingRoute
   "/$orgSlug/platform": typeof AppOrgSlugShellPlatformRoute
@@ -576,6 +584,7 @@ export interface FileRoutesById {
   "/_app/$orgSlug/_shell/backups": typeof AppOrgSlugShellBackupsRoute
   "/_app/$orgSlug/_shell/databases": typeof AppOrgSlugShellDatabasesRoute
   "/_app/$orgSlug/_shell/docker": typeof AppOrgSlugShellDockerRoute
+  "/_app/$orgSlug/_shell/edge": typeof AppOrgSlugShellEdgeRoute
   "/_app/$orgSlug/_shell/edge-logs": typeof AppOrgSlugShellEdgeLogsRoute
   "/_app/$orgSlug/_shell/networking": typeof AppOrgSlugShellNetworkingRoute
   "/_app/$orgSlug/_shell/platform": typeof AppOrgSlugShellPlatformRoute
@@ -641,6 +650,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/backups"
     | "/$orgSlug/databases"
     | "/$orgSlug/docker"
+    | "/$orgSlug/edge"
     | "/$orgSlug/edge-logs"
     | "/$orgSlug/networking"
     | "/$orgSlug/platform"
@@ -702,6 +712,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/backups"
     | "/$orgSlug/databases"
     | "/$orgSlug/docker"
+    | "/$orgSlug/edge"
     | "/$orgSlug/edge-logs"
     | "/$orgSlug/networking"
     | "/$orgSlug/platform"
@@ -766,6 +777,7 @@ export interface FileRouteTypes {
     | "/_app/$orgSlug/_shell/backups"
     | "/_app/$orgSlug/_shell/databases"
     | "/_app/$orgSlug/_shell/docker"
+    | "/_app/$orgSlug/_shell/edge"
     | "/_app/$orgSlug/_shell/edge-logs"
     | "/_app/$orgSlug/_shell/networking"
     | "/_app/$orgSlug/_shell/platform"
@@ -1038,6 +1050,13 @@ declare module "@tanstack/react-router" {
       path: "/edge-logs"
       fullPath: "/$orgSlug/edge-logs"
       preLoaderRoute: typeof AppOrgSlugShellEdgeLogsRouteImport
+      parentRoute: typeof AppOrgSlugShellLayoutRoute
+    }
+    "/_app/$orgSlug/_shell/edge": {
+      id: "/_app/$orgSlug/_shell/edge"
+      path: "/edge"
+      fullPath: "/$orgSlug/edge"
+      preLoaderRoute: typeof AppOrgSlugShellEdgeRouteImport
       parentRoute: typeof AppOrgSlugShellLayoutRoute
     }
     "/_app/$orgSlug/_shell/docker": {
@@ -1336,6 +1355,7 @@ interface AppOrgSlugShellLayoutRouteChildren {
   AppOrgSlugShellBackupsRoute: typeof AppOrgSlugShellBackupsRoute
   AppOrgSlugShellDatabasesRoute: typeof AppOrgSlugShellDatabasesRoute
   AppOrgSlugShellDockerRoute: typeof AppOrgSlugShellDockerRoute
+  AppOrgSlugShellEdgeRoute: typeof AppOrgSlugShellEdgeRoute
   AppOrgSlugShellEdgeLogsRoute: typeof AppOrgSlugShellEdgeLogsRoute
   AppOrgSlugShellNetworkingRoute: typeof AppOrgSlugShellNetworkingRoute
   AppOrgSlugShellPlatformRoute: typeof AppOrgSlugShellPlatformRoute
@@ -1353,6 +1373,7 @@ const AppOrgSlugShellLayoutRouteChildren: AppOrgSlugShellLayoutRouteChildren = {
   AppOrgSlugShellBackupsRoute: AppOrgSlugShellBackupsRoute,
   AppOrgSlugShellDatabasesRoute: AppOrgSlugShellDatabasesRoute,
   AppOrgSlugShellDockerRoute: AppOrgSlugShellDockerRoute,
+  AppOrgSlugShellEdgeRoute: AppOrgSlugShellEdgeRoute,
   AppOrgSlugShellEdgeLogsRoute: AppOrgSlugShellEdgeLogsRoute,
   AppOrgSlugShellNetworkingRoute: AppOrgSlugShellNetworkingRoute,
   AppOrgSlugShellPlatformRoute: AppOrgSlugShellPlatformRoute,

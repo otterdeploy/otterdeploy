@@ -21,7 +21,6 @@
 
 import {
   Alert01Icon,
-  Certificate01Icon,
   Database02Icon,
   DatabaseIcon,
   DeviceAccessIcon,
@@ -117,11 +116,28 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         keywords: ["restore", "snapshot"],
       },
       {
-        title: "Networking",
-        i18nKey: "nav.networking",
-        to: "/$orgSlug/networking",
+        title: "Edge",
+        to: "/$orgSlug/edge",
         icon: EarthIcon,
-        keywords: ["domains", "routes", "caddy"],
+        // Networking, Edge logs and Settings → Certificates all folded in as
+        // tabs (od-u63.1) — keep every surface's old search terms so the
+        // palette still finds this from any of their names.
+        keywords: [
+          "domains",
+          "routes",
+          "caddy",
+          "caddyfile",
+          "access",
+          "traffic",
+          "firewall",
+          "crowdsec",
+          "blocklist",
+          "ip",
+          "tls",
+          "ssl",
+          "certificates",
+          "certs",
+        ],
       },
     ],
   },
@@ -133,13 +149,6 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         to: "/$orgSlug/platform",
         icon: FlashIcon,
         keywords: ["health", "queues", "deploys"],
-      },
-      {
-        title: "Edge logs",
-        to: "/$orgSlug/edge-logs",
-        icon: EarthIcon,
-        // Firewall folded into Edge logs as a tab — keep its old search terms.
-        keywords: ["access", "traffic", "firewall", "crowdsec", "blocklist", "ip"],
       },
       {
         title: "Audit",
@@ -230,12 +239,6 @@ export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
         to: "/$orgSlug/settings/workspace/registries",
         icon: Database02Icon,
         keywords: ["docker", "image"],
-      },
-      {
-        title: "Certificates",
-        to: "/$orgSlug/settings/workspace/certificates",
-        icon: Certificate01Icon,
-        keywords: ["tls", "ssl", "pem", "ca", "acme"],
       },
       {
         title: "Webhooks",
