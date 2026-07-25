@@ -8,6 +8,8 @@
  */
 
 export {
+  countEnabledRoutesByProject,
+  countResourcesByProject,
   createProjectRecord,
   deleteProjectRecord,
   getEnvironmentById,

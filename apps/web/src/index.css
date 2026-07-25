@@ -339,10 +339,41 @@
   font-feature-settings: "zero", "ss03";
 }
 
-/* Terminal (wterm) scrollback. The buffer scrolls natively on the `.wterm`
-   root once there's history; the default overlay scrollbar is invisible on the
-   near-black terminal surface, so give it a quiet, always-present rail that
-   reads as scrollable. Wheel capture lives in terminal-session.tsx. */
+/* Terminal (wterm) sizing. `@wterm/dom` ships its terminal.css *unlayered*,
+   and Tailwind v4 emits every utility inside `@layer utilities` — unlayered
+   rules beat layered ones regardless of source order. So the vendor's
+   `.wterm { position: relative; padding: 12px; border-radius: 8px; box-shadow }`
+   silently wins over any `absolute inset-0` we hand <Terminal>: the element
+   falls back to `height: auto` and sizes to its own content, and then
+   `autoResize`'s ResizeObserver derives the row count from a height that its
+   own rows produced. That loop pins a session at the initial 24 rows (~432px
+   — "half the screen") and churns the grid as scrollback lines are inserted
+   into the very element being measured.
+
+   Everything below is doubled up as `.wterm.wterm-fill` (0,2,0) on purpose:
+   the vendor sheet is a lazily-loaded chunk that lands *after* index.css, so
+   a plain `.wterm` override here would lose on source order even though both
+   are unlayered. Only the extra class reliably outranks it. */
+.wterm.wterm-fill {
+  position: absolute;
+  inset: 0;
+  padding: 8px;
+  border-radius: 0;
+  box-shadow: none;
+
+  /* One coherent vocabulary: machine text is Geist Mono, and the terminal
+     surface is the app's canvas rather than wterm's VS Code grey. ANSI 0-15
+     stay at the vendor defaults — programs ship palettes tuned to them. */
+  --term-font-family: var(--font-mono);
+  --term-bg: oklch(0.12 0 0);
+  --term-fg: oklch(0.92 0 0);
+  --term-cursor: oklch(0.78 0 0);
+}
+
+/* Scrollback. The buffer scrolls natively on the `.wterm` root once there's
+   history; the default overlay scrollbar is invisible on the near-black
+   terminal surface, so give it a quiet, always-present rail that reads as
+   scrollable. Wheel capture lives in terminal-session.tsx. */
 .wterm {
   scrollbar-width: thin;
   scrollbar-color: oklch(1 0 0 / 18%) transparent;

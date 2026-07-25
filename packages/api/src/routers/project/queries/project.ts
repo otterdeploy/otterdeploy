@@ -38,30 +38,60 @@ export async function listProjectRecordsByOrg(organizationId: OrganizationId) {
       graphLayout: project.graphLayout,
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
-      // Correlated subqueries rather than one leftJoin + GROUP BY: joining both
-      // `resource` and `proxy_route` would fan them into each other's rows and
-      // multiply the tallies. Each count is an independent scalar subquery.
-      databaseCount: sql<number>`(select count(*) from ${resource} where ${resource.projectId} = ${project.id} and ${resource.type} = 'database')::int`,
-      // Total workloads for the card's `running/total` fraction. This MUST count
-      // the same universe the running tally does — `countRunningServicesByProject`
-      // matches live containers across service AND compose resources — otherwise
-      // a project whose workloads are compose stacks shows more running than
-      // total (the old `type='service'`-only count rendered `5/0`: the stack's
-      // containers counted as running, but its `compose` resource wasn't in this
-      // denominator). Counting `service` + `compose` keeps running ⊆ total.
-      serviceCount: sql<number>`(select count(*) from ${resource} where ${resource.projectId} = ${project.id} and ${resource.type} in ('service', 'compose'))::int`,
-      // Enabled routes only: disabled/custom-pending routes never reach the edge.
-      routeCount: sql<number>`(select count(*) from ${proxyRoute} where ${proxyRoute.projectId} = ${project.id} and ${proxyRoute.enabled} = true)::int`,
     })
     .from(project)
     .where(eq(project.organizationId, organizationId))
-    .orderBy(asc(project.createdAt), asc(project.name))
-    // Bypass the global query cache. The service/database/route tallies are raw
-    // correlated subqueries over `resource`/`proxy_route`, but the query's
-    // `.from()` is `project`, so the cache only tags it with `project` and never
-    // invalidates it when a resource/route is added — the card would show a
-    // stale "0/0 services" over a project that already has some.
-    .$withCache(false);
+    .orderBy(asc(project.createdAt), asc(project.name));
+}
+
+/**
+ * Per-project resource tallies for the project cards, as one grouped scan of
+ * `resource` — NOT correlated subqueries hung off the project select. Drizzle
+ * only table-qualifies columns when the outer query has a join, so
+ * `sql\`(select count(*) from ${resource} where ${resource.projectId} = ${project.id})\``
+ * rendered as `where "project_id" = "id"`; inside the subquery both names bind
+ * to `resource`'s own columns, so it asked for `resource.project_id =
+ * resource.id` and every card counted 0. Grouping keeps each count in a query
+ * whose `.from()` is the table it actually reads, which also lets the global
+ * cache tag and invalidate it on a resource write.
+ *
+ * `serviceCount` MUST cover the same universe the running tally does —
+ * `countRunningServicesByProject` matches live containers across service AND
+ * compose resources — otherwise a project whose workloads are compose stacks
+ * shows more running than total (a `type='service'`-only count renders `5/0`:
+ * the stack's containers count as running, but its `compose` resource isn't in
+ * the denominator). Counting `service` + `compose` keeps running ⊆ total.
+ */
+export async function countResourcesByProject(organizationId: OrganizationId) {
+  const rows = await db
+    .select({
+      projectId: resource.projectId,
+      databaseCount: sql<number>`count(*) filter (where ${resource.type} = 'database')::int`,
+      serviceCount: sql<number>`count(*) filter (where ${resource.type} in ('service', 'compose'))::int`,
+    })
+    .from(resource)
+    .innerJoin(project, eq(resource.projectId, project.id))
+    .where(eq(project.organizationId, organizationId))
+    .groupBy(resource.projectId);
+  return new Map(rows.map((r) => [r.projectId, r]));
+}
+
+/**
+ * Per-project count of *enabled* proxy routes — disabled/custom-pending routes
+ * never reach the edge, so they don't belong in the card's tally. Grouped for
+ * the same reasons as {@link countResourcesByProject}.
+ */
+export async function countEnabledRoutesByProject(organizationId: OrganizationId) {
+  const rows = await db
+    .select({
+      projectId: proxyRoute.projectId,
+      routeCount: sql<number>`count(*)::int`,
+    })
+    .from(proxyRoute)
+    .innerJoin(project, eq(proxyRoute.projectId, project.id))
+    .where(and(eq(project.organizationId, organizationId), eq(proxyRoute.enabled, true)))
+    .groupBy(proxyRoute.projectId);
+  return new Map(rows.map((r) => [r.projectId, r.routeCount]));
 }
 
 /**

@@ -241,7 +241,10 @@ export function TerminalSession({ source, active, onConnChange }: Props) {
         ref={ref}
         core={core}
         autoResize
-        className="absolute inset-0"
+        // `wterm-fill`, not `absolute inset-0`: the vendor stylesheet is
+        // unlayered and outranks Tailwind utilities, so the override has to
+        // live in index.css at `.wterm.wterm-fill`. See the note there.
+        className="wterm-fill"
         onReady={handleReady}
         onData={(data) => {
           const ws = wsRef.current;

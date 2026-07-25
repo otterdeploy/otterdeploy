@@ -82,26 +82,6 @@ function resourceIdByName(
 
 /** Resolve staged manifest changes into ghost creates + update/delete markers,
  *  bridging the apply gap for just-Deployed creates that haven't streamed in. */
-/** Optional ghost fields for a create entry. A compose ghost carries its parsed
- *  member services (enrichComposeCreates on the server) plus the template brand,
- *  so the group renders member cards + logo before the first deploy; a service
- *  ghost carries the wizard-detected framework logo (client hint, no round-trip);
- *  a database ghost carries neither. */
-function createGhostExtra(
-  c: ManifestChange,
-  key: string,
-  frameworks: ReadonlyMap<string, Framework>,
-): Omit<PendingByName["creates"][number], "resource" | "name"> {
-  if (c.resource === "compose") {
-    return {
-      services: composeGhostServices(c.details),
-      ...(typeof c.details?.logoBrand === "string" ? { logoBrand: c.details.logoBrand } : {}),
-    };
-  }
-  if (c.resource === "service") return { framework: frameworks.get(key) };
-  return {};
-}
-
 function computePendingByName(
   resources: readonly ResourceLike[],
   changes: readonly ManifestChange[],
@@ -117,7 +97,25 @@ function computePendingByName(
     const key = `${c.resource}:${c.name}`;
     const id = idByName.get(key);
     if (c.kind === "create" && !id) {
-      creates.push({ resource: c.resource, name: c.name, ...createGhostExtra(c, key, frameworks) });
+      creates.push({
+        resource: c.resource,
+        name: c.name,
+        // Compose creates carry a parsed service summary (enrichComposeCreates
+        // on the server) so the ghost group renders its member cards, plus the
+        // template brand so the ghost shows its logo before the first deploy.
+        ...(c.resource === "compose"
+          ? {
+              services: composeGhostServices(c.details),
+              ...(typeof c.details?.logoBrand === "string"
+                ? { logoBrand: c.details.logoBrand }
+                : {}),
+            }
+          : // A staged service ghost shows the wizard-detected framework logo
+            // immediately (client hint — no build/persist round-trip).
+            c.resource === "service"
+            ? { framework: frameworks.get(key) }
+            : {}),
+      });
       createKeys.add(key);
     } else if (id && (c.kind === "update" || c.kind === "delete")) {
       // Key by the node id (`${resource}:${name}`), which is what the node

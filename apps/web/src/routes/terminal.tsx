@@ -1,4 +1,4 @@
-import { Activity, useEffect, useState } from "react";
+import { useState } from "react";
 
 import {
   Cancel01Icon,
@@ -10,14 +10,10 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 
 import { OpenTerminalDialog } from "@/features/terminal/components/open-terminal-dialog";
-import { SessionTab } from "@/features/terminal/components/session-tab";
-import { TerminalSession, type ConnState } from "@/features/terminal/components/terminal-session";
-import { type Session, type SessionSource, describeSource } from "@/features/terminal/types";
-import {
-  encodeSessionToken,
-  sessionSourcesFromSearch,
-  terminalSearchSchema,
-} from "@/features/terminal/url";
+import { SessionPanels } from "@/features/terminal/components/session-panels";
+import { SessionStrip } from "@/features/terminal/components/session-strip";
+import { terminalSearchSchema } from "@/features/terminal/url";
+import { useTerminalSessions } from "@/features/terminal/use-terminal-sessions";
 import { Button } from "@/shared/components/ui/button";
 import {
   Empty,
@@ -32,64 +28,15 @@ export const Route = createFileRoute("/terminal")({
   validateSearch: terminalSearchSchema,
 });
 
-function newId(): string {
-  return typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : `s-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function makeSession(source: SessionSource): Session {
-  return { id: newId(), label: describeSource(source), source };
-}
-
 function RouteComponent() {
   const router = useRouter();
   const navigate = Route.useNavigate();
   const search = Route.useSearch();
-
-  // Hydrate the initial session list from the URL exactly once. After mount,
-  // `sessions` is the source of truth and the URL is a one-way reflection of
-  // it (see the sync effect below). Subsequent search-param changes from
-  // outside (manual edit, history back) are intentionally ignored to avoid
-  // tearing live WebSocket sessions out from under the user — useState's
-  // lazy initializer only fires on the first render.
-  const [sessions, setSessions] = useState<Session[]>(() =>
-    sessionSourcesFromSearch(search).map(makeSession),
-  );
-  const [activeId, setActiveId] = useState<string | null>(() => sessions[0]?.id ?? null);
   const [pickerOpen, setPickerOpen] = useState(false);
-  // Per-session connection state, fed by each TerminalSession's onConnChange —
-  // drives the status dot on the tab strip.
-  const [connStates, setConnStates] = useState<Record<string, ConnState>>({});
 
-  // Mirror the current session list back into the URL so reload / share
-  // restores every tab. `replace: true` keeps this out of the back-history
-  // — every keystroke that adds a tab shouldn't create a new history entry.
-  useEffect(() => {
-    const tokens = sessions.map((s) => encodeSessionToken(s.source));
-    void navigate({
-      search: (prev) => ({
-        ...prev,
-        session: tokens.length > 0 ? tokens : undefined,
-      }),
-      replace: true,
-    });
-  }, [sessions, navigate]);
-
-  function openSession(source: SessionSource) {
-    const next = makeSession(source);
-    setSessions((prev) => [...prev, next]);
-    setActiveId(next.id);
-  }
-
-  function closeSession(id: string) {
-    const next = sessions.filter((s) => s.id !== id);
-    setSessions(next);
-    if (id === activeId) {
-      setActiveId(next.length > 0 ? (next[next.length - 1]?.id ?? null) : null);
-    }
-    setConnStates(({ [id]: _closed, ...rest }) => rest);
-  }
+  const term = useTerminalSessions(search, (next) => {
+    void navigate({ search: (prev) => ({ ...prev, ...next }), replace: true });
+  });
 
   function close() {
     if (window.history.length > 1) router.history.back();
@@ -107,27 +54,17 @@ function RouteComponent() {
           />
           <span className="text-[13px] font-medium">Terminal</span>
           <span className="font-mono text-[11px] text-muted-foreground">
-            · {sessions.length} {sessions.length === 1 ? "session" : "sessions"}
+            · {term.sessions.length} {term.sessions.length === 1 ? "session" : "sessions"}
           </span>
         </div>
 
-        {sessions.length > 0 && (
-          <>
-            <span className="mx-1 h-4 w-px shrink-0 bg-border/60" aria-hidden />
-            <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
-              {sessions.map((s) => (
-                <SessionTab
-                  key={s.id}
-                  session={s}
-                  active={s.id === activeId}
-                  conn={connStates[s.id]}
-                  onSelect={() => setActiveId(s.id)}
-                  onClose={() => closeSession(s.id)}
-                />
-              ))}
-            </div>
-          </>
-        )}
+        <SessionStrip
+          sessions={term.sessions}
+          activeId={term.activeId}
+          connStates={term.connStates}
+          onSelect={term.select}
+          onClose={term.close}
+        />
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
           <Button
@@ -152,7 +89,7 @@ function RouteComponent() {
         </div>
       </header>
 
-      {sessions.length === 0 ? (
+      {term.sessions.length === 0 ? (
         <Empty className="flex-1">
           <EmptyHeader>
             <HugeiconsIcon
@@ -174,46 +111,13 @@ function RouteComponent() {
         </Empty>
       ) : (
         <SessionPanels
-          sessions={sessions}
-          activeId={activeId}
-          onConnChange={(id, conn) => setConnStates((prev) => ({ ...prev, [id]: conn }))}
+          sessions={term.sessions}
+          activeId={term.activeId}
+          onConnChange={term.setConn}
         />
       )}
 
-      <OpenTerminalDialog open={pickerOpen} onOpenChange={setPickerOpen} onPick={openSession} />
-    </div>
-  );
-}
-
-function SessionPanels({
-  sessions,
-  activeId,
-  onConnChange,
-}: {
-  sessions: Session[];
-  activeId: string | null;
-  onConnChange: (id: string, conn: ConnState) => void;
-}) {
-  return (
-    <div className="relative min-h-0 flex-1 overflow-hidden bg-[oklch(0.12_0_0)] p-2">
-      {sessions.map((s) => {
-        const isActive = s.id === activeId;
-        // <Activity> keeps every session's React tree mounted across
-        // tab switches — state (useState/useRef) is preserved, effects
-        // re-attach cleanly on visibility flip, and we never tear down
-        // the wterm <Terminal> instance.
-        return (
-          <Activity key={s.id} mode={isActive ? "visible" : "hidden"} name={s.label}>
-            <div className="absolute inset-2" aria-hidden={!isActive}>
-              <TerminalSession
-                source={s.source}
-                active={isActive}
-                onConnChange={(conn) => onConnChange(s.id, conn)}
-              />
-            </div>
-          </Activity>
-        );
-      })}
+      <OpenTerminalDialog open={pickerOpen} onOpenChange={setPickerOpen} onPick={term.open} />
     </div>
   );
 }
