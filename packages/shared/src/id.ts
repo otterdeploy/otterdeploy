@@ -46,6 +46,7 @@ export const ID_PREFIX = {
   proxyRoute: "proxy_route",
   deploymentGuest: "guest",
   server: "server",
+  nodeEnrollment: "enroll",
   // workspace: "workspace",
   workspace: "wksp",
 
@@ -255,6 +256,7 @@ export type PreviewId = Id<typeof ID_PREFIX.preview>;
 export type ProxyRouteId = Id<typeof ID_PREFIX.proxyRoute>;
 export type DeploymentGuestId = Id<typeof ID_PREFIX.deploymentGuest>;
 export type ServerId = Id<typeof ID_PREFIX.server>;
+export type NodeEnrollmentId = Id<typeof ID_PREFIX.nodeEnrollment>;
 export type WorkspaceId = Id<typeof ID_PREFIX.workspace>;
 
 // Git source

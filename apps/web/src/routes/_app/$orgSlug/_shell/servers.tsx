@@ -50,6 +50,74 @@ function swarmNodesByServer(view: SwarmNodesView | null): Map<string, SwarmNode>
   return map;
 }
 
+function visibleServersForProject<T extends { id: string }>(
+  servers: T[],
+  stats: Map<string, { projects: string[] }>,
+  project: string,
+): T[] {
+  if (project === "all") return servers;
+  return servers.filter((server) => stats.get(server.id)?.projects.includes(project));
+}
+
+function nodeDescription(count: number): string {
+  const noun = count === 1 ? "node" : "nodes";
+  return `${count} ${noun} in this swarm · replicas placed via Docker Stack rolling updates`;
+}
+
+function ServerPageActions({
+  tab,
+  onEnroll,
+  onCreate,
+}: {
+  tab: ServersTab;
+  onEnroll: () => void;
+  onCreate: () => void;
+}) {
+  if (tab !== "overview") return null;
+  return (
+    <>
+      <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={onEnroll}>
+        <HugeiconsIcon icon={Key01Icon} strokeWidth={2} className="size-3.5" />
+        Secure enrollment
+      </Button>
+      <Button size="sm" className="h-8 gap-1.5" onClick={onCreate}>
+        + Add server
+      </Button>
+    </>
+  );
+}
+
+function ProjectFilters({
+  cluster,
+  selected,
+  onSelect,
+}: {
+  cluster: { tasksRunning: number; projects: { slug: string; name: string; tasksRunning: number }[] };
+  selected: string;
+  onSelect: (project: string) => void;
+}) {
+  if (cluster.projects.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <FilterPill
+        active={selected === "all"}
+        label="All projects"
+        count={cluster.tasksRunning}
+        onClick={() => onSelect("all")}
+      />
+      {cluster.projects.map((project) => (
+        <FilterPill
+          key={project.slug}
+          active={selected === project.slug}
+          label={project.name}
+          count={project.tasksRunning}
+          onClick={() => onSelect(project.slug)}
+        />
+      ))}
+    </div>
+  );
+}
+
 // `tab` picks the section (Overview / Raw Docker / Install health — the
 // latter merged in from the standalone Platform page, od-u63.4); `dockerTab`
 // is forwarded from the old `/docker?tab=` deep links so a specific Docker
@@ -109,15 +177,7 @@ function ServersRoute() {
   const cluster = clusterArr[0] ?? null;
   const perServerStats = toMapBy(perServerArr, (s) => s.serverId);
 
-  const visibleServers =
-    projectFilter === "all"
-      ? servers
-      : servers.filter((s) => {
-          const ps = perServerStats.get(s.id);
-          return ps?.projects.includes(projectFilter);
-        });
-
-  const nodeCount = servers.length;
+  const visibleServers = visibleServersForProject(servers, perServerStats, projectFilter);
 
   return (
     <Tabs
@@ -133,24 +193,13 @@ function ServersRoute() {
       <div className="border-b px-6 pb-0 pt-6">
         <PageHeader
           title="Servers"
-          description={`${nodeCount} node${nodeCount === 1 ? "" : "s"} in this swarm · replicas placed via Docker Stack rolling updates`}
+          description={nodeDescription(servers.length)}
           actions={
-            tab === "overview" ? (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 gap-1.5"
-                  onClick={() => setTokenOpen(true)}
-                >
-                  <HugeiconsIcon icon={Key01Icon} strokeWidth={2} className="size-3.5" />
-                  Join token
-                </Button>
-                <Button size="sm" className="h-8 gap-1.5" onClick={() => setCreateOpen(true)}>
-                  + Add server
-                </Button>
-              </>
-            ) : undefined
+            <ServerPageActions
+              tab={tab}
+              onEnroll={() => setTokenOpen(true)}
+              onCreate={() => setCreateOpen(true)}
+            />
           }
         />
 
@@ -168,25 +217,13 @@ function ServersRoute() {
           isSwarm={swarmView?.swarm ?? false}
         />
 
-        {cluster && cluster.projects.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <FilterPill
-              active={projectFilter === "all"}
-              label="All projects"
-              count={cluster.tasksRunning}
-              onClick={() => setProjectFilter("all")}
-            />
-            {cluster.projects.map((p) => (
-              <FilterPill
-                key={p.slug}
-                active={projectFilter === p.slug}
-                label={p.name}
-                count={p.tasksRunning}
-                onClick={() => setProjectFilter(p.slug)}
-              />
-            ))}
-          </div>
-        )}
+        {cluster ? (
+          <ProjectFilters
+            cluster={cluster}
+            selected={projectFilter}
+            onSelect={setProjectFilter}
+          />
+        ) : null}
 
         {/* Swarm-gated: renders nothing on the plain-docker runtime. */}
         <ManagersQuorumCard view={swarmView} />

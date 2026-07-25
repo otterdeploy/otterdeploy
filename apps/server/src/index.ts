@@ -44,6 +44,7 @@ import {
   terminalWebSocketHandler,
   withCanonicalDeviceOrigin,
 } from "./handlers";
+import { completeNodeEnrollmentHandler, redeemNodeEnrollmentHandler } from "./handlers/enrollment";
 import { uploadSourceHandler } from "./handlers/upload/source";
 import { invalidate } from "./lib/invalidate";
 
@@ -247,6 +248,12 @@ app.get("/api/integrations/github/manifest/callback", githubManifestCallbackHand
 // Per-node health reports from the swarm global agent service (Bearer HMAC
 // token, verified in the handler). See docs/designs/server-health-agent.md.
 app.post("/api/agent/health", agentHealthIngestHandler);
+
+// One-time manual node enrollment. The high-entropy enrollment bearer is
+// hashed in Postgres, single-use, expiring and role-scoped; completion rotates
+// Docker's underlying role-wide join token.
+app.post("/api/node-enrollments/:id/redeem", redeemNodeEnrollmentHandler);
+app.post("/api/node-enrollments/:id/complete", completeNodeEnrollmentHandler);
 
 // ─── Local source upload ───────────────────────────────────────────
 // `otterdeploy deploy` streams a source tarball here for a `source: "upload"`

@@ -8,6 +8,7 @@ import { serverIdField } from "../project/contract/shared";
 import { hostHealthSchema } from "../system/contract";
 
 const sshKeyIdField = zId(ID_PREFIX.sshKey);
+const nodeEnrollmentIdField = zId(ID_PREFIX.nodeEnrollment);
 const tag = "server";
 const basePath = "/servers";
 
@@ -137,18 +138,47 @@ const serverStatsSchema = z.object({
 
 const serverStatsInput = z.object({}).optional();
 
-/**
- * Swarm join tokens + the manager address operators paste into
- * `docker swarm join`. Sourced from `docker swarm inspect` + `docker info`
- * — "—" sentinels when the daemon hasn't been initialized as a swarm yet.
- */
-const swarmJoinTokensSchema = z.object({
-  worker: z.string(),
-  manager: z.string(),
-  managerAddr: z.string(),
+const enrollmentRoleField = z.enum(["worker", "manager"]);
+const stepUpFields = {
+  role: enrollmentRoleField,
+  totpCode: z.string().regex(/^\d{6}(\d{2})?$/, "Enter the current authenticator code."),
+  managerConfirmation: z.string().optional(),
+};
+const enrollmentErrors = {
+  TWO_FACTOR_REQUIRED: {
+    status: 412,
+    message: "Enable two-factor authentication before creating node enrollment." as const,
+  },
+  INVALID_STEP_UP: {
+    status: 403,
+    message: "The authenticator code is invalid." as const,
+  },
+  MANAGER_CONFIRMATION_REQUIRED: {
+    status: 400,
+    message: 'Type "ENROLL MANAGER" to authorize manager enrollment.' as const,
+  },
+  SWARM_UNAVAILABLE: {
+    status: 409,
+    message: "Initialize Docker Swarm before creating node enrollment." as const,
+  },
+};
+const createEnrollmentInput = z.object({
+  ...stepUpFields,
+  ttlMinutes: z.number().int().min(5).max(30).default(10),
 });
-
-const joinTokensInput = z.object({}).optional();
+const enrollmentSchema = z.object({
+  id: nodeEnrollmentIdField,
+  role: enrollmentRoleField,
+  status: z.enum(["active", "expired", "redeemed", "completed", "revoked"]),
+  expiresAt: z.string(),
+  redeemedAt: z.string().nullable(),
+  completedAt: z.string().nullable(),
+  revokedAt: z.string().nullable(),
+  createdAt: z.string(),
+});
+const listEnrollmentsInput = z.object({}).optional();
+const revokeEnrollmentInput = z.object({ id: nodeEnrollmentIdField });
+const rotateJoinCredentialInput = z.object(stepUpFields);
 
 /**
  * Latest health snapshot per server (server_health_sample) — local host via
@@ -342,10 +372,32 @@ export const serverContract = {
     .meta({ path: `${basePath}/health`, tag, method: "GET" })
     .input(serverHealthInput)
     .output(z.array(serverHealthEntrySchema)),
-  joinTokens: oc
-    .meta({ path: `${basePath}/join-tokens`, tag, method: "GET" })
-    .input(joinTokensInput)
-    .output(swarmJoinTokensSchema),
+  enrollments: oc
+    .meta({ path: `${basePath}/enrollments`, tag, method: "GET" })
+    .input(listEnrollmentsInput)
+    .output(z.array(enrollmentSchema)),
+  createEnrollment: oc
+    .errors(enrollmentErrors)
+    .meta({ path: `${basePath}/enrollments`, tag, method: "POST" })
+    .input(createEnrollmentInput)
+    .output(
+      z.object({
+        id: nodeEnrollmentIdField,
+        role: enrollmentRoleField,
+        credential: z.string(),
+        expiresAt: z.string(),
+      }),
+    ),
+  revokeEnrollment: oc
+    .errors({ NOT_FOUND: { status: 404, message: "Enrollment not found" as const } })
+    .meta({ path: `${basePath}/enrollments/revoke`, tag, method: "POST" })
+    .input(revokeEnrollmentInput)
+    .output(z.object({ revoked: z.literal(true) })),
+  rotateJoinCredential: oc
+    .errors(enrollmentErrors)
+    .meta({ path: `${basePath}/enrollments/rotate`, tag, method: "POST" })
+    .input(rotateJoinCredentialInput)
+    .output(z.object({ rotated: z.literal(true) })),
   provision: oc
     .errors({
       CONFLICT: {

@@ -13,6 +13,7 @@ import { startAuditAnomalyScan } from "@otterdeploy/api/notifications/audit-anom
 import { startEdgeThreatScan } from "@otterdeploy/api/notifications/edge-anomaly";
 import { startBlocklistScheduler } from "@otterdeploy/api/routers/firewall/scheduler";
 import { startDeployCrashWatcher } from "@otterdeploy/api/routers/project/deploy-crash-watcher";
+import { startNodeEnrollmentReaper } from "@otterdeploy/api/routers/server/enrollment";
 import {
   startHealthAgentReconciler,
   startHostHealthMonitor,
@@ -74,6 +75,11 @@ export function startBackgroundServices(): () => void {
   // roles (terminate sessions + DROP ROLE) every minute. Postgres's own
   // VALID UNTIL already blocks new logins at expiry; this is the cleanup.
   start("ephemeral-db-sweeper", startEphemeralDbSweeper);
+
+  // Node-enrollment safety net — retries durable Swarm token rotations after
+  // daemon outages/restarts and rotates any redeemed enrollment that expires
+  // before its joining node can report completion.
+  start("node-enrollment-reaper", startNodeEnrollmentReaper);
 
   // Managed blocklists — re-import enabled public/custom lists into CrowdSec on
   // their interval so the imported decisions refresh before they expire.

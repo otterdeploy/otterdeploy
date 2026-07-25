@@ -22,6 +22,7 @@ export interface SessionActor {
     id: string;
     email: string;
     isInstallAdmin: boolean;
+    twoFactorEnabled: boolean;
   };
   session: {
     activeOrganizationId?: string | null;
@@ -80,6 +81,7 @@ export async function resolveRequestActor(
         id: session.user.id,
         email: session.user.email,
         isInstallAdmin: session.user.isInstallAdmin === true,
+        twoFactorEnabled: session.user.twoFactorEnabled === true,
       },
       session: {
         activeOrganizationId: session.session.activeOrganizationId,

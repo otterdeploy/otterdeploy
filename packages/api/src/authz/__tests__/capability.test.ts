@@ -25,6 +25,7 @@ const sessionActor: SessionActor = {
     id: "user_1",
     email: "operator@example.test",
     isInstallAdmin: false,
+    twoFactorEnabled: true,
   },
   session: { activeOrganizationId: "org_1" },
 };

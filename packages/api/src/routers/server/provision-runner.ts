@@ -22,6 +22,7 @@ import { triggerProvisionServer } from "@otterdeploy/jobs";
 
 import { decryptSecret, encryptSecret } from "../../lib/crypto";
 import { getSshKeyInOrg } from "../sshKeys/queries";
+import { rotateSwarmJoinCredential } from "./enrollment";
 import { getSwarmJoinTokens } from "./join-tokens";
 import { type MeshProvider, runRemoteProvision } from "./provision";
 import { installNodeFirewallBouncer } from "./provision-firewall";
@@ -159,6 +160,9 @@ export async function runProvisionJob(payload: ProvisionServerPayload): Promise<
         "The node ran `docker swarm join` but never appeared as ready in `docker node ls`. Check the manager is reachable from the new host on port 2377.",
       );
     }
+
+    emit("── rotating consumed swarm join credential ──");
+    await rotateSwarmJoinCredential(payload.role);
 
     if (payload.buildServer) {
       emit("── labelling as a build node ──");

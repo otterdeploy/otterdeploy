@@ -1,7 +1,8 @@
 import { matchError } from "better-result";
 
-import { orgScopedProcedure, requireInstallAdmin, requirePermission } from "../..";
+import { orgScopedProcedure, requirePermission } from "../..";
 import { setServerAvailability } from "./availability";
+import { serverEnrollmentRouter } from "./enrollment-router";
 import {
   createServer,
   deleteServer,
@@ -11,7 +12,6 @@ import {
   retryProvision,
 } from "./handlers";
 import { getServerHealth } from "./health";
-import { getSwarmJoinTokens } from "./join-tokens";
 import { streamProvisionLogs } from "./provision-stream";
 import { getServerInOrg } from "./queries";
 import { removeServerNode } from "./remove-node";
@@ -160,9 +160,7 @@ export const serverRouter = {
     return getServerHealth({ organizationId: context.activeOrganizationId });
   }),
 
-  joinTokens: requireInstallAdmin().server.joinTokens.handler(async () => {
-    return getSwarmJoinTokens();
-  }),
+  ...serverEnrollmentRouter,
 
   provision: requirePermission({ server: ["create"] }).server.provision.handler(
     async ({ input, context, errors }) => {

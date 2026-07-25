@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "vite-plus/test";
 
 import type { Context } from "../../context";
 
@@ -24,6 +24,7 @@ function actor(input: {
         id: "user",
         email: "owner@example.test",
         isInstallAdmin: input.installAdmin,
+        twoFactorEnabled: true,
       },
       session: { activeOrganizationId: "org" },
     },
