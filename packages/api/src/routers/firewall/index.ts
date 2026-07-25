@@ -1,14 +1,15 @@
 /**
  * Firewall router — CrowdSec decisions (read via LAPI, see decisions-read.ts),
- * block/unblock actions, flagged-IP review, and managed blocklists. Org-scoped
- * for access control, but the data is cluster-wide (CrowdSec is
- * identity-blind).
+ * block/unblock actions, flagged-IP review, and managed blocklists. Global
+ * CrowdSec reads require installation-admin access; mutations additionally
+ * require the active organization's firewall:update capability.
  */
 
 import type { BlocklistId } from "@otterdeploy/shared/id";
 
-import { orgScopedProcedure } from "../..";
+import { requireInstallAdmin, requireInstallAdminPermission, requirePermission } from "../..";
 import { flaggedIps } from "../../edge-logs/threat-scan";
+import { validatePublicHttpUrl } from "../../security/public-fetch";
 import { listOrgDomains } from "../edge-logs/queries";
 import { BLOCKLIST_CATALOG, catalogBySlug } from "./catalog";
 import { cscliRead, cscliRun } from "./cscli";
@@ -24,10 +25,13 @@ import {
   setBlocklistEnabled,
   type BlocklistRow,
 } from "./queries";
-import { clearBlocklist, syncBlocklist } from "./sync";
+import { clearBlocklist, syncBlocklist, validateBlocklistSource } from "./sync";
+
+const globalFirewallRead = requireInstallAdmin();
+const globalFirewallWrite = requireInstallAdminPermission({ firewall: ["update"] });
 
 export const firewallRouter = {
-  status: orgScopedProcedure.firewall.status.handler(async () => {
+  status: globalFirewallRead.firewall.status.handler(async () => {
     // Reachable = the agent answered `cscli lapi status` over the Docker exec.
     const lapi = await cscliRead("cscli lapi status");
     return {
@@ -36,38 +40,48 @@ export const firewallRouter = {
     };
   }),
 
-  decisions: orgScopedProcedure.firewall.decisions.handler(async () => {
+  decisions: globalFirewallRead.firewall.decisions.handler(async () => {
     return (await fetchDecisions()) ?? [];
   }),
 
-  block: orgScopedProcedure.firewall.block.handler(async ({ input, context }) => {
+  block: globalFirewallWrite.firewall.block.handler(async ({ input, context, errors }) => {
     context.log.set({ target: { type: "ip", id: input.ip } });
     const reason = input.reason?.trim() || `manual:${context.session?.user?.id ?? "operator"}`;
     const res = await blockIp(input.ip, input.durationHours, reason);
+    if (!res.ok) throw errors.APPLY_FAILED({ message: res.error });
     return { ok: res.ok, error: res.error ?? null };
   }),
 
-  blockMany: orgScopedProcedure.firewall.blockMany.handler(async ({ input, context }) => {
+  blockMany: globalFirewallWrite.firewall.blockMany.handler(async ({ input, context, errors }) => {
     context.log.set({ target: { type: "ip", id: `${input.ips.length} ips` } });
     const reason = input.reason?.trim() || `manual:${context.session?.user?.id ?? "operator"}`;
     const res = await blockManyIps(input.ips, input.durationHours, reason);
+    context.log.set({ firewall: { requested: input.ips.length, applied: res.blocked } });
+    if (!res.ok || res.blocked !== input.ips.length) {
+      throw errors.APPLY_FAILED({
+        message: res.error ?? `CrowdSec blocked ${res.blocked} of ${input.ips.length} addresses.`,
+      });
+    }
     return { ok: res.ok, blocked: res.blocked, error: res.error ?? null };
   }),
 
-  unblock: orgScopedProcedure.firewall.unblock.handler(async ({ input, context }) => {
+  unblock: globalFirewallWrite.firewall.unblock.handler(async ({ input, context, errors }) => {
     context.log.set({ target: { type: "ip", id: input.ip } });
     const res = await unblockIp(input.ip);
+    if (!res.ok) throw errors.APPLY_FAILED({ message: res.error });
     return { ok: res.ok, error: res.error ?? null };
   }),
 
-  flagged: orgScopedProcedure.firewall.flagged.handler(async ({ input, context }) => {
-    const hosts = await listOrgDomains(context.activeOrganizationId);
-    const sinceMs = Date.now() - input.windowMinutes * 60_000;
-    return flaggedIps(hosts, sinceMs, 100);
-  }),
+  flagged: requirePermission({ firewall: ["read"] }).firewall.flagged.handler(
+    async ({ input, context }) => {
+      const hosts = await listOrgDomains(context.activeOrganizationId);
+      const sinceMs = Date.now() - input.windowMinutes * 60_000;
+      return flaggedIps(hosts, sinceMs, 100);
+    },
+  ),
 
   blocklists: {
-    list: orgScopedProcedure.firewall.blocklists.list.handler(async () => {
+    list: globalFirewallRead.firewall.blocklists.list.handler(async () => {
       const rows = await listBlocklists();
       return {
         lists: rows.map(toBlocklistView),
@@ -83,29 +97,54 @@ export const firewallRouter = {
       };
     }),
 
-    addCustom: orgScopedProcedure.firewall.blocklists.addCustom.handler(
-      async ({ input, errors }) => {
-        if (!/^https?:\/\//i.test(input.url)) {
-          throw errors.INVALID_INPUT({ message: "URL must be http(s)." });
+    addCustom: globalFirewallWrite.firewall.blocklists.addCustom.handler(
+      async ({ input, context, errors }) => {
+        let url: string;
+        try {
+          url = validatePublicHttpUrl(input.url).toString();
+        } catch (cause) {
+          throw errors.INVALID_INPUT({
+            message: cause instanceof Error ? cause.message : "Invalid blocklist URL.",
+          });
         }
-        if (await findBlocklistByUrl(input.url)) throw errors.CONFLICT();
+        if (await findBlocklistByUrl(url)) throw errors.CONFLICT();
+        let entries: string[];
+        try {
+          entries = await validateBlocklistSource(url);
+        } catch (cause) {
+          throw errors.INVALID_INPUT({
+            message: cause instanceof Error ? cause.message : "Invalid blocklist URL.",
+          });
+        }
         const row = await insertBlocklist({
           name: input.name.trim(),
-          url: input.url.trim(),
+          url,
           durationHours: input.durationHours,
           intervalMinutes: input.intervalMinutes,
         });
-        // Pull it now in the background; the list view polls for the result.
-        void syncBlocklist(row);
-        return toBlocklistView(row);
+        context.log.set({ target: { type: "blocklist", id: row.id }, blocklist: { url } });
+        const result = await syncBlocklist(row, entries);
+        if (!result.ok) {
+          await deleteBlocklist(row.id);
+          throw errors.APPLY_FAILED({ message: result.error });
+        }
+        return toBlocklistView((await getBlocklist(row.id)) ?? row);
       },
     ),
 
-    enableCatalog: orgScopedProcedure.firewall.blocklists.enableCatalog.handler(
-      async ({ input, errors }) => {
+    enableCatalog: globalFirewallWrite.firewall.blocklists.enableCatalog.handler(
+      async ({ input, context, errors }) => {
         const entry = catalogBySlug(input.slug);
         if (!entry) throw errors.INVALID_INPUT({ message: "Unknown list." });
         if (await findBlocklistByCatalog(entry.slug)) throw errors.CONFLICT();
+        let entries: string[];
+        try {
+          entries = await validateBlocklistSource(entry.url);
+        } catch (cause) {
+          throw errors.INVALID_INPUT({
+            message: cause instanceof Error ? cause.message : "Unable to validate blocklist.",
+          });
+        }
         const row = await insertBlocklist({
           name: entry.name,
           url: entry.url,
@@ -113,59 +152,98 @@ export const firewallRouter = {
           durationHours: entry.durationHours,
           intervalMinutes: entry.intervalMinutes,
         });
-        void syncBlocklist(row);
-        return toBlocklistView(row);
+        context.log.set({ target: { type: "blocklist", id: row.id } });
+        const result = await syncBlocklist(row, entries);
+        if (!result.ok) {
+          await deleteBlocklist(row.id);
+          throw errors.APPLY_FAILED({ message: result.error });
+        }
+        return toBlocklistView((await getBlocklist(row.id)) ?? row);
       },
     ),
 
-    toggle: orgScopedProcedure.firewall.blocklists.toggle.handler(async ({ input, errors }) => {
-      const id = input.id as BlocklistId;
-      const existing = await getBlocklist(id);
-      if (!existing) throw errors.NOT_FOUND();
-      const row = await setBlocklistEnabled(id, input.enabled);
-      if (!row) throw errors.NOT_FOUND();
-      if (input.enabled) void syncBlocklist(row);
-      else void clearBlocklist(row);
-      return toBlocklistView(row);
-    }),
+    toggle: globalFirewallWrite.firewall.blocklists.toggle.handler(
+      async ({ input, context, errors }) => {
+        const id = input.id as BlocklistId;
+        const existing = await getBlocklist(id);
+        if (!existing) throw errors.NOT_FOUND();
+        context.log.set({
+          target: { type: "blocklist", id },
+          blocklist: { enabled: input.enabled },
+        });
+        if (existing.enabled === input.enabled) return toBlocklistView(existing);
+        if (!input.enabled && !(await clearBlocklist(existing))) {
+          throw errors.APPLY_FAILED({
+            message: "CrowdSec could not clear this blocklist; it remains enabled.",
+          });
+        }
+        const row = await setBlocklistEnabled(id, input.enabled);
+        if (!row) throw errors.NOT_FOUND();
+        if (input.enabled) {
+          const result = await syncBlocklist(row);
+          if (!result.ok) {
+            await setBlocklistEnabled(id, false);
+            throw errors.APPLY_FAILED({ message: result.error });
+          }
+        }
+        return toBlocklistView((await getBlocklist(id)) ?? row);
+      },
+    ),
 
-    remove: orgScopedProcedure.firewall.blocklists.remove.handler(async ({ input, errors }) => {
-      const id = input.id as BlocklistId;
-      const row = await getBlocklist(id);
-      if (!row) throw errors.NOT_FOUND();
-      await clearBlocklist(row);
-      await deleteBlocklist(id);
-      return { ok: true };
-    }),
+    remove: globalFirewallWrite.firewall.blocklists.remove.handler(
+      async ({ input, context, errors }) => {
+        const id = input.id as BlocklistId;
+        const row = await getBlocklist(id);
+        if (!row) throw errors.NOT_FOUND();
+        context.log.set({ target: { type: "blocklist", id } });
+        if (!(await clearBlocklist(row))) {
+          throw errors.APPLY_FAILED({
+            message: "CrowdSec could not clear this blocklist; nothing was deleted.",
+          });
+        }
+        await deleteBlocklist(id);
+        return { ok: true };
+      },
+    ),
 
-    syncNow: orgScopedProcedure.firewall.blocklists.syncNow.handler(async ({ input, errors }) => {
-      const id = input.id as BlocklistId;
-      const row = await getBlocklist(id);
-      if (!row) throw errors.NOT_FOUND();
-      const result = await syncBlocklist(row);
-      return { ok: result.ok, count: result.count, error: result.error ?? null };
-    }),
+    syncNow: globalFirewallWrite.firewall.blocklists.syncNow.handler(
+      async ({ input, context, errors }) => {
+        const id = input.id as BlocklistId;
+        const row = await getBlocklist(id);
+        if (!row) throw errors.NOT_FOUND();
+        context.log.set({ target: { type: "blocklist", id } });
+        const result = await syncBlocklist(row);
+        if (!result.ok) throw errors.APPLY_FAILED({ message: result.error });
+        return { ok: result.ok, count: result.count, error: result.error ?? null };
+      },
+    ),
   },
 
   console: {
-    status: orgScopedProcedure.firewall.console.status.handler(async () => {
+    status: globalFirewallRead.firewall.console.status.handler(async () => {
       return { available: (await cscliRead("cscli lapi status")) !== null };
     }),
 
-    enroll: orgScopedProcedure.firewall.console.enroll.handler(async ({ input, errors }) => {
-      // Key passed as a positional arg ($1) — never interpolated into the shell.
-      const out = await cscliRun('cscli console enroll "$1"', [input.key.trim()]);
-      if (out === null) {
-        throw errors.INVALID_INPUT({
-          message: "CrowdSec agent isn't running.",
-        });
-      }
-      const ok = !/error|invalid|failed|denied/i.test(out);
-      const message =
-        out.trim().split("\n").filter(Boolean).slice(-2).join(" ").slice(0, 300) ||
-        (ok ? "Enrollment requested — accept the instance in the console." : "Enrollment failed.");
-      return { ok, message };
-    }),
+    enroll: globalFirewallWrite.firewall.console.enroll.handler(
+      async ({ input, context, errors }) => {
+        context.log.set({ target: { type: "crowdsec-console", id: "installation" } });
+        // Key passed as a positional arg ($1) — never interpolated into the shell.
+        const out = await cscliRun('cscli console enroll "$1"', [input.key.trim()]);
+        if (out === null) {
+          throw errors.INVALID_INPUT({
+            message: "CrowdSec agent isn't running.",
+          });
+        }
+        const ok = !/error|invalid|failed|denied/i.test(out);
+        const message =
+          out.trim().split("\n").filter(Boolean).slice(-2).join(" ").slice(0, 300) ||
+          (ok
+            ? "Enrollment requested — accept the instance in the console."
+            : "Enrollment failed.");
+        if (!ok) throw errors.INVALID_INPUT({ message });
+        return { ok, message };
+      },
+    ),
   },
 };
 

@@ -1,3 +1,5 @@
+import type { Duplex } from "node:stream";
+
 /**
  * Talk to the CrowdSec agent by exec'ing `cscli` inside its container over the
  * Docker socket the control plane already manages — no LAPI credentials, no host
@@ -56,21 +58,25 @@ export function demuxDockerStream(buf: Buffer): string {
 
 /** Find the running crowdsec container + exec `cmd` in it. Null when absent,
  *  on exec failure, or past the timeout. */
-async function execInCrowdsec(cmd: string[], timeoutMs = EXEC_TIMEOUT_MS): Promise<string | null> {
+async function execInCrowdsec(
+  cmd: string[],
+  timeoutMs = EXEC_TIMEOUT_MS,
+  input?: string,
+): Promise<string | null> {
   const docker = Docker.fromEnv();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timedOut = new Promise<null>((resolve) => {
     timer = setTimeout(() => resolve(null), timeoutMs);
   });
   try {
-    return await Promise.race([timedOut, run(docker, cmd)]);
+    return await Promise.race([timedOut, run(docker, cmd, input)]);
   } finally {
     if (timer) clearTimeout(timer);
     docker.destroy();
   }
 }
 
-async function run(docker: Docker, cmd: string[]): Promise<string | null> {
+async function run(docker: Docker, cmd: string[], input?: string): Promise<string | null> {
   const list = await docker.containers.list({ filters: { name: ["crowdsec"] } });
   const container = list.isOk()
     ? list.value.find(
@@ -80,14 +86,19 @@ async function run(docker: Docker, cmd: string[]): Promise<string | null> {
   if (!container) return null;
   const exec = await docker.containers.getContainer(container.Id).exec({
     Cmd: cmd,
+    AttachStdin: input !== undefined,
     AttachStdout: true,
     AttachStderr: true,
     Tty: false,
   });
   if (exec.isErr()) return null;
-  const stream = await exec.value.start({});
+  const stream = await exec.value.start(input === undefined ? {} : { stdin: true });
   if (stream.isErr()) return null;
-  return demuxDockerStream(await collectStream(stream.value));
+  const output = collectStream(stream.value);
+  if (input !== undefined) {
+    (stream.value as Duplex).end(input);
+  }
+  return demuxDockerStream(await output);
 }
 
 /** Run a TRUSTED, fixed command with stderr suppressed — for clean JSON reads.
@@ -106,8 +117,12 @@ export function cscliRead(command: string): Promise<string | null> {
 export function cscliRun(
   script: string,
   args: string[],
-  opts?: { timeoutMs?: number },
+  opts?: { timeoutMs?: number; input?: string },
 ): Promise<string | null> {
   // arg0 is a label; user values start at $1.
-  return execInCrowdsec(["sh", "-lc", script, "crowdsec-exec", ...args], opts?.timeoutMs);
+  return execInCrowdsec(
+    ["sh", "-lc", script, "crowdsec-exec", ...args],
+    opts?.timeoutMs,
+    opts?.input,
+  );
 }

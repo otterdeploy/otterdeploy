@@ -294,6 +294,16 @@ export function requirePermission(permission: PermissionCheck) {
 }
 
 /**
+ * Instance-wide mutations may also have an organization permission for custom
+ * role policy. Require both: organization ownership/admin alone never grants
+ * host authority, and install-admin status does not bypass the declared RBAC
+ * capability inside the active organization.
+ */
+export function requireInstallAdminPermission(permission: PermissionCheck) {
+  return requirePermission(permission).use(installAdminMiddleware);
+}
+
+/**
  * Org-scoped procedure with the api-key project-scope guard but no specific RBAC
  * permission — for project-scoped READ procedures (and any mutation gated some
  * other way). Mutating project procedures should prefer `requirePermission`,

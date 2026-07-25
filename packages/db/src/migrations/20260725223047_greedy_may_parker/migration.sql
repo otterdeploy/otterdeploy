@@ -1,0 +1,1 @@
+ALTER TABLE "blocklist" ADD COLUMN "active_scenario" text;
