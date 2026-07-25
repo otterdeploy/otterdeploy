@@ -1,12 +1,22 @@
 /**
  * In-app inbox fan-out for platform events — the header bell's data source.
  *
- * When a real platform event fires AND the org has at least one active
- * channel subscribed to it (the same subscription-matrix gate channel
- * delivery uses), one `notification` row is written per org member so the
- * event shows up in every member's in-app inbox. The events carried here
- * (deploys, backups, certs, health) are the same org-visible operational
- * state the dashboard already shows — no role gate.
+ * Every real (non-test) platform event writes one `notification` row per org
+ * member, so the event shows up in every member's in-app inbox — by default,
+ * with zero configuration. The events carried here (deploys, backups, certs,
+ * health) are the same org-visible operational state the dashboard already
+ * shows — no role gate.
+ *
+ * od-1kc.5: this used to be gated behind `subscribedChannelCount > 0` — the
+ * SAME subscription-matrix gate that decides Slack/email/webhook delivery.
+ * In-app isn't one of the `notification_channel_config.kind` options
+ * (slack/discord/email/webhook/telegram/pagerduty/push — see
+ * packages/db/src/schema/notification-channel.ts); it was never meant to be
+ * an opt-in row in that matrix, so a fresh org with zero external channels
+ * configured (the common case — nobody's wired Slack on day one) got a
+ * permanently empty bell despite the inbox's own empty state promising
+ * "Deploy, build, and backup events land here." Two real deploys + a restart
+ * produced zero items because of exactly this gate.
  *
  * Spam guards:
  *   - `test.ping` / test-mode deliveries never reach the inbox.
@@ -28,9 +38,13 @@ export interface InboxFanoutEvent {
 }
 
 /**
- * Pure gate: fan out in-app only for real (non-test) occurrences of events
- * the org actually subscribed a channel to. `subscribedChannelCount` is the
- * resolved active-subscribed channel count the event job already computed.
+ * Pure gate: fan out in-app for every real (non-test) platform event —
+ * unconditionally, independent of whether the org has any external channel
+ * subscribed. See the module doc for why this must NOT depend on the
+ * external-channel subscription matrix. `subscribedChannelCount` is no
+ * longer read by the gate itself; callers still pass it so the signature
+ * matches the event job's existing call site without forcing a second
+ * unrelated diff.
  */
 export function shouldFanOutInApp(input: {
   eventId: string;
@@ -39,7 +53,7 @@ export function shouldFanOutInApp(input: {
 }): boolean {
   if (input.testChannelId) return false;
   if (input.eventId === "test.ping") return false;
-  return input.subscribedChannelCount > 0;
+  return true;
 }
 
 /** Row payloads for one event occurrence — pure, so the mapping is testable. */

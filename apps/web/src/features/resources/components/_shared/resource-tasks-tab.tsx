@@ -126,7 +126,7 @@ export function ResourceTasksTab({
                 />
                 <EmptyTitle>No deployments yet</EmptyTitle>
                 <EmptyDescription>
-                  Once this resource is pushed to swarm, the active one will appear here.
+                  Once this resource is deployed, the active deployment will appear here.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>

@@ -120,6 +120,12 @@ export const twoFactor = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    // better-auth ≥1.6 writes this on enable (false until the first TOTP code
+    // is confirmed; sign-in only offers "totp" when `verified !== false`).
+    // Missing it made /two-factor/enable 500 with "The field \"verified\" does
+    // not exist in the \"twoFactor\" Drizzle schema". Default true matches the
+    // plugin's own schema (pre-existing rows are treated as verified).
+    verified: boolean("verified").default(true),
   },
   (table) => [index("two_factor_userId_idx").on(table.userId)],
 );

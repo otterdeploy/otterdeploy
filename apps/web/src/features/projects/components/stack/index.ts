@@ -1,2 +1,6 @@
 export { StackCodePanel } from "./stack-code-panel";
-export { useStackPanelState, type StackPanelState } from "./use-panel-state";
+export {
+  PANEL_COLLAPSED_HEIGHT,
+  useStackPanelState,
+  type StackPanelState,
+} from "./use-panel-state";

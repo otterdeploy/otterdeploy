@@ -8,21 +8,15 @@
  */
 
 import type { ProjectId, ProjectSlug, ResourceId } from "@otterdeploy/shared/id";
-import { Activity, useState } from "react";
+
+import { useState } from "react";
 
 import type { FrameworkKind } from "@/features/projects/components/framework-logo";
 
-import { MetricsTab } from "@/features/resources/components/_shared/metrics/metrics-tab";
-import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
-import { ResourceTerminal } from "@/features/resources/components/_shared/resource-terminal";
-import { cn } from "@/shared/lib/utils";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 
+import { ServicePanelBody } from "./panel-body";
 import { ServicePanelHeader, ServiceStatusBar } from "./panel-parts";
-import { ServiceLogsTab } from "./tabs/logs";
-import { ServiceOverviewTab } from "./tabs/overview";
-import { ServiceSettingsBody } from "./tabs/settings";
-import { ServiceVariablesTabBody } from "./tabs/variables";
 import { useLiveService, usePauseControl } from "./use-live-service";
 import { useServiceRuntimeActions } from "./use-service-runtime-actions";
 
@@ -63,7 +57,21 @@ interface ServiceResourcePanelProps {
   // header actions (restart / build) are disabled, edits target the manifest,
   // and the panel opens on Variables (the first thing to set up pre-deploy).
   pending?: boolean;
+  /** Deep-link into a specific tab (e.g. the graph node context menu's
+   *  "Delete" opens straight on Settings). Unrecognized/absent values fall
+   *  back to the usual pending-aware default. */
+  initialTab?: string;
 }
+
+const SERVICE_TABS: readonly ServiceTab[] = [
+  "overview",
+  "deployments",
+  "metrics",
+  "logs",
+  "variables",
+  "terminal",
+  "settings",
+];
 
 /** The panel's tab strip. Runtime tabs are disabled until the service is
  *  deployed — there are no tasks, metrics, logs, or container to attach to
@@ -105,18 +113,22 @@ export function ServiceResourcePanel({
   projectSlug,
   onClose,
   pending = false,
+  initialTab,
 }: ServiceResourcePanelProps) {
-  const [tab, setTab] = useState<ServiceTab>(pending ? "variables" : "overview");
+  const [tab, setTab] = useState<ServiceTab>(() => {
+    if (!pending && initialTab && (SERVICE_TABS as readonly string[]).includes(initialTab)) {
+      return initialTab as ServiceTab;
+    }
+    return pending ? "variables" : "overview";
+  });
   // Latches true the first time Logs is opened. From then on the Logs panel
   // stays mounted (hidden when inactive) so its SSE stream survives tab
   // switches — see the Logs block below.
   const [logsVisited, setLogsVisited] = useState(false);
   const { buildMut, restartMut } = useServiceRuntimeActions({
-    projectId: resource.projectId,
     resourceId: resource.resourceId,
     orgSlug,
     projectSlug,
-    onNoDeployment: () => setTab("deployments"),
   });
 
   // Live service view (runtime status, pause marker, ports) — richer than the
@@ -174,108 +186,18 @@ export function ServiceResourcePanel({
       >
         <ServicePanelTabsList pending={pending} />
 
-        <div className="relative min-h-0 flex-1">
-          <div className="h-full overflow-y-auto">
-            {/* Plain container, not the animated <TabsContents> — panels snap to
-                their content instead of the height-spring "drop-in" on every
-                tab switch. */}
-            <div className="relative">
-              {/* Runtime tabs only mount their live components once deployed —
-                  they query tasks/metrics by resourceId, which doesn't exist
-                  for a staged create. Overview/Deployments/Metrics stay
-                  unmount-on-leave — they're pollers; unmounting stops their
-                  intervals while hidden. */}
-              {!pending && (
-                <TabsContent value="overview" className="px-6 pt-5 pb-6">
-                  <ServiceOverviewTab
-                    resource={resource}
-                    service={service}
-                    orgSlug={orgSlug}
-                    projectSlug={projectSlug}
-                    onGoTab={(t) => setTab(t)}
-                  />
-                </TabsContent>
-              )}
-
-              {!pending && (
-                <TabsContent value="deployments" className="px-6 pt-5 pb-6">
-                  <ResourceTasksTab
-                    projectId={resource.projectId}
-                    resourceId={resource.resourceId}
-                    orgSlug={orgSlug}
-                    projectSlug={projectSlug}
-                    canRollback
-                    logoNode={{
-                      kind: "service",
-                      name: resource.name,
-                      description: resource.image,
-                      framework,
-                    }}
-                    statusHeader={{
-                      publicEnabled: resource.publicEnabled,
-                      publicDomain: resource.publicDomain,
-                      replicas: resource.replicas,
-                      running: service?.runtime?.status === "running",
-                    }}
-                  />
-                </TabsContent>
-              )}
-
-              {!pending && (
-                <TabsContent value="metrics" className="px-6 pt-5 pb-6">
-                  <MetricsTab resourceId={resource.resourceId} />
-                </TabsContent>
-              )}
-
-              {/* keepMounted: panels stay in the DOM (hidden) across tab
-                  switches, so half-edited env values and settings forms don't
-                  reset. */}
-              <TabsContent value="variables" keepMounted className="px-6 pt-5 pb-6">
-                <ServiceVariablesTabBody
-                  resource={resource}
-                  pending={pending}
-                  serviceName={resource.name}
-                />
-              </TabsContent>
-
-              <TabsContent value="settings" keepMounted className="px-6 pt-5 pb-8">
-                <ServiceSettingsBody resource={resource} onDeleted={onClose} pending={pending} />
-              </TabsContent>
-            </div>
-          </div>
-
-          {/* Logs + Terminal fill this region absolutely. Both stay mounted
-              across tab switches — Logs via CSS `hidden` (display:none keeps its
-              effects running, so its SSE stream + buffered lines survive and it
-              never re-flashes "connecting"); Terminal via Activity (its PTY +
-              scrollback survive). Logs mounts on first visit (`logsVisited`) so
-              a panel opened only for Overview never spins up a stream. Neither
-              mounts for a staged create. */}
-          {!pending && logsVisited && (
-            <div
-              className={cn(
-                "absolute inset-0 flex flex-col bg-card px-6 pt-5 pb-6",
-                tab !== "logs" && "hidden",
-              )}
-            >
-              <ServiceLogsTab projectId={resource.projectId} resourceId={resource.resourceId} />
-            </div>
-          )}
-          {!pending && (
-            <Activity mode={tab === "terminal" ? "visible" : "hidden"}>
-              <div className="absolute inset-0 flex flex-col p-px">
-                <ResourceTerminal
-                  match={{
-                    kind: "service",
-                    resourceId: resource.resourceId,
-                  }}
-                  fallbackLabel={resource.name}
-                  projectSlug={projectSlug}
-                />
-              </div>
-            </Activity>
-          )}
-        </div>
+        <ServicePanelBody
+          resource={resource}
+          framework={framework}
+          orgSlug={orgSlug}
+          projectSlug={projectSlug}
+          onClose={onClose}
+          pending={pending}
+          service={service}
+          tab={tab}
+          onGoTab={setTab}
+          logsVisited={logsVisited}
+        />
       </Tabs>
     </div>
   );

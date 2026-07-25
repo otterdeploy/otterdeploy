@@ -213,14 +213,18 @@ export async function ensureSwarmRuntimeForRecord(
       caddyLayer4Snippet: "",
     });
 
-    const reconcileResult = await reconcile();
-    const isApplied = reconcileResult.applied.includes(record.resource.projectId);
+    await reconcile();
 
-    await updateDatabaseResourceStatus(record.resource.id, isApplied ? "valid" : "invalid");
+    // Validity follows the CONTAINER's outcome, not the Caddy reconcile — the
+    // edge proxy failing (routine in dev, irrelevant for internal-only DBs)
+    // must not stamp a healthy recovered database "invalid". Mirrors the
+    // create stream's rule.
+    const status = runtime.status === "error" ? ("invalid" as const) : ("valid" as const);
+    await updateDatabaseResourceStatus(record.resource.id, status);
 
     return {
       record: {
-        resource: { ...record.resource, status: isApplied ? "valid" : "invalid" },
+        resource: { ...record.resource, status },
         database: {
           ...record.database,
           upstreamHost: record.database.internalHostname,

@@ -7,6 +7,7 @@ import {
   buildDatabaseSpec,
   buildServiceSpec,
   buildFromBuilderId,
+  domainsFromPorts,
   envFromVars,
   healthcheckFromForm,
   portsToManifest,
@@ -77,6 +78,41 @@ describe("portsToManifest", () => {
     expect(portsToManifest([port({ port: 0 }), port({ port: 53, protocol: "udp" })])).toEqual([
       { container: 53, protocol: "udp", appProtocol: "tcp", primary: true },
     ]);
+  });
+});
+
+describe("domainsFromPorts", () => {
+  it("uses the typed hostname for a public port, first is primary", () => {
+    expect(
+      domainsFromPorts(
+        [port({ port: 80, host: "shop.acme.com" }), port({ port: 9090, host: "admin.acme.com" })],
+        null,
+      ),
+    ).toEqual([{ domain: "shop.acme.com", primary: true }, { domain: "admin.acme.com" }]);
+  });
+
+  it("falls back to the derived host when a public row has no hostname", () => {
+    expect(domainsFromPorts([port({ port: 80, host: "" })], "nginx-storefront.example.dev")).toEqual(
+      [{ domain: "nginx-storefront.example.dev", primary: true }],
+    );
+  });
+
+  it("returns undefined for internal-only, empty, and portless rows", () => {
+    expect(domainsFromPorts([port({ public: false, host: "x.acme.com" })], "d")).toBeUndefined();
+    expect(domainsFromPorts([], "d")).toBeUndefined();
+    // Public but no container port yet — no route to seed.
+    expect(domainsFromPorts([port({ port: 0, public: true })], "d")).toBeUndefined();
+    // Public with empty host but no derived host available either.
+    expect(domainsFromPorts([port({ port: 80, host: "" })], null)).toBeUndefined();
+  });
+
+  it("dedupes hosts and normalizes case/whitespace", () => {
+    expect(
+      domainsFromPorts(
+        [port({ port: 80, host: " Shop.Acme.com " }), port({ port: 81, host: "shop.acme.com" })],
+        null,
+      ),
+    ).toEqual([{ domain: "shop.acme.com", primary: true }]);
   });
 });
 
@@ -199,6 +235,35 @@ describe("buildServiceSpec", () => {
       branch: "main",
     });
     expect(spec).toMatchObject({ source: "git", repo: "artzkaizen/dealort", branch: "main" });
+  });
+
+  it("seeds manifest domains from public ports (typed host or derived)", () => {
+    const typed = buildServiceSpec({
+      ...base,
+      source: "image",
+      image: "nginx:latest",
+      ports: [port({ port: 80, host: "shop.acme.com" })],
+    });
+    expect(typed).toMatchObject({ domains: [{ domain: "shop.acme.com", primary: true }] });
+
+    const derived = buildServiceSpec({
+      ...base,
+      source: "image",
+      image: "nginx:latest",
+      ports: [port({ port: 80, host: "" })],
+      derivedPublicHost: "nginx-storefront.example.dev",
+    });
+    expect(derived).toMatchObject({
+      domains: [{ domain: "nginx-storefront.example.dev", primary: true }],
+    });
+
+    const internal = buildServiceSpec({
+      ...base,
+      source: "image",
+      image: "nginx:latest",
+      ports: [port({ port: 80, public: false })],
+    });
+    expect(internal).not.toHaveProperty("domains");
   });
 
   it("omits repo/branch when the git service is left unbound", () => {

@@ -9,6 +9,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 
+import { useIsFirstSession } from "../data/use-is-first-session";
 import { useDismissUpdate, useUpdateStatus } from "../data/use-update-status";
 import { useUpdate } from "./update-provider";
 
@@ -16,8 +17,12 @@ export function UpdateBanner() {
   const status = useUpdateStatus();
   const { openUpdate } = useUpdate();
   const dismiss = useDismissUpdate();
+  // Suppress the loud banner during a user's first session — the quiet header
+  // affordance (see the file doc comment) still surfaces the update either
+  // way, so nothing is actually hidden, just not shouted on the first screen.
+  const firstSession = useIsFirstSession();
 
-  if (!status.bannerVisible || !status.latest) return null;
+  if (firstSession || !status.bannerVisible || !status.latest) return null;
 
   return (
     <div className="flex h-11 w-full min-w-0 shrink-0 items-center gap-3 border-b border-primary/20 bg-primary/5 px-4 text-[13px]">

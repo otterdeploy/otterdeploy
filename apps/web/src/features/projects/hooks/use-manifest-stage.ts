@@ -41,17 +41,26 @@ const emptyManifest = (): Manifest =>
     databases: {},
   }) as Manifest;
 
-/** Invalidate everything the pending-changes bar, graph, and resource
- *  panels read so a manifest write is reflected without a manual refresh.
- *  Partial-input keys (projectId only) catch the graph's diff query and
- *  the bar's (projectId, environment) query alike. */
-async function invalidateManifestConsumers(projectId: ProjectId) {
+/** Invalidate everything the pending-changes bar, graph, stack-code drawer,
+ *  and resource panels read so a manifest write (stage OR apply) is reflected
+ *  without a manual refresh. Partial-input keys (projectId only) catch the
+ *  graph's diff query and the bar's (projectId, environment) query alike.
+ *  Exported as the single post-manifest-write refresh — the pending-changes
+ *  bar's Deploy/Discard reuse it instead of re-listing (and drifting from)
+ *  these keys. */
+export async function invalidateManifestConsumers(projectId: ProjectId) {
   await Promise.all([
     queryClient.invalidateQueries({
       queryKey: orpc.project.manifest.diff.queryKey({ input: { projectId } }),
     }),
     queryClient.invalidateQueries({
       queryKey: orpc.project.manifest.get.queryKey({ input: { id: projectId } }),
+    }),
+    // The stack-code drawer renders `project.stack.diff` (rendered + saved
+    // yaml). Both stage and apply change what it should show — without this
+    // it kept the day-0 yaml until a hard reload.
+    queryClient.invalidateQueries({
+      queryKey: orpc.project.stack.diff.queryKey({ input: { projectId } }),
     }),
     // The graph reads resources / edges / task rollup from TanStack DB
     // collections keyed by a PREFIX — a bare `resource.list` orpc key never

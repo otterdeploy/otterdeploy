@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { useStore } from "@tanstack/react-form";
 
@@ -8,6 +8,7 @@ import type { DatabaseCreatePayload, ServiceCreatePayload } from "./wizard-provi
 
 import { flowFor } from "./flows";
 import { useAppForm } from "./form-context";
+import { DOCKER_PORT_DEFAULTS } from "./image-defaults";
 import { resourceDefaults, resourceFormSchema, type ResourceFormState, type Step } from "./schemas";
 
 /**
@@ -126,7 +127,16 @@ export function useWizardForm({
     defaultValues: {
       ...resourceDefaults,
       __step: step,
-      ...(initialKind ? { kindId: initialKind, name: initialKind } : {}),
+      // Docker kind: name derives from the image basename (image step), not
+      // the source kind — a service literally named "docker" helps nobody.
+      // Its ports row starts empty too; the image step fills known defaults.
+      ...(initialKind
+        ? {
+            kindId: initialKind,
+            name: initialKind === "docker" ? "" : initialKind,
+            ...(initialKind === "docker" ? { ports: DOCKER_PORT_DEFAULTS } : {}),
+          }
+        : {}),
       repo: initialGitRepoId ?? "",
       branch: initialBranch ?? "main",
     },
@@ -135,9 +145,16 @@ export function useWizardForm({
     onSubmit: ({ value }) => submitWizard(value, runDatabaseCreate, runServiceCreate),
   });
 
+  // The footer's "Required" strip only appears after the operator actually
+  // tries to continue past an incomplete step — never preemptively on a
+  // pristine step (raw "kindId" strips on open were pure noise). Reset on
+  // every step change so each step starts quiet.
+  const [attempted, setAttempted] = useState(false);
+
   // Keep form's __step in sync with the URL/local step.
   useEffect(() => {
     form.setFieldValue("__step", step);
+    setAttempted(false);
   }, [step, form]);
 
   const kindId = useStore(form.store, (s) => s.values.kindId);
@@ -177,7 +194,22 @@ export function useWizardForm({
     const allErrors = form.getAllErrors();
     const hasFormErrors = allErrors.form.errors.length > 0;
     const hasFieldErrors = Object.values(allErrors.fields).some((f) => f.errors.length > 0);
-    if (hasFormErrors || hasFieldErrors) return;
+    if (hasFormErrors || hasFieldErrors) {
+      // Surface the blockers: the footer strip turns on, and every failing
+      // field is marked blurred so its inline error renders (fields stay
+      // quiet until blurred or a continue is attempted — no premature red).
+      setAttempted(true);
+      for (const [fieldName, f] of Object.entries(allErrors.fields)) {
+        if (f.errors.length > 0) {
+          form.setFieldMeta(fieldName as never, (meta) => ({
+            ...meta,
+            isTouched: true,
+            isBlurred: true,
+          }));
+        }
+      }
+      return;
+    }
     if (isLast) {
       await form.handleSubmit();
     } else {
@@ -201,6 +233,9 @@ export function useWizardForm({
     isLast,
     failingSteps,
     currentStepIssues,
+    /** True once the operator tried to continue past the current step and
+     *  validation blocked them — gates the footer's "Required" strip. */
+    attempted,
     handleContinue,
     goPrev,
     advancedSetup,

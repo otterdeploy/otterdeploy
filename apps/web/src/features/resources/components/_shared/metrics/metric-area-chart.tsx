@@ -118,6 +118,12 @@ export function MetricAreaChart<Row extends { ts: number }>({
           width={48}
           tickMargin={4}
           tickCount={4}
+          // Forces recharts' "nice" tick algorithm to snap to whole numbers.
+          // Without it, a small range (e.g. CPU% peaking at 2) divided into
+          // tickCount=4 produces fractional ticks like 0 / 0.67 / 1.33 / 2
+          // that all round to the same displayed integer via `format`
+          // (0%, 1%, 1%, 2%) — a duplicated gridline label.
+          allowDecimals={false}
           tickFormatter={(v: number) => format(v)}
         />
 

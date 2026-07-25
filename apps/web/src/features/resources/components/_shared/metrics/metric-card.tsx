@@ -24,10 +24,15 @@ interface MetricCardProps {
   value: ReactNode;
   /** Muted secondary readings shown under the headline (peak / avg / limit). */
   stats?: MetricStat[];
+  /** Caption over the headline, e.g. "current" — disambiguates the big number
+   *  from the peak/avg stats below it (both live in the same units, so
+   *  without a label "0%" next to "peak 2%" reads like a bug rather than a
+   *  point-in-time reading). Omit when the headline is self-explanatory. */
+  valueLabel?: string;
   children: ReactNode;
 }
 
-export function MetricCard({ icon, title, value, stats, children }: MetricCardProps) {
+export function MetricCard({ icon, title, value, stats, valueLabel, children }: MetricCardProps) {
   return (
     <Card className="gap-0 overflow-hidden p-0">
       <div className="flex items-start justify-between gap-4 px-4 pt-4">
@@ -38,6 +43,11 @@ export function MetricCard({ icon, title, value, stats, children }: MetricCardPr
           <span className="text-sm font-medium">{title}</span>
         </div>
         <div className="flex flex-col items-end gap-0.5">
+          {valueLabel ? (
+            <span className="text-[10px] font-medium tracking-[0.1em] text-muted-foreground uppercase">
+              {valueLabel}
+            </span>
+          ) : null}
           <div className="font-mono text-2xl leading-none font-semibold tabular-nums">{value}</div>
           {stats && stats.length > 0 ? (
             <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">

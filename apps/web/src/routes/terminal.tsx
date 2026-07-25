@@ -7,7 +7,7 @@ import {
   TerminalIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute, stripSearchParams, useRouter } from "@tanstack/react-router";
 
 import { OpenTerminalDialog } from "@/features/terminal/components/open-terminal-dialog";
 import { SessionPanels } from "@/features/terminal/components/session-panels";
@@ -26,6 +26,10 @@ import {
 export const Route = createFileRoute("/terminal")({
   component: RouteComponent,
   validateSearch: terminalSearchSchema,
+  // See routes/_app/$orgSlug/_shell/terminal.tsx — strips the noisy
+  // `?session=%5B%5D` the schema's array-transform default would otherwise
+  // write back on a fresh popout with no sessions yet.
+  search: { middlewares: [stripSearchParams({ session: [] })] },
 });
 
 function RouteComponent() {

@@ -14,6 +14,7 @@ import {
   useSearch,
 } from "@tanstack/react-router";
 
+import { CreateProjectDialog } from "@/features/projects/components/create-project-dialog";
 import { envCollection } from "@/features/projects/data/env";
 import { projectCollection } from "@/features/projects/data/project";
 import { EnvironmentCreateDialog } from "@/features/shell/components/environment-create-dialog";
@@ -167,35 +168,45 @@ function ProjectPicker({
   activeProjectName: string;
 }) {
   const { data: projects } = useLiveQuery((q) => q.from({ p: projectCollection }), []);
+  const [createOpen, setCreateOpen] = useState(false);
 
   return (
-    <DropdownMenu>
-      <CrumbTrigger label={activeProjectName} />
-      <DropdownMenuContent align="start" className="min-w-56">
-        {projects.length === 0 ? (
-          <div className="px-2 py-1 text-xs text-muted-foreground">No projects</div>
-        ) : (
-          projects.map((p) => (
-            <DropdownMenuItem
-              key={p.id}
-              render={
-                <Link
-                  to="/$orgSlug/$projectSlug"
-                  params={{
-                    orgSlug,
-                    projectSlug: p.slug as ProjectSlug,
-                  }}
-                />
-              }
-              className="gap-2"
-            >
-              <span className="truncate">{p.name}</span>
-              <ActiveCheck active={p.id === activeProjectId} />
-            </DropdownMenuItem>
-          ))
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <CrumbTrigger label={activeProjectName} />
+        <DropdownMenuContent align="start" className="min-w-56">
+          {projects.length === 0 ? (
+            <div className="px-2 py-1 text-xs text-muted-foreground">No projects</div>
+          ) : (
+            projects.map((p) => (
+              <DropdownMenuItem
+                key={p.id}
+                render={
+                  <Link
+                    to="/$orgSlug/$projectSlug"
+                    params={{
+                      orgSlug,
+                      projectSlug: p.slug as ProjectSlug,
+                    }}
+                  />
+                }
+                className="gap-2"
+              >
+                <span className="truncate">{p.name}</span>
+                <ActiveCheck active={p.id === activeProjectId} />
+              </DropdownMenuItem>
+            ))
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setCreateOpen(true)} className="gap-2">
+            <HugeiconsIcon icon={Add01Icon} strokeWidth={2} />
+            New project
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
+    </>
   );
 }
 

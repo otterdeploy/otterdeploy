@@ -12,7 +12,6 @@
 
 import {
   ChartLineData01Icon,
-  DashboardSquare01Icon,
   EarthIcon,
   File01Icon,
   Folder01Icon,
@@ -44,7 +43,9 @@ export interface NavEntry {
 // same typed RoutePaths the tabs use. `chord` is the displayed + bound `G <key>`
 // shortcut; keep it in sync with `useProjectNavHotkeys`.
 export const PROJECT_NAV: readonly NavEntry[] = [
-  { to: "/$orgSlug/$projectSlug", label: "Overview", icon: DashboardSquare01Icon, chord: "O" },
+  // No "Overview" entry: the project index route redirects to /graph (the
+  // graph IS the project overview), so it never activated as its own
+  // destination — see project-tabs.tsx.
   {
     to: "/$orgSlug/$projectSlug/graph",
     label: "Graph",
@@ -56,6 +57,7 @@ export const PROJECT_NAV: readonly NavEntry[] = [
     to: "/$orgSlug/$projectSlug/deployments",
     label: "Deployments",
     icon: RocketIcon,
+    chord: "D",
     keywords: ["deploys", "rollback", "history"],
   },
   { to: "/$orgSlug/$projectSlug/logs", label: "Logs", icon: File01Icon, chord: "L" },

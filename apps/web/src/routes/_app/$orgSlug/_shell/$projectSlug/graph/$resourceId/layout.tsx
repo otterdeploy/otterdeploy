@@ -17,32 +17,34 @@ import {
   useChildMatches,
   useLoaderData,
 } from "@tanstack/react-router";
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import { eq, useLiveQuery } from "@tanstack/react-db";
-import { useQuery } from "@tanstack/react-query";
+import * as z from "zod";
 
 import { useReactFlow } from "@xyflow/react";
 
 import * as m from "motion/react-client";
 import { AnimatePresence } from "motion/react";
 
-import { ResourcePanelSkeleton } from "@/features/resources/components/_shared/panel-skeleton";
 import { resourceCollection } from "@/features/resources/data/resource";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-import {
-  ComposeResourcePanel,
-  NotFound,
-  type PostgresBodyProps,
-  RealResourcePanel,
-  ServiceResourcePanel,
-} from "@/features/resources/components";
+import { ResourcePanel } from "./-components/resource-panel";
+
+// Optional deep-link into a specific panel tab — e.g. the graph node context
+// menu's "Delete" routes here with `tab: "settings"` so it lands straight on
+// the danger-zone/staged-delete confirm instead of the panel's own default
+// tab. Untyped against each panel's own tab union (they differ per kind) —
+// an unrecognized value is just ignored by the panel's own validation.
+const resourceSearchSchema = z.object({
+  tab: z.string().optional(),
+});
 
 export const Route = createFileRoute(
   "/_app/$orgSlug/_shell/$projectSlug/graph/$resourceId",
 )({
   staticData: { crumb: "Resource" },
   component: RouteComponent,
+  validateSearch: resourceSearchSchema,
   // NON-BLOCKING warm of the slow `service.get` runtime view. It MUST NOT await:
   // awaiting puts the route into its pending state, which renders a separate
   // frame BEFORE the panel's own AnimatePresence drawer mounts — so the drawer
@@ -70,70 +72,14 @@ export const Route = createFileRoute(
   },
 });
 
-type ManifestData = Awaited<ReturnType<typeof orpc.project.manifest.get.call>>;
-
-// Synthetic "draft" service from the manifest entry — enough to render the
-// panel; resourceId is empty because no resource row exists yet (pending mode
-// never calls resource-scoped APIs). Returns null unless `resourceId` is a
-// staged `service:<name>` ghost whose spec is present in the manifest.
-function draftServiceFromManifest(
-  manifestData: ManifestData | undefined,
-  resourceId: string,
-  pendingName: string,
-  projectId: ProjectId,
-) {
-  if (!resourceId.startsWith("service:")) return null;
-  const spec = manifestData?.manifest?.services?.[pendingName];
-  if (!spec) return null;
-  return {
-    // Pending draft: no resource row exists yet, so there's no ResourceId.
-    // The empty sentinel is safe — pending mode never calls resource-scoped
-    // APIs (see the panel's `pending` short-circuits).
-    resourceId: "" as ResourceId,
-    projectId,
-    name: pendingName,
-    image: spec.source === "image" ? spec.image : "Pending build",
-    source: spec.source,
-    replicas: spec.replicas ?? 1,
-    status: "draft",
-    publicEnabled: false,
-    publicDomain: null,
-    extraEnv: spec.env ?? {},
-    secretKeys: [],
-    buildConfig: spec.source === "git" ? spec.build : undefined,
-  };
-}
-
-// Staged database create → the REAL database panel in pending mode. Only the
-// fields the pending tab bodies read are real; runtime/credential fields are
-// unused while pending, so the draft is cast to the full resource view.
-function draftDatabaseFromManifest(
-  manifestData: ManifestData | undefined,
-  resourceId: string,
-  pendingName: string,
-  projectId: string,
-): PostgresBodyProps["resource"] | null {
-  if (!resourceId.startsWith("database:")) return null;
-  const spec = manifestData?.manifest?.databases?.[pendingName];
-  if (!spec) return null;
-  return {
-    resourceId: "",
-    projectId,
-    name: pendingName,
-    type: "database",
-    status: "draft",
-    engine: spec.engine,
-    publicEnabled: spec.publicEnabled ?? false,
-    extraEnv: spec.extraEnv ?? {},
-    secretKeys: [],
-    extensions: spec.engine === "postgres" ? (spec.extensions ?? []) : [],
-  } as unknown as PostgresBodyProps["resource"];
-}
-
 function RouteComponent() {
   const { orgSlug, projectSlug, resourceId } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
   const navigate = Route.useNavigate();
+  // Deep-link into a specific tab (e.g. the graph node context menu's
+  // "Delete" — see resourceSearchSchema above). Each panel validates it
+  // against its own tab union and falls back to its usual default.
+  const { tab: initialTab } = Route.useSearch();
   // Drives the slide-OUT. Closing the panel navigates away, which makes
   // TanStack's <Outlet> render null immediately — so the unmount-time `exit`
   // animation has nothing left to animate and the panel just vanishes. Instead
@@ -170,52 +116,6 @@ function RouteComponent() {
         r.resourceId === resourceId || `${r.type}:${r.name}` === resourceId,
     ) ?? null;
 
-  // No applied resource → this is a staged-create ghost. Read its full spec
-  // from the manifest (cached) so the panel can edit it. Both staged services
-  // and staged databases render their *real* panels in pending mode (editable
-  // env / extensions / settings via the manifest, runtime tabs disabled).
-  // Applied resources never read `manifest.data`, so skip the fetch entirely —
-  // otherwise every detail-drawer open paid for a manifest round-trip it threw
-  // away.
-  const manifest = useQuery(
-    orpc.project.manifest.get.queryOptions({
-      input: { id: project.id },
-      enabled: !resource,
-    }),
-  );
-  const pendingName = resourceId.includes(":")
-    ? resourceId.slice(resourceId.indexOf(":") + 1)
-    : resourceId;
-
-  // Both staged services and staged databases render their *real* panels in
-  // pending mode (editable env / extensions / settings via the manifest,
-  // runtime tabs disabled). An applied resource short-circuits to null — the
-  // draft only exists for a staged-create ghost.
-  const draftService = resource
-    ? null
-    : draftServiceFromManifest(
-        manifest.data,
-        resourceId,
-        pendingName,
-        project.id,
-      );
-  const draftDatabase = resource
-    ? null
-    : draftDatabaseFromManifest(
-        manifest.data,
-        resourceId,
-        pendingName,
-        project.id,
-      );
-
-  // Framework brand mark for the drawer header tile — same value the graph
-  // node uses, read straight off the stored resource record (detected at build
-  // time). No git-API call when the panel opens.
-  const serviceFramework =
-    resource && resource.type === "service"
-      ? (resource.framework ?? null)
-      : null;
-
   const close = () => {
     setClosing(true);
     // Pan back to the wide overview in lockstep with the slide-out (same 400ms
@@ -223,70 +123,6 @@ function RouteComponent() {
     // still fires when navigation lands, but by then the camera is already
     // there, so it's a no-op — no second, delayed pan.
     void fitView({ padding: 0.2, duration: 400 });
-  };
-
-  const panel = () => {
-    if (resource && resource.type === "database") {
-      return (
-        <RealResourcePanel
-          resource={resource}
-          projectName={project.name}
-          orgSlug={orgSlug}
-          projectSlug={projectSlug}
-          onClose={close}
-        />
-      );
-    }
-    if (resource && resource.type === "service") {
-      return (
-        <ServiceResourcePanel
-          resource={resource}
-          framework={serviceFramework}
-          orgSlug={orgSlug}
-          projectSlug={projectSlug}
-          onClose={close}
-        />
-      );
-    }
-    if (resource && resource.type === "compose") {
-      return (
-        <ComposeResourcePanel
-          resource={resource}
-          orgSlug={orgSlug}
-          projectSlug={projectSlug}
-          onClose={close}
-        />
-      );
-    }
-    if (draftService) {
-      return (
-        <ServiceResourcePanel
-          resource={draftService}
-          framework={null}
-          orgSlug={orgSlug}
-          projectSlug={projectSlug}
-          onClose={close}
-          pending
-        />
-      );
-    }
-    if (draftDatabase) {
-      return (
-        <RealResourcePanel
-          resource={draftDatabase}
-          projectName={project.name}
-          orgSlug={orgSlug}
-          projectSlug={projectSlug}
-          onClose={close}
-          pending
-          dbName={pendingName}
-        />
-      );
-    }
-    // Manifest still loading for a staged ghost — show a skeleton so the drawer
-    // never slides in blank (rather than flashing "not found").
-    if (!resource && manifest.isLoading) return <ResourcePanelSkeleton />;
-    return <NotFound id={resourceId} onClose={close} />;
   };
 
   return (
@@ -304,7 +140,15 @@ function RouteComponent() {
       }}
       className="pointer-events-auto relative h-full w-full bg-card rounded-lg rounded-tr-none border border-r-0 border-border lg:w-4/5 xl:w-3/5"
     >
-      {panel()}
+      <ResourcePanel
+        resource={resource}
+        resourceId={resourceId}
+        project={project}
+        orgSlug={orgSlug}
+        projectSlug={projectSlug}
+        initialTab={initialTab}
+        onClose={close}
+      />
 
       <AnimatePresence mode="wait">
         <div className="contents" key={deploymentKey}>

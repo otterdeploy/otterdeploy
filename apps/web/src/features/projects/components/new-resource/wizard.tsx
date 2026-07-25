@@ -80,6 +80,7 @@ function ResourceWizardBody({
     isLast,
     failingSteps,
     currentStepIssues,
+    attempted,
     handleContinue,
     goPrev,
     advancedSetup,
@@ -142,7 +143,7 @@ function ResourceWizardBody({
           onDbViewChange={setDbEngineView}
         />
 
-        {currentStepIssues.length > 0 && <RequiredHint issues={currentStepIssues} />}
+        {attempted && currentStepIssues.length > 0 && <RequiredHint issues={currentStepIssues} />}
 
         <WizardFooter
           onCancel={onCancel}

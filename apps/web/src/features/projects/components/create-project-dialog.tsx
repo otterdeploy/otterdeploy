@@ -32,8 +32,30 @@ const schema = z.object({
     .max(48, "Slug must be 48 characters or fewer"),
 });
 
-export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
-  const [open, setOpen] = useState(false);
+interface CreateProjectDialogProps {
+  /** Uncontrolled usage (org-home "New project" button) — omit `open` and
+   *  the dialog manages its own visibility, toggled by this trigger. */
+  trigger?: ReactElement;
+  /** Controlled usage (header project switcher's "New project" menu item) —
+   *  the caller owns the open state since the trigger lives inside a
+   *  DropdownMenuItem that unmounts on click, before an internally-tracked
+   *  open state would have a chance to flip. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export function CreateProjectDialog({
+  trigger,
+  open: openProp,
+  onOpenChange,
+}: CreateProjectDialogProps) {
+  const [openState, setOpenState] = useState(false);
+  const isControlled = openProp !== undefined;
+  const open = isControlled ? openProp : openState;
+  const setOpen = (next: boolean) => {
+    if (!isControlled) setOpenState(next);
+    onOpenChange?.(next);
+  };
 
   const form = useForm({
     defaultValues: { name: "", slug: "" },
@@ -98,7 +120,7 @@ export function CreateProjectDialog({ trigger }: { trigger: ReactElement }) {
         if (!next) form.reset();
       }}
     >
-      <DialogTrigger render={trigger} />
+      {trigger ? <DialogTrigger render={trigger} /> : null}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>New project</DialogTitle>

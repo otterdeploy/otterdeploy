@@ -13,16 +13,22 @@ import { cn } from "@/shared/lib/utils";
 
 const STORAGE_KEY = "otterdeploy:graph-legend-open";
 
-function readOpen(): boolean {
+/** `hasNodes` is only the fallback for a first-ever visit (no stored
+ *  preference yet) — an empty canvas has nothing for the legend to explain,
+ *  so it starts collapsed instead of floating open over blank space. Any
+ *  explicit operator preference (from a prior toggle) always wins. */
+function readOpen(hasNodes: boolean): boolean {
   try {
-    return window.localStorage.getItem(STORAGE_KEY) !== "false";
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    if (stored !== null) return stored !== "false";
+    return hasNodes;
   } catch {
-    return true;
+    return hasNodes;
   }
 }
 
-export function GraphLegend() {
-  const [open, setOpen] = useState(readOpen);
+export function GraphLegend({ hasNodes }: { hasNodes: boolean }) {
+  const [open, setOpen] = useState(() => readOpen(hasNodes));
 
   const toggle = () => {
     const next = !open;

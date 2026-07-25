@@ -52,7 +52,10 @@ export function PostgresExtensionsSection() {
                 <div className="flex items-center gap-2 text-[13px] font-medium">
                   {ext.label}
                   {!ext.contrib && (
-                    <span className="rounded bg-muted px-1.5 py-0.5 text-[9.5px] font-semibold tracking-wide text-muted-foreground uppercase">
+                    <span
+                      title="Runs a different Postgres image to support this extension"
+                      className="rounded bg-muted px-1.5 py-0.5 text-[9.5px] font-semibold tracking-wide text-muted-foreground uppercase"
+                    >
                       image swap
                     </span>
                   )}

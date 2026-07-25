@@ -18,11 +18,16 @@
  *     rendering switches for them would be fake controls.
  */
 
+import type { ProjectId } from "@otterdeploy/shared/id";
+
+import { useStore } from "@tanstack/react-form";
+
 import { Card, CardContent } from "@/shared/components/ui/card";
 
 import { useFormContext } from "../form-context";
 import { SectionHeader } from "../form-primitives";
 import { frameworkLabel } from "../frameworks";
+import { usePublicHostPreview } from "../use-public-host-preview";
 import { useRepoDetection } from "../use-repo-detection";
 
 export function StaticBuild() {
@@ -64,10 +69,19 @@ const EDGE_DEFAULTS: Array<{ label: string; sub: string }> = [
   { label: "WebSockets + real IP", sub: "ws:// upgrades pass through; X-Forwarded-For is set" },
 ];
 
-export function PortsAndHealth() {
+export function PortsAndHealth({ projectId }: { projectId: ProjectId }) {
   const form = useFormContext();
   const { framework, defaultPort } = useRepoDetection();
   const label = frameworkLabel(framework);
+
+  // The hostname a public row with no typed host will actually publish at —
+  // resolved by the server (org base domain → local dev base → sslip), shown
+  // as the host input's placeholder and echoed below so "Public, no
+  // hostname" is never a silent unknown.
+  const name = useStore(form.store, (s) => s.values.name);
+  const ports = useStore(form.store, (s) => s.values.ports);
+  const derivedHost = usePublicHostPreview(projectId, name);
+  const publicWithoutHost = ports.some((p) => p.public && p.host.trim() === "");
 
   return (
     <>
@@ -79,7 +93,16 @@ export function PortsAndHealth() {
             : "Which container ports should be exposed?"
         }
       />
-      <form.AppField name="ports">{(f) => <f.PortsField />}</form.AppField>
+      <form.AppField name="ports">
+        {(f) => <f.PortsField hostPlaceholder={derivedHost ?? undefined} />}
+      </form.AppField>
+      {publicWithoutHost && derivedHost && (
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          Public with no hostname publishes at{" "}
+          <span className="font-mono text-foreground/80">{derivedHost}</span> — type a hostname to
+          override.
+        </p>
+      )}
 
       <div className="mt-4.5">
         <SectionHeader

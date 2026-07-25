@@ -83,6 +83,35 @@ export function resourcesFromForm(
   return { cpuLimit: preset.cpu, memoryMb: preset.mem };
 }
 
+/**
+ * Wizard port rows → manifest `domains` (the create-time seed Apply feeds
+ * through `seedServiceDomains`: route + expose on create). This is what the
+ * Networking step's Public toggle actually becomes — before this mapper
+ * existed the toggle and its hostname were silently dropped and every
+ * "public" service came out internal-only.
+ *
+ * A public row with a typed hostname contributes it verbatim; public rows
+ * with no hostname fall back (once) to `derivedHost` — the server-resolved
+ * FQDN the wizard previews (`project.resource.publicHostPreview`). First
+ * domain is primary, mirroring portsToManifest's first-is-primary rule.
+ */
+export function domainsFromPorts(
+  ports: Port[],
+  derivedHost: string | null | undefined,
+): Array<{ domain: string; primary?: boolean }> | undefined {
+  const hosts: string[] = [];
+  let wantsDerived = false;
+  for (const p of ports) {
+    if (!p.public || p.port <= 0) continue;
+    const host = p.host.trim().toLowerCase();
+    if (host === "") wantsDerived = true;
+    else if (!hosts.includes(host)) hosts.push(host);
+  }
+  if (wantsDerived && derivedHost && !hosts.includes(derivedHost)) hosts.push(derivedHost);
+  if (hosts.length === 0) return undefined;
+  return hosts.map((domain, i) => (i === 0 ? { domain, primary: true } : { domain }));
+}
+
 /** Wizard port rows → manifest ports. First row is primary. */
 export function portsToManifest(ports: Port[]): ManifestPort[] {
   const out: ManifestPort[] = [];
@@ -188,6 +217,10 @@ export interface ServiceSpecInput {
   repo?: string;
   /** Branch whose pushes deploy this git service. "" → repo default at apply. */
   branch?: string;
+  /** Server-resolved public FQDN used for public port rows whose hostname
+   *  was left empty (fetched from `project.resource.publicHostPreview`).
+   *  Null/undefined when nothing needs deriving or the preview failed. */
+  derivedPublicHost?: string | null;
 }
 
 /** Assemble the full manifest service spec from wizard state. */
@@ -207,12 +240,19 @@ export function buildServiceSpec(input: ServiceSpecInput): ServiceSpec {
           retries: input.healthRetries,
           ports,
         });
+  // The Networking step's Public toggle, honored: public rows become the
+  // manifest's create-time `domains` seed (Apply wires the proxy route and
+  // exposes the service). Static kinds keep their existing route handling —
+  // the wizard shows them no per-port Public toggle to honor.
+  const domains =
+    input.kindId === "static" ? undefined : domainsFromPorts(input.ports, input.derivedPublicHost);
   const common = {
     ports,
     ...(env ? { env } : {}),
     ...(input.replicas > 1 ? { replicas: input.replicas } : {}),
     ...(resources ? { resources } : {}),
     ...(healthcheck ? { healthcheck } : {}),
+    ...(domains ? { domains } : {}),
   };
   if (input.source === "image") {
     return { source: "image", image: input.image, ...common };

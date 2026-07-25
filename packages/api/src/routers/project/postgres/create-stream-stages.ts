@@ -31,6 +31,10 @@ import { snapshotForPostgresCreate } from "./snapshot";
 
 type StageOutcome = { ok: true } | { ok: false };
 type StageResult<T> = { ok: true; value: T } | { ok: false };
+/** Provision stage outcome — carries whether the runtime actually came up so
+ *  the orchestrator can stamp `resource.status` from the CONTAINER's health,
+ *  not from the (edge-only) Caddy reconcile result. */
+type ProvisionOutcome = { ok: true; healthy: boolean } | { ok: false };
 
 // Insert the row as `draft` before any docker work so the wizard can hand off
 // to the resource page within milliseconds — image pulls, provisioning, and
@@ -179,7 +183,7 @@ export async function* provisionStage(
   ctx: CreateContext,
   log: RequestLogger,
   deploymentRow: { id: DeploymentId },
-): AsyncGenerator<CreatePostgresProgress, StageOutcome, void> {
+): AsyncGenerator<CreatePostgresProgress, ProvisionOutcome, void> {
   yield { type: "step", step: "provision-swarm", status: "start", message: null };
   let runtime: Awaited<ReturnType<typeof provisionSwarmDatabase>>;
   try {
@@ -219,7 +223,7 @@ export async function* provisionStage(
     status: runtime.status === "error" ? "error" : "ok",
     message: `service status: ${runtime.status}`,
   };
-  return { ok: true };
+  return { ok: true, healthy: runtime.status !== "error" };
 }
 
 // Tail container boot output for a few seconds. Non-fatal: the service is

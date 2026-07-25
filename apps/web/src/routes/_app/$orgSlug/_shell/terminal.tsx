@@ -1,6 +1,6 @@
 import { Maximize01Icon, PlusSignIcon, TerminalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, stripSearchParams } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { OpenTerminalDialog } from "@/features/terminal/components/open-terminal-dialog";
@@ -21,6 +21,10 @@ import { cn } from "@/shared/lib/utils";
 export const Route = createFileRoute("/_app/$orgSlug/_shell/terminal")({
   staticData: { crumb: "Terminal" },
   validateSearch: terminalSearchSchema,
+  // The schema's `session` transform always outputs an array (`[]` when
+  // absent), so a fresh visit's sync-to-URL effect would otherwise write a
+  // literal `?session=%5B%5D` — strip it back off when it's the empty default.
+  search: { middlewares: [stripSearchParams({ session: [] })] },
   component: RouteComponent,
 });
 

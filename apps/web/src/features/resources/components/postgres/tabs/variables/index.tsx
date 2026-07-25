@@ -90,7 +90,14 @@ function ProvisionedVariables({ resource }: { resource: PostgresBodyProps["resou
         onAdd={() => editorRef.current?.addRow()}
       />
 
-      {!hintDismissed && <VariableRefHint onDismiss={() => setHintDismissed(true)} />}
+      {!hintDismissed && (
+        <VariableRefHint
+          context="database"
+          projectId={resource.projectId}
+          onPick={(token) => editorRef.current?.insertReference(token)}
+          onDismiss={() => setHintDismissed(true)}
+        />
+      )}
 
       <ServiceVarsList
         filteredService={filteredService}
@@ -204,8 +211,8 @@ function PendingVariables({
           {resource.engine} exports these into the container. They&apos;re live now and stay the
           same after deploy — reference them from other services with{" "}
           <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">
-            ${"{"}
-            {dbName ?? resource.name}.DATABASE_URL{"}"}
+            ${"{{"}
+            {dbName ?? resource.name}.DATABASE_URL{"}}"}
           </code>
           .
         </p>
@@ -234,8 +241,16 @@ function PendingVariables({
           onQueryChange={() => {}}
           onAdd={() => editorRef.current?.addRow()}
         />
-        {!hintDismissed && <VariableRefHint onDismiss={() => setHintDismissed(true)} />}
-        <VariablesEditor ref={editorRef} resource={resource} onSave={onSave} />
+        {!hintDismissed && (
+          <VariableRefHint
+            context="database"
+            projectId={resource.projectId}
+            onPick={(token) => editorRef.current?.insertReference(token)}
+            onDismiss={() => setHintDismissed(true)}
+          />
+        )}
+        {/* countLabel null: the HeaderBar above already counts these rows. */}
+        <VariablesEditor ref={editorRef} resource={resource} onSave={onSave} countLabel={null} />
       </div>
     </div>
   );

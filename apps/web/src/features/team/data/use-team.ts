@@ -31,14 +31,17 @@ import { queryClient } from "@/shared/server/orpc";
 
 const organizationIdSchema = z.string().min(1);
 
-/** React-query key for one org's members subset. */
+/** React-query key for one org's members subset. Must extend the collection's
+ *  base prefix `["org", "members"]` (query-db-collection requires every subset
+ *  key to extend the base key, or cache cleanup/invalidations go stale). */
 function membersSubsetKey(organizationId: string) {
-  return ["org", organizationId, "members"] as const;
+  return ["org", "members", organizationId] as const;
 }
 
-/** React-query key for one org's invitations subset. */
+/** React-query key for one org's invitations subset. Must extend the
+ *  collection's base prefix `["org", "invitations"]` — see membersSubsetKey. */
 export function invitationsSubsetKey(organizationId: string) {
-  return ["org", organizationId, "invitations"] as const;
+  return ["org", "invitations", organizationId] as const;
 }
 
 /** The browser URL an invitee opens to accept — same path the emailed link

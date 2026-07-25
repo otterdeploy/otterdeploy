@@ -65,3 +65,45 @@ export async function reclaimServiceHostArtifacts(
 
   log?.set({ hostReclaim: { serviceName, images: repo, done: true } });
 }
+
+/**
+ * Remove a database resource's named Docker volume — the counterpart to
+ * `reclaimServiceHostArtifacts`'s bind-mount cleanup, for the (unrelated)
+ * named-volume storage databases use. Caller must remove/stop the owning
+ * container FIRST: a volume still referenced by a container (even a stopped
+ * one) 409s on daemons that track refs that way. Best-effort — a delete's
+ * source of truth is the DB row, already gone by the time this runs, so a
+ * stuck daemon or an already-gone volume must never surface as an error.
+ */
+export async function reclaimDatabaseVolume(
+  volumeName: string,
+  log?: RequestLogger,
+): Promise<{ removed: boolean }> {
+  const { Docker } = await import("@otterdeploy/docker");
+  const docker = Docker.fromEnv();
+  try {
+    const removed = await docker.volumes.getVolume(volumeName).remove({ force: true });
+    log?.set({
+      hostReclaim: {
+        volumeName,
+        volumeRemoved: removed.isOk(),
+        volumeRemoveError: removed.isErr() ? removed.error.message : null,
+      },
+    });
+    // A "not found" removal counts as reclaimed (already gone); anything else
+    // (most commonly "volume is in use" — the owning container didn't actually
+    // go away) is a real failure the caller should retry via orphan GC.
+    return { removed: removed.isOk() || /not found|no such/i.test(removed.error.message) };
+  } catch (cause) {
+    log?.set({
+      hostReclaim: {
+        volumeName,
+        volumeRemoved: false,
+        volumeRemoveError: cause instanceof Error ? cause.message : String(cause),
+      },
+    });
+    return { removed: false };
+  } finally {
+    docker.destroy();
+  }
+}

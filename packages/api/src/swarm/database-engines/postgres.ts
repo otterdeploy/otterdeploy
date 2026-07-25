@@ -9,9 +9,25 @@ export const postgresAdapter: DatabaseEngineAdapter = {
   nameShort: "pg",
   defaultImage: `${meta.dockerImage}:${meta.defaultTag}`,
   port: meta.defaultPort,
-  // We pin v17 — postgres 18+ refuses our /var/lib/postgresql/data mount
-  // (image manages its own version subdir). See constants.ts comment.
+  // Pre-18 convention: the volume mounts directly at .../data.
   mountTarget: "/var/lib/postgresql/data",
+  // postgres:18 switched its image to a pg_ctlcluster-style layout: PGDATA
+  // now lives at a major-version-specific subdir (e.g.
+  // /var/lib/postgresql/18/docker) that the entrypoint creates and owns
+  // itself. Mounting our volume straight at .../data (the pre-18
+  // convention) makes the entrypoint see "data in .../data" that isn't the
+  // configured PGDATA and refuse to boot ("unused mount/volume" fatal).
+  // Fix: mount the *parent* dir for 18+ so the image manages its own
+  // versioned subdir underneath — matches upstream's documented migration
+  // path. 17 and earlier keep the original mountTarget untouched.
+  resolveMount: (image) => {
+    const tag = image.split(":").pop() ?? "";
+    const major = /^(\d+)/.exec(tag)?.[1];
+    if (major != null && Number(major) >= 18) {
+      return { target: "/var/lib/postgresql" };
+    }
+    return { target: "/var/lib/postgresql/data" };
+  },
   reservedEnvKeys: new Set(["POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD"]),
   buildEnv: ({ username, password, databaseName }) => [
     `POSTGRES_DB=${databaseName}`,

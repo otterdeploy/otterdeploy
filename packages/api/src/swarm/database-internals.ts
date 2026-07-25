@@ -11,12 +11,13 @@ import { log } from "evlog";
 
 import type { ProvisionSwarmDatabaseInput, SwarmDatabaseRuntime } from "./database";
 
-import { getEngineAdapter } from "./database-engines";
+import { getEngineAdapter, resolveDatabaseMount } from "./database-engines";
 import { subscribeDockerEvents } from "./events";
 
 export function buildDatabaseSpec(input: ProvisionSwarmDatabaseInput, networkName: string) {
   const adapter = getEngineAdapter(input.engine);
   const image = input.image ?? adapter.defaultImage;
+  const mount = resolveDatabaseMount(adapter, image);
 
   // User envs come first, identity envs second — identity wins on key
   // collision. Reserved keys are stripped so a fat-fingered POSTGRES_PASSWORD
@@ -52,13 +53,13 @@ export function buildDatabaseSpec(input: ProvisionSwarmDatabaseInput, networkNam
       ContainerSpec: {
         Image: image,
         Labels: otterdeployLabels,
-        Env: [...userEnv, ...identityEnv],
+        Env: [...userEnv, ...identityEnv, ...mount.env],
         ...(command ? { Command: command } : {}),
         Mounts: [
           {
             Type: "volume" as const,
             Source: input.volumeName,
-            Target: adapter.mountTarget,
+            Target: mount.target,
           },
         ],
         Healthcheck: {

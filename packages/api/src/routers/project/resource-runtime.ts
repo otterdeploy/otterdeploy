@@ -22,7 +22,11 @@ import { updateSwarmDatabase } from "../../runtime/db";
 import { defaultImageFor } from "../../swarm";
 import { bulkReplaceServiceEnvVars, listServiceEnvVars } from "../service/queries";
 import { redeployAndFanOut } from "../service/redeploy";
-import { insertDeployment, markDeploymentFailed } from "./deployments";
+import {
+  getLatestDeploymentForResource,
+  insertDeployment,
+  markDeploymentFailed,
+} from "./deployments";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
 import {
   getDatabaseResourceRecord,
@@ -231,7 +235,11 @@ export async function bulkSetResourceEnv(
       // every env edit. Same bug pattern as env.ts; see the comment
       // there for the full incident.
       const engine = dbRecord.database.engine;
-      const engineImage = defaultImageFor(engine);
+      // Preserve the image that's actually running (latest deployment row) —
+      // falling back to the catalog default rolled a version-pinned or
+      // extension-bundled database onto the default tag on every env edit.
+      const latest = await getLatestDeploymentForResource(input.resourceId);
+      const engineImage = latest?.image ?? defaultImageFor(engine);
       const envDeployment = await insertDeployment({
         resourceId: input.resourceId,
         image: engineImage,
@@ -258,6 +266,9 @@ export async function bulkSetResourceEnv(
             {
               engine,
               resourceId: input.resourceId,
+              // Without an explicit image the driver falls back to the engine
+              // default — which would swap the running version on an env roll.
+              image: engineImage,
               serviceName: buildContainerName({ engine, projectSlug, resourceName }),
               volumeName: buildVolumeName({ engine, projectSlug, resourceName }),
               hostnameAlias: dbRecord.database.internalHostname,

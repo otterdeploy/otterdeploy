@@ -127,7 +127,7 @@ export function DataGridColumnHeader<TData, TValue>({
               <DropdownMenuCheckboxItem
                 className="relative ltr:pr-8 ltr:pl-2 rtl:pr-2 rtl:pl-8 [&_svg]:text-muted-foreground [&>span:first-child]:ltr:right-2 [&>span:first-child]:ltr:left-auto [&>span:first-child]:rtl:right-auto [&>span:first-child]:rtl:left-2"
                 checked={column.getIsSorted() === "asc"}
-                onSelect={() => onSortingChange("asc")}
+                onClick={() => onSortingChange("asc")}
               >
                 <ChevronUpIcon />
                 Sort asc
@@ -135,13 +135,13 @@ export function DataGridColumnHeader<TData, TValue>({
               <DropdownMenuCheckboxItem
                 className="relative ltr:pr-8 ltr:pl-2 rtl:pr-2 rtl:pl-8 [&_svg]:text-muted-foreground [&>span:first-child]:ltr:right-2 [&>span:first-child]:ltr:left-auto [&>span:first-child]:rtl:right-auto [&>span:first-child]:rtl:left-2"
                 checked={column.getIsSorted() === "desc"}
-                onSelect={() => onSortingChange("desc")}
+                onClick={() => onSortingChange("desc")}
               >
                 <ChevronDownIcon />
                 Sort desc
               </DropdownMenuCheckboxItem>
               {column.getIsSorted() && (
-                <DropdownMenuItem onSelect={onSortRemove}>
+                <DropdownMenuItem onClick={onSortRemove}>
                   <XIcon />
                   Remove sort
                 </DropdownMenuItem>
@@ -153,23 +153,23 @@ export function DataGridColumnHeader<TData, TValue>({
               {column.getCanSort() && <DropdownMenuSeparator />}
 
               {isPinnedLeft ? (
-                <DropdownMenuItem className="[&_svg]:text-muted-foreground" onSelect={onUnpin}>
+                <DropdownMenuItem className="[&_svg]:text-muted-foreground" onClick={onUnpin}>
                   <PinOffIcon />
                   Unpin from left
                 </DropdownMenuItem>
               ) : (
-                <DropdownMenuItem className="[&_svg]:text-muted-foreground" onSelect={onLeftPin}>
+                <DropdownMenuItem className="[&_svg]:text-muted-foreground" onClick={onLeftPin}>
                   <PinIcon />
                   Pin to left
                 </DropdownMenuItem>
               )}
               {isPinnedRight ? (
-                <DropdownMenuItem className="[&_svg]:text-muted-foreground" onSelect={onUnpin}>
+                <DropdownMenuItem className="[&_svg]:text-muted-foreground" onClick={onUnpin}>
                   <PinOffIcon />
                   Unpin from right
                 </DropdownMenuItem>
               ) : (
-                <DropdownMenuItem className="[&_svg]:text-muted-foreground" onSelect={onRightPin}>
+                <DropdownMenuItem className="[&_svg]:text-muted-foreground" onClick={onRightPin}>
                   <PinIcon />
                   Pin to right
                 </DropdownMenuItem>
@@ -181,7 +181,7 @@ export function DataGridColumnHeader<TData, TValue>({
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="[&_svg]:text-muted-foreground"
-                onSelect={() => column.toggleVisibility(false)}
+                onClick={() => column.toggleVisibility(false)}
               >
                 <EyeOffIcon />
                 Hide column

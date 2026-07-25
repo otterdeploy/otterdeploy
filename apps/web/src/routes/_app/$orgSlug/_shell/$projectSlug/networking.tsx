@@ -48,9 +48,9 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/network
   // cache instead of spinning. Non-blocking + best-effort: a cold project row
   // or failed prefetch just falls back to fetch-on-mount, as before.
   loader: ({ params }) => {
-    // The Routes table's own data is a live react-db collection, not an orpc
-    // query — preload it too, or the main panel still fetches on mount.
-    void proxyRoutesCollection.preload();
+    // The Routes table's own data is a live react-db collection with syncMode
+    // "on-demand" — preload() is a no-op for those (it loads when the live
+    // query subscribes with its projectId filter), so we don't call it.
     const projectId = projectIdBySlug(params.projectSlug);
     if (!projectId) return;
     void queryClient

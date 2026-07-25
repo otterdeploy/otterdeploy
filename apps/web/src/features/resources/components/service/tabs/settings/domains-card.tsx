@@ -13,6 +13,7 @@
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import { useState } from "react";
 
+import { useLoaderData } from "@tanstack/react-router";
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useForm } from "@tanstack/react-form";
@@ -27,7 +28,7 @@ import { Spinner } from "@/shared/components/ui/spinner";
 import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-import type { DomainView } from "./domains-card-parts";
+import type { BaseDomainStatus, DomainView } from "./domains-card-parts";
 
 import { DnsHint, DomainEditRow, DomainRowActions, StatusBadge } from "./domains-card-parts";
 
@@ -42,6 +43,21 @@ export function ServiceDomainsCard({
   };
 
   const domains = useQuery(orpc.service.domains.list.queryOptions({ input }));
+
+  // Generated hostnames route under the org's base domain — the workspace
+  // General page owns verification of that domain, so read the same signal
+  // here rather than asserting the route is live sight unseen.
+  const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
+  const orgSettings = useQuery(
+    orpc.organization.settings.queryOptions({ input: { organizationId: organization.id } }),
+  );
+  const baseDomainStatus: BaseDomainStatus | undefined = orgSettings.data
+    ? !orgSettings.data.baseDomain
+      ? "unset"
+      : orgSettings.data.baseDomainVerifiedAt
+        ? "verified"
+        : "pending"
+    : undefined;
 
   const onSettled = async () => {
     await Promise.all([
@@ -112,6 +128,7 @@ export function ServiceDomainsCard({
                   domain={d as DomainView}
                   input={input}
                   onSettled={onSettled}
+                  baseDomainStatus={baseDomainStatus}
                 />
               ))}
             </div>
@@ -182,10 +199,12 @@ function DomainRow({
   domain,
   input,
   onSettled,
+  baseDomainStatus,
 }: {
   domain: DomainView;
   input: { projectId: ProjectId; resourceId: ResourceId };
   onSettled: () => Promise<void>;
+  baseDomainStatus: BaseDomainStatus | undefined;
 }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(domain.domain);
@@ -268,7 +287,7 @@ function DomainRow({
           )}
 
           {domain.isPrimary && <Badge variant="default">Primary</Badge>}
-          <StatusBadge domain={domain} />
+          <StatusBadge domain={domain} baseDomainStatus={baseDomainStatus} />
         </div>
 
         <DomainRowActions

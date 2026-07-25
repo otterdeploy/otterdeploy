@@ -57,6 +57,7 @@ export function MetricsTab({ resourceId }: MetricsTabProps) {
             icon={CpuIcon}
             title="CPU"
             value={formatPercent(summary.latest?.cpuPct ?? 0)}
+            valueLabel="current"
             stats={[
               { label: "peak", value: formatPercent(summary.cpuPeak) },
               { label: "avg", value: formatPercent(summary.cpuAvg) },
@@ -75,6 +76,7 @@ export function MetricsTab({ resourceId }: MetricsTabProps) {
             icon={RamMemoryIcon}
             title="Memory"
             value={formatBytes(summary.latest?.memBytes ?? 0)}
+            valueLabel="current"
             stats={[
               { label: "peak", value: formatBytes(summary.memPeak) },
               { label: "limit", value: formatBytes(summary.memLimitBytes) },

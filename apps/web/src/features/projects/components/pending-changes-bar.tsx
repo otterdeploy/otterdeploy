@@ -12,7 +12,7 @@
  * Click the count to expand into a per-resource diff view that names
  * the change (create / update / delete), lists the field-level
  * current → new values for updates, and surfaces per-resource discard.
- * Deploy = manifest.apply. Discard = manifest.discard.
+ * Apply = manifest.apply. Discard = manifest.discard.
  */
 
 import type { ProjectId } from "@otterdeploy/shared/id";
@@ -29,10 +29,11 @@ import {
   markAppliedCreates,
 } from "@/features/projects/components/graph/applied-creates-store";
 import { clearPendingFrameworksForProject } from "@/features/projects/components/graph/pending-framework-store";
+import { invalidateManifestConsumers } from "@/features/projects/hooks/use-manifest-stage";
 import { Button } from "@/shared/components/ui/button";
 import { Spinner } from "@/shared/components/ui/spinner";
 import { toastMessage } from "@/shared/lib/errors";
-import { orpc, queryClient } from "@/shared/server/orpc";
+import { orpc } from "@/shared/server/orpc";
 
 import { ChangeGroupCard, type DiffChange, groupChanges } from "./pending-changes-diff";
 
@@ -56,26 +57,13 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
     }),
   );
 
-  const refreshAll = async () => {
-    await Promise.all([
-      // Partial-input invalidation — the graph layout queries diff
-      // without `environment` in its input, so a key matching only
-      // projectId catches both that query and the bar's own
-      // (projectId, environment) query. Otherwise the graph keeps the
-      // ghost create-node until its 5s refetchInterval catches up.
-      queryClient.invalidateQueries({
-        queryKey: orpc.project.manifest.diff.queryKey({
-          input: { projectId },
-        }),
-      }),
-      queryClient.invalidateQueries({
-        queryKey: orpc.project.manifest.get.queryKey({ input: { id: projectId } }),
-      }),
-      queryClient.invalidateQueries({
-        queryKey: orpc.project.resource.list.queryKey({ input: { projectId } }),
-      }),
-    ]);
-  };
+  // Shared post-manifest-write refresh (diff / manifest / stack yaml + the
+  // prefix-keyed resource, dependency and task collections the graph and
+  // detail panels read). The previous local version invalidated the bare
+  // `orpc.project.resource.list` key, which NEVER matches the resource
+  // collection's ["resource", …] prefix key — so a freshly applied resource
+  // stayed missing from the graph/panel until a hard reload.
+  const refreshAll = () => invalidateManifestConsumers(projectId);
 
   const applyMut = useMutation({
     mutationFn: () => orpc.project.manifest.apply.call({ projectId, environment }),
@@ -103,7 +91,7 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
         if (result.appliedCount === 0) {
           // Nothing landed — keep the bar open so the operator can fix the
           // cause (e.g. bind the project's repo/registry) and retry.
-          toast.error(`Nothing deployed — ${detail}`);
+          toast.error(`Nothing applied — ${detail}`);
           return;
         }
         toast.warning(
@@ -120,11 +108,11 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
   const discardMut = useMutation({
     mutationFn: () => orpc.project.manifest.discard.call({ projectId }),
     // Clear the graph's ghost-bridge stores up front so a create-ghost recorded
-    // by a prior Deploy (whose resource never landed) vanishes THE INSTANT the
+    // by a prior Apply (whose resource never landed) vanishes THE INSTANT the
     // operator discards — otherwise `computePendingByName` keeps re-synthesizing
     // it from applied-creates until the 30s TTL, the "ghost that won't die". The
     // diff (the other ghost source) is refreshed in onSuccess. Safe optimistic:
-    // Discard is disabled while a Deploy is in flight, and if discard itself
+    // Discard is disabled while an Apply is in flight, and if discard itself
     // fails the still-pending change re-renders its ghost from the diff.
     onMutate: () => {
       clearAppliedCreatesForProject(projectId);
@@ -140,9 +128,9 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
 
   const busy = applyMut.isPending || discardMut.isPending;
   const meaningful = (diff.data?.changes ?? []).filter((c): c is DiffChange => c.kind !== "no-op");
-  // Keep the bar mounted while deploying — otherwise the moment the diff poll
+  // Keep the bar mounted while applying — otherwise the moment the diff poll
   // sees a create's row land mid-apply it would report 0 changes and the bar
-  // (and its progress) would vanish before the deploy finishes.
+  // (and its progress) would vanish before the apply finishes.
   if (meaningful.length === 0 && !applyMut.isPending) return null;
 
   // Group by (resource kind + name). One named resource may produce
@@ -151,7 +139,13 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
   const groups = groupChanges(meaningful);
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-20 z-40 flex justify-center">
+    // Own layer below the site header AND the project tab row (h-10), never
+    // on top of either — the pill used to sit at a fixed `top-20` that fell
+    // inside the tab row's band and covered Deployments/Logs/Metrics.
+    <div
+      className="pointer-events-none fixed inset-x-0 z-40 flex justify-center"
+      style={{ top: "calc(var(--header-height) + 2.5rem + 0.75rem)" }}
+    >
       {/* `layout` morphs the pill↔panel width; the body handles its own height
           reveal below. No backdrop-blur — it flickers while the box resizes and
           is invisible at bg-card/95 anyway. */}
@@ -176,7 +170,7 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
               ▸
             </span>
             {applyMut.isPending
-              ? "Deploying…"
+              ? "Applying…"
               : `Apply ${meaningful.length} change${meaningful.length === 1 ? "" : "s"}`}
           </button>
           {/* ml-auto pins the actions to the trailing end once the bar widens. */}
@@ -194,10 +188,10 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
             variant="default"
             onClick={() => applyMut.mutate()}
             disabled={busy}
-            aria-label={applyMut.isPending ? "Deploying" : undefined}
+            aria-label={applyMut.isPending ? "Applying" : undefined}
           >
-            {/* Header already reads "Deploying…" — the button is spinner-only. */}
-            {applyMut.isPending ? <Spinner className="size-3.5" /> : "Deploy"}
+            {/* Header already reads "Applying…" — the button is spinner-only. */}
+            {applyMut.isPending ? <Spinner className="size-3.5" /> : "Apply"}
           </Button>
         </div>
         <AnimatePresence initial={false}>

@@ -26,7 +26,7 @@
 import type { DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { deployment, resource } from "@otterdeploy/db/schema/project";
+import { deployment, resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
 import { and, desc, eq, gte, isNull, type SQL } from "drizzle-orm";
 
@@ -202,6 +202,14 @@ export async function listProjectDeployments(
     isNull(resource.previewId),
   ];
   if (input.resourceId) conditions.push(eq(deployment.resourceId, input.resourceId));
+  else {
+    // Project-wide feed: hide compose stack CHILDREN. One stack deploy writes
+    // a stack-level row (the rollout as a unit) plus a per-service row per
+    // child — showing both duplicates every stack deploy in the ledger. The
+    // child rows stay reachable through their own resource (explicit
+    // `resourceId` filter / the child service's Deployments tab).
+    conditions.push(isNull(serviceResource.stackId));
+  }
   if (input.since) conditions.push(gte(deployment.createdAt, input.since));
 
   const rows = (await db
@@ -226,6 +234,10 @@ export async function listProjectDeployments(
     })
     .from(deployment)
     .innerJoin(resource, eq(resource.id, deployment.resourceId))
+    // Left join: only service resources have a service_resource row; databases
+    // and compose stacks null out, which the stack-child filter above treats
+    // as "not a child" (kept).
+    .leftJoin(serviceResource, eq(serviceResource.resourceId, deployment.resourceId))
     .where(and(...conditions))
     .orderBy(desc(deployment.createdAt), desc(deployment.id))) as JoinedRow[];
 

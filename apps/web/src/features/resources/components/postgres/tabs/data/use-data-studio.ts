@@ -25,7 +25,7 @@ import type { ResultView } from "./components/results-panel";
 
 import { loadHiddenColumns, saveHiddenColumns } from "./data/column-prefs";
 import { buildWhere, type Filter, newFilter } from "./data/filters";
-import { browseRowsSql, SQL_RESULT_CAP, type TableRef } from "./data/queries";
+import { browseRowsSql, type TableRef } from "./data/queries";
 import { useQueryHistory } from "./data/query-history";
 import {
   useDataCapabilities,
@@ -35,13 +35,12 @@ import {
   useTablePrimaryKey,
 } from "./data/use-database";
 import {
-  activeSqlFor,
   buildSchema,
   hasNextPage,
   useRowMutations,
   useSnippetBuffer,
 } from "./use-data-studio-helpers";
-import { errMessage, useSqlHistoryLog, useWriteConfirm } from "./use-data-studio-sql";
+import { errMessage, useSqlRuns, useWriteConfirm } from "./use-data-studio-sql";
 
 type Resource = PostgresBodyProps["resource"];
 
@@ -59,7 +58,6 @@ function useTableData(resource: Resource) {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(100);
   const [filters, setFilters] = useState<Filter[]>([]);
-  const [ranSql, setRanSql] = useState<string | null>(null);
   const [view, setView] = useState<ResultView>("grid");
   // Data (rows grid) vs Structure (column detail) for the open table.
   const [tableView, setTableView] = useState<"data" | "structure">("data");
@@ -78,17 +76,17 @@ function useTableData(resource: Resource) {
 
   const where = buildWhere(filters);
   const tableSql = selected ? browseRowsSql(selected, where, pageSize + 1, page * pageSize) : "";
-  const activeSql = activeSqlFor(mode, tableSql, ranSql);
 
-  const rowsQuery = useQueryRows({
+  // Table-browse rows only — authored console SQL runs through `useSqlRuns`
+  // below (run-scoped, uncached, never retried), so its results and errors are
+  // keyed to each individual run.
+  const tableRowsQuery = useQueryRows({
     resourceId: resourceIdStr,
-    sql: activeSql,
-    limit: mode === "table" ? pageSize : SQL_RESULT_CAP,
-    enabled: mode === "table" ? Boolean(selected) : Boolean(ranSql),
-    keepPrevious: mode === "table",
+    sql: tableSql,
+    limit: pageSize,
+    enabled: mode === "table" && Boolean(selected),
+    keepPrevious: true,
   });
-  const result = rowsQuery.data;
-  const hasNext = hasNextPage(mode, result);
 
   // Cell variants + FK targets + display types for the open table (table-browse
   // mode only).
@@ -107,17 +105,31 @@ function useTableData(resource: Resource) {
     enabled: mode === "table" && canWrite,
   });
   const editable = mode === "table" && canWrite && Boolean(selected);
-  const { onUpdateRow, onDeleteRow } = useRowMutations(resourceIdStr, selected, rowsQuery);
+  const { onUpdateRow, onDeleteRow } = useRowMutations(resourceIdStr, selected, tableRowsQuery);
 
   // SQL-console execution log (browser-local ring, successes and failures).
   const history = useQueryHistory(resourceIdStr);
   const recordHistory = history.record;
-  useSqlHistoryLog({ mode, ranSql, rowsQuery, recordHistory });
+
+  // Authored-SQL run model (read-only `database.query` / audited
+  // `database.execute`, both run-scoped — see ./use-data-studio-sql). A
+  // successful write refreshes the table list + open rows so DDL/DML shows up.
+  const { run, startRead, startWrite, writeRunning } = useSqlRuns({
+    resourceId: resourceIdStr,
+    recordHistory,
+    onWriteSuccess: () => {
+      void tablesQuery.refetch();
+      void tableRowsQuery.refetch();
+    },
+  });
 
   // Write mode → audited `database.execute` behind a confirm (typed-phrase
-  // gate for destructive statements). See ./use-data-studio-sql.
-  const { pendingWrite, stageWrite, executeSql, cancelPendingWrite, confirmPendingWrite } =
-    useWriteConfirm({ resourceId: resourceIdStr, tablesQuery, rowsQuery, recordHistory });
+  // gate for destructive statements). Stages the exact statement text and runs
+  // that same text on confirm — never re-reads the editor. See
+  // ./use-data-studio-sql.
+  const { pendingWrite, stageWrite, cancelPendingWrite, confirmPendingWrite } = useWriteConfirm({
+    runWrite: startWrite,
+  });
 
   // Shared table-switch plumbing: reset paging/view state and pull the
   // persisted column-visibility prefs for the newly opened table.
@@ -159,7 +171,9 @@ function useTableData(resource: Resource) {
   };
 
   // Run authored SQL: write mode stages the statement behind the confirm
-  // dialog; the read-only query path stays the default.
+  // dialog; the read-only query path runs immediately as a fresh run (Run
+  // again on the same text starts a new run rather than reusing a cache entry
+  // — see ./use-data-studio-sql).
   const runSql = (sqlText: string) => {
     const trimmed = sqlText.trim();
     if (!trimmed) return;
@@ -170,8 +184,7 @@ function useTableData(resource: Resource) {
       return;
     }
 
-    if (trimmed === ranSql) void rowsQuery.refetch();
-    else setRanSql(trimmed);
+    startRead(trimmed);
   };
 
   // Land on the first table's rows once the list loads (browse, not authored
@@ -182,6 +195,26 @@ function useTableData(resource: Resource) {
       openTable(tables[0]);
     }
   }, [selected, tables, openTable]);
+
+  // Results pane source: the table-browse query in table mode, the current
+  // run's outcome in SQL mode. Each is keyed to its own source (react-query
+  // cache vs. the latest run id), so a stale error from an earlier statement
+  // can never render under a newer one — see ./use-data-studio-sql.
+  const result = mode === "table" ? (tableRowsQuery.data ?? null) : (run?.result ?? null);
+  const hasNext = hasNextPage(mode, result);
+  const rowsQuery =
+    mode === "table"
+      ? tableRowsQuery
+      : {
+          isLoading: run?.status === "running",
+          isFetching: run?.status === "running",
+          isError: run?.status === "error",
+          error: run?.error ?? null,
+          data: run?.result ?? undefined,
+          refetch: () => {
+            if (run) startRead(run.sql);
+          },
+        };
 
   return {
     resourceId,
@@ -216,7 +249,9 @@ function useTableData(resource: Resource) {
     canWrite,
     primaryKey,
     editable,
-    executeSql,
+    // Toolbar only reads `.isPending` (disables the Write switch mid-run and
+    // swaps its label) — see studio-sql-toolbar.tsx.
+    executeSql: { isPending: writeRunning },
     onUpdateRow,
     onDeleteRow,
     openRefTable,
@@ -265,13 +300,18 @@ export function useDataStudio(resource: Resource, shortcuts: boolean) {
   };
 
   // ⌘K — only the visible studio listens (`enabled` is synced every render).
+  // The global command palette also registers Mod+K (features/command-palette);
+  // that's intentional — this one only fires while the Data studio is mounted
+  // and `shortcuts` is enabled, so `conflictBehavior: "allow"` silences the
+  // (correct, but noisy on every load) "already registered" console warning
+  // instead of the two hooks racing to unregister each other.
   useHotkey(
     "Mod+K",
     (event) => {
       event.preventDefault();
       setSpotlightOpen((o) => !o);
     },
-    { enabled: shortcuts },
+    { enabled: shortcuts, conflictBehavior: "allow" },
   );
 
   return {

@@ -25,11 +25,13 @@ vi.mock("../../project/deployments-list", () => ({
 const selectChain = {
   from: vi.fn(),
   innerJoin: vi.fn(),
+  leftJoin: vi.fn(),
   where: vi.fn(),
   orderBy: vi.fn(),
 };
 selectChain.from.mockReturnValue(selectChain);
 selectChain.innerJoin.mockReturnValue(selectChain);
+selectChain.leftJoin.mockReturnValue(selectChain);
 selectChain.where.mockReturnValue(selectChain);
 
 vi.mock("@otterdeploy/db", () => ({

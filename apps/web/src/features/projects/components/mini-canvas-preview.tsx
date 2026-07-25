@@ -1,21 +1,28 @@
 import { useId } from "react";
 
 interface Props {
+  services: number;
   databases: number;
   routes: number;
   className?: string;
 }
 
-const MAX_DATABASE_RECTS = 4;
+const MAX_RESOURCE_RECTS = 4;
 
-export function MiniCanvasPreview({ databases, routes, className }: Props) {
+export function MiniCanvasPreview({ services, databases, routes, className }: Props) {
   // Unique pattern id per instance so multiple previews on one page
   // (the project list grid) don't collide on `<defs>`.
   const reactId = useId();
   const dotPatternId = `mini-dots-${reactId}`;
-  const visible = Math.min(databases, MAX_DATABASE_RECTS);
-  const overflow = Math.max(0, databases - MAX_DATABASE_RECTS);
-  const hasContent = databases > 0 || routes > 0;
+  // A project's resources are services AND databases — the thumbnail used to
+  // only draw a rect per database, so a project with 2 services + 0-1
+  // databases rendered as an almost-empty box. Draw one node per resource
+  // (services first, then databases) up to the cap.
+  const resourceCount = services + databases;
+  const visibleServices = Math.min(services, MAX_RESOURCE_RECTS);
+  const visibleDatabases = Math.min(databases, Math.max(0, MAX_RESOURCE_RECTS - visibleServices));
+  const overflow = Math.max(0, resourceCount - MAX_RESOURCE_RECTS);
+  const hasContent = resourceCount > 0 || routes > 0;
 
   return (
     <svg viewBox="0 0 120 80" className={className} role="img" aria-label="Project canvas preview">
@@ -43,9 +50,9 @@ export function MiniCanvasPreview({ databases, routes, className }: Props) {
         </text>
       ) : (
         <>
-          {Array.from({ length: visible }).map((_, i) => (
+          {Array.from({ length: visibleServices }).map((_, i) => (
             <rect
-              key={i}
+              key={`svc-${i}`}
               x={10 + i * 18}
               y={28}
               width={14}
@@ -55,9 +62,21 @@ export function MiniCanvasPreview({ databases, routes, className }: Props) {
               className="text-foreground/70"
             />
           ))}
+          {Array.from({ length: visibleDatabases }).map((_, i) => (
+            <rect
+              key={`db-${i}`}
+              x={10 + (visibleServices + i) * 18}
+              y={28}
+              width={14}
+              height={24}
+              rx={3}
+              fill="currentColor"
+              className="text-foreground/40"
+            />
+          ))}
           {overflow > 0 ? (
             <text
-              x={10 + visible * 18 + 4}
+              x={10 + (visibleServices + visibleDatabases) * 18 + 4}
               y={42}
               fontSize="8"
               fill="currentColor"

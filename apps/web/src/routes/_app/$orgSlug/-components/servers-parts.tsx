@@ -60,9 +60,18 @@ export function StatTile({
 export function ClusterStatTiles({
   servers,
   tasksRunning,
+  isSwarm,
 }: {
   servers: Array<{ cpuTotal: number; memTotalGb: number; role: string }>;
   tasksRunning: number | null;
+  /** Whether this install is running the Swarm runtime. The plain-Docker
+   *  runtime (the default) has no swarm tasks — `server.stats` counts
+   *  running otterdeploy-managed CONTAINERS instead and reports them through
+   *  the same field, so the tile must say so: labelling a container count
+   *  "Tasks running" reads as a live contradiction next to the Docker page's
+   *  Tasks tab, which is genuinely swarm-only and always empty here
+   *  (od-1kc.4 — "TASKS RUNNING 3" here vs "Tasks 0" there, same install). */
+  isSwarm: boolean;
 }) {
   const totalCpu = servers.reduce((acc, s) => acc + s.cpuTotal, 0);
   const totalMem = servers.reduce((acc, s) => acc + s.memTotalGb, 0);
@@ -83,9 +92,9 @@ export function ClusterStatTiles({
       />
       <StatTile
         icon={Task01Icon}
-        label="Tasks running"
+        label={isSwarm ? "Tasks running" : "Containers running"}
         value={tasksRunning != null ? String(tasksRunning) : "—"}
-        sub="across all replicas"
+        sub={isSwarm ? "across all replicas" : "otterdeploy-managed"}
       />
       <StatTile
         icon={ServerStack01Icon}

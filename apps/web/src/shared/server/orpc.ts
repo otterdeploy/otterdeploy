@@ -32,6 +32,9 @@ export const queryClient = new QueryClient({
   },
   queryCache: new QueryCache({
     onError: (error, query) => {
+      // Screens that render a query's failure inline (e.g. the accept-invite
+      // card) opt out of this global toast so the same error isn't shown twice.
+      if (query.meta?.suppressErrorToast) return;
       toast.error(`Error: ${error.message}`, {
         action: {
           label: "retry",

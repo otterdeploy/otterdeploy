@@ -238,12 +238,19 @@ function parseBlocks(src: string): ReactNode[] {
   return blocks;
 }
 
+/** GitHub release bodies (release-drafter, `gh release create --generate-notes`,
+ *  etc.) commonly carry HTML comments — tool markers, not content. Strip them
+ *  before block parsing so they never surface as literal paragraph text. */
+function stripHtmlComments(src: string): string {
+  return src.replace(/<!--[\s\S]*?-->/g, "");
+}
+
 /**
  * Render a markdown string as styled React elements. `className` is applied to
  * the wrapper. Empty / whitespace-only input renders nothing.
  */
 export function Markdown({ children, className }: { children: string; className?: string }) {
-  const trimmed = children?.trim();
+  const trimmed = stripHtmlComments(children ?? "").trim();
   if (!trimmed) return null;
   return (
     <div className={cn("text-[12.5px] text-foreground/90", className)}>{parseBlocks(trimmed)}</div>

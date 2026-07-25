@@ -81,6 +81,7 @@ function ComposeFooter({
   step,
   setStep,
   showNext,
+  hasVars,
   canCreate,
   isPending,
   onCancel,
@@ -88,6 +89,7 @@ function ComposeFooter({
   step: "file" | "vars";
   setStep: (s: "file" | "vars") => void;
   showNext: boolean;
+  hasVars: boolean;
   canCreate: boolean;
   isPending: boolean;
   onCancel?: () => void;
@@ -111,7 +113,10 @@ function ComposeFooter({
       </Button>
       {showNext ? (
         <Button size="sm" type="button" onClick={() => setStep("vars")}>
-          Next: variables
+          {/* The vars step always runs (even with nothing to fill — see
+              deriveComposeFlags), but "Next: variables" over-promises when
+              the file declares none: nothing there to review. */}
+          {hasVars ? "Next: variables" : "Review & stage"}
         </Button>
       ) : (
         <Button size="sm" type="submit" disabled={!canCreate}>
@@ -211,6 +216,7 @@ export function ComposeWizardBody({
         step={step}
         setStep={setStep}
         showNext={showNext}
+        hasVars={hasVars}
         canCreate={canCreate}
         isPending={isPending}
         onCancel={onCancel}

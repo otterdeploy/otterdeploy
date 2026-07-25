@@ -113,17 +113,30 @@ export function AuthLayout({
         </main>
       </div>
 
-      {/* ─── Security footer (full width, normal flow) ─── */}
+      {/* ─── Environment footer (full width, normal flow) ─── */}
       <footer className="flex items-center justify-between border-t border-border px-7 py-3.5 font-mono text-[10px] tracking-[0.06em] text-muted-foreground/70 lg:px-16">
         <span className="uppercase">Otterdeploy Authentication</span>
-        <span className="flex items-center gap-2">
-          <span className="rounded border border-border px-1.5 py-0.5 text-[9px] tracking-[0.08em]">
-            TLS 1.3
-          </span>
-          <span className="hidden uppercase sm:inline">secure channel</span>
-        </span>
+        <ConnectionBadge />
       </footer>
     </div>
+  );
+}
+
+/**
+ * Reports the connection this page actually loaded over, instead of a
+ * decorative "TLS 1.3 / SECURE CHANNEL" claim that was shown even over plain
+ * `http://localhost`. This is a client-only SPA (no SSR), so `window` is
+ * always available at render.
+ */
+function ConnectionBadge() {
+  const secure = window.location.protocol === "https:";
+  return (
+    <span className="flex items-center gap-2">
+      <span className="rounded border border-border px-1.5 py-0.5 text-[9px] tracking-[0.08em] uppercase">
+        {secure ? "HTTPS" : "HTTP · DEV"}
+      </span>
+      <span className="hidden sm:inline">{window.location.host}</span>
+    </span>
   );
 }
 

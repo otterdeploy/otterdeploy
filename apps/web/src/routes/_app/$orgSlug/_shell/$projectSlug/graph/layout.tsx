@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createFileRoute,
   Outlet,
@@ -7,17 +7,32 @@ import {
   useNavigate,
   useRouter,
 } from "@tanstack/react-router";
+import { eq, useLiveQuery } from "@tanstack/react-db";
 import { AnimatePresence } from "motion/react";
 import { ReactFlowProvider, useReactFlow, type NodeChange } from "@xyflow/react";
 
+import { GraphContextMenu } from "@/features/projects/components/graph/graph-context-menu";
 import { type XY } from "@/features/projects/components/graph/layout-graph";
-import { StackCodePanel, useStackPanelState } from "@/features/projects/components/stack";
+import type { ResourceFlowNode } from "@/features/projects/components/graph/resource-node-types";
+import { useResourceOverlay } from "@/features/projects/components/new-resource/overlay-provider";
+import {
+  PANEL_COLLAPSED_HEIGHT,
+  StackCodePanel,
+  useStackPanelState,
+  type StackPanelState,
+} from "@/features/projects/components/stack";
+import { resourceCollection } from "@/features/resources/data/resource";
 import { orpc } from "@/shared/server/orpc";
 
-import { focusNodeInView, useDetailPanelRefit } from "./-components/graph-camera";
+import { focusNodeInView, preloadNodeRoute, useDetailPanelRefit } from "./-components/graph-camera";
+import { useGraphContextMenu } from "./-components/graph-context-menu-actions";
 import { GraphFlow } from "./-components/graph-flow";
 import { useGraphModel } from "./-components/graph-model";
-import { computeLaidOutNodes, resolveDroppedPositions } from "./-components/laid-out-nodes";
+import {
+  commitNodeDrop,
+  computeLaidOutNodes,
+  resolveDroppedPositions,
+} from "./-components/laid-out-nodes";
 
 export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/graph")({
   component: RouteComponent,
@@ -35,15 +50,28 @@ function RouteComponent() {
   const childKey = childMatches[0]?.pathname ?? null;
   const { projectSlug } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
+
+  // Whether the project has ever had any resources — drives the stack
+  // drawer's first-visit-ever default (see use-panel-state). A brand-new
+  // project has nothing but boilerplate YAML to show, so the drawer starts
+  // collapsed instead of covering the empty-state CTA. `status` guards the
+  // cold-load window so an existing project's resources (not synced yet)
+  // don't get misread as "empty" and wrongly seed a collapsed default.
+  const { data: resourceRows, status: resourceStatus } = useLiveQuery(
+    (q) => q.from({ r: resourceCollection }).where(({ r }) => eq(r.projectId, project.id)),
+    [project.id],
+  );
+  const hasResources = resourceStatus !== "loading" && resourceRows.length > 0;
+
   // Drawer state (open/tab/height, persisted per project) lives here so the
   // canvas can lift its bottom-anchored chrome above the drawer's footprint.
-  const panel = useStackPanelState(project.id);
+  const panel = useStackPanelState(project.id, hasResources);
 
   return (
     <div className="relative flex flex-1 overflow-hidden p-3">
       <div className="relative flex-1 overflow-hidden rounded-2xl border">
         <ReactFlowProvider>
-          <GraphCanvas bottomInset={panel.occupiedHeight} />
+          <GraphCanvas panel={panel} />
           <div className="pointer-events-none absolute inset-0 top-10 z-10 flex size-full items-end justify-end">
             <AnimatePresence mode="wait">
               {childKey ? <Outlet key={childKey} /> : null}
@@ -64,12 +92,13 @@ function nodeTargetId(node: { id: string; data: { resourceId?: unknown } }): str
   return typeof real === "string" ? real : node.id;
 }
 
-function GraphCanvas({ bottomInset }: { bottomInset: number }) {
+function GraphCanvas({ panel }: { panel: StackPanelState }) {
   const navigate = useNavigate();
   const router = useRouter();
   const { orgSlug, projectSlug } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
   const { setCenter, fitView } = useReactFlow();
+  const overlay = useResourceOverlay();
 
   const { liveNodes, liveEdges, traffic } = useGraphModel(project);
 
@@ -163,6 +192,75 @@ function GraphCanvas({ bottomInset }: { bottomInset: number }) {
 
   const panelOpen = useDetailPanelRefit(fitView);
 
+  // A resource panel (or preview/deployment overlay) is open — collapse the
+  // bottom drawer so its content isn't squeezed into a ~6-line sliver behind
+  // the panel. The operator's real open/closed preference is untouched in
+  // storage; this only overrides what's rendered while a panel covers it.
+  const effectivePanel: StackPanelState = panelOpen
+    ? { ...panel, open: false, occupiedHeight: PANEL_COLLAPSED_HEIGHT }
+    : panel;
+
+  // Auto fit-view the first time any node (real or staged-ghost) appears —
+  // React Flow's `fitView` prop only fires once, on the canvas's initial
+  // mount, so a project that starts empty (or a fresh ghost created after
+  // mount) never gets framed and the lone new card renders at whatever zoom
+  // the empty canvas happened to be at (the "huge first node" glitch).
+  const hadNodesRef = useRef(laidOutNodes.length > 0);
+  useEffect(() => {
+    const hasNodes = laidOutNodes.length > 0;
+    if (hasNodes && !hadNodesRef.current) {
+      requestAnimationFrame(() => void fitView({ padding: 0.2, duration: 300 }));
+    }
+    hadNodesRef.current = hasNodes;
+  }, [laidOutNodes.length, fitView]);
+
+  // Shared by the node click handler and the context menu's "Open" item —
+  // same navigation, same pending-delete guard, same preview-satellite branch.
+  const openNode = (node: ResourceFlowNode) => {
+    if (node.data.pending === "delete") return;
+    if (node.data.kind === "preview") {
+      const preview = node.data.preview as { id?: string } | undefined;
+      if (typeof preview?.id === "string" && preview.id.length > 0) {
+        focusNodeInView(node, setCenter);
+        void navigate({
+          to: "/$orgSlug/$projectSlug/graph/preview/$previewId",
+          params: { orgSlug, projectSlug, previewId: preview.id },
+        });
+      }
+      return;
+    }
+    focusNodeInView(node, setCenter);
+    const resourceId = nodeTargetId(node);
+    void navigate({
+      to: "/$orgSlug/$projectSlug/graph/$resourceId",
+      params: { resourceId, orgSlug, projectSlug },
+    });
+  };
+
+  // Right-click "Delete" — no new delete logic here, it just routes to the
+  // Settings tab of the resource's own panel, where the existing danger-zone
+  // confirm already lives (service/postgres/compose Settings tab).
+  const openNodeSettings = (node: ResourceFlowNode) => {
+    const resourceId = nodeTargetId(node);
+    void navigate({
+      to: "/$orgSlug/$projectSlug/graph/$resourceId",
+      params: { resourceId, orgSlug, projectSlug },
+      search: { tab: "settings" },
+    });
+  };
+
+  // Right-click menus (node + empty canvas) — state/mutations live in a
+  // sibling hook so this component stays under the line/complexity caps.
+  const contextMenu = useGraphContextMenu({
+    orgSlug,
+    projectSlug,
+    navigate,
+    fitView,
+    overlay,
+    openNode,
+    openNodeSettings,
+  });
+
   // Re-run layout: forget every operator-dragged position (local caches +
   // the persisted project layout via `replace: true`) so the next render's
   // dagre pass owns placement again, then refit. The server write is
@@ -179,136 +277,59 @@ function GraphCanvas({ bottomInset }: { bottomInset: number }) {
   };
 
   return (
-    <GraphFlow
-      nodes={laidOutNodes}
-      edges={liveEdges}
-      traffic={traffic}
-      onRelayout={onRelayout}
-      bottomInset={bottomInset}
-      onNodesChange={onNodesChange}
-      onNodeDragStart={() => {
-        didDragRef.current = true;
-        // Drag begins → get the right-hand detail panel out of the way.
-        if (panelOpen) {
-          void navigate({
-            to: "/$orgSlug/$projectSlug/graph",
-            params: { orgSlug, projectSlug },
+    <>
+      <GraphFlow
+        nodes={laidOutNodes}
+        edges={liveEdges}
+        traffic={traffic}
+        onRelayout={onRelayout}
+        onNewService={() => overlay.setOpen(true)}
+        bottomInset={effectivePanel.occupiedHeight}
+        onNodesChange={onNodesChange}
+        onNodeDragStart={() => {
+          didDragRef.current = true;
+          // Drag begins → get the right-hand detail panel out of the way.
+          if (panelOpen) {
+            void navigate({
+              to: "/$orgSlug/$projectSlug/graph",
+              params: { orgSlug, projectSlug },
+            });
+          }
+        }}
+        onNodeDragStop={(_event, node, nodes) => {
+          // Clear the drag flag a frame later so the synthetic click that may
+          // follow mouseup still sees it (and doesn't reopen the panel).
+          requestAnimationFrame(() => {
+            didDragRef.current = false;
           });
-        }
-      }}
-      onNodeDragStop={(_event, node, nodes) => {
-        // Clear the drag flag a frame later so the synthetic click that may
-        // follow mouseup still sees it (and doesn't reopen the panel).
-        requestAnimationFrame(() => {
-          didDragRef.current = false;
-        });
-
-        // Bounce the dropped card(s) to the nearest clear spot so a drop never
-        // leaves an overlap. This runs ONCE, here on release — never per render —
-        // and moves ONLY the card(s) you dropped; every other node is a fixed
-        // obstacle, so nothing else shifts. Multi-select drags carry every
-        // dragged node in `nodes`.
-        const moved = nodes.length > 0 ? nodes : [node];
-        // Bounce the dropped card(s) to the nearest clear spot (collision over
-        // the core cards only; every other node is a fixed obstacle).
-        const resolved = resolveDroppedPositions(renderedNodesRef.current, moved);
-
-        // Commit the resolved (clear) position(s) locally so the card renders and
-        // stays exactly there.
-        setDragged((prev) => {
-          const next = new Map(prev);
-          for (const m of moved) {
-            const pos = resolved.get(m.id) ?? m.position;
-            next.set(m.id, pos);
-            // Mirror real (non-satellite) nodes into the layout cache so a later
-            // incremental relayout pins from where the card ended up.
-            if (m.data.kind !== "preview") {
-              layoutCache.current.positions.set(m.id, pos);
-            }
-          }
-          return next;
-        });
-
-        // Persist the resolved position(s) (shared per-project layout, merged
-        // server-side). Satellites are ephemeral (PR lifetime) — never persisted.
-        // Best-effort — the in-memory override already keeps the card placed.
-        const persist = moved.filter((m) => m.data.kind !== "preview");
-        if (persist.length > 0) {
-          void orpc.project.saveGraphLayout
-            .call({
-              id: project.id,
-              positions: Object.fromEntries(
-                persist.map((m) => {
-                  const p = resolved.get(m.id) ?? m.position;
-                  return [m.id, { x: p.x, y: p.y }];
-                }),
-              ),
-            })
-            .catch(() => {});
-        }
-      }}
-      onNodeMouseEnter={(_event, node) => {
-        // Preload the panel route's code-split chunk (and float its data
-        // prefetch, wired in that route's loader) on hover, so a subsequent
-        // click mounts the drawer with no network wait. Mirrors the target
-        // computation in onNodeClick below. Best-effort — a rejected/cancelled
-        // preload must never surface.
-        if (node.data.pending === "delete") return;
-        if (node.data.kind === "preview") {
-          const preview = node.data.preview as { id?: string } | undefined;
-          if (typeof preview?.id === "string" && preview.id.length > 0) {
-            void router
-              .preloadRoute({
-                to: "/$orgSlug/$projectSlug/graph/preview/$previewId",
-                params: { orgSlug, projectSlug, previewId: preview.id },
-              })
-              .catch(() => {});
-          }
-          return;
-        }
-        const resourceId = nodeTargetId(node);
-        void router
-          .preloadRoute({
-            to: "/$orgSlug/$projectSlug/graph/$resourceId",
-            params: { resourceId, orgSlug, projectSlug },
-          })
-          .catch(() => {});
-      }}
+          // Bounce the dropped card(s) to the nearest clear spot so a drop never
+          // leaves an overlap — moves ONLY the card(s) you dropped; every other
+          // node is a fixed obstacle. Multi-select drags carry every dragged
+          // node in `nodes`. Committing (local + best-effort persist) is a
+          // sibling helper so this handler stays a one-liner — see
+          // laid-out-nodes.ts.
+          const moved = nodes.length > 0 ? nodes : [node];
+          const resolved = resolveDroppedPositions(renderedNodesRef.current, moved);
+          commitNodeDrop({ projectId: project.id, moved, resolved, layoutCache, setDragged });
+        }}
+        onNodeMouseEnter={(_event, node) => preloadNodeRoute(node, router, { orgSlug, projectSlug })}
       onNodeClick={(_event, node) => {
         // A drag just ended — don't treat its mouseup as a click that would
         // reopen the panel.
         if (didDragRef.current) return;
-        // Pending-deletion nodes are disabled — no focus, no navigation.
-        if (node.data.pending === "delete") return;
-        // Preview satellites open the preview detail panel (deployment
-        // history, logs, env overrides). The URL lives on a button in there.
-        if (node.data.kind === "preview") {
-          const preview = node.data.preview as { id?: string } | undefined;
-          if (typeof preview?.id === "string" && preview.id.length > 0) {
-            focusNodeInView(node, setCenter);
-            void navigate({
-              to: "/$orgSlug/$projectSlug/graph/preview/$previewId",
-              params: { orgSlug, projectSlug, previewId: preview.id },
-            });
-          }
-          return;
-        }
-        focusNodeInView(node, setCenter);
-        // Applied resources carry the real resourceId on data; pending-create
-        // ghosts have none, so fall back to the node id (`${kind}:${name}`).
-        // The $resourceId route resolves either form — by resourceId for real
-        // resources, or by `${kind}:${name}` for a ghost (against the manifest
-        // diff) and across the ghost→applied handover.
-        const resourceId = nodeTargetId(node);
-        void navigate({
-          to: "/$orgSlug/$projectSlug/graph/$resourceId",
-          params: {
-            resourceId,
-            orgSlug,
-            projectSlug,
-          },
-        });
+        // React Flow's generic handler types the node as the untyped base
+        // `Node` — this canvas only ever renders `ResourceNode`, which always
+        // gets `ResourceNodeData` (see nodeTypes in graph-flow.tsx).
+        openNode(node as ResourceFlowNode);
       }}
+      onNodeContextMenu={contextMenu.onNodeContextMenu}
+      onPaneContextMenu={contextMenu.onPaneContextMenu}
     />
+      <GraphContextMenu
+        target={contextMenu.target}
+        onOpenChange={contextMenu.onOpenChange}
+        actions={contextMenu.actions}
+      />
+    </>
   );
 }

@@ -67,6 +67,9 @@ export function TwoFactorDialog({
     form.reset();
     setTotpURI(null);
     setBackupCodes(null);
+    enable.reset();
+    verify.reset();
+    disable.reset();
   };
   const close = (v: boolean) => {
     if (!v) reset();
@@ -77,7 +80,12 @@ export function TwoFactorDialog({
   const enable = useMutation({
     mutationFn: async () => {
       const res = await authClient.twoFactor.enable({ password: form.getFieldValue("password") });
-      if (res.error) throw new Error(res.error.message ?? "Couldn't start 2FA");
+      // `||`, not `??`: a crashed server can answer with an EMPTY error body,
+      // leaving `message` as "" — nullish coalescing would surface a blank
+      // error and the dialog would appear to silently do nothing.
+      if (res.error) {
+        throw new Error(res.error.message || res.error.statusText || "Couldn't start 2FA");
+      }
       return res.data;
     },
     onSuccess: (data) => {
@@ -87,7 +95,7 @@ export function TwoFactorDialog({
       // session in the background so its user object can't go stale mid-flow.
       void refreshSession();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+    // No onError toast — the failure renders inline in the dialog (stepError).
   });
 
   // Confirms the secret + flips twoFactorEnabled true.
@@ -96,7 +104,7 @@ export function TwoFactorDialog({
       const res = await authClient.twoFactor.verifyTotp({
         code: form.getFieldValue("code").trim(),
       });
-      if (res.error) throw new Error(res.error.message ?? "Invalid code");
+      if (res.error) throw new Error(res.error.message || res.error.statusText || "Invalid code");
     },
     onSuccess: async () => {
       await refreshSession();
@@ -105,20 +113,22 @@ export function TwoFactorDialog({
       setTotpURI(null);
       form.setFieldValue("code", "");
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Invalid code"),
+    // No onError toast — the failure renders inline in the dialog (stepError).
   });
 
   const disable = useMutation({
     mutationFn: async () => {
       const res = await authClient.twoFactor.disable({ password: form.getFieldValue("password") });
-      if (res.error) throw new Error(res.error.message ?? "Couldn't disable");
+      if (res.error) {
+        throw new Error(res.error.message || res.error.statusText || "Couldn't disable");
+      }
     },
     onSuccess: async () => {
       await refreshSession();
       toast.success("Two-factor authentication disabled");
       close(false);
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+    // No onError toast — the failure renders inline in the dialog (stepError).
   });
 
   // Panel selection: backup-codes (post-verify or fresh enable) → setup (have a
@@ -126,6 +136,17 @@ export function TwoFactorDialog({
   const showBackup = backupCodes !== null && totpURI === null;
   const showSetup = totpURI !== null;
   const step = resolveStep({ loading: sessionQ.isPending, showBackup, showSetup, enabled });
+
+  // Inline failure for whichever request the visible step can fire — a failed
+  // enable/disable/verify must never leave the dialog looking idle.
+  const stepError =
+    step === "idle"
+      ? enable.error
+      : step === "enabled"
+        ? disable.error
+        : step === "setup"
+          ? verify.error
+          : null;
 
   return (
     <Dialog open={open} onOpenChange={close}>
@@ -158,6 +179,12 @@ export function TwoFactorDialog({
             </form.Field>
           )}
         </form.Field>
+
+        {stepError && (
+          <p role="alert" className="text-[13px] text-destructive">
+            {stepError.message || "Something went wrong — please try again."}
+          </p>
+        )}
 
         <DialogFooter>
           <form.Subscribe selector={(s) => s.values}>

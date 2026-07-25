@@ -5,7 +5,7 @@
  * compose YAML emission.
  */
 
-import { getEngineAdapter } from "../../swarm/database-engines";
+import { getEngineAdapter, resolveDatabaseMount } from "../../swarm/database-engines";
 import {
   STACK_DEFAULT_HEALTHCHECK,
   type StackFile,
@@ -69,6 +69,8 @@ function applyOne(name: string, service: StackService): StackService {
   if (x.kind !== "database" || !x.engine) return service;
   const adapter = getEngineAdapter(x.engine);
   const identity = deriveIdentity(name, service);
+  const image = service.image ?? adapter.defaultImage;
+  const mount = resolveDatabaseMount(adapter, image);
 
   const identityEnv = adapter.buildEnv(identity);
   const command = service.command ?? adapter.buildCommand?.({ password: identity.password });
@@ -76,10 +78,10 @@ function applyOne(name: string, service: StackService): StackService {
 
   return {
     ...service,
-    image: service.image ?? adapter.defaultImage,
+    image,
     env: ensureEnvForDatabase(service, identityEnv),
     command,
-    volumes: ensureVolumes(service.volumes, adapter.mountTarget),
+    volumes: ensureVolumes(service.volumes, mount.target),
     healthcheck: service.healthcheck ?? {
       test: healthcheckTest,
       interval: STACK_DEFAULT_HEALTHCHECK.interval,

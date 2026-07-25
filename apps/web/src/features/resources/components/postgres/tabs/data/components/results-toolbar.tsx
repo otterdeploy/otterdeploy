@@ -110,10 +110,10 @@ export function ResultsToolbar({
             <HugeiconsIcon icon={Download01Icon} strokeWidth={2} className="size-3.5" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => exportAs("csv", false)}>
+            <DropdownMenuItem onClick={() => exportAs("csv", false)}>
               Export all to .csv
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => exportAs("json", false)}>
+            <DropdownMenuItem onClick={() => exportAs("json", false)}>
               Export all to .json
             </DropdownMenuItem>
             {selectable ? (
@@ -121,13 +121,13 @@ export function ResultsToolbar({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   disabled={selectedCount === 0}
-                  onSelect={() => exportAs("csv", true)}
+                  onClick={() => exportAs("csv", true)}
                 >
                   Export selected to .csv{selectedCount ? ` (${selectedCount})` : ""}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   disabled={selectedCount === 0}
-                  onSelect={() => exportAs("json", true)}
+                  onClick={() => exportAs("json", true)}
                 >
                   Export selected to .json{selectedCount ? ` (${selectedCount})` : ""}
                 </DropdownMenuItem>

@@ -9,6 +9,7 @@ import type * as z from "zod";
 import type { ServiceEnvVarRow } from "../service/queries";
 
 import { PLATFORM } from "../../constants";
+import { composeSwarmServiceName } from "../../stack/compose";
 import { getEngineAdapter } from "../../swarm";
 import { listServiceEnvVars } from "../service/queries";
 import {
@@ -66,6 +67,22 @@ async function resolveLatest(
   );
 }
 
+/** The manifest-tracked extras block (Phase 2 build config + lifecycle
+ *  work) — pulled out of mapServiceResource so that function's branch count
+ *  stays under the complexity cap. Every field defaults to null so a
+ *  pre-migration row still validates against the contract. */
+function serviceManifestExtras(service: ServiceResourceJoined["service"]) {
+  return {
+    preDeploy: service.preDeploy ?? null,
+    postDeploy: service.postDeploy ?? null,
+    buildConfig: service.buildConfig ?? null,
+    restartWindowMs: service.restartWindowMs ?? null,
+    diskLimitMb: service.diskLimitMb ?? null,
+    swapLimitMb: service.swapLimitMb ?? null,
+    pidsLimit: service.pidsLimit ?? null,
+  };
+}
+
 /**
  * Service-resource view mapper. Joins the user-authored env bag into the
  * response so the resource panel's Variables tab can render without a
@@ -108,17 +125,13 @@ export async function mapServiceResource(
     framework: record.service.framework ?? null,
     replicas: record.service.replicas,
     stackId: record.service.stackId ?? null,
+    serviceName: record.service.serviceName,
+    internalHostname: record.service.internalHostname,
     publicEnabled: record.service.publicEnabled,
     publicDomain: record.service.publicDomain,
     extraEnv,
     secretKeys,
-    preDeploy: record.service.preDeploy ?? null,
-    postDeploy: record.service.postDeploy ?? null,
-    buildConfig: record.service.buildConfig ?? null,
-    restartWindowMs: record.service.restartWindowMs ?? null,
-    diskLimitMb: record.service.diskLimitMb ?? null,
-    swapLimitMb: record.service.swapLimitMb ?? null,
-    pidsLimit: record.service.pidsLimit ?? null,
+    ...serviceManifestExtras(record.service),
   };
 }
 
@@ -136,7 +149,10 @@ export async function mapComposeResource(
     source: record.compose.source,
     stackName: record.compose.stackName,
     logoBrand: record.compose.logoBrand ?? null,
-    services: record.compose.services,
+    services: record.compose.services.map((s) => ({
+      ...s,
+      serviceName: composeSwarmServiceName(record.compose.stackName, s.name),
+    })),
   };
 }
 

@@ -48,10 +48,36 @@ const DENIED_ORPC_CODES = new Set(["UNAUTHORIZED", "FORBIDDEN", "NO_ACTIVE_ORGAN
 // Read-ish verbs that aren't worth a persisted audit row on success. We still
 // audit every *denial* (even of a read) — a blocked read is exactly what
 // auditors want — and every non-read mutation.
+//
+// This is the FALLBACK only — see `isReadProcedure` below. A name-prefix
+// allowlist drifts as endpoints are added with verbs it doesn't know (that's
+// exactly how od-1kc.2 happened: `edgeLogs.query`, `system.version`,
+// `metrics.platform`, `firewall.decisions` all read data but none of their
+// last path segments matched this list, so every poll of them landed a row —
+// 982 in one 90-minute session). Kept around for the handful of procedures
+// that don't carry REST `method` meta.
 const READ_VERB =
   /^(list|get|inspect|stream|search|count|fetch|read|resolve|view|preview|status|events|logs|metrics|stats)/i;
-function isReadAction(action: string): boolean {
+/** Exported for unit tests only — the audit gate itself always goes through
+ *  `isReadMethod` first (see `traceProcedure`). */
+export function isReadAction(action: string): boolean {
   return READ_VERB.test(action.split(".").pop() ?? action);
+}
+
+/** Authoritative HTTP-method read/write split. Most contracts in this repo
+ *  declare their method inside `.meta({ method })` (audit, postgres, system,
+ *  metrics, firewall, edge-logs, …); a handful (sshKeys, apiKeys,
+ *  certificates, notifications, webhooks) use oRPC's own `.route({ method })`
+ *  instead, which lands on a *different* field (`route`, not `meta`) —
+ *  checking only one would silently go blind on the other convention. `null`
+ *  when neither carries a method at all, so the caller falls back to the name
+ *  heuristic instead of silently treating it as a mutation (or a read). */
+export function isReadMethod(
+  meta: Record<string, unknown> | undefined,
+  route: { method?: string } | undefined,
+): boolean | null {
+  const method = route?.method ?? meta?.method;
+  return typeof method === "string" ? method.toUpperCase() === "GET" : null;
 }
 
 /** Resolve the audit actor from the request context (user session or API key). */
@@ -77,46 +103,56 @@ function classifyTraceError(error: unknown) {
   return { reason, denied, detail };
 }
 
-const traceProcedure = orpc.$context<Context>().middleware(async ({ context, path, next }) => {
-  const action = path.join(".");
-  const actor = traceActor(context);
-  // Top-level fields keep the console/observability wide event informative.
-  context.log.set({
-    action,
-    actor,
-    context: { tenantId: context.activeOrganizationId },
+const traceProcedure = orpc
+  .$context<Context>()
+  .middleware(async ({ context, path, procedure, next }) => {
+    const action = path.join(".");
+    const actor = traceActor(context);
+    // Prefer the procedure's own REST method (GET ⇒ read) — exact, and
+    // immune to naming drift. Only endpoints with no method at all (neither
+    // `.route()` nor `.meta({method})`) fall back to the verb-prefix guess.
+    const orpcDef = procedure["~orpc"];
+    const meta = orpcDef.meta as Record<string, unknown> | undefined;
+    const route = orpcDef.route as { method?: string } | undefined;
+    const isRead = isReadMethod(meta, route) ?? isReadAction(action);
+    // Top-level fields keep the console/observability wide event informative.
+    context.log.set({
+      action,
+      actor,
+      context: { tenantId: context.activeOrganizationId },
+    });
+    const start = performance.now();
+    try {
+      const result = await next();
+      context.log.set({
+        outcome: "success",
+        durationMs: performance.now() - start,
+      });
+      // Persist mutations; skip read successes. Tenant id rides on the
+      // top-level `context.tenantId` set above (the pg drain reads it); request
+      // meta (ip/ua/requestId) is filled into `audit.context` by auditEnricher.
+      if (!isRead) {
+        context.log.audit?.({ action, actor, outcome: "success" });
+      }
+      return result;
+    } catch (error) {
+      const { reason, denied, detail } = classifyTraceError(error);
+      context.log.set({
+        outcome: denied ? "denied" : "failure",
+        reason,
+        error: detail,
+        durationMs: performance.now() - start,
+      });
+      // Always audit denials (even of a read — a blocked read is exactly
+      // what auditors want); audit failures only for mutating actions.
+      if (denied) {
+        context.log.audit?.deny(reason, { action, actor });
+      } else if (!isRead) {
+        context.log.audit?.({ action, actor, outcome: "failure", reason });
+      }
+      throw error;
+    }
   });
-  const start = performance.now();
-  try {
-    const result = await next();
-    context.log.set({
-      outcome: "success",
-      durationMs: performance.now() - start,
-    });
-    // Persist mutations; skip read successes. Tenant id rides on the
-    // top-level `context.tenantId` set above (the pg drain reads it); request
-    // meta (ip/ua/requestId) is filled into `audit.context` by auditEnricher.
-    if (!isReadAction(action)) {
-      context.log.audit?.({ action, actor, outcome: "success" });
-    }
-    return result;
-  } catch (error) {
-    const { reason, denied, detail } = classifyTraceError(error);
-    context.log.set({
-      outcome: denied ? "denied" : "failure",
-      reason,
-      error: detail,
-      durationMs: performance.now() - start,
-    });
-    // Always audit denials; audit failures only for mutating actions.
-    if (denied) {
-      context.log.audit?.deny(reason, { action, actor });
-    } else if (!isReadAction(action)) {
-      context.log.audit?.({ action, actor, outcome: "failure", reason });
-    }
-    throw error;
-  }
-});
 
 export const publicProcedure = implement({
   apiKeys: apiKeysContract,

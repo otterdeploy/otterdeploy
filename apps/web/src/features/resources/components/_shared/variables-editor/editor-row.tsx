@@ -140,7 +140,17 @@ function ValueCell({
     <div className="relative flex-1">
       <Input
         value={showValue ? row.value : row.value.replace(/./g, "•")}
-        onChange={(e) => onChange({ value: e.target.value })}
+        onChange={(e) => {
+          const next = e.target.value;
+          // Typing the reference opener (`${{`) pops the picker right there —
+          // the advertised trigger, not just the { } button. Only on the
+          // TRANSITION into an open token so backspacing/editing around an
+          // already-open fragment doesn't keep re-opening it.
+          if (!pickerOpen && hasOpenRefToken(next) && !hasOpenRefToken(row.value)) {
+            onPickerOpenChange(true);
+          }
+          onChange({ value: next });
+        }}
         onFocus={() => {
           if (row.isSecret && !revealed) onToggleReveal();
         }}

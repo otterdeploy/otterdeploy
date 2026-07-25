@@ -106,7 +106,11 @@ function ServersRoute() {
         }
       />
 
-      <ClusterStatTiles servers={servers} tasksRunning={cluster?.tasksRunning ?? null} />
+      <ClusterStatTiles
+        servers={servers}
+        tasksRunning={cluster?.tasksRunning ?? null}
+        isSwarm={swarmView?.swarm ?? false}
+      />
 
       {cluster && cluster.projects.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">

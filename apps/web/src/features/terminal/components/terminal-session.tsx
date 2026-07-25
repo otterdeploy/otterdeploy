@@ -9,6 +9,8 @@ import { Terminal, useTerminal, type WTerm } from "@wterm/react";
 
 import type { ClientMessage } from "@/messages";
 
+import { Spinner } from "@/shared/components/ui/spinner";
+
 import { ServerMessage } from "@/messages";
 
 import type { SessionSource } from "../types";
@@ -80,7 +82,20 @@ function notImplementedMessage(source: SessionSource): string | null {
 export function TerminalSession({ source, active, onConnChange }: Props) {
   const { ref, write } = useTerminal();
   const wsRef = useRef<WebSocket | null>(null);
+  // `conn` itself only needs to flow out via `onConnChange` (reconnect UI
+  // elsewhere subscribes to it) — this component's own overlay is driven by
+  // `hasOutput` below instead, so the value never needs to be read locally.
   const [, setConn] = useState<ConnState>({ kind: "connecting" });
+  // Separate from `conn`: the WebSocket opens near-instantly (especially
+  // local/dev), but the server still has to spawn a shell and the PTY has to
+  // emit its first prompt bytes — that gap is where the "black void" lived,
+  // since `conn` was already "connected" before anything visible existed.
+  // Flips true on the FIRST byte written to the terminal from any source
+  // (server data, the reconnect-lost banner, the not-implemented notice, …)
+  // and never resets — a later reconnect after real output already has
+  // scrollback on screen, so there's no void left to cover.
+  const [hasOutput, setHasOutput] = useState(false);
+  const hasOutputRef = useRef(false);
 
   // Pin write + onConnChange in refs so the WebSocket effect doesn't re-run
   // when the parent re-renders. Without this, every parent render would tear
@@ -91,6 +106,16 @@ export function TerminalSession({ source, active, onConnChange }: Props) {
   useEffect(() => {
     writeRef.current = write;
   }, [write]);
+  // Wraps `writeRef.current` so every write path (server data, the
+  // reconnect/error banners, the not-implemented notice) clears the
+  // connecting overlay the moment anything actually appears on screen.
+  const writeVisible = (data: string | Uint8Array) => {
+    writeRef.current(data);
+    if (!hasOutputRef.current) {
+      hasOutputRef.current = true;
+      setHasOutput(true);
+    }
+  };
   const onConnChangeRef = useRef(onConnChange);
   useEffect(() => {
     onConnChangeRef.current = onConnChange;
@@ -126,7 +151,7 @@ export function TerminalSession({ source, active, onConnChange }: Props) {
     const url = buildWsUrl(source);
     if (!url) {
       const msg = notImplementedMessage(source);
-      if (msg) writeRef.current(msg);
+      if (msg) writeVisible(msg);
       onConnChangeRef.current?.({
         kind: "error",
         message: `${source.kind} backend not implemented`,
@@ -171,7 +196,7 @@ export function TerminalSession({ source, active, onConnChange }: Props) {
         }
         attempt += 1;
         update({ kind: "reconnecting", attempt });
-        writeRef.current(
+        writeVisible(
           `\r\n\x1b[33m[connection lost — reconnecting in ${Math.round(
             reconnectDelay / 1000,
           )}s…]\x1b[0m\r\n`,
@@ -182,7 +207,7 @@ export function TerminalSession({ source, active, onConnChange }: Props) {
 
       ws.onmessage = (e) => {
         if (e.data instanceof ArrayBuffer) {
-          writeRef.current(new Uint8Array(e.data));
+          writeVisible(new Uint8Array(e.data));
           return;
         }
         if (typeof e.data !== "string") return;
@@ -203,12 +228,12 @@ export function TerminalSession({ source, active, onConnChange }: Props) {
                 : msg.signal
                   ? ` (${msg.signal})`
                   : "";
-            writeRef.current(`\r\n[process exited${detail}]\r\n`);
+            writeVisible(`\r\n[process exited${detail}]\r\n`);
             return;
           }
           case "error":
             update({ kind: "error", message: `[${msg.code}] ${msg.message}` });
-            writeRef.current(`\r\n[${msg.code}] ${msg.message}\r\n`);
+            writeVisible(`\r\n[${msg.code}] ${msg.message}\r\n`);
             return;
           default: {
             const _exhaustive: never = msg;
@@ -235,6 +260,10 @@ export function TerminalSession({ source, active, onConnChange }: Props) {
   // old `display: none` toggle made Ghostty's autoResize see 0×0 and then
   // jump-resize on switch, which wrecked the scrollback).
   void active;
+  // Before the shell's first prompt lands, the xterm surface is just an empty
+  // black rect — indistinguishable from "broken". Cover it until the first
+  // byte of real content (success or error) actually lands.
+  const showConnecting = !hasOutput;
   return (
     <div className="relative h-full w-full overflow-hidden">
       <Terminal
@@ -259,6 +288,12 @@ export function TerminalSession({ source, active, onConnChange }: Props) {
           ws.send(JSON.stringify(msg));
         }}
       />
+      {showConnecting ? (
+        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-[oklch(0.12_0_0)]">
+          <Spinner className="size-4 text-muted-foreground" />
+          <span className="font-mono text-[11px] text-muted-foreground">Connecting…</span>
+        </div>
+      ) : null}
     </div>
   );
 }

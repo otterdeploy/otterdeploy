@@ -254,6 +254,16 @@ export const auth = betterAuth({
     organization({
       allowUserToCreateOrganization: true,
       organizationLimit: 10,
+      // better-auth ≥1.6 defaults this to TRUE, which blocks an unverified
+      // session from even VIEWING an invitation for its own email. This app
+      // wires no email-verification flow at all (no sendVerificationEmail, no
+      // requireEmailVerification — every account, including the owner's, stays
+      // emailVerified=false forever), so with the default a self-hosted install
+      // without SMTP deadlocks: an invitee who signs up via the shared invite
+      // link can NEVER verify and can NEVER accept. Disable it — accepting
+      // still requires a session whose email matches the invitation email.
+      // Revisit if/when a real verification flow ships.
+      requireEmailVerificationOnInvitation: false,
       // Invitations: an invite link expires after 48h if unaccepted; once
       // accepted, membership is permanent until revoked. Re-inviting the same
       // email cancels the prior pending invite so duplicates don't pile up.

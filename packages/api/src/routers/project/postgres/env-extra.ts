@@ -14,6 +14,7 @@ import { Result } from "better-result";
 import type { ProjectRef } from "../../scopes";
 
 import { defaultImageFor } from "../../../swarm";
+import { getLatestDeploymentForResource } from "../deployments";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "../errors";
 import { syncManifestDatabaseExtraEnv } from "../manifest";
 import {
@@ -63,13 +64,16 @@ export async function applyPostgresExtraEnv(
   // change. Always route through `updateSwarmDatabase` with the actual
   // engine from the record.
   const engine = record.database.engine;
-  // Extension-resolved image, not the bare engine default — an env change on
-  // a pgvector/postgis/timescale database must not downgrade its image.
-  const resolvedImage = resolvePostgresImage(
-    record.database.extensions ?? [],
-    defaultImageFor(engine),
-  );
-  const engineImage = resolvedImage.ok ? resolvedImage.image : defaultImageFor(engine);
+  // Base the roll on the image that's actually RUNNING (latest deployment
+  // row), not the bare engine default — an env change must never downgrade a
+  // pgvector/postgis/timescale image OR silently swap the operator's version
+  // pick (postgres:18 → 17-alpine). Same precedent as restart.ts. The
+  // extension resolver still wins when a non-contrib extension demands its
+  // bundled image.
+  const latest = await getLatestDeploymentForResource(ref.resourceId);
+  const currentImage = latest?.image ?? defaultImageFor(engine);
+  const resolvedImage = resolvePostgresImage(record.database.extensions ?? [], currentImage);
+  const engineImage = resolvedImage.ok ? resolvedImage.image : currentImage;
 
   // Roll the running container with the new env (volume + network stay put;
   // ~5s of dropped connections). rollDatabaseContainer owns the deployment

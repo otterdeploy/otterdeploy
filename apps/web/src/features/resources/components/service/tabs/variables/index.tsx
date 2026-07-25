@@ -95,9 +95,19 @@ export function ServiceVariablesTabBody({
         />
       )}
 
-      {!hintDismissed && <VariableRefHint onDismiss={() => setHintDismissed(true)} />}
+      {!hintDismissed && (
+        <VariableRefHint
+          context="service"
+          projectId={resource.projectId}
+          onPick={(token) => editorRef.current?.insertReference(token)}
+          onDismiss={() => setHintDismissed(true)}
+        />
+      )}
 
-      <VariablesEditor ref={editorRef} resource={resource} onSave={onSave} />
+      {/* countLabel null: the tab header above already shows "N Service
+          Variables" for the same rows — a second toolbar count read as a
+          separate "User Variables" bag and double-counted every var. */}
+      <VariablesEditor ref={editorRef} resource={resource} onSave={onSave} countLabel={null} />
     </div>
   );
 }

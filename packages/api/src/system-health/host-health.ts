@@ -54,6 +54,32 @@ export interface DockerUsage {
 
 export type ReclaimTarget = "images" | "build-cache" | "containers" | "branch-pool";
 
+/** Generous for a healthy daemon (`docker system df` is normally <1s even
+ *  with a few dozen objects); small enough that a wedged/overloaded daemon
+ *  degrades this section to "unavailable" instead of hanging the whole
+ *  card — and the RPC call behind it — forever (od-1kc.6: the Docker
+ *  client has no default request timeout, so a stalled daemon left the
+ *  Servers page's Host health card on its loading skeleton indefinitely).
+ *  Same pattern as `firewall/cscli.ts`'s `EXEC_TIMEOUT_MS`. */
+const DOCKER_USAGE_TIMEOUT_MS = 8_000;
+
+/** Exported for unit tests only. */
+export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), ms);
+    promise.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(null);
+      },
+    );
+  });
+}
+
 export interface HealthRecommendation {
   id: string;
   severity: "info" | "warning" | "critical";
@@ -183,11 +209,17 @@ export async function getHostHealth(): Promise<HostHealth> {
   const [memory, disk, dockerUsage, branchPool] = await Promise.all([
     readMemory(),
     readDisk(),
-    Result.tryPromise({ try: () => readDockerUsage(), catch: () => null }).then((r) =>
-      r.isOk() ? r.value : null,
+    withTimeout(
+      Result.tryPromise({ try: () => readDockerUsage(), catch: () => null }).then((r) =>
+        r.isOk() ? r.value : null,
+      ),
+      DOCKER_USAGE_TIMEOUT_MS,
     ),
-    Result.tryPromise({ try: () => getBranchPoolHealth(), catch: () => null }).then((r) =>
-      r.isOk() ? r.value : null,
+    withTimeout(
+      Result.tryPromise({ try: () => getBranchPoolHealth(), catch: () => null }).then((r) =>
+        r.isOk() ? r.value : null,
+      ),
+      DOCKER_USAGE_TIMEOUT_MS,
     ),
   ]);
   return {

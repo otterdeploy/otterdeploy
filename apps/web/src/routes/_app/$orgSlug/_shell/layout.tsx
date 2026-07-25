@@ -1,7 +1,7 @@
 import { ProjectSidebar } from "@/features/shell/components/sidebar/project-sidebar";
 
 import { SiteHeader } from "@/features/shell/components/site-header";
-import { UpdateBanner, useUpdateStatus } from "@/features/updates";
+import { UpdateBanner, useIsFirstSession, useUpdateStatus } from "@/features/updates";
 
 import { SidebarInset, SidebarProvider } from "@/shared/components/ui/sidebar";
 import { createFileRoute, Outlet, useMatch } from "@tanstack/react-router";
@@ -43,7 +43,8 @@ function RouteComponent() {
   // (sidebar, project tabs, full-height pages) — fold the banner's height in
   // here so they all stay inside the viewport instead of overflowing by a bar.
   const status = useUpdateStatus();
-  const bannerShown = status.bannerVisible && status.latest !== null;
+  const firstSession = useIsFirstSession();
+  const bannerShown = !firstSession && status.bannerVisible && status.latest !== null;
 
   return (
     <div

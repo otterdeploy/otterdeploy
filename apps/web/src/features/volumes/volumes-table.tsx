@@ -123,12 +123,12 @@ function RowMenu({
         <HugeiconsIcon icon={MoreVerticalIcon} strokeWidth={2} className="size-3.5" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">
-        <DropdownMenuItem onSelect={() => onInspect(volume)}>
+        <DropdownMenuItem onClick={() => onInspect(volume)}>
           <HugeiconsIcon icon={EyeIcon} strokeWidth={2} className="size-3.5" />
           Inspect
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onSelect={() => onRemove(volume)}>
+        <DropdownMenuItem variant="destructive" onClick={() => onRemove(volume)}>
           <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
           Remove…
         </DropdownMenuItem>

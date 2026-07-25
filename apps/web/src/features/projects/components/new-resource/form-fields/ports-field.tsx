@@ -31,7 +31,7 @@ const PROTOCOLS = [
 
 const PORTS_GRID = "grid grid-cols-[80px_100px_1fr_70px_50px] items-center gap-2";
 
-export function PortsField() {
+export function PortsField({ hostPlaceholder }: { hostPlaceholder?: string }) {
   const field = useFieldContext<Port[]>();
   const ports = field.state.value;
   return (
@@ -60,9 +60,13 @@ export function PortsField() {
           <Input
             className="font-mono"
             type="number"
-            value={p.port}
+            // 0 is the "not filled in yet" sentinel — render as empty, not a
+            // literal 0 the operator has to delete.
+            value={p.port === 0 ? "" : p.port}
+            placeholder="80"
             onChange={(e) => {
-              const next = ports.map((x, j) => (j === i ? { ...x, port: +e.target.value } : x));
+              const raw = e.target.value === "" ? 0 : +e.target.value;
+              const next = ports.map((x, j) => (j === i ? { ...x, port: raw } : x));
               field.handleChange(next);
             }}
           />
@@ -89,6 +93,9 @@ export function PortsField() {
           <Input
             className={cn("font-mono", !p.public && "opacity-50")}
             value={p.host}
+            // Empty host on a public row publishes at the derived hostname —
+            // surface it right where the omission happens.
+            placeholder={p.public ? hostPlaceholder : undefined}
             onChange={(e) => {
               const next = ports.map((x, j) => (j === i ? { ...x, host: e.target.value } : x));
               field.handleChange(next);

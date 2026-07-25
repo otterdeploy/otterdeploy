@@ -114,6 +114,21 @@ export function useEditorState({ serverEnv, serverSecretKeys }: UseEditorStateAr
 
   const discard = () => setRows(rowsFromServer(serverEnv, serverSecretKeys));
 
+  // Stamp the current draft as the new baseline — called after a successful
+  // save so ADDED/EDITED chips, the "N added" badge and Save/Discard clear
+  // immediately. The refetch that follows the save's invalidation re-baselines
+  // to the identical server snapshot (the effect above sees no pending rows),
+  // so this never fights the server state.
+  const commit = () =>
+    setRows((prev) =>
+      prev
+        .filter((r) => !r.deleted)
+        .map((r) => ({
+          ...r,
+          baseline: { key: r.key, value: r.value, isSecret: r.isSecret },
+        })),
+    );
+
   // Bulk replace — used by Raw mode commit and Paste dialog merge.
   // Preserves baselines for keys that already existed so the per-row
   // status pill still tells the truth.
@@ -156,5 +171,6 @@ export function useEditorState({ serverEnv, serverSecretKeys }: UseEditorStateAr
     restoreRow,
     discard,
     replaceAll,
+    commit,
   };
 }

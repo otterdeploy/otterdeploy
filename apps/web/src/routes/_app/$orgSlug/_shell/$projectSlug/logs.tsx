@@ -38,11 +38,9 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/logs")(
   staticData: { crumb: "Logs" },
   validateSearch: zLogsSearch,
   component: RouteComponent,
-  // Warm the resource collection (drives the log source filter) on hover so the
-  // tab renders from cache. Non-blocking + best-effort.
-  loader: () => {
-    void resourceCollection.preload();
-  },
+  // No loader preload: `resourceCollection` (drives the log source filter) is
+  // syncMode "on-demand" — preload() is a no-op there; it loads when the live
+  // query subscribes with its projectId filter.
 });
 
 function RouteComponent() {

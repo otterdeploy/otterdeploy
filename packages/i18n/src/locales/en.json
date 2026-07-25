@@ -16,7 +16,7 @@
   "auth": {
     "signIn": {
       "title": "Sign in",
-      "subtitle": "Welcome back. Enter your details to continue.",
+      "subtitle": "Enter your details to continue.",
       "emailLabel": "Email",
       "emailPlaceholder": "you@example.com",
       "passwordLabel": "Password",

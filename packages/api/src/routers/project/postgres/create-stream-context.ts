@@ -4,8 +4,9 @@
  * resolution, container/volume names) and builds the early hand-off resource
  * view. Pulled out of the stages so each file stays readable.
  */
-import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 import type { ProjectId } from "@otterdeploy/shared/id";
+
+import { DATABASE_ENGINES, type DatabaseEngine } from "@otterdeploy/shared/database-engines";
 
 import {
   knownPostgresExtensions,
@@ -33,6 +34,9 @@ export interface CreateStreamInput {
   organizationId: string;
   name: string;
   engine?: DatabaseEngine;
+  /** Image tag the operator picked in the wizard / declared in the manifest
+   *  (e.g. "18", "17-alpine"). Omitted → the engine's catalog default tag. */
+  version?: string;
   publicEnabled?: boolean;
   password?: string;
   /** Postgres extensions to bake into the create: the image is resolved from
@@ -79,8 +83,15 @@ export async function prepareCreateContext(input: CreateStreamInput): Promise<Cr
   // the post-create extensions pass surfaces the conflict as a typed error.
   const extensions =
     engine === "postgres" ? [...new Set(knownPostgresExtensions(input.extensions ?? []))] : [];
-  const resolvedImage = resolvePostgresImage(extensions, adapter.defaultImage);
-  const dbImage = resolvedImage.ok ? resolvedImage.image : adapter.defaultImage;
+  // Honour the operator's version pick (manifest `version` / wizard tag): it
+  // becomes the base `<repo>:<tag>` the extension resolver refines. Omitted →
+  // the catalog default. Extension-specific images (pgvector/postgis/…) still
+  // win, mirroring the review step's rendering in the create wizard.
+  const baseImage = input.version
+    ? `${DATABASE_ENGINES[engine].dockerImage}:${input.version}`
+    : adapter.defaultImage;
+  const resolvedImage = resolvePostgresImage(extensions, baseImage);
+  const dbImage = resolvedImage.ok ? resolvedImage.image : baseImage;
   // Caddy layer4 ALPN routing is engine-specific; only postgres has a wired
   // ALPN today. Other engines stay internal-only until we plumb their TCP
   // proxy path (redis raw TCP, mariadb mysql ALPN, etc.).

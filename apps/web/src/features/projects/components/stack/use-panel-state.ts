@@ -22,12 +22,6 @@ interface PanelState {
   height: number;
 }
 
-const DEFAULT_STATE: PanelState = {
-  open: true,
-  tab: "stack",
-  height: PANEL_DEFAULT_HEIGHT,
-};
-
 const storageKey = (projectId: string) => `otterdeploy:stack-panel:${projectId}`;
 
 function clampHeight(h: number): number {
@@ -36,21 +30,27 @@ function clampHeight(h: number): number {
   return Math.round(Math.min(Math.max(h, PANEL_MIN_HEIGHT), max));
 }
 
-function readState(projectId: string): PanelState {
-  if (typeof window === "undefined") return DEFAULT_STATE;
+/** `defaultOpen` only applies the first time a project's drawer is ever
+ *  read (no stored preference) — a brand-new project with zero resources
+ *  has nothing to show but boilerplate YAML, so it starts collapsed instead
+ *  of covering the empty-state CTA underneath. Any explicit operator
+ *  preference from a prior open/close always wins. */
+function readState(projectId: string, defaultOpen: boolean): PanelState {
+  const defaults: PanelState = { open: defaultOpen, tab: "stack", height: PANEL_DEFAULT_HEIGHT };
+  if (typeof window === "undefined") return defaults;
   try {
     const raw = window.localStorage.getItem(storageKey(projectId));
-    if (!raw) return DEFAULT_STATE;
+    if (!raw) return defaults;
     const parsed = JSON.parse(raw) as Partial<PanelState>;
     const tab: StackTab =
       parsed.tab === "activity" || parsed.tab === "traffic" ? parsed.tab : "stack";
     return {
-      open: parsed.open ?? true,
+      open: parsed.open ?? defaultOpen,
       tab,
       height: clampHeight(typeof parsed.height === "number" ? parsed.height : PANEL_DEFAULT_HEIGHT),
     };
   } catch {
-    return DEFAULT_STATE;
+    return defaults;
   }
 }
 
@@ -65,8 +65,12 @@ export interface StackPanelState extends PanelState {
   startDrag: (event: React.PointerEvent) => void;
 }
 
-export function useStackPanelState(projectId: string): StackPanelState {
-  const [state, setState] = useState<PanelState>(() => readState(projectId));
+/** `defaultOpen` — the drawer's first-visit-ever default (see readState);
+ *  defaults to `true` so existing callers that don't pass it keep the prior
+ *  always-open behavior. Only the graph route (which knows whether the
+ *  project has any resources yet) overrides it. */
+export function useStackPanelState(projectId: string, defaultOpen = true): StackPanelState {
+  const [state, setState] = useState<PanelState>(() => readState(projectId, defaultOpen));
   const [dragging, setDragging] = useState(false);
 
   // Same component instance survives project→project navigation (the route
@@ -75,7 +79,10 @@ export function useStackPanelState(projectId: string): StackPanelState {
   useEffect(() => {
     if (prevProjectId.current === projectId) return;
     prevProjectId.current = projectId;
-    setState(readState(projectId));
+    // defaultOpen is a first-render hint, not a reactive dependency —
+    // re-reading on it changing would fight the operator's own toggle.
+    setState(readState(projectId, defaultOpen));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   useEffect(() => {

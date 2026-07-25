@@ -20,12 +20,17 @@ interface Token {
 }
 type TokenKind = "comment" | "key" | "string" | "number" | "boolean" | "punct" | "plain";
 
+// Light-mode shades are solid -700 tones (not the dark mode's translucent
+// -300s) — the -300/NN pairing was tuned for a dark code-block background and
+// reads as near-invisible light gray on the light theme's near-white
+// surface. -700 clears WCAG AA (>=4.5:1) against `--background` (#fbfbfa)
+// with room to spare; dark mode keeps the original values unchanged.
 const KIND_CLASS: Record<TokenKind, string> = {
   comment: "text-muted-foreground/55 italic",
-  key: "text-sky-300/90",
-  string: "text-emerald-300/85",
-  number: "text-orange-300/85",
-  boolean: "text-violet-300/85",
+  key: "text-sky-700 dark:text-sky-300/90",
+  string: "text-emerald-700 dark:text-emerald-300/85",
+  number: "text-orange-700 dark:text-orange-300/85",
+  boolean: "text-violet-700 dark:text-violet-300/85",
   punct: "text-muted-foreground/70",
   plain: "text-foreground/85",
 };

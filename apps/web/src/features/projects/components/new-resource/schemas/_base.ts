@@ -11,5 +11,5 @@ export const nameFragment = {
 };
 
 export const kindFragment = {
-  kindId: z.string().min(1, "Select a resource type"),
+  kindId: z.string().min(1, "Pick a source to continue"),
 };

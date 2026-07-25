@@ -12,31 +12,21 @@
  */
 
 import type { ProjectSlug } from "@otterdeploy/shared/id";
+
 import { useState } from "react";
 
-import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import {
-  childServiceStatus,
-  type Task,
-} from "@/features/projects/components/graph/build-live-nodes";
 import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
-import { resourceCollection } from "@/features/resources/data/resource";
-import { serviceTasksCollection } from "@/features/resources/data/service-tasks";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/shared/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { orpc } from "@/shared/server/orpc";
 
-import type { ComposeService, StackServiceStatus } from "./panel-parts";
+import type { ComposeService } from "./panel-parts";
 
-import { baseStatus, ComposePanelHeader, ComposeStatusBar } from "./panel-parts";
+import { ComposePanelHeader, ComposeStatusBar } from "./panel-parts";
 import { ComposeFileTab, ComposeServicesTab, ComposeSettingsTab } from "./panel-tabs";
+import { useComposeServiceStatus } from "./use-compose-service-status";
 
 type ComposeTab = "deployments" | "services" | "file" | "settings";
 
@@ -67,57 +57,48 @@ interface ComposeResourcePanelProps {
   orgSlug: string;
   projectSlug: ProjectSlug;
   onClose: () => void;
+  /** Staged create — no resource row exists yet (resourceId is the empty
+   *  sentinel). Disables tabs/actions that need a real resourceId and skips
+   *  the resource-scoped fetches, mirroring the service/database draft
+   *  panels' `pending` mode. */
+  pending?: boolean;
+  /** Deep-link into a specific tab (e.g. the graph node context menu's
+   *  "Delete" opens straight on Settings). Unrecognized/absent values fall
+   *  back to the usual pending-aware default. */
+  initialTab?: string;
 }
+
+const COMPOSE_TABS: readonly ComposeTab[] = ["deployments", "services", "file", "settings"];
 
 export function ComposeResourcePanel({
   resource,
   orgSlug,
   projectSlug,
   onClose,
+  pending = false,
+  initialTab,
 }: ComposeResourcePanelProps) {
-  const [tab, setTab] = useState<ComposeTab>("deployments");
-
-  // Per-service status is derived from the EXACT same source the graph node
-  // reads: the stack's real child service resources + their live tasks. A
-  // compose child owns its swarm tasks under its OWN resourceId, so we key
-  // tasks by resourceId and run the shared `childServiceStatus` — the node and
-  // this panel then can never disagree about what's running.
-  const { data: taskRows } = useLiveQuery(
-    (q) =>
-      q.from({ d: serviceTasksCollection }).where(({ d }) => eq(d.projectId, resource.projectId)),
-    [resource.projectId],
-  );
-  // `stackId` lives only on the service variant, so we can't filter on it in the
-  // typed where-clause — scope by projectId and narrow to this stack's children
-  // in JS below.
-  const { data: projectResources } = useLiveQuery(
-    (q) => q.from({ r: resourceCollection }).where(({ r }) => eq(r.projectId, resource.projectId)),
-    [resource.projectId],
-  );
-  const tasksByResourceId = (() => {
-    const m = new Map<string, Task[]>();
-    for (const row of taskRows) m.set(row.resourceId, row.tasks as Task[]);
-    return m;
-  })();
-  const statusByName = (() => {
-    const m = new Map<string, StackServiceStatus>();
-    for (const c of projectResources) {
-      if (c.type !== "service" || c.stackId !== resource.resourceId) continue;
-      m.set(c.name, childServiceStatus(c, tasksByResourceId.get(c.resourceId) ?? []));
+  const [tab, setTab] = useState<ComposeTab>(() => {
+    if (!pending && initialTab && (COMPOSE_TABS as readonly string[]).includes(initialTab)) {
+      return initialTab as ComposeTab;
     }
-    return m;
-  })();
-  const base = baseStatus(resource.latestDeploymentStatus);
-  const serviceStatus = (name: string): StackServiceStatus =>
-    statusByName.get(name) ?? base ?? "offline";
+    return pending ? "services" : "deployments";
+  });
 
-  // The raw compose file (inline source) for the read-only viewer.
+  // Per-service status — see use-compose-service-status.ts. Reads the EXACT
+  // same source the graph node does, so the node and this panel can never
+  // disagree about what's running.
+  const serviceStatus = useComposeServiceStatus(resource);
+
+  // The raw compose file (inline source) for the read-only viewer. Skipped
+  // while pending — there's no resourceId yet to fetch it by.
   const fileQuery = useQuery(
     orpc.compose.get.queryOptions({
       input: {
         projectId: resource.projectId,
         resourceId: resource.resourceId,
       },
+      enabled: !pending,
     }),
   );
 
@@ -155,7 +136,7 @@ export function ComposeResourcePanel({
             resourceId: resource.resourceId,
           })
         }
-        redeploying={redeploy.isPending}
+        redeploying={pending || redeploy.isPending}
       />
 
       <ComposeStatusBar
@@ -173,16 +154,16 @@ export function ComposeResourcePanel({
       >
         <div className="border-b border-border/60 px-6">
           <TabsList variant="line" className="h-auto bg-transparent p-0">
-            <TabsTrigger value="deployments" className="px-2.5 py-2.5">
+            <TabsTrigger value="deployments" className="px-2.5 py-2.5" disabled={pending}>
               Deployments
             </TabsTrigger>
             <TabsTrigger value="services" className="px-2.5 py-2.5">
               Services
             </TabsTrigger>
-            <TabsTrigger value="file" className="px-2.5 py-2.5">
+            <TabsTrigger value="file" className="px-2.5 py-2.5" disabled={pending}>
               Compose
             </TabsTrigger>
-            <TabsTrigger value="settings" className="px-2.5 py-2.5">
+            <TabsTrigger value="settings" className="px-2.5 py-2.5" disabled={pending}>
               Settings
             </TabsTrigger>
           </TabsList>

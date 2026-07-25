@@ -89,7 +89,7 @@ export function HistoryRowMenu({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuItem
-            onSelect={() =>
+            onClick={() =>
               navigate({
                 to: "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId",
                 params: {
@@ -108,7 +108,7 @@ export function HistoryRowMenu({
           {showRollback && (
             <DropdownMenuItem
               disabled={rollbackMut.isPending}
-              onSelect={() => setConfirmOpen(true)}
+              onClick={() => setConfirmOpen(true)}
             >
               <HugeiconsIcon icon={RotateLeft01Icon} strokeWidth={2} className="size-3.5" />
               {rollbackMut.isPending ? "Rolling back…" : "Roll back to this"}

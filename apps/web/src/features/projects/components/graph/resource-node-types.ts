@@ -113,6 +113,12 @@ export interface ResourceNodeData extends Record<string, unknown> {
    *  (pending-create) nodes, which have no resource yet. */
   resourceId?: string;
   engine?: ResourceEngine;
+  /** Service/database-only: the bare DNS alias other resources on the
+   *  project's overlay network reach this one at. Absent for a compose
+   *  stack (no single hostname — each member has its own) and for a
+   *  pending-create ghost (nothing provisioned yet). Drives the graph node
+   *  context menu's "Copy internal hostname" action. */
+  internalHostname?: string;
   /** Detected framework for git-sourced services (next/node/python/…).
    *  When present, the header tile renders the framework's brand SVG
    *  in place of the generic kind icon, and the tech footer prefixes

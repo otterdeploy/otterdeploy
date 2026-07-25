@@ -1,4 +1,7 @@
+import type { ProjectId } from "@otterdeploy/shared/id";
+
 import { POSTGRES_EXTENSIONS, resolvePostgresImage } from "@otterdeploy/shared/postgres-extensions";
+import { useStore } from "@tanstack/react-form";
 
 import { RESOURCE_PRESETS, type ServiceKind } from "@/features/projects/data/service-kinds";
 import { Button } from "@/shared/components/ui/button";
@@ -11,9 +14,12 @@ import { traitsFor } from "../engine-traits";
 import { useFormContext } from "../form-context";
 import { SectionHeader } from "../form-primitives";
 import { I } from "../icons";
+import { domainsFromPorts } from "../to-manifest";
+import { usePublicHostPreview } from "../use-public-host-preview";
 
 interface StepReviewProps {
   kind: ServiceKind;
+  projectId: ProjectId;
 }
 
 interface ComposeArgs {
@@ -29,6 +35,9 @@ interface ComposeArgs {
   publicEnabled: boolean;
   /** Pre-built image ref for docker-kind services ("" for git builds). */
   serviceImage: string;
+  /** Public hostnames this service's manifest will seed (services only —
+   *  same mapper as the create payload, so preview == staged). */
+  serviceDomains: string[];
   healthPath: string;
   healthInterval: number;
 }
@@ -66,8 +75,12 @@ volumes:
       test: wget/curl http://127.0.0.1:<primary port>${args.healthPath.trim()}
       interval: ${args.healthInterval}s`
       : "";
+  const isPublic = args.serviceDomains.length > 0;
+  const routeLines = isPublic
+    ? args.serviceDomains.map((d) => `\n    # public route: https://${d}`).join("")
+    : "";
   return `services:
-  ${name}:${imageLine}${healthBlock}
+  ${name}:${imageLine}${routeLines}${healthBlock}
     deploy:
       replicas: ${replicas}
       resources:
@@ -75,13 +88,13 @@ volumes:
       update_config:
         order: start-first
         failure_action: rollback
-    networks: [internal]`;
+    networks: [internal${isPublic ? ", public" : ""}]`;
 }
 
 /** Derive every value the Review JSX renders from the live form state.
  *  Pulling this out of the render prop keeps that callback under the
  *  cyclomatic-complexity cap. */
-function buildReviewModel(kind: ServiceKind, values: ResourceFormState) {
+function buildReviewModel(kind: ServiceKind, values: ResourceFormState, derivedHost: string | null) {
   const { name, version, presetId, customCpu, customMem, replicas } = values;
   const { publicEnabled, healthPath, healthInterval } = values;
   const preset = RESOURCE_PRESETS.find((p) => p.id === presetId);
@@ -109,6 +122,15 @@ function buildReviewModel(kind: ServiceKind, values: ResourceFormState) {
         : values.image
       : "";
 
+  // Service access derives from the SAME mapper the create payload uses
+  // (domainsFromPorts) — the Review step previously read the database-only
+  // `publicEnabled` flag for services, so a Public port toggle reviewed as
+  // "Internal only" while the diff staged routes. Preview == staged, always.
+  const serviceDomains =
+    isDb || kind.id === "static"
+      ? []
+      : (domainsFromPorts(values.ports, derivedHost) ?? []).map((d) => d.domain);
+
   const compose = generateComposeYaml({
     isDb,
     kindId: kind.id,
@@ -121,6 +143,7 @@ function buildReviewModel(kind: ServiceKind, values: ResourceFormState) {
     replicas,
     publicEnabled,
     serviceImage,
+    serviceDomains,
     healthPath: kind.id === "static" ? "" : healthPath,
     healthInterval,
   });
@@ -134,6 +157,7 @@ function buildReviewModel(kind: ServiceKind, values: ResourceFormState) {
     isPg,
     replicas,
     publicEnabled,
+    serviceDomains,
     extensions,
     extensionLabels,
     compose,
@@ -141,8 +165,12 @@ function buildReviewModel(kind: ServiceKind, values: ResourceFormState) {
   };
 }
 
-export function StepReview({ kind }: StepReviewProps) {
+export function StepReview({ kind, projectId }: StepReviewProps) {
   const form = useFormContext();
+  // Hostname a public port with no typed host will publish at — resolved
+  // server-side so Review shows the same FQDN the create will stage.
+  const formName = useStore(form.store, (s) => s.values.name);
+  const derivedHost = usePublicHostPreview(projectId, formName);
   return (
     <form.Subscribe selector={(s) => s.values}>
       {(values) => {
@@ -155,11 +183,13 @@ export function StepReview({ kind }: StepReviewProps) {
           isPg,
           replicas,
           publicEnabled,
+          serviceDomains,
           extensions,
           extensionLabels,
           compose,
           mountTarget,
-        } = buildReviewModel(kind, values);
+        } = buildReviewModel(kind, values, derivedHost);
+        const isPublic = isDb ? publicEnabled : serviceDomains.length > 0;
 
         return (
           <>
@@ -190,7 +220,13 @@ export function StepReview({ kind }: StepReviewProps) {
                   {!isDb && <ReviewRow label="Replicas" value={`${replicas}`} />}
                   <ReviewRow
                     label="Access"
-                    value={publicEnabled ? "Public (exposed)" : "Internal only"}
+                    value={
+                      isPublic
+                        ? isDb
+                          ? "Public (exposed)"
+                          : `Public — ${serviceDomains.join(", ")}`
+                        : "Internal only"
+                    }
                   />
                   <ReviewRow label="Network" value={`${name}.internal`} last />
                 </Card>
@@ -206,9 +242,13 @@ export function StepReview({ kind }: StepReviewProps) {
                       On apply, Otterdeploy will{" "}
                       {isDb
                         ? "pull the image, provision a volume, and start the database"
-                        : `build the image, push to the internal registry, deploy ${replicas} replica${replicas > 1 ? "s" : ""} via Docker Swarm`}
+                        : kind.id === "docker"
+                          ? // Registry pulls don't build or push anything — the
+                            // exact ref from the Image step is pulled and run.
+                            `pull the image and deploy ${replicas} replica${replicas > 1 ? "s" : ""} via Docker Swarm`
+                          : `build the image from source and deploy ${replicas} replica${replicas > 1 ? "s" : ""} via Docker Swarm`}
                       , register internal DNS, and wire it onto the internal network — usually about{" "}
-                      {isDb ? "45" : "90"} seconds.
+                      {isDb || kind.id === "docker" ? "45" : "90"} seconds.
                     </p>
                   </div>
                 </Card>

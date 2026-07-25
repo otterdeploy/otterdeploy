@@ -16,7 +16,7 @@
   "auth": {
     "signIn": {
       "title": "Iniciar sesión",
-      "subtitle": "Bienvenido de nuevo. Introduce tus datos para continuar.",
+      "subtitle": "Introduce tus datos para continuar.",
       "emailLabel": "Correo electrónico",
       "emailPlaceholder": "tu@ejemplo.com",
       "passwordLabel": "Contraseña",

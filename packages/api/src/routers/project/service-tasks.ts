@@ -70,9 +70,24 @@ function buildSwarmNameToOwner(
   services: { resourceId: ResourceId; serviceName: string }[],
   composes: { resourceId: ResourceId; stackName: string; services: ComposeServiceSummary[] }[],
 ): Map<string, TaskOwner> {
+  // Compose fan-out names, resolved first so the child-row registration below
+  // can tag its tasks with the compose sub-service key. The child's resource
+  // NAME can differ from the compose key (pickResourceName suffixes on
+  // collision, e.g. stack "excalidraw" + service "excalidraw" → child
+  // "excalidraw-service"), so the sub-service key must ride the task itself or
+  // per-service stack rollups can never match tasks back to the file's entry.
+  const composeKeyBySwarmName = new Map<string, string>();
+  for (const c of composes) {
+    for (const sub of c.services) {
+      composeKeyBySwarmName.set(composeSwarmServiceName(c.stackName, sub.name), sub.name);
+    }
+  }
   const swarmNameToOwner = new Map<string, TaskOwner>();
   for (const s of services) {
-    swarmNameToOwner.set(s.serviceName, { resourceId: s.resourceId, service: null });
+    swarmNameToOwner.set(s.serviceName, {
+      resourceId: s.resourceId,
+      service: composeKeyBySwarmName.get(s.serviceName) ?? null,
+    });
   }
   for (const c of composes) {
     for (const sub of c.services) {

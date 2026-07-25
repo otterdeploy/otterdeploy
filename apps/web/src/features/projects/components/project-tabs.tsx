@@ -25,7 +25,10 @@ interface Tab {
 }
 
 const tabs: readonly Tab[] = [
-  { titleKey: "nav.overview", to: "/$orgSlug/$projectSlug", exact: true },
+  // No "Overview" tab: the project index route redirects straight to
+  // /graph (the graph IS the project overview), so an Overview entry here
+  // would never actually activate — clicking it lands on Graph with the
+  // Graph tab highlighted instead. See routes/.../$projectSlug/index.tsx.
   { titleKey: "nav.graph", to: "/$orgSlug/$projectSlug/graph" },
   {
     titleKey: "nav.deployments",
@@ -45,8 +48,8 @@ const tabs: readonly Tab[] = [
 ] as const;
 
 /**
- * Horizontal nav for the project shell — Overview / Graph / Deployments /
- * Logs / etc. Renders below the top `SiteHeader`, above the page content.
+ * Horizontal nav for the project shell — Graph / Deployments / Logs / etc.
+ * Renders below the top `SiteHeader`, above the page content.
  * Sliding underline tracks the active route via the same measure-active
  * pattern the shadcn `TabsList variant="line"` uses (ResizeObserver +
  * MutationObserver on `data-active`), reimplemented here because the

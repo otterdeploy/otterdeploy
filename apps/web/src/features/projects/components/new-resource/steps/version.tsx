@@ -110,8 +110,12 @@ export function StepVersion({ kind, projectId }: StepVersionProps) {
             }}
           >
             {(f) => (
+              // Match the section heading above (`traits.nameLabel`) — this is
+              // the same field under two labels otherwise ("Database name"
+              // heading, "Service name" input), and the description already
+              // names what it really controls: the internal hostname.
               <f.TextField
-                label="Service name"
+                label={traits.nameLabel}
                 className="font-mono"
                 description={`Reachable at ${name || kind.id}.internal:${port}`}
               />

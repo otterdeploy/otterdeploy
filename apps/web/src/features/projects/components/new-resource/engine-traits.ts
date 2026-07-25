@@ -22,7 +22,11 @@ export interface EngineTraits {
   mountTarget: string;
   /** Whether "Database name" is a meaningful concept (postgres/mariadb/mongodb yes, redis no). */
   hasNamedDatabase: boolean;
-  /** Word used for the writable unit — "Database name" vs "Instance name". */
+  /** Word used for the writable unit — "Database name" vs "Instance name". Used
+   *  for BOTH the section heading and the name field's own label (they used to
+   *  disagree: a "Database name" heading over an input hardcoded to "Service
+   *  name" — one field, two competing labels for the same value, which also
+   *  becomes the internal hostname, see the field's description). */
   nameLabel: string;
   /** Supports continuous backups / PITR-style recovery. */
   supportsPitr: boolean;

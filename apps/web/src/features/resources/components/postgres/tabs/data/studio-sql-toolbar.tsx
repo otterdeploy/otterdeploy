@@ -71,13 +71,13 @@ export function SqlToolbar({
               <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} className="size-3.5" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
-              <DropdownMenuItem onSelect={() => editorRef.current?.runCurrent()}>
+              <DropdownMenuItem onClick={() => editorRef.current?.runCurrent()}>
                 Run current statement
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => editorRef.current?.runSelection()}>
+              <DropdownMenuItem onClick={() => editorRef.current?.runSelection()}>
                 Run selection
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => editorRef.current?.runAll()}>
+              <DropdownMenuItem onClick={() => editorRef.current?.runAll()}>
                 Run all statements
               </DropdownMenuItem>
             </DropdownMenuContent>

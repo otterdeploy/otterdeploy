@@ -7,6 +7,7 @@
  */
 
 import type { ProjectSlug } from "@otterdeploy/shared/id";
+
 import { Activity, useState } from "react";
 
 import { useMutation } from "@tanstack/react-query";
@@ -15,12 +16,7 @@ import { toast } from "sonner";
 import { MetricsTab } from "@/features/resources/components/_shared/metrics/metrics-tab";
 import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
 import { ResourceTerminal } from "@/features/resources/components/_shared/resource-terminal";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/shared/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { orpc } from "@/shared/server/orpc";
 
 import type { PostgresBodyProps } from "./types";
@@ -44,7 +40,20 @@ interface RealResourcePanelProps {
   pending?: boolean;
   /** Manifest key for the staged database — the edit target in pending mode. */
   dbName?: string;
+  /** Deep-link into a specific tab (e.g. the graph node context menu's
+   *  "Delete" opens straight on Settings). Unrecognized/absent values fall
+   *  back to the usual pending-aware default. */
+  initialTab?: string;
 }
+
+const DATABASE_TABS: readonly ResourceTab[] = [
+  "deployments",
+  "data",
+  "metrics",
+  "variables",
+  "terminal",
+  "settings",
+];
 
 export function RealResourcePanel({
   resource,
@@ -53,8 +62,14 @@ export function RealResourcePanel({
   onClose,
   pending = false,
   dbName,
+  initialTab,
 }: RealResourcePanelProps) {
-  const [tab, setTab] = useState<ResourceTab>(pending ? "variables" : "deployments");
+  const [tab, setTab] = useState<ResourceTab>(() => {
+    if (!pending && initialTab && (DATABASE_TABS as readonly string[]).includes(initialTab)) {
+      return initialTab as ResourceTab;
+    }
+    return pending ? "variables" : "deployments";
+  });
 
   // Re-roll the running container with its current spec — same image, env,
   // and public flag. Distinct from the wizard's create; this just bounces the

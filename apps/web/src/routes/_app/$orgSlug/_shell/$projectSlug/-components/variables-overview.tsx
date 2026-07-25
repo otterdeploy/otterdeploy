@@ -164,7 +164,7 @@ export function OverviewMatrix({
         <span>{filtered.length}</span>
         <div className="flex-1" />
         <span className="font-mono">
-          1 – {filtered.length} of {filtered.length}
+          {filtered.length === 0 ? "0 of 0" : `1 – ${filtered.length} of ${filtered.length}`}
         </span>
       </div>
 

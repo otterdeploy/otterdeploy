@@ -10,10 +10,11 @@ export const PLATFORM = {
   },
   docker: {
     resourceNetwork: "otterdeploy-resources",
-    // Pinned to 17 — postgres:18+ refuses our /var/lib/postgresql/data mount
-    // (the v18 image manages its own version/cluster subdirs and considers a
-    // mount placed directly at .../data to be an "unused volume"). Upgrade
-    // requires changing the swarm mount target + a data-dir migration path.
+    // Used only by the legacy single-container dev provisioner in
+    // ./docker/postgres.ts (no current callers — the wizard's create path
+    // goes through the swarm adapter in ./swarm/database-engines/postgres.ts,
+    // which is version-aware). Kept pinned to 17 here since that file's mount
+    // target is hardcoded and hasn't been updated for 18's layout.
     postgresImage: "postgres:17-alpine",
   },
   swarm: {

@@ -31,6 +31,7 @@ export {
   deleteProjectResource,
   getProjectResource,
   listProjectResources,
+  previewResourcePublicHost,
   type ProjectResource,
 } from "./resources";
 

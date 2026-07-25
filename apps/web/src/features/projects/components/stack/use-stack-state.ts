@@ -14,6 +14,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { invalidateManifestConsumers } from "@/features/projects/hooks/use-manifest-stage";
 import { orpc } from "@/shared/server/orpc";
 
 export interface UseStackStateInput {
@@ -34,13 +35,25 @@ export function useStackState({ projectId }: UseStackStateInput) {
   const [editing, setEditing] = useState(false);
   const [buffer, setBuffer] = useState("");
 
-  // Seed the buffer once we have either the saved file or, failing that,
-  // the rendered file. Subsequent re-renders skip — the user's in-progress
-  // edits aren't clobbered by a background refetch. Adjust in render (not an
-  // effect) so seeding doesn't cost an extra render pass; React bails out of
-  // the set when the buffer already holds the seed value.
-  if (buffer.length === 0 && diffQuery.data) {
-    setBuffer(diffQuery.data.savedYaml ?? diffQuery.data.renderedYaml);
+  // Seed / re-seed the buffer from the latest baseline (saved file or,
+  // failing that, the rendered file). Adjust in render (not an effect) so
+  // seeding doesn't cost an extra render pass; React bails out of the set
+  // when the buffer already holds the seed value.
+  //
+  // Re-seed on baseline CHANGE, not just first load: applying a manifest
+  // (wizard create, pending-bar Deploy) re-renders the stack yaml, and the
+  // old seed-once guard kept the drawer pinned to the day-0 `services: {}`
+  // until a hard reload. The user's in-progress edits still win — we only
+  // follow the baseline while the buffer is untouched (not editing, and the
+  // buffer still equals the previously seeded baseline).
+  const [seededBaseline, setSeededBaseline] = useState<string | null>(null);
+  if (diffQuery.data) {
+    const baseline = diffQuery.data.savedYaml ?? diffQuery.data.renderedYaml;
+    if (baseline !== seededBaseline) {
+      const untouched = seededBaseline === null || (!editing && buffer === seededBaseline);
+      if (untouched) setBuffer(baseline);
+      setSeededBaseline(baseline);
+    }
   }
 
   const saveMut = useMutation(
@@ -64,6 +77,10 @@ export function useStackState({ projectId }: UseStackStateInput) {
         void queryClient.invalidateQueries({
           queryKey: orpc.project.stack.diff.queryKey({ input: { projectId } }),
         });
+        // Stack apply creates/updates real resources — refresh the manifest
+        // diff/get and the prefix-keyed graph collections too, so new nodes
+        // appear without a reload.
+        void invalidateManifestConsumers(projectId);
       },
       onError: (err) => toast.error(err.message ?? "Apply failed"),
     }),

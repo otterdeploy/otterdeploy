@@ -12,7 +12,7 @@ import { Docker } from "@otterdeploy/docker";
 import type { DatabaseSpec, DatabaseStatus } from "./types";
 
 import { createStackDeployLog, nullStackDeployLog } from "../lib/deploy-log";
-import { getEngineAdapter } from "../swarm/database-engines";
+import { getEngineAdapter, resolveDatabaseMount } from "../swarm/database-engines";
 import {
   createAndStart,
   ensureBridgeNetwork,
@@ -26,6 +26,8 @@ export async function runDatabase(input: DatabaseSpec): Promise<DatabaseStatus> 
   const docker = Docker.fromEnv();
   const adapter = getEngineAdapter(input.engine);
   const networkName = await ensureBridgeNetwork(docker, input.projectSlug);
+  const image = input.image ?? adapter.defaultImage;
+  const mount = resolveDatabaseMount(adapter, image);
 
   const userEnv = Object.entries(input.extraEnv ?? {})
     .filter(([k]) => !adapter.reservedEnvKeys.has(k))
@@ -55,13 +57,13 @@ export async function runDatabase(input: DatabaseSpec): Promise<DatabaseStatus> 
   // identical either way — which is what makes the public toggle roll-free.
   const hostConfig: Record<string, unknown> = {
     RestartPolicy: { Name: "on-failure", MaximumRetryCount: 5 },
-    Mounts: [{ Type: "volume", Source: input.volumeName, Target: adapter.mountTarget }],
+    Mounts: [{ Type: "volume", Source: input.volumeName, Target: mount.target }],
   };
 
   const options: Record<string, unknown> = {
     name: input.serviceName,
-    Image: input.image ?? adapter.defaultImage,
-    Env: [...userEnv, ...identityEnv],
+    Image: image,
+    Env: [...userEnv, ...identityEnv, ...mount.env],
     ...(cmd ? { Cmd: cmd } : {}),
     Labels: labels,
     // A container's UTS hostname is set via Linux `sethostname`, which caps the
