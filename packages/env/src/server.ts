@@ -16,6 +16,10 @@ export const env = createEnv({
 
     BETTER_AUTH_URL: z.url(),
     BETTER_AUTH_SECRET: z.string().min(32),
+    // One-time credential printed by the installer and required to create the
+    // first account. It is optional for upgraded installs that already have an
+    // installation owner; a fresh install without it fails signup closed.
+    OTTERDEPLOY_BOOTSTRAP_TOKEN: z.string().min(32).optional(),
 
     CORS_ORIGIN: z
       .string()

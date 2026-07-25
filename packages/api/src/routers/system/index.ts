@@ -1,9 +1,9 @@
 /**
  * Platform self-update router. Reads (version, settings, check, live progress)
- * require `platform:read`; mutations (apply, save settings) require
- * `platform:update` — admins/owners only. See docs + contract.ts.
+ * require the server-owned installation administrator identity. Organization
+ * owner/admin roles intentionally grant no authority over this router.
  */
-import { requirePermission } from "../..";
+import { requireInstallAdmin } from "../..";
 import { renderInstalledCaddyfile } from "../../caddy";
 import { getHostHealth, growBranchPool, reclaimSpace } from "../../system-health";
 import { cancelUpdate, startApply } from "./apply";
@@ -11,66 +11,56 @@ import { checkForUpdate, getUpdateSettings, getVersionInfo, saveUpdateSettings }
 import { snapshot, streamProgress } from "./state";
 
 export const systemRouter = {
-  version: requirePermission({ platform: ["read"] }).system.version.handler(async () => {
+  version: requireInstallAdmin().system.version.handler(async () => {
     return getVersionInfo();
   }),
 
-  caddyfile: requirePermission({ platform: ["read"] }).system.caddyfile.handler(async () => {
+  caddyfile: requireInstallAdmin().system.caddyfile.handler(async () => {
     return renderInstalledCaddyfile();
   }),
 
   updateSettings: {
-    get: requirePermission({ platform: ["read"] }).system.updateSettings.get.handler(async () => {
+    get: requireInstallAdmin().system.updateSettings.get.handler(async () => {
       return getUpdateSettings();
     }),
-    save: requirePermission({ platform: ["update"] }).system.updateSettings.save.handler(
-      async ({ input, context }) => {
-        context.log.set({ target: { type: "platform" } });
-        return saveUpdateSettings(input);
-      },
-    ),
+    save: requireInstallAdmin().system.updateSettings.save.handler(async ({ input, context }) => {
+      context.log.set({ target: { type: "platform" } });
+      return saveUpdateSettings(input);
+    }),
   },
 
-  checkForUpdate: requirePermission({ platform: ["read"] }).system.checkForUpdate.handler(
-    async () => {
-      return checkForUpdate();
-    },
-  ),
+  checkForUpdate: requireInstallAdmin().system.checkForUpdate.handler(async () => {
+    return checkForUpdate();
+  }),
 
-  apply: requirePermission({ platform: ["update"] }).system.apply.handler(async ({ context }) => {
+  apply: requireInstallAdmin().system.apply.handler(async ({ context }) => {
     context.log.set({ target: { type: "platform" }, action: "platform.update" });
     return startApply();
   }),
 
-  cancelUpdate: requirePermission({ platform: ["update"] }).system.cancelUpdate.handler(
-    async ({ context }) => {
-      context.log.set({ target: { type: "platform" }, action: "platform.update-cancel" });
-      return cancelUpdate();
-    },
-  ),
+  cancelUpdate: requireInstallAdmin().system.cancelUpdate.handler(async ({ context }) => {
+    context.log.set({ target: { type: "platform" }, action: "platform.update-cancel" });
+    return cancelUpdate();
+  }),
 
-  updateState: requirePermission({ platform: ["read"] }).system.updateState.handler(async () => {
+  updateState: requireInstallAdmin().system.updateState.handler(async () => {
     return snapshot();
   }),
 
-  progress: requirePermission({ platform: ["read"] }).system.progress.handler(async function* ({
-    signal,
-  }) {
+  progress: requireInstallAdmin().system.progress.handler(async function* ({ signal }) {
     yield* streamProgress(signal);
   }),
 
-  hostHealth: requirePermission({ platform: ["read"] }).system.hostHealth.handler(async () => {
+  hostHealth: requireInstallAdmin().system.hostHealth.handler(async () => {
     return getHostHealth();
   }),
 
-  reclaim: requirePermission({ platform: ["update"] }).system.reclaim.handler(
-    async ({ input, context }) => {
-      context.log.set({ target: { type: "platform" }, action: "platform.reclaim" });
-      return reclaimSpace(input.targets);
-    },
-  ),
+  reclaim: requireInstallAdmin().system.reclaim.handler(async ({ input, context }) => {
+    context.log.set({ target: { type: "platform" }, action: "platform.reclaim" });
+    return reclaimSpace(input.targets);
+  }),
 
-  growBranchPool: requirePermission({ platform: ["update"] }).system.growBranchPool.handler(
+  growBranchPool: requireInstallAdmin().system.growBranchPool.handler(
     async ({ input, context }) => {
       context.log.set({ target: { type: "platform" }, action: "platform.grow-branch-pool" });
       return growBranchPool(input?.stepBytes);

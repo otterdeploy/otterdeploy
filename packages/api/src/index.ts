@@ -13,6 +13,7 @@ import {
   isReadAction as isReadActionPath,
   requireProjectScope,
 } from "./authz/api-key-scope";
+import { isInstallAdminActor } from "./authz/install-admin";
 import { apiKeysContract } from "./routers/apiKeys/contract";
 import { auditContract } from "./routers/audit/contract";
 import { backupsContract } from "./routers/backups/contract";
@@ -240,6 +241,30 @@ const orgScopedMiddleware = orpc
   });
 
 export const orgScopedProcedure = publicProcedure.use(orgScopedMiddleware);
+
+/**
+ * Installation administration is a server-owned user attribute, never an
+ * organization role and never an organization API key. Keep this narrow gate
+ * distinct while the broader capability service is built under od-5j8.2.
+ */
+const installAdminMiddleware = orpc
+  .$context<Context>()
+  .errors({
+    FORBIDDEN: {
+      status: 403,
+      message: "Installation administrator access is required.",
+    },
+  })
+  .middleware(async ({ context, next, errors }) => {
+    if (!isInstallAdminActor(context)) {
+      throw errors.FORBIDDEN();
+    }
+    return next();
+  });
+
+export function requireInstallAdmin() {
+  return orgScopedProcedure.use(installAdminMiddleware);
+}
 
 /**
  * Constrains an API-key actor to the project(s) its scope allows. `projectId`

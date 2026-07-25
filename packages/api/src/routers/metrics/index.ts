@@ -1,4 +1,4 @@
-import { orgScopedProcedure } from "../..";
+import { orgScopedProcedure, requireInstallAdmin } from "../..";
 import {
   currentQueueSnapshot,
   queryDeployThroughput,
@@ -41,7 +41,7 @@ export const metricsRouter = {
     },
   ),
 
-  platform: orgScopedProcedure.metrics.platform.handler(async ({ input, context }) => {
+  platform: requireInstallAdmin().metrics.platform.handler(async ({ input, context }) => {
     const since = new Date(Date.now() - input.windowMinutes * 60 * 1000);
     const [queueSnapshot, waitingSeries, activeSeries, deploy] = await Promise.all([
       currentQueueSnapshot(),

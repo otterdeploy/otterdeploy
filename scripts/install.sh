@@ -539,11 +539,12 @@ prepare_tree() {
 # ── 6. environment file ─────────────────────────────────────────────────────
 write_env() {
   step "Writing $ENV_FILE"
-  local pg_pass auth_secret pg_user pg_db pool_line public_host public_url cors_origin
+  local pg_pass auth_secret bootstrap_token pg_user pg_db pool_line public_host public_url cors_origin
   pg_user="$(keep_or POSTGRES_USER otterdeploy)"
   pg_db="$(keep_or POSTGRES_DB otterdeploy)"
   pg_pass="$(keep_or POSTGRES_PASSWORD "$(random_secret)")"
   auth_secret="$(keep_or BETTER_AUTH_SECRET "$(random_secret)")"
+  bootstrap_token="$(keep_or OTTERDEPLOY_BOOTSTRAP_TOKEN "$(random_secret)")"
   public_host="$(keep_or PUBLIC_HOST "$(detect_public_host)")"
   # Auth authority + CORS origin. The server serves the dashboard on the same
   # origin (the control-plane port), so both default to that URL. keep_or
@@ -557,6 +558,7 @@ write_env() {
     say "       POSTGRES_USER=$pg_user  POSTGRES_DB=$pg_db  POSTGRES_PASSWORD=********"
     say "       DATABASE_URL=postgres://$pg_user:********@postgres:5432/$pg_db"
     say "       REDIS_URL=redis://redis:6379  BETTER_AUTH_SECRET=********"
+    say "       OTTERDEPLOY_BOOTSTRAP_TOKEN=********"
     say "       OTTERDEPLOY_DATA_DIR=$DATA_DIR  OTTERDEPLOY_INSTALL_DIR=$INSTALL_DIR"
     say "       PUBLIC_HOST=$public_host  CONTROL_PLANE_PORT=$CONTROL_PLANE_PORT"
     say "       BETTER_AUTH_URL=$public_url  CORS_ORIGIN=$cors_origin  NODE_ENV=production"
@@ -582,6 +584,9 @@ DATABASE_URL=postgres://$pg_user:$pg_pass@postgres:5432/$pg_db
 REDIS_URL=redis://redis:6379
 
 BETTER_AUTH_SECRET=$auth_secret
+# Required only for the first account. Account creation becomes invitation-only
+# as soon as the installation owner exists.
+OTTERDEPLOY_BOOTSTRAP_TOKEN=$bootstrap_token
 # Auth authority + CORS origin — the server serves the dashboard on the same
 # origin, so both point at the control-plane URL. Override (and re-run) if you
 # reach the dashboard at a different host/domain, or better-auth cookies won't
@@ -596,6 +601,25 @@ NODE_ENV=production
 BRANCH_ZFS_POOL=$pool_line
 EOF
   say " - Secrets generated (and preserved across re-runs)"
+}
+
+report_bootstrap_token() {
+  local token
+  token="$(env_value OTTERDEPLOY_BOOTSTRAP_TOKEN)"
+  [ -n "$token" ] || return 0
+
+  # Bypass stdout/tee so this secret is shown to the controlling terminal but
+  # never copied into the persistent installer log. On unattended/no-TTY runs,
+  # point the operator at the root-readable env file instead.
+  if [ -w /dev/tty ]; then
+    {
+      printf '\n\033[1mFirst-account bootstrap token\033[0m\n'
+      printf '  %s\n' "$token"
+      printf 'Paste this into the first sign-up form. Later accounts require an invitation.\n'
+    } > /dev/tty
+  else
+    say "First-account bootstrap token is stored in $ENV_FILE (root-readable)."
+  fi
 }
 
 # ── 7. ZFS branching pool ───────────────────────────────────────────────────
@@ -842,6 +866,7 @@ report_access() {
 
   say ""
   printf '\033[32motterdeploy is up.\033[0m\n'
+  report_bootstrap_token
   say ""
   say "Access the dashboard at:"
   [ -n "$v4" ] && say "  Public IPv4:  http://$v4:$CONTROL_PLANE_PORT"

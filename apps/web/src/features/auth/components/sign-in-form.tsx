@@ -27,7 +27,13 @@ function safeServerRedirect(target: string): string | null {
   return null;
 }
 
-export function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
+export function SignInForm({
+  allowSignUp,
+  onSwitchToSignUp,
+}: {
+  allowSignUp: boolean;
+  onSwitchToSignUp: () => void;
+}) {
   const navigate = useNavigate();
   const { redirect } = useSearch({ from: "/sign-in" });
   const { t } = useTranslation();
@@ -168,16 +174,22 @@ export function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void 
 
       <SocialSignIn dividerLabel="or continue with" />
 
-      <p className="mt-6 text-[13px] text-muted-foreground">
-        {t("auth.signIn.noAccount")}{" "}
-        <button
-          type="button"
-          onClick={onSwitchToSignUp}
-          className="font-medium text-foreground underline-offset-4 hover:underline"
-        >
-          {t("auth.signIn.createAccount")}
-        </button>
-      </p>
+      {allowSignUp ? (
+        <p className="mt-6 text-[13px] text-muted-foreground">
+          {t("auth.signIn.noAccount")}{" "}
+          <button
+            type="button"
+            onClick={onSwitchToSignUp}
+            className="font-medium text-foreground underline-offset-4 hover:underline"
+          >
+            {t("auth.signIn.createAccount")}
+          </button>
+        </p>
+      ) : (
+        <p className="mt-6 text-[13px] text-muted-foreground">
+          Account creation is invitation-only on this installation.
+        </p>
+      )}
     </div>
   );
 }

@@ -9,7 +9,7 @@ import { createAuditPgDrain } from "@otterdeploy/api/audit/pg-drain";
 import { createContext } from "@otterdeploy/api/context";
 import { appRouter } from "@otterdeploy/api/routers/index";
 import { agentHealthIngestHandler } from "@otterdeploy/api/system-health";
-import { auth } from "@otterdeploy/auth";
+import { auth, getRegistrationMode } from "@otterdeploy/auth";
 import { env } from "@otterdeploy/env/server";
 import { workbenchQueues } from "@otterdeploy/jobs";
 import {
@@ -131,6 +131,13 @@ app.onError((error, c) => {
     { message: parsed.message, why: parsed.why, fix: parsed.fix },
     parsed.status as ContentfulStatusCode,
   );
+});
+
+// Public but deliberately low-information: the sign-in page only needs to know
+// whether to offer the one-time bootstrap form or invitation-only registration.
+app.get("/api/auth/bootstrap-status", async (c) => {
+  c.header("Cache-Control", "no-store");
+  return c.json({ mode: await getRegistrationMode() });
 });
 
 // Device-code responses get their verification URLs rebased onto the canonical

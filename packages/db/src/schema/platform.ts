@@ -17,6 +17,10 @@ export const PLATFORM_SETTINGS_ID = "platform";
 
 export const platformSettings = pgTable("platform_settings", {
   id: text("id").primaryKey().default(PLATFORM_SETTINGS_ID),
+  /** Irreversible first-account bootstrap marker. This is intentionally
+   * independent from the current user count: deleting the owner row must never
+   * make the installer token valid again. */
+  bootstrapCompletedAt: timestamp("bootstrap_completed_at"),
   /** Hostname the otterdeploy UI itself answers on. Set from the workspace
    *  settings page ("Control plane" card). When present, reconcile emits a
    *  Caddy site block proxying it to the control plane; better-auth already

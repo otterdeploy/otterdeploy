@@ -83,7 +83,33 @@ export interface CreateContextOptions {
   broadcast: (resource: string) => void;
 }
 
-export async function createContext({ context, broadcast }: CreateContextOptions) {
+/** Deliberately narrow session view consumed by the API layer. Passing Better
+ * Auth's complete inferred session type through every oRPC procedure makes
+ * declaration output enormous and exposes fields handlers never need. */
+export interface SessionActor {
+  user: {
+    id: string;
+    email: string;
+    isInstallAdmin: boolean;
+  };
+  session: {
+    activeOrganizationId?: string | null;
+  };
+}
+
+export interface RequestContext {
+  session: SessionActor | null;
+  apiKey: ApiKeyActor | null;
+  activeOrganizationId: OrgId | null;
+  headers: Headers;
+  log: RequestLogger;
+  broadcast: (resource: string) => void;
+}
+
+export async function createContext({
+  context,
+  broadcast,
+}: CreateContextOptions): Promise<RequestContext> {
   const headers = context.req.raw.headers;
 
   const session = await auth.api.getSession({
@@ -103,7 +129,7 @@ export async function createContext({ context, broadcast }: CreateContextOptions
   const log = context.get("log") as RequestLogger;
 
   return {
-    session,
+    session: session as SessionActor | null,
     apiKey,
     // Active org: the session's for cookie/bearer actors, else the key's owning
     // org so org-scoped procedures resolve a tenant for an API-key actor.

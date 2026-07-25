@@ -1,6 +1,6 @@
 import { matchError } from "better-result";
 
-import { orgScopedProcedure, requirePermission } from "../..";
+import { orgScopedProcedure, requireInstallAdmin, requirePermission } from "../..";
 import { setServerAvailability } from "./availability";
 import {
   createServer,
@@ -160,7 +160,7 @@ export const serverRouter = {
     return getServerHealth({ organizationId: context.activeOrganizationId });
   }),
 
-  joinTokens: orgScopedProcedure.server.joinTokens.handler(async () => {
+  joinTokens: requireInstallAdmin().server.joinTokens.handler(async () => {
     return getSwarmJoinTokens();
   }),
 

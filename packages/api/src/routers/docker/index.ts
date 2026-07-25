@@ -1,4 +1,4 @@
-import { orgScopedProcedure, requirePermission } from "../..";
+import { requireInstallAdmin } from "../..";
 import {
   inspectContainer,
   inspectImage,
@@ -39,99 +39,98 @@ function throwDockerError(result: Failed, errors: MutationErrors): never {
   throw errors.SERVER_ERROR({ message: result.reason });
 }
 
-// Every read (list / inspect / logs / nodes) requires an authenticated org
-// actor, matching terminal.targets — the lists were previously publicProcedure,
-// which left raw host-daemon inventory unauthenticated. Destructive daemon
-// surgery is install-wide platform administration, gated like system.* on
-// `platform:update` (admins/owners).
-const platformWrite = requirePermission({ platform: ["update"] });
-
 export const dockerRouter = {
   containers: {
-    list: orgScopedProcedure.docker.containers.list.handler(async ({ input, errors }) => {
+    list: requireInstallAdmin().docker.containers.list.handler(async ({ input, errors }) => {
       const result = await listContainers(input);
       if (!result.ok) throw errors.SERVER_ERROR({ message: result.reason });
       return result.items;
     }),
-    inspect: orgScopedProcedure.docker.containers.inspect.handler(async ({ input, errors }) => {
+    inspect: requireInstallAdmin().docker.containers.inspect.handler(async ({ input, errors }) => {
       const result = await inspectContainer(input.id);
       if (!result.ok) throwDockerError(result, errors);
       return result.items;
     }),
-    logs: orgScopedProcedure.docker.containers.logs.handler(async ({ input, errors }) => {
+    logs: requireInstallAdmin().docker.containers.logs.handler(async ({ input, errors }) => {
       const result = await tailContainerLogs(input.id, input.tail ?? 200);
       if (!result.ok) throwDockerError(result, errors);
       return { lines: result.items };
     }),
   },
   images: {
-    list: orgScopedProcedure.docker.images.list.handler(async ({ input, errors }) => {
+    list: requireInstallAdmin().docker.images.list.handler(async ({ input, errors }) => {
       const result = await listImages(input);
       if (!result.ok) throw errors.SERVER_ERROR({ message: result.reason });
       return result.items;
     }),
-    inspect: orgScopedProcedure.docker.images.inspect.handler(async ({ input, errors }) => {
+    inspect: requireInstallAdmin().docker.images.inspect.handler(async ({ input, errors }) => {
       const result = await inspectImage(input.id);
       if (!result.ok) throwDockerError(result, errors);
       return result.items;
     }),
-    remove: platformWrite.docker.images.remove.handler(async ({ input, errors, context }) => {
-      context.log.set({ target: { type: "docker-image", id: input.id } });
-      const result = await removeImage(input.id, input.force ?? false);
-      if (!result.ok) throwDockerError(result, errors);
-      return result.items;
-    }),
-    prune: platformWrite.docker.images.prune.handler(async ({ errors }) => {
+    remove: requireInstallAdmin().docker.images.remove.handler(
+      async ({ input, errors, context }) => {
+        context.log.set({ target: { type: "docker-image", id: input.id } });
+        const result = await removeImage(input.id, input.force ?? false);
+        if (!result.ok) throwDockerError(result, errors);
+        return result.items;
+      },
+    ),
+    prune: requireInstallAdmin().docker.images.prune.handler(async ({ errors }) => {
       const result = await pruneImages();
       if (!result.ok) throw errors.SERVER_ERROR({ message: result.reason });
       return result.items;
     }),
   },
   volumes: {
-    list: orgScopedProcedure.docker.volumes.list.handler(async ({ errors }) => {
+    list: requireInstallAdmin().docker.volumes.list.handler(async ({ errors }) => {
       const result = await listVolumes();
       if (!result.ok) throw errors.SERVER_ERROR({ message: result.reason });
       return result.items;
     }),
-    inspect: orgScopedProcedure.docker.volumes.inspect.handler(async ({ input, errors }) => {
+    inspect: requireInstallAdmin().docker.volumes.inspect.handler(async ({ input, errors }) => {
       const result = await inspectVolume(input.name);
       if (!result.ok) throwDockerError(result, errors);
       return result.items;
     }),
-    remove: platformWrite.docker.volumes.remove.handler(async ({ input, errors, context }) => {
-      context.log.set({ target: { type: "docker-volume", id: input.name } });
-      const result = await removeVolume(input.name);
-      if (!result.ok) throwDockerError(result, errors);
-      return result.items;
-    }),
+    remove: requireInstallAdmin().docker.volumes.remove.handler(
+      async ({ input, errors, context }) => {
+        context.log.set({ target: { type: "docker-volume", id: input.name } });
+        const result = await removeVolume(input.name);
+        if (!result.ok) throwDockerError(result, errors);
+        return result.items;
+      },
+    ),
   },
   networks: {
-    list: orgScopedProcedure.docker.networks.list.handler(async ({ errors }) => {
+    list: requireInstallAdmin().docker.networks.list.handler(async ({ errors }) => {
       const result = await listNetworks();
       if (!result.ok) throw errors.SERVER_ERROR({ message: result.reason });
       return result.items;
     }),
-    inspect: orgScopedProcedure.docker.networks.inspect.handler(async ({ input, errors }) => {
+    inspect: requireInstallAdmin().docker.networks.inspect.handler(async ({ input, errors }) => {
       const result = await inspectNetwork(input.id);
       if (!result.ok) throwDockerError(result, errors);
       return result.items;
     }),
-    remove: platformWrite.docker.networks.remove.handler(async ({ input, errors, context }) => {
-      context.log.set({ target: { type: "docker-network", id: input.id } });
-      const result = await removeNetwork(input.id);
-      if (!result.ok) throwDockerError(result, errors);
-      return result.items;
-    }),
+    remove: requireInstallAdmin().docker.networks.remove.handler(
+      async ({ input, errors, context }) => {
+        context.log.set({ target: { type: "docker-network", id: input.id } });
+        const result = await removeNetwork(input.id);
+        if (!result.ok) throwDockerError(result, errors);
+        return result.items;
+      },
+    ),
   },
   tasks: {
-    list: orgScopedProcedure.docker.tasks.list.handler(async ({ errors }) => {
+    list: requireInstallAdmin().docker.tasks.list.handler(async ({ errors }) => {
       const result = await listTasks();
       if (!result.ok) throw errors.SERVER_ERROR({ message: result.reason });
       return result.items;
     }),
   },
   nodes: {
-    list: orgScopedProcedure.docker.nodes.list.handler(async ({ errors }) => {
+    list: requireInstallAdmin().docker.nodes.list.handler(async ({ errors }) => {
       const result = await listNodes();
       if (!result.ok) throw errors.SERVER_ERROR({ message: result.reason });
       return result.items;

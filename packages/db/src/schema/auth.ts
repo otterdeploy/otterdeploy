@@ -8,24 +8,48 @@ import type {
 } from "@otterdeploy/shared/id";
 
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
-import { pgTable, text, timestamp, boolean, integer, index } from "drizzle-orm/pg-core";
-export const user = pgTable("user", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => createId(ID_PREFIX.user)),
-  name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  emailVerified: boolean("email_verified").default(false).notNull(),
-  image: text("image"),
-  // better-auth `twoFactor` plugin: flipped true after the user verifies their
-  // first TOTP code. The secret + backup codes live in the `two_factor` table.
-  twoFactorEnabled: boolean("two_factor_enabled").default(false).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at")
-    .defaultNow()
-    .$onUpdate(() => /* @__PURE__ */ new Date())
-    .notNull(),
-});
+import { sql } from "drizzle-orm";
+import {
+  boolean,
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
+
+export const user = pgTable(
+  "user",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId(ID_PREFIX.user)),
+    name: text("name").notNull(),
+    email: text("email").notNull().unique(),
+    emailVerified: boolean("email_verified").default(false).notNull(),
+    image: text("image"),
+    // Installation authority is deliberately independent from organization
+    // membership. The first bootstrap account receives this server-owned bit;
+    // org owner/admin roles never imply it.
+    isInstallAdmin: boolean("is_install_admin").default(false).notNull(),
+    // better-auth `twoFactor` plugin: flipped true after the user verifies their
+    // first TOTP code. The secret + backup codes live in the `two_factor` table.
+    twoFactorEnabled: boolean("two_factor_enabled").default(false).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    // Bootstrap is single-owner. Besides documenting the supported personal
+    // installation model, this makes concurrent first-signup races fail closed.
+    uniqueIndex("user_single_install_admin_idx")
+      .on(table.isInstallAdmin)
+      .where(sql`${table.isInstallAdmin} = true`),
+  ],
+);
 
 export const session = pgTable(
   "session",

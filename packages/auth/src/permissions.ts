@@ -59,10 +59,9 @@ export const statements = {
   // trusted-CA inventory (certificates oRPC router). Private keys are
   // secret-bearing infra material, so mutation stays admin/owner like sshKey.
   certificate: ["create", "read", "update", "delete"],
-  // Install-wide platform administration — self-update (check/apply the
-  // otterdeploy version) and update settings. Above the org resource surface;
-  // admins/owners only, never plain members. `read` = view version + check;
-  // `update` = apply an update / change auto-update prefs.
+  // Kept in the statement catalog while platform endpoints migrate to the
+  // dedicated installation-principal middleware. No organization role grants
+  // these actions: organization ownership must never imply host authority.
   platform: ["read", "update"],
 } as const;
 
@@ -109,7 +108,6 @@ export const admin = ac.newRole({
   apiKey: ["create", "read", "update", "delete"],
   sshKey: ["create", "read", "update", "delete"],
   certificate: ["create", "read", "update", "delete"],
-  platform: ["read", "update"],
 });
 
 /** Full control. */
@@ -128,7 +126,6 @@ export const owner = ac.newRole({
   apiKey: ["create", "read", "update", "delete"],
   sshKey: ["create", "read", "update", "delete"],
   certificate: ["create", "read", "update", "delete"],
-  platform: ["read", "update"],
 });
 
 export const roles = { member, admin, owner };

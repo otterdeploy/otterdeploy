@@ -1,9 +1,9 @@
 /**
  * Platform-wide settings endpoints (control-plane domain + email transport),
  * split from the org router index for size. They mutate the platform_settings
- * singleton but are surfaced under org settings for the single-tenant beta.
- * Same procedure gating as the rest of the org settings: reads open to any
- * member, writes require `organization:update` (owner/admin).
+ * singleton but are surfaced under org settings. Every endpoint requires the
+ * server-owned installation administrator identity; organization roles do not
+ * grant authority over singleton settings.
  */
 
 import { db } from "@otterdeploy/db";
@@ -12,7 +12,7 @@ import { env } from "@otterdeploy/env/server";
 import { matchError } from "better-result";
 import { eq } from "drizzle-orm";
 
-import { orgScopedProcedure, requirePermission } from "../..";
+import { requireInstallAdmin } from "../..";
 import { getGlobalCaddyOptions, saveGlobalCaddyOptions } from "../project/proxy-routes";
 import {
   autoConfigureControlPlaneDomain,
@@ -21,8 +21,6 @@ import {
   verifyControlPlaneDomain,
 } from "./control-plane-domain";
 import { getEmailSettings, saveEmailSettings, sendTestEmail } from "./handlers";
-
-const orgUpdateProcedure = requirePermission({ organization: ["update"] });
 
 /** serverIp view for the Instance page. envOverride tells the UI the value
  *  is pinned by env SERVER_IP (re-applied every boot) so edits won't stick. */
@@ -36,7 +34,7 @@ async function serverIpView(): Promise<{ serverIp: string | null; envOverride: b
 }
 
 export const platformSettingsRouter = {
-  controlPlaneDomain: orgScopedProcedure.organization.controlPlaneDomain.handler(
+  controlPlaneDomain: requireInstallAdmin().organization.controlPlaneDomain.handler(
     async ({ input, context }) => {
       context.log.set({
         target: { type: "organization", id: input.organizationId },
@@ -45,7 +43,7 @@ export const platformSettingsRouter = {
     },
   ),
 
-  setControlPlaneDomain: orgUpdateProcedure.organization.setControlPlaneDomain.handler(
+  setControlPlaneDomain: requireInstallAdmin().organization.setControlPlaneDomain.handler(
     async ({ input, context }) => {
       context.log.set({
         target: { type: "organization", id: input.organizationId },
@@ -55,7 +53,7 @@ export const platformSettingsRouter = {
     },
   ),
 
-  verifyControlPlaneDomain: orgUpdateProcedure.organization.verifyControlPlaneDomain.handler(
+  verifyControlPlaneDomain: requireInstallAdmin().organization.verifyControlPlaneDomain.handler(
     async ({ input, context }) => {
       context.log.set({
         target: { type: "organization", id: input.organizationId },
@@ -67,7 +65,7 @@ export const platformSettingsRouter = {
   ),
 
   autoConfigureControlPlaneDomain:
-    orgUpdateProcedure.organization.autoConfigureControlPlaneDomain.handler(
+    requireInstallAdmin().organization.autoConfigureControlPlaneDomain.handler(
       async ({ input, context, errors }) => {
         context.log.set({
           target: { type: "organization", id: input.organizationId },
@@ -89,32 +87,36 @@ export const platformSettingsRouter = {
     ),
 
   // ─── Instance network + edge defaults ─────────────────────────────
-  getServerIp: orgScopedProcedure.organization.getServerIp.handler(async ({ input, context }) => {
-    context.log.set({ target: { type: "organization", id: input.organizationId } });
-    return serverIpView();
-  }),
+  getServerIp: requireInstallAdmin().organization.getServerIp.handler(
+    async ({ input, context }) => {
+      context.log.set({ target: { type: "organization", id: input.organizationId } });
+      return serverIpView();
+    },
+  ),
 
-  setServerIp: orgUpdateProcedure.organization.setServerIp.handler(async ({ input, context }) => {
-    context.log.set({
-      target: { type: "organization", id: input.organizationId },
-      instance: { serverIp: input.serverIp || null },
-    });
-    const value = input.serverIp.trim() || null;
-    await db
-      .insert(platformSettings)
-      .values({ id: PLATFORM_SETTINGS_ID, serverIp: value })
-      .onConflictDoUpdate({ target: platformSettings.id, set: { serverIp: value } });
-    return serverIpView();
-  }),
+  setServerIp: requireInstallAdmin().organization.setServerIp.handler(
+    async ({ input, context }) => {
+      context.log.set({
+        target: { type: "organization", id: input.organizationId },
+        instance: { serverIp: input.serverIp || null },
+      });
+      const value = input.serverIp.trim() || null;
+      await db
+        .insert(platformSettings)
+        .values({ id: PLATFORM_SETTINGS_ID, serverIp: value })
+        .onConflictDoUpdate({ target: platformSettings.id, set: { serverIp: value } });
+      return serverIpView();
+    },
+  ),
 
-  getEdgeOptions: orgScopedProcedure.organization.getEdgeOptions.handler(
+  getEdgeOptions: requireInstallAdmin().organization.getEdgeOptions.handler(
     async ({ input, context }) => {
       context.log.set({ target: { type: "organization", id: input.organizationId } });
       return getGlobalCaddyOptions();
     },
   ),
 
-  setEdgeOptions: orgUpdateProcedure.organization.setEdgeOptions.handler(
+  setEdgeOptions: requireInstallAdmin().organization.setEdgeOptions.handler(
     async ({ input, context }) => {
       context.log.set({
         target: { type: "organization", id: input.organizationId },
@@ -131,11 +133,11 @@ export const platformSettingsRouter = {
   ),
 
   // ─── Outbound email transport ──────────────────────────────────────
-  getEmailSettings: orgScopedProcedure.organization.getEmailSettings.handler(async () =>
+  getEmailSettings: requireInstallAdmin().organization.getEmailSettings.handler(async () =>
     getEmailSettings(),
   ),
 
-  setEmailSettings: orgUpdateProcedure.organization.setEmailSettings.handler(
+  setEmailSettings: requireInstallAdmin().organization.setEmailSettings.handler(
     async ({ input, context }) => {
       context.log.set({
         target: { type: "organization", id: input.organizationId },
@@ -153,7 +155,7 @@ export const platformSettingsRouter = {
     },
   ),
 
-  testEmail: orgUpdateProcedure.organization.testEmail.handler(async ({ input }) =>
+  testEmail: requireInstallAdmin().organization.testEmail.handler(async ({ input }) =>
     sendTestEmail(input.to),
   ),
 };

@@ -1,10 +1,12 @@
 import { RocketIcon } from "@hugeicons/core-free-icons";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import * as z from "zod";
 
 import { AuthLayout } from "@/features/auth/components/auth-layout";
 import { SignInForm } from "@/features/auth/components/sign-in-form";
 import { SignUpForm } from "@/features/auth/components/sign-up-form";
+import { fetchRegistrationMode } from "@/features/auth/data/registration-mode";
 
 // `mode` is the URL's source of truth for the sign-in/sign-up toggle (was a
 // local useState) — otherwise sharing a "create an account" link or hitting
@@ -21,9 +23,17 @@ export const Route = createFileRoute("/sign-in")({
 });
 
 function SignInPage() {
-  const { mode: modeParam } = Route.useSearch();
+  const { mode: modeParam, redirect } = Route.useSearch();
   const navigate = Route.useNavigate();
-  const mode = modeParam === "signup" ? "sign-up" : "sign-in";
+  const registration = useQuery({
+    queryKey: ["auth", "registration-mode"],
+    queryFn: fetchRegistrationMode,
+    staleTime: 0,
+    retry: false,
+  });
+  const invitationFlow = redirect?.startsWith("/accept-invite/") ?? false;
+  const allowSignUp = registration.data === "bootstrap" || invitationFlow;
+  const mode = modeParam === "signup" && allowSignUp ? "sign-up" : "sign-in";
   const setMode = (next: "sign-in" | "sign-up") =>
     void navigate({
       search: (prev) => ({ ...prev, mode: next === "sign-up" ? "signup" : undefined }),
@@ -59,9 +69,12 @@ function SignInPage() {
       }}
     >
       {mode === "sign-in" ? (
-        <SignInForm onSwitchToSignUp={() => setMode("sign-up")} />
+        <SignInForm allowSignUp={allowSignUp} onSwitchToSignUp={() => setMode("sign-up")} />
       ) : (
-        <SignUpForm onSwitchToSignIn={() => setMode("sign-in")} />
+        <SignUpForm
+          bootstrap={registration.data === "bootstrap"}
+          onSwitchToSignIn={() => setMode("sign-in")}
+        />
       )}
     </AuthLayout>
   );

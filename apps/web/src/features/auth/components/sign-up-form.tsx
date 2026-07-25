@@ -11,15 +11,29 @@ import { authQueryKeys } from "@/lib/auth-query-keys";
 import { AuthInput, AuthSubmitButton } from "./auth-fields";
 import { SocialSignIn } from "./social-sign-in";
 
-export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
+export function SignUpForm({
+  bootstrap,
+  onSwitchToSignIn,
+}: {
+  bootstrap: boolean;
+  onSwitchToSignIn: () => void;
+}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { redirect } = useSearch({ from: "/sign-in" });
   const { t } = useTranslation();
 
   const signUp = useMutation({
-    mutationFn: async (input: { name: string; email: string; password: string }) => {
-      const result = await authClient.signUp.email(input);
+    mutationFn: async (input: {
+      name: string;
+      email: string;
+      password: string;
+      bootstrapToken: string;
+    }) => {
+      const { bootstrapToken, ...credentials } = input;
+      const result = await authClient.signUp.email(credentials, {
+        headers: bootstrap ? { "x-otterdeploy-bootstrap-token": bootstrapToken } : undefined,
+      });
       if (result.error)
         throw new Error(result.error.message ?? result.error.statusText ?? "Sign up failed");
       return result.data;
@@ -37,12 +51,13 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
   });
 
   const form = useForm({
-    defaultValues: { name: "", email: "", password: "" },
+    defaultValues: { name: "", email: "", password: "", bootstrapToken: "" },
     onSubmit: async ({ value }) => {
       await signUp.mutateAsync({
         name: value.name,
         email: value.email,
         password: value.password,
+        bootstrapToken: value.bootstrapToken,
       });
     },
     validators: {
@@ -50,6 +65,9 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
         name: z.string().min(2, t("auth.signUp.nameMinLength")),
         email: z.email(t("auth.signIn.invalidEmail")),
         password: z.string().min(8, t("auth.signIn.passwordMinLength")),
+        bootstrapToken: bootstrap
+          ? z.string().min(32, "Enter the bootstrap token printed by the installer")
+          : z.string(),
       }),
     },
   });
@@ -139,6 +157,35 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
           )}
         </form.Field>
 
+        {bootstrap && (
+          <form.Field name="bootstrapToken">
+            {(field) => (
+              <div className="space-y-2">
+                <AuthInput
+                  id={field.name}
+                  name={field.name}
+                  label="Installation bootstrap token"
+                  type="password"
+                  autoComplete="off"
+                  placeholder="Paste the token printed by install.sh"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={field.handleChange}
+                />
+                <p className="text-xs text-muted-foreground">
+                  This one-time token proves you control the VPS and makes this account the
+                  installation owner.
+                </p>
+                {field.state.meta.errors.map((error) => (
+                  <p key={error?.message} className="text-sm text-destructive">
+                    {error?.message}
+                  </p>
+                ))}
+              </div>
+            )}
+          </form.Field>
+        )}
+
         <form.Subscribe selector={(state) => state}>
           {(state) => (
             <AuthSubmitButton
@@ -151,7 +198,7 @@ export function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void 
         </form.Subscribe>
       </form>
 
-      <SocialSignIn dividerLabel="or sign up with" />
+      {!bootstrap && <SocialSignIn dividerLabel="or sign up with" />}
 
       <p className="mt-6 text-[13px] text-muted-foreground">
         {t("auth.signUp.hasAccount")}{" "}

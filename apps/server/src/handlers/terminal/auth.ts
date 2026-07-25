@@ -125,17 +125,16 @@ export async function authorizePty(
         new PtyAuthError({ status: 403, message: "Host shell requires a user session" }),
       );
     }
-    const permitted = await Result.tryPromise({
-      try: () =>
-        auth.api.hasPermission({
-          headers: actor.headers,
-          body: { permissions: { platform: ["update"] } },
-        }),
+    const session = await Result.tryPromise({
+      try: () => auth.api.getSession({ headers: actor.headers }),
       catch: (cause) => cause,
     });
-    if (permitted.isErr() || !permitted.value.success) {
+    if (session.isErr() || session.value?.user.isInstallAdmin !== true) {
       return Result.err(
-        new PtyAuthError({ status: 403, message: "Host shell requires platform admin access" }),
+        new PtyAuthError({
+          status: 403,
+          message: "Host shell requires installation administrator access",
+        }),
       );
     }
   }

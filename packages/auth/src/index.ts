@@ -3,18 +3,26 @@ import type { IdPrefix } from "@otterdeploy/shared/id";
 import { apiKey } from "@better-auth/api-key";
 import { db } from "@otterdeploy/db";
 import * as schema from "@otterdeploy/db/schema";
-import { member, session as sessionTbl } from "@otterdeploy/db/schema/auth";
+import {
+  invitation,
+  member,
+  session as sessionTbl,
+  user as userTbl,
+} from "@otterdeploy/db/schema/auth";
+import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
 import { OrganizationInvitationEmail, sendEmail } from "@otterdeploy/email";
 import { env } from "@otterdeploy/env/server";
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { APIError } from "better-auth/api";
 import { bearer, deviceAuthorization, organization, twoFactor } from "better-auth/plugins";
 import { Result } from "better-result";
-import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNotNull, sql } from "drizzle-orm";
 import { log } from "evlog";
 
 import { ac, roles } from "./permissions";
+import { BOOTSTRAP_TOKEN_HEADER, decideRegistration } from "./registration-policy";
 import { resolveCanonicalWebOrigin } from "./web-origin";
 
 /**
@@ -87,6 +95,18 @@ const configuredSocialProviders = {
  *  with the web's VITE_AUTH_SOCIAL_PROVIDERS. */
 export const enabledSocialProviders = Object.keys(configuredSocialProviders);
 
+export async function getRegistrationMode(): Promise<"bootstrap" | "invite-only"> {
+  const [[existingUser], [installation]] = await Promise.all([
+    db.select({ id: userTbl.id }).from(userTbl).limit(1),
+    db
+      .select({ bootstrapCompletedAt: platformSettings.bootstrapCompletedAt })
+      .from(platformSettings)
+      .where(eq(platformSettings.id, PLATFORM_SETTINGS_ID))
+      .limit(1),
+  ]);
+  return existingUser || installation?.bootstrapCompletedAt ? "invite-only" : "bootstrap";
+}
+
 // Cookie security must track the scheme the platform is actually served over.
 // Hardcoding Secure + SameSite=None breaks the common self-hosted case of a
 // plain http://<ip>:<port> dashboard (no TLS): browsers DROP a Secure /
@@ -105,6 +125,20 @@ export const auth = betterAuth({
     accountLinking: {
       enabled: true,
       trustedProviders: ["github", "google", "gitlab"],
+    },
+  },
+  user: {
+    additionalFields: {
+      // Server-owned and returned with sessions so every transport can enforce
+      // installation authority without interpreting an organization role.
+      isInstallAdmin: {
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        input: false,
+        returned: true,
+        fieldName: "is_install_admin",
+      },
     },
   },
   database: drizzleAdapter(db, {
@@ -179,8 +213,69 @@ export const auth = betterAuth({
       ipAddressHeaders: ["cf-connecting-ip"], // Cloudflare specific header example
     },
   },
-  hooks: {},
   databaseHooks: {
+    user: {
+      create: {
+        before: async (newUser, context) => {
+          const [[existingUser], [installation]] = await Promise.all([
+            db.select({ id: userTbl.id }).from(userTbl).limit(1),
+            db
+              .select({ bootstrapCompletedAt: platformSettings.bootstrapCompletedAt })
+              .from(platformSettings)
+              .where(eq(platformSettings.id, PLATFORM_SETTINGS_ID))
+              .limit(1),
+          ]);
+          const bootstrapComplete = Boolean(existingUser || installation?.bootstrapCompletedAt);
+          const [pendingInvitation] = existingUser
+            ? await db
+                .select({ id: invitation.id })
+                .from(invitation)
+                .where(
+                  and(
+                    eq(invitation.status, "pending"),
+                    gt(invitation.expiresAt, new Date()),
+                    sql`lower(${invitation.email}) = ${newUser.email.toLowerCase()}`,
+                  ),
+                )
+                .limit(1)
+            : [];
+
+          const decision = decideRegistration({
+            bootstrapComplete,
+            hasPendingInvitation: Boolean(pendingInvitation),
+            authPath: context?.path,
+            configuredBootstrapToken: env.OTTERDEPLOY_BOOTSTRAP_TOKEN,
+            presentedBootstrapToken: context?.headers?.get(BOOTSTRAP_TOKEN_HEADER) ?? undefined,
+          });
+
+          if (!decision.allowed) {
+            const message =
+              decision.reason === "invite-required"
+                ? "Account creation requires a pending invitation."
+                : "The first account requires the installation bootstrap token.";
+            throw new APIError("FORBIDDEN", { message });
+          }
+
+          return {
+            data: {
+              ...newUser,
+              isInstallAdmin: decision.installAdmin,
+            },
+          };
+        },
+        after: async (createdUser) => {
+          if (createdUser.isInstallAdmin !== true) return;
+          const now = new Date();
+          await db
+            .insert(platformSettings)
+            .values({ id: PLATFORM_SETTINGS_ID, bootstrapCompletedAt: now })
+            .onConflictDoUpdate({
+              target: platformSettings.id,
+              set: { bootstrapCompletedAt: now },
+            });
+        },
+      },
+    },
     session: {
       create: {
         before: async (session) => ({
@@ -252,7 +347,9 @@ export const auth = betterAuth({
       schema: {},
     }),
     organization({
-      allowUserToCreateOrganization: true,
+      // Workspace creation is an installation concern. Invitees can join the
+      // workspace they were invited to but cannot mint a new owner role.
+      allowUserToCreateOrganization: async (user) => user.isInstallAdmin === true,
       organizationLimit: 10,
       // better-auth ≥1.6 defaults this to TRUE, which blocks an unverified
       // session from even VIEWING an invitation for its own email. This app
