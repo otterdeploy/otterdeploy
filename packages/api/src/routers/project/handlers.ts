@@ -65,18 +65,16 @@ export {
   createDeploymentShareLink,
   getGlobalCaddyOptions,
   getProjectCaddyfile,
-  getProjectCustomCaddyConfig,
   getRouteAccessPin,
-  setRouteAccessPin,
   listProjectCertificates,
-  saveProjectCustomCaddyConfig,
-  setProxyRouteDirectives,
   inviteDeploymentGuest,
   listDeploymentGuests,
   listProjectProxyRoutes,
   removeDeploymentGuest,
   saveGlobalCaddyOptions,
+  setProxyRoutePolicy,
   setProxyRouteProtection,
+  setRouteAccessPin,
 } from "./proxy-routes";
 
 export {

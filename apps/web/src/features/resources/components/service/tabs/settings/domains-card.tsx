@@ -214,7 +214,9 @@ function DomainRow({
   const recheck = useMutation({
     ...orpc.service.domains.recheck.mutationOptions(),
     onSuccess: (res) => {
-      if (res.dnsState === "pointed")
+      if (!res.ownershipVerified) {
+        toast.warning(`TXT ownership proof for ${res.domain} was not found yet`);
+      } else if (res.dnsState === "pointed")
         toast.success(`${res.domain} points here — certificate will issue`);
       else if (res.dnsState === "proxied") toast.success(`${res.domain} is proxied via Cloudflare`);
       else toast.warning(`${res.domain} isn't pointed here yet`);
@@ -250,7 +252,9 @@ function DomainRow({
   const busy = recheck.isPending || setPrimary.isPending || remove.isPending || update.isPending;
   // Custom hosts that aren't confirmed pointed here still need a DNS record.
   const needsDns =
-    domain.source === "custom" && domain.dnsState !== "pointed" && domain.dnsState !== "proxied";
+    domain.source === "custom" &&
+    (!domain.ownershipVerified ||
+      (domain.dnsState !== "pointed" && domain.dnsState !== "proxied"));
 
   if (editing) {
     return (

@@ -77,10 +77,10 @@ services:
       # value that may be present in .env).
       DATABASE_URL: postgres://${POSTGRES_USER:-otterdeploy}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-otterdeploy}
       REDIS_URL: redis://redis:6379
-      # Push reconciled Caddy config over the shared docker network. The default
-      # (http://127.0.0.1:2019) is the server container's OWN loopback when
-      # containerized, so it must be the caddy service DNS name.
-      CADDY_ADMIN_URL: http://caddy:2019
+      # Permissioned management channel shared only with the edge container.
+      # No TCP admin listener exists on any workload-reachable network.
+      CADDY_ADMIN_URL: unix:///run/caddy-admin/admin.sock
+      CADDY_ADMIN_BIND: unix//run/caddy-admin/admin.sock|0600
       # Where the edge Caddy reaches the control plane for deploy-protection
       # forward_auth (and the control-plane-domain route). The default
       # (host.docker.internal:3000) assumes the server runs on the host — a dev
@@ -98,6 +98,7 @@ services:
       # Drive the HOST Docker daemon — this is how the runtime() driver
       # provisions services/databases/compose stacks.
       - /var/run/docker.sock:/var/run/docker.sock
+      - otterdeploy-caddy-admin:/run/caddy-admin
       # Host data folder at the SAME path inside + out, so paths the control
       # plane writes (caddy config, backups, build clones, escape hatches)
       # resolve identically when bind-mounted into helper/edge containers.
@@ -166,30 +167,31 @@ services:
     restart: unless-stopped
     # Seed a placeholder Caddyfile on first boot so Caddy starts before the
     # control plane has reconciled the real one; the server then pushes config
-    # via the admin API over the docker network (http://caddy:2019). The global
-    # `admin 0.0.0.0:2019` block is REQUIRED — without it Caddy's admin API
-    # binds to localhost only, so neither the server nor the host port-forward
-    # can reach it and the control plane can never push the real config.
+    # through a permissioned Unix socket mounted only into Caddy + server.
+    # Removing the stale socket before start makes unclean restarts recover.
+    environment:
+      CADDY_ADMIN_BIND: unix//run/caddy-admin/admin.sock|0600
+      CADDY_ADMIN_SOCKET_PATH: /run/caddy-admin/admin.sock
     command: >
-      sh -c "mkdir -p /etc/caddy &&
+      sh -c "mkdir -p /etc/caddy /run/caddy-admin &&
+             rm -f /run/caddy-admin/admin.sock &&
              [ -s /etc/caddy/Caddyfile ] ||
-               printf '{\n  admin 0.0.0.0:2019\n}\n:80 {\n  respond \"otterdeploy is starting…\" 503\n}\n' > /etc/caddy/Caddyfile &&
+               printf '{\n  admin unix//run/caddy-admin/admin.sock|0600\n}\n:80 {\n  respond \"otterdeploy is starting…\" 503\n}\n' > /etc/caddy/Caddyfile &&
              caddy run --config /etc/caddy/Caddyfile --adapter caddyfile"
     ports:
       - "80:80"
       - "443:443"
       - "443:443/udp"
-      - "127.0.0.1:2019:2019"
     volumes:
       # Reconciled Caddyfile lives under the data folder (written by the server).
       - ${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}/caddy:/etc/caddy
       - otterdeploy-caddy-data:/data
       - otterdeploy-caddy-state:/config
+      - otterdeploy-caddy-admin:/run/caddy-admin
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
-      test:
-        ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2019/config/"]
+      test: ["CMD-SHELL", "test -S \"$${CADDY_ADMIN_SOCKET_PATH}\""]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -228,5 +230,6 @@ volumes:
   otterdeploy-redis-data:
   otterdeploy-caddy-data:
   otterdeploy-caddy-state:
+  otterdeploy-caddy-admin:
   otterdeploy-crowdsec-config:
   otterdeploy-crowdsec-data:

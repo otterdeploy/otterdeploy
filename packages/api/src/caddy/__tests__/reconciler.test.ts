@@ -9,7 +9,7 @@ describe("reconciler", () => {
     projectId: "project_abc",
     type: "http",
     domain: "myapp.otterdeploy.dev",
-    upstreamHost: "myapp.otterdeploy.internal",
+    upstreamHost: "otterdeploy-abc-myapp",
     upstreamPort: 3000,
     protocol: "http",
     layer4Alpn: null,

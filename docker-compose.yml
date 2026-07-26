@@ -178,15 +178,21 @@ services:
     # workloads: `docker compose --profile edge up -d caddy`.
     profiles: ["edge"]
     restart: unless-stopped
-    command: sh -c "caddy run --config /etc/caddy/Caddyfile --adapter caddyfile"
+    environment:
+      CADDY_ADMIN_BIND: unix/${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}/caddy-admin/admin.sock|0600
+      CADDY_ADMIN_SOCKET_PATH: ${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}/caddy-admin/admin.sock
+    command: >
+      sh -c "mkdir -p \"$${CADDY_ADMIN_SOCKET_PATH%/*}\" &&
+             rm -f \"$${CADDY_ADMIN_SOCKET_PATH}\" &&
+             caddy run --config /etc/caddy/Caddyfile --adapter caddyfile"
     ports:
       - "${CADDY_HTTP_PORT:-80}:80"
       - "${CADDY_HTTPS_PORT:-443}:443"
       - "${CADDY_HTTPS_PORT:-443}:443/udp"
       - "${CADDY_PG_PORT:-5432}:5432"
-      - "127.0.0.1:${CADDY_ADMIN_HOST_PORT:-2019}:2019"
     volumes:
       - ./infra/caddy/config:/etc/caddy
+      - ${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}/caddy-admin:${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}/caddy-admin
       - otterdeploy-caddy-data:/data
       - otterdeploy-caddy-state:/config
       # Rolled access-log mirror the CrowdSec agent tails (read-only there).
@@ -194,8 +200,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
-      test:
-        ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2019/config/"]
+      test: ["CMD-SHELL", "test -S \"$${CADDY_ADMIN_SOCKET_PATH}\""]
       interval: 10s
       timeout: 3s
       retries: 5

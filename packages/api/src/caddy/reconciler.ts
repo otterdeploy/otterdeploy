@@ -11,6 +11,7 @@ import {
   type CrowdsecConfig,
   type ProxyRouteInput,
 } from "./builder";
+import { routeValidationError } from "./route-validation";
 
 export interface ReconcileResult {
   applied: string[];
@@ -37,10 +38,6 @@ interface ReconcileOptions {
   crowdsec?: CrowdsecConfig;
   /** false ⇒ disable Caddy's automatic HTTP→HTTPS redirect in the global block. */
   httpsAutoRedirect?: boolean | null;
-  /** projectId → operator-authored standalone Caddy config. Appended to each
-   *  project's fragment, validated with it, and (when valid) merged into the
-   *  global file. A project can appear here with no routes. */
-  projectCustomConfig?: Map<string, string>;
   adapt: (caddyfile: string) => Promise<AdaptResult>;
   load: (caddyfile: string) => Promise<LoadResult>;
   rlog?: RequestLogger;
@@ -55,7 +52,6 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
     edgeLogSink,
     crowdsec,
     httpsAutoRedirect,
-    projectCustomConfig,
     adapt,
     load,
     rlog,
@@ -64,20 +60,26 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
 
   log.info({ caddy: { step: "reconcile", status: "starting", routeCount: routes.length } });
 
-  const byProject = groupByProject(routes);
+  const unsafeProjects = new Map<string, string>();
+  for (const route of routes) {
+    const error = routeValidationError(route);
+    if (error && !unsafeProjects.has(route.projectId)) {
+      unsafeProjects.set(route.projectId, error);
+    }
+  }
+  const byProject = groupByProject(
+    routes.filter((route) => !unsafeProjects.has(route.projectId)),
+  );
 
   const applied: string[] = [];
-  const skipped: { projectId: string; error: string }[] = [];
+  const skipped: { projectId: string; error: string }[] = [...unsafeProjects].map(
+    ([projectId, error]) => ({ projectId, error }),
+  );
   const validRoutes: ProxyRouteInput[] = [];
-  const validCustomBlocks: string[] = [];
-
-  // A project may have custom config but no routes, so reconcile the union of
-  // both id sets.
-  const projectIds = new Set<string>([...byProject.keys(), ...(projectCustomConfig?.keys() ?? [])]);
+  const projectIds = new Set<string>(byProject.keys());
 
   for (const projectId of projectIds) {
     const projectRoutes = byProject.get(projectId) ?? [];
-    const customConfig = projectCustomConfig?.get(projectId);
     log.info({
       caddy: {
         step: "reconcile",
@@ -92,7 +94,6 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
       authzUpstream,
       edgeLogSink,
       crowdsec,
-      customConfig,
     });
     if (!fragment.trim()) {
       log.info({ caddy: { step: "reconcile", status: "empty", projectId } });
@@ -104,9 +105,6 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
 
     if (result.ok) {
       validRoutes.push(...projectRoutes);
-      if (customConfig && customConfig.trim().length > 0) {
-        validCustomBlocks.push(customConfig);
-      }
       applied.push(projectId);
       log.info({ caddy: { step: "reconcile", status: "validated", projectId } });
     } else {
@@ -123,7 +121,6 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
     edgeLogSink,
     crowdsec,
     httpsAutoRedirect,
-    customBlocks: validCustomBlocks,
   });
   const revision = createHash("sha256").update(caddyfile).digest("hex").slice(0, 12);
 

@@ -1,6 +1,16 @@
 import { createEnv } from "@t3-oss/env-core";
 import * as z from "zod";
 
+// The native dev server and the Caddy container can share a bind-mounted
+// socket under OTTERDEPLOY_DATA_DIR. The production compose explicitly
+// overrides this with a root-only named volume under /run.
+const defaultCaddySocketPath =
+  // oxlint-disable-next-line node/no-process-env -- environment boundary chooses the transport default
+  process.env.NODE_ENV === "development"
+    ? // oxlint-disable-next-line node/no-process-env -- same environment-boundary default
+      `${process.env.OTTERDEPLOY_DATA_DIR ?? "/tmp/otterdeploy"}/caddy-admin/admin.sock`
+    : "/run/caddy-admin/admin.sock";
+
 export const env = createEnv({
   server: {
     DATABASE_URL: z.string().min(1),
@@ -43,8 +53,15 @@ export const env = createEnv({
     TWILIO_FROM_NUMBER: z.string().min(1).optional(),
     FCM_SERVER_KEY: z.string().min(1).optional(),
 
-    CADDY_ADMIN_URL: z.url().default("http://127.0.0.1:2019"),
-    CADDY_ADMIN_BIND: z.string().min(1).default("0.0.0.0:2019"),
+    // Caddy recommends a permissioned Unix socket whenever untrusted
+    // workloads run on the same host. Production overrides these with the
+    // shared /run volume; native development may point both values at the
+    // bind-mounted data directory.
+    CADDY_ADMIN_URL: z.url().default(`unix://${defaultCaddySocketPath}`),
+    CADDY_ADMIN_BIND: z
+      .string()
+      .min(1)
+      .default(`unix/${defaultCaddySocketPath}|0600`),
 
     // Public IP the swarm manager exposes — embedded in sslip.io fallback
     // domains (`<ip>.sslip.io`) so a fresh install resolves without the

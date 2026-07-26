@@ -25,7 +25,11 @@
 import type { ProxyRouteId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
+import { db } from "@otterdeploy/db";
+import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
 import { Result } from "better-result";
+import { eq } from "drizzle-orm";
+import { randomBytes } from "node:crypto";
 
 import type { ProjectNotFoundError } from "../project/errors";
 
@@ -42,6 +46,7 @@ import {
 } from "../../caddy/queries";
 import { checkDomainReachability, type DnsState } from "../../lib/domain-reachability";
 import { loadDomainSourcesForProject } from "../../lib/domain-sources";
+import { VERIFY_TXT_PREFIX, verifyDomainTxt } from "../../lib/dns-verify";
 import { loadResource } from "./context";
 import {
   DomainConflictError,
@@ -50,7 +55,7 @@ import {
   type ServiceNotFoundError,
 } from "./errors";
 import { type ResourceRef } from "./inputs";
-import { getPrimaryHttpPort, setServicePublicDomain } from "./queries";
+import { getPrimaryHttpPort, setServicePublicDomain, type ServiceRecord } from "./queries";
 import { isUniqueViolation } from "./views";
 
 type NotFound = ProjectNotFoundError | ServiceNotFoundError;
@@ -79,6 +84,9 @@ export interface ServiceDomainView {
   certCheckedAt: string | null;
   usesAcme: boolean;
   protected: boolean;
+  ownershipVerified: boolean;
+  verifyRecord: string | null;
+  verifyToken: string | null;
   /** The IP to point an A record at (our server). Null when unknown (dev). */
   dnsTarget: string | null;
 }
@@ -101,6 +109,9 @@ function toDomainView(route: ProxyRouteRecord, dnsTarget: string | null): Servic
     certCheckedAt: route.certCheckedAt ? route.certCheckedAt.toISOString() : null,
     usesAcme: route.usesAcme,
     protected: route.protected,
+    ownershipVerified: route.source === "generated" || route.domainVerifiedAt !== null,
+    verifyRecord: route.source === "custom" ? `${VERIFY_TXT_PREFIX}.${route.domain}` : null,
+    verifyToken: route.source === "custom" ? route.domainVerifyToken : null,
     dnsTarget,
   };
 }
@@ -114,11 +125,32 @@ function toDomainView(route: ProxyRouteRecord, dnsTarget: string | null): Servic
 // schemes, paths, ports, and wildcards — those are caller errors, not hosts.
 const FQDN_RE = /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 const LOCALHOST_RE = /^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+localhost$/;
+const RESERVED_CUSTOM_SUFFIXES = [
+  "localhost",
+  "local",
+  "internal",
+  "home.arpa",
+  "test",
+  "invalid",
+  "example",
+];
 
 function normalizeDomain(input: string): string | null {
   const d = input.trim().toLowerCase().replace(/\.$/, "");
-  if (FQDN_RE.test(d) || LOCALHOST_RE.test(d)) return d;
-  return null;
+  if (!FQDN_RE.test(d) && !LOCALHOST_RE.test(d)) return null;
+  if (RESERVED_CUSTOM_SUFFIXES.some((suffix) => d === suffix || d.endsWith(`.${suffix}`))) {
+    return null;
+  }
+  return d;
+}
+
+async function isReservedControlPlaneDomain(domain: string): Promise<boolean> {
+  const [settings] = await db
+    .select({ domain: platformSettings.controlPlaneFqdn })
+    .from(platformSettings)
+    .where(eq(platformSettings.id, PLATFORM_SETTINGS_ID))
+    .limit(1);
+  return settings?.domain?.toLowerCase().replace(/\.$/, "") === domain;
 }
 
 /** ACME can only issue for a publicly resolvable name that points at us. A
@@ -164,7 +196,9 @@ export async function addServiceDomain(
   const { record } = ctx.value;
 
   const domain = normalizeDomain(input.domain);
-  if (!domain) return Result.err(new DomainConflictError({ domain: input.domain }));
+  if (!domain || (await isReservedControlPlaneDomain(domain))) {
+    return Result.err(new DomainConflictError({ domain: input.domain }));
+  }
 
   const primaryPort = getPrimaryHttpPort(record.ports);
   if (!primaryPort) {
@@ -176,34 +210,32 @@ export async function addServiceDomain(
 
   const serverIp = await serverIpFor(input);
   const reachability = await checkDomainReachability({ domain, serverIp });
-  const enabled = record.service.publicEnabled;
-
   let route: ProxyRouteRecord;
   try {
-    // Add-and-go: live immediately if the service is exposed. The cert is
-    // real (ACME) only once DNS points here; otherwise self-signed until
-    // the operator points it and rechecks.
+    // Ownership first: a route is inert until its per-route TXT challenge is
+    // observed. Pointing an A record at this server is not proof that this
+    // organization controls the name.
     route = await insertProxyRoute({
       projectId: input.projectId,
       resourceId: input.resourceId,
       type: "http",
       domain,
-      upstreamHost: record.service.internalHostname,
+      upstreamHost: record.service.serviceName,
       upstreamPort: primaryPort.containerPort,
       protocol: "http",
-      usesAcme: acmeFor(domain, reachability.state),
-      enabled,
+      usesAcme: false,
+      enabled: false,
       source: "custom",
       isPrimary: false,
       dnsState: reachability.state,
       dnsCheckedAt: new Date(),
+      domainVerifyToken: randomBytes(24).toString("base64url"),
     });
   } catch (error) {
     if (isUniqueViolation(error)) return Result.err(new DomainConflictError({ domain }));
     throw error;
   }
 
-  if (enabled) await reconcile(log);
   log.set({ domain: { action: "add", domain, dnsState: reachability.state } });
   return Result.ok(toDomainView(route, serverIp));
 }
@@ -212,15 +244,24 @@ export async function addServiceDomain(
  *  "missing" and "wrong resource" into one 404 so existence never leaks. */
 async function loadOwnedRoute(
   input: ResourceRef & { routeId: ProxyRouteId },
-): Promise<Result<{ route: ProxyRouteRecord }, NotFound | DomainNotFoundError>> {
+): Promise<
+  Result<
+    { route: ProxyRouteRecord; record: ServiceRecord },
+    NotFound | DomainNotFoundError
+  >
+> {
   const ctx = await loadResource(input);
   if (ctx.isErr()) return Result.err(ctx.error);
 
   const route = await getProxyRouteById(input.routeId);
-  if (!route || route.resourceId !== input.resourceId) {
+  if (
+    !route ||
+    route.resourceId !== input.resourceId ||
+    route.projectId !== input.projectId
+  ) {
     return Result.err(new DomainNotFoundError({ routeId: input.routeId }));
   }
-  return Result.ok({ route });
+  return Result.ok({ route, record: ctx.value.record });
 }
 
 export async function recheckServiceDomain(
@@ -229,22 +270,40 @@ export async function recheckServiceDomain(
 ): Promise<Result<ServiceDomainView, NotFound | DomainNotFoundError>> {
   const owned = await loadOwnedRoute(input);
   if (owned.isErr()) return Result.err(owned.error);
-  const { route } = owned.value;
+  const { route, record } = owned.value;
 
   const serverIp = await serverIpFor(input);
   const reachability = await checkDomainReachability({ domain: route.domain, serverIp });
-  const usesAcme = acmeFor(route.domain, reachability.state);
+  const ownership =
+    route.source === "generated"
+      ? { ok: true }
+      : await verifyDomainTxt({
+          domain: route.domain,
+          expectedToken: route.domainVerifyToken,
+        });
+  const domainVerifiedAt =
+    route.source === "generated"
+      ? route.domainVerifiedAt
+      : (route.domainVerifiedAt ?? (ownership.ok ? new Date() : null));
+  const ownershipVerified = route.source === "generated" || domainVerifiedAt !== null;
+  const usesAcme = ownershipVerified && acmeFor(route.domain, reachability.state);
+  const enabled = ownershipVerified && record.service.publicEnabled;
 
   const updated = await updateProxyRoute(input.routeId, {
     dnsState: reachability.state,
     dnsCheckedAt: new Date(),
     usesAcme,
+    domainVerifiedAt,
+    enabled,
+    upstreamHost: record.service.serviceName,
   });
   if (!updated) return Result.err(new DomainNotFoundError({ routeId: input.routeId }));
 
   // Re-render if the cert decision flipped (e.g. DNS just started pointing
   // here → switch from self-signed to ACME) and the route is live.
-  if (updated.enabled && usesAcme !== route.usesAcme) await reconcile(log);
+  if (updated.enabled !== route.enabled || (updated.enabled && usesAcme !== route.usesAcme)) {
+    await reconcile(log);
+  }
 
   log.set({ domain: { action: "recheck", domain: route.domain, dnsState: reachability.state } });
   return Result.ok(toDomainView(updated, serverIp));
@@ -256,10 +315,12 @@ export async function updateServiceDomain(
 ): Promise<Result<ServiceDomainView, NotFound | DomainNotFoundError | DomainConflictError>> {
   const owned = await loadOwnedRoute(input);
   if (owned.isErr()) return Result.err(owned.error);
-  const { route } = owned.value;
+  const { route, record } = owned.value;
 
   const domain = normalizeDomain(input.domain);
-  if (!domain) return Result.err(new DomainConflictError({ domain: input.domain }));
+  if (!domain || (await isReservedControlPlaneDomain(domain))) {
+    return Result.err(new DomainConflictError({ domain: input.domain }));
+  }
 
   if (domain !== route.domain) {
     const clash = await getProxyRouteByDomain(domain);
@@ -268,6 +329,8 @@ export async function updateServiceDomain(
 
   const serverIp = await serverIpFor(input);
   const reachability = await checkDomainReachability({ domain, serverIp });
+  const changed = domain !== route.domain;
+  const requiresVerification = changed || route.source !== "custom";
 
   let updated: ProxyRouteRecord | undefined;
   try {
@@ -276,7 +339,13 @@ export async function updateServiceDomain(
       source: "custom",
       dnsState: reachability.state,
       dnsCheckedAt: new Date(),
-      usesAcme: acmeFor(domain, reachability.state),
+      usesAcme: requiresVerification ? false : acmeFor(domain, reachability.state),
+      upstreamHost: record.service.serviceName,
+      domainVerifyToken: requiresVerification
+        ? randomBytes(24).toString("base64url")
+        : route.domainVerifyToken,
+      domainVerifiedAt: requiresVerification ? null : route.domainVerifiedAt,
+      enabled: requiresVerification ? false : route.enabled,
     });
   } catch (error) {
     if (isUniqueViolation(error)) return Result.err(new DomainConflictError({ domain }));
@@ -289,7 +358,7 @@ export async function updateServiceDomain(
     await setServicePublicDomain(input.resourceId, updated.domain);
   }
   // Re-render so the old host stops being served and the new one takes over.
-  if (updated.enabled) await reconcile(log);
+  if (route.enabled || updated.enabled) await reconcile(log);
 
   log.set({ domain: { action: "update", from: route.domain, to: domain } });
   return Result.ok(toDomainView(updated, serverIp));

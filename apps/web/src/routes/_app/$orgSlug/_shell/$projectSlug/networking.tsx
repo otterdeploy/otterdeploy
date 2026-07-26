@@ -1,5 +1,4 @@
 import {
-  CodeIcon,
   Link01Icon,
   CheckmarkCircle02Icon,
   RefreshIcon,
@@ -30,7 +29,6 @@ import {
 } from "@/shared/components/ui/tabs";
 import { CaddyfileViewer } from "@/features/projects/components/networking/caddyfile-viewer";
 import { CertificatesTab } from "@/features/projects/components/networking/certificates-tab";
-import { CustomConfigEditor } from "@/features/projects/components/networking/custom-config-editor";
 import { DeploymentAccessTab } from "@/features/projects/components/networking/deployment-access-tab";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -111,10 +109,6 @@ function RouteComponent() {
               <HugeiconsIcon icon={ServerStack01Icon} strokeWidth={2} className="size-3.5" />
               Caddyfile
             </TabsTrigger>
-            <TabsTrigger value="custom" className="gap-1.5 px-3 py-2">
-              <HugeiconsIcon icon={CodeIcon} strokeWidth={2} className="size-3.5" />
-              Custom config
-            </TabsTrigger>
             <TabsTrigger value="tls" className="gap-1.5 px-3 py-2">
               <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className="size-3.5" />
               TLS / certificates
@@ -176,10 +170,6 @@ function RouteComponent() {
                 loading={caddyfileQuery.isLoading}
               />
             )}
-          </TabsContent>
-
-          <TabsContent value="custom" className="pt-5">
-            <CustomConfigEditor projectId={projectId} />
           </TabsContent>
 
           <TabsContent value="tls" className="pt-5">

@@ -1,4 +1,5 @@
 import type { orpc } from "@/shared/server/orpc";
+import type { RoutePolicy } from "@otterdeploy/shared/route-policy";
 
 export type ResourceListItem = Awaited<
   ReturnType<typeof orpc.project.resource.list.call>
@@ -19,7 +20,7 @@ export interface RouteRow {
   enabled: boolean;
   isHttp: boolean;
   protected: boolean;
-  customDirectives: string | null;
+  routePolicy: RoutePolicy;
 }
 
 export interface RouteGroup {
@@ -58,7 +59,7 @@ export function mapRoute(
     enabled: route.enabled,
     isHttp,
     protected: route.protected,
-    customDirectives: route.customDirectives ?? null,
+    routePolicy: route.routePolicy,
   };
 }
 

@@ -25,7 +25,7 @@ const route = (over: Partial<ProxyRouteInput> = {}): ProxyRouteInput => ({
   projectId: "project_1",
   type: "http",
   domain: "app.example.com",
-  upstreamHost: "app.internal",
+  upstreamHost: "otterdeploy-project1-app",
   upstreamPort: 3000,
   protocol: "http",
   layer4Alpn: null,

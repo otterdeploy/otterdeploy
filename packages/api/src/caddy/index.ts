@@ -1,4 +1,5 @@
 import type { ProjectId } from "@otterdeploy/shared/id";
+import type { RoutePolicy } from "@otterdeploy/shared/route-policy";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
@@ -25,11 +26,8 @@ import {
 import { adaptCaddyfile, loadCaddyfile } from "./client";
 import { maskCaddySecrets, stripGlobalBlock } from "./display";
 import {
-  getProjectCustomConfig,
-  getProjectsWithCustomConfig,
   listEnabledProxyRoutes,
   listProxyRoutesByProject,
-  setProjectCustomConfig,
   updateProxyRoute,
   type ProxyRouteRecord,
 } from "./queries";
@@ -52,7 +50,7 @@ function toRouteInput(r: ProxyRouteRecord): ProxyRouteInput {
     layer4Alpn: r.layer4Alpn,
     usesAcme: r.usesAcme,
     protected: r.protected,
-    customDirectives: r.customDirectives,
+    routePolicy: r.routePolicy,
   };
 }
 
@@ -142,9 +140,8 @@ export async function reconcile(rlog?: RequestLogger): Promise<ReconcileResult> 
   log.info({ caddy: { step: "fetch-routes", count: records.length } });
 
   let routes = records.map(toRouteInput);
-  const [options, projectCustomConfig, customCerts] = await Promise.all([
+  const [options, customCerts] = await Promise.all([
     loadCaddyOptions(),
-    getProjectsWithCustomConfig(),
     // Write (or heal) every servable uploaded cert's files for the edge
     // container; only certs actually on disk are eligible for `tls` emission.
     materializeCustomCerts(rlog),
@@ -163,7 +160,6 @@ export async function reconcile(rlog?: RequestLogger): Promise<ReconcileResult> 
     routes,
     adminBind: env.CADDY_ADMIN_BIND,
     ...options,
-    projectCustomConfig,
     adapt: (caddyfile) => adaptCaddyfile(caddyfile, env.CADDY_ADMIN_URL, rlog),
     load: (caddyfile) => loadCaddyfile(caddyfile, env.CADDY_ADMIN_URL, rlog),
     rlog,
@@ -185,9 +181,8 @@ export interface ProjectCaddyfile {
 export async function renderProjectCaddyfile(projectId: ProjectId): Promise<ProjectCaddyfile> {
   const records = await listProxyRoutesByProject(projectId);
   let routes = records.filter((r) => r.enabled).map(toRouteInput);
-  const [options, customConfig, customCerts] = await Promise.all([
+  const [options, customCerts] = await Promise.all([
     loadCaddyOptions(),
-    getProjectCustomConfig(projectId),
     // DB-only read (no file writes) — shows the same `tls` lines reconcile
     // emits for uploaded certs, so the viewer stays byte-faithful.
     listServableCustomCerts(),
@@ -196,7 +191,7 @@ export async function renderProjectCaddyfile(projectId: ProjectId): Promise<Proj
     const projectOrg = await mapProjectOrganizations([projectId]);
     routes = applyCustomCertsToRoutes(routes, customCerts, projectOrg);
   }
-  const fragment = buildProjectFragment(routes, { ...options, customConfig });
+  const fragment = buildProjectFragment(routes, options);
   const revision = createHash("sha256").update(fragment).digest("hex").slice(0, 12);
   return { caddyfile: maskCaddySecrets(stripGlobalBlock(fragment)), revision };
 }
@@ -208,9 +203,8 @@ export async function renderProjectCaddyfile(projectId: ProjectId): Promise<Proj
 export async function renderInstalledCaddyfile(): Promise<ProjectCaddyfile> {
   const records = await listEnabledProxyRoutes();
   let routes = records.map(toRouteInput);
-  const [options, projectCustomConfig, customCerts] = await Promise.all([
+  const [options, customCerts] = await Promise.all([
     loadCaddyOptions(),
-    getProjectsWithCustomConfig(),
     listServableCustomCerts(),
   ]);
   if (customCerts.length > 0) {
@@ -224,94 +218,36 @@ export async function renderInstalledCaddyfile(): Promise<ProjectCaddyfile> {
   }
   const caddyfile = buildCaddyfile(routes, env.CADDY_ADMIN_BIND, {
     ...options,
-    customBlocks: [...projectCustomConfig.values()],
   });
   const revision = createHash("sha256").update(caddyfile).digest("hex").slice(0, 12);
   return { caddyfile: maskCaddySecrets(caddyfile), revision };
 }
 
-function shortRevision(caddyfile: string): string {
-  return createHash("sha256").update(caddyfile).digest("hex").slice(0, 12);
-}
-
-export interface SaveCustomConfigResult {
-  /** The project's rendered fragment after the change (or the rejected
-   *  candidate when `applied` is false). */
-  caddyfile: string;
-  revision: string;
-  /** True when the config validated and the live edge was reloaded. */
-  applied: boolean;
-  /** Caddy's parse/validation error when `applied` is false; null otherwise. */
-  error: string | null;
-}
-
-/**
- * Validate proposed project-level custom Caddy config against the project's
- * current enabled routes via Caddy `/adapt` and ONLY persist + reconcile if it
- * parses. This is deliberately validate-before-save: because a project's routes
- * and custom config validate as one fragment, persisting broken config would
- * make every future reconcile skip the project — taking its real routes
- * offline. Returning the error without saving keeps the live edge intact.
- */
-export async function saveProjectCustomConfig(
-  projectId: ProjectId,
-  config: string | null,
-  rlog?: RequestLogger,
-): Promise<SaveCustomConfigResult> {
-  const trimmed = config && config.trim().length > 0 ? config : null;
-  const records = await listProxyRoutesByProject(projectId);
-  const routes = records.filter((r) => r.enabled).map(toRouteInput);
-  const options = await loadCaddyOptions();
-  const fragment = buildProjectFragment(routes, { ...options, customConfig: trimmed });
-
-  if (fragment.trim().length > 0) {
-    const adapted = await adaptCaddyfile(fragment, env.CADDY_ADMIN_URL, rlog);
-    if (!adapted.ok) {
-      return {
-        caddyfile: fragment,
-        revision: shortRevision(fragment),
-        applied: false,
-        error: adapted.error,
-      };
-    }
-  }
-
-  await setProjectCustomConfig(projectId, trimmed);
-  await reconcile(rlog);
-  const rendered = await renderProjectCaddyfile(projectId);
-  return { ...rendered, applied: true, error: null };
-}
-
-export interface SaveRouteDirectivesResult {
+export interface SaveRoutePolicyResult {
   route: ProxyRouteRecord;
   applied: boolean;
   error: string | null;
 }
 
 /**
- * Validate proposed per-route custom directives in isolation (a single-site
- * fragment) via `/adapt`, then persist + reconcile only if they parse. Same
- * validate-before-save rationale as {@link saveProjectCustomConfig}. Directives
- * only render on http routes; for layer4 routes they're stored but inert.
+ * Persist an allowlisted route policy and atomically reconcile it. If Caddy
+ * cannot accept the generated configuration, restore the previous policy and
+ * reload the last-known-good desired state so database and edge do not drift.
  */
-export async function saveRouteCustomDirectives(
+export async function saveRoutePolicy(
   route: ProxyRouteRecord,
-  directives: string | null,
+  policy: RoutePolicy,
   rlog?: RequestLogger,
-): Promise<SaveRouteDirectivesResult> {
-  const trimmed = directives && directives.trim().length > 0 ? directives : null;
-
-  if (trimmed && route.type === "http") {
-    const options = await loadCaddyOptions();
-    const candidate: ProxyRouteInput = { ...toRouteInput(route), customDirectives: trimmed };
-    const fragment = buildProjectFragment([candidate], options);
-    const adapted = await adaptCaddyfile(fragment, env.CADDY_ADMIN_URL, rlog);
-    if (!adapted.ok) {
-      return { route, applied: false, error: adapted.error };
-    }
-  }
-
-  const updated = await updateProxyRoute(route.id, { customDirectives: trimmed });
+): Promise<SaveRoutePolicyResult> {
+  const updated = await updateProxyRoute(route.id, { routePolicy: policy });
+  if (!updated) return { route, applied: false, error: "Route no longer exists." };
+  const result = await reconcile(rlog);
+  const error =
+    result.loadError ??
+    result.skipped.find((entry) => entry.projectId === route.projectId)?.error ??
+    null;
+  if (!error) return { route: updated, applied: true, error: null };
+  await updateProxyRoute(route.id, { routePolicy: route.routePolicy });
   await reconcile(rlog);
-  return { route: updated ?? route, applied: true, error: null };
+  return { route, applied: false, error };
 }

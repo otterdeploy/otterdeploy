@@ -1,23 +1,15 @@
-/**
- * Per-route custom Caddy directives. A small trigger in the routes table opens
- * a dialog to edit directives spliced INSIDE this route's generated site block
- * (e.g. `header`, `encode`, `rate_limit`, `basic_auth`). Saving validates the
- * route's block via Caddy `/adapt`; invalid input is rejected (not persisted)
- * with the parse error shown inline. HTTP routes only.
- */
-
 import type { ProxyRouteId } from "@otterdeploy/shared/id";
+import type { RoutePolicy } from "@otterdeploy/shared/route-policy";
 
 import { useState } from "react";
 
-import { Alert02Icon, CodeIcon } from "@hugeicons/core-free-icons";
+import { Settings02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 
 import {
   proxyRoutesCollection,
-  RouteDirectivesRejectedError,
+  RoutePolicyRejectedError,
 } from "@/features/projects/data/proxy-routes";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -28,140 +20,205 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/components/ui/dialog";
+import { Input } from "@/shared/components/ui/input";
+import { Label } from "@/shared/components/ui/label";
+import { Switch } from "@/shared/components/ui/switch";
 import { Textarea } from "@/shared/components/ui/textarea";
-import { cn } from "@/shared/lib/utils";
 
-const PLACEHOLDER = `# Directives for this route's site block, e.g.
-header {
-\tStrict-Transport-Security "max-age=31536000"
+const copyPolicy = (policy: RoutePolicy): RoutePolicy => ({ ...policy });
+
+function SelectField<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: Array<{ value: T; label: string }>;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="grid gap-1.5">
+      <Label>{label}</Label>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value as T)}
+        className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
 }
-encode gzip`;
 
-export function RouteDirectivesButton({
+export function RoutePolicyButton({
   routeId,
   domain,
-  customDirectives,
+  routePolicy,
 }: {
   routeId: string;
   domain: string;
-  customDirectives: string | null;
+  routePolicy: RoutePolicy;
 }) {
   const [open, setOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const hasDirectives = (customDirectives ?? "").trim().length > 0;
+  const [saving, setSaving] = useState(false);
+  const [draft, setDraft] = useState(() => copyPolicy(routePolicy));
 
-  const form = useForm({
-    defaultValues: { directives: customDirectives ?? "" },
-    onSubmit: async ({ value }) => {
-      setError(null);
-      const tx = proxyRoutesCollection.update(routeId as ProxyRouteId, (draft) => {
-        draft.customDirectives = value.directives.trim().length === 0 ? null : value.directives;
-      });
-      await tx.isPersisted.promise
-        .then(() => {
-          toast.success("Directives applied");
-          setOpen(false);
-        })
-        .catch((e) => {
-          // A Caddy parse rejection surfaces as RouteDirectivesRejectedError —
-          // show it inline; other failures are toasted.
-          if (e instanceof RouteDirectivesRejectedError) {
-            setError(e.message);
-            toast.error("Rejected — not saved");
-          } else {
-            toast.error(e instanceof Error ? e.message : "Failed to save directives");
-          }
-        });
-    },
-  });
+  const update = <K extends keyof RoutePolicy>(key: K, value: RoutePolicy[K]) => {
+    setDraft((current) => ({ ...current, [key]: value }));
+  };
+
+  const save = async () => {
+    setSaving(true);
+    const tx = proxyRoutesCollection.update(routeId as ProxyRouteId, (row) => {
+      row.routePolicy = draft;
+    });
+    try {
+      await tx.isPersisted.promise;
+      toast.success("Route policy applied");
+      setOpen(false);
+    } catch (error) {
+      toast.error(
+        error instanceof RoutePolicyRejectedError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Failed to save route policy",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        // Re-hydrate when (re)opening so the editor reflects the saved value.
-        if (next) {
-          form.reset({ directives: customDirectives ?? "" });
-          setError(null);
-        }
+        if (next) setDraft(copyPolicy(routePolicy));
       }}
     >
       <Button
         variant="ghost"
         size="icon-sm"
-        aria-label="Edit custom directives"
-        title="Custom directives"
-        className={cn("text-muted-foreground", hasDirectives && "text-foreground")}
+        aria-label="Edit safe route policy"
+        title="Route policy"
         onClick={() => setOpen(true)}
       >
-        <HugeiconsIcon icon={CodeIcon} strokeWidth={2} className="size-3.5" />
+        <HugeiconsIcon icon={Settings02Icon} strokeWidth={2} className="size-3.5" />
       </Button>
 
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Custom directives</DialogTitle>
+          <DialogTitle>Route policy</DialogTitle>
           <DialogDescription>
-            Spliced inside the site block for{" "}
-            <span className="font-mono text-foreground/80">{domain}</span>. Validated on save —
-            invalid directives are rejected and not applied.
+            Safe edge behavior for <span className="font-mono">{domain}</span>. The control plane
+            generates the Caddy configuration; raw directives and upstream overrides are not
+            accepted.
           </DialogDescription>
         </DialogHeader>
 
-        <form.Field name="directives">
-          {(field) => (
-            <Textarea
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={(e) => {
-                field.handleChange(e.target.value);
-                if (error) setError(null);
+        <div className="grid gap-4 sm:grid-cols-2">
+          <SelectField
+            label="Compression"
+            value={draft.compression}
+            options={[
+              { value: "off", label: "Off" },
+              { value: "gzip", label: "Gzip" },
+              { value: "zstd", label: "Zstandard" },
+              { value: "gzip-zstd", label: "Zstandard + gzip" },
+            ]}
+            onChange={(value) => update("compression", value)}
+          />
+          <div className="grid gap-1.5">
+            <Label htmlFor="route-body-limit">Request body limit (MiB)</Label>
+            <Input
+              id="route-body-limit"
+              type="number"
+              min={1}
+              max={100}
+              placeholder="No additional limit"
+              value={draft.maxRequestBodyMb ?? ""}
+              onChange={(event) => {
+                const value = event.target.value;
+                update("maxRequestBodyMb", value === "" ? null : Number(value));
               }}
-              spellCheck={false}
-              placeholder={PLACEHOLDER}
-              className="min-h-48 font-mono text-[12.5px] leading-relaxed"
-              autoFocus
             />
-          )}
-        </form.Field>
-
-        {error ? (
-          <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3">
-            <HugeiconsIcon
-              icon={Alert02Icon}
-              strokeWidth={2}
-              className="mt-0.5 size-4 shrink-0 text-destructive"
-            />
-            <pre className="min-w-0 overflow-x-auto font-mono text-[11.5px] whitespace-pre-wrap text-destructive/90">
-              {error}
-            </pre>
           </div>
-        ) : null}
+          <SelectField
+            label="HSTS"
+            value={draft.hsts}
+            options={[
+              { value: "off", label: "Off" },
+              { value: "one-year", label: "One year" },
+              { value: "one-year-subdomains", label: "One year + subdomains" },
+              { value: "preload", label: "Preload eligible" },
+            ]}
+            onChange={(value) => update("hsts", value)}
+          />
+          <SelectField
+            label="Frame policy"
+            value={draft.frameOptions}
+            options={[
+              { value: "off", label: "Off" },
+              { value: "deny", label: "Deny" },
+              { value: "sameorigin", label: "Same origin" },
+            ]}
+            onChange={(value) => update("frameOptions", value)}
+          />
+          <SelectField
+            label="Referrer policy"
+            value={draft.referrerPolicy}
+            options={[
+              { value: "off", label: "Off" },
+              { value: "no-referrer", label: "No referrer" },
+              { value: "same-origin", label: "Same origin" },
+              { value: "strict-origin", label: "Strict origin" },
+              {
+                value: "strict-origin-when-cross-origin",
+                label: "Strict origin when cross-origin",
+              },
+            ]}
+            onChange={(value) => update("referrerPolicy", value)}
+          />
+          <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+            <div>
+              <Label htmlFor="route-nosniff">Content type nosniff</Label>
+              <p className="text-xs text-muted-foreground">Emit X-Content-Type-Options.</p>
+            </div>
+            <Switch
+              id="route-nosniff"
+              checked={draft.contentTypeNosniff}
+              onCheckedChange={(checked) => update("contentTypeNosniff", checked)}
+            />
+          </div>
+          <div className="grid gap-1.5 sm:col-span-2">
+            <Label htmlFor="route-csp">Content-Security-Policy</Label>
+            <Textarea
+              id="route-csp"
+              value={draft.contentSecurityPolicy ?? ""}
+              maxLength={4_096}
+              placeholder="Leave empty to omit the header"
+              className="min-h-20 font-mono text-xs"
+              onChange={(event) =>
+                update("contentSecurityPolicy", event.target.value.trim() || null)
+              }
+            />
+          </div>
+        </div>
 
         <DialogFooter>
-          <form.Subscribe
-            selector={(s) => ({ saving: s.isSubmitting, directives: s.values.directives })}
-          >
-            {({ saving, directives }) => (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setOpen(false)}
-                  disabled={saving}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => void form.handleSubmit()}
-                  disabled={saving || directives === (customDirectives ?? "")}
-                >
-                  {saving ? "Validating…" : "Save & apply"}
-                </Button>
-              </>
-            )}
-          </form.Subscribe>
+          <Button variant="outline" size="sm" disabled={saving} onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button size="sm" disabled={saving} onClick={() => void save()}>
+            {saving ? "Applying…" : "Save & apply"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

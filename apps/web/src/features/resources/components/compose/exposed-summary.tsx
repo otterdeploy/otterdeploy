@@ -41,6 +41,9 @@ function toDomainView(publicDomain: string): DomainView {
     dnsCheckedAt: null,
     usesAcme: false,
     protected: false,
+    ownershipVerified: true,
+    verifyRecord: null,
+    verifyToken: null,
     dnsTarget: null,
   };
 }

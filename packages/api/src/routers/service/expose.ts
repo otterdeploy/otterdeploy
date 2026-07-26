@@ -88,7 +88,7 @@ async function insertGeneratedRoute(
     resourceId: input.resourceId,
     type: "http",
     domain: resolved.fqdn,
-    upstreamHost: record.service.internalHostname,
+    upstreamHost: record.service.serviceName,
     upstreamPort,
     protocol: "http",
     // ACME only when the resolver decided the domain is verified and not
@@ -143,7 +143,7 @@ export async function exposeService(
   await refreshRouteUpstreams(
     input.resourceId,
     primary.containerPort,
-    record.service.internalHostname,
+    record.service.serviceName,
   );
 
   let routes = await listProxyRoutesByResourceId(input.resourceId);
