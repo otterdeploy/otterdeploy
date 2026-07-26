@@ -73,3 +73,7 @@ photos/
 react-doctor-report.txt
 react-doctor-report.clean.txt
 bettershot_*.png
+
+# Agent session transcripts (large, local-only)
+session.jsonl
+*.session.jsonl
