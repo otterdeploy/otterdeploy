@@ -10,6 +10,8 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 import type { SwarmServiceResources, SwarmServiceRuntime, SwarmServiceSpec } from "./service";
 
+import { applyContainerSecurityDefaults, resolvePidsLimit } from "./container-security";
+
 function msToNs(ms: number): number {
   return ms * 1_000_000;
 }
@@ -91,20 +93,34 @@ function buildContainerSpec(
     containerSpec.Mounts = spec.mounts;
   }
 
+  // od-5j8.23 — capability drop/add, NoNewPrivileges, seccomp, read-only
+  // rootfs. Always applied, regardless of whether `spec.security` is set —
+  // see `container-security.ts` for the baseline and why it's safe by
+  // default. There is no `Privileged` field anywhere in this function or
+  // `SwarmServiceSpec`: a tenant workload structurally cannot request it.
+  applyContainerSecurityDefaults(containerSpec, spec.security);
+
   return containerSpec;
 }
 
-function buildTaskResources(resources: SwarmServiceResources): Record<string, unknown> | undefined {
+function buildTaskResources(
+  resources: SwarmServiceResources | undefined,
+  pidsLimit: number | undefined,
+): Record<string, unknown> | undefined {
   const limits: Record<string, number> = {};
   const reservations: Record<string, number> = {};
-  if (resources.cpuLimit != null) limits.NanoCPUs = cpuToNanoCpus(resources.cpuLimit);
-  if (resources.memoryLimitMb != null) limits.MemoryBytes = mbToBytes(resources.memoryLimitMb);
-  if (resources.cpuReservation != null) {
+  if (resources?.cpuLimit != null) limits.NanoCPUs = cpuToNanoCpus(resources.cpuLimit);
+  if (resources?.memoryLimitMb != null) limits.MemoryBytes = mbToBytes(resources.memoryLimitMb);
+  if (resources?.cpuReservation != null) {
     reservations.NanoCPUs = cpuToNanoCpus(resources.cpuReservation);
   }
-  if (resources.memoryReservationMb != null) {
+  if (resources?.memoryReservationMb != null) {
     reservations.MemoryBytes = mbToBytes(resources.memoryReservationMb);
   }
+  // od-5j8.23 — bounds live PIDs so a fork bomb (accidental crash loop or
+  // malicious payload) can't starve the node. Applied unconditionally
+  // (default DEFAULT_PIDS_LIMIT) unless a caller explicitly disables it.
+  if (pidsLimit != null) limits.Pids = pidsLimit;
 
   const out: Record<string, unknown> = {};
   if (Object.keys(limits).length > 0) out.Limits = limits;
@@ -146,10 +162,11 @@ export function buildServiceSpec(spec: SwarmServiceSpec, networkName: string) {
     ForceUpdate: spec.forceUpdateCounter,
   };
 
-  if (spec.resources) {
-    const resources = buildTaskResources(spec.resources);
-    if (resources) taskTemplate.Resources = resources;
-  }
+  // Always computed (not gated on `spec.resources` being set) so the
+  // od-5j8.23 default PID ceiling applies even to a service with no
+  // explicit CPU/memory limits configured.
+  const resources = buildTaskResources(spec.resources, resolvePidsLimit(spec.security?.pidsLimit));
+  if (resources) taskTemplate.Resources = resources;
 
   const publishedPorts = spec.ports
     .filter((p) => p.appProtocol === "tcp")

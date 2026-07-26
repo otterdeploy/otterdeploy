@@ -85,7 +85,15 @@ interface MappedMount {
  *  (multi-file inline). Each bind source resolves to an absolute path under
  *  `stackDir`; the runtime bind-mounts it (materializeServiceMounts already
  *  supports type:"bind"). Named volumes + tmpfs are left as-is (unchanged from
- *  today) to avoid touching how every existing compose stack deploys. */
+ *  today) to avoid touching how every existing compose stack deploys.
+ *
+ *  `!stackDir` returning `[]` here used to be a SILENT drop (od-5j8.24): a
+ *  bind mount the compose file declared just vanished with no warning. That
+ *  can no longer happen unnoticed — `deployCompose` (`./deploy.ts`) runs
+ *  `checkComposeCompatibility` before this function is ever reached and
+ *  rejects the whole deploy when a bind mount can't be resolved, so by the
+ *  time we get here either every declared bind IS resolvable, or there were
+ *  none to begin with. */
 function toBindMounts(svc: ParsedComposeService, stackDir: string | undefined): MappedMount[] {
   if (!stackDir) return [];
   const out: MappedMount[] = [];

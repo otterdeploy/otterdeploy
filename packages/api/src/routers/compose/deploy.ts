@@ -18,7 +18,7 @@ import { reconcile } from "../../caddy";
 import { deleteProxyRoutesByResource } from "../../caddy/queries";
 import { materializeComposeFiles, readEnvFiles } from "../../lib/compose-materialize";
 import { createStackDeployLog } from "../../lib/deploy-log";
-import { parseCompose } from "../../stack/compose";
+import { checkComposeCompatibility, parseCompose, summarizeFails } from "../../stack/compose";
 import { insertDeployment, markDeploymentFailed } from "../project/deployments";
 import { getProjectById, loadProjectEnvBag } from "../project/queries";
 import { finalizeStackDeployment } from "./deploy-finalize";
@@ -123,6 +123,22 @@ export async function deployCompose(
 
   const stackDir = await materializeInlineTree(record, parsed.value, input);
 
+  // od-5j8.24 — pre-apply compatibility gate, run on EVERY deploy through
+  // this function: initial create, an explicit redeploy, env-change
+  // reconciles, and (via manifest-reconcile.ts / build-trigger.ts, which
+  // also funnel here) every git-sourced stack once its build finishes. A
+  // FAIL-severity issue (privileged, cap_add, devices, an escalating
+  // security_opt, any network_mode override, pid namespace sharing, or a
+  // bind mount this deploy can't materialize) blocks the whole stack from
+  // rolling out — nothing partially applies a spec that differs from what
+  // the file asked for. See `stack/compose/compatibility.ts`.
+  const compat = checkComposeCompatibility(parsed.value, { bindMountsSupported: !!stackDir });
+  if (!compat.ok) {
+    return Result.err(
+      new ComposeDeployError(`Compose file has unsupported/unsafe fields: ${summarizeFails(compat)}`),
+    );
+  }
+
   // `build:` services need an image the build worker produced. Resolve each
   // service's image from `image:` or the builder's `builtImages` map, then
   // apply compose `${VAR:-default}` interpolation (the `image:` field uses it
@@ -168,6 +184,7 @@ export async function deployCompose(
     dlog.line(
       `Deploying stack ${record.compose.stackName} — ${parsed.value.services.length} service(s), reason: ${reason}`,
     );
+    for (const w of compat.warnings) dlog.line(`Compatibility: ${w.message}`);
     if (stackDir) {
       dlog.line(`Materialized ${record.compose.files.length} inline file(s) to ${stackDir}`);
     }

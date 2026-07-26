@@ -19,7 +19,7 @@ import type {
   ExposedSeed,
 } from "./create";
 
-import { parseCompose, summarizeCompose } from "../../stack/compose";
+import { checkComposeCompatibility, parseCompose, summarizeCompose } from "../../stack/compose";
 import { isUniqueViolation } from "../project/views";
 import { enqueueInlineComposeBuild } from "./build-trigger";
 import { deployCompose } from "./deploy";
@@ -113,10 +113,22 @@ export async function createInlineCompose(
       })
     : { ok: false, error: null as string | null, status: "created" };
 
+  // od-5j8.24 — surface the same pre-apply compatibility report the deploy
+  // path enforces (see `deployCompose` in `./deploy.ts`, which is the
+  // actual blocking gate for FAIL-severity issues on both this immediate
+  // deploy and every later redeploy/reconcile). Storing a compose file with
+  // unsafe fields as an undeployed draft is fine — nothing runs yet — so
+  // this only informs, it doesn't reject the create.
+  const compat = checkComposeCompatibility(parsed, { bindMountsSupported: files.length > 0 });
+  const compatWarnings = [
+    ...compat.fails.map((f) => `BLOCKED at deploy: ${f.message}`),
+    ...compat.warnings.map((w) => w.message),
+  ];
+
   return Result.ok({
     resourceId: created.value.resource.id,
     services,
-    warnings: parsed.warnings,
+    warnings: [...parsed.warnings, ...compatWarnings],
     deploy,
   });
 }

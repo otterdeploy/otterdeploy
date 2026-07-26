@@ -3,6 +3,14 @@
  * raw compose file; this module turns it into the platform's normal shapes.
  * See docs/designs/compose.md.
  */
+export {
+  checkComposeCompatibility,
+  summarizeFails,
+  type CompatibilityContext,
+  type CompatibilityReport,
+  type CompatIssue,
+  type CompatSeverity,
+} from "./compatibility";
 export { parseCompose } from "./parse";
 export { summarizeCompose } from "./summary";
 export { composeServiceToSpec, composeSwarmServiceName, durationMs } from "./to-spec";

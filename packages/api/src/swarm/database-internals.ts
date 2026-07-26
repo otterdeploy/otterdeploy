@@ -11,6 +11,7 @@ import { log } from "evlog";
 
 import type { ProvisionSwarmDatabaseInput, SwarmDatabaseRuntime } from "./database";
 
+import { applyContainerSecurityDefaults, DEFAULT_PIDS_LIMIT } from "./container-security";
 import { getEngineAdapter, resolveDatabaseMount } from "./database-engines";
 import { subscribeDockerEvents } from "./events";
 
@@ -46,37 +47,43 @@ export function buildDatabaseSpec(input: ProvisionSwarmDatabaseInput, networkNam
     "otterdeploy.deployment.id": input.deploymentId,
   };
 
+  // od-5j8.23 — same baseline hardening as `internals.ts` (`container-security.ts`):
+  // drop-all + re-add Docker's default caps minus NET_RAW, which keeps
+  // CHOWN/SETUID/SETGID/DAC_OVERRIDE for the official images' chown-then-gosu entrypoint.
+  const containerSpec: Record<string, unknown> = {
+    Image: image,
+    Labels: otterdeployLabels,
+    Env: [...userEnv, ...identityEnv, ...mount.env],
+    ...(command ? { Command: command } : {}),
+    Mounts: [
+      {
+        Type: "volume" as const,
+        Source: input.volumeName,
+        Target: mount.target,
+      },
+    ],
+    Healthcheck: {
+      Test: [
+        "CMD-SHELL",
+        adapter.buildHealthcheck({
+          username: input.username,
+          password: input.password,
+          databaseName: input.databaseName,
+        }),
+      ],
+      Interval: 5_000_000_000,
+      Timeout: 3_000_000_000,
+      Retries: 20,
+    },
+    Hostname: input.hostnameAlias,
+  };
+  applyContainerSecurityDefaults(containerSpec);
+
   return {
     Name: input.serviceName,
     Labels: otterdeployLabels,
     TaskTemplate: {
-      ContainerSpec: {
-        Image: image,
-        Labels: otterdeployLabels,
-        Env: [...userEnv, ...identityEnv, ...mount.env],
-        ...(command ? { Command: command } : {}),
-        Mounts: [
-          {
-            Type: "volume" as const,
-            Source: input.volumeName,
-            Target: mount.target,
-          },
-        ],
-        Healthcheck: {
-          Test: [
-            "CMD-SHELL",
-            adapter.buildHealthcheck({
-              username: input.username,
-              password: input.password,
-              databaseName: input.databaseName,
-            }),
-          ],
-          Interval: 5_000_000_000,
-          Timeout: 3_000_000_000,
-          Retries: 20,
-        },
-        Hostname: input.hostnameAlias,
-      },
+      ContainerSpec: containerSpec,
       Networks: [
         {
           Target: networkName,
@@ -88,11 +95,11 @@ export function buildDatabaseSpec(input: ProvisionSwarmDatabaseInput, networkNam
         MaxAttempts: 5,
         Delay: 5_000_000_000,
       },
+      // od-5j8.23 — fork-bomb ceiling; no CPU/memory input surface here yet.
+      Resources: { Limits: { Pids: DEFAULT_PIDS_LIMIT } },
       ForceUpdate: input.forceUpdateCounter ?? 1,
     },
-    Mode: {
-      Replicated: { Replicas: 1 },
-    },
+    Mode: { Replicated: { Replicas: 1 } },
     // `stop-first` is mandatory for stateful single-replica services: the
     // database owns a persistent volume that exactly one process can hold
     // open at a time. With `start-first` swarm boots the new task before

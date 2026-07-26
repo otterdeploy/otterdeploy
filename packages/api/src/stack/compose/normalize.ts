@@ -42,7 +42,43 @@ export function normalizeService(name: string, svc: Obj, warnings: string[]): Pa
     resources: normalizeResources(limits),
     restart: normalizeRestart(svc.restart, deploy.restart_policy),
     dependsOn: toNameList(svc.depends_on),
+
+    // od-5j8.24 — captured, never silently dropped. See
+    // `stack/compose/compatibility.ts` for how each is classified.
+    privileged: svc.privileged === true,
+    capAdd: toStringList(svc.cap_add),
+    capDrop: toStringList(svc.cap_drop),
+    devices: toStringList(svc.devices),
+    securityOpt: toStringList(svc.security_opt),
+    networkMode: typeof svc.network_mode === "string" ? svc.network_mode : null,
+    pid: typeof svc.pid === "string" ? svc.pid : null,
+    sysctls: normalizeKeyVals(svc.sysctls),
+    hasUlimits: isObj(svc.ulimits) && Object.keys(svc.ulimits).length > 0,
+    secrets: normalizeServiceRefs(svc.secrets),
+    configs: normalizeServiceRefs(svc.configs),
   };
+}
+
+/** `cap_add`/`cap_drop`/`devices`/`security_opt`: compose accepts a plain
+ *  string list; tolerate a `{name: ...}` map shape too (rare, but some
+ *  compose dialects allow it for `devices`) by falling back to its keys. */
+function toStringList(v: unknown): string[] {
+  if (Array.isArray(v)) return v.filter((x): x is string => typeof x === "string");
+  if (isObj(v)) return Object.keys(v);
+  return [];
+}
+
+/** `secrets:`/`configs:` per-service refs: a bare name, or the long form
+ *  `{ source: "name", target: ... }` — only the referenced name matters for
+ *  surfacing "this isn't supported yet". */
+function normalizeServiceRefs(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  const out: string[] = [];
+  for (const entry of v) {
+    if (typeof entry === "string") out.push(entry);
+    else if (isObj(entry) && typeof entry.source === "string") out.push(entry.source);
+  }
+  return out;
 }
 
 function normalizeBuild(v: unknown): ParsedBuild | null {

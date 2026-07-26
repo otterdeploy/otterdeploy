@@ -4,7 +4,7 @@
  */
 import { projectScopedProcedure, requirePermission } from "../..";
 import { removeResourceDir } from "../../lib/data-dir";
-import { parseCompose, summarizeCompose } from "../../stack/compose";
+import { checkComposeCompatibility, parseCompose, summarizeCompose } from "../../stack/compose";
 import { removeComposeStack } from "../../swarm";
 import { removeComposeFromManifest, syncManifestComposeContent } from "../project/manifest";
 import { enqueueComposeBuild, enqueueInlineComposeBuild } from "./build-trigger";
@@ -49,6 +49,21 @@ export const composeRouter = {
         warnings: [],
       };
     }
+    // od-5j8.24 — pre-apply compatibility report, surfaced in the wizard
+    // BEFORE the stack is even created. `bindMountsSupported: false` here:
+    // this preview only ever sees a single pasted file's raw content, never
+    // the multi-file tree a bind mount would resolve against, so a bind is
+    // classified the same conservative way it would be for a single-file
+    // create (see `routers/compose/deploy.ts`, the actual enforcement
+    // point). FAIL-severity issues are prefixed so they read distinctly
+    // from an ordinary (non-blocking) warning in this string list — the
+    // real block happens at deploy time via `checkComposeCompatibility` in
+    // `deployCompose`, not here.
+    const compat = checkComposeCompatibility(parsed.value, { bindMountsSupported: false });
+    const compatWarnings = [
+      ...compat.fails.map((f) => `BLOCKED at deploy: ${f.message}`),
+      ...compat.warnings.map((w) => w.message),
+    ];
     return {
       valid: true,
       error: null,
@@ -64,7 +79,7 @@ export const composeRouter = {
         ...s,
         image: s.image ? interpolate(s.image, {}) : null,
       })),
-      warnings: parsed.value.warnings,
+      warnings: [...parsed.value.warnings, ...compatWarnings],
     };
   }),
 

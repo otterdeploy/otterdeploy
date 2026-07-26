@@ -1,6 +1,7 @@
 import { Docker } from "@otterdeploy/docker";
 import { createError, type RequestLogger } from "evlog";
 
+import type { ContainerSecurityOverrides } from "./container-security";
 import type { SpecMount } from "./file-mounts";
 
 import { asStepLogger } from "../lib/logger";
@@ -46,6 +47,22 @@ export interface SwarmServiceRestart {
   delayMs: number;
 }
 
+/**
+ * od-5j8.23 — per-service overrides on top of the platform's baseline
+ * container-security defaults (see `./container-security.ts`). Optional and
+ * additive: every field here has a safe default applied by
+ * `buildContainerSpec` when omitted, so a spec that doesn't set `security`
+ * at all — every caller today — still gets the hardened baseline. There is
+ * deliberately no `privileged` field: Docker Swarm's ContainerSpec has no
+ * such concept, so it can't be requested through this type regardless of
+ * what a caller passes in.
+ */
+export type SwarmServiceSecurity = ContainerSecurityOverrides & {
+  /** Ceiling on live PIDs inside the container. `null` disables the limit
+   *  for this service; omitted falls back to `DEFAULT_PIDS_LIMIT`. */
+  pidsLimit?: number | null;
+};
+
 export interface SwarmServiceSpec {
   resourceId: string;
   resourceName: string;
@@ -62,6 +79,15 @@ export interface SwarmServiceSpec {
   restart: SwarmServiceRestart;
   healthcheck?: SwarmServiceHealthcheck | null;
   resources?: SwarmServiceResources;
+  /**
+   * od-5j8.23 — per-service capability/privilege overrides on top of the
+   * platform's safe baseline (drop-all + re-add Docker's own default caps
+   * minus NET_RAW, `NoNewPrivileges`, default seccomp, a generous PID
+   * ceiling, writable rootfs). Omitted by every caller today — the baseline
+   * always applies via `buildContainerSpec`; this is the auditable escape
+   * hatch for a future explicit, non-tenant-controlled override.
+   */
+  security?: SwarmServiceSecurity;
   ports: SwarmServicePort[];
   /**
    * Mounts attached to the container. File-type mounts MUST already be

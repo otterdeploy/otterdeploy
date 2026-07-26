@@ -38,6 +38,7 @@ export {
   type SwarmServiceHealthcheck,
   type SwarmServiceResources,
   type SwarmServiceRestart,
+  type SwarmServiceSecurity,
 } from "./service";
 export {
   deployComposeStack,
@@ -45,6 +46,14 @@ export {
   inspectComposeStack,
   type ComposeStackRuntime,
 } from "./compose";
+export {
+  applyContainerSecurityDefaults,
+  DEFAULT_CAP_ADD,
+  DEFAULT_CAP_DROP,
+  DEFAULT_PIDS_LIMIT,
+  resolvePidsLimit,
+  type ContainerSecurityOverrides,
+} from "./container-security";
 export { streamImagePull, type ImagePullEvent, type RegistryAuth } from "./image-pull";
 export { createPullLineSummarizer, type PullLineSummarizer } from "./pull-progress";
 export { resolveRegistryAuth } from "./registry-auth";

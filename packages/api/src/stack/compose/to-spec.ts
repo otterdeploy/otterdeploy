@@ -5,6 +5,16 @@
  * `provisionSwarmService`, so a compose stack reuses the entire existing deploy
  * primitive. See docs/designs/compose.md.
  *
+ * DEAD CODE as of the od-5j8.24 audit (2026-07-26): nothing in the live
+ * create/deploy/reconcile/manifest-apply paths calls `composeServiceToSpec`
+ * or `swarm/compose.ts#deployComposeStack` anymore — they were superseded by
+ * `routers/compose/reconcile.ts#reconcileStackServices`, which materializes
+ * each compose service as a real `service_resource` row and deploys it
+ * through the normal per-service path (`routers/service/spec.ts#buildSwarmSpec`).
+ * Only this file's own unit test (`__tests__/to-spec.test.ts`) exercises it.
+ * Kept working rather than deleted since removing it wasn't in scope here —
+ * flagged for a follow-up cleanup.
+ *
  * Intra-stack DNS: each service's `internalHostname` is its bare compose name,
  * so `depends_on` peers reach it at `http://<name>` over the project overlay
  * network — exactly as compose promises. Named volumes are namespaced by stack
@@ -116,8 +126,18 @@ function toRestart(r: ParsedComposeService["restart"]): SwarmServiceRestart {
   return { condition, maxAttempts: null, delayMs: 5_000 };
 }
 
-/** Volume mounts only — binds were dropped at parse, tmpfs is dropped here.
- *  Named volumes get the stack prefix; anonymous ones a stable derived name. */
+/** Volume mounts only — bind and tmpfs mounts are dropped here (NOT at
+ *  parse: `normalize.ts` captures binds correctly). NOTE: as of od-5j8.24,
+ *  this function and its caller (`composeServiceToSpec` /
+ *  `swarm/compose.ts#deployComposeStack`) are dead code — no production
+ *  path calls them; every compose deploy goes through
+ *  `routers/compose/reconcile.ts#reconcileStackServices` →
+ *  `reconcile-map.ts#toServiceFields` instead, which materializes each
+ *  compose service as a real `service_resource` row and reuses the normal
+ *  single-service deploy path. That's also where the actual (live) bind
+ *  mount handling and od-5j8.24 compatibility gate (`compatibility.ts` via
+ *  `routers/compose/deploy.ts#deployCompose`) live. Named volumes get the
+ *  stack prefix; anonymous ones a stable derived name. */
 function toMounts(svc: ParsedComposeService, volumeBase: string, stackName: string): SpecMount[] {
   const out: SpecMount[] = [];
   for (const v of svc.volumes) {

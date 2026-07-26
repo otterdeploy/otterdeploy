@@ -69,6 +69,50 @@ export interface ParsedComposeService {
   resources: ParsedResources;
   restart: ParsedRestart;
   dependsOn: string[];
+
+  // od-5j8.24 — fields the platform previously read off the raw service
+  // object and then threw away with no warning. Captured (never silently
+  // dropped) so `stack/compose/compatibility.ts` can classify each one as a
+  // hard failure or a surfaced warning instead of quietly diverging from
+  // what the compose file asked for. None of these are applied to the
+  // deployed ContainerSpec by anything in `to-spec.ts` / `reconcile-map.ts`
+  // today — od-5j8.23's policy is the sole authority on what a tenant
+  // workload's container is allowed to run with.
+  /** `privileged: true` — Docker Swarm services cannot run privileged at
+   *  all (no such field exists in Swarm's ContainerSpec), so this is always
+   *  a hard compatibility failure, never silently ignored. */
+  privileged: boolean;
+  /** `cap_add` — always a hard failure today: granting a tenant-requested
+   *  Linux capability beyond the platform's baseline has no admin-review
+   *  path yet (see `swarm/container-security.ts`). */
+  capAdd: string[];
+  /** `cap_drop` — always safe (dropping capabilities is strictly tightening
+   *  the sandbox); surfaced as an informational warning since it's already
+   *  implied by the platform's drop-all baseline. */
+  capDrop: string[];
+  /** `devices` — Docker Swarm services have no host-device passthrough at
+   *  all; always a hard failure. */
+  devices: string[];
+  /** `security_opt` — classified entry-by-entry: an escalating value
+   *  (`seccomp:unconfined`, `apparmor:unconfined`, `no-new-privileges:false`,
+   *  `label:disable`, …) is a hard failure, anything else a warning. */
+  securityOpt: string[];
+  /** `network_mode` — Swarm services always attach to the project overlay
+   *  network; any explicit override (`host`, `none`, `container:x`,
+   *  `service:x`, …) can't be honored and is a hard failure. */
+  networkMode: string | null;
+  /** `pid` — `host` (or `container:x`/`service:x`) shares a foreign PID
+   *  namespace and is a hard failure; any other value is a warning. */
+  pid: string | null;
+  /** `sysctls` — not applied yet; warning. */
+  sysctls: Record<string, string>;
+  /** `ulimits` present — not applied yet; warning. */
+  hasUlimits: boolean;
+  /** Per-service `secrets:`/`configs:` references (names only) — not
+   *  supported yet, same as the existing top-level `secrets`/`configs`
+   *  warning; warning. */
+  secrets: string[];
+  configs: string[];
 }
 
 export interface ParsedCompose {
