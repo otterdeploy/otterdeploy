@@ -19,7 +19,6 @@ import { Route as AcceptInviteInvitationIdRouteImport } from "./routes/accept-in
 import { Route as AppOrgSlugLayoutRouteImport } from "./routes/_app/$orgSlug/layout"
 import { Route as AppOrgSlugWebhooksRouteImport } from "./routes/_app/$orgSlug/webhooks"
 import { Route as AppOrgSlugTeamRouteImport } from "./routes/_app/$orgSlug/team"
-import { Route as AppOrgSlugNotificationsRouteImport } from "./routes/_app/$orgSlug/notifications"
 import { Route as AppOrgSlugInstanceRouteImport } from "./routes/_app/$orgSlug/instance"
 import { Route as AppOrgSlugFirewallRouteImport } from "./routes/_app/$orgSlug/firewall"
 import { Route as AppOrgSlugCertificatesRouteImport } from "./routes/_app/$orgSlug/certificates"
@@ -37,6 +36,7 @@ import { Route as AppOrgSlugShellSshKeysRouteImport } from "./routes/_app/$orgSl
 import { Route as AppOrgSlugShellServersRouteImport } from "./routes/_app/$orgSlug/_shell/servers"
 import { Route as AppOrgSlugShellRegistriesRouteImport } from "./routes/_app/$orgSlug/_shell/registries"
 import { Route as AppOrgSlugShellPlatformRouteImport } from "./routes/_app/$orgSlug/_shell/platform"
+import { Route as AppOrgSlugShellNotificationsRouteImport } from "./routes/_app/$orgSlug/_shell/notifications"
 import { Route as AppOrgSlugShellNetworkingRouteImport } from "./routes/_app/$orgSlug/_shell/networking"
 import { Route as AppOrgSlugShellGitProvidersRouteImport } from "./routes/_app/$orgSlug/_shell/git-providers"
 import { Route as AppOrgSlugShellEdgeLogsRouteImport } from "./routes/_app/$orgSlug/_shell/edge-logs"
@@ -123,11 +123,6 @@ const AppOrgSlugWebhooksRoute = AppOrgSlugWebhooksRouteImport.update({
 const AppOrgSlugTeamRoute = AppOrgSlugTeamRouteImport.update({
   id: "/team",
   path: "/team",
-  getParentRoute: () => AppOrgSlugLayoutRoute,
-} as any)
-const AppOrgSlugNotificationsRoute = AppOrgSlugNotificationsRouteImport.update({
-  id: "/notifications",
-  path: "/notifications",
   getParentRoute: () => AppOrgSlugLayoutRoute,
 } as any)
 const AppOrgSlugInstanceRoute = AppOrgSlugInstanceRouteImport.update({
@@ -218,6 +213,12 @@ const AppOrgSlugShellPlatformRoute = AppOrgSlugShellPlatformRouteImport.update({
   path: "/platform",
   getParentRoute: () => AppOrgSlugShellLayoutRoute,
 } as any)
+const AppOrgSlugShellNotificationsRoute =
+  AppOrgSlugShellNotificationsRouteImport.update({
+    id: "/notifications",
+    path: "/notifications",
+    getParentRoute: () => AppOrgSlugShellLayoutRoute,
+  } as any)
 const AppOrgSlugShellNetworkingRoute =
   AppOrgSlugShellNetworkingRouteImport.update({
     id: "/networking",
@@ -447,7 +448,6 @@ export interface FileRoutesByFullPath {
   "/$orgSlug/certificates": typeof AppOrgSlugCertificatesRoute
   "/$orgSlug/firewall": typeof AppOrgSlugFirewallRoute
   "/$orgSlug/instance": typeof AppOrgSlugInstanceRoute
-  "/$orgSlug/notifications": typeof AppOrgSlugNotificationsRoute
   "/$orgSlug/team": typeof AppOrgSlugTeamRoute
   "/$orgSlug/webhooks": typeof AppOrgSlugWebhooksRoute
   "/$orgSlug/$projectSlug": typeof AppOrgSlugShellProjectSlugLayoutRouteWithChildren
@@ -459,6 +459,7 @@ export interface FileRoutesByFullPath {
   "/$orgSlug/edge-logs": typeof AppOrgSlugShellEdgeLogsRoute
   "/$orgSlug/git-providers": typeof AppOrgSlugShellGitProvidersRoute
   "/$orgSlug/networking": typeof AppOrgSlugShellNetworkingRoute
+  "/$orgSlug/notifications": typeof AppOrgSlugShellNotificationsRoute
   "/$orgSlug/platform": typeof AppOrgSlugShellPlatformRoute
   "/$orgSlug/registries": typeof AppOrgSlugShellRegistriesRoute
   "/$orgSlug/servers": typeof AppOrgSlugShellServersRoute
@@ -510,7 +511,6 @@ export interface FileRoutesByTo {
   "/$orgSlug/certificates": typeof AppOrgSlugCertificatesRoute
   "/$orgSlug/firewall": typeof AppOrgSlugFirewallRoute
   "/$orgSlug/instance": typeof AppOrgSlugInstanceRoute
-  "/$orgSlug/notifications": typeof AppOrgSlugNotificationsRoute
   "/$orgSlug/team": typeof AppOrgSlugTeamRoute
   "/$orgSlug/webhooks": typeof AppOrgSlugWebhooksRoute
   "/$orgSlug/audit": typeof AppOrgSlugShellAuditRoute
@@ -521,6 +521,7 @@ export interface FileRoutesByTo {
   "/$orgSlug/edge-logs": typeof AppOrgSlugShellEdgeLogsRoute
   "/$orgSlug/git-providers": typeof AppOrgSlugShellGitProvidersRoute
   "/$orgSlug/networking": typeof AppOrgSlugShellNetworkingRoute
+  "/$orgSlug/notifications": typeof AppOrgSlugShellNotificationsRoute
   "/$orgSlug/platform": typeof AppOrgSlugShellPlatformRoute
   "/$orgSlug/registries": typeof AppOrgSlugShellRegistriesRoute
   "/$orgSlug/servers": typeof AppOrgSlugShellServersRoute
@@ -575,7 +576,6 @@ export interface FileRoutesById {
   "/_app/$orgSlug/certificates": typeof AppOrgSlugCertificatesRoute
   "/_app/$orgSlug/firewall": typeof AppOrgSlugFirewallRoute
   "/_app/$orgSlug/instance": typeof AppOrgSlugInstanceRoute
-  "/_app/$orgSlug/notifications": typeof AppOrgSlugNotificationsRoute
   "/_app/$orgSlug/team": typeof AppOrgSlugTeamRoute
   "/_app/$orgSlug/webhooks": typeof AppOrgSlugWebhooksRoute
   "/_app/$orgSlug/_shell/$projectSlug": typeof AppOrgSlugShellProjectSlugLayoutRouteWithChildren
@@ -587,6 +587,7 @@ export interface FileRoutesById {
   "/_app/$orgSlug/_shell/edge-logs": typeof AppOrgSlugShellEdgeLogsRoute
   "/_app/$orgSlug/_shell/git-providers": typeof AppOrgSlugShellGitProvidersRoute
   "/_app/$orgSlug/_shell/networking": typeof AppOrgSlugShellNetworkingRoute
+  "/_app/$orgSlug/_shell/notifications": typeof AppOrgSlugShellNotificationsRoute
   "/_app/$orgSlug/_shell/platform": typeof AppOrgSlugShellPlatformRoute
   "/_app/$orgSlug/_shell/registries": typeof AppOrgSlugShellRegistriesRoute
   "/_app/$orgSlug/_shell/servers": typeof AppOrgSlugShellServersRoute
@@ -641,7 +642,6 @@ export interface FileRouteTypes {
     | "/$orgSlug/certificates"
     | "/$orgSlug/firewall"
     | "/$orgSlug/instance"
-    | "/$orgSlug/notifications"
     | "/$orgSlug/team"
     | "/$orgSlug/webhooks"
     | "/$orgSlug/$projectSlug"
@@ -653,6 +653,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/edge-logs"
     | "/$orgSlug/git-providers"
     | "/$orgSlug/networking"
+    | "/$orgSlug/notifications"
     | "/$orgSlug/platform"
     | "/$orgSlug/registries"
     | "/$orgSlug/servers"
@@ -704,7 +705,6 @@ export interface FileRouteTypes {
     | "/$orgSlug/certificates"
     | "/$orgSlug/firewall"
     | "/$orgSlug/instance"
-    | "/$orgSlug/notifications"
     | "/$orgSlug/team"
     | "/$orgSlug/webhooks"
     | "/$orgSlug/audit"
@@ -715,6 +715,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/edge-logs"
     | "/$orgSlug/git-providers"
     | "/$orgSlug/networking"
+    | "/$orgSlug/notifications"
     | "/$orgSlug/platform"
     | "/$orgSlug/registries"
     | "/$orgSlug/servers"
@@ -768,7 +769,6 @@ export interface FileRouteTypes {
     | "/_app/$orgSlug/certificates"
     | "/_app/$orgSlug/firewall"
     | "/_app/$orgSlug/instance"
-    | "/_app/$orgSlug/notifications"
     | "/_app/$orgSlug/team"
     | "/_app/$orgSlug/webhooks"
     | "/_app/$orgSlug/_shell/$projectSlug"
@@ -780,6 +780,7 @@ export interface FileRouteTypes {
     | "/_app/$orgSlug/_shell/edge-logs"
     | "/_app/$orgSlug/_shell/git-providers"
     | "/_app/$orgSlug/_shell/networking"
+    | "/_app/$orgSlug/_shell/notifications"
     | "/_app/$orgSlug/_shell/platform"
     | "/_app/$orgSlug/_shell/registries"
     | "/_app/$orgSlug/_shell/servers"
@@ -900,13 +901,6 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppOrgSlugTeamRouteImport
       parentRoute: typeof AppOrgSlugLayoutRoute
     }
-    "/_app/$orgSlug/notifications": {
-      id: "/_app/$orgSlug/notifications"
-      path: "/notifications"
-      fullPath: "/$orgSlug/notifications"
-      preLoaderRoute: typeof AppOrgSlugNotificationsRouteImport
-      parentRoute: typeof AppOrgSlugLayoutRoute
-    }
     "/_app/$orgSlug/instance": {
       id: "/_app/$orgSlug/instance"
       path: "/instance"
@@ -1024,6 +1018,13 @@ declare module "@tanstack/react-router" {
       path: "/platform"
       fullPath: "/$orgSlug/platform"
       preLoaderRoute: typeof AppOrgSlugShellPlatformRouteImport
+      parentRoute: typeof AppOrgSlugShellLayoutRoute
+    }
+    "/_app/$orgSlug/_shell/notifications": {
+      id: "/_app/$orgSlug/_shell/notifications"
+      path: "/notifications"
+      fullPath: "/$orgSlug/notifications"
+      preLoaderRoute: typeof AppOrgSlugShellNotificationsRouteImport
       parentRoute: typeof AppOrgSlugShellLayoutRoute
     }
     "/_app/$orgSlug/_shell/networking": {
@@ -1361,6 +1362,7 @@ interface AppOrgSlugShellLayoutRouteChildren {
   AppOrgSlugShellEdgeLogsRoute: typeof AppOrgSlugShellEdgeLogsRoute
   AppOrgSlugShellGitProvidersRoute: typeof AppOrgSlugShellGitProvidersRoute
   AppOrgSlugShellNetworkingRoute: typeof AppOrgSlugShellNetworkingRoute
+  AppOrgSlugShellNotificationsRoute: typeof AppOrgSlugShellNotificationsRoute
   AppOrgSlugShellPlatformRoute: typeof AppOrgSlugShellPlatformRoute
   AppOrgSlugShellRegistriesRoute: typeof AppOrgSlugShellRegistriesRoute
   AppOrgSlugShellServersRoute: typeof AppOrgSlugShellServersRoute
@@ -1383,6 +1385,7 @@ const AppOrgSlugShellLayoutRouteChildren: AppOrgSlugShellLayoutRouteChildren = {
   AppOrgSlugShellEdgeLogsRoute: AppOrgSlugShellEdgeLogsRoute,
   AppOrgSlugShellGitProvidersRoute: AppOrgSlugShellGitProvidersRoute,
   AppOrgSlugShellNetworkingRoute: AppOrgSlugShellNetworkingRoute,
+  AppOrgSlugShellNotificationsRoute: AppOrgSlugShellNotificationsRoute,
   AppOrgSlugShellPlatformRoute: AppOrgSlugShellPlatformRoute,
   AppOrgSlugShellRegistriesRoute: AppOrgSlugShellRegistriesRoute,
   AppOrgSlugShellServersRoute: AppOrgSlugShellServersRoute,
@@ -1463,7 +1466,6 @@ interface AppOrgSlugLayoutRouteChildren {
   AppOrgSlugCertificatesRoute: typeof AppOrgSlugCertificatesRoute
   AppOrgSlugFirewallRoute: typeof AppOrgSlugFirewallRoute
   AppOrgSlugInstanceRoute: typeof AppOrgSlugInstanceRoute
-  AppOrgSlugNotificationsRoute: typeof AppOrgSlugNotificationsRoute
   AppOrgSlugTeamRoute: typeof AppOrgSlugTeamRoute
   AppOrgSlugWebhooksRoute: typeof AppOrgSlugWebhooksRoute
   AppOrgSlugGitProvidersProviderIdRoute: typeof AppOrgSlugGitProvidersProviderIdRoute
@@ -1477,7 +1479,6 @@ const AppOrgSlugLayoutRouteChildren: AppOrgSlugLayoutRouteChildren = {
   AppOrgSlugCertificatesRoute: AppOrgSlugCertificatesRoute,
   AppOrgSlugFirewallRoute: AppOrgSlugFirewallRoute,
   AppOrgSlugInstanceRoute: AppOrgSlugInstanceRoute,
-  AppOrgSlugNotificationsRoute: AppOrgSlugNotificationsRoute,
   AppOrgSlugTeamRoute: AppOrgSlugTeamRoute,
   AppOrgSlugWebhooksRoute: AppOrgSlugWebhooksRoute,
   AppOrgSlugGitProvidersProviderIdRoute: AppOrgSlugGitProvidersProviderIdRoute,

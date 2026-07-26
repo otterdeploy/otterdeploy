@@ -190,52 +190,6 @@ const setEdgeOptionsInput = z.object({
   httpsAutoRedirect: z.boolean(),
 });
 
-// ─── Outbound email transport (platform-wide) ───────────────────────
-// Stored on the platform_settings singleton; surfaced here under the org
-// settings the operator already manages. Single-tenant beta: any org
-// owner/admin edits the one install-wide transport. Secrets are write-only —
-// reads return `*Configured` booleans, never the key/password.
-const emailProviderEnum = z.enum(["resend", "smtp"]);
-
-const emailSettingsSchema = z.object({
-  provider: emailProviderEnum.nullable(),
-  from: z.string().nullable(),
-  resendConfigured: z.boolean(),
-  smtpHost: z.string().nullable(),
-  smtpPort: z.number().nullable(),
-  smtpSecure: z.boolean().nullable(),
-  smtpUser: z.string().nullable(),
-  smtpPasswordConfigured: z.boolean(),
-  envConfigured: z.boolean(),
-});
-
-const getEmailSettingsInput = z.object({
-  organizationId: organizationIdField,
-});
-
-const setEmailSettingsInput = z.object({
-  organizationId: organizationIdField,
-  provider: emailProviderEnum.nullable(),
-  from: z.string().trim().max(320).nullable(),
-  // Write-only secrets: a string sets it, `null` clears it, omitted leaves it.
-  resendApiKey: z.string().min(1).nullable().optional(),
-  smtpHost: z.string().trim().max(255).nullable(),
-  smtpPort: z.number().int().positive().max(65535).nullable(),
-  smtpSecure: z.boolean().nullable(),
-  smtpUser: z.string().trim().max(255).nullable(),
-  smtpPassword: z.string().min(1).nullable().optional(),
-});
-
-const testEmailInput = z.object({
-  organizationId: organizationIdField,
-  to: z.email(),
-});
-
-const testEmailOutput = z.object({
-  ok: z.boolean(),
-  error: z.string().nullable(),
-});
-
 // ─── Runtime configuration (platform-wide, od-gfg) ───────────────────
 // Settings that used to be env-only but are runtime policy rather than
 // boot-time infrastructure. All live on the platform_settings singleton with
@@ -283,24 +237,6 @@ const setSocialProviderInput = z.object({
   clientId: z.string().trim().max(255).nullable(),
   clientSecret: z.string().min(1).nullable().optional(),
   issuer: z.url().nullable().optional(),
-});
-
-const messagingSettingsSchema = z.object({
-  twilioAccountSid: z.string().nullable(),
-  twilioFromNumber: z.string().nullable(),
-  twilioAuthTokenConfigured: z.boolean(),
-  fcmServerKeyConfigured: z.boolean(),
-  /** env supplies a complete Twilio / FCM config, so these work unset. */
-  twilioEnvConfigured: z.boolean(),
-  fcmEnvConfigured: z.boolean(),
-});
-
-const setMessagingSettingsInput = z.object({
-  organizationId: organizationIdField,
-  twilioAccountSid: z.string().trim().max(255).nullable(),
-  twilioFromNumber: z.string().trim().max(32).nullable(),
-  twilioAuthToken: z.string().min(1).nullable().optional(),
-  fcmServerKey: z.string().min(1).nullable().optional(),
 });
 
 const crowdsecSettingsSchema = z.object({
@@ -529,21 +465,6 @@ export const organizationContract = {
     .input(setEdgeOptionsInput)
     .output(edgeOptionsSchema),
 
-  getEmailSettings: oc
-    .meta({ path: `${basePath}/{organizationId}/email`, tag, method: "GET" })
-    .input(getEmailSettingsInput)
-    .output(emailSettingsSchema),
-
-  setEmailSettings: oc
-    .meta({ path: `${basePath}/{organizationId}/email`, tag, method: "PATCH" })
-    .input(setEmailSettingsInput)
-    .output(emailSettingsSchema),
-
-  testEmail: oc
-    .meta({ path: `${basePath}/{organizationId}/email/test`, tag, method: "POST" })
-    .input(testEmailInput)
-    .output(testEmailOutput),
-
   // ── Runtime configuration ──────────────────────────────────────────
   getAccessSettings: oc
     .meta({ path: `${basePath}/{organizationId}/instance/access`, tag, method: "GET" })
@@ -564,16 +485,6 @@ export const organizationContract = {
     .meta({ path: `${basePath}/{organizationId}/instance/social-providers`, tag, method: "PATCH" })
     .input(setSocialProviderInput)
     .output(z.array(socialProviderSchema)),
-
-  getMessagingSettings: oc
-    .meta({ path: `${basePath}/{organizationId}/instance/messaging`, tag, method: "GET" })
-    .input(getOrganizationSettingsInput)
-    .output(messagingSettingsSchema),
-
-  setMessagingSettings: oc
-    .meta({ path: `${basePath}/{organizationId}/instance/messaging`, tag, method: "PATCH" })
-    .input(setMessagingSettingsInput)
-    .output(messagingSettingsSchema),
 
   getCrowdsecSettings: oc
     .meta({ path: `${basePath}/{organizationId}/instance/crowdsec`, tag, method: "GET" })

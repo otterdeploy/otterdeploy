@@ -29,6 +29,7 @@ import {
   FlashIcon,
   GitBranchIcon,
   Home01Icon,
+  Notification03Icon,
   Key01Icon,
   Key02Icon,
   PackageIcon,
@@ -185,6 +186,16 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         icon: Key01Icon,
         keywords: ["deploy key", "git", "node", "credentials", "keypair"],
       },
+      {
+        // Same reasoning as its neighbours: routing an event to a channel is
+        // something you come back to (add a channel, mute a noisy event, check
+        // a failed delivery), not one-time setup. Moved out of
+        // Settings → Workspace.
+        title: "Notifications",
+        to: "/$orgSlug/notifications",
+        icon: Notification03Icon,
+        keywords: ["alerts", "slack", "discord", "email", "webhook", "telegram", "pagerduty"],
+      },
     ],
   },
 ];
@@ -278,25 +289,10 @@ export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
         icon: WebhookIcon,
         keywords: ["hmac", "deliveries", "inbound", "events"],
       },
-      {
-        title: "Notifications",
-        to: "/$orgSlug/settings/workspace/notifications",
-        icon: Alert01Icon,
-        // Transport keywords (email/smtp/twilio/…) point here rather than at
-        // Instance — the credentials moved onto this page with the channels.
-        keywords: [
-          "slack",
-          "discord",
-          "alerts",
-          "email",
-          "resend",
-          "smtp",
-          "twilio",
-          "sms",
-          "push",
-          "fcm",
-        ],
-      },
+      // Notifications moved to OPERATIONAL_NAV → Workspace; the old settings
+      // path now redirects there. Its transport cards (email provider, Twilio,
+      // FCM) were removed outright — per-channel delivery credentials are
+      // captured by the channel dialog itself.
     ],
   },
   {

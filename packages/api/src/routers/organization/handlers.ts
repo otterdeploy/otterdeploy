@@ -283,13 +283,3 @@ export async function verifyOrganizationBaseDomain(
     settings: updated ? toView(updated) : toView(row),
   });
 }
-
-// Outbound email transport settings live in a sibling module; re-exported here
-// so the org router's `./handlers` import surface stays a single entry point.
-export {
-  getEmailSettings,
-  saveEmailSettings,
-  sendTestEmail,
-  type EmailSettingsView,
-  type SaveEmailSettingsInput,
-} from "./email-settings";

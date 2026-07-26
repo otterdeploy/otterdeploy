@@ -22,15 +22,12 @@ import {
   setControlPlaneDomain,
   verifyControlPlaneDomain,
 } from "./control-plane-domain";
-import { getEmailSettings, saveEmailSettings, sendTestEmail } from "./handlers";
 import {
   getAccessSettings,
   getCrowdsecSettings,
-  getMessagingSettings,
   getRuntimeSettings,
   saveAccessSettings,
   saveCrowdsecSettings,
-  saveMessagingSettings,
   saveRuntimeSettings,
 } from "./runtime-settings";
 import { listSocialProviders, saveSocialProvider } from "./social-providers";
@@ -147,33 +144,6 @@ export const platformSettingsRouter = {
     },
   ),
 
-  // ─── Outbound email transport ──────────────────────────────────────
-  getEmailSettings: requireInstallAdmin().organization.getEmailSettings.handler(async () =>
-    getEmailSettings(),
-  ),
-
-  setEmailSettings: requireInstallAdmin().organization.setEmailSettings.handler(
-    async ({ input, context }) => {
-      context.log.set({
-        target: { type: "organization", id: context.activeOrganizationId },
-      });
-      return saveEmailSettings({
-        provider: input.provider,
-        from: input.from,
-        resendApiKey: input.resendApiKey,
-        smtpHost: input.smtpHost,
-        smtpPort: input.smtpPort,
-        smtpSecure: input.smtpSecure,
-        smtpUser: input.smtpUser,
-        smtpPassword: input.smtpPassword,
-      });
-    },
-  ),
-
-  testEmail: requireInstallAdmin().organization.testEmail.handler(async ({ input }) =>
-    sendTestEmail(input.to),
-  ),
-
   // ─── Runtime configuration (od-gfg) ────────────────────────────────
   // Formerly env-only settings that are runtime policy rather than boot-time
   // infrastructure. Install-admin only, like everything else on this router:
@@ -210,22 +180,6 @@ export const platformSettingsRouter = {
         clientId: input.clientId,
         clientSecret: input.clientSecret,
         issuer: input.issuer,
-      });
-    },
-  ),
-
-  getMessagingSettings: requireInstallAdmin().organization.getMessagingSettings.handler(async () =>
-    getMessagingSettings(),
-  ),
-
-  setMessagingSettings: requireInstallAdmin().organization.setMessagingSettings.handler(
-    async ({ input, context }) => {
-      context.log.set({ target: { type: "organization", id: context.activeOrganizationId } });
-      return saveMessagingSettings({
-        twilioAccountSid: input.twilioAccountSid,
-        twilioFromNumber: input.twilioFromNumber,
-        twilioAuthToken: input.twilioAuthToken,
-        fcmServerKey: input.fcmServerKey,
       });
     },
   ),

@@ -79,59 +79,6 @@ export async function saveAccessSettings(
 
 // ─── SMS + push transports ────────────────────────────────────────────
 
-export interface MessagingSettingsView {
-  twilioAccountSid: string | null;
-  twilioFromNumber: string | null;
-  twilioAuthTokenConfigured: boolean;
-  fcmServerKeyConfigured: boolean;
-  twilioEnvConfigured: boolean;
-  fcmEnvConfigured: boolean;
-}
-
-function toMessagingView(row: PlatformRow | undefined): MessagingSettingsView {
-  return {
-    twilioAccountSid: row?.twilioAccountSid ?? null,
-    twilioFromNumber: row?.twilioFromNumber ?? null,
-    twilioAuthTokenConfigured: Boolean(row?.twilioAuthTokenCiphertext),
-    fcmServerKeyConfigured: Boolean(row?.fcmServerKeyCiphertext),
-    twilioEnvConfigured: Boolean(
-      env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_FROM_NUMBER,
-    ),
-    fcmEnvConfigured: Boolean(env.FCM_SERVER_KEY),
-  };
-}
-
-export async function getMessagingSettings(): Promise<MessagingSettingsView> {
-  return toMessagingView(await readRow());
-}
-
-export interface SaveMessagingSettingsInput {
-  twilioAccountSid: string | null;
-  twilioFromNumber: string | null;
-  twilioAuthToken?: string | null;
-  fcmServerKey?: string | null;
-}
-
-export async function saveMessagingSettings(
-  input: SaveMessagingSettingsInput,
-): Promise<MessagingSettingsView> {
-  const set: Partial<PlatformInsert> = {
-    twilioAccountSid: input.twilioAccountSid,
-    twilioFromNumber: input.twilioFromNumber,
-  };
-  if (input.twilioAuthToken !== undefined) {
-    set.twilioAuthTokenCiphertext = input.twilioAuthToken
-      ? await encryptSecret(input.twilioAuthToken)
-      : null;
-  }
-  if (input.fcmServerKey !== undefined) {
-    set.fcmServerKeyCiphertext = input.fcmServerKey
-      ? await encryptSecret(input.fcmServerKey)
-      : null;
-  }
-  await persist(set);
-  return getMessagingSettings();
-}
 
 // ─── CrowdSec ─────────────────────────────────────────────────────────
 
