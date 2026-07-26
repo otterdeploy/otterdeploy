@@ -8,16 +8,19 @@
 import type { ProvisionServerPayload } from "@otterdeploy/jobs";
 import type { OrganizationId, ServerId, SshKeyId } from "@otterdeploy/shared/id";
 
+import { log } from "evlog";
+
 import { decryptForDomain } from "../../lib/crypto";
 import { getSshKeyInOrg } from "../sshKeys/queries";
+import { pinHostFingerprintOnFirstContact } from "./host-fingerprint";
 import { filterIpv4Peers } from "./host-firewall";
 import { getSwarmJoinTokens } from "./join-tokens";
 import { parseProbe, probeScript } from "./provision";
 import { installNodeFirewallBouncer, managerHostOf } from "./provision-firewall";
 import { installHostFirewall } from "./provision-host-firewall";
 import { emitProvisionLine, endProvisionStream } from "./provision-stream";
-import { listServersByOrg, patchServerFirewall } from "./queries";
-import { SshSession } from "./ssh-exec";
+import { getServerInOrg, listServersByOrg, patchServerFirewall } from "./queries";
+import { HostKeyMismatchError, SshSession } from "./ssh-exec";
 
 /**
  * Other org servers' IPv4 addresses (mesh address preferred, else host),
@@ -70,12 +73,45 @@ export async function runFirewallOnlyJob(payload: ProvisionServerPayload): Promi
     }
     const privateKey = await decryptForDomain(key.privateKeyCiphertext, "ssh-keys");
 
+    // od-5j8.19: this is the "reconnect to an already-joined node" path the
+    // audit called out by name — every reconnect must re-verify the pinned
+    // host key, not just the very first one. A row with no pin yet (any
+    // server enrolled before this feature shipped) pins on this connect
+    // instead of being locked out.
+    const existing = await getServerInOrg({ serverId, organizationId });
+    const pinned = existing?.hostFingerprint ?? null;
+
     emit(`── connecting to ${payload.host}:${payload.sshPort} as ${payload.sshUser} ──`);
-    const session = await SshSession.connect({
-      host: payload.host,
-      port: payload.sshPort,
-      user: payload.sshUser,
-      privateKey,
+    let session: SshSession;
+    try {
+      session = await SshSession.connect({
+        host: payload.host,
+        port: payload.sshPort,
+        user: payload.sshUser,
+        privateKey,
+        expectedFingerprint: pinned,
+      });
+    } catch (cause) {
+      if (cause instanceof HostKeyMismatchError) {
+        log.warn({
+          server: {
+            event: "ssh-host-key-mismatch",
+            serverId,
+            organizationId,
+            expected: cause.expectedFingerprint,
+            presented: cause.presentedFingerprint,
+          },
+        });
+      }
+      throw cause;
+    }
+    await pinHostFingerprintOnFirstContact({
+      serverId,
+      organizationId,
+      session,
+      alreadyPinned: pinned != null,
+      operatorVerified: false,
+      emit,
     });
     try {
       const probe = parseProbe((await session.runScript(probeScript(), emit)).output);

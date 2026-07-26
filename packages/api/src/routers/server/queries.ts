@@ -106,6 +106,64 @@ export async function patchServerProvision(input: {
 }
 
 /**
+ * Pin (first contact) or confirm/rotate (subsequent, operator-authorized) the
+ * SSH host-key fingerprint on record for a server (od-5j8.19). Every write
+ * here is a security-relevant event — callers log it (provision-runner.ts on
+ * first pin, handlers.ts's confirmHostFingerprint on confirm/rotate).
+ */
+export async function patchServerHostFingerprint(input: {
+  serverId: ServerId;
+  organizationId: OrgId;
+  hostFingerprint: string;
+  hostFingerprintAlgo?: string;
+  hostFingerprintVerified: boolean;
+}): Promise<ServerRecord | undefined> {
+  const [row] = await db
+    .update(server)
+    .set({
+      hostFingerprint: input.hostFingerprint,
+      hostFingerprintAlgo: input.hostFingerprintAlgo ?? "sha256",
+      hostFingerprintVerified: input.hostFingerprintVerified,
+      hostFingerprintPinnedAt: new Date(),
+    })
+    .where(and(eq(server.id, input.serverId), eq(server.organizationId, input.organizationId)))
+    .returning();
+  return row;
+}
+
+/** od-5j8.19 — mark the currently-pinned fingerprint as operator-confirmed.
+ *  Does not change the value; only flips hostFingerprintVerified. */
+export async function confirmServerHostFingerprint(input: {
+  serverId: ServerId;
+  organizationId: OrgId;
+}): Promise<ServerRecord | undefined> {
+  const [row] = await db
+    .update(server)
+    .set({ hostFingerprintVerified: true })
+    .where(and(eq(server.id, input.serverId), eq(server.organizationId, input.organizationId)))
+    .returning();
+  return row;
+}
+
+/** od-5j8.19 — overwrite the pinned fingerprint with an operator-confirmed
+ *  new value (a deliberate rotation, e.g. after rebuilding the host). Always
+ *  lands as verified: reaching this call required the typed confirmation
+ *  phrase in handlers.ts, i.e. the operator has already asserted they
+ *  checked the new key out-of-band. */
+export async function rotateServerHostFingerprint(input: {
+  serverId: ServerId;
+  organizationId: OrgId;
+  hostFingerprint: string;
+}): Promise<ServerRecord | undefined> {
+  return patchServerHostFingerprint({
+    serverId: input.serverId,
+    organizationId: input.organizationId,
+    hostFingerprint: input.hostFingerprint,
+    hostFingerprintVerified: true,
+  });
+}
+
+/**
  * Record the host-firewall + native-bouncer provisioning outcome (od-5j8.11)
  * — written by provision-runner.ts on join and by the reapplyFirewall
  * remediation path. Separate from patchServerProvision so a firewall-only

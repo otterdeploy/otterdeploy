@@ -17,11 +17,13 @@ import type { ProvisionServerPayload } from "@otterdeploy/jobs";
 import type { OrganizationId, ServerId, SshKeyId } from "@otterdeploy/shared/id";
 
 import { triggerProvisionServer } from "@otterdeploy/jobs";
+import { log } from "evlog";
 
 import { decryptForDomain, encryptForDomain } from "../../lib/crypto";
 import { getSshKeyInOrg } from "../sshKeys/queries";
 import { rotateSwarmJoinCredential } from "./enrollment";
 import { resolveFirewallPeers, runFirewallOnlyJob } from "./firewall-remediation";
+import { pinHostFingerprintOnFirstContact } from "./host-fingerprint";
 import { filterIpv4Peers } from "./host-firewall";
 import { getSwarmJoinTokens } from "./join-tokens";
 import { type MeshProvider, runRemoteProvision } from "./provision";
@@ -29,8 +31,8 @@ import { installNodeFirewallBouncer, managerHostOf } from "./provision-firewall"
 import { installHostFirewall } from "./provision-host-firewall";
 import { labelBuildNode, verifyNodeJoined } from "./provision-node-verify";
 import { emitProvisionLine, endProvisionStream } from "./provision-stream";
-import { patchServerFirewall, patchServerProvision } from "./queries";
-import { SshSession } from "./ssh-exec";
+import { getServerInOrg, patchServerFirewall, patchServerProvision } from "./queries";
+import { HostKeyMismatchError, SshSession } from "./ssh-exec";
 
 export interface EnqueueProvisionInput {
   serverId: ServerId;
@@ -49,6 +51,14 @@ export interface EnqueueProvisionInput {
   cloudflareToken?: string;
   /** od-5j8.11 drift remediation: re-run only the firewall steps. */
   firewallOnly?: boolean;
+  /**
+   * od-5j8.19: an operator-supplied SSH host-key fingerprint (from the VPS
+   * provider's console, `ssh-keyscan` run over a trusted network, etc.),
+   * verified — not just trusted — on the very first connection. Not a
+   * secret; not encrypted. Ignored once the server row already has a pinned
+   * fingerprint (a later provision job never overrides an existing pin).
+   */
+  expectedHostFingerprint?: string | null;
 }
 
 /** Encrypt the secrets and enqueue the provision job. */
@@ -78,6 +88,7 @@ export async function enqueueProvision(input: EnqueueProvisionInput): Promise<vo
     meshAuthKeyCiphertext,
     cloudflareTokenCiphertext,
     firewallOnly: input.firewallOnly ?? false,
+    expectedHostFingerprint: input.expectedHostFingerprint ?? null,
   });
 }
 
@@ -118,13 +129,47 @@ export async function runProvisionJob(payload: ProvisionServerPayload): Promise<
       throw new Error(`A ${payload.meshProvider} auth key is required to join over the mesh.`);
     }
 
+    // od-5j8.19: a row already carrying a pin (a retried provision that got
+    // this far once before) MUST be verified against it — never overwritten
+    // by a fresh operator-supplied value or silently re-trusted. Only an
+    // unpinned row accepts either the operator's out-of-band fingerprint or
+    // falls back to trust-on-first-use.
+    const existing = await getServerInOrg({ serverId, organizationId });
+    const pinned = existing?.hostFingerprint ?? null;
+    const expectedFingerprint = pinned ?? payload.expectedHostFingerprint ?? null;
+
     emit(`── connecting to ${payload.host}:${payload.sshPort} as ${payload.sshUser} ──`);
-    const session = await SshSession.connect({
-      host: payload.host,
-      port: payload.sshPort,
-      user: payload.sshUser,
-      privateKey,
-      password: password ?? undefined,
+    let session: SshSession;
+    try {
+      session = await SshSession.connect({
+        host: payload.host,
+        port: payload.sshPort,
+        user: payload.sshUser,
+        privateKey,
+        password: password ?? undefined,
+        expectedFingerprint,
+      });
+    } catch (cause) {
+      if (cause instanceof HostKeyMismatchError) {
+        log.warn({
+          server: {
+            event: "ssh-host-key-mismatch",
+            serverId,
+            organizationId,
+            expected: cause.expectedFingerprint,
+            presented: cause.presentedFingerprint,
+          },
+        });
+      }
+      throw cause;
+    }
+    await pinHostFingerprintOnFirstContact({
+      serverId,
+      organizationId,
+      session,
+      alreadyPinned: pinned != null,
+      operatorVerified: payload.expectedHostFingerprint != null,
+      emit,
     });
 
     let result;

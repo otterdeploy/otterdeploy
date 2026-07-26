@@ -173,3 +173,36 @@ export class SwarmNodeRemoveError extends TaggedError("SwarmNodeRemoveError")<{
     });
   }
 }
+
+/** od-5j8.19: nothing to confirm — the server has never completed a
+ *  successful SSH connect, so no fingerprint was ever pinned. */
+export class HostFingerprintPendingError extends TaggedError("HostFingerprintPendingError")<{
+  message: string;
+  serverId: ServerId;
+}>() {
+  constructor(args: { serverId: ServerId }) {
+    super({
+      serverId: args.serverId,
+      message: `server ${args.serverId} has no pinned host-key fingerprint yet — provision or reconnect it first`,
+    });
+  }
+}
+
+/** od-5j8.19: the fingerprint supplied doesn't match what's pinned — this is
+ *  a rotation (legitimate host rebuild, or a warning sign), not a confirm,
+ *  and requires the explicit typed confirmation phrase. */
+export class HostFingerprintRotationRequiredError extends TaggedError(
+  "HostFingerprintRotationRequiredError",
+)<{
+  message: string;
+  serverId: ServerId;
+}>() {
+  constructor(args: { serverId: ServerId }) {
+    super({
+      serverId: args.serverId,
+      message:
+        `the fingerprint you supplied does not match the one pinned for server ${args.serverId} — ` +
+        `if you've verified the new key out-of-band, retype the confirmation phrase to rotate the pin`,
+    });
+  }
+}

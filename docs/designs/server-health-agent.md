@@ -74,19 +74,58 @@ Bonus the contract already anticipated (*"populated when the agent
 self-registers"*): a report carries `cpuTotal`/`memTotalGb`/`daemonVersion`,
 and the handler backfills them onto matched rows that still have zeros.
 
-### Auth: HMAC token over `BETTER_AUTH_SECRET`
+### Auth: bootstrap + per-node session credential (od-5j8.20, v2)
 
-The established machine-credential idiom (`authz/tokens.ts`: purpose-tagged
-base64url payload + HMAC-SHA256, timing-safe verify — no new secret to
-provision). The reconciler mints a `health-agent` purpose token when it
-(re)creates the agent service and injects it as env. Ingest verifies the HMAC;
-the route joins the `identify` exclude list (webhook pattern — auth is
-per-source, not session).
+v1 shipped a single HMAC token (the established machine-credential idiom —
+`authz/tokens.ts`: purpose-tagged base64url payload + HMAC-SHA256,
+timing-safe verify) shared by every task in the swarm-wide GLOBAL service,
+valid for a year, re-minted only when the reconciler recreated the service on
+image/URL drift. Trust model v1's own admission — *"any node holding the
+token can claim any hostname"* — turned out not to be acceptable once
+audited (od-5j8.20): a captured token could impersonate any other node's
+health report, and removing one node from the swarm did not revoke its
+token's usability until the next drift-triggered recreation.
 
-Trust model v1: any node holding the token can claim any hostname. Acceptable
-— agent nodes are swarm members, already trusted with workloads; the token
-gates outsiders, not peers. Per-node tokens can come with stable node ids
-(tailscale.md's `tailscaleNodeId`).
+v2 (`packages/api/src/system-health/agent-token.ts` +
+`agent-credential.ts`) splits this into two credentials:
+
+- **Bootstrap token** — still one per agent-service generation, still an HMAC
+  token over `BETTER_AUTH_SECRET` (same idiom, `health-agent-bootstrap`
+  purpose tag so it can never be confused with the legacy `health-agent`
+  purpose), but now good for **nothing except** calling
+  `POST /api/agent/register`. TTL cut from 1 year to 24h, and the reconciler
+  forces a recreate (fresh token) once the current one is older than 12h —
+  independent of image/URL drift, so identity rotates automatically even on
+  an otherwise-quiet install.
+- **Session credential** (`health_agent_credential` table) — minted by
+  `/api/agent/register`, bound at mint time to exactly one `(serverId,
+  hostname)` pair, 1h TTL, DB-backed so it is revocable before expiry (a pure
+  HMAC token can't be without a denylist). Every `POST /api/agent/health`
+  after registration carries this credential, not the bootstrap token; the
+  ingest handler rejects a report whose claimed hostname doesn't match what
+  the credential was minted for. `removeServerNode` revokes a node's session
+  credentials immediately on swarm detach; deleting the server row
+  cascade-deletes them too (defense in depth).
+
+Migration: `agentHealthIngestHandler` accepts EITHER scheme — a session
+credential first, falling back to the legacy shared bearer (logged as
+`legacy-bearer-used` so operators can watch it taper to zero) for any agent
+task still running a pre-v2 image. Every agent minted by the CURRENT
+reconciler only ever speaks v2; no operator action is required for the fleet
+to converge on the next platform update.
+
+Docker-socket narrowing (the other half of od-5j8.20's acceptance criteria —
+*"a narrow read/operation API instead of broad socket access"*) is **not**
+done: the agent container still bind-mounts `/var/run/docker.sock` directly.
+The code-level surface stays to the single read-only call it always made
+(`docker.system.df()` in `host-health.ts` — the ingest route itself never
+touches Docker, so a captured *report* credential still can't reach it), but
+a fully compromised agent *process* still has the raw socket fd. Closing that
+requires a socket-proxy sidecar (a second GLOBAL service bind-mounting the
+real socket and re-exposing an ACL'd subset at a new host path the agent
+mounts instead) — a real Docker Swarm pattern, but a separate service spec +
+deployment-topology change big enough to want its own pass with a live swarm
+to validate against. Left as a documented follow-up, not implemented.
 
 ### Read path: `server.health`
 

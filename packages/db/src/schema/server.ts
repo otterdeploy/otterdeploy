@@ -1,4 +1,11 @@
-import type { NodeEnrollmentId, ServerId, SshKeyId, UserId } from "@otterdeploy/shared/id";
+import type {
+  HealthAgentCredentialId,
+  NodeEnrollmentId,
+  OrganizationId,
+  ServerId,
+  SshKeyId,
+  UserId,
+} from "@otterdeploy/shared/id";
 
 // Swarm node (server) registry — one row per host the org has joined to the
 // Docker Swarm cluster. Live CPU/mem/disk metrics are NOT stored here; this
@@ -116,6 +123,19 @@ export const server = pgTable(
     firewallAppliedAt: timestamp("firewall_applied_at"),
     firewallError: text("firewall_error"),
     firewallBouncerActive: boolean("firewall_bouncer_active").notNull().default(false),
+    // od-5j8.19 — pinned SSH host-key fingerprint (OpenSSH "SHA256:<base64>"
+    // form). Null until the first successful SSH connect pins it (trust on
+    // first use); every later provision/reprovision/firewall-remediation
+    // connection over ssh-exec.ts's SshSession must present a host key that
+    // hashes to this value or the connection fails closed — see
+    // ssh-exec.ts's `hostVerifier`. `hostFingerprintVerified` distinguishes an
+    // operator-confirmed value (pasted an out-of-band fingerprint at
+    // onboarding, or explicitly confirmed the TOFU-pinned one afterward) from
+    // one only ever accepted on trust. Design: docs/designs/server-onboarding.md
+    hostFingerprint: text("host_fingerprint"),
+    hostFingerprintAlgo: text("host_fingerprint_algo"),
+    hostFingerprintVerified: boolean("host_fingerprint_verified").notNull().default(false),
+    hostFingerprintPinnedAt: timestamp("host_fingerprint_pinned_at"),
     labels: jsonb("labels").$type<string[]>().notNull().default([]),
     joinedAt: timestamp("joined_at").defaultNow().notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -207,4 +227,51 @@ export const serverHealthSample = pgTable(
     receivedAt: timestamp("received_at").defaultNow().notNull(),
   },
   (table) => [index("server_health_sample_org_idx").on(table.organizationId)],
+);
+
+/**
+ * Per-node health-agent session credential (od-5j8.20). Replaces the single
+ * swarm-wide, 1-year bearer with a short-lived credential bound to ONE
+ * server row + the hostname it was minted for — a captured credential can
+ * neither impersonate another node nor outlive its TTL. Minted by
+ * `POST /api/agent/register` (bootstrap-token-authenticated, one call per
+ * agent process start / refresh cycle) and presented as the Bearer on every
+ * `POST /api/agent/health` after that; see agent-credential.ts.
+ *
+ * Only a SHA-256 digest of the bearer secret is stored (never the secret
+ * itself), matching node_enrollment's pattern. `revokedAt` is set
+ * immediately when the node is detached from the swarm
+ * (remove-node.ts) — deleting the server row also cascade-deletes every
+ * row here, so a lingering agent process can never out-live its node's
+ * record even if the explicit revoke call is skipped.
+ */
+export const healthAgentCredential = pgTable(
+  "health_agent_credential",
+  {
+    id: text("id")
+      .primaryKey()
+      .$type<HealthAgentCredentialId>()
+      .$defaultFn(() => createId(ID_PREFIX.healthAgentCredential)),
+    serverId: text("server_id")
+      .notNull()
+      .$type<ServerId>()
+      .references(() => server.id, { onDelete: "cascade" }),
+    organizationId: text("organization_id")
+      .notNull()
+      .$type<OrganizationId>()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    // The hostname this credential is bound to — every /api/agent/health call
+    // authenticated with it must claim this exact hostname (od-5j8.20's
+    // "cannot impersonate another node" fix).
+    hostname: text("hostname").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    issuedAt: timestamp("issued_at").defaultNow().notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    revokedAt: timestamp("revoked_at"),
+    lastSeenAt: timestamp("last_seen_at"),
+  },
+  (table) => [
+    index("health_agent_credential_server_idx").on(table.serverId),
+    index("health_agent_credential_expiry_idx").on(table.expiresAt),
+  ],
 );

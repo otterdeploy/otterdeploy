@@ -9,13 +9,65 @@
  * Same posture as keygen.ts / storage.ts: these functions THROW; the job /
  * handler layer wraps them in `Result.tryPromise` so Result-typed code stays
  * free of raw try/catch.
+ *
+ * ── Host-key verification (od-5j8.19) ───────────────────────────────────────
+ * `connect()` always computes the presented host key's fingerprint. When the
+ * caller passes `expectedFingerprint` (the server row's pinned value, once
+ * one exists) it is enforced via ssh2's `hostVerifier` — a mismatch fails the
+ * connection closed (`HostKeyMismatchError`), before any auth is attempted.
+ * When no `expectedFingerprint` is given (first-ever contact with a host, or
+ * an install upgraded from before this feature existed) the key is accepted
+ * on trust — same trust-on-first-use posture SSH itself defaults to — but the
+ * *observed* fingerprint is always returned on `session.hostFingerprint` so
+ * the caller can pin it for every connection after this one. There is no way
+ * to skip pinning: every successful connect leaves the caller holding a
+ * fingerprint to persist.
  */
+
+import { createHash, timingSafeEqual } from "node:crypto";
 
 import type { Client as SshClient } from "ssh2";
 
 const SSH2_MISSING =
   "ssh2 is not installed — run `bun install` to enable remote server provisioning " +
   "(it's an optional dependency so single-host installs don't pay for its native build).";
+
+/** Raised when a pinned host-key fingerprint doesn't match what the host
+ *  presented — a hard stop, never silently downgraded to TOFU. Carries both
+ *  sides so the operator can tell "key rotated legitimately" (rebuilt VPS)
+ *  from "something is intercepting this connection" and decide whether to
+ *  rotate the pin via `server.confirmHostFingerprint`. */
+export class HostKeyMismatchError extends Error {
+  readonly expectedFingerprint: string;
+  readonly presentedFingerprint: string;
+  constructor(expectedFingerprint: string, presentedFingerprint: string) {
+    super(
+      `SSH host key mismatch: this host presented ${presentedFingerprint}, but ` +
+        `${expectedFingerprint} is pinned on record. Refusing to connect — this could mean the ` +
+        `host was legitimately rebuilt/reimaged, OR that traffic is being intercepted (MITM). ` +
+        `Verify the new key out-of-band (your VPS provider's console, ssh-keyscan from a trusted ` +
+        `network) before rotating the pin.`,
+    );
+    this.name = "HostKeyMismatchError";
+    this.expectedFingerprint = expectedFingerprint;
+    this.presentedFingerprint = presentedFingerprint;
+  }
+}
+
+/** OpenSSH-style `SHA256:<base64, no padding>` fingerprint of a raw host
+ *  public-key blob (the exact bytes ssh2's hostVerifier hands us). */
+export function computeHostFingerprint(rawKey: Buffer): string {
+  const digest = createHash("sha256").update(rawKey).digest("base64").replace(/=+$/, "");
+  return `SHA256:${digest}`;
+}
+
+/** Constant-time fingerprint comparison — these are not secrets, but there's
+ *  no reason to leak timing on a security-relevant string compare either. */
+function fingerprintsMatch(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, "utf8");
+  const bufB = Buffer.from(b, "utf8");
+  return bufA.length === bufB.length && timingSafeEqual(bufA, bufB);
+}
 
 /** Auth material for one connection. Exactly one of key/password is expected;
  *  the key is preferred and the password is a one-time bootstrap credential
@@ -28,6 +80,12 @@ export interface SshTarget {
   privateKey?: string;
   /** One-time password. Bootstrap only. */
   password?: string;
+  /** The server row's pinned host-key fingerprint, when one exists. Passed
+   *  through verbatim to `hostVerifier` — a mismatch fails closed. Null/undefined
+   *  means "no pin yet" (first contact) — the connection is accepted on trust
+   *  and the observed fingerprint comes back on `SshSession.hostFingerprint`
+   *  for the caller to pin. */
+  expectedFingerprint?: string | null;
 }
 
 export interface RemoteExecResult {
@@ -39,8 +97,18 @@ export interface RemoteExecResult {
 export type LineSink = (line: string) => void;
 
 /** ssh2 surfaces the failure kind on `err.level`; translate the common ones to
- *  operator-actionable messages instead of leaking library internals. */
-function mapConnectError(err: Error & { level?: string }): Error {
+ *  operator-actionable messages instead of leaking library internals. A
+ *  rejected `hostVerifier` surfaces as `level: "handshake"` with ssh2's own
+ *  "Host denied (verification failed)" message — the caller passes the
+ *  captured fingerprints so we can raise the specific, actionable error
+ *  instead of the generic handshake-failure message. */
+function mapConnectError(
+  err: Error & { level?: string },
+  hostKeyMismatch?: { expected: string; presented: string },
+): Error {
+  if (hostKeyMismatch) {
+    return new HostKeyMismatchError(hostKeyMismatch.expected, hostKeyMismatch.presented);
+  }
   switch (err.level) {
     case "client-authentication":
       return new Error(
@@ -65,14 +133,30 @@ async function loadClient(): Promise<new () => SshClient> {
 
 /** A live SSH session. Reuse it across the provisioning steps, then `dispose()`. */
 export class SshSession {
-  private constructor(private readonly conn: SshClient) {}
+  /** The connected host's key fingerprint (SHA256:…), always populated on a
+   *  successful connect regardless of whether a pin was enforced. Pin it via
+   *  `patchServerHostFingerprint` when the caller had no prior pin. */
+  readonly hostFingerprint: string;
+
+  private constructor(
+    private readonly conn: SshClient,
+    hostFingerprint: string,
+  ) {
+    this.hostFingerprint = hostFingerprint;
+  }
 
   static async connect(target: SshTarget): Promise<SshSession> {
     const Client = await loadClient();
     const conn = new Client();
+    let presentedFingerprint = "";
+    let hostKeyMismatch: { expected: string; presented: string } | undefined;
+    const expected = target.expectedFingerprint;
+
     await new Promise<void>((resolve, reject) => {
       conn.once("ready", () => resolve());
-      conn.once("error", (err: Error & { level?: string }) => reject(mapConnectError(err)));
+      conn.once("error", (err: Error & { level?: string }) =>
+        reject(mapConnectError(err, hostKeyMismatch)),
+      );
       conn.connect({
         host: target.host,
         port: target.port,
@@ -80,13 +164,27 @@ export class SshSession {
         privateKey: target.privateKey,
         password: target.password,
         readyTimeout: 20_000,
-        // First contact with a brand-new host — no known_hosts entry can exist
-        // yet, so we accept the host key on trust (same as Coolify's
-        // StrictHostKeyChecking=no). The tailnet path (phase 2) removes the
-        // MITM window by carrying this over an authenticated mesh.
+        // Fires during the key-exchange handshake, before any auth. When
+        // `expected` is set (a fingerprint is already pinned for this host)
+        // a mismatch rejects the handshake outright — MITM host-key
+        // substitution fails closed. When unset (first-ever contact, or a
+        // pre-od-5j8.19 install that never pinned one) the key is accepted on
+        // trust, same posture as Coolify's StrictHostKeyChecking=no — but
+        // `presentedFingerprint` is captured either way so the caller always
+        // has something to pin afterward.
+        hostVerifier: (rawKey: Buffer, verify: (permitted: boolean) => void) => {
+          presentedFingerprint = computeHostFingerprint(rawKey);
+          if (!expected) {
+            verify(true);
+            return;
+          }
+          const ok = fingerprintsMatch(expected, presentedFingerprint);
+          if (!ok) hostKeyMismatch = { expected, presented: presentedFingerprint };
+          verify(ok);
+        },
       });
     });
-    return new SshSession(conn);
+    return new SshSession(conn, presentedFingerprint);
   }
 
   /**

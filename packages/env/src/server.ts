@@ -320,6 +320,34 @@ export const env = createEnv({
     // Testing hook: make `checkForUpdate` report this as the latest version so
     // the whole "update available" UI lights up with no real newer release.
     OTTERDEPLOY_LATEST_VERSION_OVERRIDE: z.string().min(1).optional(),
+
+    // ─── Off-host audit export (od-5j8.21) ───────────────────────────────
+    // Append-only export of `audit_log` rows to storage OUTSIDE this box, so
+    // the trail survives compromise or loss of the host. Two destination
+    // kinds, mutually exclusive by which vars are set (S3 wins if both are
+    // present — see @otterdeploy/jobs audit-export/config.ts):
+    //   - S3-compatible object storage (AWS S3, R2, MinIO, Backblaze B2...).
+    //   - a local directory, when it's a mount point for something actually
+    //     off-host (NFS, an attached network volume) — the platform can't
+    //     verify that, so this is an honest "you asserted this is off-host"
+    //     escape hatch, not a recommendation.
+    // Unset (both) ⇒ the export job no-ops every run; nothing is exported
+    // and the DB's own 90-day retention (hourly-cleanup.ts) is the only copy.
+    AUDIT_EXPORT_S3_BUCKET: z.string().min(1).optional(),
+    AUDIT_EXPORT_S3_REGION: z.string().min(1).default("auto"),
+    // S3-compatible endpoint (R2/MinIO/B2). Unset ⇒ real AWS S3.
+    AUDIT_EXPORT_S3_ENDPOINT: z.url().optional(),
+    AUDIT_EXPORT_S3_ACCESS_KEY_ID: z.string().min(1).optional(),
+    AUDIT_EXPORT_S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+    // Key prefix under the bucket, e.g. "prod/". Unset ⇒ no prefix.
+    AUDIT_EXPORT_S3_PREFIX: z.string().min(1).optional(),
+    // Local-directory destination, for the "already-off-host mount" case.
+    AUDIT_EXPORT_LOCAL_DIR: z.string().min(1).optional(),
+    // How long an exported batch is kept AT THE DESTINATION before the
+    // retention sweep deletes it. Independent of (and normally much longer
+    // than) the DB's own AUDIT_RETENTION_DAYS=90 in hourly-cleanup.ts — the
+    // whole point of exporting is to outlive the DB copy.
+    AUDIT_EXPORT_RETENTION_DAYS: z.coerce.number().int().positive().default(365),
   },
   // oxlint-disable-next-line node/no-process-env -- this IS the env boundary; the single sanctioned read of process.env
   runtimeEnv: process.env,

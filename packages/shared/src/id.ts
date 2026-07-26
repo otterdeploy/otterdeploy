@@ -101,6 +101,10 @@ export const ID_PREFIX = {
   // private networking — the org's connected VPN/mesh account (NetBird,
   // Tailscale). One row per org. Design: docs/designs/vpn-mesh.md
   meshNetwork: "mesh",
+
+  // node health-agent session credentials — short-lived, per-server, bound to
+  // a claimed hostname (od-5j8.20). Design: docs/designs/server-health-agent.md
+  healthAgentCredential: "hac",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
@@ -302,6 +306,9 @@ export type MeshNetworkId = Id<typeof ID_PREFIX.meshNetwork>;
 export type NotificationChannelId = Id<typeof ID_PREFIX.notificationChannel>;
 export type NotificationSubscriptionId = Id<typeof ID_PREFIX.notificationSubscription>;
 export type NotificationDeliveryId = Id<typeof ID_PREFIX.notificationDelivery>;
+
+// Node health-agent session credentials — od-5j8.20
+export type HealthAgentCredentialId = Id<typeof ID_PREFIX.healthAgentCredential>;
 
 // Slugs (URL-safe identifiers, distinct from cuid IDs)
 export type ProjectSlug = Slug<typeof ID_PREFIX.project>;

@@ -81,6 +81,17 @@ const provisionServerInput = z.object({
   meshAuthKey: z.string().optional(),
   /** Cloudflare Tunnel connector token — installs cloudflared, never stored. */
   cloudflareToken: z.string().optional(),
+  /**
+   * od-5j8.19: the SSH host-key fingerprint the operator already knows for
+   * this host (from the VPS provider's console, `ssh-keyscan` run over a
+   * trusted network, etc.) — `SHA256:<base64>` form. When given, the very
+   * first connection VERIFIES the presented key against it instead of
+   * merely trusting it; a mismatch fails the provision closed instead of
+   * silently joining a possibly-intercepted host. Omit to fall back to
+   * trust-on-first-use (the fingerprint is still pinned and enforced on
+   * every connection after this one).
+   */
+  expectedHostFingerprint: z.string().optional(),
 });
 
 const provisionLogsInput = z.object({ id: serverIdField });
@@ -251,6 +262,22 @@ const setRoleInput = z.object({
  */
 const removeNodeInput = z.object({
   id: serverIdField,
+});
+
+/**
+ * od-5j8.19 — confirm the TOFU-pinned host-key fingerprint (operator verified
+ * it out-of-band, e.g. against their VPS provider's console) or rotate it
+ * after a legitimate host rebuild. Confirming requires no extra step when the
+ * supplied value matches what's pinned; ROTATING it (supplying a different
+ * value) requires the operator to retype the confirmation phrase — the same
+ * "prove you meant it" pattern the manager-enrollment step-up uses.
+ */
+const confirmHostFingerprintInput = z.object({
+  id: serverIdField,
+  fingerprint: z.string().min(1),
+  /** Required only when `fingerprint` differs from the currently pinned
+   *  value (a rotation) — must equal exactly "ROTATE HOST KEY". */
+  confirmation: z.string().optional(),
 });
 
 export const serverContract = {
@@ -452,5 +479,21 @@ export const serverContract = {
     })
     .meta({ path: `${basePath}/{id}/reapply-firewall`, tag, method: "POST" })
     .input(reapplyFirewallInput)
+    .output(serverSchema),
+  /** od-5j8.19 — see confirmHostFingerprintInput above. */
+  confirmHostFingerprint: oc
+    .errors({
+      NOT_FOUND: { status: 404, message: "Server not found" as const },
+      PENDING: {
+        status: 409,
+        message: "This server has no pinned host-key fingerprint yet — connect to it first" as const,
+      },
+      ROTATION_CONFIRMATION_REQUIRED: {
+        status: 400,
+        message: 'Type "ROTATE HOST KEY" to replace the pinned fingerprint' as const,
+      },
+    })
+    .meta({ path: `${basePath}/{id}/confirm-host-fingerprint`, tag, method: "POST" })
+    .input(confirmHostFingerprintInput)
     .output(serverSchema),
 };

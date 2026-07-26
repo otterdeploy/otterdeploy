@@ -15,8 +15,10 @@ import type { RequestLogger } from "evlog";
 
 import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
+import { log as globalLog } from "evlog";
 
 import { isSwarmRuntime } from "../../runtime";
+import { revokeHealthAgentCredentialsForServer } from "../../system-health/agent-credential";
 import {
   ServerNotFoundError,
   SwarmNodeNotDownError,
@@ -84,6 +86,21 @@ export async function removeServerNode(
         new SwarmNodeRemoveError({ serverId: input.id, cause: removeResult.error.message }),
       );
     }
+
+    // od-5j8.20 / od-5j8.29: revoke this node's health-agent session
+    // credential(s) immediately — don't wait for the eventual server-row
+    // delete (whose FK cascade would catch it anyway) or the next
+    // drift-triggered agent-service recreation. Best-effort: a failure here
+    // must never undo an otherwise-successful swarm removal.
+    await revokeHealthAgentCredentialsForServer(input.id).catch((cause) =>
+      globalLog.warn({
+        server: {
+          step: "revoke-health-agent-credentials",
+          serverId: input.id,
+          error: cause instanceof Error ? cause.message : String(cause),
+        },
+      }),
+    );
 
     log?.set({
       server: { step: "remove-node", serverId: input.id, nodeId: node.ID },

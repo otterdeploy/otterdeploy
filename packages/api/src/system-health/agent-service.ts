@@ -28,12 +28,18 @@ import { log } from "evlog";
 import { hostname as osHostname, cpus, totalmem } from "node:os";
 
 import { isSwarmRuntime } from "../runtime";
+import { pruneExpiredHealthAgentCredentials } from "./agent-credential";
 import { HEALTH_SAMPLE_INTERVAL_MS, recordHealthSample } from "./agent-ingest";
-import { mintAgentToken } from "./agent-token";
+import { mintBootstrapToken } from "./agent-token";
 import { getHostHealth } from "./host-health";
 
 const AGENT_SERVICE_NAME = "otterdeploy-health-agent";
 const RECONCILE_INTERVAL_MS = 10 * 60 * 1000;
+// od-5j8.20: force a recreate (which re-mints the bootstrap token) well
+// before the token's own TTL — "identities rotate automatically" without
+// requiring an image/URL change. Half the token TTL leaves a comfortable
+// margin against the 10-minute reconcile cadence.
+const BOOTSTRAP_TOKEN_MAX_AGE_SECONDS = 12 * 60 * 60;
 
 // ─── local sampler ──────────────────────────────────────────────────────────
 
@@ -97,7 +103,26 @@ async function resolveIngestUrl(): Promise<string | null> {
   return `http://${ip}:${port}/api/agent/health`;
 }
 
-function buildAgentServiceSpec(image: string, ingestUrl: string, token: string) {
+/** Same host:port `resolveIngestUrl` resolved, with the health path swapped
+ *  for the register path — both endpoints always live on the same origin. */
+function deriveRegisterUrl(ingestUrl: string): string {
+  if (ingestUrl.endsWith("/api/agent/health")) {
+    return ingestUrl.replace(/\/api\/agent\/health$/, "/api/agent/register");
+  }
+  try {
+    return `${new URL(ingestUrl).origin}/api/agent/register`;
+  } catch {
+    return ingestUrl;
+  }
+}
+
+function buildAgentServiceSpec(
+  image: string,
+  ingestUrl: string,
+  registerUrl: string,
+  bootstrapToken: string,
+  tokenIssuedAt: number,
+) {
   return {
     Name: AGENT_SERVICE_NAME,
     Labels: {
@@ -106,6 +131,10 @@ function buildAgentServiceSpec(image: string, ingestUrl: string, token: string) 
       // Drift keys — reconcile compares these instead of diffing the spec.
       "otterdeploy.agent.image": image,
       "otterdeploy.agent.ingest": ingestUrl,
+      // od-5j8.20: unix-seconds mint time of the bootstrap token baked into
+      // this generation's Env — reconcile forces a recreate (and therefore a
+      // fresh token) once this is stale, independent of image/URL drift.
+      "otterdeploy.agent.tokenIssuedAt": String(tokenIssuedAt),
     },
     TaskTemplate: {
       ContainerSpec: {
@@ -115,7 +144,11 @@ function buildAgentServiceSpec(image: string, ingestUrl: string, token: string) 
         Command: ["bun", "run", "src/health-agent.ts"],
         Env: [
           `HEALTH_AGENT_INGEST_URL=${ingestUrl}`,
-          `HEALTH_AGENT_TOKEN=${token}`,
+          `HEALTH_AGENT_REGISTER_URL=${registerUrl}`,
+          // od-5j8.20: bootstrap-only credential — the agent trades this for a
+          // short-lived, per-node session credential at /api/agent/register
+          // and never uses it as the report bearer itself.
+          `HEALTH_AGENT_BOOTSTRAP_TOKEN=${bootstrapToken}`,
           // Swarm env templating: each task learns which node it's on.
           "OTTERDEPLOY_NODE_HOSTNAME={{.Node.Hostname}}",
           `HEALTH_AGENT_INTERVAL_MS=${HEALTH_SAMPLE_INTERVAL_MS}`,
@@ -141,6 +174,7 @@ async function reconcileAgentService(): Promise<void> {
     });
     return;
   }
+  const registerUrl = deriveRegisterUrl(ingestUrl);
   const image = agentImage();
   const docker = Docker.fromEnv();
   try {
@@ -150,22 +184,26 @@ async function reconcileAgentService(): Promise<void> {
 
     if (existing) {
       const labels = (existing.Spec?.Labels ?? {}) as Record<string, string>;
+      const tokenIssuedAt = Number(labels["otterdeploy.agent.tokenIssuedAt"] ?? 0);
+      const tokenStale =
+        !tokenIssuedAt || Date.now() / 1000 - tokenIssuedAt > BOOTSTRAP_TOKEN_MAX_AGE_SECONDS;
       const drifted =
         labels["otterdeploy.agent.image"] !== image ||
-        labels["otterdeploy.agent.ingest"] !== ingestUrl;
+        labels["otterdeploy.agent.ingest"] !== ingestUrl ||
+        tokenStale;
       if (!drifted) return;
       if (existing.ID) {
         const removed = await docker.services.getService(existing.ID).remove();
         if (removed.isErr()) throw removed.error;
       }
-      log.info({ healthAgent: { event: "recreate", image, ingestUrl } });
+      log.info({ healthAgent: { event: "recreate", image, ingestUrl, tokenStale } });
     } else {
       log.info({ healthAgent: { event: "create", image, ingestUrl } });
     }
 
-    const token = await mintAgentToken();
+    const { token: bootstrapToken, payload } = await mintBootstrapToken();
     const created = await docker.services.create(
-      buildAgentServiceSpec(image, ingestUrl, token) as Parameters<
+      buildAgentServiceSpec(image, ingestUrl, registerUrl, bootstrapToken, payload.iat) as Parameters<
         typeof docker.services.create
       >[0],
     );
@@ -177,7 +215,7 @@ async function reconcileAgentService(): Promise<void> {
 
 export function startHealthAgentReconciler(): () => void {
   if (!isSwarmRuntime()) return () => {};
-  const run = () =>
+  const run = () => {
     void reconcileAgentService().catch((cause) =>
       log.warn({
         healthAgent: {
@@ -186,6 +224,18 @@ export function startHealthAgentReconciler(): () => void {
         },
       }),
     );
+    // od-5j8.20: housekeeping only — expired session credentials are already
+    // unusable (verifySessionCredential checks expiresAt), this just keeps
+    // health_agent_credential from growing unbounded.
+    void pruneExpiredHealthAgentCredentials().catch((cause) =>
+      log.warn({
+        healthAgent: {
+          event: "credential-prune-failed",
+          error: cause instanceof Error ? cause.message : String(cause),
+        },
+      }),
+    );
+  };
   run();
   const timer = setInterval(run, RECONCILE_INTERVAL_MS);
   return () => clearInterval(timer);

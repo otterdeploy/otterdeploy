@@ -14,7 +14,15 @@ export {
   type ReclaimTarget,
 } from "./host-health";
 export { agentHealthIngestHandler, HEALTH_SAMPLE_INTERVAL_MS } from "./agent-ingest";
+export { agentRegisterHandler } from "./agent-register";
 export { startHealthAgentReconciler, startLocalHealthSampler } from "./agent-service";
+export {
+  issueSessionCredential,
+  revokeHealthAgentCredentialsForServer,
+  SESSION_TTL_SECONDS,
+  verifySessionCredential,
+  type VerifiedSession,
+} from "./agent-credential";
 export { startHostHealthMonitor } from "./monitor";
 export {
   recordOrphanedResource,

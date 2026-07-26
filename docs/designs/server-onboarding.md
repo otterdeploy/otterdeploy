@@ -145,6 +145,57 @@ via `lib/crypto.ts`) and the `sshKeys` router's `keygen.ts`. Two ways in:
 Non-root users need passwordless sudo; the provisioner detects root vs sudo and
 prints the exact `sudoers.d` line if it's missing (Dokploy idiom).
 
+### SSH host-key verification (od-5j8.19)
+
+The credential story above answers "who are we, to the host" — this answers
+the other half, "is this actually the host, and not something impersonating
+it on the wire". `ssh-exec.ts`'s `SshSession.connect()` always computes the
+presented host key's fingerprint (`computeHostFingerprint`, OpenSSH
+`SHA256:<base64>` form) and, once `server.hostFingerprint` is populated,
+passes it as `expectedFingerprint` — enforced via ssh2's `hostVerifier`
+before any authentication is attempted. A mismatch throws
+`HostKeyMismatchError` and the connection never happens: MITM host-key
+substitution on a *pinned* host fails closed.
+
+The genuinely first-ever connection to a brand-new host has no known key to
+pin against — same bootstrap problem every SSH-based tool has. Two paths:
+
+1. **Operator supplies the fingerprint up front** (`expectedHostFingerprint`
+   on `server.provision`) — from the VPS provider's console (many print it at
+   first boot), `ssh-keyscan` run over a trusted network, etc. The first
+   connection then *verifies*, not just trusts, and a mismatch fails the
+   provision before anything is installed.
+2. **Trust-on-first-use fallback** (no fingerprint supplied) — the connection
+   proceeds, same posture as Coolify's `StrictHostKeyChecking=no`, but the
+   observed fingerprint is pinned to the row immediately
+   (`host-fingerprint.ts`'s `pinHostFingerprintOnFirstContact`) and logged as
+   a security-relevant event. Every connection after this one — reprovision,
+   `reapplyFirewall` remediation — is verified against that pin, not trusted
+   again.
+
+`server.confirmHostFingerprint` lets the operator confirm a TOFU-pinned value
+after checking it out-of-band, or — supplying a different value plus the
+typed phrase `"ROTATE HOST KEY"` — deliberately re-pin after a legitimate
+host rebuild. Rotation is never silent: it always logs, and a bare mismatch
+(no confirmation phrase) is refused rather than treated as an implicit
+rotation.
+
+Migration: `hostFingerprint` is nullable and defaults to unset, so every
+server enrolled before this shipped simply pins on its *next* successful
+connection (reprovision or firewall remediation) — no existing fleet is
+locked out, and no existing credential scheme is silently downgraded.
+
+Not done in this pass: signed/pinned checksums for the provisioning artifacts
+themselves (`get.docker.com`, the Tailscale/NetBird install scripts,
+`cloudflare/cloudflared:latest`) — Docker/Tailscale/NetBird's convenience
+scripts don't publish stable pinnable checksums, so the practical mitigation
+is the now-authenticated SSH transport itself; full pinning would mean
+switching those installs to versioned, GPG-signed package repos. Also not
+done: SSH certificates (short-lived, CA-signed) in place of the long-lived
+managed keypair — the keypair's password-bootstrap-once / never-reused-past-
+bootstrap posture already avoids the worst long-lived-credential exposure,
+but a full CA-based cert story is a larger follow-up.
+
 ## Provisioning flow
 
 Net-new: an SSH-exec helper (lazy-load `ssh2`'s `Client`, exec channel with

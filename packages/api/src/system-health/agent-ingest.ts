@@ -1,3 +1,4 @@
+import type { OrganizationId, ServerId } from "@otterdeploy/shared/id";
 import type { Context } from "hono";
 
 /**
@@ -15,13 +16,27 @@ import type { Context } from "hono";
  * Reports also backfill capacity (cpuTotal/memTotalGb) onto matched rows that
  * still carry the zero placeholder from the join flow — the self-registration
  * the server contract reserved.
+ *
+ * ── Auth: two schemes, one transition (od-5j8.20) ───────────────────────────
+ * Every new agent process registers via `POST /api/agent/register`
+ * (agent-register.ts) and presents the resulting SESSION credential here —
+ * bound to exactly one (serverId, hostname), so a captured credential can't
+ * be replayed to attribute a report to a different node, and it's revoked
+ * immediately on node removal (agent-credential.ts). A pre-v2 agent task
+ * (still running an image minted before this shipped) has no session
+ * credential to present — it sends the OLD shared, swarm-wide bearer
+ * instead, so that path is tried first and, if it doesn't parse as a
+ * session credential at all, falls back to the legacy verifier. Both are
+ * logged distinctly so operators can watch legacy usage taper to zero as the
+ * reconciler cycles every node onto the new image.
  */
 import { db } from "@otterdeploy/db";
 import { server, serverHealthSample } from "@otterdeploy/db/schema/server";
-import { eq, or } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { log } from "evlog";
 import * as z from "zod";
 
+import { parseSessionCredential, verifySessionCredential } from "./agent-credential";
 import { verifyAgentToken } from "./agent-token";
 
 // Payload validation is deliberately shallow: `health` is the HostHealth
@@ -109,13 +124,33 @@ export async function matchServersByHostname(hostname: string) {
     .where(or(eq(server.hostname, hostname), eq(server.name, hostname)));
 }
 
-/** POST /api/agent/health — Bearer agent-token, body = AgentHealthReport. */
+/** Look up the one row a session credential is bound to — org-scoped by
+ *  construction (the credential itself carries the organizationId). */
+async function getServerForSession(serverId: ServerId, organizationId: OrganizationId) {
+  const [row] = await db
+    .select({
+      id: server.id,
+      organizationId: server.organizationId,
+      cpuTotal: server.cpuTotal,
+      memTotalGb: server.memTotalGb,
+    })
+    .from(server)
+    .where(and(eq(server.id, serverId), eq(server.organizationId, organizationId)))
+    .limit(1);
+  return row;
+}
+
+/**
+ * POST /api/agent/health — body = AgentHealthReport. Two accepted bearer
+ * shapes, tried in order (see the module note above): a session credential
+ * (od-5j8.20, the only thing a current-image agent ever sends) bound to one
+ * (serverId, hostname), or — transition support only — the legacy swarm-wide
+ * bearer a not-yet-recreated agent task may still be holding.
+ */
 export async function agentHealthIngestHandler(c: Context): Promise<Response> {
   const auth = c.req.header("authorization") ?? "";
   const token = auth.startsWith("Bearer ") ? auth.slice("Bearer ".length) : "";
-  if (!token || !(await verifyAgentToken(token))) {
-    return c.json({ error: "invalid agent token" }, 401);
-  }
+  if (!token) return c.json({ error: "missing bearer token" }, 401);
 
   let body: unknown;
   try {
@@ -125,6 +160,32 @@ export async function agentHealthIngestHandler(c: Context): Promise<Response> {
   }
   const parsed = reportSchema.safeParse(body);
   if (!parsed.success) return c.json({ error: "invalid report shape" }, 400);
+
+  if (parseSessionCredential(token)) {
+    const session = await verifySessionCredential(token);
+    if (!session) return c.json({ error: "invalid, expired, or revoked agent credential" }, 401);
+    // The core od-5j8.20 fix: a credential minted for one node cannot be
+    // replayed to attribute a report to a different hostname.
+    if (session.hostname !== parsed.data.hostname) {
+      log.warn({
+        healthAgent: {
+          event: "hostname-claim-mismatch",
+          boundHostname: session.hostname,
+          claimedHostname: parsed.data.hostname,
+        },
+      });
+      return c.json({ error: "hostname claim does not match the credential's bound hostname" }, 403);
+    }
+    const row = await getServerForSession(session.serverId, session.organizationId);
+    if (!row) return c.json({ ok: true, matched: 0 }, 202);
+    await recordHealthSample([row], parsed.data);
+    return c.json({ ok: true, matched: 1 });
+  }
+
+  if (!(await verifyAgentToken(token))) {
+    return c.json({ error: "invalid agent token" }, 401);
+  }
+  log.warn({ healthAgent: { event: "legacy-bearer-used", hostname: parsed.data.hostname } });
 
   const rows = await matchServersByHostname(parsed.data.hostname);
   if (rows.length === 0) {

@@ -10,11 +10,14 @@
 import type { ServerId, SshKeyId } from "@otterdeploy/shared/id";
 
 import { panic, Result } from "better-result";
+import { log } from "evlog";
 
 import type { OrgRef } from "../scopes";
 
 import { isUniqueViolation } from "../project/views";
 import {
+  HostFingerprintPendingError,
+  HostFingerprintRotationRequiredError,
   ProvisionCredentialError,
   ProvisionMissingCredentialError,
   ProvisionNotFailedError,
@@ -24,14 +27,18 @@ import {
 import { enqueueProvision } from "./provision-runner";
 import {
   bootstrapLocalhostIfMissing,
+  confirmServerHostFingerprint,
   createServerRecord,
   deleteServerRecord,
   getServerInOrg,
   insertProvisioningServer,
   listServersByOrg,
   patchServerProvision,
+  rotateServerHostFingerprint,
   type ServerRecord,
 } from "./queries";
+
+const HOST_KEY_ROTATION_PHRASE = "ROTATE HOST KEY";
 
 export async function listServers(input: OrgRef): Promise<ServerRecord[]> {
   // Guarantee at least the bootstrap localhost row exists for every org.
@@ -103,6 +110,7 @@ export async function provisionServer(
     meshManagementUrl?: string;
     meshAuthKey?: string;
     cloudflareToken?: string;
+    expectedHostFingerprint?: string;
   } & OrgRef,
 ): Promise<Result<ServerRecord, ServerConflictError | ProvisionCredentialError>> {
   // Exactly one SSH credential. Neither → nothing to auth with; both → ambiguous.
@@ -149,6 +157,7 @@ export async function provisionServer(
     password: input.password,
     meshAuthKey: input.meshAuthKey,
     cloudflareToken: input.cloudflareToken,
+    expectedHostFingerprint: input.expectedHostFingerprint ?? null,
   });
   return Result.ok(insert.value);
 }
@@ -244,4 +253,63 @@ export async function deleteServer(
     return Result.err(new ServerNotFoundError({ serverId: input.id }));
   }
   return Result.ok({ ok: true });
+}
+
+/**
+ * od-5j8.19 — confirm the pinned host-key fingerprint (operator verified it
+ * out-of-band, matches what's on record) or, when the supplied value
+ * DIFFERS from what's pinned, rotate the pin — but only with the typed
+ * confirmation phrase, mirroring the manager-enrollment step-up pattern.
+ * Every write is a security-relevant event; both branches log one.
+ */
+export async function confirmHostFingerprint(
+  input: { id: ServerId; fingerprint: string; confirmation?: string } & OrgRef,
+): Promise<
+  Result<
+    ServerRecord,
+    ServerNotFoundError | HostFingerprintPendingError | HostFingerprintRotationRequiredError
+  >
+> {
+  const existing = await getServerInOrg({
+    serverId: input.id,
+    organizationId: input.organizationId,
+  });
+  if (!existing) return Result.err(new ServerNotFoundError({ serverId: input.id }));
+  if (!existing.hostFingerprint) {
+    return Result.err(new HostFingerprintPendingError({ serverId: input.id }));
+  }
+
+  const supplied = input.fingerprint.trim();
+  if (supplied === existing.hostFingerprint) {
+    const row = await confirmServerHostFingerprint({
+      serverId: input.id,
+      organizationId: input.organizationId,
+    });
+    log.info({
+      server: {
+        event: "host-fingerprint-confirmed",
+        serverId: input.id,
+        fingerprint: supplied,
+      },
+    });
+    return Result.ok(row ?? existing);
+  }
+
+  if (input.confirmation !== HOST_KEY_ROTATION_PHRASE) {
+    return Result.err(new HostFingerprintRotationRequiredError({ serverId: input.id }));
+  }
+  const rotated = await rotateServerHostFingerprint({
+    serverId: input.id,
+    organizationId: input.organizationId,
+    hostFingerprint: supplied,
+  });
+  log.warn({
+    server: {
+      event: "host-fingerprint-rotated",
+      serverId: input.id,
+      previous: existing.hostFingerprint,
+      next: supplied,
+    },
+  });
+  return Result.ok(rotated ?? existing);
 }

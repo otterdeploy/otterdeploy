@@ -15,7 +15,7 @@ import {
 } from "@otterdeploy/api/routers/system/compat";
 import { bodyLimitMiddleware } from "@otterdeploy/api/security/body-limit";
 import { sanitizeForwardingHeaders } from "@otterdeploy/api/security/trusted-proxy";
-import { agentHealthIngestHandler } from "@otterdeploy/api/system-health";
+import { agentHealthIngestHandler, agentRegisterHandler } from "@otterdeploy/api/system-health";
 import { auth, enabledSocialProviderIds, getRegistrationMode } from "@otterdeploy/auth";
 import { BOOTSTRAP_TOKEN_HEADER } from "@otterdeploy/auth/registration-policy";
 import { env } from "@otterdeploy/env/server";
@@ -318,8 +318,11 @@ app.get("/api/integrations/github/install/callback", githubInstallCallbackHandle
 app.get("/api/integrations/github/manifest/callback", githubManifestCallbackHandler);
 
 // ─── Health-agent ingest ────────────────────────────────────────────
-// Per-node health reports from the swarm global agent service (Bearer HMAC
-// token, verified in the handler). See docs/designs/server-health-agent.md.
+// od-5j8.20: /register trades the swarm-wide bootstrap Bearer for a
+// per-node, short-lived session credential; /health accepts that session
+// credential (or, transition-only, a pre-v2 agent's legacy shared bearer —
+// see agent-ingest.ts). See docs/designs/server-health-agent.md.
+app.post("/api/agent/register", agentRegisterHandler);
 app.post("/api/agent/health", agentHealthIngestHandler);
 
 // One-time manual node enrollment. The high-entropy enrollment bearer is

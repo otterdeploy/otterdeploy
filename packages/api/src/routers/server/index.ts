@@ -4,6 +4,7 @@ import { orgScopedProcedure, requirePermission } from "../..";
 import { setServerAvailability } from "./availability";
 import { serverEnrollmentRouter } from "./enrollment-router";
 import {
+  confirmHostFingerprint,
   createServer,
   deleteServer,
   getServer,
@@ -231,4 +232,24 @@ export const serverRouter = {
       return result.value;
     },
   ),
+
+  confirmHostFingerprint: requirePermission({
+    server: ["update"],
+  }).server.confirmHostFingerprint.handler(async ({ input, context, errors }) => {
+    context.log.set({ target: { type: "server", id: input.id } });
+    const result = await confirmHostFingerprint({
+      id: input.id,
+      fingerprint: input.fingerprint,
+      confirmation: input.confirmation,
+      organizationId: context.activeOrganizationId,
+    });
+    if (result.isErr()) {
+      throw matchError(result.error, {
+        ServerNotFoundError: () => errors.NOT_FOUND(),
+        HostFingerprintPendingError: () => errors.PENDING(),
+        HostFingerprintRotationRequiredError: () => errors.ROTATION_CONFIRMATION_REQUIRED(),
+      });
+    }
+    return result.value;
+  }),
 };
