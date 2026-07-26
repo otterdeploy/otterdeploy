@@ -1,11 +1,9 @@
 import type { NodeEnrollmentId, UserId } from "@otterdeploy/shared/id";
 
-import { auth } from "@otterdeploy/auth";
-import { Result } from "better-result";
-
 import type { Context } from "../../context";
 
 import { requireInstallAdmin } from "../..";
+import { verifyTotpCode } from "../../authz/step-up";
 import {
   createNodeEnrollment,
   isSwarmEnrollmentReady,
@@ -36,14 +34,9 @@ async function requireEnrollmentStepUp(
   if (input.role === "manager" && input.managerConfirmation !== "ENROLL MANAGER") {
     throw errors.MANAGER_CONFIRMATION_REQUIRED();
   }
-  const verified = await Result.tryPromise({
-    try: () =>
-      auth.api.verifyTOTP({
-        headers: context.headers,
-        body: { code: input.totpCode, trustDevice: false },
-      }),
-    catch: (cause) => cause,
-  });
+  // Shared with terminal step-up (od-5j8.9) — same verifyTOTP call, not a
+  // hand-rolled parallel check.
+  const verified = await verifyTotpCode(context, input.totpCode);
   if (verified.isErr()) throw errors.INVALID_STEP_UP();
 }
 

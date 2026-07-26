@@ -203,7 +203,13 @@ describe("[od-5j8.2] non-oRPC transports delegate to the same capability boundar
   const transportSources = {
     orpc: "packages/api/src/index.ts",
     rawUpload: "apps/server/src/handlers/upload/source.ts",
-    websocketPty: "apps/server/src/handlers/terminal/auth.ts",
+    // od-5j8.9: the WebSocket PTY upgrade itself no longer authorizes
+    // anything — target authorization now happens once, at ticket-mint time,
+    // through the ordinary `terminal.mintTicket` oRPC procedure. See
+    // packages/api/src/__tests__/security/od-5j8.9-terminal-ticket-origin.test.ts
+    // for the WS-transport invariants (Origin check, ticket consumption, no
+    // authorizeCapability/resolveRequestActor left in that file at all).
+    terminalTicketAuthz: "packages/api/src/routers/terminal/authorize.ts",
   } as const;
 
   for (const [transport, path] of Object.entries(transportSources)) {
@@ -219,17 +225,10 @@ describe("[od-5j8.2] non-oRPC transports delegate to the same capability boundar
     expect(text).not.toContain("auth.api.verifyApiKey");
   });
 
-  test("the WebSocket PTY upgrade resolves its actor via the shared resolver, not a hand-rolled session/key check", () => {
-    const text = readSource(resolve(repositoryRoot, transportSources.websocketPty));
-    expect(text).toContain("resolveRequestActor(");
-    expect(text).not.toContain("auth.api.getSession");
-    expect(text).not.toContain("auth.api.verifyApiKey");
-  });
-
-  test("the WebSocket PTY upgrade denies before any backend is spawned (401/403, not a post-hoc close)", () => {
-    const text = readSource(resolve(repositoryRoot, transportSources.websocketPty));
-    // `authorizePty` must run — and be able to reject — before the caller
-    // upgrades the connection; the host-shell branch requires install scope.
+  test("the terminal ticket authorizer denies before any ticket is minted (401/403/404, not a post-hoc close)", () => {
+    const text = readSource(resolve(repositoryRoot, transportSources.terminalTicketAuthz));
+    // The host-shell branch requires install scope; every branch fails
+    // closed with an explicit status, never an implicit allow.
     expect(text).toContain('scope: "install"');
     expect(text).toMatch(/status:\s*401/);
     expect(text).toMatch(/status:\s*403|decision\.status/);

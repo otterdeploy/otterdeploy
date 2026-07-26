@@ -8,6 +8,8 @@ import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { createAuditPgDrain } from "@otterdeploy/api/audit/pg-drain";
 import { createContext } from "@otterdeploy/api/context";
 import { appRouter } from "@otterdeploy/api/routers/index";
+import { bodyLimitMiddleware } from "@otterdeploy/api/security/body-limit";
+import { sanitizeForwardingHeaders } from "@otterdeploy/api/security/trusted-proxy";
 import { agentHealthIngestHandler } from "@otterdeploy/api/system-health";
 import { auth, getRegistrationMode } from "@otterdeploy/auth";
 import { env } from "@otterdeploy/env/server";
@@ -62,6 +64,22 @@ initLogger({
 });
 
 const app = new Hono<EvlogVariables>();
+
+// od-5j8.10 — trusted-proxy + body-limit gates. Both run FIRST, ahead of
+// every other middleware (including evlog): sanitizing X-Forwarded-*
+// against the trusted-proxy list before evlog's auditEnricher reads
+// x-forwarded-for straight off the headers is what keeps a spoofed IP out of
+// the audit trail (evlog has no injectable IP resolver — see
+// packages/api/src/security/trusted-proxy.ts), and rejecting an oversized
+// body before any handler/logger touches it is what makes the 413 early
+// rather than post-buffer. Shared with the terminal-WS/ticket work
+// (od-5j8.9) landing in this same file — kept to these two focused
+// `app.use` calls so the two changes don't collide.
+app.use(async (c, next) => {
+  sanitizeForwardingHeaders(c);
+  await next();
+});
+app.use(bodyLimitMiddleware());
 
 const identify = createAuthMiddleware(auth, {
   exclude: [
@@ -231,9 +249,10 @@ if (env.NODE_ENV !== "production") {
   app.route("/jobs", workbench({ queues: workbenchQueues(), title: "otterdeploy jobs" }));
 }
 
-// Terminal websocket
-// Auth seam left here for when better-auth cookie verification is
-// re-enabled (handler reads c.var.userId).
+// Terminal websocket. Auth is NOT cookie-based here (od-5j8.9) — the handler
+// validates Origin and consumes a single-use ticket minted by the
+// authenticated `terminal.mintTicket` oRPC call; see
+// apps/server/src/handlers/terminal/ws.ts.
 app.get("/pty", terminalWebSocketHandler);
 
 app.post("/api/webhooks/github", githubWebhookHandler);

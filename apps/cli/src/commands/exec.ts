@@ -1,7 +1,9 @@
+import { ORPCError } from "@orpc/client";
 import { defineCommand } from "citty";
 import { consola } from "consola";
 
 import { ensureAuthenticated } from "../auth-flow";
+import { createCliClient } from "../client";
 import { type CliClient, resolveResource } from "../lib/resolve";
 
 type TerminalTargets = Awaited<ReturnType<CliClient["terminal"]["targets"]>>;
@@ -56,6 +58,52 @@ function pickContainer(
     );
   }
   return picked;
+}
+
+// od-5j8.9: /pty no longer accepts a bearer token in the query string — the
+// WS upgrade authenticates from a single-use, target-bound ticket instead
+// (see packages/api/src/routers/terminal/{contract,index,tickets}.ts). The
+// CLI mints one through the same authenticated RPC the web app uses, which
+// requires a recent step-up (password or TOTP, whichever the account uses) —
+// `performStepUp` probes which one via the server's own error code rather
+// than guessing.
+type ShellTarget = { kind: "container"; containerId: string } | { kind: "host" };
+
+async function performStepUp(client: CliClient): Promise<void> {
+  try {
+    // Deliberately empty — the server rejects with exactly the field it
+    // needs (TWO_FACTOR_CODE_REQUIRED or PASSWORD_REQUIRED), so this probes
+    // the account's auth method instead of guessing it client-side.
+    await client.terminal.stepUp({});
+  } catch (err) {
+    if (!(err instanceof ORPCError)) throw err;
+    if (err.code === "TWO_FACTOR_CODE_REQUIRED") {
+      const code = await consola.prompt("Authenticator code:", { type: "text" });
+      await client.terminal.stepUp({ totpCode: String(code).trim() });
+      return;
+    }
+    if (err.code === "PASSWORD_REQUIRED") {
+      // consola has no masked/password prompt type — the terminal echoes
+      // this. Acceptable for a locally-run CLI; TOTP is the masked-input-free
+      // path for anyone who wants to avoid it (enable 2FA on the account).
+      const password = await consola.prompt("Password:", { type: "text" });
+      await client.terminal.stepUp({ password: String(password) });
+      return;
+    }
+    throw err;
+  }
+}
+
+async function mintTicket(client: CliClient, target: ShellTarget): Promise<string> {
+  try {
+    return (await client.terminal.mintTicket({ target })).ticket;
+  } catch (err) {
+    if (err instanceof ORPCError && err.code === "STEP_UP_REQUIRED") {
+      await performStepUp(client);
+      return (await client.terminal.mintTicket({ target })).ticket;
+    }
+    throw err;
+  }
 }
 
 // Attach the local TTY to the /pty WebSocket. Wire protocol: binary frames
@@ -163,11 +211,13 @@ export const execCommand = defineCommand({
       process.exit(1);
     }
     const { url, token } = await ensureAuthenticated(args.url);
-    const tokenParam = `token=${encodeURIComponent(token)}`;
 
     if (args.host) {
+      const client = createCliClient({ url, token });
       consola.info("Connecting to a shell on the control-plane host...");
-      return attach(`${wsBase(url)}/pty?host=1&${tokenParam}`);
+      consola.warn("The host shell is the control-plane machine itself — install-admin access only.");
+      const ticket = await mintTicket(client, { kind: "host" });
+      return attach(`${wsBase(url)}/pty?ticket=${encodeURIComponent(ticket)}`);
     }
 
     const ctx = await resolveResource(args, args.service, "service");
@@ -181,8 +231,7 @@ export const execCommand = defineCommand({
 
     const slot = picked.replicaSlot ? ` (replica ${picked.replicaSlot})` : "";
     consola.info(`Connecting to ${ctx.resourceName}${slot}...`);
-    return attach(
-      `${wsBase(url)}/pty?container=${encodeURIComponent(picked.containerId)}&${tokenParam}`,
-    );
+    const ticket = await mintTicket(ctx.client, { kind: "container", containerId: picked.containerId });
+    return attach(`${wsBase(url)}/pty?ticket=${encodeURIComponent(ticket)}`);
   },
 });
