@@ -41,8 +41,8 @@ export function InstallHealthSection() {
   });
 
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="flex items-center justify-between border-b px-6 pb-4 pt-6">
+    <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 pt-4 pb-4 sm:px-6 sm:pt-6">
         <div>
           <h2 className="text-sm font-semibold">Install health</h2>
           <p className="text-xs text-muted-foreground">
@@ -53,7 +53,7 @@ export function InstallHealthSection() {
           {q.isFetching ? "refreshing…" : null}
         </span>
       </div>
-      <div className="flex-1 overflow-auto p-6">
+      <div className="min-w-0 flex-1 overflow-auto p-4 sm:p-6">
         {q.isLoading ? (
           <Skeleton className="h-48 w-full" />
         ) : q.isError ? (
@@ -100,7 +100,7 @@ function InstallHealthBody({ data }: { data: PlatformData }) {
             peak waiting {peak(waitingSeries)} · peak active {peak(activeSeries)}
           </span>
         </div>
-        <Card className="overflow-hidden">
+        <Card className="min-w-0 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-left text-xs text-muted-foreground">

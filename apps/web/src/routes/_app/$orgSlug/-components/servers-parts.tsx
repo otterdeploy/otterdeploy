@@ -26,8 +26,11 @@ export function StatTile({
 }) {
   const isPlaceholder = value === "—";
   return (
-    <Card className="rounded-md">
-      <CardContent className="flex items-center gap-3">
+    // min-w-0 on the Card itself, not just the text block: as a grid item its
+    // default min-width:auto lets a long label ("Containers running") set the
+    // column's minimum, widening the grid past the viewport on a phone.
+    <Card className="min-w-0 rounded-md">
+      <CardContent className="flex min-w-0 items-center gap-3">
         <div className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
           <HugeiconsIcon
             icon={icon}
@@ -36,7 +39,9 @@ export function StatTile({
           />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
+          {/* Single long tokens ("otterdeploy-managed") must be allowed to
+              break mid-word — a tile is ~85px of text width at 375px. */}
+          <div className="text-[11px] font-medium tracking-wider text-muted-foreground/70 uppercase [overflow-wrap:anywhere]">
             {label}
           </div>
           <div
@@ -47,7 +52,9 @@ export function StatTile({
           >
             {value}
           </div>
-          <div className="mt-0.5 text-[11px] text-muted-foreground">{sub}</div>
+          <div className="mt-0.5 text-[11px] text-muted-foreground [overflow-wrap:anywhere]">
+            {sub}
+          </div>
         </div>
       </CardContent>
     </Card>

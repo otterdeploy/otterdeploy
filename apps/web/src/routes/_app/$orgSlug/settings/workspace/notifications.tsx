@@ -1,13 +1,20 @@
 /**
- * Notifications page — channel list + event subscription matrix, backed by the
- * `channelsCollection` / `subscriptionsCollection` (oRPC `notifications`
- * router). Channels and the subscription grid are live collection state; the
- * matrix toggles optimistically by inserting/deleting subscription rows.
+ * Notifications page — channel list, event subscription matrix, and the
+ * transport credentials underneath them, backed by the `channelsCollection` /
+ * `subscriptionsCollection` (oRPC `notifications` router). Channels and the
+ * subscription grid are live collection state; the matrix toggles
+ * optimistically by inserting/deleting subscription rows.
+ *
+ * The transports at the bottom (email provider, Twilio, FCM) used to live on
+ * Instance settings. They are install-wide values on the `platform_settings`
+ * singleton and their handlers are install-admin gated, but the only thing
+ * that reads them is delivery — so they belong next to the channels they
+ * feed, not among control-plane/edge configuration.
  */
 import { useMemo, useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Notification03Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { useLiveQuery } from "@tanstack/react-db";
 import { toast } from "sonner";
 
@@ -21,6 +28,8 @@ import {
   subscriptionsCollection,
 } from "@/features/notifications/data/notifications";
 import { DeliveryHistoryDialog } from "@/features/notifications/delivery-history-dialog";
+import { EmailTransportCard } from "@/features/notifications/email-transport";
+import { MessagingTransportCard } from "@/features/notifications/messaging-transport";
 import { type Channel } from "@/features/notifications/shared";
 import { SubscriptionMatrix } from "@/features/notifications/subscription-matrix";
 import { Page, PageHeader } from "@/shared/components/page";
@@ -56,6 +65,7 @@ function toggleSub(channelId: string, eventId: string, enabled: boolean) {
 }
 
 function RouteComponent() {
+  const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Channel | null>(null);
   // Delivery-history dialog target; kept on close so the exit animation
@@ -182,6 +192,15 @@ function RouteComponent() {
           onToggle={toggleSub}
         />
       )}
+
+      {/* Transports last: they're set once at install time, while channels and
+          routing are what an operator returns here to change. Capped at a
+          reading column — the matrix above wants the full width, these forms
+          don't. */}
+      <div className="flex max-w-3xl flex-col gap-6 border-t pt-6">
+        <EmailTransportCard organizationId={organization.id} />
+        <MessagingTransportCard organizationId={organization.id} />
+      </div>
 
       <ChannelDialog
         open={dialogOpen}

@@ -13,7 +13,7 @@ import { SettingsFooter, SettingsRow } from "@/shared/components/settings-sectio
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 
-import { SecretRow } from "./instance-secret-row";
+import { SecretRow } from "@/shared/components/secret-row";
 
 export type SocialProviderId = "github" | "google" | "gitlab";
 

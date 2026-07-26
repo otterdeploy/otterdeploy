@@ -8,7 +8,8 @@ import { orpc } from "@/shared/server/orpc";
 
 import { ContainerLogsDialog, InspectDialog } from "./docker-dialogs";
 import { containerTone, shortId, timeAgoSeconds } from "./docker-format";
-import { Panel, type QueryLike, StateBadge } from "./docker-panel";
+import { Panel, type QueryLike } from "./docker-panel";
+import { StateBadge } from "./docker-state-badge";
 import { RowActionButton } from "./docker-tables";
 
 /** Local row type — mirrors the docker contract output shape. */

@@ -8,24 +8,30 @@ import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-import { ProviderFields } from "./settings-email-fields";
+import { ProviderFields } from "./email-transport-fields";
 import {
   EMAIL_FORM_SHAPE,
   emailConfigured,
   type EmailSettings,
   useAppForm,
   withForm,
-} from "./settings-email-form";
+} from "./email-transport-form";
 
-export type { EmailSettings } from "./settings-email-form";
+export type { EmailSettings } from "./email-transport-form";
 
 /**
- * Outbound email transport (platform-wide). System emails — verification,
- * org invites, guest OTP — use this; falls back to the env Resend key when
- * left on "Platform default". Secrets are write-only: blank means "leave
- * unchanged", and the configured state shows as a hint, never the value.
+ * Outbound email transport (platform-wide). Everything the install sends by
+ * email goes through it: the `email` notification channel *and* the system
+ * mail that predates notifications — verification, org invites, guest OTP.
+ * Falls back to the env Resend key when left on "Platform default". Secrets
+ * are write-only: blank means "leave unchanged", and the configured state
+ * shows as a hint, never the value.
+ *
+ * It sits on the Notifications page with the other transports; the "also sends
+ * sign-in mail" half is spelled out in the section description so nobody reads
+ * this as notification-only and turns it off.
  */
-export function EmailCard({ organizationId }: { organizationId: OrganizationId }) {
+export function EmailTransportCard({ organizationId }: { organizationId: OrganizationId }) {
   const settingsQuery = useQuery(
     orpc.organization.getEmailSettings.queryOptions({
       input: { organizationId },
@@ -35,13 +41,13 @@ export function EmailCard({ organizationId }: { organizationId: OrganizationId }
   return (
     <SettingsSection
       icon={Mail01Icon}
-      title="Email"
+      title="Email transport"
       description={
         <>
-          Transport for system emails (verification, invites, guest access). Platform-wide for this
-          install. Leave on <span className="font-medium">Platform default</span> to use the
-          server's configured Resend key, or set your own Resend key / SMTP server here. Keys are
-          encrypted at rest.
+          Carries every email this install sends — the email channels above, and system mail
+          (verification, invites, guest access). Platform-wide. Leave on{" "}
+          <span className="font-medium">Platform default</span> to use the server's configured
+          Resend key, or set your own Resend key / SMTP server here. Keys are encrypted at rest.
         </>
       }
     >

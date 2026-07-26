@@ -70,7 +70,9 @@ export function ServersTable({
   }
 
   return (
-    <Card className="overflow-hidden rounded-md p-0 gap-0">
+    // min-w-0 so the ~900px of fixed column widths below scroll inside the
+    // card's own overflow-x-auto instead of widening the page.
+    <Card className="min-w-0 gap-0 overflow-hidden rounded-md p-0">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50 hover:bg-muted/50">

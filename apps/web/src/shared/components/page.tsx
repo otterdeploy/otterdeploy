@@ -30,7 +30,11 @@ export function Page({
   return (
     <div
       className={cn(
-        "flex flex-1 flex-col gap-6 p-6",
+        // p-4 below `sm`: a 24px gutter costs 48px of a 375px screen.
+        // min-w-0 so a wide child (a fixed-column table, a long filesystem
+        // path) scrolls inside its own container instead of stretching the
+        // page and taking every sibling off-screen with it.
+        "flex min-w-0 flex-1 flex-col gap-6 p-4 sm:p-6",
         width === "narrow" && "mx-auto w-full max-w-3xl",
         className,
       )}
@@ -58,12 +62,19 @@ export function PageHeader({
   className?: string;
 }) {
   return (
-    <header className={cn("flex items-end justify-between gap-4", className)}>
-      <div className="min-w-0">
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
+    // flex-wrap so the action buttons drop under the title on a phone rather
+    // than squeezing it — several pages carry two of them ("Enroll" + "Add
+    // server"), which is wider than the space left beside a title.
+    <header className={cn("flex flex-wrap items-end justify-between gap-x-4 gap-y-3", className)}>
+      <div className="min-w-0 flex-1">
+        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{title}</h1>
+        {description ? (
+          <p className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">
+            {description}
+          </p>
+        ) : null}
       </div>
-      {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+      {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
     </header>
   );
 }

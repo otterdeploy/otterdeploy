@@ -8,7 +8,7 @@ import {
   EMAIL_FORM_SHAPE,
   type EmailSettings,
   withForm,
-} from "./settings-email-form";
+} from "./email-transport-form";
 
 export const ProviderFields = withForm({
   defaultValues: EMAIL_FORM_SHAPE,

@@ -34,6 +34,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/shared/components/ui/table";
+import {
+  SelectAllHead,
+  SelectRowCell,
+  type TableSelection,
+} from "@/shared/components/table-selection";
 import { cn } from "@/shared/lib/utils";
 
 import type { VolumeAttachment, VolumeRow } from "./shared";
@@ -140,20 +145,25 @@ function RowMenu({
 export function VolumesTable({
   volumes,
   orgSlug,
+  selection,
   onInspect,
   onRemove,
 }: {
   volumes: VolumeRow[];
   orgSlug: string;
+  /** Row multi-select, owned by the section so the action bar can live
+   *  outside the card. */
+  selection: TableSelection<VolumeRow>;
   onInspect: (volume: VolumeRow) => void;
   onRemove: (volume: VolumeRow) => void;
 }) {
   return (
-    <Card className="gap-0 overflow-hidden rounded-md p-0">
+    <Card className="min-w-0 gap-0 overflow-hidden rounded-md p-0">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="pl-4">Name</TableHead>
+            <SelectAllHead selection={selection} />
+            <TableHead>Name</TableHead>
             <TableHead>Driver</TableHead>
             <TableHead>Size</TableHead>
             <TableHead>Attached to</TableHead>
@@ -164,8 +174,9 @@ export function VolumesTable({
         </TableHeader>
         <TableBody>
           {volumes.map((v) => (
-            <TableRow key={v.name}>
-              <TableCell className="max-w-[260px] pl-4">
+            <TableRow key={v.name} data-selected={selection.isSelected(v) ? "" : undefined}>
+              <SelectRowCell selection={selection} row={v} label={v.name} />
+              <TableCell className="max-w-[260px]">
                 <span className="block truncate font-mono text-xs font-medium" title={v.name}>
                   {v.name}
                 </span>

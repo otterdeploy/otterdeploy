@@ -24,7 +24,7 @@ import { Input } from "@/shared/components/ui/input";
 import { Switch } from "@/shared/components/ui/switch";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-import { SecretRow } from "./instance-secret-row";
+import { SecretRow } from "@/shared/components/secret-row";
 
 export function CrowdsecCard({ organizationId }: { organizationId: OrganizationId }) {
   const query = useQuery(

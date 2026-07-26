@@ -1,9 +1,14 @@
 /**
- * SMS + push card — the Twilio and FCM credentials the notification fan-out
- * uses. Every other destination (Slack, Discord, Telegram, PagerDuty, webhooks,
- * email) has always been configured in the UI with its secret encrypted at
- * rest; these two alone required editing `.env` and restarting. This closes
- * that gap — the env vars still work and still seed these fields.
+ * SMS + push transport — the Twilio and FCM credentials the notification
+ * fan-out uses. Every other destination (Slack, Discord, Telegram, PagerDuty,
+ * webhooks, email) has always been configured in the UI with its secret
+ * encrypted at rest; these two alone required editing `.env` and restarting.
+ * This closes that gap — the env vars still work and still seed these fields.
+ *
+ * Lives on the Notifications page next to the channels it feeds, not on
+ * Instance settings: these are delivery credentials, nothing else reads them.
+ * Values are still install-wide (the `platform_settings` singleton) and the
+ * read/write handlers are install-admin gated.
  *
  * A missing or half-configured transport is never an error: the in-app
  * notification row is written regardless, and the external send is a logged
@@ -17,14 +22,31 @@ import { Message01Icon } from "@hugeicons/core-free-icons";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { SecretRow } from "@/shared/components/secret-row";
 import { SettingsFooter, SettingsRow, SettingsSection } from "@/shared/components/settings-section";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-import { SecretRow } from "./instance-secret-row";
+type MessagingSettings = Awaited<ReturnType<typeof orpc.organization.getMessagingSettings.call>>;
 
-export function MessagingCard({ organizationId }: { organizationId: OrganizationId }) {
+/**
+ * Normalize the server shape (and the in-flight `undefined`) once, so the JSX
+ * below reads plain fields instead of scattering optional chaining through the
+ * markup.
+ */
+function normalize(raw: MessagingSettings | undefined) {
+  return {
+    twilioAccountSid: raw?.twilioAccountSid ?? "",
+    twilioFromNumber: raw?.twilioFromNumber ?? "",
+    twilioAuthTokenConfigured: raw?.twilioAuthTokenConfigured ?? false,
+    fcmServerKeyConfigured: raw?.fcmServerKeyConfigured ?? false,
+    twilioEnvConfigured: raw?.twilioEnvConfigured ?? false,
+    fcmEnvConfigured: raw?.fcmEnvConfigured ?? false,
+  };
+}
+
+export function MessagingTransportCard({ organizationId }: { organizationId: OrganizationId }) {
   const query = useQuery(
     orpc.organization.getMessagingSettings.queryOptions({ input: { organizationId } }),
   );
@@ -51,17 +73,7 @@ export function MessagingCard({ organizationId }: { organizationId: Organization
     onError: (err) => toast.error(err.message ?? "Failed to save messaging settings"),
   });
 
-  // Normalize the server shape once so the JSX below reads plain fields — no
-  // optional chaining or null coalescing scattered through the markup.
-  const raw = query.data;
-  const data = {
-    twilioAccountSid: raw?.twilioAccountSid ?? "",
-    twilioFromNumber: raw?.twilioFromNumber ?? "",
-    twilioAuthTokenConfigured: raw?.twilioAuthTokenConfigured ?? false,
-    fcmServerKeyConfigured: raw?.fcmServerKeyConfigured ?? false,
-    twilioEnvConfigured: raw?.twilioEnvConfigured ?? false,
-    fcmEnvConfigured: raw?.fcmEnvConfigured ?? false,
-  };
+  const data = normalize(query.data);
   const sidValue = accountSid ?? data.twilioAccountSid;
   const fromValue = fromNumber ?? data.twilioFromNumber;
   const busy = save.isPending || query.isLoading;
@@ -73,7 +85,7 @@ export function MessagingCard({ organizationId }: { organizationId: Organization
     <SettingsSection
       icon={Message01Icon}
       title="SMS & push"
-      description="Providers for the SMS and push notification channels. Optional — every notification is written to the in-app feed regardless."
+      description="Credentials for the SMS and push channels. Optional — every notification is written to the in-app feed regardless."
     >
       <SettingsRow
         title="Twilio account SID"

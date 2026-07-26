@@ -1,5 +1,5 @@
 /**
- * Shared row for a write-only credential on the Instance page.
+ * Shared row for a write-only credential on a settings card.
  *
  * Every secret on these cards behaves identically, and that behaviour is worth
  * stating once: the value is never readable back, so the field shows a

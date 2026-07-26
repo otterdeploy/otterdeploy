@@ -188,9 +188,9 @@ function ServersRoute() {
           replace: true,
         })
       }
-      className="flex flex-1 flex-col gap-0"
+      className="flex min-w-0 flex-1 flex-col gap-0"
     >
-      <div className="border-b px-6 pb-0 pt-6">
+      <div className="border-b px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
         <PageHeader
           title="Servers"
           description={nodeDescription(servers.length)}
@@ -210,7 +210,7 @@ function ServersRoute() {
         </TabsList>
       </div>
 
-      <TabsContent value="overview" className="flex flex-1 flex-col gap-6 p-6">
+      <TabsContent value="overview" className="flex min-w-0 flex-1 flex-col gap-6 p-4 sm:p-6">
         <ClusterStatTiles
           servers={servers}
           tasksRunning={cluster?.tasksRunning ?? null}
@@ -242,11 +242,11 @@ function ServersRoute() {
         <ServerHealthCard />
       </TabsContent>
 
-      <TabsContent value="docker" className="flex min-h-0 flex-1 flex-col">
+      <TabsContent value="docker" className="flex min-h-0 min-w-0 flex-1 flex-col">
         <RawDockerPanel orgSlug={orgSlug} initialTab={dockerTab} />
       </TabsContent>
 
-      <TabsContent value="install-health" className="flex min-h-0 flex-1 flex-col">
+      <TabsContent value="install-health" className="flex min-h-0 min-w-0 flex-1 flex-col">
         <InstallHealthSection />
       </TabsContent>
 
