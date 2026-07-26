@@ -6,6 +6,11 @@
  * path (see handler.ts), so it resolves here. Everything downstream
  * (railpack/Dockerfile, cache, push, rollout) is identical to the git path once
  * the work dir is populated — only source acquisition differs.
+ *
+ * Extraction itself goes through `archive-extract.ts`, not a bare `tar -xzf`:
+ * a tenant-supplied tarball is untrusted input (path traversal, symlink
+ * escapes, device files, decompression bombs — see od-5j8.16), so every entry
+ * is validated before any bytes hit the filesystem.
  */
 
 import type { DeploymentId, ProjectId } from "@otterdeploy/shared/id";
@@ -16,8 +21,8 @@ import { stat } from "node:fs/promises";
 import type { CloneResult } from "./clone";
 import type { LogSink } from "./log-stream";
 
+import { extractArchiveSafely } from "./archive-extract";
 import { resolveWorkDir } from "./clone";
-import { runProcess } from "./run-process";
 
 export async function extractTarballToWorkDir(opts: {
   projectId: ProjectId;
@@ -40,16 +45,7 @@ export async function extractTarballToWorkDir(opts: {
   const { path: workDir, persistent } = await resolveWorkDir(opts.projectId, opts.deploymentId);
   opts.sink.system(`extracting uploaded source → ${workDir}`);
 
-  const extracted = await runProcess({
-    cmd: "tar",
-    args: ["-xzf", tarball, "-C", workDir],
-    sink: opts.sink,
-  });
-  if (extracted.exitCode !== 0) {
-    throw new Error(
-      `tar extract failed (exit ${extracted.exitCode}): ${extracted.tail.slice(0, 500)}`,
-    );
-  }
+  await extractArchiveSafely({ archivePath: tarball, destDir: workDir, sink: opts.sink });
 
   // The tarball is mounted read-only and reclaimed by the worker after all
   // build attempts finish (so a retry can re-extract), so nothing to clean here.
