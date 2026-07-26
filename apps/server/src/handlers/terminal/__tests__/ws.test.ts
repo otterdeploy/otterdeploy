@@ -8,16 +8,65 @@
  * origin checks and ticket rejection both happen strictly before the upgrade
  * call (see ../ws.ts), so a plain HTTP request through the same handler is a
  * faithful test of them.
+ *
+ * The ticket store is an in-memory double (see `memoryTicketStore` below) so
+ * this file needs no Redis. That is not a convenience — it is the difference
+ * between these tests passing and hanging in CI.
  */
-import { Hono } from "hono";
-import { describe, expect, test } from "vite-plus/test";
 
-import { mintTerminalTicket } from "@otterdeploy/api/routers/terminal/tickets";
+import type { TicketStore } from "@otterdeploy/api/routers/terminal/tickets";
+
+import {
+  mintTerminalTicket,
+  setTicketStoreForTests,
+} from "@otterdeploy/api/routers/terminal/tickets";
 import { env } from "@otterdeploy/env/server";
+import { Hono } from "hono";
+import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
 
 import { terminalWebSocketHandler } from "../ws";
 
 const TRUSTED_ORIGIN = env.CORS_ORIGIN[0] ?? "http://localhost:3001";
+
+/**
+ * In-memory stand-in for the ticket store.
+ *
+ * These tests are about the UPGRADE HANDLER's rejection paths, not about Redis
+ * — but every path that inspects a ticket goes through the store, so without a
+ * double they opened a real connection. The CI `test` job has no Redis service
+ * by design (only `integration` gets containers, see ci.yml), so those three
+ * tests hung ~5s and failed on timeout, passing locally only because a
+ * developer happens to have compose running.
+ *
+ * Honours the same two operations the real client does, with the semantics the
+ * production code actually depends on:
+ *   SET … NX  → null when the key already exists, never a silent overwrite.
+ *   GETDEL    → returns the value AND removes it in one step, which is what
+ *               makes a ticket single-use. Getting this wrong would make the
+ *               replay test pass for the wrong reason.
+ *
+ * TTL is accepted and ignored: expiry is Redis behaviour, and the test that
+ * covers it lives in the API package's security suite against a real server.
+ */
+function memoryTicketStore(): TicketStore {
+  const entries = new Map<string, string>();
+  return {
+    set: (key, value, _nx, _ex, _ttl) =>
+      Promise.resolve(entries.has(key) ? null : (entries.set(key, value), "OK")),
+    send: (command, args) => {
+      if (command !== "GETDEL") throw new Error(`unexpected redis command: ${command}`);
+      const key = args[0] ?? "";
+      const value = entries.get(key);
+      entries.delete(key);
+      return Promise.resolve(value ?? null);
+    },
+  };
+}
+
+beforeAll(() => setTicketStoreForTests(memoryTicketStore()));
+// Restore the real lazily-created client so a later suite in the same process
+// cannot inherit this double.
+afterAll(() => setTicketStoreForTests(null));
 
 function app() {
   const a = new Hono();

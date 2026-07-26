@@ -15,8 +15,6 @@
  * (../../authz/nonce.ts) and guest OTP (../../authz/otp.ts) — not a new
  * pattern, the same primitive applied to a new caller.
  */
-import type { RedisClient } from "bun";
-
 import { Result, TaggedError } from "better-result";
 
 import type { TerminalTarget } from "./authorize";
@@ -28,10 +26,44 @@ import { createRedis } from "../../lib/redis";
  *  a proxy log, a Referer header) is worthless within seconds. */
 const TICKET_TTL_SECONDS = 20;
 
-let client: RedisClient | null = null;
-function redis(): RedisClient {
-  if (!client) client = createRedis();
+/**
+ * The entire Redis surface this module uses. Narrow on purpose: it is the whole
+ * contract a test double has to honour, and keeping it two methods wide is what
+ * stops a double from drifting away from the real client's behaviour.
+ */
+export interface TicketStore {
+  set(key: string, value: string, nx: "NX", ex: "EX", ttlSeconds: string): Promise<string | null>;
+  send(command: string, args: string[]): Promise<unknown>;
+}
+
+let client: TicketStore | null = null;
+function redis(): TicketStore {
+  if (!client) client = createRedis() as unknown as TicketStore;
   return client;
+}
+
+/**
+ * Swap the ticket store. TEST ONLY — and enforced, not merely documented.
+ *
+ * `apps/server/.../ws.test.ts` exercises the real upgrade handler's rejection
+ * paths, every one of which runs through this store. Without a seam those tests
+ * open a live Redis connection, which the CI `test` job deliberately has no
+ * service for (only the `integration` job gets containers — see ci.yml). The
+ * result was three tests hanging ~5s on a connection that could never succeed
+ * and failing on timeout, while passing locally purely because a developer
+ * happens to have compose up. A hidden infra dependency in a unit test is the
+ * bug; a wider timeout would only have made it a slower one.
+ *
+ * The `NODE_ENV` guard is because this swaps the store that authenticates
+ * terminal access. Being able to replace that at runtime is not something this
+ * process should be capable of, so outside tests it throws rather than accepts.
+ */
+export function setTicketStoreForTests(store: TicketStore | null): void {
+  // oxlint-disable-next-line node/no-process-env -- guarding a test-only seam
+  if (process.env.NODE_ENV !== "test") {
+    throw new Error("setTicketStoreForTests is not callable outside tests");
+  }
+  client = store;
 }
 
 const ticketKey = (token: string) => `terminal:ticket:${token}`;
