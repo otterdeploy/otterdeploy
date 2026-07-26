@@ -31,9 +31,8 @@
  * change, not just an org-list change.
  */
 
-import { queryOptions } from "@tanstack/react-query";
-
 import { idSchema, type OrganizationId } from "@otterdeploy/shared/id";
+import { queryOptions } from "@tanstack/react-query";
 
 import { authClient } from "@/lib/auth-client";
 import { authQueryKeys } from "@/lib/auth-query-keys";
@@ -67,11 +66,30 @@ export interface OrganizationSummary {
   createdAt: string | Date;
 }
 
+/**
+ * `null` means UNAUTHENTICATED — the org list is unknowable because nobody is
+ * signed in. Distinct from `[]`, which means "signed in, genuinely no orgs" and
+ * sends the user to onboarding. Collapsing the two would route a signed-out
+ * visitor into org creation instead of the sign-in page.
+ */
+export type OrganizationList = OrganizationSummary[] | null;
+
 export const organizationsQuery = queryOptions({
   queryKey: authQueryKeys.organizations,
-  queryFn: async (): Promise<OrganizationSummary[]> => {
+  queryFn: async (): Promise<OrganizationList> => {
     const res = await authClient.organization.list();
     if (res.error) {
+      // 401 is not a failure, it is an ANSWER: this endpoint requires a session
+      // and there isn't one. It has to resolve rather than throw, because the
+      // gate reads this concurrently with `sessionQuery` — a throw here rejects
+      // the whole `Promise.all` before the `!session` redirect can run, turning
+      // an ordinary signed-out visit into a 500 error screen.
+      //
+      // Deliberately ONLY 401. Every other status still throws, which is what
+      // keeps a 429 or a briefly-unreachable server from masquerading as a
+      // logout (the bug this file's header describes) — those are failures to
+      // surface, not evidence about who is signed in.
+      if (res.error.status === 401) return null;
       throw new Error(res.error.message ?? "Failed to load organizations");
     }
     // Brand every org id at this single entry point (better-auth types them as
