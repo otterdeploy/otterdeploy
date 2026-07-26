@@ -27,6 +27,7 @@ import { orgCommand } from "./commands/org";
 import { platformCommand } from "./commands/platform";
 import { projectCommand } from "./commands/project";
 import { pullCommand } from "./commands/pull";
+import { recoveryKeyCommand } from "./commands/recovery-key";
 import { redeployCommand } from "./commands/redeploy";
 import { removeCommand } from "./commands/remove";
 import { restartCommand } from "./commands/restart";
@@ -106,6 +107,7 @@ const GROUPS: CommandGroup[] = [
     commands: {
       db: dbCommand,
       backups: backupsCommand,
+      "recovery-key": recoveryKeyCommand,
     },
   },
   {

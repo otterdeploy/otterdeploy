@@ -11,7 +11,11 @@
  * needed later, write to a separate audit log.
  */
 
-import { boolean, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { bigint, boolean, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+
+import type { BackupDestinationId } from "@otterdeploy/shared/id";
+
+import { backupDestination } from "./backup";
 
 export const PLATFORM_SETTINGS_ID = "platform";
 
@@ -169,6 +173,58 @@ export const platformSettings = pgTable("platform_settings", {
   /** Version the operator dismissed the "update available" banner for, so a
    *  known update stops nagging until a newer one appears. */
   dismissedVersion: text("dismissed_version"),
+
+  // ═══ Whole-control-plane backup + disaster recovery (od-5j8.13) ═════
+  // Distinct from the tenant-facing `backup`/`backup_schedule`/
+  // `backup_destination` tables (packages/db/src/schema/backup.ts), which
+  // back up ORG resources (databases/volumes). This section tracks the
+  // control plane's OWN backup: its Postgres, data dir, and Caddy state.
+  // Execution is a host-level script (scripts/control-plane-backup.sh) —
+  // not a BullMQ job — because it needs to dump the control plane's own
+  // database and tar named Docker volumes from OUTSIDE any container this
+  // process runs in. This row is the status/config surface the script
+  // reports into and the readiness API reads from; see
+  // packages/api/src/backups/control-plane-readiness.ts and
+  // docs/designs/control-plane-disaster-recovery.md.
+  /** Operator intent — whether control-plane backups are expected to run at
+   *  all. Distinct from "configured": an operator can wire a destination and
+   *  a recovery key and still leave this off during initial setup. */
+  controlPlaneBackupEnabled: boolean("control_plane_backup_enabled").notNull().default(false),
+  /** Reuses an existing (org-scoped) `backup_destination` row as the
+   *  off-host target for control-plane archives — deliberately NOT a
+   *  separate destination-config surface, so S3 creds/testing/rotation stay
+   *  in the one place that already implements them. `onDelete: set null` so
+   *  deleting the destination degrades readiness to `not_ready` (missing
+   *  destination) rather than leaving a dangling FK. */
+  controlPlaneBackupDestinationId: text("control_plane_backup_destination_id")
+    .$type<BackupDestinationId>()
+    .references(() => backupDestination.id, { onDelete: "set null" }),
+  /** sha256(recoveryKey)[:8] — see packages/api/src/lib/recovery-key.ts. The
+   *  platform NEVER stores the recovery key itself, only this fingerprint,
+   *  so a compromised control-plane DB can't leak the key that protects its
+   *  own backups. Used only so the readiness UI can show "a key exists" and
+   *  let the operator visually confirm a held key matches. */
+  controlPlaneRecoveryKeyFingerprint: text("control_plane_recovery_key_fingerprint"),
+  controlPlaneRecoveryKeyGeneratedAt: timestamp("control_plane_recovery_key_generated_at"),
+  /** Operator-confirmed "I have saved this key off-host" — set by a separate
+   *  explicit confirmation call, never implied by generation alone. An
+   *  unconfirmed key is treated as not exported for readiness purposes. */
+  controlPlaneRecoveryKeyExportedAt: timestamp("control_plane_recovery_key_exported_at"),
+  /** Timestamp of the most recent run that reached `succeeded`. Reported by
+   *  `scripts/control-plane-backup.sh` calling back into the running API
+   *  (`backups.controlPlane.reportRun`, install-admin only) after the
+   *  archive is uploaded — so this table stays the single place that knows
+   *  the schema, rather than duplicating column names into a shell script. */
+  controlPlaneLastBackupAt: timestamp("control_plane_last_backup_at"),
+  /** Status + timestamp of the single most recent attempt, which may be a
+   *  failure even when `controlPlaneLastBackupAt` (last SUCCESS) is set. */
+  controlPlaneLastRunStatus: text("control_plane_last_run_status"),
+  controlPlaneLastRunAt: timestamp("control_plane_last_run_at"),
+  controlPlaneLastRunError: text("control_plane_last_run_error"),
+  /** Size of the encrypted archive produced by the last successful run. */
+  controlPlaneLastBackupSizeBytes: bigint("control_plane_last_backup_size_bytes", {
+    mode: "number",
+  }),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")

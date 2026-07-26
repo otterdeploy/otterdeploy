@@ -358,6 +358,7 @@
     "**/route-tree.gen.ts",
     "routeTree.gen.ts",
     ".agents/",
-    ".claude/"
+    ".claude/",
+    "scripts/lib/*.mjs"
   ]
 }

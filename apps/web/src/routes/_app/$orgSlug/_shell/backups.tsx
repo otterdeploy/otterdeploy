@@ -27,6 +27,7 @@ import {
 } from "@/features/backups/backups-sections";
 import { BackupsStats } from "@/features/backups/backups-stats";
 import { BackupsTable } from "@/features/backups/backups-table";
+import { ControlPlaneRecoveryCard } from "@/features/backups/control-plane-recovery-card";
 import { DatabasesSection } from "@/features/backups/databases-section";
 import { DestinationEditorDialog } from "@/features/backups/destination-editor-dialog";
 import { RestoreWizard } from "@/features/backups/restore-wizard";
@@ -169,6 +170,8 @@ function BackupsRoute() {
         onAdd={() => setDestEditor("new")}
         onEdit={setDestEditor}
       />
+
+      <ControlPlaneRecoveryCard destinations={destinations} />
 
       <BackupNowDialog
         open={backupNowOpen}

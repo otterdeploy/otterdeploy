@@ -17,6 +17,7 @@ import * as z from "zod";
 
 import { projectIdField, resourceIdField } from "../project/contract/shared";
 import { volumeNameField } from "../volumes/contract";
+import { controlPlaneBackupContract } from "./control-plane-contract";
 
 const tag = "backups";
 const basePath = "/backups";
@@ -393,4 +394,8 @@ export const backupsContract = {
       .input(destinationIdInput)
       .output(testResultSchema),
   },
+
+  // Whole-control-plane backup/DR — platform-wide singleton, install-admin
+  // only. See control-plane-contract.ts.
+  controlPlane: controlPlaneBackupContract,
 };

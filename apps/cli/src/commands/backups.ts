@@ -5,6 +5,7 @@ import { createCliClient } from "../client";
 import { formatBytes, orAbsent, relativeTime, shortId } from "../lib/format";
 import { cmd } from "../lib/name";
 import { resolveResource } from "../lib/resolve";
+import { controlPlaneCommand } from "./backups-control-plane";
 import {
   abort,
   ask,
@@ -269,5 +270,6 @@ export const backupsCommand = defineCommand({
     run: runCmd,
     restore: restoreCmd,
     destinations: destinationsCmd,
+    "control-plane": controlPlaneCommand,
   },
 });

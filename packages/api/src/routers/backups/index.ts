@@ -12,6 +12,7 @@ import {
   verifyBackup,
 } from "../../backups";
 import { inspectVolume } from "../volumes/service";
+import { controlPlaneBackupRouter } from "./control-plane-router";
 import { backupDestinationsRouter } from "./destinations-router";
 import { presentBackup } from "./presenters";
 import { backupSchedulesRouter } from "./schedules-router";
@@ -144,4 +145,6 @@ export const backupsRouter = {
   schedules: backupSchedulesRouter,
 
   destinations: backupDestinationsRouter,
+
+  controlPlane: controlPlaneBackupRouter,
 };
