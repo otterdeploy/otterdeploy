@@ -4,9 +4,10 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { CommandPalette } from "@/features/command-palette";
 import { useInstallCallbackToast } from "@/features/git-providers/install-callback-toast";
 import { ResourceOverlayProvider } from "@/features/projects/components/new-resource/overlay-provider";
+import { decideAuthGate } from "@/lib/auth-gate";
 import { organizationsQuery, sessionQuery } from "@/lib/auth-queries";
-import { queryClient } from "@/shared/server/orpc";
 import { useFaviconStatus } from "@/shared/hooks/use-favicon-status";
+import { queryClient } from "@/shared/server/orpc";
 
 export interface Organization {
   id: OrganizationId;
@@ -56,22 +57,25 @@ export const Route = createFileRoute("/_app")({
       queryClient.ensureQueryData(sessionQuery),
       queryClient.ensureQueryData(organizationsQuery),
     ]);
-    // Only a RESOLVED-but-absent session means "not signed in". A failed
-    // request throws out of ensureQueryData above and never reaches here, so a
-    // rate-limited or briefly-unreachable server can no longer masquerade as a
-    // logout.
-    if (!session) {
+    // A failed REQUEST throws out of ensureQueryData above and never reaches
+    // here, so only definite answers about identity get this far. See
+    // lib/auth-gate.ts for why each branch is the way it is.
+    const decision = decideAuthGate({ session, organizations });
+    if (decision.kind === "sign-in") {
       throw redirect({
         to: "/sign-in",
         search: { redirect: location.pathname },
       });
     }
-    if (organizations.length === 0) {
+    if (decision.kind === "onboarding") {
       throw redirect({ to: "/onboarding/create-organization" });
     }
 
+    // `decision.organizations` rather than the raw read: the gate already
+    // proved it non-null and non-empty, so this doesn't re-narrow it.
+    const orgs = decision.organizations;
     const activeId = session.session.activeOrganizationId;
-    const activeOrg = organizations.find((o) => o.id === activeId) ?? organizations[0];
+    const activeOrg = orgs.find((o) => o.id === activeId) ?? orgs[0];
 
     const u = session.user;
     const user = {
@@ -84,7 +88,7 @@ export const Route = createFileRoute("/_app")({
 
     return {
       user,
-      organizations,
+      organizations: orgs,
       activeOrgSlug: activeOrg.slug,
     };
   },
