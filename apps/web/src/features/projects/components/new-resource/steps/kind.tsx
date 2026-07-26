@@ -18,7 +18,9 @@ interface StepKindProps {
 // one of the two known default shapes. A row the operator touched survives.
 function isPristinePorts(ports: Port[]): boolean {
   const json = JSON.stringify(ports);
-  return json === JSON.stringify(resourceDefaults.ports) || json === JSON.stringify(DOCKER_PORT_DEFAULTS);
+  return (
+    json === JSON.stringify(resourceDefaults.ports) || json === JSON.stringify(DOCKER_PORT_DEFAULTS)
+  );
 }
 
 export function StepKind({ dbView, onDbViewChange }: StepKindProps) {

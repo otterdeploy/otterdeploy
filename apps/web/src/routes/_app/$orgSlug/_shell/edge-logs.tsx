@@ -7,6 +7,7 @@ import { zEdgeLogsSearch } from "@/features/edge-logs/data/edge-search";
 // verbatim by the new route's search schema, so a deep link to a specific
 // plane keeps landing on the right tab.
 export const Route = createFileRoute("/_app/$orgSlug/_shell/edge-logs")({
+  staticData: { crumb: "Edge logs" },
   validateSearch: zEdgeLogsSearch,
   beforeLoad: ({ params, search }) => {
     throw redirect({

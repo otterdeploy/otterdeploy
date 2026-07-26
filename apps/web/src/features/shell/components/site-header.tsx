@@ -10,7 +10,9 @@ import { NotificationInboxPopover } from "@/features/notifications/inbox-popover
 import { useResourceOverlay } from "@/features/projects/components/new-resource/overlay-provider";
 import { HeaderNav } from "@/features/shell/components/header-nav";
 import { ModeToggle } from "@/features/shell/components/mode-toggle";
+import { OtterdeployMark } from "@/shared/components/brand/otterdeploy-logo";
 import { Button } from "@/shared/components/ui/button";
+import { useAppStatus } from "@/shared/lib/app-status";
 
 export function SiteHeader() {
   const { t } = useTranslation();
@@ -24,6 +26,7 @@ export function SiteHeader() {
   // The header just asks it to open — no second dialog instance with its own
   // state to drift out of sync.
   const overlay = useResourceOverlay();
+  const status = useAppStatus();
 
   return (
     <header className="z-50 flex w-full items-center border-b bg-background">
@@ -32,11 +35,13 @@ export function SiteHeader() {
           to="/$orgSlug"
           params={{ orgSlug: organization.slug }}
           className="flex shrink-0 items-center"
-          aria-label="otterdeploy home"
+          // The label overrides the mark's own, so it has to carry the state
+          // too — otherwise a deploy is visible but never announced.
+          aria-label={status === "idle" ? "otterdeploy home" : `otterdeploy home — ${status}`}
         >
-          <span className="grid size-7 place-items-center rounded-md bg-foreground text-[11px] font-semibold text-background lowercase">
-            os
-          </span>
+          {/* Same rollup the tab shows, so the mark reads identically whether
+              this window is focused or sitting in the background. */}
+          <OtterdeployMark size={24} status={status} />
         </Link>
 
         <HeaderNav />

@@ -45,9 +45,7 @@ export function frameworkLabel(kind: string | null | undefined): string | null {
 const STATIC_FRAMEWORKS = new Set(["vite", "react", "vue", "astro", "static"]);
 
 /** Default "Service type" (Web app vs Static site) for a detected framework. */
-export function frameworkDefaultServiceType(
-  kind: string | null | undefined,
-): "app" | "static" {
+export function frameworkDefaultServiceType(kind: string | null | undefined): "app" | "static" {
   return kind && STATIC_FRAMEWORKS.has(kind) ? "static" : "app";
 }
 

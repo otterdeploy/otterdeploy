@@ -17,6 +17,7 @@ import { Input } from "@/shared/components/ui/input";
 const zSearch = z.object({ user_code: z.string().optional() });
 
 export const Route = createFileRoute("/device")({
+  staticData: { crumb: "Approve device" },
   validateSearch: zSearch,
   beforeLoad: async ({ search }) => {
     const session = await authClient.getSession();

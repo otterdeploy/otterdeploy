@@ -1,0 +1,68 @@
+---
+title: Pull request previews
+description: A deployment and a URL for every open pull request, torn down when it closes.
+---
+
+Open a pull request and it comes up on its own deployment with its own URL.
+Close the pull request and everything is removed.
+
+## The model
+
+A preview is **not** an environment. It is a first-class record bound to
+`(project, repo, PR number)`. Its deployments, routes and database branches are
+scoped to it by id; the `environment` table holds only the contexts you create
+by hand and carries no preview provenance.
+
+In the dashboard, previews render as satellite cards attached to the service
+node on the project graph — not in any environment surface.
+
+State is `active` or `closed`.
+
+## What a preview costs
+
+By default: **one container, one route, one row.** Databases are shared with
+the base project unless you opt in per database, so a pull request against a
+service doesn't clone your data by accident.
+
+## Database branching
+
+Opt in per database. When enabled, a preview gets its own copy of the data and
+the service's `${database:<name>.…}` reference resolves to the copy — with no
+change to the manifest, because the reference is late-bound by name.
+
+Two tiers exist in the schema:
+
+| Strategy | Status |
+| --- | --- |
+| `copy` | Shipped. A logical dump and restore. Doubles disk for the branch. |
+| `zfs` | **Not built.** An explicit `zfs` request currently falls back to `copy` with a logged warning. |
+
+<Callout type="warn" title="ZFS branching isn't wired yet">
+  The installer will provision a ZFS pool, and the snapshot driver has a slot
+  for it, but the driver still resolves `zfs` to `copy`. Plan for the cost of a
+  logical copy.
+</Callout>
+
+## Teardown
+
+Two ways a preview goes away:
+
+- **The pull request closes** — everything scoped to the preview is torn down.
+- **It goes idle** — an hourly reaper removes active previews past their
+  teardown deadline.
+
+Pinning a preview with a keep-alive clears the deadline entirely, so it is never
+reaped. Paused previews are skipped by the reaper.
+
+## Protecting previews
+
+A preview URL is a real, public URL. If the work in flight shouldn't be, put
+[deployment protection](/docs/guides/domains#deployment-protection) in front of
+it: only members of the owning organisation get through, with shareable links
+for reviewers outside the org and bypass tokens for CI.
+
+## Requirements
+
+Previews need a connected GitHub App installation on the organisation and a
+service bound to a repository. `git_provider_kind` has one member — GitHub —
+so this does not work with GitLab or other providers today.

@@ -1,0 +1,110 @@
+---
+title: Install
+description: Put the Otterdeploy control plane on your own server.
+icon: Terminal
+---
+
+One command provisions the host, pulls the published images, puts Docker into
+Swarm mode and brings the stack up. There is no source checkout and no build
+toolchain involved.
+
+```bash
+curl -fsSL https://get.otterdeploy.com/install.sh | bash
+```
+
+## What the host needs
+
+| | |
+| --- | --- |
+| **OS** | Linux, with root (or passwordless `sudo`) |
+| **Ports** | `80` and `443` for the edge and ACME, `3000` for the dashboard |
+| **Disk** | Enough for images, build caches and any volumes you create |
+| **Nodes** | One is a valid cluster; more can join later as managers or workers |
+
+Docker is installed and switched into Swarm mode by the installer if it isn't
+already.
+
+## What it does
+
+In order, narrating each step:
+
+1. Checks the required ports are free.
+2. Installs Docker and initialises Swarm, using `OTTERDEPLOY_ADVERTISE_ADDR` if
+   the machine has more than one address.
+3. Creates the data folder (default `/data/otterdeploy`, mode `0700`) with the
+   compose file and generated `.env` under `source/`.
+4. Optionally adds a swapfile, so a heavy build doesn't get OOM-killed.
+5. Optionally provisions a ZFS pool for future copy-on-write database
+   branching. If ZFS isn't available it says so and falls back to the logical
+   branching tier — it never blocks the install.
+6. Applies the host firewall and starts CrowdSec.
+7. Pulls the pinned release and brings the stack up.
+
+<Callout title="Pinned by default">
+  With no `OTTERDEPLOY_VERSION` set, the installer resolves the newest published
+  release tag and pins to it — e.g. `v0.4.2`. That pin is what lets the in-app
+  updater tell you an update exists. Set `OTTERDEPLOY_VERSION=latest` to ride
+  `main` instead.
+</Callout>
+
+## Security defaults
+
+A fresh install comes up protected, with both layers narrated in the installer
+output rather than applied silently:
+
+- **CrowdSec** is bundled and **on**. The bouncer key and LAPI wiring are
+  generated for you and the `firewall` compose profile is started, so the edge
+  is enforcing community and custom IP blocklists from the first boot. Opt out
+  with `OTTERDEPLOY_FIREWALL=false` or `--no-firewall`.
+- **A host firewall baseline** — default-deny `INPUT` plus a `DOCKER-USER`
+  guard — is applied with nftables. If ufw or firewalld is already managing the
+  host, that takes precedence and the installer says so; it does not fight
+  another firewall manager.
+
+## Options
+
+Every tunable is an environment variable. The ones you're most likely to touch:
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `OTTERDEPLOY_DATA_DIR` | `/data/otterdeploy` | Host data folder — all platform state |
+| `OTTERDEPLOY_VERSION` | newest release | Image tag to pull; `latest` rides `main` |
+| `OTTERDEPLOY_CONTROL_PLANE_PORT` | `3000` | Dashboard port |
+| `OTTERDEPLOY_ADVERTISE_ADDR` | primary source IP | Swarm advertise address |
+| `OTTERDEPLOY_FIREWALL` | `true` | Bundle and start CrowdSec |
+| `OTTERDEPLOY_BRANCHING` | `auto` | ZFS pool for database branching |
+| `OTTERDEPLOY_SWAP` | `auto` | Add a swapfile for build headroom |
+| `OTTERDEPLOY_DRY_RUN` | `false` | Print what would happen, change nothing |
+| `OTTERDEPLOY_YES` | `false` | Skip the interactive prompts |
+
+Docker's overlay address pool is configurable too, via
+`DOCKER_ADDRESS_POOL_BASE` (default `10.0.0.0/8`) and
+`DOCKER_ADDRESS_POOL_SIZE` (default `24`) — worth setting if `10/8` collides
+with your own network.
+
+Preview the whole run before committing to it:
+
+```bash
+OTTERDEPLOY_DRY_RUN=true curl -fsSL https://get.otterdeploy.com/install.sh | bash
+```
+
+## Updating
+
+```bash
+/data/otterdeploy/source/install.sh update
+```
+
+`update` skips host setup entirely — it pulls the new image tag and restarts,
+preserving every generated secret.
+
+## Then
+
+Open the dashboard on port `3000`, create your organisation, and install the
+CLI:
+
+```bash
+npm install -g @otterdeploy/cli
+otterdeploy login https://deploy.example.com
+```
+
+Next: [your first deploy](/docs/start/first-deploy).

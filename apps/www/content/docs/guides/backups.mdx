@@ -1,0 +1,89 @@
+---
+title: Backups and restore
+description: Encrypted, scheduled snapshots of databases, volumes and stacks — to storage you control.
+---
+
+Backups are taken with [rustic](https://rustic.cli.rs/), encrypted with a key
+derived per repository, and written to a destination you own.
+
+## Destinations
+
+| Type | Where it writes |
+| --- | --- |
+| `s3` | Object storage — bucket, region, endpoint and prefix |
+| `local` | A filesystem path on the host |
+| `sftp` | A remote host over SSH |
+
+<Callout type="warn" title="SFTP is key-auth only">
+  The SFTP backend authenticates with an SSH private key. A destination
+  configured with a password is rejected with that reason up front, rather than
+  failing later mid-run.
+</Callout>
+
+Credentials for a destination are stored encrypted and decrypted only when a
+run needs them.
+
+## What can be backed up
+
+| Kind | How |
+| --- | --- |
+| `database` | Logical dump of a managed database |
+| `volume` | A named Docker volume, tarred through a helper container |
+| `stack` | A whole compose stack |
+
+The source picker offers both databases and the live volume inventory from the
+daemon — including orphans, so a volume whose owning resource is gone can still
+be captured before you delete it.
+
+## Schedules and retention
+
+Runs are cron-scheduled. Retention is expressed as how many to keep:
+
+- `keepDaily`
+- `keepWeekly`
+- `keepMonthly`
+
+plus a retention class of `short`, `standard`, `long` or `archive`.
+
+The scheduler scans the schedule table **every minute** and the database is the
+source of truth, so an edited cron expression or retention rule takes effect
+immediately — there is no repeatable job to re-register.
+
+```bash
+otterdeploy backups list
+otterdeploy backups run
+otterdeploy backups restore
+```
+
+## Running one now
+
+"Back up now" enqueues the same engine a schedule would, against a source you
+pick. The run is recorded with no schedule attached, so manual runs stay
+distinguishable from scheduled ones in the history.
+
+## Reading a run
+
+Every run keeps its own log lines across three streams: `stdout`, `stderr` and
+`system`. Expanding a run in the dashboard reads them on demand — there is no
+preview stub, so an empty log means the run genuinely produced no output.
+
+Status values are real states, not a spinner: a run that failed says so and
+keeps the output that explains why.
+
+## Restore
+
+Restore a snapshot back into a resource. Treat it as a real operation with real
+consequences — it overwrites the target — and read the run log afterwards
+rather than assuming a clean exit.
+
+<Callout title="Practise it">
+  A backup you have never restored is a hypothesis. Restore into a throwaway
+  resource at least once before you need to do it under pressure.
+</Callout>
+
+## Encryption
+
+The encryption options are `none`, `aes-256-gcm`, `kms-managed` and
+`customer-key`. The repository key is derived per repository, so one
+destination holding several repositories does not share a single key across
+them.

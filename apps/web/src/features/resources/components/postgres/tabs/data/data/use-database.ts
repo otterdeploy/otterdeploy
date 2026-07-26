@@ -70,9 +70,7 @@ export function useTablePrimaryKey({
     enabled: enabled && Boolean(table),
     staleTime: 5 * 60 * 1000,
   });
-  const pkColumns = (query.data?.rows ?? [])
-    .map((r) => r[0])
-    .filter((c): c is string => c != null);
+  const pkColumns = (query.data?.rows ?? []).map((r) => r[0]).filter((c): c is string => c != null);
   return pkColumns;
 }
 

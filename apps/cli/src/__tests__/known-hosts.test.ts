@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, test } from "vite-plus/test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, test } from "vite-plus/test";
 
 /**
  * The login pick-list is only as good as the history behind it. These pin the

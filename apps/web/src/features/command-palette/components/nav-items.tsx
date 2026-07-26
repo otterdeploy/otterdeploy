@@ -111,10 +111,7 @@ const toEntry = (item: NavManifestItem): NavEntry => ({
 export const ORG_NAV_GROUPS: readonly { heading: string; items: readonly NavEntry[] }[] = [
   ...OPERATIONAL_NAV.map((group, i) => ({
     heading: group.label ?? "Workspace",
-    items: [
-      ...group.items.map(toEntry),
-      ...(i === 0 ? PALETTE_EXTRA_NAV.map(toEntry) : []),
-    ],
+    items: [...group.items.map(toEntry), ...(i === 0 ? PALETTE_EXTRA_NAV.map(toEntry) : [])],
   })),
   // Settings-zone destinations, one palette group per rail group, so
   // "Settings · Workspace › Git providers" stays searchable from anywhere.

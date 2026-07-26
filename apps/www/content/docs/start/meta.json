@@ -1,0 +1,6 @@
+{
+  "title": "Start here",
+  "icon": "Rocket",
+  "defaultOpen": true,
+  "pages": ["concepts", "install", "first-deploy"]
+}

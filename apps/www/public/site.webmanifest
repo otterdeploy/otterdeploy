@@ -1,0 +1,21 @@
+{
+  "name": "otterdeploy",
+  "short_name": "otterdeploy",
+  "description": "A self-hostable deployment platform. Build from a git repo, run managed databases, get automatic HTTPS and per-PR previews — on servers you own.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "browser",
+  "background_color": "#fbfbfa",
+  "theme_color": "#fbfbfa",
+  "icons": [
+    { "src": "/favicon.svg", "type": "image/svg+xml", "sizes": "any" },
+    { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
+    { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
+    {
+      "src": "/icon-maskable-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ]
+}

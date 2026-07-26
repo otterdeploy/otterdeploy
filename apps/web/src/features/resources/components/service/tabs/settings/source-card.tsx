@@ -159,7 +159,7 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
 
   const reposQuery = useQuery(
     orpc.git.listRepos.queryOptions({
-      input: { installationId: (activeInstallationId ?? "") },
+      input: { installationId: activeInstallationId ?? "" },
       enabled: activeInstallationId != null,
     }),
   );

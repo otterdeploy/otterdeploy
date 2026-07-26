@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { AuthHero } from "@/features/auth/components/auth-hero";
+import { OtterdeployLogo } from "@/shared/components/brand/otterdeploy-logo";
 
 /** Atmospheric haze sitting on the field's horizon, so the far dots dissolve
  *  into light rather than into flat panel. Driven off theme tokens via
@@ -69,7 +70,11 @@ export function AuthLayout({
           <div aria-hidden className="pointer-events-none absolute inset-0" style={bandMaskStyle}>
             <AuthHero layout="band" />
           </div>
-          <div aria-hidden className="pointer-events-none absolute inset-0" style={bandScrimStyle} />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={bandScrimStyle}
+          />
 
           <div className="absolute top-7 left-7">
             <Wordmark />
@@ -147,14 +152,7 @@ function ConnectionBadge() {
   );
 }
 
-/** The "os" tile + product name, mirroring the app header's brand mark. */
+/** Mark + product name, mirroring the app header's brand mark. */
 function Wordmark() {
-  return (
-    <div className="flex items-center gap-2.5">
-      <span className="grid size-7 place-items-center rounded-md bg-foreground text-[11px] font-semibold text-background lowercase">
-        os
-      </span>
-      <span className="text-sm font-semibold tracking-[-0.02em] text-foreground">otterdeploy</span>
-    </div>
-  );
+  return <OtterdeployLogo size={26} />;
 }

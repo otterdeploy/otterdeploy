@@ -163,8 +163,9 @@ export function FirewallDisabledCard() {
             <h2 className="text-[13px] font-semibold">Firewall isn't enabled</h2>
             <p className="mt-0.5 text-[13px] text-muted-foreground">
               A fresh install turns CrowdSec on automatically — if you just installed, the agent may
-              still be starting (this can take a few seconds after <CodeChip>docker compose up</CodeChip>).
-              If you disabled it on purpose, here's how to turn it back on:
+              still be starting (this can take a few seconds after{" "}
+              <CodeChip>docker compose up</CodeChip>). If you disabled it on purpose, here's how to
+              turn it back on:
             </p>
             <ol className="mt-3 space-y-2.5 text-[13px]">
               <li className="flex gap-2.5">

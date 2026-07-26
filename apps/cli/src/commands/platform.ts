@@ -1,27 +1,28 @@
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
 import type { CliClient } from "../lib/resolve";
 
 import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";
+import { formatBytes } from "../lib/format";
+import {
+  abort,
+  confirm,
+  detail,
+  dim,
+  fail,
+  note,
+  ok,
+  out,
+  paint,
+  section,
+  table,
+  warn,
+} from "../lib/ui";
 
 async function connect(urlOverride?: string): Promise<CliClient> {
   const { url, token } = await ensureAuthenticated(urlOverride);
   return createCliClient({ url, token });
-}
-
-function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes)) return "-";
-  const units = ["B", "KiB", "MiB", "GiB", "TiB"];
-  let value = Math.abs(bytes);
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  const rendered = unit === 0 ? String(Math.round(value)) : value.toFixed(1);
-  return `${bytes < 0 ? "-" : ""}${rendered} ${units[unit] ?? "B"}`;
 }
 
 const platformVersion = defineCommand({
@@ -37,10 +38,13 @@ const platformVersion = defineCommand({
       process.stdout.write(`${JSON.stringify(info, null, 2)}\n`);
       return;
     }
-    consola.log(`version  ${info.current}`);
-    consola.log(`channel  ${info.channel}`);
-    consola.log(`runtime  ${info.runtime}`);
-    if (info.dryRun) consola.info("Updates run in dry-run mode on this install.");
+    section("Platform");
+    detail([
+      ["version", info.current],
+      ["channel", info.channel],
+      ["runtime", dim(info.runtime)],
+    ]);
+    if (info.dryRun) note("Updates run in dry-run mode on this install.");
   },
 });
 
@@ -50,10 +54,13 @@ interface UsageSection {
   reclaimableBytes: number;
 }
 
-function usageRow(label: string, section: UsageSection): string {
-  const size = formatBytes(section.totalBytes).padStart(10);
-  const reclaimable = formatBytes(section.reclaimableBytes);
-  return `  ${label.padEnd(12)} ${String(section.count).padStart(4)}  ${size}  (${reclaimable} reclaimable)`;
+/** A percentage that turns amber then red as it approaches full. */
+function usageValue(usedPct: number, text: string): string {
+  const HIGH = 90;
+  const ELEVATED = 75;
+  if (usedPct >= HIGH) return paint("danger", text);
+  if (usedPct >= ELEVATED) return paint("warn", text);
+  return text;
 }
 
 const platformHealth = defineCommand({
@@ -71,42 +78,80 @@ const platformHealth = defineCommand({
     }
 
     const mem = health.memory;
-    const memUsed = formatBytes(mem.totalBytes - mem.availableBytes);
-    consola.log(
-      `memory   ${memUsed} / ${formatBytes(mem.totalBytes)} (${mem.usedPct.toFixed(0)}% used)`,
-    );
+    const capacity: Array<[string, string]> = [
+      [
+        "memory",
+        usageValue(
+          mem.usedPct,
+          `${formatBytes(mem.totalBytes - mem.availableBytes)} / ${formatBytes(mem.totalBytes)}  ${mem.usedPct.toFixed(0)}%`,
+        ),
+      ],
+    ];
     if (health.disk) {
       const disk = health.disk;
-      const diskUsed = formatBytes(disk.totalBytes - disk.freeBytes);
-      consola.log(
-        `disk     ${diskUsed} / ${formatBytes(disk.totalBytes)} (${disk.usedPct.toFixed(0)}% used) on ${disk.path}`,
-      );
-    }
-    if (health.docker) {
-      consola.log("docker");
-      consola.log(usageRow("images", health.docker.images));
-      consola.log(usageRow("containers", health.docker.containers));
-      consola.log(usageRow("volumes", health.docker.volumes));
-      consola.log(usageRow("build cache", health.docker.buildCache));
+      capacity.push([
+        "disk",
+        `${usageValue(
+          disk.usedPct,
+          `${formatBytes(disk.totalBytes - disk.freeBytes)} / ${formatBytes(disk.totalBytes)}  ${disk.usedPct.toFixed(0)}%`,
+        )} ${dim(disk.path)}`,
+      ]);
     }
     if (health.branchPool) {
       const pool = health.branchPool;
       const free = pool.freeBytes === null ? "?" : formatBytes(pool.freeBytes);
       const size = pool.sizeBytes === null ? "?" : formatBytes(pool.sizeBytes);
-      const status = pool.health ? `  health ${pool.health}` : "";
-      consola.log(`zfs pool ${pool.pool}  ${free} free of ${size}${status}`);
+      capacity.push([
+        "zfs pool",
+        `${free} free of ${size} ${dim(pool.pool)}${pool.health ? ` ${dim(pool.health)}` : ""}`,
+      ]);
+    }
+    section("Capacity");
+    detail(capacity);
+
+    if (health.docker) {
+      const sections: Array<[string, UsageSection]> = [
+        ["images", health.docker.images],
+        ["containers", health.docker.containers],
+        ["volumes", health.docker.volumes],
+        ["build cache", health.docker.buildCache],
+      ];
+      section("Docker");
+      table(
+        [
+          { header: "" },
+          { header: "count", align: "right" },
+          { header: "size", align: "right" },
+          { header: "reclaimable", align: "right" },
+        ],
+        sections.map(([label, s]) => [
+          label,
+          dim(String(s.count)),
+          formatBytes(s.totalBytes),
+          // Reclaimable space is the actionable number here, so it stays
+          // undimmed when there is any to reclaim.
+          s.reclaimableBytes > 0 ? formatBytes(s.reclaimableBytes) : dim(formatBytes(0)),
+        ]),
+      );
     }
 
+    out();
     if (health.recommendations.length === 0) {
-      consola.success("No recommendations — host looks healthy.");
+      ok("No recommendations — host looks healthy.");
       return;
     }
+    // Every recommendation is reported. A `critical` one used to be printed with
+    // consola.error, which does not exit — keep that, because aborting on the
+    // first critical would hide the rest of the host's problems.
+    section("Recommendations");
     for (const rec of health.recommendations) {
-      const line = `${rec.title} — ${rec.detail}`;
-      if (rec.severity === "critical") consola.error(line);
-      else if (rec.severity === "warning") consola.warn(line);
-      else consola.info(line);
+      const text = `${rec.title} — ${rec.detail}`;
+      if (rec.severity === "critical") fail(text);
+      else if (rec.severity === "warning") warn(text);
+      else note(text);
     }
+    // Critical findings still set a non-zero exit so monitoring can gate on it.
+    if (health.recommendations.some((r) => r.severity === "critical")) process.exitCode = 1;
   },
 });
 
@@ -124,16 +169,18 @@ const updateCheck = defineCommand({
       return;
     }
     if (result.simulated) {
-      consola.warn("Simulated check (OTTERDEPLOY_LATEST_VERSION_OVERRIDE is set).");
+      warn("Simulated check (OTTERDEPLOY_LATEST_VERSION_OVERRIDE is set).");
     }
     if (result.updateAvailable && result.latest) {
-      consola.info(`Update available: ${result.current} → ${result.latest}`);
-      if (result.url) consola.log(`Release notes: ${result.url}`);
-    } else if (result.latest === null) {
-      consola.warn(`Could not reach the release source; current version is ${result.current}.`);
-    } else {
-      consola.success(`Up to date (${result.current}).`);
+      note(`Update available: ${result.current} → ${paint("accent", result.latest)}`);
+      if (result.url) detail([["notes", dim(result.url)]]);
+      return;
     }
+    if (result.latest === null) {
+      warn(`Could not reach the release source; current version is ${result.current}.`);
+      return;
+    }
+    ok(`Up to date (${result.current}).`);
   },
 });
 
@@ -147,18 +194,15 @@ const updateApply = defineCommand({
     const client = await connect(args.url);
     const check = await client.system.checkForUpdate({});
     if (!check.updateAvailable || !check.latest) {
-      consola.success(`Already up to date (${check.current}).`);
+      ok(`Already up to date (${check.current}).`);
       return;
     }
-    consola.info(`Update available: ${check.current} → ${check.latest}`);
+    note(`Update available: ${check.current} → ${paint("accent", check.latest)}`);
     if (!args.yes) {
-      const ok = await consola.prompt(`Update the platform to ${check.latest}?`, {
-        type: "confirm",
-        initial: false,
-      });
-      if (!ok) {
-        consola.info("Aborted.");
-        process.exit(1);
+      // This MUST stop when declined. The previous version printed "Aborted."
+      // and then applied the update anyway.
+      if (!(await confirm(`Update the platform to ${check.latest}?`))) {
+        abort("Aborted — the platform was not updated.");
       }
     }
     const result = await client.system.apply({});
@@ -168,17 +212,16 @@ const updateApply = defineCommand({
         "no-update": "No update is available anymore.",
         downgrade: "The target version is older than the current version.",
       };
-      consola.error(reasons[result.reason]);
-      process.exit(1);
+      abort(reasons[result.reason]);
     }
-    consola.success(
-      `Update to ${result.targetVersion} started${result.dryRun ? " (dry run)" : ""}.`,
-    );
+    ok(`Update to ${result.targetVersion} started${result.dryRun ? " (dry run)" : ""}.`);
     // The apply is fire-and-forget: a detached helper pulls new images,
     // migrates, and recreates the control plane — polling from here would
     // die mid-restart, so hand off to the dashboard instead.
-    consola.info(
-      "The update runs detached on the host; the control plane restarts itself and the dashboard reloads once the new version is healthy.",
+    note(
+      dim(
+        "It runs detached on the host; the control plane restarts itself and the dashboard reloads once the new version is healthy.",
+      ),
     );
   },
 });

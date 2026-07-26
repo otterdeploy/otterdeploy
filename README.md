@@ -1,4 +1,7 @@
-# otterdeploy
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="brand/dist/lockup-dark@2x.png" />
+  <img src="brand/dist/lockup-light@2x.png" alt="otterdeploy" width="306" height="64" />
+</picture>
 
 A self-hostable deployment platform. Deploy git-sourced services, databases, and compose stacks on your own servers — with the ease of a managed PaaS and none of the lock-in.
 

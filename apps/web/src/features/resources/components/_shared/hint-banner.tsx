@@ -7,13 +7,13 @@
 // the database to services, a service panel about pulling in another
 // resource's values.
 
+import { useState } from "react";
+
 import { Cancel01Icon, Link01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { ReferencePicker } from "@/features/projects/components/variables";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
-
-import { useState } from "react";
 
 export function VariableRefHint({
   onDismiss,

@@ -15,6 +15,8 @@ import type { FrameworkKind } from "@/features/projects/components/framework-log
 
 import { Tabs, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 
+import { resolvePanelTab } from "../_shared/panel-tab";
+
 import { ServicePanelBody } from "./panel-body";
 import { ServicePanelHeader, ServiceStatusBar } from "./panel-parts";
 import { useLiveService, usePauseControl } from "./use-live-service";
@@ -57,10 +59,12 @@ interface ServiceResourcePanelProps {
   // header actions (restart / build) are disabled, edits target the manifest,
   // and the panel opens on Variables (the first thing to set up pre-deploy).
   pending?: boolean;
-  /** Deep-link into a specific tab (e.g. the graph node context menu's
-   *  "Delete" opens straight on Settings). Unrecognized/absent values fall
-   *  back to the usual pending-aware default. */
-  initialTab?: string;
+  /** The active tab, straight off the route's `?tab=` search param — the URL
+   *  owns this, not the panel. Unrecognized/absent values fall back to the
+   *  usual pending-aware default. */
+  tab?: string;
+  /** Report a tab click so the route can write it to the URL. */
+  onTabChange: (tab: string) => void;
 }
 
 const SERVICE_TABS: readonly ServiceTab[] = [
@@ -72,6 +76,11 @@ const SERVICE_TABS: readonly ServiceTab[] = [
   "terminal",
   "settings",
 ];
+
+// Tabs that mean anything for a staged-create ghost: no container, tasks,
+// metrics or logs exist yet, so the runtime tabs are disabled (see
+// ServicePanelTabsList) and a URL naming one of them must not select it.
+const SERVICE_PENDING_TABS: readonly ServiceTab[] = ["variables", "settings"];
 
 /** The panel's tab strip. Runtime tabs are disabled until the service is
  *  deployed — there are no tasks, metrics, logs, or container to attach to
@@ -113,18 +122,20 @@ export function ServiceResourcePanel({
   projectSlug,
   onClose,
   pending = false,
-  initialTab,
+  tab: tabParam,
+  onTabChange,
 }: ServiceResourcePanelProps) {
-  const [tab, setTab] = useState<ServiceTab>(() => {
-    if (!pending && initialTab && (SERVICE_TABS as readonly string[]).includes(initialTab)) {
-      return initialTab as ServiceTab;
-    }
-    return pending ? "variables" : "overview";
-  });
-  // Latches true the first time Logs is opened. From then on the Logs panel
-  // stays mounted (hidden when inactive) so its SSE stream survives tab
-  // switches — see the Logs block below.
-  const [logsVisited, setLogsVisited] = useState(false);
+  const tab = resolvePanelTab(
+    tabParam,
+    pending ? SERVICE_PENDING_TABS : SERVICE_TABS,
+    pending ? "variables" : "overview",
+  );
+  // Latches true the first time Logs is the active tab. From then on the Logs
+  // panel stays mounted (hidden when inactive) so its SSE stream survives tab
+  // switches — see the Logs block below. Seeded from the resolved tab so a
+  // reload or shared link landing straight on `?tab=logs` mounts it too, with
+  // no click to latch on.
+  const [logsVisited, setLogsVisited] = useState(tab === "logs");
   const { buildMut, restartMut } = useServiceRuntimeActions({
     resourceId: resource.resourceId,
     orgSlug,
@@ -179,8 +190,9 @@ export function ServiceResourcePanel({
       <Tabs
         value={tab}
         onValueChange={(v) => {
-          if (v) setTab(v as ServiceTab);
+          if (!v) return;
           if (v === "logs") setLogsVisited(true);
+          onTabChange(v);
         }}
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
@@ -195,7 +207,7 @@ export function ServiceResourcePanel({
           pending={pending}
           service={service}
           tab={tab}
-          onGoTab={setTab}
+          onGoTab={onTabChange}
           logsVisited={logsVisited}
         />
       </Tabs>

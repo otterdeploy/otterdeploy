@@ -11,21 +11,22 @@
  */
 
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+
 import { useState } from "react";
 
-import { useLoaderData } from "@tanstack/react-router";
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useLoaderData } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
+import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Spinner } from "@/shared/components/ui/spinner";
-import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import type { BaseDomainStatus, DomainView } from "./domains-card-parts";
@@ -253,8 +254,7 @@ function DomainRow({
   // Custom hosts that aren't confirmed pointed here still need a DNS record.
   const needsDns =
     domain.source === "custom" &&
-    (!domain.ownershipVerified ||
-      (domain.dnsState !== "pointed" && domain.dnsState !== "proxied"));
+    (!domain.ownershipVerified || (domain.dnsState !== "pointed" && domain.dnsState !== "proxied"));
 
   if (editing) {
     return (

@@ -7,6 +7,7 @@ import { envCollection } from "@/features/projects/data/env";
 import { projectCollection } from "@/features/projects/data/project";
 import { resourceCollection } from "@/features/resources/data/resource";
 import { useProjectEvents } from "@/features/projects/hooks/use-project-events";
+import { useProjectStatus } from "@/features/projects/hooks/use-project-status";
 import { PendingChangesBar } from "@/features/projects/components/pending-changes-bar";
 import { ProjectTabs } from "@/features/projects/components/project-tabs";
 import { ProjectSidebar } from "@/features/shell/components/sidebar/project-sidebar";
@@ -70,6 +71,11 @@ function RouteComponent() {
   // routes refetch immediately instead of waiting on their polling
   // intervals.
   useProjectEvents(project?.id ?? null);
+
+  // Publish this project's live task rollup to the tab. Mounted alongside the
+  // event stream so the two share a lifetime — the tab stops reporting the
+  // moment you leave the project.
+  useProjectStatus(project?.id ?? null);
 
   const { data: resources } = useLiveQuery(
     (q) =>

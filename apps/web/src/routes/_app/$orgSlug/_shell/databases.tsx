@@ -5,6 +5,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 // size) moved into the Backups page rows, which already tracks per-database
 // backup freshness. Shim only — keeps old links and bookmarks working.
 export const Route = createFileRoute("/_app/$orgSlug/_shell/databases")({
+  staticData: { crumb: "Databases" },
   beforeLoad: ({ params }) => {
     throw redirect({
       to: "/$orgSlug/backups",

@@ -9,7 +9,6 @@
  *   --wait? follow the changed services' deployments to running.
  */
 
-import { consola } from "consola";
 import { rmSync } from "node:fs";
 import { dirname } from "node:path";
 
@@ -18,9 +17,22 @@ import type { CliClient } from "./resolve";
 import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";
 import { configPath, loadConfig } from "../config-file";
-import { countByKind, printDiff } from "./diff-printer";
+import { countByKind, printChangeSummary, printDiff } from "./diff-printer";
 import { createSourceTarball } from "./tar-source";
 import { uploadSource } from "./upload-source";
+import {
+  abort,
+  confirm,
+  detail,
+  dim,
+  hint,
+  note,
+  ok,
+  out,
+  section,
+  table,
+  warn,
+} from "./ui";
 import { type WaitOutcome, type WaitTarget, waitForDeployments } from "./wait";
 
 export interface RunDeployOptions {
@@ -40,8 +52,10 @@ export function parseTimeoutMinutes(raw: string | undefined): number {
   if (raw === undefined) return 30;
   const minutes = Number(raw);
   if (!Number.isFinite(minutes) || minutes <= 0) {
-    consola.error(`--timeout expects a positive number of minutes, got "${raw}".`);
-    process.exit(1);
+    abort(
+      `--timeout expects a positive number of minutes, got "${raw}".`,
+      "for example `--timeout 15`",
+    );
   }
   return minutes;
 }
@@ -73,8 +87,12 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
       process.stdout.write(`${JSON.stringify(diff, null, 2)}\n`);
       return;
     }
+    section("Planned changes");
     printDiff(diff.changes);
-    consola.info(`Saved manifest v${saved.version}. Re-run without --dry-run to apply.`);
+    printChangeSummary(diff.changes);
+    out();
+    note(`Saved manifest v${saved.version}. Nothing was applied.`);
+    hint("re-run without `--dry-run` to apply");
     return;
   }
 
@@ -83,15 +101,16 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
   if (!opts.yes && !opts.json) {
     const deletes = countByKind(diff.changes).delete ?? 0;
     if (deletes > 0) {
+      section("Planned changes");
       printDiff(diff.changes);
-      const ok = await consola.prompt(`${deletes} resource(s) will be deleted. Continue?`, {
-        type: "confirm",
-        initial: false,
-      });
-      if (!ok) {
-        consola.info("Aborted.");
-        process.exit(1);
-      }
+      printChangeSummary(diff.changes);
+      out();
+      // Deleting a resource destroys its data; the prompt defaults to no and
+      // states the count, so Enter can never be the destructive answer.
+      const proceed = await confirm(
+        `${deletes} ${deletes === 1 ? "resource" : "resources"} will be deleted. Continue?`,
+      );
+      if (!proceed) abort("Aborted — nothing was applied.");
     }
   }
 
@@ -103,7 +122,7 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
         .map((c) => c.name)
     : [];
 
-  if (!opts.json) consola.info(`Applying${opts.env ? ` (env: ${opts.env})` : ""}…`);
+  if (!opts.json) note(`Applying${opts.env ? ` to ${opts.env}` : ""}…`);
 
   const result = await client.project.manifest.applyChange({
     projectId: project.id,
@@ -113,12 +132,20 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
   });
 
   if (!opts.json) {
-    consola.success(`Applied ${result.appliedCount} change(s) (manifest v${result.version}).`);
+    const n = result.appliedCount;
+    ok(`Applied ${n} ${n === 1 ? "change" : "changes"}.`);
+    detail([["manifest", `v${result.version}`]]);
     if (result.skipped.length > 0) {
-      consola.warn("Skipped:");
-      for (const s of result.skipped) {
-        consola.log(`  ${s.resource} ${s.name}: ${s.reason}`);
-      }
+      // Skips are the honest part of an apply: something the manifest asked for
+      // did not happen, each with its own reason. A table keeps the reasons
+      // aligned and scannable instead of buried in prose.
+      warn(`${result.skipped.length} skipped.`);
+      section("Skipped");
+      table(
+        [{ header: "resource" }, { header: "name" }, { header: "reason" }],
+        result.skipped.map((s) => [dim(s.resource), s.name, dim(s.reason)]),
+      );
+      out();
     }
   }
   if (result.skipped.length > 0) process.exitCode = 1;
@@ -150,7 +177,7 @@ export async function runDeploy(opts: RunDeployOptions): Promise<void> {
       ...new Set([...waitNames, ...uploadNames]),
     ]);
     if (targets.length === 0) {
-      if (!opts.json) consola.info("No changed services to wait on.");
+      if (!opts.json) note("No changed services to wait on.");
     } else {
       const { ok, outcomes } = await waitForDeployments({
         client,
@@ -189,10 +216,10 @@ async function uploadServiceSources(args: {
   for (const name of args.names) {
     const resourceId = byName.get(name);
     if (!resourceId) {
-      consola.warn(`Upload service "${name}" not found after apply — skipping source upload.`);
+      warn(`Upload service \`${name}\` not found after apply — skipping source upload.`);
       continue;
     }
-    if (!args.json) consola.info(`Uploading source for ${name}…`);
+    if (!args.json) note(`Uploading source for ${name}…`);
     const tarball = createSourceTarball(args.projectDir, `${Date.now().toString(36)}-${name}`);
     try {
       const { deploymentId, sourceSha } = await uploadSource({
@@ -202,8 +229,11 @@ async function uploadServiceSources(args: {
         tarballPath: tarball,
       });
       if (!args.json) {
-        const shaNote = sourceSha ? ` (source ${sourceSha.slice(0, 7)})` : "";
-        consola.success(`Source uploaded for ${name}${shaNote} — build ${deploymentId} queued.`);
+        ok(`Source uploaded for ${name}.`);
+        detail([
+          ["source", sourceSha ? sourceSha.slice(0, 7) : ""],
+          ["build", `${deploymentId} queued`],
+        ]);
       }
     } finally {
       rmSync(tarball, { force: true });

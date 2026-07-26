@@ -1,10 +1,10 @@
 import { ORPCError } from "@orpc/client";
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
 import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";
 import { type CliClient, resolveResource } from "../lib/resolve";
+import { abort, dim, note, ok, secret, warn } from "../lib/ui";
 
 type TerminalTargets = Awaited<ReturnType<CliClient["terminal"]["targets"]>>;
 type TerminalContainer = TerminalTargets["containers"][number];
@@ -36,26 +36,27 @@ function pickContainer(
   if (replica) {
     const exact = matches.find((c) => c.replicaSlot === replica);
     if (!exact) {
-      const slots = matches.map((c) => c.replicaSlot ?? "?").join(", ") || "(none)";
-      consola.error(`No running replica ${replica} for ${serviceName}. Running slots: ${slots}`);
-      process.exit(1);
+      const slots = matches.map((c) => c.replicaSlot ?? "?").join(", ");
+      abort(
+        `No running replica ${replica} for ${serviceName}.`,
+        slots === "" ? "nothing is running" : `running slots: ${slots}`,
+      );
     }
     return exact;
   }
   const picked = matches.find((c) => c.replicaSlot === "1") ?? matches[0];
   if (!picked) {
-    consola.error(`No running containers for ${serviceName}.`);
-    process.exit(1);
+    abort(`No running containers for ${serviceName}.`);
   }
   if (matches.length > 1) {
     const others = matches
       .filter((c) => c !== picked)
       .map((c) => c.replicaSlot ?? c.containerId.slice(0, 12))
       .join(", ");
-    consola.info(
-      `Multiple replicas running — attaching to slot ${picked.replicaSlot ?? "?"}. ` +
-        `Others: ${others} (pick one with --replica <slot>).`,
-    );
+    // Attaching to an arbitrary replica silently would hide which one you are
+    // looking at, so name the choice and how to override it.
+    note(`${matches.length} replicas running — attaching to slot ${picked.replicaSlot ?? "?"}.`);
+    note(dim(`Others: ${others}. Pick one with --replica <slot>.`));
   }
   return picked;
 }
@@ -78,16 +79,17 @@ async function performStepUp(client: CliClient): Promise<void> {
   } catch (err) {
     if (!(err instanceof ORPCError)) throw err;
     if (err.code === "TWO_FACTOR_CODE_REQUIRED") {
-      const code = await consola.prompt("Authenticator code:", { type: "text" });
-      await client.terminal.stepUp({ totpCode: String(code).trim() });
+      const code = await secret("Authenticator code");
+      if (code === null) abort("Step-up cancelled — no shell was opened.");
+      await client.terminal.stepUp({ totpCode: code.trim() });
       return;
     }
     if (err.code === "PASSWORD_REQUIRED") {
-      // consola has no masked/password prompt type — the terminal echoes
-      // this. Acceptable for a locally-run CLI; TOTP is the masked-input-free
-      // path for anyone who wants to avoid it (enable 2FA on the account).
-      const password = await consola.prompt("Password:", { type: "text" });
-      await client.terminal.stepUp({ password: String(password) });
+      // `secret` reads raw bytes and echoes nothing, so the password never
+      // reaches the terminal or its scrollback.
+      const password = await secret("Password");
+      if (password === null) abort("Step-up cancelled — no shell was opened.");
+      await client.terminal.stepUp({ password });
       return;
     }
     throw err;
@@ -158,13 +160,13 @@ function attach(wsUrl: string): Promise<never> {
         restoreTty();
         process.stdout.write("\n");
         if (msg.type === "session:exit") {
-          if (msg.exitCode !== null) consola.info(`Shell exited with code ${msg.exitCode}.`);
-          else if (msg.signal) consola.info(`Shell exited (signal ${msg.signal}).`);
-          else consola.info("Shell session ended.");
+          if (msg.exitCode === 0) ok("Shell exited.");
+          else if (msg.exitCode !== null) note(`Shell exited with code ${msg.exitCode}.`);
+          else if (msg.signal) note(`Shell exited on signal ${msg.signal}.`);
+          else note("Shell session ended.");
           process.exit(msg.exitCode ?? 0);
         }
-        consola.error(`${msg.code}: ${msg.message}`);
-        process.exit(1);
+        abort(`${msg.code}: ${msg.message}`);
       }
       if (data instanceof ArrayBuffer) process.stdout.write(new Uint8Array(data));
     });
@@ -174,15 +176,13 @@ function attach(wsUrl: string): Promise<never> {
       restoreTty();
       process.stdout.write("\n");
       if (event.code === 1000) process.exit(0);
-      consola.error(`Connection closed unexpectedly (code ${event.code}).`);
-      process.exit(1);
+      abort(`Connection closed unexpectedly (code ${event.code}).`);
     });
 
     ws.addEventListener("error", () => {
       if (restored) return;
       restoreTty();
-      consola.error("Could not open the shell connection.");
-      process.exit(1);
+      abort("Could not open the shell connection.");
     });
   });
 }
@@ -202,20 +202,18 @@ export const execCommand = defineCommand({
   },
   async run({ args }) {
     if (!process.stdin.isTTY) {
-      consola.error("exec requires an interactive terminal.");
-      process.exit(1);
+      abort("`exec` needs an interactive terminal.", "it cannot run in CI or through a pipe");
     }
     // Global WebSocket is available under Bun and Node ≥22.
     if (typeof WebSocket === "undefined") {
-      consola.error("exec needs a WebSocket runtime — run under Bun or Node ≥22.");
-      process.exit(1);
+      abort("`exec` needs a WebSocket runtime.", "run it under Bun, or Node 22 or newer");
     }
     const { url, token } = await ensureAuthenticated(args.url);
 
     if (args.host) {
       const client = createCliClient({ url, token });
-      consola.info("Connecting to a shell on the control-plane host...");
-      consola.warn("The host shell is the control-plane machine itself — install-admin access only.");
+      warn("This opens a shell on the control-plane machine itself.");
+      note("Connecting…");
       const ticket = await mintTicket(client, { kind: "host" });
       return attach(`${wsBase(url)}/pty?ticket=${encodeURIComponent(ticket)}`);
     }
@@ -224,14 +222,16 @@ export const execCommand = defineCommand({
     const targets = await ctx.client.terminal.targets({});
     const matches = targets.containers.filter((c) => c.serviceResourceId === ctx.resourceId);
     if (matches.length === 0) {
-      consola.error(`No running containers for ${ctx.resourceName}.`);
-      process.exit(1);
+      abort(`No running containers for ${ctx.resourceName}.`);
     }
     const picked = pickContainer(matches, args.replica, ctx.resourceName);
 
     const slot = picked.replicaSlot ? ` (replica ${picked.replicaSlot})` : "";
-    consola.info(`Connecting to ${ctx.resourceName}${slot}...`);
-    const ticket = await mintTicket(ctx.client, { kind: "container", containerId: picked.containerId });
+    note(`Connecting to ${ctx.resourceName}${slot}…`);
+    const ticket = await mintTicket(ctx.client, {
+      kind: "container",
+      containerId: picked.containerId,
+    });
     return attach(`${wsBase(url)}/pty?ticket=${encodeURIComponent(ticket)}`);
   },
 });

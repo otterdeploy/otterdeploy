@@ -10,6 +10,7 @@
  */
 
 import type { ProjectSlug } from "@otterdeploy/shared/id";
+
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import { Link } from "@tanstack/react-router";
 
@@ -75,7 +76,7 @@ function RecentDeployments({
                 key={d.id}
                 to="/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
                 params={{ orgSlug, projectSlug, resourceId, deploymentId: d.id }}
-                search={{ tab: "details" }}
+                search={(prev) => ({ ...prev, deploymentTab: "details" })}
                 className="grid w-full grid-cols-[92px_1fr_auto] items-center gap-3 px-3 py-2 text-left hover:bg-muted/20"
               >
                 <DeploymentStatusBadge status={d.status} compact />

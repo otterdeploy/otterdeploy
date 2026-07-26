@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_app/")({
+  staticData: { crumb: "Projects" },
   beforeLoad: ({ context, location }) => {
     // The GitHub install/manifest callback redirects to the web root with
     // `?git_install=ok|error&reason=…`. Read them off the raw location (no

@@ -1,0 +1,103 @@
+---
+title: Domains and TLS
+description: Route a domain to a service, get a certificate, and read the states honestly.
+---
+
+Every route is served by a Caddy edge that the platform configures. You never
+hand-edit a Caddyfile — the platform generates one for the whole install and
+reloads it — but you can read the rendered config in the dashboard, which is
+usually how you confirm what it actually did.
+
+## Adding a domain
+
+Point a DNS record at the server first, then:
+
+```bash
+otterdeploy domains add app.example.com --service web
+otterdeploy domains list --service web
+otterdeploy domains set-primary app.example.com --service web
+otterdeploy domains recheck app.example.com --service web
+```
+
+Every subcommand takes `--service <name>`. A service can hold several domains;
+one is primary. Removing the primary promotes another rather than leaving the
+service unrouted.
+
+## Reading the state
+
+This is the part worth understanding, because a domain that isn't working is
+almost always in one of these states rather than simply "broken".
+
+### DNS
+
+| State | Meaning |
+| --- | --- |
+| `pointed` | Resolves to this edge |
+| `proxied` | Resolves to a CDN in front of this edge (Cloudflare and friends) |
+| `unpointed` | Doesn't resolve here — the record is missing, wrong, or hasn't propagated |
+| `unknown` | Not yet checked |
+
+`otterdeploy domains recheck` forces a re-evaluation instead of waiting.
+
+### Certificate
+
+| State | Meaning |
+| --- | --- |
+| `obtaining` | ACME is working on it |
+| `valid` | Issued and serving |
+| `failed` | The issuance attempt failed |
+| `unknown` | Not yet attempted |
+
+A domain sitting at `obtaining` with DNS `unpointed` is not a certificate
+problem — ACME can't validate a name that doesn't resolve to the box. Fix the
+record, then recheck.
+
+When issuance fails, the reason is in the edge's event plane: certificate and
+ACME lifecycle events, and upstream errors, all separate from the per-request
+access log.
+
+## Custom certificates
+
+Upload your own certificate, or an internal CA, for the domains where ACME
+isn't an option — internal names, air-gapped environments, or a certificate you
+already pay for. Managed, custom and CA-issued certificates live side by side.
+
+## Deployment protection
+
+An authentication wall in front of a deployed app, so only members of the
+owning organisation can view it. Useful for staging, and for previews you don't
+want indexed or shared.
+
+It works across unrelated apex domains: one central authority holds the session
+and each deployment domain gets its own signed cookie, bridged by a signed-token
+redirect. You log in once and are silently authenticated across every protected
+deployment, even on domains that share no parent.
+
+Two escape hatches:
+
+- **Shareable links** for people outside the organisation.
+- **Bypass tokens** for CI, so an automated check isn't stopped by the wall.
+
+This is orthogonal to CrowdSec. Deployment protection asks *who are you*;
+CrowdSec is identity-blind and blocks by IP reputation.
+
+## Layer-4 routes
+
+Beyond HTTP, the edge routes raw TCP — that's how a
+[managed database](/docs/guides/databases#reaching-it-from-outside) gets
+exposed outside the cluster. Route type is `http` or `layer4`; protocol is
+`tcp` or `http`.
+
+## Access logs and events
+
+The edge keeps two planes, deliberately separate:
+
+- **Access logs** — one entry per request, with a live ring buffer in front of
+  the persisted history so you can watch traffic arrive.
+- **Events** — certificate lifecycle, ACME failures, upstream errors, and
+  CrowdSec decisions.
+
+A scan also runs over recent traffic and flags client IPs probing an
+organisation's domains with scanner-style requests — `/.env`, `/actuator`,
+`*.php`, `?cmd=` — emitting `edge.probe` to any subscribed
+[notification channel](/docs/guides/servers#notifications).

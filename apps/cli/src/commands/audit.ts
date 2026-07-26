@@ -1,12 +1,14 @@
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
 import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";
+import { orAbsent, relativeTime, truncate } from "../lib/format";
+import { abort, detail, dim, note, out, paint, section, stateLabel, table } from "../lib/ui";
 
-function cell(value: string, width: number): string {
-  return value.length > width ? `${value.slice(0, width - 1)}…` : value.padEnd(width);
-}
+const MAX_LIMIT = 200;
+/** Actor emails and action names get long; clip so they can't set the width. */
+const MAX_ACTOR = 28;
+const MAX_ACTION = 30;
 
 export const auditCommand = defineCommand({
   meta: { name: "audit", description: "List organization audit log events" },
@@ -23,10 +25,9 @@ export const auditCommand = defineCommand({
     const limit = args.limit ? Number.parseInt(args.limit, 10) : undefined;
     if (
       args.limit &&
-      (!Number.isInteger(limit) || limit === undefined || limit < 1 || limit > 200)
+      (!Number.isInteger(limit) || limit === undefined || limit < 1 || limit > MAX_LIMIT)
     ) {
-      consola.error("--limit must be an integer between 1 and 200.");
-      process.exit(1);
+      abort("--limit must be a whole number between 1 and 200.", "for example `--limit 100`");
     }
 
     const { url, token } = await ensureAuthenticated(args.url);
@@ -53,21 +54,41 @@ export const auditCommand = defineCommand({
 
     const { items, counts } = result;
     if (items.length === 0) {
-      consola.info("No audit events match.");
+      note("No audit events match.");
       return;
     }
-    for (const event of items) {
-      const actor = event.actorEmail ?? event.actorLabel ?? event.actorId;
-      const target =
-        event.targetType && event.targetId
-          ? `${event.targetType}/${event.targetId}`
-          : (event.targetType ?? event.targetId ?? "");
-      consola.log(
-        `${event.timestamp}  ${cell(actor, 28)}  ${cell(event.action, 26)}  ${event.outcome.padEnd(7)}  ${target}`,
-      );
-    }
-    consola.info(
-      `${items.length} of ${counts.total} event(s) — ${counts.failed} failed, ${counts.denied} denied.`,
+    section("Audit events");
+    table(
+      [
+        { header: "when" },
+        { header: "actor" },
+        { header: "action" },
+        { header: "outcome" },
+        { header: "target" },
+      ],
+      items.map((event) => {
+        const actor = event.actorEmail ?? event.actorLabel ?? event.actorId;
+        const target =
+          event.targetType && event.targetId
+            ? `${event.targetType}/${event.targetId}`
+            : (event.targetType ?? event.targetId ?? "");
+        return [
+          dim(relativeTime(String(event.timestamp))),
+          truncate(actor, MAX_ACTOR),
+          truncate(event.action, MAX_ACTION),
+          // success/failure/denied are in the shared state vocabulary, so a
+          // denied event reads as impaired rather than as an outright failure.
+          stateLabel(event.outcome),
+          dim(orAbsent(target)),
+        ];
+      }),
     );
+
+    out();
+    detail([
+      ["shown", `${items.length} of ${counts.total}`],
+      ["failed", counts.failed > 0 ? paint("danger", String(counts.failed)) : dim("0")],
+      ["denied", counts.denied > 0 ? paint("warn", String(counts.denied)) : dim("0")],
+    ]);
   },
 });

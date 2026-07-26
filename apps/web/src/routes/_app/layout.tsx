@@ -5,6 +5,7 @@ import { CommandPalette } from "@/features/command-palette";
 import { useInstallCallbackToast } from "@/features/git-providers/install-callback-toast";
 import { ResourceOverlayProvider } from "@/features/projects/components/new-resource/overlay-provider";
 import { authClient } from "@/lib/auth-client";
+import { useFaviconStatus } from "@/shared/hooks/use-favicon-status";
 
 export interface Organization {
   id: OrganizationId;
@@ -97,6 +98,10 @@ function RouteComponent() {
   // connect was started from — handle the toast at the layout so every
   // landing page gets it.
   useInstallCallbackToast();
+  // One favicon controller for the whole signed-in app. Mounted here rather
+  // than at the root so the sign-in and device-approval pages keep the plain
+  // static icon — they have no system state to report.
+  useFaviconStatus();
   return (
     <ResourceOverlayProvider>
       <Outlet />

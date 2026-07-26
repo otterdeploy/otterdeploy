@@ -11,9 +11,9 @@
  */
 import type { ProjectSlug } from "@otterdeploy/shared/id";
 
+import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLoaderData } from "@tanstack/react-router";
-import { eq, useLiveQuery } from "@tanstack/react-db";
 
 import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
 import {

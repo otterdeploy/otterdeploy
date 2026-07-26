@@ -77,9 +77,7 @@ export function buildDiagram(parsed: ParsedCompose): Diagram {
     ),
     ...parsed.services.flatMap((s) =>
       s.volumes.flatMap((m) =>
-        m.type === "volume" && m.source
-          ? [{ from: `svc:${s.name}`, to: `vol:${m.source}` }]
-          : [],
+        m.type === "volume" && m.source ? [{ from: `svc:${s.name}`, to: `vol:${m.source}` }] : [],
       ),
     ),
   ];

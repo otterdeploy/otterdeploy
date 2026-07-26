@@ -60,7 +60,6 @@ export function baseStatus(dep: DeploymentStatus): StackServiceStatus | undefine
   }
 }
 
-
 export function ComposePanelHeader({
   name,
   serviceCount,
@@ -91,7 +90,9 @@ export function ComposePanelHeader({
         >
           <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-4" />
         </Button>
-        <PanelIcon node={{ kind: "compose", name, description: "", logoBrand: logoBrand ?? undefined }} />
+        <PanelIcon
+          node={{ kind: "compose", name, description: "", logoBrand: logoBrand ?? undefined }}
+        />
         <div className="flex flex-col gap-0.5">
           <span className="text-xl leading-none font-bold tracking-tight">{name}</span>
           <span className="font-mono text-xs text-muted-foreground">

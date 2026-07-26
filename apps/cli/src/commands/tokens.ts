@@ -1,8 +1,12 @@
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
 import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";
+import { relativeTime } from "../lib/format";
+import { abort, bold, detail, dim, ok, paint, panel, section, warn } from "../lib/ui";
+
+const SECONDS_PER_DAY = 86_400;
+const SECONDS_PER_HOUR = 3_600;
 
 // "90d" | "12h" | "30m" → seconds; "never" → null (non-expiring key).
 function parseExpires(raw: string): number | null {
@@ -10,10 +14,9 @@ function parseExpires(raw: string): number | null {
   const match = /^(\d+)([dhm])$/.exec(raw);
   const amount = Number(match?.[1]);
   if (!match || amount <= 0) {
-    consola.error(`Invalid --expires "${raw}". Use <N>d, <N>h, <N>m (e.g. 90d) or "never".`);
-    process.exit(1);
+    abort(`Invalid --expires "${raw}".`, 'use <N>d, <N>h, <N>m (e.g. 90d), or "never"');
   }
-  const unit = match[2] === "d" ? 86_400 : match[2] === "h" ? 3_600 : 60;
+  const unit = match[2] === "d" ? SECONDS_PER_DAY : match[2] === "h" ? SECONDS_PER_HOUR : 60;
   return amount * unit;
 }
 
@@ -26,8 +29,7 @@ function collectProjectSlugs(rawArgs: string[]): string[] {
     if (arg === "--project") {
       const next = rawArgs[i + 1];
       if (!next || next.startsWith("-")) {
-        consola.error("--project requires a project slug.");
-        process.exit(1);
+        abort("--project requires a project slug.", "for example `--project storefront`");
       }
       slugs.push(next);
       i++;
@@ -78,19 +80,26 @@ const createToken = defineCommand({
       return;
     }
 
-    consola.box(
+    ok(`Created API key ${args.name}.`);
+    section("Key");
+    detail([
+      ["scope", args["read-only"] ? "read-only" : "read-write"],
       [
-        "API key created — copy it now, it won't be shown again:",
-        "",
-        `  ${created.key}`,
-        "",
-        "Use it in CI or scripts:",
-        "",
-        `  export OTTERDEPLOY_TOKEN=${created.key}`,
-      ].join("\n"),
-    );
-    if (created.expiresAt) consola.info(`Expires ${created.expiresAt.toISOString()}.`);
-    else consola.info("This key never expires.");
+        "projects",
+        projectSlugs.length > 0 ? projectSlugs.join(", ") : dim("all in this organization"),
+      ],
+      // A never-expiring key is a standing risk, so it reads as a warning
+      // rather than as an ordinary value.
+      [
+        "expires",
+        created.expiresAt
+          ? relativeTime(created.expiresAt.toISOString())
+          : paint("warn", "never"),
+      ],
+    ]);
+
+    warn("Copy the key now — it is not stored and cannot be shown again.");
+    panel([bold(paint("accent", created.key)), "", dim(`export OTTERDEPLOY_TOKEN=${created.key}`)]);
   },
 });
 

@@ -192,98 +192,223 @@ html > body[data-scroll-locked] {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Docs chrome → Better Auth feel. Fumadocs bakes its styling into utility
-   classes, so these higher-specificity (id/attribute) rules retune the
-   sidebar + content panels to match the marketing surfaces.
+   Landing page.
+
+   Two things live here that can't be expressed as utilities: the inverted
+   "ink" band, and the mark's travelling arc.
    ───────────────────────────────────────────────────────────────────────── */
 
-/* Sidebar → Better Auth: a vertical stack of full-width, edge-to-edge bordered
-   rows (version + search + section folders), a neutral active state (not the
-   default blue), and indented sub-pages. */
+/* Muted body text on the landing page.
 
-/* Drop the viewport's horizontal padding so row borders span edge to edge. */
-#nd-sidebar [data-radix-scroll-area-viewport] {
-  padding-inline: 0 !important;
-  padding-top: 0 !important;
+   The shared `--muted-foreground` (#7a7a74) measures 4.17:1 on the light
+   canvas and 4.11:1 on a dark card — under the 4.5:1 floor DESIGN.md sets for
+   body copy in both themes. The landing page is mostly prose set in that
+   colour, so it scopes a compliant pair: 4.87:1 light, 5.75:1 on dark cards.
+   The dashboard's own tokens are unchanged; fixing them is a separate pass. */
+.od-landing {
+  --muted-foreground: #706f6a;
+  /* The brighter cut of Signal Blue the dashboard uses for active/pending
+     marks. `--primary` is tuned to sit under near-white button text; as a 6px
+     dot on a near-black surface it disappears, so status marks use this. */
+  --od-accent: oklch(0.546 0.245 262.881);
 }
-
-/* Top-level rows: page links + section (folder) triggers → bordered rows. */
-#nd-sidebar [data-radix-scroll-area-viewport] > div > a,
-#nd-sidebar [data-radix-scroll-area-viewport] > div > button {
-  width: 100%;
-  gap: 0.75rem;
-  border-radius: 0;
-  border-bottom: 1px solid var(--color-fd-border);
-  padding: 0.95rem 1.25rem;
-  font-size: 0.875rem;
-  font-weight: 500;
+.dark .od-landing,
+.od-landing .od-ink {
+  --muted-foreground: #93938b;
+  --od-accent: oklch(0.623 0.214 259.815);
 }
 
-/* Section icons read at the reference's larger ~20px. */
-#nd-sidebar [data-radix-scroll-area-viewport] > div > a > svg:first-child,
-#nd-sidebar [data-radix-scroll-area-viewport] > div > button > svg:first-child {
-  width: 1.125rem;
-  height: 1.125rem;
+/* An inverted band: warm ink instead of the canvas, in either theme. Children
+   keep using `bg-card` / `text-foreground` / `border-border` and resolve to the
+   inverted values, so nothing inside needs to know where it is.
+
+   In dark mode the page canvas is already near-black, so the band lifts one
+   tonal step instead of dropping one — the separation has to survive both. */
+.od-ink {
+  --background: #141412;
+  --foreground: #f5f5f0;
+  --card: #1c1c19;
+  --card-foreground: #f5f5f0;
+  --primary: oklch(0.424 0.199 265.638);
+  --secondary: rgba(255, 255, 250, 0.04);
+  --muted: rgba(255, 255, 250, 0.04);
+  --accent: rgba(255, 255, 250, 0.04);
+  --border: rgba(255, 255, 250, 0.1);
+  --input: rgba(255, 255, 250, 0.12);
+  --ring: #525248;
+  --destructive: #f87171;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --info: #60a5fa;
+}
+.dark .od-ink {
+  --background: #171714;
+  --card: #202019;
 }
 
-/* Neutral active row (not the blue tint). */
-#nd-sidebar a[data-active="true"] {
-  background-color: color-mix(in oklab, var(--color-fd-foreground) 7%, transparent);
-  color: var(--color-fd-foreground);
-}
-#nd-sidebar a[data-active="true"] svg {
-  color: var(--color-fd-foreground);
-}
-#nd-sidebar [data-radix-scroll-area-viewport] > div > a[data-active="false"]:hover,
-#nd-sidebar [data-radix-scroll-area-viewport] > div > button:hover {
-  background-color: color-mix(in oklab, var(--color-fd-foreground) 4%, transparent);
-}
+/* ── Art fields ────────────────────────────────────────────────────────────
+   The showcase visuals sit on a deep Signal-Blue field with film grain, so a
+   panel of UI reads as a product shot rather than a card on a page.
 
-/* Section icons + chevrons read as muted; chevron pinned right. */
-#nd-sidebar [data-radix-scroll-area-viewport] > div > button > svg:last-child {
-  margin-inline-start: auto;
-}
-
-/* Nested sub-pages under a section: indented, lighter, no border. */
-#nd-sidebar [data-radix-scroll-area-viewport] [data-state] a {
-  padding-block: 0.5rem;
-  padding-inline-start: 2.9rem;
-  font-size: 0.8125rem;
-  font-weight: 400;
-  color: var(--color-fd-muted-foreground);
-}
-#nd-sidebar [data-radix-scroll-area-viewport] [data-state] a[data-active="true"] {
-  font-weight: 500;
-  color: var(--color-fd-foreground);
-}
-
-/* Search trigger → a bordered row that matches the stack. */
-#nd-sidebar [data-search-full] {
-  width: 100%;
-  border-radius: 0;
-  border-width: 0 0 1px 0;
-  background-color: transparent;
-  padding-inline: 1.25rem;
-}
-
-/* Content cards (Card/Cards in MDX): dark panel with a faint corner grid that
-   fades out, like Better Auth's feature cards. The grid sits on a masked
-   ::before behind the content (isolate + z-index) so the text stays crisp. */
-#nd-page a[href][class*="bg-fd-card"] {
+   This is a deliberate departure from DESIGN.md's ≤10%-accent rule, and it is
+   scoped to the marketing surface only: the dashboard's One Voice Rule exists
+   so a blue button means "do this", and there are no buttons in here. The
+   discipline that IS kept is the hue — one blue, no second accent, no gradient
+   text, nothing the product itself wouldn't recognise. */
+.od-field {
   position: relative;
   isolation: isolate;
-  overflow: hidden;
-  border-radius: 0.75rem;
-  padding: 1.25rem;
+  background-color: #0a0f24;
+  background-image:
+    radial-gradient(115% 100% at 12% -10%, oklch(0.5 0.22 264 / 0.85), transparent 62%),
+    radial-gradient(90% 85% at 105% 108%, oklch(0.42 0.2 268 / 0.7), transparent 65%);
+
+  /* Re-scope the palette so anything dropped inside — a visual, a heading, a
+     state chip — inverts onto the field without knowing it's there. Panels
+     land as dark glass on blue, which is what makes them read as screens. */
+  --background: #0d1120;
+  --foreground: #f6f7fb;
+  --card: #0d1120;
+  --card-foreground: #f6f7fb;
+  --muted-foreground: #b6bfd8;
+  --muted: rgba(255, 255, 255, 0.06);
+  --border: rgba(255, 255, 255, 0.14);
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --info: #7ab5ff;
+  --destructive: #f87171;
+  --od-accent: oklch(0.7 0.17 262);
 }
-#nd-page a[href][class*="bg-fd-card"]::before {
+.dark .od-field {
+  background-color: #070a18;
+}
+
+/* Film grain. An inline feTurbulence keeps the page self-contained — no image
+   request, no CDN — and the low opacity stops it from muddying the panel. */
+.od-field::before {
   content: "";
   position: absolute;
   inset: 0;
   z-index: -1;
-  background-image: radial-gradient(circle, var(--color-fd-border) 1px, transparent 1px);
-  background-size: 16px 16px;
-  opacity: 0.7;
-  -webkit-mask-image: radial-gradient(ellipse 60% 65% at 100% 0%, #000, transparent 72%);
-  mask-image: radial-gradient(ellipse 60% 65% at 100% 0%, #000, transparent 72%);
+  opacity: 0.22;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Light rays: two soft diagonal streaks, the trace of something moving fast. */
+.od-field::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.5;
+  background-image:
+    linear-gradient(105deg, transparent 34%, oklch(0.75 0.14 220 / 0.35) 39%, transparent 44%),
+    linear-gradient(105deg, transparent 58%, oklch(0.8 0.12 200 / 0.22) 61%, transparent 65%);
+}
+
+/* ── Isometric platform diagram ────────────────────────────────────────────
+   Everything inside sizes off the container width in `cqw`, so the whole
+   drawing scales without a resize listener and without a fixed breakpoint. */
+.od-iso {
+  container-type: inline-size;
+}
+.od-iso-stage {
+  transform: rotateX(56deg) rotateZ(-45deg);
+  transform-style: preserve-3d;
+}
+
+/* A scroll container without the bar. Used on the install command, which can
+   overflow on narrow viewports: the content still scrolls and still selects,
+   but a permanent grey bar under a one-line shell command reads as damage. */
+.od-noscroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.od-noscroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Comet border ──────────────────────────────────────────────────────────
+   Ported verbatim from apps/web/src/index.css so the resource card on this
+   page and the resource card in the dashboard wear the same signature: one
+   bright segment with a fading tail travelling a rounded ring. Animating a
+   registered @property angle (not a transform) keeps the ring still and moves
+   only the light, so it follows the border instead of spinning a square. */
+@property --comet-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes od-comet-spin {
+  to {
+    --comet-angle: 360deg;
+  }
+}
+.od-comet-border {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.6px;
+  --comet-color: var(--info);
+  background: conic-gradient(
+    from var(--comet-angle),
+    transparent 0deg,
+    transparent 230deg,
+    color-mix(in oklab, var(--comet-color) 35%, transparent) 300deg,
+    var(--comet-color) 344deg,
+    color-mix(in oklab, var(--comet-color) 60%, white) 353deg,
+    transparent 360deg
+  );
+  /* Cut the interior so only the border-width ring paints. */
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: od-comet-spin 2.2s linear infinite;
+  pointer-events: none;
+}
+
+/* The mark's `deploying` arc: one bright segment orbiting a ring that never
+   moves. Matches the dashboard's comet border. */
+@keyframes od-mark-orbit {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+.od-mark-arc {
+  animation: od-mark-orbit 2.2s linear infinite;
+}
+
+/* The comet that rides the hero's deploy rail while a station is in flight. */
+@keyframes od-comet-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.9);
+  }
+}
+.od-comet {
+  animation: od-comet-pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .od-mark-arc {
+    animation: none;
+    stroke-dashoffset: -6;
+  }
+  .od-comet {
+    animation: none;
+    opacity: 0.6;
+  }
+  /* The ring stays — it's the state indicator — but the light stops moving. */
+  .od-comet-border {
+    animation: none;
+    background: color-mix(in oklab, var(--comet-color) 55%, transparent);
+  }
 }

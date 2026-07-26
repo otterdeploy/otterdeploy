@@ -92,9 +92,9 @@ describe("domainsFromPorts", () => {
   });
 
   it("falls back to the derived host when a public row has no hostname", () => {
-    expect(domainsFromPorts([port({ port: 80, host: "" })], "nginx-storefront.example.dev")).toEqual(
-      [{ domain: "nginx-storefront.example.dev", primary: true }],
-    );
+    expect(
+      domainsFromPorts([port({ port: 80, host: "" })], "nginx-storefront.example.dev"),
+    ).toEqual([{ domain: "nginx-storefront.example.dev", primary: true }]);
   });
 
   it("returns undefined for internal-only, empty, and portless rows", () => {

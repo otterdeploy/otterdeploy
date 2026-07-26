@@ -15,9 +15,9 @@
 import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 import type { ReactCodeMirrorRef } from "@uiw/react-codemirror";
 
-import { omitUndefined } from "@otterdeploy/shared/object";
 import { useEffect, useRef, useState } from "react";
 
+import { omitUndefined } from "@otterdeploy/shared/object";
 import { useStore } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
 

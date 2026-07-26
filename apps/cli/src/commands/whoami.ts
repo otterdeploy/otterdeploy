@@ -1,9 +1,10 @@
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
 import { createCliAuthClient } from "../auth-client";
 import { createCliClient } from "../client";
 import { resolveToken, resolveUrl } from "../config";
+import { cmd } from "../lib/name";
+import { abort, detail, dim, hint, ok, paint, section } from "../lib/ui";
 
 export const whoamiCommand = defineCommand({
   meta: {
@@ -18,8 +19,7 @@ export const whoamiCommand = defineCommand({
     const url = resolveUrl(args.url);
     const token = resolveToken();
     if (!url || !token) {
-      consola.error("Not logged in. Run `otterdeploy login <url>`.");
-      process.exit(1);
+      abort("Not logged in.", `run \`${cmd("login <url>")}\``);
     }
 
     // otter_-prefixed tokens are API keys: org-scoped actors with no user
@@ -34,8 +34,12 @@ export const whoamiCommand = defineCommand({
         );
         return;
       }
-      consola.success("Authenticated with an API key (org-scoped).");
-      consola.info(`URL:     ${url}`);
+      ok("Authenticated with an API key.");
+      section("Session");
+      detail([
+        ["method", `api key ${dim("(org-scoped)")}`],
+        ["url", url],
+      ]);
       return;
     }
 
@@ -44,8 +48,7 @@ export const whoamiCommand = defineCommand({
     const session = await auth.getSession({ fetchOptions: { headers } });
 
     if (!session.data) {
-      consola.error("Session expired or invalid. Run `otterdeploy login <url>` again.");
-      process.exit(1);
+      abort("Session expired or invalid.", `run \`${cmd("login <url>")}\` again`);
     }
 
     const { user } = session.data;
@@ -73,15 +76,14 @@ export const whoamiCommand = defineCommand({
       return;
     }
 
-    consola.info(
-      [
-        `User:    ${user.name} <${user.email}>`,
-        `URL:     ${url}`,
-        activeOrg ? `Org:     ${activeOrg.slug} (${activeOrg.name})` : "Org:     (none)",
-      ].join("\n"),
-    );
-    if (!activeOrg) {
-      consola.info("No active organization. Run `otterdeploy org use <slug>` to pick one.");
-    }
+    section("Session");
+    detail([
+      ["user", `${user.name} ${dim(`<${user.email}>`)}`],
+      ["url", url],
+      // An absent org is a real state that blocks most commands, so it reads as
+      // a warning rather than an empty value.
+      ["org", activeOrg ? `${activeOrg.slug} ${dim(`(${activeOrg.name})`)}` : paint("warn", "none")],
+    ]);
+    if (!activeOrg) hint(`run \`${cmd("org use <slug>")}\` to pick one`);
   },
 });

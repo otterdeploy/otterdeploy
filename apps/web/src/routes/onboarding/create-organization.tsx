@@ -6,6 +6,7 @@ import { SetupWizard } from "@/features/onboarding/setup-wizard";
 import { authClient } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/onboarding/create-organization")({
+  staticData: { crumb: "Create organization" },
   beforeLoad: async () => {
     const session = await authClient.getSession();
     if (!session.data) {

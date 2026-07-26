@@ -78,7 +78,7 @@ export function ProvisionProgress({
       <ProvisionStepper lines={rawLines} row={row} />
 
       <details className="group rounded-md ring-1 ring-foreground/10">
-        <summary className="cursor-pointer select-none px-3 py-2 text-[12px] text-muted-foreground marker:text-muted-foreground">
+        <summary className="cursor-pointer px-3 py-2 text-[12px] text-muted-foreground select-none marker:text-muted-foreground">
           Raw log
         </summary>
         <div

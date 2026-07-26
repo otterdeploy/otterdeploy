@@ -10,7 +10,17 @@ describe("frameworkDefaultServiceType", () => {
   });
 
   it("defaults server frameworks to a web app", () => {
-    for (const fw of ["next", "nuxt", "remix", "sveltekit", "hono", "express", "nest", "go", "python"]) {
+    for (const fw of [
+      "next",
+      "nuxt",
+      "remix",
+      "sveltekit",
+      "hono",
+      "express",
+      "nest",
+      "go",
+      "python",
+    ]) {
       expect(frameworkDefaultServiceType(fw)).toBe("app");
     }
   });

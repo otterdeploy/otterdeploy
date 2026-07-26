@@ -6,6 +6,7 @@
  */
 
 import type { ProjectSlug } from "@otterdeploy/shared/id";
+
 import { Link } from "@tanstack/react-router";
 
 import { useLiveDuration } from "@/shared/lib/duration";
@@ -84,7 +85,7 @@ export function HistoryRow({
             resourceId,
             deploymentId: deployment.id,
           }}
-          search={{ tab: "details" }}
+          search={(prev) => ({ ...prev, deploymentTab: "details" })}
           className="contents"
         >
           <DeploymentStatusBadge status={deployment.status} compact />

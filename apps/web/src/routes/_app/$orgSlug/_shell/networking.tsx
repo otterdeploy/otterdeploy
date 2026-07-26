@@ -4,6 +4,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 // links and bookmarks working; the default `tab` on /edge is already
 // "caddyfile", so no search param is needed.
 export const Route = createFileRoute("/_app/$orgSlug/_shell/networking")({
+  staticData: { crumb: "Networking" },
   beforeLoad: ({ params }) => {
     throw redirect({
       to: "/$orgSlug/edge",

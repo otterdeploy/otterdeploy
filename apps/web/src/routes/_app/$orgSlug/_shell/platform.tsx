@@ -4,6 +4,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 // counters + job-queue table are install-wide health, same neighborhood as
 // the server fleet. Shim only — keeps old links and bookmarks working.
 export const Route = createFileRoute("/_app/$orgSlug/_shell/platform")({
+  staticData: { crumb: "Platform" },
   beforeLoad: ({ params }) => {
     throw redirect({
       to: "/$orgSlug/servers",

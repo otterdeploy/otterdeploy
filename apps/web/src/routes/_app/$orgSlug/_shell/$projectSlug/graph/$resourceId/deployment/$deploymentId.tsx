@@ -20,7 +20,12 @@ import { DeploymentTabs, type DeploymentTab, DEPLOYMENT_TABS } from "./-componen
 import * as z from "zod";
 
 const searchSchema = z.object({
-  tab: z.enum(DEPLOYMENT_TABS).catch("details"),
+  // Deliberately NOT `tab` — the parent /graph/$resourceId route owns that key
+  // for the panel behind this overlay, and search params are one flat object
+  // per URL. Sharing the key meant switching a log tab here rewrote the panel's
+  // tab to a value it doesn't recognize, so closing the overlay dumped you on
+  // the panel's default tab instead of the Deployments tab you opened it from.
+  deploymentTab: z.enum(DEPLOYMENT_TABS).catch("details"),
   // Present when opened from a PR-preview panel — the base deployments
   // collection only loads previewId-null rows, so a preview row must be
   // fetched with this scope or the Details panel loads forever.
@@ -50,7 +55,7 @@ function getSubline(resource?: ProjectResource): string {
 function RouteComponent() {
   const { orgSlug, projectSlug, resourceId, deploymentId } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
-  const { tab, previewId } = Route.useSearch();
+  const { deploymentTab: tab, previewId } = Route.useSearch();
   const navigate = Route.useNavigate();
   // Drives the slide-OUT. Closing navigates back to the resource, which makes
   // TanStack's <Outlet> render null at once — so the unmount-time `exit` has
@@ -58,7 +63,7 @@ function RouteComponent() {
   // `closing`, then navigate when it finishes (see onAnimationComplete below).
   const [closing, setClosing] = useState(false);
   const setTab = (next: DeploymentTab) =>
-    void navigate({ search: (prev) => ({ ...prev, tab: next }), replace: true });
+    void navigate({ search: (prev) => ({ ...prev, deploymentTab: next }), replace: true });
 
   // Base rows come from the shared reactive collection. A preview row isn't in
   // that collection (it's previewId-scoped), so fetch it directly when the
@@ -116,6 +121,11 @@ function RouteComponent() {
           void navigate({
             to: "/$orgSlug/$projectSlug/graph/$resourceId",
             params: { orgSlug, projectSlug, resourceId },
+            // Carry the panel's tab back out, and drop this overlay's own
+            // `deploymentTab`/`previewId` (meaningless once it's gone). Without
+            // this you'd return to the panel's DEFAULT tab rather than the
+            // Deployments tab you opened the deployment from.
+            search: (prev) => ({ tab: prev.tab }),
           });
       }}
       className="absolute size-full bg-muted -top-5 -right-4 border rounded-tl-lg shadow-md overflow-hidden"

@@ -169,8 +169,8 @@ export function ServicePublicAccessCard({
             <AlertDialogDescription>
               This service has no domain yet. Turning on public access will make it reachable at{" "}
               <span className="font-mono text-foreground">{pendingSslipHost}</span> — a temporary
-              sslip.io address with a self-signed certificate. Add your own domain below for a
-              real, trusted URL.
+              sslip.io address with a self-signed certificate. Add your own domain below for a real,
+              trusted URL.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

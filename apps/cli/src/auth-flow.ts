@@ -9,7 +9,6 @@
  */
 
 import { sleep } from "@otterdeploy/shared/promise";
-import { consola } from "consola";
 
 import { CLI_CLIENT_ID, createCliAuthClient, type CliAuthClient } from "./auth-client";
 import {
@@ -22,6 +21,8 @@ import {
   saveConfig,
 } from "./config";
 import { openInBrowser } from "./lib/browser";
+import { cmd } from "./lib/name";
+import { abort, ask, bold, dim, fail, note, ok, paint, panel, select } from "./lib/ui";
 
 type DeviceCodeData = NonNullable<Awaited<ReturnType<CliAuthClient["device"]["code"]>>["data"]>;
 
@@ -47,18 +48,11 @@ export async function promptForUrl(): Promise<string | null> {
   // use, instead of an empty pick-list on the first run after upgrade.
   const stored = normalizeUrl(loadConfig().url);
   const remembered = knownHosts();
-  const known =
-    stored && !remembered.includes(stored) ? [stored, ...remembered] : remembered;
+  const known = stored && !remembered.includes(stored) ? [stored, ...remembered] : remembered;
   if (known.length > 0) {
     const ENTER_NEW = "__enter_new__";
-    const picked = await consola.prompt("Which control plane?", {
-      type: "select",
-      options: [
-        ...known.map((host) => ({ label: host, value: host })),
-        { label: "Enter a different domain…", value: ENTER_NEW },
-      ],
-    });
-    if (typeof picked !== "string") return null; // cancelled (Ctrl-C)
+    const picked = await select("Which control plane?", [...known, ENTER_NEW]);
+    if (picked === null) return null; // cancelled (Ctrl-C)
     if (picked !== ENTER_NEW) return picked; // already normalized when stored
   }
 
@@ -68,13 +62,11 @@ export async function promptForUrl(): Promise<string | null> {
 /** Free-text control plane prompt — the first-run path, and the escape hatch
  *  from the pick-list above. */
 async function promptForNewUrl(): Promise<string | null> {
-  const raw = await consola.prompt("Control plane URL (e.g. https://otter.acme.com):", {
-    type: "text",
-  });
-  if (typeof raw !== "string") return null; // cancelled (Ctrl-C)
+  const raw = await ask("Control plane URL", "https://otter.acme.com");
+  if (raw === null) return null; // cancelled (Ctrl-C)
   const url = normalizeUrl(raw);
   if (!url) {
-    if (raw.trim()) consola.error(`"${raw.trim()}" is not a valid URL.`);
+    if (raw.trim()) fail(`"${raw.trim()}" is not a valid URL.`, "include the scheme, e.g. https://");
     return null;
   }
   return url;
@@ -88,20 +80,22 @@ export interface AuthedSession {
 export async function ensureAuthenticated(urlOverride?: string): Promise<AuthedSession> {
   const url = resolveUrl(urlOverride) ?? (await promptForUrl());
   if (!url) {
-    consola.error(
-      "No control plane URL configured. Set OTTERDEPLOY_URL or pass --url <https://…>.",
+    abort(
+      "No control plane URL configured.",
+      "pass `--url <https://…>`",
+      "or set OTTERDEPLOY_URL",
+      `or run \`${cmd("login <url>")}\` once to store it`,
     );
-    process.exit(1);
   }
 
   const existing = resolveToken();
   if (existing) return { url, token: existing };
 
-  consola.info(`Not authenticated — starting browser-based login at ${url}.`);
+  note(`Not authenticated — starting browser login at ${url}.`);
   const { token, webUrl } = await deviceCodeLogin(url);
   saveConfig({ ...loadConfig(), url, webUrl, token });
   rememberHost(url);
-  consola.success("Logged in.");
+  ok("Logged in.");
   return { url, token };
 }
 
@@ -117,19 +111,18 @@ export async function deviceCodeLogin(url: string): Promise<DeviceLoginResult> {
     code.verification_uri_complete ??
     `${url.replace(/\/$/, "")}${code.verification_uri}?user_code=${code.user_code}`;
 
-  consola.box(
-    [
-      "Opening this URL in your browser:",
-      "",
-      `  ${fullUrl}`,
-      "",
-      "If it doesn't open, paste it manually. Confirm the code matches:",
-      "",
-      `  ${code.user_code}`,
-    ].join("\n"),
-  );
+  // The code is the one thing the user must read and compare, so it gets the
+  // accent and bold weight; the URL is long and secondary to it.
+  panel([
+    "Opening your browser to approve this login.",
+    "",
+    dim(fullUrl),
+    "",
+    `Confirm this code matches:  ${bold(paint("accent", code.user_code))}`,
+  ]);
   openInBrowser(fullUrl);
-  consola.info(`Waiting for approval… (code expires in ${code.expires_in ?? 1800}s)`);
+  const expiresIn = code.expires_in ?? 1800;
+  note(`Waiting for approval — the code expires in ${Math.round(expiresIn / 60)}m.`);
 
   const token = await pollForDeviceToken(auth, code);
   // verification_uri carries the web origin (in dev that's a different host

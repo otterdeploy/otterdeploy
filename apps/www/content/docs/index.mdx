@@ -1,26 +1,70 @@
 ---
 title: Introduction
-description: What Otterdeploy is and how the docs are organized.
+description: What Otterdeploy is, what it runs, and how these docs are organised.
 icon: Album
 ---
 
-Otterdeploy is a self-hostable deployment platform. You bring a server (or a
-cluster); it gives you Git-sourced builds, a Caddy edge with automatic HTTPS,
-managed databases, live logs, and built-in observability.
+Otterdeploy is a self-hostable deployment platform. You bring a Linux box — or
+a cluster of them — and it gives you git-sourced builds, managed databases, a
+Caddy edge with automatic HTTPS, per-pull-request previews, live logs, metrics
+and scheduled backups. Everything runs on your hardware; nothing phones home,
+and nothing stops working if we do.
 
-## What you can deploy
+<Callout type="warn" title="Under active development">
+  Interfaces and schemas still change without migration paths. Run it on
+  something you'd be willing to rebuild, and read
+  [what isn't built yet](/docs/start/concepts#what-isnt-built-yet) before you
+  plan around a feature.
+</Callout>
 
-- **Services** — apps built from a Git repo via Railpack (Node, static SPAs, …)
-- **Databases** — managed Postgres with scheduled backups
-- **Edge routing** — multi-domain services behind a Caddy proxy, with
-  Vercel-style deployment protection
+## What you can run
 
-## How these docs are organized
+- **Services** — apps built from a git repo (framework auto-detected, or your
+  own Dockerfile), from a pre-built image, or from an upload.
+- **Databases** — PostgreSQL, Redis, MariaDB, MongoDB and ClickHouse,
+  provisioned as first-class resources next to the services that use them.
+- **Compose stacks** — a whole `docker-compose` project as one resource, pasted
+  inline or pulled from a repo.
+
+Everything is reachable three ways: the dashboard, the `otterdeploy` CLI, and
+the typed API the other two are built on.
+
+## Where to start
 
 <Cards>
-  <Card title="Getting started" href="/docs/guides/getting-started" />
-  <Card title="API reference" href="/docs/reference/api" />
+  <Card
+    title="Concepts"
+    href="/docs/start/concepts"
+    description="Organisations, projects, resources, deployments — the model everything else assumes."
+  />
+  <Card
+    title="Install"
+    href="/docs/start/install"
+    description="Put the control plane on your own server."
+  />
+  <Card
+    title="First deploy"
+    href="/docs/start/first-deploy"
+    description="From an empty project to a running service."
+  />
+  <Card
+    title="CLI reference"
+    href="/docs/cli/commands"
+    description="Every command and flag the binary accepts."
+  />
 </Cards>
 
-This site is built on TanStack Start + Fumadocs and shares the dashboard's
-design tokens, so it reads as one product.
+## Guides
+
+Task-shaped pages for the things you'll do after the first deploy:
+[services](/docs/guides/services), [databases](/docs/guides/databases),
+[domains and TLS](/docs/guides/domains),
+[environment variables](/docs/guides/environment),
+[previews](/docs/guides/previews), [backups](/docs/guides/backups) and
+[servers](/docs/guides/servers).
+
+## Reference
+
+The [manifest schema](/docs/reference/manifest) for `otterdeploy.json`, the
+[CLI reference](/docs/cli/commands), and the
+[HTTP API](/docs/reference/api) generated from the live OpenAPI spec.

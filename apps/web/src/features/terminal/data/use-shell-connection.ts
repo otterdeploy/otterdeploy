@@ -74,7 +74,9 @@ export function useShellConnection(source: SessionSource, { write, onConnChange 
   // user to confirm a fresh password/TOTP code before a ticket can be
   // minted. The resolver lives in a ref (not state) so the effect's cleanup
   // can reject a still-pending wait without touching render state races.
-  const stepUpWaiterRef = useRef<{ resolve: () => void; reject: (err: unknown) => void } | null>(null);
+  const stepUpWaiterRef = useRef<{ resolve: () => void; reject: (err: unknown) => void } | null>(
+    null,
+  );
   const [stepUpPromptOpen, setStepUpPromptOpen] = useState(false);
 
   // Pinned in refs so the connect effect doesn't re-run on every parent
@@ -102,7 +104,10 @@ export function useShellConnection(source: SessionSource, { write, onConnChange 
     if (!target) {
       const msg = notImplementedMessage(source);
       if (msg) writeVisible(msg);
-      onConnChangeRef.current?.({ kind: "error", message: `${source.kind} backend not implemented` });
+      onConnChangeRef.current?.({
+        kind: "error",
+        message: `${source.kind} backend not implemented`,
+      });
       return;
     }
 
@@ -151,7 +156,11 @@ export function useShellConnection(source: SessionSource, { write, onConnChange 
       switch (msg.type) {
         case "session:exit": {
           const detail =
-            msg.exitCode != null ? ` with code ${msg.exitCode}` : msg.signal ? ` (${msg.signal})` : "";
+            msg.exitCode != null
+              ? ` with code ${msg.exitCode}`
+              : msg.signal
+                ? ` (${msg.signal})`
+                : "";
           writeVisible(`\r\n[process exited${detail}]\r\n`);
           return;
         }

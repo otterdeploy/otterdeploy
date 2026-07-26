@@ -16,6 +16,7 @@ import { Button } from "@/shared/components/ui/button";
 import { Spinner } from "@/shared/components/ui/spinner";
 
 export const Route = createFileRoute("/accept-invite/$invitationId")({
+  staticData: { crumb: "Accept invitation" },
   beforeLoad: async ({ params }) => {
     const session = await authClient.getSession();
     if (!session.data) {

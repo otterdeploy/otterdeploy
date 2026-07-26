@@ -13,14 +13,14 @@
 
 import type { ProjectSlug } from "@otterdeploy/shared/id";
 
-import { useState } from "react";
-
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { orpc } from "@/shared/server/orpc";
+
+import { resolvePanelTab } from "../_shared/panel-tab";
 
 import type { ComposeService } from "./panel-parts";
 
@@ -62,13 +62,20 @@ interface ComposeResourcePanelProps {
    *  the resource-scoped fetches, mirroring the service/database draft
    *  panels' `pending` mode. */
   pending?: boolean;
-  /** Deep-link into a specific tab (e.g. the graph node context menu's
-   *  "Delete" opens straight on Settings). Unrecognized/absent values fall
-   *  back to the usual pending-aware default. */
-  initialTab?: string;
+  /** The active tab, straight off the route's `?tab=` search param — the URL
+   *  owns this, not the panel. Unrecognized/absent values fall back to the
+   *  usual pending-aware default. */
+  tab?: string;
+  /** Report a tab click so the route can write it to the URL. */
+  onTabChange: (tab: string) => void;
 }
 
 const COMPOSE_TABS: readonly ComposeTab[] = ["deployments", "services", "file", "settings"];
+
+// The only tab that means anything for a staged-create ghost: the stack isn't
+// parsed or deployed yet, so deployments/file/settings are disabled below and a
+// URL naming one of them must not select it.
+const COMPOSE_PENDING_TABS: readonly ComposeTab[] = ["services"];
 
 export function ComposeResourcePanel({
   resource,
@@ -76,14 +83,14 @@ export function ComposeResourcePanel({
   projectSlug,
   onClose,
   pending = false,
-  initialTab,
+  tab: tabParam,
+  onTabChange,
 }: ComposeResourcePanelProps) {
-  const [tab, setTab] = useState<ComposeTab>(() => {
-    if (!pending && initialTab && (COMPOSE_TABS as readonly string[]).includes(initialTab)) {
-      return initialTab as ComposeTab;
-    }
-    return pending ? "services" : "deployments";
-  });
+  const tab = resolvePanelTab(
+    tabParam,
+    pending ? COMPOSE_PENDING_TABS : COMPOSE_TABS,
+    pending ? "services" : "deployments",
+  );
 
   // Per-service status — see use-compose-service-status.ts. Reads the EXACT
   // same source the graph node does, so the node and this panel can never
@@ -108,7 +115,7 @@ export function ComposeResourcePanel({
       toast.success("Redeploying stack", {
         description: "Track progress in the Deployments tab.",
       });
-      setTab("deployments");
+      onTabChange("deployments");
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to redeploy"),
   });
@@ -148,7 +155,7 @@ export function ComposeResourcePanel({
       <Tabs
         value={tab}
         onValueChange={(v: ComposeTab) => {
-          if (v) setTab(v);
+          if (v) onTabChange(v);
         }}
         className="flex min-h-0 flex-1 flex-col gap-0"
       >

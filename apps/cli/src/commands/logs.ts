@@ -1,9 +1,10 @@
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
 import type { ResourceContext } from "../lib/resolve";
 
+import { cmd } from "../lib/name";
 import { resolveResource } from "../lib/resolve";
+import { abort } from "../lib/ui";
 
 // Mirrors the API's `resourceLogEventSchema` (docker task tails). Build-log
 // events extend this shape with a `seq` — formatEvent handles both.
@@ -38,8 +39,7 @@ function parseSince(raw: string): string {
   }
   const parsedMs = Date.parse(raw);
   if (Number.isNaN(parsedMs)) {
-    consola.error(`Invalid --since value "${raw}". Use 15m, 2h, 3d, or an ISO timestamp.`);
-    process.exit(1);
+    abort(`Invalid --since value "${raw}".`, "use 15m, 2h, 3d, or an ISO timestamp");
   }
   return new Date(parsedMs).toISOString();
 }
@@ -129,8 +129,10 @@ async function runBuildLogs(
     });
     const newest = deployments[0];
     if (!newest) {
-      consola.error(`No deployments found for ${ctx.resourceName}.`);
-      process.exit(1);
+      abort(
+        `No deployments for ${ctx.resourceName}.`,
+        `run \`${cmd(`build ${ctx.resourceName}`)}\` to create one`,
+      );
     }
     deploymentId = newest.id;
   }
@@ -186,7 +188,7 @@ export const logsCommand = defineCommand({
     follow: {
       type: "boolean",
       default: true,
-      description: "Keep streaming (--no-follow prints available logs and exits)",
+      description: "Stop after printing the available logs instead of streaming",
     },
     build: {
       type: "boolean",
@@ -201,16 +203,13 @@ export const logsCommand = defineCommand({
   },
   async run({ args }) {
     if (!args.resource) {
-      consola.error("Pass a resource name, e.g. `otterdeploy logs web`.");
-      process.exit(1);
+      abort("Pass a resource name.", `for example \`${cmd("logs web")}\``);
     }
     if (args.build && args.since) {
-      consola.error("--since applies only to runtime logs; drop it when using --build.");
-      process.exit(1);
+      abort("--since applies only to runtime logs.", "drop it when using `--build`");
     }
     if (args.deployment && !args.build) {
-      consola.error("--deployment only makes sense with --build.");
-      process.exit(1);
+      abort("--deployment only applies to build logs.", "add `--build`");
     }
 
     const json = Boolean(args.json);

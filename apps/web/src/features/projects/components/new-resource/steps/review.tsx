@@ -94,7 +94,11 @@ volumes:
 /** Derive every value the Review JSX renders from the live form state.
  *  Pulling this out of the render prop keeps that callback under the
  *  cyclomatic-complexity cap. */
-function buildReviewModel(kind: ServiceKind, values: ResourceFormState, derivedHost: string | null) {
+function buildReviewModel(
+  kind: ServiceKind,
+  values: ResourceFormState,
+  derivedHost: string | null,
+) {
   const { name, version, presetId, customCpu, customMem, replicas } = values;
   const { publicEnabled, healthPath, healthInterval } = values;
   const preset = RESOURCE_PRESETS.find((p) => p.id === presetId);

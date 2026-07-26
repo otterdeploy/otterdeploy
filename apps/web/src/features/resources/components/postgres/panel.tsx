@@ -8,7 +8,7 @@
 
 import type { ProjectSlug } from "@otterdeploy/shared/id";
 
-import { Activity, useState } from "react";
+import { Activity } from "react";
 
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -18,6 +18,8 @@ import { ResourceTasksTab } from "@/features/resources/components/_shared/resour
 import { ResourceTerminal } from "@/features/resources/components/_shared/resource-terminal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { orpc } from "@/shared/server/orpc";
+
+import { resolvePanelTab } from "../_shared/panel-tab";
 
 import type { PostgresBodyProps } from "./types";
 
@@ -40,10 +42,12 @@ interface RealResourcePanelProps {
   pending?: boolean;
   /** Manifest key for the staged database — the edit target in pending mode. */
   dbName?: string;
-  /** Deep-link into a specific tab (e.g. the graph node context menu's
-   *  "Delete" opens straight on Settings). Unrecognized/absent values fall
-   *  back to the usual pending-aware default. */
-  initialTab?: string;
+  /** The active tab, straight off the route's `?tab=` search param — the URL
+   *  owns this, not the panel. Unrecognized/absent values fall back to the
+   *  usual pending-aware default. */
+  tab?: string;
+  /** Report a tab click so the route can write it to the URL. */
+  onTabChange: (tab: string) => void;
 }
 
 const DATABASE_TABS: readonly ResourceTab[] = [
@@ -55,6 +59,11 @@ const DATABASE_TABS: readonly ResourceTab[] = [
   "settings",
 ];
 
+// Tabs that mean anything for a staged-create ghost: nothing is provisioned
+// yet, so deployments/data/metrics/terminal are disabled below and a URL
+// naming one of them must not select it.
+const DATABASE_PENDING_TABS: readonly ResourceTab[] = ["variables", "settings"];
+
 export function RealResourcePanel({
   resource,
   orgSlug,
@@ -62,14 +71,14 @@ export function RealResourcePanel({
   onClose,
   pending = false,
   dbName,
-  initialTab,
+  tab: tabParam,
+  onTabChange,
 }: RealResourcePanelProps) {
-  const [tab, setTab] = useState<ResourceTab>(() => {
-    if (!pending && initialTab && (DATABASE_TABS as readonly string[]).includes(initialTab)) {
-      return initialTab as ResourceTab;
-    }
-    return pending ? "variables" : "deployments";
-  });
+  const tab = resolvePanelTab(
+    tabParam,
+    pending ? DATABASE_PENDING_TABS : DATABASE_TABS,
+    pending ? "variables" : "deployments",
+  );
 
   // Re-roll the running container with its current spec — same image, env,
   // and public flag. Distinct from the wizard's create; this just bounces the
@@ -81,7 +90,7 @@ export function RealResourcePanel({
       toast.success("Restarting database", {
         description: "Track progress in the Deployments tab.",
       });
-      setTab("deployments");
+      onTabChange("deployments");
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to restart"),
   });
@@ -110,7 +119,7 @@ export function RealResourcePanel({
       <Tabs
         value={tab}
         onValueChange={(v) => {
-          if (v) setTab(v as ResourceTab);
+          if (v) onTabChange(v);
         }}
         className="flex min-h-0 flex-1 flex-col gap-0"
       >

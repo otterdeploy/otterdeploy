@@ -1,36 +1,58 @@
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
+import { orAbsent, relativeTime } from "../lib/format";
 import { resolveResource } from "../lib/resolve";
+import {
+  abort,
+  confirm,
+  detail,
+  dim,
+  interactive,
+  note,
+  ok,
+  out,
+  paint,
+  panel,
+  section,
+  stateLabel,
+  table,
+  warn,
+} from "../lib/ui";
 
 // API contract: ttlMinutes int, min 5, max 10_080 (7 days), default 60.
+const MIN_TTL_MINUTES = 5;
+const MAX_TTL_MINUTES = 10_080;
+const MINUTES_PER_HOUR = 60;
+const MINUTES_PER_DAY = 1440;
+
 function parseTtlMinutes(raw: string): number {
   const match = /^(\d+)\s*([mhd])?$/i.exec(raw.trim());
   const digits = match?.[1];
   if (!digits) {
-    consola.error(`Invalid --ttl "${raw}". Use minutes or a suffixed form like 15m, 2h, 1d.`);
-    process.exit(1);
+    abort(`Invalid --ttl "${raw}".`, "use minutes, or a suffixed form like 15m, 2h, 1d");
   }
   const value = Number.parseInt(digits, 10);
   const unit = match?.[2]?.toLowerCase() ?? "m";
-  const minutes = unit === "h" ? value * 60 : unit === "d" ? value * 1440 : value;
-  if (minutes < 5 || minutes > 10_080) {
-    consola.error("--ttl must be between 5 minutes (5m) and 7 days (7d).");
-    process.exit(1);
+  const minutes =
+    unit === "h" ? value * MINUTES_PER_HOUR : unit === "d" ? value * MINUTES_PER_DAY : value;
+  if (minutes < MIN_TTL_MINUTES || minutes > MAX_TTL_MINUTES) {
+    abort("--ttl must be between 5 minutes (5m) and 7 days (7d).");
   }
   return minutes;
 }
 
-function relativeTime(iso: string): string {
-  const delta = new Date(iso).getTime() - Date.now();
-  const minutes = Math.max(1, Math.round(Math.abs(delta) / 60_000));
-  const human =
-    minutes < 60
-      ? `${minutes}m`
-      : minutes < 1440
-        ? `${Math.round(minutes / 60)}h`
-        : `${Math.round(minutes / 1440)}d`;
-  return delta >= 0 ? `in ${human}` : `${human} ago`;
+/**
+ * Connection URLs.
+ *
+ * Piped output keeps the original bare `label<space>url` lines so existing
+ * scripts and `$(...)` captures keep working; a terminal gets the aligned block.
+ */
+function printUrls(pairs: Array<[string, string]>): void {
+  if (interactive()) {
+    detail(pairs);
+    return;
+  }
+  for (const [label, url] of pairs) out(`${label}  ${url}`);
 }
 
 const urlCmd = defineCommand({
@@ -50,8 +72,7 @@ const urlCmd = defineCommand({
   },
   async run({ args }) {
     if ((args.ttl || args.write) && !args.ephemeral) {
-      consola.error("--ttl and --write only apply with --ephemeral.");
-      process.exit(1);
+      abort("--ttl and --write only apply with --ephemeral.", "add `--ephemeral`");
     }
     const { client, projectId, resourceId } = await resolveResource(
       args,
@@ -69,18 +90,30 @@ const urlCmd = defineCommand({
         process.stdout.write(`${JSON.stringify(minted, null, 2)}\n`);
         return;
       }
-      consola.success(`Minted ${minted.scope} credential ${minted.id} (role ${minted.roleName}).`);
-      consola.warn("Shown once — the password is never stored and cannot be re-fetched.");
-      consola.info(`Expires ${minted.expiresAt} (${relativeTime(minted.expiresAt)}).`);
-      consola.log(`internal  ${minted.internalUrl}`);
-      if (minted.publicUrl) consola.log(`public    ${minted.publicUrl}`);
+      ok(`Minted a ${minted.scope} credential.`);
+      section("Credential");
+      detail([
+        ["id", paint("id", minted.id)],
+        ["role", dim(minted.roleName)],
+        ["scope", minted.scope],
+        ["expires", relativeTime(minted.expiresAt)],
+      ]);
+      // The password is inside these URLs and is never recoverable, so the
+      // one-shot warning sits directly above them, not buried after.
+      out();
+      warn("Shown once — the password is not stored and cannot be re-fetched.");
+      panel(
+        [
+          `internal  ${minted.internalUrl}`,
+          ...(minted.publicUrl ? [`public    ${minted.publicUrl}`] : []),
+        ].map((l) => dim(l)),
+      );
       return;
     }
 
     const resource = await client.project.resource.get({ projectId, resourceId });
     if (resource.type !== "database") {
-      consola.error(`${args.database} is a ${resource.type}, not a database.`);
-      process.exit(1);
+      abort(`${args.database} is a ${resource.type}, not a database.`);
     }
     if (args.json) {
       process.stdout.write(
@@ -98,8 +131,12 @@ const urlCmd = defineCommand({
       );
       return;
     }
-    consola.log(`internal  ${resource.internalConnectionString}`);
-    if (resource.publicEnabled) consola.log(`public    ${resource.publicConnectionString}`);
+    printUrls([
+      ["internal", resource.internalConnectionString],
+      ...(resource.publicEnabled
+        ? ([["public", resource.publicConnectionString]] as Array<[string, string]>)
+        : []),
+    ]);
   },
 });
 
@@ -120,21 +157,35 @@ const credsList = defineCommand({
       return;
     }
     if (result.credentials.length === 0) {
-      consola.info(`No ephemeral credentials for ${args.database}.`);
+      note(`No ephemeral credentials for ${args.database}.`);
       return;
     }
-    for (const c of result.credentials) {
-      const when =
-        c.status === "active"
-          ? `expires ${relativeTime(c.expiresAt)}`
-          : c.status === "revoked" && c.revokedAt
-            ? `revoked ${relativeTime(c.revokedAt)}`
-            : `expired ${relativeTime(c.expiresAt)}`;
-      const row = [c.id, c.scope.padEnd(10), c.status.padEnd(8), when.padEnd(18), c.label ?? ""]
-        .join("  ")
-        .trimEnd();
-      consola.log(row);
-    }
+
+    section(`Credentials ${dim(String(args.database))}`);
+    table(
+      [
+        { header: "id" },
+        { header: "scope" },
+        { header: "status" },
+        { header: "when" },
+        { header: "label" },
+      ],
+      result.credentials.map((c) => [
+        paint("id", c.id),
+        dim(c.scope),
+        stateLabel(c.status),
+        // Which timestamp matters depends on the status — an active credential's
+        // expiry, a revoked one's revocation.
+        dim(
+          c.status === "active"
+            ? `expires ${relativeTime(c.expiresAt)}`
+            : c.status === "revoked" && c.revokedAt
+              ? `revoked ${relativeTime(c.revokedAt)}`
+              : `expired ${relativeTime(c.expiresAt)}`,
+        ),
+        dim(orAbsent(c.label)),
+      ]),
+    );
   },
 });
 
@@ -155,21 +206,16 @@ const credsRevoke = defineCommand({
       "database",
     );
     if (!args.yes) {
-      const ok = await consola.prompt(
-        `Revoke ${args.credentialId} on ${resourceName}? Active sessions are terminated.`,
-        { type: "confirm", initial: false },
-      );
-      if (!ok) {
-        consola.info("Aborted.");
-        return;
-      }
+      note(dim("Active sessions using this credential are terminated."));
+      const proceed = await confirm(`Revoke ${args.credentialId} on ${resourceName}?`);
+      if (!proceed) abort("Aborted — nothing was revoked.");
     }
     const { revoked } = await client.database.ephemeralRevoke({
       resourceId,
       credentialId: args.credentialId,
     });
-    if (revoked) consola.success(`Revoked ${args.credentialId}.`);
-    else consola.info(`${args.credentialId} was already revoked.`);
+    if (revoked) ok(`Revoked ${args.credentialId}.`);
+    else note(`${args.credentialId} was already revoked.`);
   },
 });
 

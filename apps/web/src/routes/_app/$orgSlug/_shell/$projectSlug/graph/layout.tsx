@@ -26,6 +26,7 @@ import { orpc } from "@/shared/server/orpc";
 
 import { focusNodeInView, preloadNodeRoute, useDetailPanelRefit } from "./-components/graph-camera";
 import { useGraphContextMenu } from "./-components/graph-context-menu-actions";
+import { useBoundedGraph } from "./-components/graph-extent";
 import { GraphFlow } from "./-components/graph-flow";
 import { useGraphModel } from "./-components/graph-model";
 import {
@@ -33,6 +34,7 @@ import {
   computeLaidOutNodes,
   resolveDroppedPositions,
 } from "./-components/laid-out-nodes";
+import { GraphPanelShell } from "./-components/panel-shell";
 
 export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/graph")({
   component: RouteComponent,
@@ -48,7 +50,7 @@ function RouteComponent() {
   // it unmounts.
   const childMatches = useChildMatches();
   const childKey = childMatches[0]?.pathname ?? null;
-  const { projectSlug } = Route.useParams();
+  const { orgSlug, projectSlug } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
 
   // Whether the project has ever had any resources — drives the stack
@@ -74,7 +76,16 @@ function RouteComponent() {
           <GraphCanvas panel={panel} />
           <div className="pointer-events-none absolute inset-0 top-10 z-10 flex size-full items-end justify-end">
             <AnimatePresence mode="wait">
-              {childKey ? <Outlet key={childKey} /> : null}
+              {childKey ? (
+                // The drawer itself is OURS, not the child route's — see
+                // panel-shell.tsx. The child routes set `pendingMs: 0`, so
+                // `childKey` flips the moment a node is clicked and the drawer
+                // starts sliding in while the child is still pending; its
+                // skeleton renders inside this already-animating shell.
+                <GraphPanelShell key={childKey} orgSlug={orgSlug} projectSlug={projectSlug}>
+                  <Outlet />
+                </GraphPanelShell>
+              ) : null}
             </AnimatePresence>
           </div>
           <StackCodePanel projectId={project.id} projectSlug={projectSlug} panel={panel} />
@@ -140,6 +151,9 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
   const [dragging, setDragging] = useState(false);
 
   const onNodesChange = (changes: NodeChange[]) => {
+    // Minimap can't draw a node it has no size for; a controlled graph only
+    // learns sizes from these changes. See graph-extent.ts.
+    captureDimensions(changes);
     // This graph is controlled: React Flow does NOT move the dragged node on its
     // own here — it only tracks the cursor if we feed each position change back
     // into the `nodes` prop. So we must capture per-frame positions. The cost of
@@ -189,6 +203,10 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
     [liveNodes, liveEdges, dragged, dragging],
   );
   /* oxlint-enable react-hooks-js/refs */
+
+  // Bounded world + the strays pulled back into it — see graph-extent.ts.
+  const { nodes: boundedNodes, nodeExtent, translateExtent, captureDimensions } =
+    useBoundedGraph(laidOutNodes, layoutCache);
 
   const panelOpen = useDetailPanelRefit(fitView);
 
@@ -279,7 +297,9 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
   return (
     <>
       <GraphFlow
-        nodes={laidOutNodes}
+        nodes={boundedNodes}
+        nodeExtent={nodeExtent}
+        translateExtent={translateExtent}
         edges={liveEdges}
         traffic={traffic}
         onRelayout={onRelayout}

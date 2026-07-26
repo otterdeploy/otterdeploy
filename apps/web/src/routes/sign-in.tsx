@@ -17,6 +17,7 @@ const zSearch = z.object({
 });
 
 export const Route = createFileRoute("/sign-in")({
+  staticData: { crumb: "Sign in" },
   validateSearch: zSearch,
   component: SignInPage,
 });

@@ -1,0 +1,13 @@
+{
+  "name": "@otterdeploy/brand",
+  "private": true,
+  "type": "module",
+  "description": "Brand asset sources and the generator that builds every shipped icon from them. Deliberately outside the monorepo workspaces — Playwright is a build-time-only dependency and should not enter the app dependency graph.",
+  "scripts": {
+    "build": "./scripts/build.sh",
+    "preview": "cd .. && echo 'http://127.0.0.1:4477/brand/preview.html' && python3 -m http.server 4477 --bind 127.0.0.1"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.0"
+  }
+}

@@ -114,6 +114,11 @@ interface PanelChromeProps {
   orgSlug: string;
   projectSlug: ProjectSlug;
   onClose: () => void;
+  /** Active tab from the route's `?tab=` search param, and the writer that
+   *  puts a clicked tab back into the URL. Every panel kind is controlled by
+   *  the URL rather than owning tab state — see _shared/panel-tab.ts. */
+  tab?: string;
+  onTabChange: (tab: string) => void;
 }
 
 /** An applied (real, already-provisioned) resource — dispatches to its own
@@ -124,9 +129,10 @@ function AppliedResourcePanel({
   project,
   orgSlug,
   projectSlug,
-  initialTab,
+  tab,
+  onTabChange,
   onClose,
-}: PanelChromeProps & { resource: LiveResource; initialTab?: string }) {
+}: PanelChromeProps & { resource: LiveResource }) {
   if (resource.type === "database") {
     return (
       <RealResourcePanel
@@ -135,7 +141,8 @@ function AppliedResourcePanel({
         orgSlug={orgSlug}
         projectSlug={projectSlug}
         onClose={onClose}
-        initialTab={initialTab}
+        tab={tab}
+        onTabChange={onTabChange}
       />
     );
   }
@@ -150,7 +157,8 @@ function AppliedResourcePanel({
         orgSlug={orgSlug}
         projectSlug={projectSlug}
         onClose={onClose}
-        initialTab={initialTab}
+        tab={tab}
+        onTabChange={onTabChange}
       />
     );
   }
@@ -160,7 +168,8 @@ function AppliedResourcePanel({
       orgSlug={orgSlug}
       projectSlug={projectSlug}
       onClose={onClose}
-      initialTab={initialTab}
+      tab={tab}
+      onTabChange={onTabChange}
     />
   );
 }
@@ -176,6 +185,8 @@ function DraftResourcePanel({
   project,
   orgSlug,
   projectSlug,
+  tab,
+  onTabChange,
   onClose,
 }: PanelChromeProps & { resourceId: string }) {
   const manifest = useQuery(
@@ -194,6 +205,8 @@ function DraftResourcePanel({
         orgSlug={orgSlug}
         projectSlug={projectSlug}
         onClose={onClose}
+        tab={tab}
+        onTabChange={onTabChange}
         pending
       />
     );
@@ -207,6 +220,8 @@ function DraftResourcePanel({
         orgSlug={orgSlug}
         projectSlug={projectSlug}
         onClose={onClose}
+        tab={tab}
+        onTabChange={onTabChange}
         pending
         dbName={pendingName}
       />
@@ -220,38 +235,50 @@ function DraftResourcePanel({
         orgSlug={orgSlug}
         projectSlug={projectSlug}
         onClose={onClose}
+        tab={tab}
+        onTabChange={onTabChange}
         pending
       />
     );
   }
   // Manifest still loading for a staged ghost — show a skeleton so the drawer
   // never slides in blank (rather than flashing "not found").
-  if (manifest.isLoading) return <ResourcePanelSkeleton />;
+  if (manifest.isLoading) return <ResourcePanelSkeleton onClose={onClose} />;
   return <NotFound id={resourceId} onClose={onClose} />;
 }
 
 export function ResourcePanel({
   resource,
   resourceId,
+  resourcesLoading,
   project,
   orgSlug,
   projectSlug,
-  initialTab,
+  tab,
+  onTabChange,
   onClose,
 }: {
   resource: LiveResource | null;
   resourceId: string;
+  /** The resource collection hasn't finished its first load. Deep-linking or
+   *  hard-reloading straight onto a panel hits this, and without it a real
+   *  resource resolves to null → the draft path → a "not found" flash once the
+   *  manifest (which has no ghost under this id) resolves first. */
+  resourcesLoading: boolean;
   project: { id: ProjectId; name: string };
   orgSlug: string;
   projectSlug: ProjectSlug;
-  /** Deep-link into a specific tab (e.g. the graph node context menu's
-   *  "Delete" — see resourceSearchSchema on the route). */
-  initialTab?: string;
+  /** Active tab from the route's `?tab=` search param (also how the graph node
+   *  context menu's "Delete" lands straight on Settings), plus the writer that
+   *  puts a clicked tab back into the URL. */
+  tab?: string;
+  onTabChange: (tab: string) => void;
   onClose: () => void;
 }) {
-  const chrome = { project, orgSlug, projectSlug, onClose };
+  const chrome = { project, orgSlug, projectSlug, onClose, tab, onTabChange };
   if (resource) {
-    return <AppliedResourcePanel resource={resource} initialTab={initialTab} {...chrome} />;
+    return <AppliedResourcePanel resource={resource} {...chrome} />;
   }
+  if (resourcesLoading) return <ResourcePanelSkeleton onClose={onClose} />;
   return <DraftResourcePanel resourceId={resourceId} {...chrome} />;
 }

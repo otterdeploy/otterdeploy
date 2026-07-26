@@ -44,10 +44,13 @@ function targetLabel(source: SessionSource): string {
 
 export function TerminalSession({ source, active, onConnChange }: Props) {
   const { ref, write } = useTerminal();
-  const { wsRef, hasOutput, stepUpPromptOpen, resolveStepUp, cancelStepUp } = useShellConnection(source, {
-    write,
-    onConnChange,
-  });
+  const { wsRef, hasOutput, stepUpPromptOpen, resolveStepUp, cancelStepUp } = useShellConnection(
+    source,
+    {
+      write,
+      onConnChange,
+    },
+  );
 
   // Scrollback. wterm keeps a 10k-line history and prepends it into its root
   // element, flipping that element to `overflow-y:auto` once there's history

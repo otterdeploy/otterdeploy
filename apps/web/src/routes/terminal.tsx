@@ -24,6 +24,7 @@ import {
 } from "@/shared/components/ui/empty";
 
 export const Route = createFileRoute("/terminal")({
+  staticData: { crumb: "Terminal" },
   component: RouteComponent,
   validateSearch: terminalSearchSchema,
   // See routes/_app/$orgSlug/_shell/terminal.tsx — strips the noisy

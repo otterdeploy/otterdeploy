@@ -2124,10 +2124,7 @@ function useDataGrid<TData>({
           if ("accessorKey" in c) return c.accessorKey as string;
           return undefined;
         })
-        .filter(
-          (id): id is string =>
-            id != null && id !== "" && !NON_NAVIGABLE_COLUMN_IDS.has(id),
-        );
+        .filter((id): id is string => id != null && id !== "" && !NON_NAVIGABLE_COLUMN_IDS.has(id));
 
       const targetColumnId = columnId ?? navigableIds[0];
 

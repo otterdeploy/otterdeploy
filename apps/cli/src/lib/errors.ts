@@ -3,52 +3,60 @@
  *
  * Commands throw freely (oRPC errors, zod parse failures, config errors,
  * network failures); `wrapCommand` catches at the top, prints one friendly
- * line (+ hint when we have one), and exits non-zero. Raw stacks only under
- * DEBUG=1. UNAUTHORIZED gets special treatment: when the stale token came
- * from the config file and we're interactive, clear it and re-run the
- * command once — `ensureAuthenticated` inside the command walks the
- * device-code flow again.
+ * line plus whatever recovery steps we know, and exits non-zero. Raw stacks only
+ * under DEBUG=1. UNAUTHORIZED gets special treatment: when the stale token came
+ * from the config file and we're interactive, clear it and re-run the command
+ * once — `ensureAuthenticated` inside the command walks the device-code flow
+ * again.
+ *
+ * Every hint is built with `cmd()` so it names the bin the user actually typed.
+ * A hint that says `otterdeploy login` to someone who typed `otd` is a hint they
+ * have to translate before they can use it.
  */
 
 import type { CommandDef } from "citty";
 
 import { ORPCError } from "@orpc/client";
-import { consola } from "consola";
 import * as z from "zod";
 
 import { clearToken, tokenSource } from "../config";
+import { cmd } from "./name";
+import { abort, dim, err, line, warn } from "./ui";
 
 interface FriendlyError {
   message: string;
-  hint?: string;
+  /** Recovery steps, rendered as `→` lines under the failure. */
+  hints: string[];
+  /** Supporting facts (e.g. per-field validation issues), rendered plainly. */
+  details?: string[];
 }
 
 function formatOrpcError(error: ORPCError<string, unknown>): FriendlyError {
   switch (error.code) {
     case "UNAUTHORIZED":
       return {
-        message: "Not authenticated (or the session expired).",
-        hint:
+        message: "Not authenticated, or the session expired.",
+        hints:
           tokenSource() === "env"
-            ? "OTTERDEPLOY_TOKEN was rejected — check the key is valid and not expired."
-            : "Run `otterdeploy login <url>` to sign in again.",
+            ? ["OTTERDEPLOY_TOKEN was rejected — check the key is valid and not expired"]
+            : [`run \`${cmd("login <url>")}\` to sign in again`],
       };
     case "NO_ACTIVE_ORGANIZATION":
       return {
         message: "No active organization on this session.",
-        hint: "Run `otterdeploy org list` then `otterdeploy org use <slug>`.",
+        hints: [`run \`${cmd("org list")}\` to see them`, `then \`${cmd("org use <slug>")}\``],
       };
     case "FORBIDDEN":
       return {
         message: `Permission denied: ${error.message}`,
-        hint: "Your role or API-key scope doesn't allow this action.",
+        hints: ["your role or API-key scope doesn't allow this action"],
       };
     case "NOT_FOUND":
-      return { message: error.message || "Not found." };
+      return { message: error.message || "Not found.", hints: [] };
     case "CONFLICT":
-      return { message: error.message || "Conflict with existing state." };
+      return { message: error.message || "Conflict with existing state.", hints: [] };
     default:
-      return { message: `${error.code}: ${error.message}` };
+      return { message: `${error.code}: ${error.message}`, hints: [] };
   }
 }
 
@@ -71,28 +79,36 @@ function isNetworkError(error: unknown): boolean {
 export function formatCliError(error: unknown): FriendlyError {
   if (error instanceof ORPCError) return formatOrpcError(error);
   if (error instanceof z.ZodError) {
-    const issues = error.issues
-      .map((i) => `  ${i.path.join(".") || "(root)"}: ${i.message}`)
-      .join("\n");
-    return { message: `Config validation failed:\n${issues}` };
+    return {
+      message: "Config validation failed.",
+      // One line per bad field, so a config with four mistakes reports four
+      // fixes instead of only the first the parser tripped on.
+      details: error.issues.map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`),
+      hints: [],
+    };
   }
   if (isNetworkError(error)) {
     return {
       message: "Could not reach the control plane.",
-      hint: "Check the URL (`otterdeploy whoami`) and your network connection.",
+      hints: [`check the URL with \`${cmd("whoami")}\``, "then check your network connection"],
     };
   }
-  if (error instanceof Error) return { message: error.message };
-  return { message: String(error) };
+  if (error instanceof Error) return { message: error.message, hints: [] };
+  return { message: String(error), hints: [] };
 }
 
 function printAndExit(error: unknown): never {
-  const { message, hint } = formatCliError(error);
-  consola.error(message);
-  if (hint) consola.info(hint);
+  const { message, hints, details } = formatCliError(error);
+  // Details precede the hints: facts first, then what to do about them. They go
+  // to stderr with the failure so `--json` stdout stays clean.
+  if (details?.length) {
+    err();
+    for (const d of details) line(dim(d));
+    err();
+  }
   // oxlint-disable-next-line node/no-process-env, no-console -- CLI env boundary + deliberate DEBUG stack dump
   if (process.env.DEBUG) console.error(error);
-  process.exit(1);
+  abort(message, ...hints);
 }
 
 type RunFn = NonNullable<CommandDef["run"]>;
@@ -112,7 +128,7 @@ function withBoundary(run: RunFn): RunFn {
         tokenSource() === "config" &&
         process.stdin.isTTY;
       if (!canReauth) printAndExit(error);
-      consola.warn("Session expired — signing in again.");
+      warn("Session expired — signing in again.");
       clearToken();
       try {
         await run(ctx);
@@ -127,12 +143,12 @@ function withBoundary(run: RunFn): RunFn {
  * Recursively wrap a citty command tree so every leaf `run` gets the error
  * boundary. Applied once in index.ts to the root command.
  */
-export function wrapCommand(cmd: CommandDef): CommandDef {
-  const wrapped: CommandDef = { ...cmd };
-  if (typeof cmd.run === "function") wrapped.run = withBoundary(cmd.run as RunFn);
-  if (cmd.subCommands && typeof cmd.subCommands === "object") {
+export function wrapCommand(cmd_: CommandDef): CommandDef {
+  const wrapped: CommandDef = { ...cmd_ };
+  if (typeof cmd_.run === "function") wrapped.run = withBoundary(cmd_.run as RunFn);
+  if (cmd_.subCommands && typeof cmd_.subCommands === "object") {
     wrapped.subCommands = Object.fromEntries(
-      Object.entries(cmd.subCommands).map(([name, sub]) => [
+      Object.entries(cmd_.subCommands).map(([name, sub]) => [
         name,
         typeof sub === "function" ? sub : wrapCommand(sub as CommandDef),
       ]),

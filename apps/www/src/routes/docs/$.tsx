@@ -17,6 +17,8 @@ import { DocsVersion } from "@/components/docs-version";
 import { getMDXComponents } from "@/components/mdx";
 import { SiteBar } from "@/components/site-bar";
 import { baseOptions } from "@/lib/layout.shared";
+import { canonical, seo } from "@/lib/seo";
+import { docsRoute } from "@/lib/shared";
 import { source } from "@/lib/source";
 
 export const Route = createFileRoute("/docs/$")({
@@ -28,6 +30,21 @@ export const Route = createFileRoute("/docs/$")({
       await clientLoader.preload(data.path);
     }
     return data;
+  },
+  // Per-page title, description and canonical. Without this every docs page
+  // shares the root's tags, so search engines see one title across the whole
+  // reference and dedupe most of it away.
+  head: ({ loaderData }) => {
+    const path = loaderData?.url ?? docsRoute;
+    return {
+      meta: seo({
+        title: loaderData?.title,
+        description: loaderData?.description,
+        path,
+        type: "article",
+      }),
+      links: [canonical(path)],
+    };
   },
 });
 
@@ -49,14 +66,23 @@ const serverLoader = createServerFn({ method: "GET" })
         type: "openapi" as const,
         title: data.title,
         description: data.description,
+        url: page.url,
         pageTree,
         props: data.getOpenAPIPageProps(),
       };
     }
 
+    // `title` / `description` are surfaced for the head tags. The body still
+    // renders them from the client loader's frontmatter — these are the same
+    // values, read on the server so the crawler sees them in the HTML rather
+    // than after hydration.
+    const data = page.data as { title?: string; description?: string };
     return {
       type: "docs" as const,
       path: page.path,
+      url: page.url,
+      title: data.title,
+      description: data.description,
       pageTree,
     };
   });

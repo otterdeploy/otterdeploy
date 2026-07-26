@@ -1,83 +1,71 @@
 /**
  * Camera, framing and per-surface state for the sign-in hero. The draw passes
  * live in `auth-hero-scene.ts`; this module owns where everything lands.
+ *
+ * The scene is staged with two independent cameras on purpose. The horizon is a
+ * ground plane seen from a fixed low eye, while the craft is art-directed
+ * straight onto the canvas — anchor point and radius as fractions of the
+ * surface. Deriving the craft from the ground camera would chain its size and
+ * position to the horizon and leave no way to compose the panel.
  */
 
-import type { FieldNode, Spark, StackDot } from "@/features/auth/components/auth-hero-field";
+import type { CraftDot } from "@/features/auth/components/auth-hero-craft";
+import type { FieldNode, Spark } from "@/features/auth/components/auth-hero-field";
 
+import { buildCraft } from "@/features/auth/components/auth-hero-craft";
 import {
   buildField,
-  buildStack,
   CAM_DIST,
-  CAM_HEIGHT,
   FOCAL,
   makeGlowSprite,
   mulberry32,
-  STACK_Z,
   TILT,
   Z_FAR,
 } from "@/features/auth/components/auth-hero-field";
 
-/** How the scene is framed. `panel` is the tall desktop brand column, where the
- *  copy sits above the horizon; `band` is the short mobile/tablet strip, where
- *  the copy sits over the field's foreground. */
+/** How the scene is framed. `panel` is the tall desktop brand column; `band` is
+ *  the short mobile/tablet strip above the form. */
 export type HeroLayout = "panel" | "band";
 
-/** Renderer for the sign-in hero. All mutable state lives on one object so the
- *  draw passes stay plain functions and the React layer only wires observers. */
 export interface Scene {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
   layout: HeroLayout;
   field: FieldNode[];
-  stack: StackDot[];
+  craft: CraftDot[];
   sparks: Spark[];
   rnd: () => number;
   dpr: number;
   w: number;
   h: number;
+  /** Ground camera: projection centre and world→pixel zoom. */
   cx: number;
   cy: number;
   scale: number;
   sizeGain: number;
+  /** Craft camera: screen anchor and radius, in device pixels. */
+  craftX: number;
+  craftY: number;
+  craftR: number;
   fg: string;
   accent: string;
   inkAlpha: number;
   glowStrength: number;
   glow: HTMLCanvasElement | null;
-  /** Scene clock, seconds. Drives the swell, the ripple and the plate lift. */
+  /** Scene clock, seconds. Drives the swell, the ripple and the craft's drift. */
   clock: number;
   sparkAcc: number;
 }
 
 const cosT = Math.cos(TILT);
 const sinT = Math.sin(TILT);
+/** Screen offset from the projection centre up to the ground plane's horizon. */
+const HORIZON_DROP = Math.tan(TILT) * FOCAL;
 
-/** How far below the horizon the stack's base sits, per unit of `scale`. Used
- *  to solve for the zoom that puts the horizon and the stack exactly where the
- *  composition wants them, instead of guessing a scale and hoping. */
-const STACK_DROP =
-  FOCAL *
-  (sinT +
-    (CAM_HEIGHT * cosT - STACK_Z * sinT) / (CAM_HEIGHT * sinT + STACK_Z * cosT + CAM_DIST));
-
-/**
- * Composition targets as a fraction of surface height: where the horizon sits,
- * and where the stack stands on it.
- *
- * On the brand panel both slide with panel height. The copy block above is a
- * fixed pixel stack (wordmark, headline, pill, bullets), so it eats a big share
- * of a short `lg` window and a small share of a tall one — pinning constants
- * here would either collide with the last bullet or leave a dead band under it.
- */
-function framingFor(layout: HeroLayout, cssHeight: number) {
-  if (layout === "band") return { horizon: 0.16, stack: 0.58, cx: 0.62 };
-  // The copy above is a fixed pixel block (wordmark + headline + one sentence),
-  // so it eats a large share of a short `lg` window and a small share of a tall
-  // one. Track that instead of the aspect ratio and the horizon always lands
-  // just below the last line of copy.
-  const horizon = Math.min(0.52, Math.max(0.3, 0.1 + 290 / cssHeight));
-  return { horizon, stack: horizon + 0.4, cx: 0.5 };
+function framingFor(layout: HeroLayout) {
+  // The craft owns the upper two thirds and the horizon closes the bottom.
+  if (layout === "band") return { horizon: 0.94, craftX: 0.57, craftY: 0.4, craftR: 0.23 };
+  return { horizon: 0.72, craftX: 0.58, craftY: 0.4, craftR: 0.27 };
 }
 
 export function createScene(
@@ -90,7 +78,7 @@ export function createScene(
     ctx,
     layout,
     field: [],
-    stack: buildStack(),
+    craft: buildCraft(),
     sparks: [],
     rnd: mulberry32(0x51a17),
     dpr: 1,
@@ -100,6 +88,9 @@ export function createScene(
     cy: 0,
     scale: 0,
     sizeGain: 1,
+    craftX: 0,
+    craftY: 0,
+    craftR: 0,
     fg: "#f5f5f0",
     accent: "#5b7cfa",
     inkAlpha: 1,
@@ -123,7 +114,7 @@ function fogAt(z: number) {
 }
 
 export function offscreen(s: Scene, sx: number, sy: number) {
-  return sx < -30 || sx > s.w + 30 || sy < -30 || sy > s.h + 30;
+  return sx < -40 || sx > s.w + 40 || sy < -40 || sy > s.h + 40;
 }
 
 function readToken(el: HTMLElement, name: string, fallback: string) {
@@ -137,8 +128,8 @@ export function readSceneColors(s: Scene) {
   // Dark ink on a light canvas reads far heavier than light ink on a dark one
   // at the same alpha; pull it back so the panel stays calm in both.
   const dark = document.documentElement.classList.contains("dark");
-  s.inkAlpha = dark ? 1 : 0.62;
-  s.glowStrength = dark ? 0.42 : 0.18;
+  s.inkAlpha = dark ? 1 : 0.66;
+  s.glowStrength = dark ? 0.4 : 0.16;
   s.glow = makeGlowSprite(Math.round(26 * s.dpr), s.accent, s.glowStrength);
 }
 
@@ -155,21 +146,18 @@ export function resizeScene(s: Scene) {
   s.h = Math.round(rect.height * s.dpr);
   s.canvas.width = s.w;
   s.canvas.height = s.h;
-  // Solve the zoom from the composition instead of the other way round: the
-  // horizon and the stack's base are pinned to fractions of the surface height,
-  // and `scale` is whatever puts them there. Clamped by width so the stack
-  // can't outgrow a narrow panel or shrink away on a very tall one.
-  const f = framingFor(s.layout, s.h / s.dpr);
-  s.scale = Math.min(
-    s.w * 0.66,
-    Math.max(s.w * 0.3, ((f.stack - f.horizon) * s.h) / STACK_DROP),
-  );
-  s.cx = s.w * f.cx;
-  s.cy = s.h * f.horizon + sinT * FOCAL * s.scale;
+
+  const f = framingFor(s.layout);
+  s.scale = Math.min(520 * s.dpr, Math.max(170 * s.dpr, s.w * 0.32));
+  s.cx = s.w * 0.5;
+  s.cy = s.h * f.horizon + HORIZON_DROP * s.scale;
+  s.craftX = s.w * f.craftX;
+  s.craftY = s.h * f.craftY;
+  s.craftR = Math.min(s.w * f.craftR, s.h * f.craftR * 1.25);
   s.field = buildField(s.w, s.scale);
   // Dots grow with the surface so a 1920 screen reads as dense as a 1280 one
   // instead of thinning into scattered specks.
-  s.sizeGain = Math.min(1.5, Math.max(0.8, s.scale / 420));
+  s.sizeGain = Math.min(1.5, Math.max(0.8, s.scale / (330 * s.dpr)));
   s.glow = makeGlowSprite(Math.round(26 * s.dpr), s.accent, s.glowStrength);
   return true;
 }

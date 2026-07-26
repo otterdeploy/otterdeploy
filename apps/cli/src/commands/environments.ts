@@ -1,13 +1,33 @@
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
 import type { CliClient } from "../lib/resolve";
 
 import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";
+import { relativeTime } from "../lib/format";
+import { cmd } from "../lib/name";
 import { resolveProject } from "../lib/resolve";
+import { suggestions } from "../lib/suggest";
+import {
+  abort,
+  confirm,
+  detail,
+  dim,
+  err,
+  hint,
+  note,
+  ok,
+  paint,
+  row,
+  section,
+  table,
+} from "../lib/ui";
 
 type EnvRow = Awaited<ReturnType<CliClient["env"]["list"]>>[number];
+
+/** Shortest slug the server will accept. */
+const MIN_SLUG_LENGTH = 2;
+const MAX_SLUG_LENGTH = 48;
 
 interface EnvScope {
   client: CliClient;
@@ -39,15 +59,27 @@ async function resolveEnvironment(
   const envs = await client.env.list(projectId ? { projectId } : {});
   const [match, ...rest] = envs.filter((e) => e.name === nameOrId || e.slug === nameOrId);
   if (!match) {
-    consola.error(`Environment ${nameOrId} not found. Run \`otterdeploy environments list\`.`);
-    process.exit(1);
+    abort(
+      `No environment \`${nameOrId}\`.`,
+      ...suggestions(
+        nameOrId,
+        envs.map((e) => e.name),
+      ).map((s) => `did you mean \`${s}\`?`),
+      `run \`${cmd("environments list")}\` to see them`,
+    );
   }
   if (rest.length > 0) {
-    consola.error(`Multiple environments match ${nameOrId} — pass the env_… id instead:`);
+    // Print the candidates first — `abort` exits, so a list after it would
+    // never be seen (this was the bug the old code shipped).
+    err();
     for (const m of [match, ...rest]) {
-      consola.log(`  ${m.id}  (project: ${m.projectId ?? "standalone"})`);
+      row([paint("id", m.id), dim(`project: ${m.projectId ?? "standalone"}`)]);
     }
-    process.exit(1);
+    err();
+    abort(
+      `\`${nameOrId}\` matches ${rest.length + 1} environments.`,
+      "pass the env_… id instead",
+    );
   }
   return match;
 }
@@ -57,7 +89,7 @@ function slugifyName(name: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
-    .slice(0, 48);
+    .slice(0, MAX_SLUG_LENGTH);
 }
 
 const listCommand = defineCommand({
@@ -76,14 +108,22 @@ const listCommand = defineCommand({
       return;
     }
     if (envs.length === 0) {
-      consola.info("No environments found. Create one with `otterdeploy environments create`.");
+      note("No environments found.");
+      hint(`run \`${cmd("environments create <name>")}\``);
       return;
     }
-    for (const e of envs) {
-      const project = e.projectId ?? "standalone";
-      const created = e.createdAt.toISOString().slice(0, 10);
-      consola.log(`${e.name.padEnd(20)} ${e.id.padEnd(30)} ${project.padEnd(34)} ${created}`);
-    }
+
+    section("Environments");
+    table(
+      [{ header: "name" }, { header: "id" }, { header: "project" }, { header: "created" }],
+      envs.map((e) => [
+        e.name,
+        paint("id", e.id),
+        // "standalone" is a real state, not a missing value — dim, not absent.
+        e.projectId ?? dim("standalone"),
+        dim(relativeTime(e.createdAt.toISOString())),
+      ]),
+    );
   },
 });
 
@@ -99,11 +139,13 @@ const createCommand = defineCommand({
   async run({ args }) {
     const { client, projectId, projectSlug } = await scopeFor(args);
     const slug = slugifyName(args.name);
-    if (slug.length < 2) {
-      consola.error(
-        `Cannot derive a slug from "${args.name}" — use at least two alphanumeric characters.`,
+    if (slug.length < MIN_SLUG_LENGTH) {
+      // Must exit: continuing would POST an unusable slug and fail server-side
+      // with a much worse message.
+      abort(
+        `Cannot derive a slug from "${args.name}".`,
+        "use at least two alphanumeric characters",
       );
-      process.exit(1);
     }
     const env = await client.env.create(
       projectId ? { name: args.name, slug, projectId } : { name: args.name, slug },
@@ -112,13 +154,14 @@ const createCommand = defineCommand({
       process.stdout.write(`${JSON.stringify(env, null, 2)}\n`);
       return;
     }
-    consola.success(
-      `Created environment ${env.name} (${env.id})${projectSlug ? ` in ${projectSlug}` : ""}.`,
-    );
+    ok(`Created environment ${env.name}.`);
+    detail([
+      ["id", paint("id", env.id)],
+      ["slug", env.slug],
+      ["project", projectSlug ?? dim("standalone")],
+    ]);
     if (!env.projectId) {
-      consola.info(
-        "Standalone environment — it stays hidden from `environments list` until a project claims it.",
-      );
+      note("Standalone — hidden from `environments list` until a project claims it.");
     }
   },
 });
@@ -140,17 +183,14 @@ const deleteCommand = defineCommand({
     const { client, projectId } = await scopeFor(args);
     const env = await resolveEnvironment(client, args.environment, projectId);
     if (!args.yes) {
-      const ok = await consola.prompt(
-        `Delete environment ${env.name} (${env.id})? Its shared env vars go with it.`,
-        { type: "confirm", initial: false },
+      // Name the collateral damage in the prompt — shared env vars go with it.
+      const proceed = await confirm(
+        `Delete environment ${env.name} and its shared env vars?`,
       );
-      if (!ok) {
-        consola.info("Aborted.");
-        return;
-      }
+      if (!proceed) abort("Aborted — nothing was deleted.");
     }
     await client.env.delete({ id: env.id });
-    consola.success(`Deleted environment ${env.name} (${env.id}).`);
+    ok(`Deleted environment ${env.name}.`);
   },
 });
 

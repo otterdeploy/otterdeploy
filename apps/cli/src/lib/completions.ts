@@ -1,10 +1,15 @@
 /**
  * Shell-completion generation. Walks the resolved citty command tree so the
  * scripts never drift from the real command set — add a command and its
- * completion appears automatically on the next `otterdeploy completions` run.
+ * completion appears automatically on the next `completions` run.
  *
  * Covers command/subcommand names and each command's long flags. Two levels
  * deep is enough for this CLI's shape (group → subcommand).
+ *
+ * Every script is generated for a specific `bin` name, because the CLI ships two
+ * (`otterdeploy` and `otd`). A script hardcoded to one of them would silently
+ * complete nothing when installed for the other, so the bin is threaded through
+ * rather than baked in.
  */
 
 import type { ArgsDef, CommandDef } from "citty";
@@ -40,7 +45,7 @@ export async function buildTree(cmd: CommandDef, name: string): Promise<CommandN
 
 const COMMON_FLAGS = ["--help", "--json", "--yes", "--url", "--config", "--slug"];
 
-function bashScript(root: CommandNode): string {
+function bashScript(root: CommandNode, bin: string): string {
   const top = root.children.map((c) => c.name).join(" ");
   const subCases = root.children
     .filter((c) => c.children.length > 0)
@@ -49,8 +54,8 @@ function bashScript(root: CommandNode): string {
         `    ${c.name}) COMPREPLY=($(compgen -W "${c.children.map((s) => s.name).join(" ")}" -- "$cur")); return;;`,
     )
     .join("\n");
-  return `# otterdeploy bash completion. Install: otterdeploy completions bash > /etc/bash_completion.d/otterdeploy
-_otterdeploy() {
+  return `# ${bin} bash completion. Install: ${bin} completions bash > /etc/bash_completion.d/${bin}
+_${bin}() {
   local cur prev
   cur="\${COMP_WORDS[COMP_CWORD]}"
   prev="\${COMP_WORDS[COMP_CWORD-1]}"
@@ -64,11 +69,11 @@ ${subCases}
     COMPREPLY=($(compgen -W "${COMMON_FLAGS.join(" ")}" -- "$cur"))
   fi
 }
-complete -F _otterdeploy otterdeploy
+complete -F _${bin} ${bin}
 `;
 }
 
-function zshScript(root: CommandNode): string {
+function zshScript(root: CommandNode, bin: string): string {
   const top = root.children.map((c) => `'${c.name}'`).join(" ");
   const subCases = root.children
     .filter((c) => c.children.length > 0)
@@ -79,9 +84,9 @@ function zshScript(root: CommandNode): string {
     .join("\n");
   // NB: don't name the static list `words` — that shadows zsh's special
   // command-line array, which the `case` below reads to find the subcommand.
-  return `#compdef otterdeploy
-# otterdeploy zsh completion. Install: otterdeploy completions zsh > "\${fpath[1]}/_otterdeploy"
-_otterdeploy() {
+  return `#compdef ${bin}
+# ${bin} zsh completion. Install: ${bin} completions zsh > "\${fpath[1]}/_${bin}"
+_${bin}() {
   local -a cmds; cmds=(${top} '--version' '--help')
   if (( CURRENT == 2 )); then
     _values 'command' \${cmds[@]}
@@ -91,19 +96,19 @@ _otterdeploy() {
 ${subCases}
   esac
 }
-_otterdeploy "$@"
+_${bin} "$@"
 `;
 }
 
-function fishScript(root: CommandNode): string {
+function fishScript(root: CommandNode, bin: string): string {
   const lines: string[] = [
-    "# otterdeploy fish completion. Install: otterdeploy completions fish > ~/.config/fish/completions/otterdeploy.fish",
-    "complete -c otterdeploy -f",
+    `# ${bin} fish completion. Install: ${bin} completions fish > ~/.config/fish/completions/${bin}.fish`,
+    `complete -c ${bin} -f`,
   ];
   for (const c of root.children) {
-    lines.push(`complete -c otterdeploy -n __fish_use_subcommand -a ${c.name}`);
+    lines.push(`complete -c ${bin} -n __fish_use_subcommand -a ${c.name}`);
     for (const s of c.children) {
-      lines.push(`complete -c otterdeploy -n "__fish_seen_subcommand_from ${c.name}" -a ${s.name}`);
+      lines.push(`complete -c ${bin} -n "__fish_seen_subcommand_from ${c.name}" -a ${s.name}`);
     }
   }
   return `${lines.join("\n")}\n`;
@@ -112,9 +117,10 @@ function fishScript(root: CommandNode): string {
 export async function renderCompletion(
   root: CommandDef,
   shell: "bash" | "zsh" | "fish",
+  bin = "otterdeploy",
 ): Promise<string> {
-  const tree = await buildTree(root, "otterdeploy");
-  if (shell === "bash") return bashScript(tree);
-  if (shell === "zsh") return zshScript(tree);
-  return fishScript(tree);
+  const tree = await buildTree(root, bin);
+  if (shell === "bash") return bashScript(tree, bin);
+  if (shell === "zsh") return zshScript(tree, bin);
+  return fishScript(tree, bin);
 }

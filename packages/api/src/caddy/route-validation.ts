@@ -2,9 +2,32 @@ import type { ProxyRouteInput } from "./builder";
 
 import { routePolicySchema } from "@otterdeploy/shared/route-policy";
 
+import { PLATFORM } from "../constants";
+
 const FQDN =
   /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])$/;
-const SERVICE_NAME = /^(?=.{1,63}$)otterdeploy-[a-z0-9][a-z0-9-]*$/;
+
+/**
+ * Prefixes a swarm service may legitimately carry, read from the constants the
+ * generators use rather than restated here. Hard-coding the shape is what let
+ * this guard drift out of step with service naming and reject every real route
+ * (`od-…` from service/handlers.ts, and unprefixed `${stack}-${service}` from
+ * stack/compose/to-spec.ts) until both were fixed. Only the first is ever
+ * minted; the rest keep pre-rename services routable.
+ */
+const MANAGED_SERVICE_PREFIXES = [
+  PLATFORM.service.serviceNamePrefix,
+  ...PLATFORM.service.legacyServiceNamePrefixes,
+] as const;
+
+const SERVICE_SUFFIX = /^[a-z0-9][a-z0-9-]*$/;
+
+function isManagedServiceName(host: string): boolean {
+  if (host.length < 1 || host.length > 63) return false;
+  return MANAGED_SERVICE_PREFIXES.some(
+    (prefix) => host.startsWith(prefix) && SERVICE_SUFFIX.test(host.slice(prefix.length)),
+  );
+}
 const DATABASE_NAME =
   /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*\.otterdeploy\.internal$/;
 
@@ -26,7 +49,7 @@ export function routeValidationError(route: ProxyRouteInput): string | null {
     if (!["server", "host.docker.internal"].includes(route.upstreamHost)) {
       return "control-plane route has an unexpected upstream";
     }
-  } else if (route.type === "http" && !SERVICE_NAME.test(route.upstreamHost)) {
+  } else if (route.type === "http" && !isManagedServiceName(route.upstreamHost)) {
     return "HTTP upstream is not a managed service identity";
   } else if (route.type === "layer4" && !DATABASE_NAME.test(route.upstreamHost)) {
     return "layer-4 upstream is not a managed database identity";

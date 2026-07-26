@@ -5,6 +5,7 @@
  */
 
 import type { ProjectSlug } from "@otterdeploy/shared/id";
+
 import { useState } from "react";
 
 import { MoreHorizontalCircle01Icon, PlayIcon, RotateLeft01Icon } from "@hugeicons/core-free-icons";
@@ -98,7 +99,7 @@ export function HistoryRowMenu({
                   resourceId,
                   deploymentId,
                 },
-                search: { tab: "details" },
+                search: (prev) => ({ ...prev, deploymentTab: "details" }),
               })
             }
           >
@@ -106,10 +107,7 @@ export function HistoryRowMenu({
             View logs
           </DropdownMenuItem>
           {showRollback && (
-            <DropdownMenuItem
-              disabled={rollbackMut.isPending}
-              onClick={() => setConfirmOpen(true)}
-            >
+            <DropdownMenuItem disabled={rollbackMut.isPending} onClick={() => setConfirmOpen(true)}>
               <HugeiconsIcon icon={RotateLeft01Icon} strokeWidth={2} className="size-3.5" />
               {rollbackMut.isPending ? "Rolling back…" : "Roll back to this"}
             </DropdownMenuItem>

@@ -11,6 +11,7 @@ const searchSchema = z.object({
 });
 
 export const Route = createFileRoute("/_app/$orgSlug/git-providers")({
+  staticData: { crumb: "Git providers" },
   validateSearch: searchSchema,
   beforeLoad: ({ params, search }) => {
     throw redirect({

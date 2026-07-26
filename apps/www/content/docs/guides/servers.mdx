@@ -1,0 +1,113 @@
+---
+title: Servers and the fleet
+description: Add nodes, drain them, mesh them, and get told when one is under pressure.
+---
+
+One machine is a valid cluster. Adding more turns the install into a Swarm the
+scheduler can spread work across.
+
+## Roles and availability
+
+| Role | |
+| --- | --- |
+| `manager` | Holds cluster state and schedules work |
+| `worker` | Runs work only |
+
+Each node also carries an availability you control:
+
+| Availability | Effect |
+| --- | --- |
+| `active` | Normal — eligible for new tasks |
+| `drain` | Existing tasks move off; no new ones scheduled |
+| `pause` | Keeps what it has; no new tasks |
+
+Drain a node before you reboot or resize it, and its work moves rather than
+disappearing.
+
+Node status — `ready`, `draining`, `down` — is the cluster's own view, reported
+as-is.
+
+## Adding a node
+
+A node is enrolled over SSH with a rotating join token. Two safety nets run
+behind it:
+
+- Durable token rotations are retried after a daemon outage or restart, so a
+  half-finished enrolment doesn't wedge.
+- An enrolment that is redeemed but expires before the joining node reports
+  completion is rotated out.
+
+## Private mesh
+
+Node-to-node traffic can go over a private mesh instead of the public
+interface:
+
+| Provider | Value |
+| --- | --- |
+| None | `none` |
+| Tailscale | `tailscale` |
+| NetBird | `netbird` |
+
+## Host firewall
+
+Each node reports the outcome of its firewall provisioning honestly, rather
+than defaulting to a reassuring "protected":
+
+| Status | Meaning |
+| --- | --- |
+| `applied` | The nftables baseline is in place |
+| `unsupported` | ufw or firewalld was already managing the host and took precedence |
+| `failed` | The install attempt errored |
+| `unknown` | Predates the feature, or ran an older provision — drift, not a claim |
+
+`unknown` is deliberately not a pass. It means nobody has checked.
+
+## Health
+
+Two samplers run continuously:
+
+- **Per-node health**, every 60 seconds, feeding the rows on the Servers page.
+- **Host pressure**, every 5 minutes, recording memory, disk and Docker usage
+  and raising a `host.pressure` notification when a threshold is crossed.
+
+The point of the second is to tell you a disk is filling before it fills.
+
+## Notifications
+
+Deploy, crash, host-pressure and anomaly events go to channels you configure:
+
+`slack` · `discord` · `email` · `webhook` · `telegram` · `pagerduty` · `push`
+
+A channel is `active`, `paused`, or `disconnected` — the last meaning it was
+created but never confirmed, like a Telegram bot that hasn't been linked.
+Degraded delivery is derived from recent failures rather than stored, so a
+channel that starts failing shows it without you re-testing.
+
+## Raw Docker
+
+An escape hatch onto the daemon's own inventory — containers, images, networks,
+volumes — with inspect and prune. It sits one level below the product surfaces
+on purpose: it's for the times the abstraction is in your way, not a peer of
+the Servers page.
+
+## When teardown fails
+
+Runtime objects whose delete never reached the daemon are recorded and retried
+every five minutes, backing off per row. A failed teardown leaks a warning, not
+a volume.
+
+## Audit
+
+Every mutation and every denial across the organisation is recorded
+append-only, with an outcome of `success`, `failure` or `denied`, and is
+filterable and queryable.
+
+Conservative rules run over recent audit rows and raise a notification for
+denial bursts and mass deletions — the events you want to hear about from the
+system rather than notice yourself a week later.
+
+```bash
+otterdeploy audit
+otterdeploy metrics
+otterdeploy platform
+```

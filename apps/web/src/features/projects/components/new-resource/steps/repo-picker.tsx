@@ -52,7 +52,7 @@ export function RepoPicker({
 
   const reposQuery = useQuery(
     orpc.git.listRepos.queryOptions({
-      input: { installationId: (owner || "") },
+      input: { installationId: owner || "" },
       enabled: Boolean(owner),
     }),
   );

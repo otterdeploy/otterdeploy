@@ -1,9 +1,11 @@
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
 import { createCliAuthClient } from "../auth-client";
 import { ensureAuthenticated } from "../auth-flow";
 import { loadConfig, saveConfig } from "../config";
+import { cmd } from "../lib/name";
+import { suggestions } from "../lib/suggest";
+import { abort, dim, hint, note, ok, section, stateGlyph, table } from "../lib/ui";
 
 const listOrgs = defineCommand({
   meta: { name: "list", description: "List organizations you belong to" },
@@ -18,8 +20,7 @@ const listOrgs = defineCommand({
 
     const orgs = await auth.organization.list({ fetchOptions });
     if (orgs.error || !orgs.data) {
-      consola.error(orgs.error?.message ?? "Failed to list organizations.");
-      process.exit(1);
+      abort(orgs.error?.message ?? "Failed to list organizations.");
     }
     const session = await auth.getSession({ fetchOptions });
     const activeId = session.data?.session.activeOrganizationId ?? null;
@@ -31,14 +32,22 @@ const listOrgs = defineCommand({
     }
 
     if (orgs.data.length === 0) {
-      consola.info("You don't belong to any organizations yet.");
+      note("You don't belong to any organizations yet.");
       return;
     }
-    const width = Math.max(...orgs.data.map((org) => org.slug.length));
-    for (const org of orgs.data) {
-      const marker = org.id === activeId ? "*" : " ";
-      consola.log(`${marker} ${org.slug.padEnd(width)}  ${org.name}`);
-    }
+
+    section("Organizations");
+    table(
+      [{ header: "" }, { header: "slug" }, { header: "name" }],
+      orgs.data.map((org) => [
+        // The active org gets the live glyph rather than an asterisk, so it
+        // reads in the same vocabulary as every other state in the CLI.
+        org.id === activeId ? stateGlyph("running") : " ",
+        org.slug,
+        dim(org.name),
+      ]),
+    );
+    if (!activeId) hint(`run \`${cmd("org use <slug>")}\` to pick one`);
   },
 });
 
@@ -56,13 +65,22 @@ const useOrg = defineCommand({
       fetchOptions: { headers: { Authorization: `Bearer ${token}` } },
     });
     if (error || !data) {
-      consola.error(error?.message ?? `Could not switch to organization ${args.slug}.`);
-      process.exit(1);
+      // A bad slug is the common case here, so offer the near matches rather
+      // than only relaying the server's message.
+      const orgs = await auth.organization.list({
+        fetchOptions: { headers: { Authorization: `Bearer ${token}` } },
+      });
+      const near = suggestions(args.slug, (orgs.data ?? []).map((o) => o.slug));
+      abort(
+        error?.message ?? `Could not switch to organization ${args.slug}.`,
+        ...near.map((s) => `did you mean \`${s}\`?`),
+        `run \`${cmd("org list")}\` to see them`,
+      );
     }
     // setActive rewrites activeOrganizationId on the existing session row —
     // the stored token stays valid, only the local selection is recorded.
     saveConfig({ ...loadConfig(), orgId: data.id, orgSlug: data.slug });
-    consola.success(`Active organization: ${data.name} (${data.slug}).`);
+    ok(`Active organization is now ${data.slug} ${dim(`(${data.name})`)}.`);
   },
 });
 

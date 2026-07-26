@@ -38,6 +38,15 @@ export const PLATFORM = {
     // and the 16-char prefix ate a quarter of Docker's 63-char service-name
     // budget (see the `.slice(0, 63)` in service/handlers.ts). Display strippers
     // in the web app still recognise the legacy prefix for pre-rename services.
+    // Compose sub-services carry it too: `${stack}-${service}` on its own is
+    // indistinguishable from an arbitrary Docker alias, so a tenant route could
+    // point at anything on the overlay network. The prefix is what makes a
+    // swarm service a recognisably control-plane-minted identity, which is what
+    // caddy/route-validation.ts checks before a host reaches a Caddyfile.
     serviceNamePrefix: "od-",
+    // Prefixes a running service may legitimately still carry from before the
+    // `od-` rename. Accepted by route validation; never minted. Dropping these
+    // would fail every pre-rename service's routes at the Caddyfile boundary.
+    legacyServiceNamePrefixes: ["otterdeploy-svc-", "otterdeploy-"],
   },
 } as const;

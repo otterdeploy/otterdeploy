@@ -1,0 +1,104 @@
+---
+title: Environment variables
+description: Values, references, sealed secrets and per-environment overrides.
+---
+
+Environment variables are set per resource and resolved at deploy time. Keys
+are `UPPER_SNAKE`; anything else fails validation.
+
+```bash
+otterdeploy env list --service web
+otterdeploy env set API_URL=https://api.example.com --service web
+otterdeploy env unset API_URL --service web
+```
+
+## References
+
+A value can point at something else instead of copying it. References are
+resolved server-side when the deployment is built, so nothing sensitive has to
+live in the manifest and nothing has to be updated by hand when the thing it
+points at changes.
+
+| Reference | Resolves to |
+| --- | --- |
+| `${secret}` | A declaration only — the value lives server-side |
+| `${database:<name>.<field>}` | A database's `url`, `host`, `port`, `username`, `password` or `database` |
+| `${service:<name>.host}` | Another service's internal hostname |
+| `${service:<name>.port}` | That service's primary published port |
+| `${service:<name>.port.<name>}` | A named published port |
+| `${service:<name>.<KEY>}` | Another service's environment variable |
+
+References interpolate mid-string, so you can build a value out of parts:
+
+```json
+{
+  "DATABASE_URL": "postgres://acme:${database:primary.password}@${database:primary.host}:5432/acme"
+}
+```
+
+A malformed reference fails **manifest validation**, not the deploy. A typo in
+the grammar is caught when you write it, not twenty minutes later in a build
+log.
+
+### Why references matter
+
+The lookup is by resource **name**, late-bound at deploy. That is the mechanism
+behind [previews](/docs/guides/previews): a preview that owns its own database
+copy — also named `postgres` — resolves the same
+`${database:postgres.DATABASE_URL}` to the copy. The manifest doesn't change.
+Nothing is templated per environment.
+
+## Sealed variables
+
+A sealed value can be written and used by a deploy, but never read back out
+through the API. The read path masks it — not just in the dashboard, but at the
+RPC boundary — so neither you nor a stolen token can retrieve it after it's
+set.
+
+Use this for the secrets that would be expensive to rotate. Use a normal secret
+variable when you'd rather be able to check what's in it.
+
+Secrets are encrypted at rest under per-domain keys, with rotation support, so
+rotating one class of secret doesn't mean re-encrypting everything.
+
+## Environments
+
+Named contexts — development, staging, production — whose overrides deep-merge
+onto the project's base manifest:
+
+```json
+{
+  "services": {
+    "web": { "env": { "LOG_LEVEL": "info" } }
+  },
+  "environments": {
+    "staging": {
+      "services": { "web": { "env": { "LOG_LEVEL": "debug" } } }
+    }
+  }
+}
+```
+
+Deploying `staging` gives `web` a `LOG_LEVEL` of `debug` and leaves every other
+variable inherited. You maintain one manifest, not one per environment.
+
+```bash
+otterdeploy environments list
+```
+
+## The manifest owns env
+
+<Callout type="warn" title="Declarative apply overwrites variables">
+  Unlike volumes, environment variables **are** owned by the manifest. A
+  `otterdeploy sync` reconciles them to what the file says, which means a
+  variable you set imperatively with `env set` and never wrote back to the
+  manifest will be removed.
+</Callout>
+
+Keep the manifest authoritative, or use `otterdeploy export` to pull the current
+state back into the file before you sync:
+
+```bash
+otterdeploy export        # write the live project back out to otterdeploy.json
+otterdeploy sync          # show the diff, then apply it
+```

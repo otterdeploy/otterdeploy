@@ -1,7 +1,9 @@
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
+import { relativeTime, shortId, shortSha } from "../lib/format";
+import { cmd } from "../lib/name";
 import { resolveResource } from "../lib/resolve";
+import { abort, confirm, detail, dim, note, ok, out, paint, section } from "../lib/ui";
 
 interface DeploymentRow {
   id: string;
@@ -12,29 +14,30 @@ interface DeploymentRow {
   createdAt: string;
 }
 
-function shortId(id: string): string {
-  const sep = id.indexOf("_");
-  return sep === -1 ? id.slice(0, 8) : `${id.slice(0, sep + 1)}${id.slice(sep + 1, sep + 9)}`;
-}
-
-function formatAge(iso: string): string {
-  const ms = Date.now() - Date.parse(iso);
-  if (!Number.isFinite(ms) || ms < 0) return "just now";
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s ago`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
-
 // The last settled prior deploy: newest superseded row that actually shipped
 // an image (rows for queued git builds carry a "pending:" placeholder image).
 function pickRollbackTarget(rows: DeploymentRow[]): DeploymentRow | undefined {
   return [...rows]
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
     .find((r) => r.status === "superseded" && r.image !== "" && !r.image.startsWith("pending:"));
+}
+
+/** What the rollback will actually ship, as a reviewable block. */
+function printTarget(target: DeploymentRow | undefined, deploymentId: string): void {
+  section("Rollback target");
+  if (!target) {
+    // An explicitly-passed id we couldn't find locally — the server still
+    // validates it, so say what we know rather than inventing detail.
+    detail([["deployment", paint("id", shortId(deploymentId))]]);
+    return;
+  }
+  const sha = shortSha(target.gitSha ?? target.sourceSha);
+  detail([
+    ["deployment", paint("id", shortId(target.id))],
+    ["image", target.image],
+    ["commit", sha === "" ? dim("—") : dim(sha)],
+    ["deployed", dim(relativeTime(target.createdAt))],
+  ]);
 }
 
 export const rollbackCommand = defineCommand({
@@ -76,36 +79,20 @@ export const rollbackCommand = defineCommand({
     } else {
       const picked = pickRollbackTarget(rows);
       if (!picked) {
-        consola.error(`No prior deployment to roll back to for ${resourceName}.`);
-        process.exit(1);
+        abort(
+          `No prior deployment to roll back to for ${resourceName}.`,
+          `run \`${cmd(`deployments ${resourceName}`)}\` to see its history`,
+        );
       }
       target = picked;
       deploymentId = picked.id;
     }
 
     if (!args.yes && !args.json) {
-      if (target) {
-        consola.info(
-          `Target: ${shortId(target.id)}  image ${target.image}` +
-            `${
-              target.gitSha
-                ? `  git ${target.gitSha.slice(0, 7)}`
-                : target.sourceSha
-                  ? `  source ${target.sourceSha.slice(0, 7)}`
-                  : ""
-            }` +
-            `  (${formatAge(target.createdAt)})`,
-        );
-      } else {
-        consola.info(`Target: ${deploymentId}`);
-      }
-      const ok = await consola.prompt(`Roll back ${resourceName} to this deployment?`, {
-        type: "confirm",
-        initial: false,
-      });
-      if (!ok) {
-        consola.info("Aborted.");
-        process.exit(1);
+      printTarget(target, deploymentId);
+      out();
+      if (!(await confirm(`Roll back ${resourceName} to this deployment?`))) {
+        abort("Aborted — nothing was rolled back.");
       }
     }
 
@@ -114,8 +101,8 @@ export const rollbackCommand = defineCommand({
       process.stdout.write(`${JSON.stringify(view, null, 2)}\n`);
       return;
     }
-    consola.success(
-      `Rolled back ${resourceName} to ${shortId(deploymentId)} (image ${view.image}).`,
-    );
+    ok(`Rolled back ${resourceName} to ${shortId(deploymentId)}.`);
+    detail([["image", view.image]]);
+    note(dim("The service is rolling to the previous image."));
   },
 });

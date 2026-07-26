@@ -4,6 +4,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 // only — keeps old links and bookmarks working (same pattern as the
 // notifications move).
 export const Route = createFileRoute("/_app/$orgSlug/_shell/volumes")({
+  staticData: { crumb: "Volumes" },
   beforeLoad: ({ params }) => {
     throw redirect({
       to: "/$orgSlug/servers",

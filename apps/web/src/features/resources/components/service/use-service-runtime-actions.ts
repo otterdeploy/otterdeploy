@@ -7,6 +7,7 @@
  */
 
 import type { ProjectSlug } from "@otterdeploy/shared/id";
+
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -27,7 +28,7 @@ export function useServiceRuntimeActions({
     navigate({
       to: "/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId",
       params: { orgSlug, projectSlug, resourceId, deploymentId },
-      search: { tab: logTab },
+      search: (prev) => ({ ...prev, deploymentTab: logTab }),
     });
 
   const buildMut = useMutation({

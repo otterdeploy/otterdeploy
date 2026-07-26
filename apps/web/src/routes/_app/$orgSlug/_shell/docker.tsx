@@ -10,6 +10,7 @@ const dockerSearch = z.object({
 });
 
 export const Route = createFileRoute("/_app/$orgSlug/_shell/docker")({
+  staticData: { crumb: "Docker" },
   validateSearch: dockerSearch,
   beforeLoad: ({ params, search }) => {
     throw redirect({

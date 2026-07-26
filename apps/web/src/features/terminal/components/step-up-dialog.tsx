@@ -74,7 +74,11 @@ export function StepUpDialog({ open, targetLabel, onVerified, onCancel }: Props)
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <HugeiconsIcon icon={ShieldKeyIcon} strokeWidth={2} className="size-4 text-muted-foreground" />
+            <HugeiconsIcon
+              icon={ShieldKeyIcon}
+              strokeWidth={2}
+              className="size-4 text-muted-foreground"
+            />
             <DialogTitle>Confirm it's you</DialogTitle>
           </div>
           <DialogDescription>
@@ -118,7 +122,12 @@ export function StepUpDialog({ open, targetLabel, onVerified, onCancel }: Props)
           <Button type="button" variant="outline" size="sm" onClick={onCancel} disabled={pending}>
             Cancel
           </Button>
-          <Button type="button" size="sm" onClick={() => void submit()} disabled={!value || pending}>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => void submit()}
+            disabled={!value || pending}
+          >
             {pending ? "Verifying…" : "Continue"}
           </Button>
         </DialogFooter>

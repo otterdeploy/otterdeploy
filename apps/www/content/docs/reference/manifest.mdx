@@ -1,0 +1,166 @@
+---
+title: Manifest
+description: The otterdeploy.json schema — the declarative shape of a project.
+icon: Terminal
+---
+
+A project can be described by one JSON document. Diff it, review it, commit it,
+apply it.
+
+```bash
+otterdeploy export        # write the live project out to otterdeploy.json
+otterdeploy sync          # show the diff, then apply it
+otterdeploy pull          # pull remote state without applying
+```
+
+## Top level
+
+```json
+{
+  "version": 1,
+  "project": "storefront",
+  "services": {},
+  "databases": {},
+  "composes": {},
+  "environments": {}
+}
+```
+
+| Key | |
+| --- | --- |
+| `$schema` | Optional. Points at the JSON Schema for editor completion |
+| `version` | Schema version. Currently `1` |
+| `project` | Project slug *(required)* |
+| `services` | Named map of services |
+| `databases` | Named map of databases |
+| `composes` | Named map of compose stacks |
+| `environments` | Named overrides that deep-merge onto the base |
+
+Services and databases are **maps keyed by name**, not arrays. The name is what
+[references](/docs/guides/environment#references) resolve against, so renaming
+a key is a rename of the resource.
+
+## Services
+
+Discriminated by `source`.
+
+### `source: "git"`
+
+```json
+{
+  "web": {
+    "source": "git",
+    "repo": "acme/storefront",
+    "branch": "main",
+    "sourceSubdir": "apps/web",
+    "build": { "builder": "auto" },
+    "ports": [{ "container": 3000, "primary": true }],
+    "env": { "DATABASE_URL": "${database:postgres.DATABASE_URL}" }
+  }
+}
+```
+
+| Field | |
+| --- | --- |
+| `repo` | `"owner/name"`. Resolved against the org's installations on apply, so no opaque id lands on disk |
+| `branch` | Branch whose pushes deploy this service. Falls back to the repo default |
+| `sourceSubdir` | Repo-relative subdirectory — the monorepo case |
+| `build` | Build configuration, below |
+
+A git service may be staged unbound; only its build fails, clearly, until a
+repo is attached.
+
+### `source: "image"` and `source: "upload"`
+
+`image` pulls a pre-built image. `upload` marks the service as upload-sourced;
+the artefact is supplied out of band.
+
+### Build configuration
+
+Discriminated by `builder`. Every variant accepts `watchPatterns` — globs
+against the changed paths in a push. When set, a push only redeploys if at
+least one path matches; when unset, every push redeploys.
+
+| Builder | Fields |
+| --- | --- |
+| `auto` | None. Inspects the repo: a Dockerfile means `dockerfile`, otherwise `railpack` |
+| `dockerfile` | `dockerfilePath` (default `./Dockerfile`), `buildArgs` |
+| `railpack` | `buildCommand`, `spa`, `staticRoot`, `packageManager` |
+| `compose` | `composePath` (default `./docker-compose.yml`) |
+
+<Callout type="warn" title="buildArgs are not secrets">
+  `--build-arg` values land in the image history. Use an
+  [environment variable](/docs/guides/environment) for anything sensitive.
+</Callout>
+
+### Common service fields
+
+| Field | |
+| --- | --- |
+| `replicas` | Task count |
+| `ports` | `{ container, protocol?, appProtocol?, primary?, name? }` |
+| `env` | `UPPER_SNAKE` keys; values may contain references |
+| `startCommand` | **Exec form** — `["bun", "run", "start"]`, not a string |
+| `entrypoint` | Exec form |
+| `healthcheck` | `{ cmd, intervalMs?, timeoutMs?, retries?, startMs? }` |
+| `resources` | `cpuLimit`, `memoryMb`, `cpuReservation`, `memoryReservationMb`, `diskMb`, `swapMb`, `pidsLimit` |
+| `restart` | `{ condition: "none" \| "on-failure" \| "any", maxAttempts?, delayMs?, windowMs? }` |
+| `preDeploy` | Hooks run after build, before new replicas take traffic — migrations |
+| `postDeploy` | Hooks run after replicas are live and healthy — warmup, smoke checks |
+| `domains` | Create-time seed only; see below |
+
+<Callout title="Shell expressions need a shell">
+  `startCommand` and the hooks are exec-form arrays. To run a shell expression,
+  wrap it yourself: `["sh", "-c", "x && y"]`.
+</Callout>
+
+`domains` is a **create-time seed**, so an operator can set a domain before the
+first deploy. After creation, domains are managed on the resource and this
+field is deliberately not diffed for drift — otherwise applying the manifest
+would undo every domain added since.
+
+## Databases
+
+Discriminated by `engine`. Each engine accepts only its own fields; unknown
+engine-specific keys are rejected.
+
+```json
+{
+  "postgres": { "engine": "postgres", "version": "17" },
+  "cache": { "engine": "redis" }
+}
+```
+
+Engines: `postgres`, `redis`, `mariadb`, `mongodb`, `clickhouse`.
+
+## Environments
+
+Overrides that deep-merge onto the base:
+
+```json
+{
+  "environments": {
+    "staging": {
+      "services": { "web": { "env": { "LOG_LEVEL": "debug" } } }
+    }
+  }
+}
+```
+
+<Callout title="Compose stacks aren't per-environment">
+  `environments` blocks carry no `composes` key. A stack is an atomic unit in
+  v1, not a per-environment tunable.
+</Callout>
+
+## What apply owns
+
+Applying the manifest reconciles the resources it describes. Two things behave
+differently and are worth committing to memory:
+
+- **Environment variables are owned by the manifest.** A variable set
+  imperatively and never written back will be removed by the next sync.
+- **Service mounts are not.** Apply never touches them, so a volume added by
+  hand survives.
+
+Run `otterdeploy export` before a sync when you aren't sure the file matches
+reality.

@@ -89,13 +89,7 @@ const PANEL_ICON_SIZE = {
   sm: { tile: "size-7", glyph: "size-4", svgl: 16 },
 } as const;
 
-export function PanelIcon({
-  node,
-  size = "md",
-}: {
-  node: ResourceNodeData;
-  size?: "sm" | "md";
-}) {
+export function PanelIcon({ node, size = "md" }: { node: ResourceNodeData; size?: "sm" | "md" }) {
   const s = PANEL_ICON_SIZE[size];
   const tile = cn("grid shrink-0 place-items-center rounded-lg border bg-background", s.tile);
   // Detected framework wins for git-sourced services — same precedence as

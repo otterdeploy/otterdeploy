@@ -4,6 +4,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 // an edge concern, not workspace configuration. Shim only — keeps old links,
 // bookmarks and in-flight callbacks working.
 export const Route = createFileRoute("/_app/$orgSlug/settings/workspace/certificates")({
+  staticData: { crumb: "Certificates" },
   beforeLoad: ({ params }) => {
     throw redirect({
       to: "/$orgSlug/edge",

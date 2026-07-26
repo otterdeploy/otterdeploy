@@ -64,9 +64,7 @@ describe("classifyLogSeverity", () => {
     );
     // A real timestamped warning still classifies as warn.
     expect(
-      classifyLogSeverity(
-        '2026/07/25 12:00:00 [warn] 1#1: conflicting server name "x" ignored',
-      ),
+      classifyLogSeverity('2026/07/25 12:00:00 [warn] 1#1: conflicting server name "x" ignored'),
     ).toBe("warn");
   });
 

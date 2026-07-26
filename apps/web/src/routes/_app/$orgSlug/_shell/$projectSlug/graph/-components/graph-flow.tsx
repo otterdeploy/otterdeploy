@@ -5,8 +5,10 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Background,
   Controls,
+  MiniMap,
   Panel,
   ReactFlow,
+  type CoordinateExtent,
   type Edge,
   type Node,
   type NodeChange,
@@ -49,9 +51,15 @@ export function GraphFlow({
   onRelayout,
   onNewService,
   bottomInset,
+  nodeExtent,
+  translateExtent,
 }: {
   nodes: Node[];
   edges: Edge[];
+  /** Bounds cards may be dragged within, and the box the viewport may pan
+   *  inside — see graph-extent.ts for why the canvas is bounded at all. */
+  nodeExtent: CoordinateExtent;
+  translateExtent: CoordinateExtent;
   onNodesChange: (changes: NodeChange[]) => void;
   onNodeClick: NonNullable<ReactFlowProps["onNodeClick"]>;
   // Hover intent — preloads the clicked-panel route chunk so the drawer opens
@@ -77,6 +85,8 @@ export function GraphFlow({
       onEdgesChange={noopChange}
       nodeTypes={nodeTypes}
       nodesDraggable
+      nodeExtent={nodeExtent}
+      translateExtent={translateExtent}
       fitView
       fitViewOptions={{ padding: 0.2 }}
       proOptions={{ hideAttribution: true }}
@@ -89,6 +99,25 @@ export function GraphFlow({
       onPaneContextMenu={onPaneContextMenu}
     >
       <Background gap={20} size={1} />
+      {/* Overview + jump target. Only meaningful because the canvas is bounded
+          (graph-extent.ts): over an infinite plane one stray card shrinks
+          everything else to invisible dots. Hidden while the graph is empty —
+          an empty rectangle explains nothing.
+          Colours are deliberately NOT passed as props: index.css already themes
+          `--xy-minimap-*` off the design tokens, and a `nodeColor` prop lands on
+          an SVG presentation attribute, where `color-mix()` doesn't resolve —
+          which renders the nodes invisible. */}
+      {nodes.length > 0 ? (
+        <MiniMap
+          position="bottom-left"
+          pannable
+          zoomable
+          ariaLabel="Project graph overview"
+          style={{ bottom: bottomInset + 52 }}
+          className="transition-[bottom]! duration-200!"
+          nodeBorderRadius={3}
+        />
+      ) : null}
       <Controls
         showInteractive={false}
         position="bottom-right"

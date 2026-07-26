@@ -4,6 +4,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 // toggle on one page now, not two tabs. Shim only — keeps old links and
 // bookmarks working.
 export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/edge-logs")({
+  staticData: { crumb: "Edge logs" },
   beforeLoad: ({ params }) => {
     throw redirect({
       to: "/$orgSlug/$projectSlug/logs",

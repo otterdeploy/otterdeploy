@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { OtterdeployLogo } from "@/shared/components/brand/otterdeploy-logo";
+
 /** Faint grid washed by a primary glow, both driven off theme tokens via
  *  color-mix so the panel tracks light/dark. Mirrors the sign-in surface so
  *  the onboarding wizard reads as the same product. The grid fades toward a
@@ -52,14 +54,7 @@ export function WizardShell({ children }: { children: ReactNode }) {
   );
 }
 
-/** The "os" tile + product name, mirroring the app header's brand mark. */
+/** Mark + product name, mirroring the app header's brand mark. */
 function Wordmark() {
-  return (
-    <div className="flex items-center gap-2.5">
-      <span className="grid size-7 place-items-center rounded-md bg-foreground text-[11px] font-semibold text-background lowercase">
-        os
-      </span>
-      <span className="text-sm font-semibold tracking-[-0.02em] text-foreground">otterdeploy</span>
-    </div>
-  );
+  return <OtterdeployLogo size={26} />;
 }
