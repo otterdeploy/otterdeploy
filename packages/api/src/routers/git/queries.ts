@@ -1,4 +1,9 @@
-import type { GitInstallationId, GitProviderId, OrganizationId } from "@otterdeploy/shared/id";
+import type {
+  GitInstallationId,
+  GitProviderId,
+  GitRepoId,
+  OrganizationId,
+} from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import {
@@ -171,4 +176,42 @@ export async function listReposForInstallation(installationDbId: GitInstallation
     .from(gitRepo)
     .where(eq(gitRepo.installationId, installationDbId))
     .orderBy(asc(gitRepo.fullName));
+}
+
+/**
+ * Org-scoped `git_repo` lookup — the tenant boundary for every endpoint that
+ * takes a caller-supplied `gitRepoId` (getRepo, inspectRepo, listBranches,
+ * inspectEnv). A repo with no installation is a public-URL binding
+ * (`connectPublicRepo`): by design those rows aren't tenant-scoped (the data
+ * IS public GitHub content, and two orgs pasting the same URL share the row —
+ * see public-repos.ts), so any authenticated org may read it. A repo that
+ * DOES have an installation is private-installation-backed and must resolve
+ * to the caller's own org through installation → provider → organizationId,
+ * otherwise this returns undefined so the caller 404s instead of leaking
+ * another tenant's private repo contents / minting them an installation token.
+ */
+export async function getRepoForOrg(args: {
+  gitRepoId: GitRepoId;
+  organizationId: OrganizationId;
+}) {
+  const [row] = await db
+    .select({
+      id: gitRepo.id,
+      fullName: gitRepo.fullName,
+      defaultBranch: gitRepo.defaultBranch,
+      isPrivate: gitRepo.isPrivate,
+      cloneUrl: gitRepo.cloneUrl,
+      installationId: gitRepo.installationId,
+      providerOrganizationId: gitProvider.organizationId,
+    })
+    .from(gitRepo)
+    .leftJoin(gitInstallation, eq(gitInstallation.id, gitRepo.installationId))
+    .leftJoin(gitProvider, eq(gitProvider.id, gitInstallation.providerId))
+    .where(eq(gitRepo.id, args.gitRepoId))
+    .limit(1);
+  if (!row) return undefined;
+  if (row.installationId !== null && row.providerOrganizationId !== args.organizationId) {
+    return undefined;
+  }
+  return row;
 }

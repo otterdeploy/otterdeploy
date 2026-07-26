@@ -35,9 +35,9 @@ async function serverIpView(): Promise<{ serverIp: string | null; envOverride: b
 
 export const platformSettingsRouter = {
   controlPlaneDomain: requireInstallAdmin().organization.controlPlaneDomain.handler(
-    async ({ input, context }) => {
+    async ({ context }) => {
       context.log.set({
-        target: { type: "organization", id: input.organizationId },
+        target: { type: "organization", id: context.activeOrganizationId },
       });
       return getControlPlaneDomain();
     },
@@ -46,7 +46,7 @@ export const platformSettingsRouter = {
   setControlPlaneDomain: requireInstallAdmin().organization.setControlPlaneDomain.handler(
     async ({ input, context }) => {
       context.log.set({
-        target: { type: "organization", id: input.organizationId },
+        target: { type: "organization", id: context.activeOrganizationId },
         domain: { controlPlaneDomain: input.domain },
       });
       return setControlPlaneDomain(input.domain, context.log);
@@ -54,9 +54,9 @@ export const platformSettingsRouter = {
   ),
 
   verifyControlPlaneDomain: requireInstallAdmin().organization.verifyControlPlaneDomain.handler(
-    async ({ input, context }) => {
+    async ({ context }) => {
       context.log.set({
-        target: { type: "organization", id: input.organizationId },
+        target: { type: "organization", id: context.activeOrganizationId },
       });
       const result = await verifyControlPlaneDomain(context.log);
       context.log.set({ verify: { ok: result.ok, reason: result.reason } });
@@ -66,11 +66,17 @@ export const platformSettingsRouter = {
 
   autoConfigureControlPlaneDomain:
     requireInstallAdmin().organization.autoConfigureControlPlaneDomain.handler(
-      async ({ input, context, errors }) => {
+      async ({ context, errors }) => {
         context.log.set({
-          target: { type: "organization", id: input.organizationId },
+          target: { type: "organization", id: context.activeOrganizationId },
         });
-        const result = await autoConfigureControlPlaneDomain(input.organizationId, context.log);
+        // Sources the operator's OWN org's stored Cloudflare token/zone — never
+        // a caller-supplied organizationId (od-5j8.8: install-admin status
+        // shouldn't imply "pull any org's Cloudflare credentials on request").
+        const result = await autoConfigureControlPlaneDomain(
+          context.activeOrganizationId,
+          context.log,
+        );
         if (result.isErr()) {
           throw matchError(result.error, {
             ControlPlaneDomainError: (err) => errors.INVALID_INPUT({ message: err.message }),
@@ -87,17 +93,15 @@ export const platformSettingsRouter = {
     ),
 
   // ─── Instance network + edge defaults ─────────────────────────────
-  getServerIp: requireInstallAdmin().organization.getServerIp.handler(
-    async ({ input, context }) => {
-      context.log.set({ target: { type: "organization", id: input.organizationId } });
-      return serverIpView();
-    },
-  ),
+  getServerIp: requireInstallAdmin().organization.getServerIp.handler(async ({ context }) => {
+    context.log.set({ target: { type: "organization", id: context.activeOrganizationId } });
+    return serverIpView();
+  }),
 
   setServerIp: requireInstallAdmin().organization.setServerIp.handler(
     async ({ input, context }) => {
       context.log.set({
-        target: { type: "organization", id: input.organizationId },
+        target: { type: "organization", id: context.activeOrganizationId },
         instance: { serverIp: input.serverIp || null },
       });
       const value = input.serverIp.trim() || null;
@@ -109,17 +113,15 @@ export const platformSettingsRouter = {
     },
   ),
 
-  getEdgeOptions: requireInstallAdmin().organization.getEdgeOptions.handler(
-    async ({ input, context }) => {
-      context.log.set({ target: { type: "organization", id: input.organizationId } });
-      return getGlobalCaddyOptions();
-    },
-  ),
+  getEdgeOptions: requireInstallAdmin().organization.getEdgeOptions.handler(async ({ context }) => {
+    context.log.set({ target: { type: "organization", id: context.activeOrganizationId } });
+    return getGlobalCaddyOptions();
+  }),
 
   setEdgeOptions: requireInstallAdmin().organization.setEdgeOptions.handler(
     async ({ input, context }) => {
       context.log.set({
-        target: { type: "organization", id: input.organizationId },
+        target: { type: "organization", id: context.activeOrganizationId },
         edge: { httpsAutoRedirect: input.httpsAutoRedirect },
       });
       // saveGlobalCaddyOptions persists + reconciles the live edge; validated
@@ -140,7 +142,7 @@ export const platformSettingsRouter = {
   setEmailSettings: requireInstallAdmin().organization.setEmailSettings.handler(
     async ({ input, context }) => {
       context.log.set({
-        target: { type: "organization", id: input.organizationId },
+        target: { type: "organization", id: context.activeOrganizationId },
       });
       return saveEmailSettings({
         provider: input.provider,
