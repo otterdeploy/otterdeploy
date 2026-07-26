@@ -131,13 +131,23 @@ export const auth = betterAuth({
     additionalFields: {
       // Server-owned and returned with sessions so every transport can enforce
       // installation authority without interpreting an organization role.
+      // No `fieldName` override: the drizzle adapter's getFieldName() treats
+      // that as the SCHEMA OBJECT'S key to look up (schema.user.fields.<js
+      // key>.fieldName), not the SQL column name — schema/auth.ts already
+      // declares `isInstallAdmin: boolean("is_install_admin")`, i.e. the JS
+      // key IS "isInstallAdmin" and drizzle owns the snake_case SQL column
+      // name on its own. Setting fieldName here to the SQL name made the
+      // adapter look for a `schema.user["is_install_admin"]` property that
+      // doesn't exist, so every signup 500'd with "The field
+      // \"is_install_admin\" does not exist in the \"user\" Drizzle schema" —
+      // caught by the real-Postgres integration suite (od-5j8.1.1), never by
+      // the pure decideRegistration() unit tests.
       isInstallAdmin: {
         type: "boolean",
         required: false,
         defaultValue: false,
         input: false,
         returned: true,
-        fieldName: "is_install_admin",
       },
     },
   },

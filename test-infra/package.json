@@ -1,0 +1,19 @@
+{
+  "name": "@otterdeploy/test-infra",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:integration": "bun test integration --timeout 90000"
+  },
+  "dependencies": {
+    "@otterdeploy/auth": "workspace:*",
+    "@otterdeploy/db": "workspace:*",
+    "@otterdeploy/env": "workspace:*",
+    "drizzle-orm": "catalog:"
+  },
+  "devDependencies": {
+    "@otterdeploy/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
+  }
+}

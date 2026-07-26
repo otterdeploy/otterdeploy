@@ -62,3 +62,44 @@ jobs:
       - name: Test
         if: matrix.task == 'test'
         run: bun run test --cache-dir=.turbo
+
+  # Separate from the `check` matrix: this is the only job that needs a real
+  # database, so it's the only one carrying the postgres:17 service
+  # container. Proves the od-5j8.1 installation-bootstrap migrations + the
+  # real better-auth signup hook end-to-end (od-5j8.1.1) — see
+  # test-infra/integration/. Ordinary unit tests (the `test` matrix leg
+  # above) never need Docker/Postgres; only this job does.
+  integration:
+    name: integration (postgres 17)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.10
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      # Every test file creates + drops its own uniquely named database on
+      # this instance (see test-infra/integration/postgres-harness.ts), so
+      # the suite is hermetic even though the service container is shared.
+      - name: Integration tests (real Postgres 17 bootstrap + upgrade)
+        run: bun run test:integration
+        env:
+          INTEGRATION_POSTGRES_URL: postgres://postgres:postgres@localhost:5432/postgres
