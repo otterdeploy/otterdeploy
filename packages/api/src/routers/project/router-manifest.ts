@@ -148,6 +148,7 @@ export const manifestRouter = {
         organizationId: context.activeOrganizationId,
         manifest: resolved.value,
         log: context.log,
+        correlationId: context.correlationId,
       });
     },
   ),
@@ -228,6 +229,7 @@ export const manifestRouter = {
         organizationId: context.activeOrganizationId,
         manifest: resolved.value,
         log: context.log,
+        correlationId: context.correlationId,
       });
       return { version: saved.value.version, ...applied };
     },

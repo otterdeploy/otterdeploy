@@ -17,7 +17,8 @@ import {
   type SQL,
 } from "drizzle-orm";
 
-import { orgScopedProcedure } from "../..";
+import { orgScopedProcedure, requireInstallAdmin } from "../..";
+import { verifyAuditChain } from "../../audit/chain";
 
 type AuditRow = typeof auditLog.$inferSelect;
 
@@ -221,5 +222,13 @@ export const auditRouter = {
       .limit(input.limit);
 
     return { items: rows.map(toAuditEvent) };
+  }),
+
+  /** On-demand tamper-chain verification (od-5j8.21). Cheap enough to run
+   *  regularly: one indexed read of the chain columns + an in-memory walk —
+   *  see chain.ts. Install-admin only: the chain is a whole-installation
+   *  invariant, not a per-org one. */
+  verifyChain: requireInstallAdmin().audit.verifyChain.handler(async () => {
+    return verifyAuditChain();
   }),
 };

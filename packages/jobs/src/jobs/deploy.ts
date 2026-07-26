@@ -43,6 +43,12 @@ export const DeployTriggeredPayload = z.object({
   /** Deployment rows pre-inserted by the webhook receiver. The build worker
    *  transitions each through pending → building → running|failed. */
   deploymentIds: z.array(z.string().min(1)),
+  /** od-5j8.21: the oRPC call's correlation id, when this build was
+   *  triggered by one (the UI "Deploy" / applyChange path). Optional —
+   *  webhook-triggered and other non-oRPC-originated builds have none.
+   *  Forwarded by the builder onto its own completion audit row so a single
+   *  user action stays traceable from oRPC through the job to the deploy. */
+  correlationId: z.string().optional(),
 });
 export type DeployTriggeredPayload = z.infer<typeof DeployTriggeredPayload>;
 

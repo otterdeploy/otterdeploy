@@ -1,5 +1,6 @@
 import type { JobDef } from "./define";
 
+import { auditExportJob } from "./jobs/audit-export";
 import { dailyReportJob } from "./jobs/daily-report";
 import { deployTriggeredJob } from "./jobs/deploy";
 import { sendEmailJob } from "./jobs/email";
@@ -25,6 +26,7 @@ export const jobs = [
   webhookDeliverJob,
   processDataJob,
   hourlyCleanupJob,
+  auditExportJob,
   dailyReportJob,
   welcomeSequenceJob,
   deployTriggeredJob,

@@ -7,14 +7,15 @@ import type { DrainContext } from "evlog";
  * logging is untouched (see apps/server bootstrap).
  *
  * Errors here are isolated by evlog's drain runner, so a transient DB blip
- * can't fail the originating request. `idempotencyKey` is unique, so retries
- * across drains `onConflictDoNothing` instead of duplicating rows.
+ * can't fail the originating request. Writes go through
+ * `insertChainedAuditRow` (see ./chain.ts) rather than a plain INSERT — every
+ * row through this drain is tamper-evidently chained to its predecessor.
+ * `idempotencyKey` is unique, so retries across drains dedupe (no new row,
+ * chain tip unmoved) instead of duplicating rows.
  */
-import { db } from "@otterdeploy/db";
-import { auditLog } from "@otterdeploy/db/schema";
+import type { AuditActorType, AuditOutcome } from "./chain";
 
-type AuditActorType = "user" | "system" | "api" | "agent";
-type AuditOutcome = "success" | "failure" | "denied";
+import { insertChainedAuditRow } from "./chain";
 
 interface EventTarget {
   type?: string;
@@ -84,6 +85,6 @@ export function createAuditPgDrain() {
     const a = event.audit;
     if (!a) return; // `auditOnly` already guards, but stay defensive.
 
-    await db.insert(auditLog).values(toAuditRow(event, a)).onConflictDoNothing();
+    await insertChainedAuditRow(toAuditRow(event, a));
   };
 }

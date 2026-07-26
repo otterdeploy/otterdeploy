@@ -5,6 +5,7 @@
  */
 
 import { orgScopedProcedure, requirePermission } from "../..";
+import { auditSensitiveRead } from "../../audit/sensitive-read";
 import { isUniqueViolation } from "../project/views";
 import { fetchRegistryTags, parseImageRef } from "./list-tags";
 import {
@@ -122,6 +123,15 @@ export const registryRouter = {
             ? input.password
             : stored.password;
         context.log.set({ target: { type: "container_registry", id: input.id, host } });
+        // od-5j8.21: the stored credential was just decrypted server-side to
+        // run this probe. The plaintext never leaves the server (see
+        // queries.ts), but decrypting-and-using a stored secret is itself a
+        // sensitive read worth a trail entry.
+        auditSensitiveRead(context, "registry.testConnection", {
+          type: "container_registry",
+          id: input.id,
+          host,
+        });
       } else {
         host = canonicalizeHost(input.host ?? "");
         username = input.username ?? "";
@@ -180,6 +190,11 @@ export const registryRouter = {
         context.log.set({
           target: { type: "container_registry", id: input.registryId, host: stored.host },
         });
+        auditSensitiveRead(context, "registry.listTags", {
+          type: "container_registry",
+          id: input.registryId,
+          host: stored.host,
+        });
       } else {
         const stored = await getRegistryCredentialForOrgByHost(
           context.activeOrganizationId,
@@ -188,6 +203,11 @@ export const registryRouter = {
         if (stored) {
           username = stored.username;
           password = stored.password;
+          auditSensitiveRead(context, "registry.listTags", {
+            type: "container_registry",
+            id: stored.id,
+            host: stored.host,
+          });
         }
         context.log.set({ target: { type: "container_registry", host: ref.host } });
       }

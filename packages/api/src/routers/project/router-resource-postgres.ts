@@ -1,5 +1,6 @@
 import { matchError } from "better-result";
 
+import { auditSensitiveRead } from "../../audit/sensitive-read";
 import { orgScopedProcedure, requirePermission } from "../../index";
 import {
   createPostgresResourceStream,
@@ -78,6 +79,15 @@ export const postgresResourceRouter = {
         projectSlug: project.slug,
         resourceName: input.name,
         password,
+      });
+      // od-5j8.21: returns the draft resource's plaintext password + full
+      // connection string before the resource even exists — the wizard's
+      // "copy connection string" affordance. Same sensitivity as the
+      // post-create catalog read.
+      auditSensitiveRead(context, "project.resource.database.postgres.draftCredentials", {
+        type: "project",
+        id: input.projectId,
+        name: input.name,
       });
       return {
         username: creds.username,

@@ -38,6 +38,7 @@ function auditSensitiveRead(context: Context, action: string, target: string): v
     action,
     actor: { type: "user", id: user.id, email: user.email },
     outcome: "success",
+    correlationId: context.correlationId,
   });
 }
 

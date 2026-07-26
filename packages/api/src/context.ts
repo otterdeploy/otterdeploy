@@ -31,6 +31,19 @@ export interface RequestContext {
    * depending on middleware type inference. See audit/changes.ts.
    */
   auditDraft?: AuditDraft;
+  /**
+   * This call's correlation id (od-5j8.21) — injected by `traceProcedure`,
+   * not `createContext`, same reasoning as `auditDraft` above. Threads a
+   * single logical user action across the audit trail: every audit row
+   * `traceProcedure` writes for this call carries it, and a handler that
+   * kicks off async follow-on work (a BullMQ job, a system audit row
+   * written later by a different process) should forward it so that work's
+   * own audit rows can be tied back to the request that caused them — see
+   * `routers/project/manifest-apply-git.ts` → `packages/jobs`
+   * `DeployTriggeredPayload.correlationId` → `apps/builder/src/handler.ts`
+   * for the concrete example.
+   */
+  correlationId?: string;
 }
 
 export async function createContext({

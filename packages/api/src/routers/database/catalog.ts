@@ -22,6 +22,7 @@ import type { orgCatalogItemSchema } from "./contract-catalog";
 import type { DbConnInfo } from "./query";
 
 import { requirePermission } from "../..";
+import { auditSensitiveRead } from "../../audit/sensitive-read";
 import { inspectSwarmDatabaseRuntime } from "../../runtime/db";
 import { defaultImageFor } from "../../swarm";
 import { buildContainerName, buildVolumeName } from "../project/views";
@@ -181,6 +182,18 @@ export const catalogDatabaseHandlers = {
     async ({ context }) => {
       const databases = await buildOrgDatabaseCatalog(context.activeOrganizationId);
       context.log.set({ catalog: { databases: databases.length } });
+      // od-5j8.21: this is a bulk credential dump — every database resource
+      // in the org, each with its `internalConnectionString` (embeds the
+      // plaintext password) attached, in one response. The single most
+      // sensitive read in the catalog surface; audit it whenever it
+      // actually returns at least one database (an empty org is a no-op).
+      if (databases.length > 0) {
+        auditSensitiveRead(context, "database.listOrgCatalog", {
+          type: "organization",
+          id: context.activeOrganizationId,
+          databaseCount: databases.length,
+        });
+      }
       return { databases };
     },
   ),

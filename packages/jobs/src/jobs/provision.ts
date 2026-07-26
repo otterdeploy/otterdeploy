@@ -33,6 +33,10 @@ export const ProvisionServerPayload = z.object({
   // join entirely. Requires sshKeyId (no password path: nothing is stored to
   // reconnect with after the initial join).
   firewallOnly: z.boolean().default(false),
+  // od-5j8.19: operator-supplied SSH host-key fingerprint, verified (not just
+  // trusted) on first connect. Not a secret — travels in the clear like the
+  // other non-secret fields above.
+  expectedHostFingerprint: z.string().nullable().optional(),
 });
 export type ProvisionServerPayload = z.infer<typeof ProvisionServerPayload>;
 

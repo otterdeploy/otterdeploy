@@ -107,6 +107,27 @@ const byCorrelationOutput = z.object({
   items: z.array(auditEventSchema),
 });
 
+/** od-5j8.21 — on-demand tamper-chain verification. Whole-installation
+ *  scope (the chain is one global sequence, not per-org — see
+ *  packages/api/src/audit/chain.ts), so this is install-admin only, not
+ *  org-scoped like every other endpoint in this contract. */
+const verifyChainOutput = z.object({
+  ok: z.boolean(),
+  checked: z.number(),
+  firstBreak: z
+    .object({
+      reason: z.enum([
+        "hash-mismatch",
+        "missing-predecessor",
+        "duplicate-successor",
+        "multiple-genesis",
+      ]),
+      rowId: z.string(),
+      detail: z.string(),
+    })
+    .nullable(),
+});
+
 export const auditContract = {
   list: oc
     .meta({ path: basePath, tag, method: "GET" })
@@ -124,4 +145,7 @@ export const auditContract = {
     .meta({ path: `${basePath}/by-correlation`, tag, method: "GET" })
     .input(byCorrelationInput)
     .output(byCorrelationOutput),
+  verifyChain: oc
+    .meta({ path: `${basePath}/verify-chain`, tag, method: "GET" })
+    .output(verifyChainOutput),
 };

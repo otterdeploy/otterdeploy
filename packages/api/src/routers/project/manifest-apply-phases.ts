@@ -27,6 +27,10 @@ export interface ApplyContext {
   manifest: Manifest;
   current: CurrentState;
   log: RequestLogger;
+  /** od-5j8.21: the oRPC call's correlation id, forwarded to any build this
+   *  apply enqueues so the deploy job (and the builder's own audit row on
+   *  completion) can be traced back to the user action that caused it. */
+  correlationId?: string;
 }
 
 export interface GitBuild {
@@ -208,6 +212,7 @@ export async function runGitBuilds(
         organizationId: ctx.organizationId,
         resourceId: b.resourceId,
         log: ctx.log,
+        correlationId: ctx.correlationId,
       }),
     })),
   );

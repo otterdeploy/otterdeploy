@@ -36,6 +36,12 @@ import { systemContract } from "./routers/system/contract";
 import { terminalContract } from "./routers/terminal/contract";
 import { volumesContract } from "./routers/volumes/contract";
 import { webhooksContract } from "./routers/webhooks/contract";
+// Header a caller MAY set to continue an existing correlation (e.g. a CLI
+// command that issues several oRPC calls for one logical operation). Absent
+// (the common case — a browser tab has no reason to know about this), a
+// fresh id is minted per call.
+const CORRELATION_ID_HEADER = "x-otterdeploy-correlation-id";
+
 // Per-procedure evlog compliance trail. Handlers add target/domain fields.
 const traceProcedure = orpc
   .$context<Context>()
@@ -49,11 +55,17 @@ const traceProcedure = orpc
     const meta = orpcDef.meta as Record<string, unknown> | undefined;
     const route = orpcDef.route as { method?: string } | undefined;
     const isRead = isReadMethod(meta, route) ?? isReadAction(action);
+    // od-5j8.21: every oRPC call gets a correlation id — the column existed
+    // and the contract exposed it, but nothing ever set it (always null).
+    // Ties this call's audit row(s) to any async follow-on work (a BullMQ
+    // job, a builder-completion audit row) that a handler forwards it to.
+    const correlationId = context.headers.get(CORRELATION_ID_HEADER) || crypto.randomUUID();
     // Top-level fields keep the console/observability wide event informative.
     context.log.set({
       action,
       actor,
       context: { tenantId: context.activeOrganizationId },
+      correlationId,
     });
     // Fresh per invocation, and passed by reference so a handler's write is
     // visible here even if an inner middleware rebuilt the context object.
@@ -61,7 +73,7 @@ const traceProcedure = orpc
     const auditDraft: AuditDraft = {};
     const start = performance.now();
     try {
-      const result = await next({ context: { auditDraft } });
+      const result = await next({ context: { auditDraft, correlationId } });
       context.log.set({
         outcome: "success",
         durationMs: performance.now() - start,
@@ -74,6 +86,7 @@ const traceProcedure = orpc
           action,
           actor,
           outcome: "success",
+          correlationId,
           // Present only for handlers that recorded one; the rest keep the
           // column null rather than claiming an empty diff.
           ...(auditDraft.changes ? { changes: auditDraft.changes } : {}),
@@ -91,9 +104,9 @@ const traceProcedure = orpc
       // Always audit denials (even of a read — a blocked read is exactly
       // what auditors want); audit failures only for mutating actions.
       if (denied) {
-        context.log.audit?.deny(reason, { action, actor });
+        context.log.audit?.deny(reason, { action, actor, correlationId });
       } else if (!isRead) {
-        context.log.audit?.({ action, actor, outcome: "failure", reason });
+        context.log.audit?.({ action, actor, outcome: "failure", reason, correlationId });
       }
       throw error;
     }

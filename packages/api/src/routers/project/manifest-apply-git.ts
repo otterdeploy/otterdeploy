@@ -29,6 +29,9 @@ export async function enqueueGitBuild(args: {
   organizationId: OrganizationId;
   resourceId: ResourceId;
   log: RequestLogger;
+  /** od-5j8.21: the triggering oRPC call's correlation id, forwarded onto
+   *  the `deploy.triggered` job payload — see DeployTriggeredPayload. */
+  correlationId?: string;
 }): Promise<Result<{ deploymentId: string }, string>> {
   // Git binding lives on the SERVICE now — its own repo + branch, not the
   // project's. Registry/image are optional (the builder resolves them itself,
@@ -153,6 +156,7 @@ export async function enqueueGitBuild(args: {
         ref,
         sha,
         deploymentIds: [row.id],
+        correlationId: args.correlationId,
       }),
     catch: (cause) => (cause instanceof Error ? cause.message : String(cause)),
   });

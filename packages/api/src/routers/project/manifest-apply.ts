@@ -60,6 +60,7 @@ export interface ApplyInput {
   organizationId: OrganizationId;
   manifest: Manifest;
   log: ApplyContext["log"];
+  correlationId?: string;
 }
 
 // One reconcile at a time per project. Two concurrent applies (Deploy click +
@@ -84,11 +85,11 @@ export function applyManifest(input: ApplyInput): Promise<ApplyResult> {
 }
 
 async function runApply(input: ApplyInput): Promise<ApplyResult> {
-  const { projectId, organizationId, manifest, log } = input;
+  const { projectId, organizationId, manifest, log, correlationId } = input;
   // Load state inside the queue slot — a snapshot taken while a prior apply
   // was still running would re-plan (and re-provision) its work.
   const current = await loadCurrentState(projectId);
-  const ctx: ApplyContext = { projectId, organizationId, manifest, current, log };
+  const ctx: ApplyContext = { projectId, organizationId, manifest, current, log, correlationId };
   // Plan with the same ref resolver the router's diff endpoint uses, so what
   // the user previewed is what executes. This table predates the DB-create
   // phase on purpose: refs to a database created THIS apply stay unresolved in

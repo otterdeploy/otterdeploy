@@ -1,6 +1,7 @@
 import { matchError } from "better-result";
 
 import { recordSecretMapChanges } from "../../audit/changes";
+import { auditSensitiveRead } from "../../audit/sensitive-read";
 import { orgScopedProcedure, requirePermission } from "../../index";
 import {
   bulkReplaceProjectEnvVarsForOrg,
@@ -41,6 +42,19 @@ export const envVarRouter = {
     if (result.isErr()) {
       throw matchError(result.error, {
         ProjectNotFoundError: () => errors.NOT_FOUND(),
+      });
+    }
+    // od-5j8.21: `sealed` rows are masked to "" by `listProjectEnvVarsForOrg`
+    // (never a read-audit case — no value ever leaves), but a row that is
+    // `isSecret` and NOT sealed still returns its real plaintext value here.
+    // That is the most sensitive read left in this router — audit it, but
+    // only when it actually happened (a project with no unsealed secrets
+    // shouldn't get a row every time someone opens the env tab).
+    if (result.value.some((row) => row.isSecret && !row.sealed)) {
+      auditSensitiveRead(context, "project.envVar.list", {
+        type: "project",
+        id: input.projectId,
+        environmentId: input.environmentId,
       });
     }
     return result.value;
