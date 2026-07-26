@@ -21,6 +21,7 @@ import { registryRouter } from "./registry";
 import { serverRouter } from "./server";
 import { serviceRouter } from "./service";
 import { sshKeysRouter } from "./sshKeys";
+import { ssoRouter } from "./sso";
 import { systemRouter } from "./system";
 import { terminalRouter } from "./terminal";
 import { volumesRouter } from "./volumes";
@@ -34,6 +35,7 @@ export const appRouter = {
   compose: composeRouter,
   database: databaseRouter,
   deployment: deploymentRouter,
+  sso: ssoRouter,
   docker: dockerRouter,
   edgeLogs: edgeLogsRouter,
   env: envRouter,

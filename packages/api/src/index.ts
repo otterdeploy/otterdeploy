@@ -32,6 +32,7 @@ import { registryContract } from "./routers/registry/contract";
 import { serverContract } from "./routers/server/contract";
 import { serviceContract } from "./routers/service/contract";
 import { sshKeysContract } from "./routers/sshKeys/contract";
+import { ssoContract } from "./routers/sso/contract";
 import { systemContract } from "./routers/system/contract";
 import { terminalContract } from "./routers/terminal/contract";
 import { volumesContract } from "./routers/volumes/contract";
@@ -107,6 +108,7 @@ export const publicProcedure = implement({
   compose: composeContract,
   database: databaseContract,
   deployment: deploymentContract,
+  sso: ssoContract,
   docker: dockerContract,
   edgeLogs: edgeLogsContract,
   env: envContract,
