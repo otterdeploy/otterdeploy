@@ -179,20 +179,39 @@ services:
     profiles: ["edge"]
     restart: unless-stopped
     environment:
-      CADDY_ADMIN_BIND: unix/${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}/caddy-admin/admin.sock|0600
-      CADDY_ADMIN_SOCKET_PATH: ${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}/caddy-admin/admin.sock
-    command: >
-      sh -c "mkdir -p \"$${CADDY_ADMIN_SOCKET_PATH%/*}\" &&
-             rm -f \"$${CADDY_ADMIN_SOCKET_PATH}\" &&
-             caddy run --config /etc/caddy/Caddyfile --adapter caddyfile"
+      # DEV ONLY — TCP admin instead of the 0600 unix socket production uses.
+      #
+      # Why: the socket has to be bind-mounted from the host so the natively-run
+      # control plane can reach it, and Docker Desktop's file sharing rejects
+      # both chmod and unlink on a socket inside a bind mount (EINVAL /
+      # "Not supported"), so Caddy cannot bind it and restart-loops.
+      #
+      # SECURITY — this reopens what od-5j8.6 (P0) closed, and not partially.
+      # Docker can only publish a port the process bound on the container's
+      # external interface, so this must listen on 0.0.0.0; binding the
+      # container's loopback would make the published port unreachable. And
+      # ensureEdgeOnProjectNetworks() (packages/api/src/swarm/client.ts) attaches
+      # Caddy to EVERY managed project network on each reconcile, so once any
+      # workload is deployed, its containers can reach :2019 — an unauthenticated
+      # API that can rewrite the whole proxy config and read managed certs.
+      # Tolerable on a single-user dev laptop; NEVER set this in production,
+      # which keeps the socket on a named volume under /run where 0600 holds.
+      #
+      # The static Caddyfile still DEFAULTS to the unix socket
+      # (infra/caddy/config/Caddyfile, asserted by the od-5j8.6 security test) —
+      # this only overrides it for this compose file.
+      CADDY_ADMIN_BIND: ${CADDY_ADMIN_BIND:-0.0.0.0:2019}
+    command: caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
     ports:
       - "${CADDY_HTTP_PORT:-80}:80"
       - "${CADDY_HTTPS_PORT:-443}:443"
       - "${CADDY_HTTPS_PORT:-443}:443/udp"
       - "${CADDY_PG_PORT:-5432}:5432"
+      # Loopback-only on the host: never 0.0.0.0, or the admin API would be
+      # exposed to the LAN on top of the container-network exposure above.
+      - "127.0.0.1:${CADDY_ADMIN_HOST_PORT:-2019}:2019"
     volumes:
       - ./infra/caddy/config:/etc/caddy
-      - ${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}/caddy-admin:${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}/caddy-admin
       - otterdeploy-caddy-data:/data
       - otterdeploy-caddy-state:/config
       # Rolled access-log mirror the CrowdSec agent tails (read-only there).
@@ -200,7 +219,9 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
-      test: ["CMD-SHELL", "test -S \"$${CADDY_ADMIN_SOCKET_PATH}\""]
+      # Matches the TCP admin above. The socket probe (`test -S`) this replaces
+      # would never pass here, leaving the container permanently unhealthy.
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2019/config/"]
       interval: 10s
       timeout: 3s
       retries: 5

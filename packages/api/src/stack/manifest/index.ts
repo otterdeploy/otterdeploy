@@ -25,7 +25,7 @@ export {
   type BuildComposeConfig,
 } from "@otterdeploy/shared/build-config";
 
-// Identity helper for otterdeploy.config.ts authors — gives editor
+// Identity helper for otterdeploy.ts authors — gives editor
 // autocomplete + a tighter type than `satisfies Manifest` because the
 // inferred shape preserves the discriminator narrowing per resource.
 // At runtime it's a passthrough; validation happens at the CLI boundary

@@ -1,6 +1,6 @@
 {
   "name": "@otterdeploy/cli",
-  "version": "0.1.3",
+  "version": "0.7.0",
   "description": "Deploy and operate otterdeploy projects from the terminal.",
   "keywords": [
     "caddy",

@@ -1,6 +1,23 @@
 # Docker Compose stacks
 
-Status: **in progress** (Phase 1). Owner: platform.
+Status: **shipped** — all six phases below are built. Owner: platform.
+Last verified: 2026-07-26.
+
+Evidence, phase by phase: `resource_type` carries `compose` and `compose_resource` exists
+(1); `packages/api/src/stack/compose/{parse,normalize,to-spec}.ts` with tests (2);
+`apps/builder/src/compose-build.ts` → `runComposeBuild`, wired from `pipeline.ts` (3);
+`packages/api/src/swarm/compose.ts` plus `routers/compose/{deploy,reconcile,delete}.ts` (4);
+the wizard's compose step and `graph/compose-group-node.tsx`, with no `comingSoon` left (5);
+per-service exposure through the child's own settings, summarised read-only on the stack
+panel (6).
+
+One rule set after this document was written and worth carrying forward: public exposure for
+a stack's children is owned **solely** by the child service's Settings tab. Compose-file ports
+seed exposure on first apply only; afterwards the service record is the source of truth and
+reconciles must not wipe an imperative route change. Do not reintroduce a second writable
+exposure surface on the stack panel.
+
+Read the sections below as design background.
 
 Deploy a user-supplied `compose.yml` as a first-class resource — a **stack** of
 N services managed as one unit. Chosen over "explode into N independent service

@@ -4,12 +4,14 @@ import { resolve } from "node:path";
 
 import { createCliClient } from "../client";
 import { loadConfig, resolveToken, resolveUrl } from "../config";
-import { configExists, writeConfigTemplate } from "../config-file";
+import {
+  configExists,
+  JSON_CONFIG_FILENAME,
+  TS_CONFIG_FILENAME,
+  writeConfigTemplate,
+} from "../config-file";
 import { cmd } from "../lib/name";
 import { abort, ask, confirm, detail, dim, hint, note, ok, warn } from "../lib/ui";
-
-const TS_FILENAME = "otterdeploy.config.ts";
-const JSON_FILENAME = "otterdeploy.config.json";
 
 export const initCommand = defineCommand({
   meta: {
@@ -35,7 +37,7 @@ export const initCommand = defineCommand({
 
     const targetPath = args.config
       ? resolve(process.cwd(), args.config)
-      : resolve(process.cwd(), args.format === "ts" ? TS_FILENAME : JSON_FILENAME);
+      : resolve(process.cwd(), args.format === "ts" ? TS_CONFIG_FILENAME : JSON_CONFIG_FILENAME);
 
     const alreadyExists = args.config ? existsSync(targetPath) : configExists();
     if (alreadyExists && !args.yes) {

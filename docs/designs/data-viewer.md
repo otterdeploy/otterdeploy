@@ -1,9 +1,21 @@
 # Built-in Database Viewer
 
-**Status:** Design proposal (not yet implemented — no query/introspection backend exists; the
-`database` terminal source is declared but unwired)
+**Status:** Implemented (Postgres, Redis, MariaDB, MongoDB). Read below as design background,
+not as a plan.
 
-**Last verified:** 2026-06-07
+**What shipped:** `packages/api/src/routers/database/` — `query.ts` resolves a database
+resource to its running container and runs SQL there via `psql --csv` in a **read-only
+session** (`PGOPTIONS` sets `default_transaction_read_only=on`, so a write errors at the
+server rather than relying on the UI to prevent it). `redis.ts` / `mariadb.ts` / `mongo.ts`
+cover keyspace, rows and documents. Three separate permissions gate it: `database: read`
+(list), `database: query` (SQL), `database: write` (`execute`, `mutateRow` — the latter
+builds its statement from structured input, never client text). `execute` records the SQL on
+the request's wide event so the audit drain captures who ran what. UI lives in
+`apps/web/src/features/resources/components/{postgres,mariadb,mongo}/tabs/data/`.
+
+**Not covered:** ClickHouse.
+
+**Last verified:** 2026-07-26
 
 **TL;DR:** Give users a native, in-platform way to browse and edit the data in their deployed
 databases — no separate Drizzle Studio / TablePlus / `psql` process. Decision taken: **native**

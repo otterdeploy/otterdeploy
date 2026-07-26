@@ -4,6 +4,7 @@ import type { Id } from "@otterdeploy/shared/id";
 import { implement, os as orpc } from "@orpc/server";
 import { ID_PREFIX } from "@otterdeploy/shared/id";
 
+import type { AuditDraft } from "./audit/changes";
 import type { Context } from "./context";
 
 import { requireProjectScope } from "./authz/api-key-scope";
@@ -53,9 +54,13 @@ const traceProcedure = orpc
       actor,
       context: { tenantId: context.activeOrganizationId },
     });
+    // Fresh per invocation, and passed by reference so a handler's write is
+    // visible here even if an inner middleware rebuilt the context object.
+    // See audit/changes.ts for why it is a draft and not a plain field.
+    const auditDraft: AuditDraft = {};
     const start = performance.now();
     try {
-      const result = await next();
+      const result = await next({ context: { auditDraft } });
       context.log.set({
         outcome: "success",
         durationMs: performance.now() - start,
@@ -64,7 +69,14 @@ const traceProcedure = orpc
       // top-level `context.tenantId` set above (the pg drain reads it); request
       // meta (ip/ua/requestId) is filled into `audit.context` by auditEnricher.
       if (!isRead) {
-        context.log.audit?.({ action, actor, outcome: "success" });
+        context.log.audit?.({
+          action,
+          actor,
+          outcome: "success",
+          // Present only for handlers that recorded one; the rest keep the
+          // column null rather than claiming an empty diff.
+          ...(auditDraft.changes ? { changes: auditDraft.changes } : {}),
+        });
       }
       return result;
     } catch (error) {

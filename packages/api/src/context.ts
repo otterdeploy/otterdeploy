@@ -2,6 +2,7 @@ import type { OrganizationId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 import type { Context as HonoContext } from "hono";
 
+import type { AuditDraft } from "./audit/changes";
 import type { ApiKeyActor, ResolvedActor, SessionActor } from "./authz/actor";
 
 import { resolveRequestActor } from "./authz/actor";
@@ -23,6 +24,13 @@ export interface RequestContext {
   headers: Headers;
   log: RequestLogger;
   broadcast: (resource: string) => void;
+  /**
+   * Slot for a handler's before/after diff, injected per procedure invocation
+   * by `traceProcedure` — not by `createContext`, so it is never shared between
+   * two calls. Declared optional here so handler code compiles without
+   * depending on middleware type inference. See audit/changes.ts.
+   */
+  auditDraft?: AuditDraft;
 }
 
 export async function createContext({

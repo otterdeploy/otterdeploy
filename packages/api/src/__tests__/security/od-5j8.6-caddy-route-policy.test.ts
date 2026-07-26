@@ -1,3 +1,4 @@
+import { DEFAULT_ROUTE_POLICY, routePolicySchema } from "@otterdeploy/shared/route-policy";
 /**
  * od-5j8.6 — Caddy admin isolation + typed route policy.
  *
@@ -24,7 +25,6 @@ import { describe, expect, test } from "vite-plus/test";
 import type { ProxyRouteInput } from "../../caddy/builder";
 
 import { routeValidationError } from "../../caddy/route-validation";
-import { DEFAULT_ROUTE_POLICY, routePolicySchema } from "@otterdeploy/shared/route-policy";
 
 const repositoryRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), "../../../../..");
 
@@ -70,34 +70,46 @@ describe("[od-5j8.6] tenant upstream identities: hostile-path corpus", () => {
     // which is why route ownership must be enforced before this call, not by
     // this call.
     ["a raw Docker network alias with no otterdeploy- prefix", "victim-container"],
-    ["control-plane database internal name used as an HTTP upstream", "postgres.project-1.otterdeploy.internal"],
+    [
+      "control-plane database internal name used as an HTTP upstream",
+      "postgres.project-1.otterdeploy.internal",
+    ],
     ["empty string", ""],
     ["a full URL smuggled as a hostname", "http://127.0.0.1:2019"],
     ["command-injection-shaped host", "$(curl attacker.example)"],
-  ])("HTTP route: %s (%s) is rejected unless it matches the managed-service shape", (_label, upstreamHost) => {
-    const error = routeValidationError({ ...baseHttpRoute, upstreamHost });
-    if (upstreamHost === "otterdeploy-victim-svc") {
-      // Documented boundary case (see comment above): shape-valid but not
-      // this project's identity. Assert it's NOT rejected by this function
-      // alone, proving ownership must be enforced by the caller before
-      // reaching here (regression tripwire: if this starts failing, either
-      // the shape rule tightened in a way worth re-documenting, or ownership
-      // checking silently moved into this function and the comment is stale).
-      expect(error).toBeNull();
-      return;
-    }
-    expect(error).not.toBeNull();
-  });
+  ])(
+    "HTTP route: %s (%s) is rejected unless it matches the managed-service shape",
+    (_label, upstreamHost) => {
+      const error = routeValidationError({ ...baseHttpRoute, upstreamHost });
+      if (upstreamHost === "otterdeploy-victim-svc") {
+        // Documented boundary case (see comment above): shape-valid but not
+        // this project's identity. Assert it's NOT rejected by this function
+        // alone, proving ownership must be enforced by the caller before
+        // reaching here (regression tripwire: if this starts failing, either
+        // the shape rule tightened in a way worth re-documenting, or ownership
+        // checking silently moved into this function and the comment is stale).
+        expect(error).toBeNull();
+        return;
+      }
+      expect(error).not.toBeNull();
+    },
+  );
 
   test.each([
     ["loopback", "127.0.0.1"],
     ["private address", "10.0.0.5"],
     ["an HTTP service name used as a database upstream", "otterdeploy-app-abc123"],
-    ["wrong TLD suffix (typosquat of the internal zone)", "postgres.project-1.otterdeploy.internal.evil.com"],
+    [
+      "wrong TLD suffix (typosquat of the internal zone)",
+      "postgres.project-1.otterdeploy.internal.evil.com",
+    ],
     ["missing the internal suffix entirely", "postgres.project-1"],
-  ])("layer4 route: %s (%s) is rejected unless it matches the managed-database shape", (_label, upstreamHost) => {
-    expect(routeValidationError({ ...baseLayer4Route, upstreamHost })).not.toBeNull();
-  });
+  ])(
+    "layer4 route: %s (%s) is rejected unless it matches the managed-database shape",
+    (_label, upstreamHost) => {
+      expect(routeValidationError({ ...baseLayer4Route, upstreamHost })).not.toBeNull();
+    },
+  );
 
   test("the control-plane project may only target the literal server/host.docker.internal upstreams", () => {
     expect(
@@ -134,9 +146,12 @@ describe("[od-5j8.6] tenant upstream identities: hostile-path corpus", () => {
     expect(routeValidationError({ ...baseHttpRoute, domain })).not.toBeNull();
   });
 
-  test.each([0, -1, 65_536, 1.5, Number.NaN])("port %s is outside the valid TCP range", (upstreamPort) => {
-    expect(routeValidationError({ ...baseHttpRoute, upstreamPort })).not.toBeNull();
-  });
+  test.each([0, -1, 65_536, 1.5, Number.NaN])(
+    "port %s is outside the valid TCP range",
+    (upstreamPort) => {
+      expect(routeValidationError({ ...baseHttpRoute, upstreamPort })).not.toBeNull();
+    },
+  );
 
   test("protocol/ALPN fields cannot be mismatched across route types (protocol smuggling)", () => {
     expect(routeValidationError({ ...baseHttpRoute, protocol: "tcp" })).not.toBeNull();
@@ -185,22 +200,31 @@ describe("[od-5j8.6] the typed route policy is a closed allowlist — raw direct
   });
 
   test("maxRequestBodyMb is bounded — cannot be set to an unbounded or negative value", () => {
-    expect(routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, maxRequestBodyMb: -1 }).success).toBe(false);
-    expect(routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, maxRequestBodyMb: 0 }).success).toBe(false);
-    expect(routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, maxRequestBodyMb: 101 }).success).toBe(
-      false,
-    );
-    expect(routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, maxRequestBodyMb: 100 }).success).toBe(true);
+    expect(
+      routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, maxRequestBodyMb: -1 }).success,
+    ).toBe(false);
+    expect(
+      routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, maxRequestBodyMb: 0 }).success,
+    ).toBe(false);
+    expect(
+      routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, maxRequestBodyMb: 101 }).success,
+    ).toBe(false);
+    expect(
+      routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, maxRequestBodyMb: 100 }).success,
+    ).toBe(true);
   });
 
   test("compression/hsts/frameOptions/referrerPolicy are closed enums — no arbitrary directive string", () => {
     expect(
-      routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, compression: "brotli-with-backdoor" }).success,
+      routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, compression: "brotli-with-backdoor" })
+        .success,
     ).toBe(false);
-    expect(routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, hsts: "custom" }).success).toBe(false);
-    expect(routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, frameOptions: "allow-all" }).success).toBe(
+    expect(routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, hsts: "custom" }).success).toBe(
       false,
     );
+    expect(
+      routePolicySchema.safeParse({ ...DEFAULT_ROUTE_POLICY, frameOptions: "allow-all" }).success,
+    ).toBe(false);
   });
 });
 

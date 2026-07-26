@@ -8,10 +8,16 @@ import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { createAuditPgDrain } from "@otterdeploy/api/audit/pg-drain";
 import { createContext } from "@otterdeploy/api/context";
 import { appRouter } from "@otterdeploy/api/routers/index";
+import {
+  MIN_CLI_VERSION,
+  MIN_CLI_VERSION_HEADER,
+  SERVER_VERSION_HEADER,
+} from "@otterdeploy/api/routers/system/compat";
 import { bodyLimitMiddleware } from "@otterdeploy/api/security/body-limit";
 import { sanitizeForwardingHeaders } from "@otterdeploy/api/security/trusted-proxy";
 import { agentHealthIngestHandler } from "@otterdeploy/api/system-health";
 import { auth, getRegistrationMode } from "@otterdeploy/auth";
+import { BOOTSTRAP_TOKEN_HEADER } from "@otterdeploy/auth/registration-policy";
 import { env } from "@otterdeploy/env/server";
 import { workbenchQueues } from "@otterdeploy/jobs";
 import {
@@ -138,7 +144,12 @@ app.use(
   cors({
     origin: env.CORS_ORIGIN,
     allowMethods: ["GET", "POST", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization"],
+    // The bootstrap header MUST be listed: the web app and the API are separate
+    // origins (3001 vs 3000 in dev, and any split-origin deploy), so sign-up
+    // sends `x-otterdeploy-bootstrap-token` as a CORS-unsafe request header. Left
+    // out, the browser fails the preflight and the first-account form can never
+    // reach the server — the one flow with no alternative path in.
+    allowHeaders: ["Content-Type", "Authorization", BOOTSTRAP_TOKEN_HEADER],
     credentials: true,
   }),
 );
@@ -190,6 +201,23 @@ const rpcHandler = new RPCHandler(appRouter, {
   interceptors: [onError(logRpcError("rpc"))],
 });
 
+/**
+ * Announce this control plane's generation, and the oldest CLI it supports, on
+ * every RPC and OpenAPI response.
+ *
+ * The CLI reads these off the call it was already making and warns the user
+ * when the pair has drifted apart — see packages/api/src/routers/system/compat.ts
+ * for why release-time lockstep does not make that check redundant. Set on the
+ * response rather than served from an endpoint so it costs no round trip and
+ * needs no auth; browsers ignore it, and a CLI talking to an older server sees
+ * neither header and stays quiet.
+ */
+function withCompatHeaders(response: Response): Response {
+  response.headers.set(SERVER_VERSION_HEADER, env.OTTERDEPLOY_VERSION);
+  response.headers.set(MIN_CLI_VERSION_HEADER, MIN_CLI_VERSION);
+  return response;
+}
+
 app.use("/*", async (c, next) => {
   const context = await createContext({
     context: c,
@@ -202,7 +230,7 @@ app.use("/*", async (c, next) => {
   });
 
   if (rpcResult.matched) {
-    return c.newResponse(rpcResult.response.body, rpcResult.response);
+    return withCompatHeaders(c.newResponse(rpcResult.response.body, rpcResult.response));
   }
 
   const apiResult = await apiHandler.handle(c.req.raw, {
@@ -211,7 +239,7 @@ app.use("/*", async (c, next) => {
   });
 
   if (apiResult.matched) {
-    return c.newResponse(apiResult.response.body, apiResult.response);
+    return withCompatHeaders(c.newResponse(apiResult.response.body, apiResult.response));
   }
 
   await next();
@@ -232,9 +260,16 @@ app.get(
 // Liveness + version. `/health` is what the prod compose healthcheck probes;
 // `/api/health` (already auth-excluded) is what the browser polls to detect the
 // new container after a self-update cutover, then reloads. Reports the running
-// image tag so the updater UI can confirm the version actually changed.
-app.get("/health", (c) => c.json({ ok: true, version: env.OTTERDEPLOY_VERSION }));
-app.get("/api/health", (c) => c.json({ ok: true, version: env.OTTERDEPLOY_VERSION }));
+// image tag so the updater UI can confirm the version actually changed, and the
+// CLI floor alongside it so support can read both off one unauthenticated curl
+// without decoding an RPC response's headers.
+const healthPayload = {
+  ok: true,
+  version: env.OTTERDEPLOY_VERSION,
+  minCliVersion: MIN_CLI_VERSION,
+};
+app.get("/health", (c) => c.json(healthPayload));
+app.get("/api/health", (c) => c.json(healthPayload));
 
 // ─── Workbench: BullMQ dashboard (dev only) ────────────────────────
 // The queue-inspection UI (every registry queue, incl. the builder's

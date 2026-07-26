@@ -6,7 +6,7 @@ and the orthogonal CrowdSec layer (Caddy bouncer config + xcaddy plugin + Firewa
 enforcement needs a running CrowdSec agent + bouncer key (operator setup). The per-route
 `authPathPrefix` escape hatch (§6) and strict one-time-nonce enforcement (§8) are deferred.
 
-**Last verified:** 2026-06-10
+**Last verified:** 2026-07-26
 
 **TL;DR:** A per-deployment toggle that puts a login wall in front of a deployed app, so only
 members of the org that owns it can view it — Vercel's "Authenticating… / Vercel Authentication"

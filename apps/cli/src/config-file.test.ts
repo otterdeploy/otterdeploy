@@ -1,11 +1,18 @@
 import type { Manifest } from "@otterdeploy/api/manifest";
 
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 
-import { loadConfig, writeConfig } from "./config-file";
+import {
+  configExists,
+  configPath,
+  JSON_CONFIG_FILENAME,
+  loadConfig,
+  TS_CONFIG_FILENAME,
+  writeConfig,
+} from "./config-file";
 
 function tempConfig(name: string): { path: string; cleanup: () => void } {
   const dir = mkdtempSync(join(tmpdir(), "otter-cli-"));
@@ -29,7 +36,7 @@ const base: Manifest = {
 
 describe("writeConfig round-trip", () => {
   it("preserves compose stacks (regression: composes were dropped)", async () => {
-    const { path, cleanup } = tempConfig("otterdeploy.config.json");
+    const { path, cleanup } = tempConfig("otterdeploy.json");
     try {
       const withCompose: Manifest = {
         ...base,
@@ -49,7 +56,7 @@ describe("writeConfig round-trip", () => {
   });
 
   it("omits an empty composes map so older files stay byte-identical", async () => {
-    const { path, cleanup } = tempConfig("otterdeploy.config.json");
+    const { path, cleanup } = tempConfig("otterdeploy.json");
     try {
       writeConfig(base, path);
       const raw = await Bun.file(path).text();
@@ -63,7 +70,7 @@ describe("writeConfig round-trip", () => {
   });
 
   it("rejects an invalid resource name before writing (no corrupt file)", async () => {
-    const { path, cleanup } = tempConfig("otterdeploy.config.json");
+    const { path, cleanup } = tempConfig("otterdeploy.json");
     try {
       const bad = {
         ...base,
@@ -79,7 +86,7 @@ describe("writeConfig round-trip", () => {
   });
 
   it("preserves environment overrides", async () => {
-    const { path, cleanup } = tempConfig("otterdeploy.config.json");
+    const { path, cleanup } = tempConfig("otterdeploy.json");
     try {
       const withEnv: Manifest = {
         ...base,
@@ -88,6 +95,54 @@ describe("writeConfig round-trip", () => {
       writeConfig(withEnv, path);
       const reloaded = await loadConfig(path);
       expect(reloaded.environments?.production?.services?.web).toMatchObject({ replicas: 3 });
+    } finally {
+      cleanup();
+    }
+  });
+});
+
+// `.config.` was dropped from the filename in 0.8. Resolution order is the only
+// thing keeping a repo written by an earlier CLI working, and nothing else in
+// the suite would notice if an entry were dropped from the basename list or
+// reordered — the failure mode is "No config at …" on a repo that has one.
+describe("config filename resolution", () => {
+  function tempDir(): { dir: string; cleanup: () => void } {
+    const dir = mkdtempSync(join(tmpdir(), "otter-cli-names-"));
+    return { dir, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
+  }
+
+  it("scaffolds the short names", () => {
+    expect(JSON_CONFIG_FILENAME).toBe("otterdeploy.json");
+    expect(TS_CONFIG_FILENAME).toBe("otterdeploy.ts");
+  });
+
+  it("still resolves a legacy otterdeploy.config.json", () => {
+    const { dir, cleanup } = tempDir();
+    try {
+      writeFileSync(join(dir, "otterdeploy.config.json"), "{}");
+      expect(configExists(undefined, dir)).toBe(true);
+      expect(configPath(undefined, dir)).toBe(join(dir, "otterdeploy.config.json"));
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("prefers the current name when both spellings are present", () => {
+    const { dir, cleanup } = tempDir();
+    try {
+      writeFileSync(join(dir, "otterdeploy.config.json"), "{}");
+      writeFileSync(join(dir, "otterdeploy.json"), "{}");
+      expect(configPath(undefined, dir)).toBe(join(dir, "otterdeploy.json"));
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("falls back to the json default in an empty directory", () => {
+    const { dir, cleanup } = tempDir();
+    try {
+      expect(configExists(undefined, dir)).toBe(false);
+      expect(configPath(undefined, dir)).toBe(join(dir, "otterdeploy.json"));
     } finally {
       cleanup();
     }

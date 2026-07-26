@@ -20,6 +20,7 @@ import { ORPCError } from "@orpc/client";
 import * as z from "zod";
 
 import { clearToken, tokenSource } from "../config";
+import { reportCompatWarning } from "./compat";
 import { cmd } from "./name";
 import { abort, dim, err, line, warn } from "./ui";
 
@@ -98,6 +99,12 @@ export function formatCliError(error: unknown): FriendlyError {
 }
 
 function printAndExit(error: unknown): never {
+  // Before the failure, not after: a CLI/server version gap is frequently the
+  // CAUSE of the error below (a procedure the old server never had reads as a
+  // bare NOT_FOUND), so it belongs as context above it — and `abort` exits the
+  // process, so anything printed afterwards would never run.
+  reportCompatWarning();
+
   const { message, hints, details } = formatCliError(error);
   // Details precede the hints: facts first, then what to do about them. They go
   // to stderr with the failure so `--json` stdout stays clean.
@@ -136,6 +143,9 @@ function withBoundary(run: RunFn): RunFn {
         printAndExit(retryError);
       }
     }
+    // Trailing the command's own output, where a non-fatal note belongs. Idempotent,
+    // so the failure path above having already spoken keeps this one silent.
+    reportCompatWarning();
   };
 }
 

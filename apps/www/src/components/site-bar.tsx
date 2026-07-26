@@ -3,6 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { useRouterState } from "@tanstack/react-router";
 
 import { Wordmark } from "@/components/brand/otterdeploy-mark";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { GITHUB_URL } from "@/components/landing/content";
 
 /**
@@ -56,15 +57,18 @@ export function SiteBar() {
           })}
         </nav>
 
-        <a
-          href={GITHUB_URL}
-          target="_blank"
-          rel="noreferrer"
-          aria-label="otterdeploy on GitHub"
-          className="ml-auto grid size-8 place-items-center rounded-md text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-        >
-          <HugeiconsIcon icon={GithubIcon} className="size-[18px]" />
-        </a>
+        <div className="ml-auto flex items-center gap-1">
+          <ThemeToggle />
+          <a
+            href={GITHUB_URL}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="otterdeploy on GitHub"
+            className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            <HugeiconsIcon icon={GithubIcon} className="size-[18px]" />
+          </a>
+        </div>
       </div>
     </header>
   );

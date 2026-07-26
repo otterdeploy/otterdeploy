@@ -157,6 +157,36 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
       },
     ],
   },
+  {
+    // The outbound connections a deployment runs on: where code is pulled from,
+    // where images are pulled from, and the keys used to reach both plus the
+    // swarm nodes. These lived in Settings → Workspace, which framed them as
+    // one-time configuration; they are operating surfaces you return to
+    // (connect a repo, add a registry, rotate a key), so they belong in the
+    // shell next to the things they serve. API keys stayed behind: that is
+    // programmatic access to otterdeploy itself, not something a deploy uses.
+    label: "Workspace",
+    items: [
+      {
+        title: "Git providers",
+        to: "/$orgSlug/git-providers",
+        icon: GitBranchIcon,
+        keywords: ["github", "gitlab", "gitea", "bitbucket", "source", "repo", "connection"],
+      },
+      {
+        title: "Registries",
+        to: "/$orgSlug/registries",
+        icon: Database02Icon,
+        keywords: ["docker", "image", "ghcr", "ecr", "pull", "credentials"],
+      },
+      {
+        title: "SSH keys",
+        to: "/$orgSlug/ssh-keys",
+        icon: Key01Icon,
+        keywords: ["deploy key", "git", "node", "credentials", "keypair"],
+      },
+    ],
+  },
 ];
 
 /**
@@ -233,29 +263,14 @@ export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
         icon: UserMultipleIcon,
         keywords: ["members", "invite"],
       },
-      {
-        title: "Git providers",
-        to: "/$orgSlug/settings/workspace/git-providers",
-        icon: GitBranchIcon,
-        keywords: ["github", "source"],
-      },
+      // Git providers, Registries and SSH keys moved to the operational
+      // sidebar's Workspace group — see OPERATIONAL_NAV above. The settings
+      // paths remain as redirect shims, so old bookmarks still land.
       {
         title: "API keys",
         to: "/$orgSlug/settings/workspace/api-keys",
         icon: Key02Icon,
         keywords: ["tokens", "access"],
-      },
-      {
-        title: "SSH keys",
-        to: "/$orgSlug/settings/workspace/ssh-keys",
-        icon: Key01Icon,
-        keywords: ["deploy key", "git", "node"],
-      },
-      {
-        title: "Registries",
-        to: "/$orgSlug/settings/workspace/registries",
-        icon: Database02Icon,
-        keywords: ["docker", "image"],
       },
       {
         title: "Webhooks",

@@ -21,6 +21,7 @@ import { Result } from "better-result";
 import { and, asc, desc, eq, gt, isNotNull, sql } from "drizzle-orm";
 import { log } from "evlog";
 
+import { createAuthAuditHook } from "./audit";
 import { ac, roles } from "./permissions";
 import { BOOTSTRAP_TOKEN_HEADER, decideRegistration } from "./registration-policy";
 import { resolveCanonicalWebOrigin } from "./web-origin";
@@ -220,8 +221,24 @@ export const auth = betterAuth({
       },
     },
     ipAddress: {
-      ipAddressHeaders: ["cf-connecting-ip"], // Cloudflare specific header example
+      // The control plane sits behind Caddy, which forwards the caller in
+      // `x-forwarded-for` — so `cf-connecting-ip` (a leftover example) resolved
+      // to no IP at all here, leaving rate-limit buckets and audit rows blind.
+      //
+      // Trusting this header is only safe because `sanitizeForwardingHeaders`
+      // runs as the very first middleware (apps/server/src/index.ts) and
+      // DELETES `x-forwarded-for` unless the immediate TCP peer is in
+      // TRUSTED_PROXIES. A direct caller therefore cannot choose the IP that
+      // gets rate-limited or written to the audit trail; it just records none.
+      // See packages/api/src/security/trusted-proxy.ts.
+      ipAddressHeaders: ["x-forwarded-for"],
     },
+  },
+
+  // Durable audit rows for the identity surface: better-auth owns these routes,
+  // so the oRPC audit middleware never sees them. See ./audit-policy.ts.
+  hooks: {
+    after: createAuthAuditHook({ resolveOrganizationId: resolveActiveOrganizationId }),
   },
   databaseHooks: {
     user: {

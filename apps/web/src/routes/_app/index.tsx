@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_app/")({
     const search = location.search as { git_install?: "ok" | "error"; reason?: string };
     if (search.git_install) {
       throw redirect({
-        to: "/$orgSlug/settings/workspace/git-providers",
+        to: "/$orgSlug/git-providers",
         params: { orgSlug: context.activeOrgSlug },
         search: { git_install: search.git_install, reason: search.reason },
       });

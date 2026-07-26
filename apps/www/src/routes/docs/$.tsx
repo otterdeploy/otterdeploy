@@ -129,6 +129,9 @@ function Page() {
         {...baseOptions()}
         tree={page.pageTree}
         sidebar={{ banner: <DocsVersion /> }}
+        // The site bar above already carries a theme toggle. Fumadocs draws its
+        // own at the foot of the sidebar, so a docs page showed two.
+        themeSwitch={{ enabled: false }}
       >
         {page.type === "openapi" ? (
           <DocsPage full>

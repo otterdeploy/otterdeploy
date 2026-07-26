@@ -50,8 +50,15 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Brand tokens — copied verbatim from apps/web/src/index.css (warm-neutral
-   mono palette) so the marketing site and dashboard read as one product.
+   Brand tokens — from apps/web/src/index.css (warm-neutral mono palette) so
+   the marketing site and dashboard read as one product.
+
+   One deliberate divergence: `--muted-foreground`. The dashboard's #7a7a74
+   measures 4.17:1 on the light canvas and 4.11:1 on a dark card — under the
+   4.5:1 floor DESIGN.md sets for body copy in BOTH themes. This site is mostly
+   prose in that colour, so it ships a compliant pair (4.87:1 light, 5.75:1 on
+   dark surfaces). The dashboard's own token is unchanged; fixing it there is a
+   separate pass.
    ───────────────────────────────────────────────────────────────────────── */
 :root {
   --background: #fbfbfa;
@@ -65,7 +72,7 @@
   --secondary: rgba(20, 20, 18, 0.04);
   --secondary-foreground: #141412;
   --muted: rgba(20, 20, 18, 0.04);
-  --muted-foreground: #7a7a74;
+  --muted-foreground: #706f6a;
   --accent: rgba(20, 20, 18, 0.04);
   --accent-foreground: #141412;
   --destructive: #b42318;
@@ -97,7 +104,7 @@
   --secondary: rgba(20, 20, 18, 0.04);
   --secondary-foreground: #141412;
   --muted: rgba(20, 20, 18, 0.04);
-  --muted-foreground: #7a7a74;
+  --muted-foreground: #706f6a;
   --accent: rgba(20, 20, 18, 0.04);
   --accent-foreground: #141412;
   --destructive: #b42318;
@@ -125,7 +132,7 @@
   --secondary: rgba(255, 255, 250, 0.04);
   --secondary-foreground: #f5f5f0;
   --muted: rgba(255, 255, 250, 0.04);
-  --muted-foreground: #7a7a72;
+  --muted-foreground: #93938b;
   --accent: rgba(255, 255, 250, 0.04);
   --accent-foreground: #f5f5f0;
   --destructive: #f87171;
@@ -198,20 +205,11 @@ html > body[data-scroll-locked] {
    "ink" band, and the mark's travelling arc.
    ───────────────────────────────────────────────────────────────────────── */
 
-/* Muted body text on the landing page.
-
-   The shared `--muted-foreground` (#7a7a74) measures 4.17:1 on the light
-   canvas and 4.11:1 on a dark card — under the 4.5:1 floor DESIGN.md sets for
-   body copy in both themes. The landing page is mostly prose set in that
-   colour, so it scopes a compliant pair: 4.87:1 light, 5.75:1 on dark cards.
-   The dashboard's own tokens are unchanged; fixing them is a separate pass. */
-.od-landing {
-  --muted-foreground: #706f6a;
-  /* The brighter cut of Signal Blue the dashboard uses for active/pending
-     marks. `--primary` is tuned to sit under near-white button text; as a 6px
-     dot on a near-black surface it disappears, so status marks use this. */
-  --od-accent: oklch(0.546 0.245 262.881);
-}
+/* `--od-accent` — the brighter cut of Signal Blue used for links, marks and
+   the active nav item — is defined globally further down, with the docs
+   chrome. The inverted scopes below re-declare it because they change surface
+   without changing theme, and `--muted-foreground` with them: an inverted band
+   sits on a different surface than the theme it inherits. */
 .dark .od-landing,
 .od-landing .od-ink {
   --muted-foreground: #93938b;
@@ -411,4 +409,177 @@ html > body[data-scroll-locked] {
     animation: none;
     background: color-mix(in oklab, var(--comet-color) 55%, transparent);
   }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Docs chrome.
+
+   Fumadocs bakes its styling into utility classes, so the rules below are
+   higher-specificity (id / attribute) overrides that bring the docs in line
+   with DESIGN.md. Each one is here because the default broke a named rule:
+
+   - The sidebar shipped on `--color-fd-card`, a second panel tone. DESIGN.md:
+     "Sidebar: shares the canvas background — not a separate panel tone."
+   - Callouts and cards shipped with `shadow-md` at rest. DESIGN.md:
+     flat by default; shadows mean "floating above the page".
+   - `--color-fd-primary` resolved to the dark button cut of Signal Blue, so
+     links and the active TOC entry measured ~2.2:1 on the dark canvas. That's
+     a contrast failure, not a taste call.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* The accent used for links, the active nav item and focus rings. `--primary`
+   is tuned to sit UNDER near-white button text; as text on the canvas it needs
+   the brighter cut the dashboard uses for active marks. */
+:root {
+  --od-accent: oklch(0.546 0.245 262.881);
+}
+.dark {
+  --od-accent: oklch(0.623 0.214 259.815);
+}
+:root {
+  --color-fd-primary: var(--od-accent);
+  --color-fd-ring: var(--od-accent);
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────────
+   One surface with the page, separated by a hairline rather than a tone. */
+#nd-sidebar,
+#nd-sidebar > div {
+  background-color: var(--background);
+}
+#nd-sidebar {
+  border-color: var(--border);
+}
+
+/* Full-width, edge-to-edge rows: drop the viewport's own inline padding so the
+   row dividers reach both edges. */
+#nd-sidebar [data-radix-scroll-area-viewport] {
+  padding-inline: 0 !important;
+  padding-top: 0 !important;
+}
+
+#nd-sidebar [data-radix-scroll-area-viewport] > div > a,
+#nd-sidebar [data-radix-scroll-area-viewport] > div > button {
+  width: 100%;
+  gap: 0.75rem;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 0.8rem 1.25rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+
+#nd-sidebar [data-radix-scroll-area-viewport] > div > a > svg:first-child,
+#nd-sidebar [data-radix-scroll-area-viewport] > div > button > svg:first-child {
+  width: 1rem;
+  height: 1rem;
+  color: var(--muted-foreground);
+}
+
+/* Active row: a tonal tint plus full-ink text. The blue is spent on the marker
+   in the content, not on painting a whole row (The One Voice Rule). */
+#nd-sidebar a[data-active="true"] {
+  background-color: color-mix(in oklab, var(--foreground) 6%, transparent);
+  color: var(--foreground);
+  font-weight: 500;
+}
+#nd-sidebar a[data-active="true"] svg {
+  color: var(--foreground);
+}
+#nd-sidebar [data-radix-scroll-area-viewport] > div > a[data-active="false"]:hover,
+#nd-sidebar [data-radix-scroll-area-viewport] > div > button:hover {
+  background-color: color-mix(in oklab, var(--foreground) 4%, transparent);
+}
+
+#nd-sidebar [data-radix-scroll-area-viewport] > div > button > svg:last-child {
+  margin-inline-start: auto;
+}
+
+/* Nested sub-pages: indented, quieter, no divider of their own. */
+#nd-sidebar [data-radix-scroll-area-viewport] [data-state] a {
+  padding-block: 0.4rem;
+  padding-inline-start: 2.9rem;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+#nd-sidebar [data-radix-scroll-area-viewport] [data-state] a[data-active="true"] {
+  font-weight: 500;
+  color: var(--foreground);
+  background-color: color-mix(in oklab, var(--foreground) 6%, transparent);
+}
+
+/* Search trigger → a bordered row that matches the stack. */
+#nd-sidebar [data-search-full] {
+  width: 100%;
+  border-radius: 0;
+  border-width: 0 0 1px 0;
+  border-color: var(--border);
+  background-color: transparent;
+  padding-inline: 1.25rem;
+}
+
+/* ── Flat by default ─────────────────────────────────────────────────────
+   Fumadocs puts a resting shadow on callouts, cards and code blocks. Every
+   one of these is a surface on the page, not a layer floating above it. */
+#nd-page .shadow-md,
+#nd-page .shadow-lg,
+#nd-page .shadow-sm,
+#nd-page [class*="shadow-"] {
+  box-shadow: none;
+}
+
+/* ── Cards ───────────────────────────────────────────────────────────────
+   Hairline ring, no decoration. The previous rule painted a dotted corner
+   grid into every card — a borrowed flourish, and the exact "identical icon
+   card grid" tell DESIGN.md names as an anti-reference. */
+#nd-page a[class*="bg-fd-card"] {
+  border-radius: var(--radius);
+  border-color: var(--border);
+  background-color: var(--card);
+  padding: 1rem 1.125rem;
+  transition: background-color 200ms ease;
+}
+#nd-page a[class*="bg-fd-card"]:hover {
+  background-color: color-mix(in oklab, var(--foreground) 4%, var(--card));
+}
+
+/* ── Code ────────────────────────────────────────────────────────────────
+   Machine-readable text gets the mono cut with slashed zero. */
+#nd-page pre,
+#nd-page code {
+  font-feature-settings: "zero", "ss03";
+}
+#nd-page figure[data-rehype-pretty-code-figure],
+#nd-page pre {
+  border-radius: var(--radius);
+}
+
+/* ── Tables ──────────────────────────────────────────────────────────────
+   Hairline rules, a tonal header, no heavy grid. */
+#nd-page table {
+  font-size: 0.875rem;
+}
+#nd-page thead {
+  background-color: color-mix(in oklab, var(--foreground) 3%, transparent);
+}
+#nd-page th,
+#nd-page td {
+  border-color: var(--border);
+}
+
+/* ── Table of contents ───────────────────────────────────────────────────
+   Quiet by default; the current entry is weight plus the accent marker, never
+   a filled pill. */
+#nd-toc a {
+  color: var(--muted-foreground);
+  transition: color 200ms ease;
+}
+#nd-toc a:hover {
+  color: var(--foreground);
+}
+#nd-toc a[data-active="true"] {
+  color: var(--foreground);
+  font-weight: 500;
 }

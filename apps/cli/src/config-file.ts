@@ -2,10 +2,10 @@
  * Load + write the user's config file.
  *
  * Two on-disk formats are accepted:
- *   - otterdeploy.config.ts   — exports default a Manifest (usually via
- *                                defineConfig()). Loaded via dynamic import
- *                                (Bun handles TS natively).
- *   - otterdeploy.config.json — plain JSON. Read with node:fs (Bun + Node).
+ *   - otterdeploy.ts   — exports default a Manifest (usually via
+ *                        defineConfig()). Loaded via dynamic import
+ *                        (Bun handles TS natively).
+ *   - otterdeploy.json — plain JSON. Read with node:fs (Bun + Node).
  *
  * Either way, the loaded value is validated against manifestSchema and
  * shipped on the wire as JSON via the existing manifest.* contract.
@@ -28,13 +28,30 @@ const canImportTs =
 // .json is the default format. .ts is supported for users who want
 // type-checked authoring + env-var interpolation; .json is preferred
 // when both are present (rare; usually only one exists).
-const DEFAULT_CONFIG_BASENAMES = ["otterdeploy.config.json", "otterdeploy.config.ts"] as const;
-const DEFAULT_CONFIG_FILENAME = DEFAULT_CONFIG_BASENAMES[0];
+//
+// The `.config.` infix was dropped in 0.8: the file is the project definition,
+// not tool configuration, and `otterdeploy.json` reads as the manifest it is.
+// The old names are still resolved so a repo written by an earlier CLI keeps
+// working. `init` only ever scaffolds the current names; `writeConfig` writes
+// back to whichever file `configPath` resolved, so `add`/`pull` on a legacy
+// repo update that file in place rather than silently renaming a tracked file
+// out from under the user. Renaming is theirs to do.
+const CURRENT_CONFIG_BASENAMES = ["otterdeploy.json", "otterdeploy.ts"] as const;
+const LEGACY_CONFIG_BASENAMES = ["otterdeploy.config.json", "otterdeploy.config.ts"] as const;
+const DEFAULT_CONFIG_BASENAMES = [
+  ...CURRENT_CONFIG_BASENAMES,
+  ...LEGACY_CONFIG_BASENAMES,
+] as const;
+const DEFAULT_CONFIG_FILENAME = CURRENT_CONFIG_BASENAMES[0];
+
+/** The names `init` scaffolds. Exported so there is one spelling of each. */
+export const JSON_CONFIG_FILENAME = CURRENT_CONFIG_BASENAMES[0];
+export const TS_CONFIG_FILENAME = CURRENT_CONFIG_BASENAMES[1];
 
 // Resolve to a concrete on-disk path:
 //   - explicit --config wins
-//   - else first default that exists wins
-//   - else falls back to the .ts default (most relevant for fresh init)
+//   - else first default that exists wins (current names before legacy ones)
+//   - else falls back to the .json default (most relevant for fresh init)
 export function configPath(override?: string, cwd = process.cwd()): string {
   if (override) return resolve(cwd, override);
   for (const name of DEFAULT_CONFIG_BASENAMES) {
@@ -71,7 +88,7 @@ export async function loadConfig(override?: string): Promise<Manifest> {
   if (ext !== ".json" && !canImportTs) {
     throw new LoadConfigError({
       path,
-      message: `Loading ${path} needs TypeScript support — run under Bun (or Node ≥22), or use otterdeploy.config.json.`,
+      message: `Loading ${path} needs TypeScript support — run under Bun (or Node ≥22), or use ${DEFAULT_CONFIG_FILENAME}.`,
     });
   }
 

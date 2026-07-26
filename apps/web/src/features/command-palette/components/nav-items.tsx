@@ -103,14 +103,20 @@ const toEntry = (item: NavManifestItem): NavEntry => ({
 });
 
 // Org-scoped destinations, grouped + ordered to match the operational
-// sidebar. The unlabeled top group renders under "Workspace" and also picks
+// sidebar. The unlabeled top group renders under "General" and also picks
 // up PALETTE_EXTRA_NAV — creation paths (Templates, od-u63.2) that aren't
 // sidebar slots but still need to be reachable from the palette. Folded into
 // the same group (rather than a second one) so `heading` stays a unique
 // React key across ORG_NAV_GROUPS.
+//
+// This fallback was "Workspace" until OPERATIONAL_NAV gained a group actually
+// labelled "Workspace" (git providers / registries / SSH keys). Two groups
+// resolving to the same heading is a duplicate React key AND two identical
+// headings in the palette, so the fallback must not collide with any real
+// group label — keep it a name no manifest group uses.
 export const ORG_NAV_GROUPS: readonly { heading: string; items: readonly NavEntry[] }[] = [
   ...OPERATIONAL_NAV.map((group, i) => ({
-    heading: group.label ?? "Workspace",
+    heading: group.label ?? "General",
     items: [...group.items.map(toEntry), ...(i === 0 ? PALETTE_EXTRA_NAV.map(toEntry) : [])],
   })),
   // Settings-zone destinations, one palette group per rail group, so
