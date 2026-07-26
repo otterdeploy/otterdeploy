@@ -22,6 +22,7 @@
 import { type FrameworkKind } from "@otterdeploy/shared/framework";
 import { Result } from "better-result";
 
+import { ghFetch } from "../../git/github-app";
 import {
   collectWorkspaceGlobs,
   COMMITTED_ENV_FILES,
@@ -182,7 +183,7 @@ export async function listRepoBranches(
 
   for (let page = 1; page <= BRANCH_PAGE_CAP; page++) {
     const url = `https://api.github.com/repos/${binding.owner}/${binding.repo}/branches?per_page=100&page=${page}`;
-    const res = await fetch(url, { headers });
+    const res = await ghFetch(url, { headers });
     const body = await res.text();
 
     if (isRateLimited(res, body)) {

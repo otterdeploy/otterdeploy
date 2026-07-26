@@ -34,7 +34,7 @@ import { db } from "@otterdeploy/db";
 import { gitProvider } from "@otterdeploy/db/schema";
 import { and, eq } from "drizzle-orm";
 
-import { encryptSecret } from "../lib/crypto";
+import { encryptForDomain } from "../lib/crypto";
 import { apiBaseUrlForHost, ghFetch } from "./github-app";
 
 type OrgId = OrganizationId;
@@ -192,9 +192,9 @@ export async function completeManifestExchange(opts: {
   const json = (await res.json()) as ManifestConversionResponse;
 
   const [clientSecretCt, webhookSecretCt, privateKeyCt] = await Promise.all([
-    encryptSecret(json.client_secret),
-    encryptSecret(json.webhook_secret),
-    encryptSecret(json.pem),
+    encryptForDomain(json.client_secret, "git-secrets"),
+    encryptForDomain(json.webhook_secret, "git-secrets"),
+    encryptForDomain(json.pem, "git-secrets"),
   ]);
 
   // Upsert by (orgId, kind=github) — the unique index. An org has at

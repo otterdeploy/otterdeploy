@@ -50,7 +50,13 @@ const GITHUB_MAX_RESPONSE_BYTES = 10 * 1024 * 1024;
 export async function ghFetch(
   url: string,
   init: { method?: string; headers?: Record<string, string>; body?: string } = {},
-): Promise<{ ok: boolean; status: number; text(): Promise<string>; json(): Promise<unknown> }> {
+): Promise<{
+  ok: boolean;
+  status: number;
+  headers: { get(name: string): string | null };
+  text(): Promise<string>;
+  json(): Promise<unknown>;
+}> {
   const denylist = await controlPlaneEgressDenylist();
   try {
     return await egressFetch(url, init, {
