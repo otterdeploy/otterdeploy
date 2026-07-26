@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>otterdeploy — logo concepts</title>
+    <style>
+      @font-face {
+        font-family: "Geist";
+        src: url("./fonts/geist.woff2") format("woff2-variations");
+        font-weight: 100 900;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "Geist Mono";
+        src: url("./fonts/geist-mono.woff2") format("woff2-variations");
+        font-weight: 100 900;
+        font-display: swap;
+      }
+
+      :root {
+        --ink: #141412;
+        --ink-inverse: #f5f5f0;
+        --muted: #7a7a74;
+        --canvas: #fbfbfa;
+        --surface: #ffffff;
+        --hairline: rgba(20, 20, 18, 0.09);
+        --accent: #1d4ed8;
+
+        --canvas-dark: #0c0c0b;
+        --surface-dark: #161614;
+        --hairline-dark: rgba(255, 255, 250, 0.08);
+        --accent-dark: #3b82f6;
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        font-family: "Geist", ui-sans-serif, system-ui, sans-serif;
+        font-feature-settings: "cv11", "ss01";
+        letter-spacing: -0.005em;
+        font-size: 15px;
+        background: var(--canvas);
+        color: var(--ink);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .mono {
+        font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-feature-settings: "zero", "ss03";
+        font-size: 0.8125rem;
+      }
+
+      /* Two surface contexts. `.on-light` / `.on-dark` set the ink the marks
+         inherit via currentColor plus the accent cut appropriate to the theme. */
+      .on-light { background: var(--surface); color: var(--ink); --brand-accent: var(--accent); }
+      .on-dark  { background: var(--surface-dark); color: var(--ink-inverse); --brand-accent: var(--accent-dark); }
+      .on-ink   { background: var(--ink); color: var(--ink-inverse); --brand-accent: var(--accent-dark); }
+      .on-accent{ background: var(--accent); color: var(--ink-inverse); --brand-accent: var(--ink-inverse); }
+
+      header {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 64px 32px 40px;
+      }
+      h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+      }
+      header p {
+        margin-top: 10px;
+        max-width: 68ch;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        color: var(--muted);
+      }
+
+      main { max-width: 1180px; margin: 0 auto; padding: 0 32px 96px; }
+
+      .concept {
+        border-radius: 0.625rem;
+        box-shadow: inset 0 0 0 1px var(--hairline);
+        background: var(--surface);
+        margin-bottom: 24px;
+        overflow: hidden;
+      }
+
+      .concept-head {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        padding: 16px 16px 12px;
+      }
+      .concept-head h2 { font-size: 1.125rem; font-weight: 600; letter-spacing: -0.015em; }
+      .concept-head .tagline { font-size: 0.8rem; color: var(--muted); }
+      .concept-head .id {
+        margin-left: auto;
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-feature-settings: "zero", "ss03";
+        font-size: 0.75rem;
+        color: var(--muted);
+      }
+      .rationale {
+        padding: 0 16px 16px;
+        max-width: 78ch;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        color: var(--muted);
+      }
+
+      /* Side-by-side light and dark specimen panes. */
+      .panes { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--hairline); }
+      .pane { padding: 24px 20px; }
+      .pane + .pane { border-left: 1px solid var(--hairline); }
+      .on-dark.pane + .pane, .pane + .on-dark.pane { border-left-color: var(--hairline-dark); }
+
+      .hero { display: flex; align-items: center; gap: 24px; }
+
+      /* Size ladder — the real test. If it dies at 16px it is not a favicon. */
+      .ladder { display: flex; align-items: flex-end; gap: 18px; margin-top: 24px; }
+      .rung { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+      .rung span {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-feature-settings: "zero", "ss03";
+        font-size: 0.6875rem;
+        opacity: 0.45;
+      }
+      .rung .slot { display: grid; place-items: center; height: 48px; }
+
+      .lockup { display: flex; align-items: center; gap: 10px; }
+      .lockup .word { font-size: 1.0625rem; font-weight: 600; letter-spacing: -0.025em; }
+      .lockup.small .word { font-size: 0.875rem; letter-spacing: -0.02em; }
+
+      .divider { height: 1px; background: currentColor; opacity: 0.09; margin: 24px 0; }
+
+      /* Mock chrome: how the mark actually shows up in the product. */
+      .mocks { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+
+      .tab {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 30px;
+        padding: 0 12px 0 10px;
+        border-radius: 8px 8px 0 0;
+        background: rgba(127, 127, 122, 0.14);
+        font-size: 0.75rem;
+        max-width: 190px;
+      }
+      .tab .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+      .sidebar {
+        width: 200px;
+        border-radius: 0.5rem;
+        box-shadow: inset 0 0 0 1px currentColor;
+        --tw-ring-opacity: 0.1;
+        padding: 10px;
+      }
+      .sidebar { box-shadow: inset 0 0 0 1px rgb(from currentColor r g b / 0.1); }
+      .sidebar .row {
+        display: flex; align-items: center; gap: 8px;
+        height: 28px; padding: 0 8px; border-radius: 0.5rem;
+        font-size: 0.8rem; font-weight: 500; opacity: 0.55;
+      }
+      .sidebar .row.active { opacity: 1; color: var(--brand-accent); background: rgb(from currentColor r g b / 0.06); }
+      .sidebar .brand { display: flex; align-items: center; gap: 8px; padding: 4px 8px 12px; }
+      .sidebar .brand .word { font-size: 0.8125rem; font-weight: 600; letter-spacing: -0.02em; }
+
+      .appicon {
+        display: grid; place-items: center;
+        width: 64px; height: 64px;
+        border-radius: 14px;
+        box-shadow: inset 0 0 0 1px rgb(from currentColor r g b / 0.1);
+      }
+
+      .caption {
+        font-family: "Geist Mono", ui-monospace, monospace;
+        font-feature-settings: "zero", "ss03";
+        font-size: 0.6875rem;
+        opacity: 0.45;
+        margin-bottom: 10px;
+        text-transform: lowercase;
+      }
+
+      footer {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 0 32px 96px;
+        font-size: 0.875rem;
+        line-height: 1.6;
+        color: var(--muted);
+      }
+      footer strong { color: var(--ink); font-weight: 500; }
+
+      @media (max-width: 900px) {
+        .panes { grid-template-columns: 1fr; }
+        .pane + .pane { border-left: none; border-top: 1px solid var(--hairline); }
+      }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <h1>otterdeploy — logo concepts</h1>
+      <p>
+        Five directions, each held to DESIGN.md: warm-neutral ink (never pure black), one Signal Blue and
+        nothing else chromatic, the same <code class="mono">rounded-lg</code> geometry the product's cards and
+        nodes already use. Every mark is drawn on a 32×32 grid, so what you see at 16px is exactly what the
+        favicon will be. Judge them at 16px first — that is where marks die.
+      </p>
+    </header>
+
+    <main id="concepts"></main>
+
+    <footer>
+      <p>
+        Pick one (or one to refine) and the full kit gets generated from it:
+        <strong>favicon.svg + .ico + PNG set</strong>, <strong>apple-touch-icon</strong>,
+        <strong>maskable PWA icons</strong>, <strong>OG/social card</strong>, a
+        <strong>&lt;Logo /&gt; React component</strong> to replace the placeholder <code class="mono">os</code>
+        tile in <code class="mono">auth-layout.tsx</code>, and monochrome + horizontal-lockup variants.
+      </p>
+    </footer>
+
+    <script type="module">
+      import { marks, renderMark } from "./marks.js";
+
+      const SIZES = [48, 32, 24, 16];
+
+      /** One specimen pane — the mark on a single surface, at every scale that matters. */
+      function pane(id, surface, label) {
+        const m = marks[id];
+        return `
+          <div class="pane ${surface}">
+            <div class="caption">${label}</div>
+
+            <div class="hero">
+              ${renderMark(id, 96)}
+              <div style="display:flex;flex-direction:column;gap:14px">
+                <div class="lockup">${renderMark(id, 26)}<span class="word">otterdeploy</span></div>
+                <div class="lockup small">${renderMark(id, 18)}<span class="word">otterdeploy</span></div>
+              </div>
+            </div>
+
+            <div class="ladder">
+              ${SIZES.map(
+                (s) => `<div class="rung"><div class="slot">${renderMark(id, s)}</div><span>${s}</span></div>`,
+              ).join("")}
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="mocks">
+              <div>
+                <div class="caption">browser tab</div>
+                <div class="tab">${renderMark(id, 16)}<span class="label">otterdeploy — storefront</span></div>
+              </div>
+              <div>
+                <div class="caption">app icon</div>
+                <div class="appicon">${renderMark(id, 38)}</div>
+              </div>
+              <div>
+                <div class="caption">sidebar</div>
+                <div class="sidebar">
+                  <div class="brand">${renderMark(id, 20)}<span class="word">otterdeploy</span></div>
+                  <div class="row active">Projects</div>
+                  <div class="row">Servers</div>
+                  <div class="row">Settings</div>
+                </div>
+              </div>
+            </div>
+          </div>`;
+      }
+
+      document.getElementById("concepts").innerHTML = Object.entries(marks)
+        .map(
+          ([id, m]) => `
+          <section class="concept">
+            <div class="concept-head">
+              <h2>${m.name}</h2>
+              <span class="tagline">${m.tagline}</span>
+              <span class="id">${id}</span>
+            </div>
+            <p class="rationale">${m.rationale}</p>
+            <div class="panes">
+              ${pane(id, "on-light", "light surface")}
+              ${pane(id, "on-dark", "dark surface")}
+            </div>
+          </section>`,
+        )
+        .join("");
+    </script>
+  </body>
+</html>

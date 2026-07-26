@@ -8,12 +8,7 @@ import type { SVGProps } from "react";
  * colours on any tile regardless of the surrounding text colour.
  */
 const Hono = (props: SVGProps<SVGSVGElement>) => (
-  <svg
-    {...props}
-    role="img"
-    viewBox="0 0 76 98"
-    xmlns="http://www.w3.org/2000/svg"
-  >
+  <svg {...props} role="img" viewBox="0 0 76 98" xmlns="http://www.w3.org/2000/svg">
     <title>Hono</title>
     <path
       fill="url(#hono-flame-gradient)"

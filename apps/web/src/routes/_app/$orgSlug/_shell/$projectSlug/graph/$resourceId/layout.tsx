@@ -3,13 +3,14 @@
  * live resource collection, then dispatches to the right detail panel —
  * database / service / not-found.
  *
- * AnimatePresence drives the deployment overlay's enter/exit when the
- * `/deployment/$deploymentId` child route mounts. The outer motion.div
- * is keyed by resourceId so navigating between resources slides the
- * whole panel rather than mutating in place.
+ * The drawer this renders into (and the close animation) belongs to the PARENT
+ * graph layout — see `../-components/panel-shell`. This route only owns the
+ * panel's contents, which is what lets the drawer slide in on click while this
+ * route's chunk and queries are still resolving.
+ *
+ * AnimatePresence here drives only the deployment overlay's enter/exit when the
+ * `/deployment/$deploymentId` child route mounts.
  */
-
-import { useState } from "react";
 
 import {
   createFileRoute,
@@ -17,41 +18,57 @@ import {
   useChildMatches,
   useLoaderData,
 } from "@tanstack/react-router";
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import { eq, useLiveQuery } from "@tanstack/react-db";
-import { useQuery } from "@tanstack/react-query";
+import * as z from "zod";
 
-import { useReactFlow } from "@xyflow/react";
-
-import * as m from "motion/react-client";
 import { AnimatePresence } from "motion/react";
 
-import { ResourcePanelSkeleton } from "@/features/resources/components/_shared/panel-skeleton";
 import { resourceCollection } from "@/features/resources/data/resource";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-import {
-  ComposeResourcePanel,
-  NotFound,
-  type PostgresBodyProps,
-  RealResourcePanel,
-  ServiceResourcePanel,
-} from "@/features/resources/components";
+import { GraphPanelPending, useGraphPanelClose } from "../-components/panel-shell";
+import { ResourcePanel } from "./-components/resource-panel";
+
+// Which panel tab is open. The URL owns this, so a tab is reloadable,
+// shareable and reachable by back/forward — and the graph node context menu's
+// "Delete" can route straight to `tab: "settings"` to land on the danger-zone
+// confirm. Untyped against each panel's own tab union (they differ per kind);
+// an unrecognized value falls back to that panel's default — see
+// _shared/panel-tab.ts. The nested deployment overlay deliberately uses a
+// separate `deploymentTab` key so the two can never overwrite each other.
+const resourceSearchSchema = z.object({
+  tab: z.string().optional(),
+});
 
 export const Route = createFileRoute(
   "/_app/$orgSlug/_shell/$projectSlug/graph/$resourceId",
 )({
   staticData: { crumb: "Resource" },
   component: RouteComponent,
-  // NON-BLOCKING warm of the slow `service.get` runtime view. It MUST NOT await:
-  // awaiting puts the route into its pending state, which renders a separate
-  // frame BEFORE the panel's own AnimatePresence drawer mounts — so the drawer
-  // slid in from the side a second time after the skeleton flashed. Read the
+  validateSearch: resourceSearchSchema,
+  // A cold panel has two real waits: this route's code-split chunk (the panel
+  // tree is big — terminal, data studio, logs) and the slow `service.get`
+  // runtime view. Neither may hold the drawer back, so:
+  //   - pendingMs 0 → the router commits the match on the next tick instead of
+  //     waiting 150ms, so the parent's AnimatePresence mounts the drawer and it
+  //     begins sliding in immediately.
+  //   - pendingMinMs 0 → drops the router's 500ms *minimum* pending display, so
+  //     a warm click swaps straight to real content with no skeleton flash.
+  //   - pendingComponent → the panel-shaped skeleton, rendered INSIDE the
+  //     already-open drawer (the shell lives in the parent route).
+  // Together these replace the old behaviour: a >=650ms window whose only
+  // feedback was the global RoutePending spinner tucked into the canvas corner,
+  // after which the panel finally animated in.
+  pendingMs: 0,
+  pendingMinMs: 0,
+  pendingComponent: GraphPanelPending,
+  // NON-BLOCKING warm of the slow `service.get` runtime view. Read the
   // already-loaded collection synchronously and let the prefetch float, so the
-  // panel mounts (and animates) exactly once and populates in place as the
-  // query resolves. Best-effort: a cold collection or failed inspect just means
-  // the panel does its own fetch on mount, as before.
-  loader: ({ params,  }) => {
+  // panel renders its header/status from the collection row and fills in the
+  // runtime bits as the query resolves — rather than sitting on the skeleton
+  // until `service.get` returns. Best-effort: a cold collection or failed
+  // inspect just means the panel does its own fetch on mount, as before.
+  loader: ({ params }) => {
     const resource = resourceCollection.toArray.find(
       (r) => r.resourceId === params.resourceId || `${r.type}:${r.name}` === params.resourceId,
     );
@@ -70,80 +87,21 @@ export const Route = createFileRoute(
   },
 });
 
-type ManifestData = Awaited<ReturnType<typeof orpc.project.manifest.get.call>>;
-
-// Synthetic "draft" service from the manifest entry — enough to render the
-// panel; resourceId is empty because no resource row exists yet (pending mode
-// never calls resource-scoped APIs). Returns null unless `resourceId` is a
-// staged `service:<name>` ghost whose spec is present in the manifest.
-function draftServiceFromManifest(
-  manifestData: ManifestData | undefined,
-  resourceId: string,
-  pendingName: string,
-  projectId: ProjectId,
-) {
-  if (!resourceId.startsWith("service:")) return null;
-  const spec = manifestData?.manifest?.services?.[pendingName];
-  if (!spec) return null;
-  return {
-    // Pending draft: no resource row exists yet, so there's no ResourceId.
-    // The empty sentinel is safe — pending mode never calls resource-scoped
-    // APIs (see the panel's `pending` short-circuits).
-    resourceId: "" as ResourceId,
-    projectId,
-    name: pendingName,
-    image: spec.source === "image" ? spec.image : "Pending build",
-    source: spec.source,
-    replicas: spec.replicas ?? 1,
-    status: "draft",
-    publicEnabled: false,
-    publicDomain: null,
-    extraEnv: spec.env ?? {},
-    secretKeys: [],
-    buildConfig: spec.source === "git" ? spec.build : undefined,
-  };
-}
-
-// Staged database create → the REAL database panel in pending mode. Only the
-// fields the pending tab bodies read are real; runtime/credential fields are
-// unused while pending, so the draft is cast to the full resource view.
-function draftDatabaseFromManifest(
-  manifestData: ManifestData | undefined,
-  resourceId: string,
-  pendingName: string,
-  projectId: string,
-): PostgresBodyProps["resource"] | null {
-  if (!resourceId.startsWith("database:")) return null;
-  const spec = manifestData?.manifest?.databases?.[pendingName];
-  if (!spec) return null;
-  return {
-    resourceId: "",
-    projectId,
-    name: pendingName,
-    type: "database",
-    status: "draft",
-    engine: spec.engine,
-    publicEnabled: spec.publicEnabled ?? false,
-    extraEnv: spec.extraEnv ?? {},
-    secretKeys: [],
-    extensions: spec.engine === "postgres" ? (spec.extensions ?? []) : [],
-  } as unknown as PostgresBodyProps["resource"];
-}
-
 function RouteComponent() {
   const { orgSlug, projectSlug, resourceId } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
+  // The open tab lives in the URL (see resourceSearchSchema above). Each panel
+  // validates it against its own tab union and falls back to its default.
+  const { tab } = Route.useSearch();
   const navigate = Route.useNavigate();
-  // Drives the slide-OUT. Closing the panel navigates away, which makes
-  // TanStack's <Outlet> render null immediately — so the unmount-time `exit`
-  // animation has nothing left to animate and the panel just vanishes. Instead
-  // we animate to x:"100%" on `closing`, then navigate once that finishes (see
-  // onAnimationComplete on the drawer below).
-  const [closing, setClosing] = useState(false);
-  // Same ReactFlow instance the canvas uses (shared provider) — lets close
-  // pan the graph back to the overview AT THE SAME TIME the panel slides out,
-  // instead of after the route change (which now waits for the slide-out).
-  const { fitView } = useReactFlow();
+  // `replace` so flipping through tabs doesn't stack history entries — Back
+  // from a panel should return to the graph, not walk the tabs you looked at.
+  // Same choice the deployment overlay's own tab makes.
+  const onTabChange = (next: string) =>
+    void navigate({ search: (prev) => ({ ...prev, tab: next }), replace: true });
+  // Owned by the parent's drawer: animates the slide-out and pans the camera
+  // back before the route change lands.
+  const close = useGraphPanelClose();
   // Key the inner Outlet by the active child match so AnimatePresence
   // sees the deployment overlay come and go. Without this the same
   // <Outlet /> element renders for every navigation and the exit never
@@ -156,7 +114,7 @@ function RouteComponent() {
   // or `${kind}:${name}` (a staged-create ghost, and the URL that lingers
   // across the ghost→applied handover — same collection GraphCanvas loads, so
   // no extra fetch).
-  const { data: resources } = useLiveQuery(
+  const { data: resources, isLoading: resourcesLoading } = useLiveQuery(
     (q) =>
       q
         .from({ r: resourceCollection })
@@ -170,147 +128,25 @@ function RouteComponent() {
         r.resourceId === resourceId || `${r.type}:${r.name}` === resourceId,
     ) ?? null;
 
-  // No applied resource → this is a staged-create ghost. Read its full spec
-  // from the manifest (cached) so the panel can edit it. Both staged services
-  // and staged databases render their *real* panels in pending mode (editable
-  // env / extensions / settings via the manifest, runtime tabs disabled).
-  // Applied resources never read `manifest.data`, so skip the fetch entirely —
-  // otherwise every detail-drawer open paid for a manifest round-trip it threw
-  // away.
-  const manifest = useQuery(
-    orpc.project.manifest.get.queryOptions({
-      input: { id: project.id },
-      enabled: !resource,
-    }),
-  );
-  const pendingName = resourceId.includes(":")
-    ? resourceId.slice(resourceId.indexOf(":") + 1)
-    : resourceId;
-
-  // Both staged services and staged databases render their *real* panels in
-  // pending mode (editable env / extensions / settings via the manifest,
-  // runtime tabs disabled). An applied resource short-circuits to null — the
-  // draft only exists for a staged-create ghost.
-  const draftService = resource
-    ? null
-    : draftServiceFromManifest(
-        manifest.data,
-        resourceId,
-        pendingName,
-        project.id,
-      );
-  const draftDatabase = resource
-    ? null
-    : draftDatabaseFromManifest(
-        manifest.data,
-        resourceId,
-        pendingName,
-        project.id,
-      );
-
-  // Framework brand mark for the drawer header tile — same value the graph
-  // node uses, read straight off the stored resource record (detected at build
-  // time). No git-API call when the panel opens.
-  const serviceFramework =
-    resource && resource.type === "service"
-      ? (resource.framework ?? null)
-      : null;
-
-  const close = () => {
-    setClosing(true);
-    // Pan back to the wide overview in lockstep with the slide-out (same 400ms
-    // as the drawer spring settle). The route-change refit in useDetailPanelRefit
-    // still fires when navigation lands, but by then the camera is already
-    // there, so it's a no-op — no second, delayed pan.
-    void fitView({ padding: 0.2, duration: 400 });
-  };
-
-  const panel = () => {
-    if (resource && resource.type === "database") {
-      return (
-        <RealResourcePanel
-          resource={resource}
-          projectName={project.name}
-          orgSlug={orgSlug}
-          projectSlug={projectSlug}
-          onClose={close}
-        />
-      );
-    }
-    if (resource && resource.type === "service") {
-      return (
-        <ServiceResourcePanel
-          resource={resource}
-          framework={serviceFramework}
-          orgSlug={orgSlug}
-          projectSlug={projectSlug}
-          onClose={close}
-        />
-      );
-    }
-    if (resource && resource.type === "compose") {
-      return (
-        <ComposeResourcePanel
-          resource={resource}
-          orgSlug={orgSlug}
-          projectSlug={projectSlug}
-          onClose={close}
-        />
-      );
-    }
-    if (draftService) {
-      return (
-        <ServiceResourcePanel
-          resource={draftService}
-          framework={null}
-          orgSlug={orgSlug}
-          projectSlug={projectSlug}
-          onClose={close}
-          pending
-        />
-      );
-    }
-    if (draftDatabase) {
-      return (
-        <RealResourcePanel
-          resource={draftDatabase}
-          projectName={project.name}
-          orgSlug={orgSlug}
-          projectSlug={projectSlug}
-          onClose={close}
-          pending
-          dbName={pendingName}
-        />
-      );
-    }
-    // Manifest still loading for a staged ghost — show a skeleton so the drawer
-    // never slides in blank (rather than flashing "not found").
-    if (!resource && manifest.isLoading) return <ResourcePanelSkeleton />;
-    return <NotFound id={resourceId} onClose={close} />;
-  };
-
   return (
-    <m.div
-      key={resourceId}
-      initial={{ x: "100%" }}
-      animate={{ x: closing ? "100%" : 0 }}
-      exit={{ x: "100%" }}
-      transition={{ type: "spring", stiffness: 320, damping: 32 }}
-      onAnimationComplete={() => {
-        // Only the close (slide-out) animation navigates; the mount slide-in
-        // completes with closing=false and is a no-op. By now the drawer is
-        // fully off-screen, so the route unmount is invisible.
-        if (closing) void navigate({ to: "/$orgSlug/$projectSlug/graph" });
-      }}
-      className="pointer-events-auto relative h-full w-full bg-card rounded-lg rounded-tr-none border border-r-0 border-border lg:w-4/5 xl:w-3/5"
-    >
-      {panel()}
+    <>
+      <ResourcePanel
+        resource={resource}
+        resourceId={resourceId}
+        resourcesLoading={resourcesLoading}
+        project={project}
+        orgSlug={orgSlug}
+        projectSlug={projectSlug}
+        tab={tab}
+        onTabChange={onTabChange}
+        onClose={close}
+      />
 
       <AnimatePresence mode="wait">
         <div className="contents" key={deploymentKey}>
-        <Outlet />
+          <Outlet />
         </div>
       </AnimatePresence>
-    </m.div>
+    </>
   );
 }

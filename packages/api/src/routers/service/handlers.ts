@@ -17,6 +17,7 @@ import { reconcile } from "../../caddy";
 import { deleteProxyRoutesByResource } from "../../caddy/queries";
 import { PLATFORM } from "../../constants";
 import { runtime } from "../../runtime";
+import { insertDeployment, markDeploymentFailed } from "../project/deployments";
 import { removeServiceFromManifest } from "../project/manifest";
 import { loadProject, loadResource } from "./context";
 import {
@@ -45,7 +46,7 @@ import {
   updateServiceRecord,
   type ServiceRecord,
 } from "./queries";
-import { provisionFresh, redeployAndFanOut } from "./redeploy";
+import { provisionFresh, redeployAndFanOut, settleCreateDeployment } from "./redeploy";
 import { reclaimServiceHostArtifacts } from "./teardown";
 import {
   isUniqueViolation,
@@ -162,9 +163,41 @@ export async function createService(
     throw error;
   }
 
+  // Image-sourced creates deploy right here (no build) — record the deployment
+  // BEFORE provisioning so the ledger has a row for it (history, logs anchor,
+  // rollback anchor) and buildSwarmSpec stamps its id onto the container's
+  // labels. Git/upload creates skip this: their row is inserted by the build
+  // enqueue (manifest-apply-git / upload-source) when the build actually starts.
+  // Compose stacks don't pass through here (reconcileStackServices owns its
+  // own per-service rows). The image is prebuilt/pulled — nothing compiles —
+  // so the row starts at "pending", not "building".
+  const deploysNow = !record.service.image.startsWith("pending:");
+  const deploymentRow = deploysNow
+    ? await insertDeployment({
+        resourceId: record.service.resourceId,
+        image: record.service.image,
+        reason: "create",
+        status: "pending",
+        snapshot: { image: record.service.image, source },
+      })
+    : null;
+
   const provisioned = await provisionFresh(input.projectId, record, projectSlug, log);
-  if (provisioned.isErr()) return Result.err(provisioned.error);
+  if (provisioned.isErr()) {
+    if (deploymentRow) {
+      await markDeploymentFailed(deploymentRow.id, provisioned.error.message).catch(
+        () => undefined,
+      );
+    }
+    return Result.err(provisioned.error);
+  }
   const runtime = provisioned.value;
+  await settleCreateDeployment(
+    deploymentRow?.id ?? null,
+    record.service.resourceId,
+    runtime.status,
+    runtime.errorMessage,
+  );
   log.set({ provision: { service: serviceName, status: runtime.status } });
 
   const refreshed = await getServiceRecord(input.projectId, record.service.resourceId);

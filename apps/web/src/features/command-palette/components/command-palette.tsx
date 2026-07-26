@@ -28,6 +28,7 @@ import {
   CommandShortcut,
 } from "@/shared/components/ui/command";
 import { Kbd, KbdGroup } from "@/shared/components/ui/kbd";
+import { useIsOverlayOpen } from "@/shared/hooks/use-is-overlay-open";
 
 import { useCommandPalette } from "../hooks/use-command-palette";
 import { useProjectNavHotkeys } from "../hooks/use-project-nav-hotkeys";
@@ -121,8 +122,13 @@ export function CommandPalette() {
     });
 
   // Global keyboard shortcuts. `ignoreInputs` defaults to true for single keys
-  // and sequences, so these don't fire while the user is typing in any input.
-  useHotkey("D", goNewResource);
+  // and sequences, so these don't fire while the user is typing in a text
+  // field — but that alone doesn't cover focus sitting on a non-input element
+  // inside an open dialog (a card, a tab, the dialog body), so also disable
+  // while any dialog is open (`useIsOverlayOpen`) to stop a stray keystroke
+  // from popping this dialog open on top of / navigating away from another.
+  const overlayOpen = useIsOverlayOpen();
+  useHotkey("D", goNewResource, { enabled: !overlayOpen });
   useProjectNavHotkeys(goProject);
 
   const inProject = Boolean(orgSlug && projectSlug);

@@ -112,6 +112,18 @@ export async function runBuildPipeline(opts: {
 /** The build sequence as a Result flow — each `yield*` unwraps an Ok value or
  *  short-circuits the whole flow with its tagged error. Returns the immutable
  *  `:<sha>` image tag the deployment now points at. */
+/**
+ * The preview may have been torn down (idle reaper / manual / PR close) while
+ * this build ran. Rolling now would recreate containers for a closed preview
+ * with no routes — an orphan nothing reaps, so the roll is skipped instead.
+ */
+async function previewClosedDuringBuild(
+  previewId: Parameters<typeof isPreviewActive>[0] | null,
+): Promise<boolean> {
+  if (!previewId) return false;
+  return !(await isPreviewActive(previewId));
+}
+
 function runBuildSteps(
   opts: { deploymentId: DeploymentId; publisher: RedisClient },
   sink: LogSink,
@@ -257,19 +269,13 @@ function runBuildSteps(
     // build and are only persisted on the base row.
     const previewScope = await loadPreviewScope(ctx.deployment.previewId);
     const isPreview = previewScope != null;
-    // The preview may have been torn down (idle reaper / manual / PR close)
-    // while this build ran. Rolling now would recreate containers for a closed
-    // preview with no routes — an orphan nothing reaps. Bail before the roll.
-    if (isPreview && ctx.deployment.previewId) {
-      const stillOpen = await isPreviewActive(ctx.deployment.previewId);
-      if (!stillOpen) {
-        return Result.err(
-          new BuildStepError({
-            step: "preview-closed",
-            cause: new Error("preview was torn down during the build; skipping rollout"),
-          }),
-        );
-      }
+    if (await previewClosedDuringBuild(ctx.deployment.previewId)) {
+      return Result.err(
+        new BuildStepError({
+          step: "preview-closed",
+          cause: new Error("preview was torn down during the build; skipping rollout"),
+        }),
+      );
     }
     if (!isPreview) {
       yield* await step("set-image", () =>

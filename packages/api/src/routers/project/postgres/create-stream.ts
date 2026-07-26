@@ -101,6 +101,9 @@ export async function* createPostgresResourceStream(
     /** Database engine to provision. Default is postgres for back-compat
      *  with callers that haven't plumbed the param through yet. */
     engine?: DatabaseEngine;
+    /** Image tag the operator picked (wizard version / manifest `version`).
+     *  Omitted → the engine's catalog default tag. */
+    version?: string;
     publicEnabled?: boolean;
     /** Pre-minted password from the stage-time draft. When set, the provision
      *  reuses it so the credentials the operator saw pre-deploy stay valid.
@@ -139,9 +142,15 @@ export async function* createPostgresResourceStream(
 
   yield* streamBootLogsStage(ctx);
 
-  const isApplied = yield* publishAndReconcileStage(input.projectId, created.resource.id, ctx, log);
+  yield* publishAndReconcileStage(input.projectId, created.resource.id, ctx, log);
 
-  await updateDatabaseResourceStatus(created.resource.id, isApplied ? "valid" : "invalid");
+  // The resource is valid when its CONTAINER came up — same rule services use
+  // (provision outcome stamps the status). The Caddy reconcile above is an
+  // edge concern: it fails routinely in dev (no proxy running) and covers
+  // routes the database may not even have (internal-only DBs), so keying
+  // resource.status off it left healthy databases stamped "invalid" forever.
+  const status = provisioned.healthy ? "valid" : "invalid";
+  await updateDatabaseResourceStatus(created.resource.id, status);
 
   // ── Done: ship the mapped resource so the wizard can route ───────────
   const mapped = await mapDatabaseResource(
@@ -149,7 +158,7 @@ export async function* createPostgresResourceStream(
       ...created,
       resource: {
         ...created.resource,
-        status: isApplied ? "valid" : "invalid",
+        status,
       },
     },
     ctx.project.slug,

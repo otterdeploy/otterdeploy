@@ -130,8 +130,18 @@ function aggregateTasks(tasks: Task[], swarmIdToHostname: Map<string, string>): 
   return { perHostname, projectTaskCount, clusterRunning };
 }
 
-/** Resolve slug → friendly name for the cluster pills. Shared by both runtimes. */
-async function clusterProjectPills(
+/** Resolve slug → friendly name for the cluster pills. Shared by both runtimes.
+ *
+ * Task/container labels are the Docker daemon's memory, not the platform's —
+ * a project deleted from the DB (or a pre-nuke install's leftovers) can leave
+ * a still-running container/task stamped `otterdeploy.project=<old-slug>`
+ * behind. Reconciling against the DB here (rather than falling back to the
+ * raw slug as a display name) is what keeps a resource like that from
+ * surfacing as a ghost "store" filter chip that resolves nothing (od-1kc.4).
+ * The task itself still counts toward the cluster-wide `tasksRunning` total —
+ * only the per-project pill (and its filter) is dropped. */
+/** Exported for unit tests only. */
+export async function clusterProjectPills(
   organizationId: OrgId,
   projectTaskCount: Map<string, number>,
 ): Promise<ServerClusterStats["projects"]> {
@@ -145,6 +155,7 @@ async function clusterProjectPills(
           .where(and(eq(project.organizationId, organizationId), inArray(project.slug, slugs)));
   const slugToName = new Map(rows.map((r) => [r.slug, r.name]));
   return [...projectTaskCount.entries()]
+    .filter(([slug]) => slugToName.has(slug))
     .map(([slug, tasksRunning]) => ({ slug, name: slugToName.get(slug) ?? slug, tasksRunning }))
     .sort((a, b) => b.tasksRunning - a.tasksRunning);
 }

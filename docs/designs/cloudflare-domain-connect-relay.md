@@ -1,6 +1,13 @@
 # Cloudflare Domain Connect — SaaS-as-Relay
 
 Status: **not started**. Prereqs (ops + Cloudflare approval) gate the work.
+Last verified: 2026-07-26.
+
+Scope note, so this isn't read as "no Cloudflare support": the **relay** described here — the
+one-click, no-token Domain Connect flow — is unbuilt. Cloudflare via an API token **is**
+shipped: `organization.cloudflareListZones`, `setCloudflareConfig`,
+`autoConfigureBaseDomain` and `autoConfigureControlPlaneDomain` create the DNS records for
+you once a token is saved.
 This doc is the implementation plan; pick it up when prereqs land.
 
 ## What we're building

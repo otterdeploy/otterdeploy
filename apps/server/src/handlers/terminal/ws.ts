@@ -1,11 +1,15 @@
+import type { TerminalTicketClaims } from "@otterdeploy/api/routers/terminal/tickets";
 import type { ServerWebSocket } from "bun";
 import type { Context, MiddlewareHandler } from "hono";
 import type { WSEvents } from "hono/ws";
 
+import { recordTerminalShellAudit } from "@otterdeploy/api/audit/terminal";
+import { consumeTerminalTicket } from "@otterdeploy/api/routers/terminal/tickets";
+import { env } from "@otterdeploy/env/server";
 import { log } from "evlog";
 import { upgradeWebSocket } from "hono/bun";
 
-import { authorizePty, type PtyActor } from "./auth";
+import { isTrustedOrigin } from "./origin";
 import {
   decodeClientMessage,
   type PtyBackend,
@@ -18,27 +22,45 @@ import {
 } from "./pty";
 
 // ---------------------------------------------------------------------------
-// WebSocket handler — wired by index.ts:
-//   app.get("/pty", terminalWebSocketHandler);
-// Auth + authorization run BEFORE the upgrade (see ./auth): a denial is a
-// plain HTTP 401/403 and no socket ever opens. The post-upgrade wire protocol
-// is unchanged.
+// WebSocket handler — wired by index.ts: app.get("/pty", terminalWebSocketHandler);
+//
+// od-5j8.9 redesign. The upgrade no longer authenticates from ambient
+// cookies/bearer tokens at all — it:
+//   1. Validates Origin against the configured control-plane origin(s)
+//      (kills cross-site WebSocket hijacking outright — see ./origin.ts).
+//   2. Consumes a single-use ticket (`?ticket=…`, minted by the authenticated,
+//      step-up-verified `terminal.mintTicket` oRPC call — see
+//      packages/api/src/routers/terminal/{index,tickets,authorize}.ts). The
+//      ticket already carries the authorized target; the upgrade no longer
+//      accepts a client-supplied `?container=`/`?host=1` at all, so there is
+//      nothing left for a client to substitute.
+// A denial at either step is a plain HTTP 401/403 — the socket never opens
+// and no backend is spawned.
 // ---------------------------------------------------------------------------
 
-// Resolve the target up front. Exactly one of `?container=` or `?host=1`
-// must be present — never both, never neither.
-function parseTarget(c: Context): Target | null {
-  const containerId = c.req.query("container") || null;
-  const hostFlag = c.req.query("host") === "1";
-
-  return containerId ? { kind: "container", id: containerId } : hostFlag ? { kind: "host" } : null;
+/** First X-Forwarded-For hop, or null when unresolvable. Mirrors the
+ *  extraction `terminal.mintTicket` used when it bound the ticket, so the
+ *  two ends compare like for like (packages/api/src/routers/terminal/index.ts
+ *  `clientIpFromHeaders`). Trusted-proxy validation of this header is the
+ *  ingress layer's job (od-5j8.10) — here it's advisory binding on top of an
+ *  already-authorized, already-single-use ticket. */
+function clientIpOf(c: Context): string | null {
+  const xff = c.req.header("x-forwarded-for");
+  return xff?.split(",")[0]?.trim() || null;
 }
 
-function ptyEvents(actor: PtyActor, target: Target | null): WSEvents {
+function targetLabel(target: Target): { kind: "container" | "host"; id: string } {
+  return target.kind === "container" ? { kind: "container", id: target.id } : { kind: "host", id: "host" };
+}
+
+function ptyEvents(claims: TerminalTicketClaims, target: Target): WSEvents {
   const state = {
     backend: null as PtyBackend | null,
     cols: 80,
     rows: 24,
+    // Recorded once — a real backend either started (open worth auditing) or
+    // never did (nothing to audit a close for).
+    opened: false,
   };
 
   return {
@@ -52,23 +74,12 @@ function ptyEvents(actor: PtyActor, target: Target | null): WSEvents {
         return;
       }
 
-      if (!target) {
-        log.warn({ pty: { event: "missing-target-param" } });
-        sendControl(ws, {
-          type: "error",
-          code: "MISSING_TARGET",
-          message: "?container=<id> or ?host=1 required",
-        });
-        ws.close(1008, "target required");
-        return;
-      }
-
       const bpLog = sampleLogger({ every: 1000, windowMs: 5_000 });
 
       const args: StartArgs = {
         cols: state.cols,
         rows: state.rows,
-        userId: actor.userId ?? undefined,
+        userId: claims.userId,
         onData: (chunk) => {
           // Bun ServerWebSocket.send: >0 = bytes sent, -1 = queued
           // (backpressure), 0 = dropped (socket closed or over
@@ -99,6 +110,16 @@ function ptyEvents(actor: PtyActor, target: Target | null): WSEvents {
       backend.match({
         ok: (b) => {
           state.backend = b;
+          state.opened = true;
+          void recordTerminalShellAudit({
+            action: "terminal.open",
+            organizationId: claims.organizationId,
+            userId: claims.userId,
+            target: targetLabel(target),
+            outcome: "success",
+          }).catch((cause) => {
+            log.error({ pty: { event: "audit-write-failed" }, error: String(cause) });
+          });
         },
         err: (err) => {
           log.error({
@@ -110,6 +131,16 @@ function ptyEvents(actor: PtyActor, target: Target | null): WSEvents {
             type: "error",
             code: "SPAWN_FAILED",
             message: err.message,
+          });
+          void recordTerminalShellAudit({
+            action: "terminal.open",
+            organizationId: claims.organizationId,
+            userId: claims.userId,
+            target: targetLabel(target),
+            outcome: "failure",
+            reason: err.message,
+          }).catch((cause) => {
+            log.error({ pty: { event: "audit-write-failed" }, error: String(cause) });
           });
           ws.close(1011, "spawn failed");
         },
@@ -154,6 +185,17 @@ function ptyEvents(actor: PtyActor, target: Target | null): WSEvents {
       log.info({ pty: { event: "ws-close" } });
       state.backend?.dispose();
       state.backend = null;
+      if (state.opened) {
+        void recordTerminalShellAudit({
+          action: "terminal.close",
+          organizationId: claims.organizationId,
+          userId: claims.userId,
+          target: targetLabel(target),
+          outcome: "success",
+        }).catch((cause) => {
+          log.error({ pty: { event: "audit-write-failed" }, error: String(cause) });
+        });
+      }
     },
 
     onError() {
@@ -169,20 +211,39 @@ export const terminalWebSocketHandler: MiddlewareHandler = async (c, next) => {
   // behavior when no upgrade is possible.
   if (c.req.header("upgrade")?.toLowerCase() !== "websocket") return next();
 
-  const target = parseTarget(c);
-  const authz = await authorizePty(c, target);
-
-  if (authz.isErr()) {
+  // 1. Origin — cheap, and the one check a malicious cross-site page can
+  // never spoof. Runs before touching Redis.
+  const origin = c.req.header("origin");
+  if (!isTrustedOrigin(origin, env.CORS_ORIGIN)) {
     log.warn({
-      pty: {
-        event: "auth-denied",
-        status: authz.error.status,
-        detail: authz.error.message,
-        target: target?.kind ?? "none",
-      },
+      pty: { event: "origin-rejected", origin: origin ?? "(missing)" },
     });
-    return c.json({ message: authz.error.message }, authz.error.status);
+    return c.json({ message: "Origin not allowed" }, 403);
   }
 
-  return upgradeWebSocket(c, ptyEvents(authz.value, target));
+  // 2. Single-use ticket — the only accepted proof of authorization. No
+  // cookie/bearer/API-key fallback: this transport authenticates real users
+  // only, via `terminal.mintTicket` (session + step-up already verified
+  // there). No `?container=`/`?host=1` either — the target comes exclusively
+  // from the ticket, so there is no client-controlled field left to
+  // substitute a different target into.
+  const ticket = c.req.query("ticket");
+  if (!ticket) {
+    log.warn({ pty: { event: "ticket-missing" } });
+    return c.json({ message: "Missing ticket" }, 401);
+  }
+
+  const consumed = await consumeTerminalTicket(ticket, { clientIp: clientIpOf(c) });
+  if (consumed.isErr()) {
+    log.warn({
+      pty: { event: "ticket-rejected", reason: consumed.error.reason },
+    });
+    return c.json({ message: consumed.error.message }, consumed.error.status);
+  }
+
+  const claims = consumed.value;
+  const target: Target =
+    claims.target.kind === "container" ? { kind: "container", id: claims.target.id } : { kind: "host" };
+
+  return upgradeWebSocket(c, ptyEvents(claims, target));
 };

@@ -30,26 +30,13 @@ import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 
+import {
+  buildHelperEnvFlags,
+  buildHelperRunArgs,
+  helperHardeningFlags,
+  helperHardeningFromEnv,
+} from "./helper-args";
 import { getDeploymentStatus, markFailed } from "./state";
-
-/** Env keys forwarded by name into the helper container (`docker run -e KEY`
- *  passes the worker's current value). Only those actually set are forwarded —
- *  the rest fall back to the env schema's defaults inside the helper.
- *  OTTERDEPLOY_DATA_DIR rides along so the helper resolves the SAME DATA_ROOT as
- *  the host — the buildx cache path + bind mount below must agree. */
-const FORWARDED_ENV = [
-  "DATABASE_URL",
-  "DATABASE_PROVISIONER_URL",
-  "REDIS_URL",
-  "BETTER_AUTH_URL",
-  "BETTER_AUTH_SECRET",
-  "CORS_ORIGIN",
-  "RESEND_API_KEY",
-  "RESEND_FROM_EMAIL",
-  "PUBLIC_WEB_URL",
-  "NODE_ENV",
-  "OTTERDEPLOY_DATA_DIR",
-] as const;
 
 /** Host dir holding the persistent BuildKit layer cache + buildx instance state
  *  (see buildx.ts). Bind-mounted into each helper at the same path so the cache
@@ -110,19 +97,8 @@ function runHelperContainer(
   // `host.docker.internal` (resolvable via `--add-host` below) so the helper
   // reaches the host's Postgres/Redis. Only connection URLs are rewritten;
   // everything else forwards its raw value unchanged.
-  const CONNECTION_KEYS = new Set(["DATABASE_URL", "DATABASE_PROVISIONER_URL", "REDIS_URL"]);
-  const toHostGateway = (v: string): string =>
-    v.replace(/([@/])(localhost|127\.0\.0\.1)(?=[:/])/g, "$1host.docker.internal");
-
-  const envFlags = FORWARDED_ENV.flatMap((key) => {
-    // eslint-disable-next-line node/no-process-env
-    const value = process.env[key];
-    if (value === undefined) return [];
-    if (CONNECTION_KEYS.has(key) && /(localhost|127\.0\.0\.1)/.test(value)) {
-      return ["-e", `${key}=${toHostGateway(value)}`];
-    }
-    return ["-e", key];
-  });
+  // eslint-disable-next-line node/no-process-env
+  const envFlags = buildHelperEnvFlags(process.env);
 
   // Mount the staged source tarball read-only at its own host path so the
   // extract step finds it (the bind source resolves on the host daemon). Gated
@@ -148,32 +124,16 @@ function runHelperContainer(
       ]
     : [];
 
-  const args = [
-    "run",
-    "--rm",
-    "--name",
-    `otterbuild-${deploymentId}`,
-    "--network",
-    env.BUILDER_HELPER_NETWORK,
-    // Make `host.docker.internal` resolve to the host gateway inside the helper
-    // (Docker Desktop provides it automatically; Linux needs this explicit
-    // mapping). Harmless when unused — it only matters for the localhost→host
-    // rewrite above when the worker runs on the host for local dev.
-    "--add-host",
-    "host.docker.internal:host-gateway",
-    // Docker-out-of-Docker: the build's `buildx --load` and swarm calls speak
-    // to the host daemon through this socket — same one the worker uses.
-    "-v",
-    "/var/run/docker.sock:/var/run/docker.sock",
-    ...cacheFlags,
-    ...sourceFlags,
-    ...envFlags,
-    env.BUILDER_HELPER_IMAGE,
-    "bun",
-    "run",
-    "src/build-one.ts",
+  const args = buildHelperRunArgs({
     deploymentId,
-  ];
+    network: env.BUILDER_HELPER_NETWORK,
+    image: env.BUILDER_HELPER_IMAGE,
+    envFlags,
+    sourceFlags,
+    cacheFlags,
+    // eslint-disable-next-line node/no-process-env
+    hardeningFlags: helperHardeningFlags(helperHardeningFromEnv(process.env)),
+  });
 
   return new Promise<HelperResult>((resolve, reject) => {
     const child = spawn("docker", args, { stdio: ["ignore", "pipe", "pipe"] });
@@ -249,6 +209,19 @@ export function makeBuildJob() {
           try {
             const { exitCode, tail } = await runHelperContainer(deploymentId, { sourceTarball });
             const status = await getDeploymentStatus(deploymentId).catch(() => null);
+
+            // An operator cancelled while this was building: the control plane
+            // wrote `cancelled` and THEN force-removed the container, so the
+            // non-zero exit we just saw is the cancellation itself, not a
+            // failure. Stop here — retrying would relaunch the very build they
+            // asked us to stop, and marking it failed would overwrite their
+            // intent with a red row.
+            if (status === "cancelled") {
+              log.info({ build: { event: "cancelled", deploymentId, exitCode, attempt } });
+              outcome = { ok: false, error: "cancelled" };
+              break;
+            }
+
             const unconverged = status === "pending" || status === "building";
 
             if (unconverged && attempt < MAX_ATTEMPTS) {

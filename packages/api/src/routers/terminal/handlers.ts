@@ -13,7 +13,7 @@
  * Docker daemon could spoof them). Instead we pre-load the org's project
  * slugs and only emit containers whose `otterdeploy.project` label matches.
  */
-import type { OrganizationId, ProjectSlug, ResourceId } from "@otterdeploy/shared/id";
+import type { OrganizationId, ProjectId, ProjectSlug, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { databaseResource, project, resource } from "@otterdeploy/db/schema/project";
@@ -23,6 +23,7 @@ type OrgId = OrganizationId;
 
 export interface TerminalContainer {
   containerId: string;
+  projectId: ProjectId;
   name: string;
   image: string;
   state: string;
@@ -45,6 +46,20 @@ export interface TerminalDatabase {
 export interface TerminalTargets {
   containers: TerminalContainer[];
   databases: TerminalDatabase[];
+}
+
+const TERMINAL_RESOURCE_TYPES = new Set<TerminalContainer["resourceType"]>([
+  "service",
+  "postgres",
+  "redis",
+  "mariadb",
+  "mongodb",
+]);
+
+function isTerminalResourceType(
+  value: string | undefined,
+): value is TerminalContainer["resourceType"] {
+  return TERMINAL_RESOURCE_TYPES.has(value as TerminalContainer["resourceType"]);
 }
 
 /**
@@ -73,20 +88,14 @@ function toTerminalContainer(
 ): TerminalContainer | null {
   const labels = c.Labels ?? {};
   const labelProjectSlug = labels["otterdeploy.project"] ?? null;
+  const terminalProject = labelProjectSlug ? slugToProject.get(labelProjectSlug) : undefined;
   // Org guard: drop containers whose project label isn't one of ours.
-  if (!labelProjectSlug || !slugToProject.has(labelProjectSlug)) return null;
+  if (!labelProjectSlug || !terminalProject) return null;
 
   const resourceType = labels["otterdeploy.resource.type"];
   // Accept services + every database engine we support. Anything else
   // (e.g. otterdeploy-caddy / otterdeploy-server itself) gets dropped.
-  if (
-    resourceType !== "service" &&
-    resourceType !== "postgres" &&
-    resourceType !== "redis" &&
-    resourceType !== "mariadb" &&
-    resourceType !== "mongodb"
-  )
-    return null;
+  if (!isTerminalResourceType(resourceType)) return null;
 
   const rawName = c.Names?.[0] ?? c.Id;
   const { serviceName, slot } = splitTaskName(rawName);
@@ -94,6 +103,7 @@ function toTerminalContainer(
 
   return {
     containerId: c.Id,
+    projectId: terminalProject.id as ProjectId,
     name: serviceName,
     image: c.Image,
     state: c.State,
@@ -102,7 +112,7 @@ function toTerminalContainer(
     // already verified above (slugToProject.has) that it matches an
     // org-owned project, so it's safe to brand here.
     projectSlug: labelProjectSlug as ProjectSlug,
-    projectName: slugToProject.get(labelProjectSlug)?.name ?? null,
+    projectName: terminalProject.name,
     serviceResourceId: (labelResourceId as ResourceId | undefined) ?? null,
     serviceName,
     replicaSlot: slot,
@@ -111,6 +121,8 @@ function toTerminalContainer(
 
 export async function listTerminalTargets(input: {
   organizationId: OrgId;
+  /** Optional project allow-list, used by project-restricted API keys. */
+  projectIds?: string[];
 }): Promise<TerminalTargets> {
   // Org projects — slugs let us scope label-filtered containers safely.
   const projects = await db
@@ -119,7 +131,12 @@ export async function listTerminalTargets(input: {
     .where(eq(project.organizationId, input.organizationId));
 
   const slugToProject = new Map<string, { id: string; name: string }>();
-  for (const p of projects) slugToProject.set(p.slug, { id: p.id, name: p.name });
+  const allowedProjectIds = input.projectIds ? new Set(input.projectIds) : null;
+  for (const p of projects) {
+    if (!allowedProjectIds || allowedProjectIds.has(p.id)) {
+      slugToProject.set(p.slug, { id: p.id, name: p.name });
+    }
+  }
 
   // ── Containers ────────────────────────────────────────────────────────
   // Docker label filter: `otterdeploy.managed=true`. We narrow further
@@ -157,6 +174,7 @@ export async function listTerminalTargets(input: {
       resourceId: resource.id,
       name: resource.name,
       engine: databaseResource.engine,
+      projectId: project.id,
       projectSlug: project.slug,
       projectName: project.name,
     })
@@ -166,13 +184,15 @@ export async function listTerminalTargets(input: {
     // Base databases only — a PR preview's branch DB is not a terminal target.
     .where(and(eq(project.organizationId, input.organizationId), isNull(resource.previewId)));
 
-  const databases: TerminalDatabase[] = dbRows.map((r) => ({
-    resourceId: r.resourceId,
-    name: r.name,
-    engine: r.engine,
-    projectSlug: r.projectSlug as ProjectSlug,
-    projectName: r.projectName,
-  }));
+  const databases: TerminalDatabase[] = dbRows
+    .filter((row) => !allowedProjectIds || allowedProjectIds.has(row.projectId))
+    .map((r) => ({
+      resourceId: r.resourceId,
+      name: r.name,
+      engine: r.engine,
+      projectSlug: r.projectSlug as ProjectSlug,
+      projectName: r.projectName,
+    }));
 
   return { containers, databases };
 }

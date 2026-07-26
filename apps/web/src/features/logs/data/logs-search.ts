@@ -4,6 +4,9 @@
 
 import * as z from "zod";
 
+const LOG_SOURCES = ["runtime", "edge"] as const;
+export type LogsSource = (typeof LOG_SOURCES)[number];
+
 export const zLogsSearch = z.object({
   /** Resource id of a single service, or undefined for all. */
   service: z.string().optional(),
@@ -14,6 +17,12 @@ export const zLogsSearch = z.object({
   /** Histogram time-window filter (epoch ms); both set or both absent. */
   from: z.number().optional(),
   to: z.number().optional(),
+  /**
+   * Runtime | Edge source toggle (od-u63.5 — the project Edge logs tab
+   * merged into Logs). `.catch` covers both a missing param and a bad value
+   * → default to Runtime, so the page always has a valid controlled source.
+   */
+  source: z.enum(LOG_SOURCES).catch("runtime"),
 });
 
 export type LogsSearch = z.infer<typeof zLogsSearch>;

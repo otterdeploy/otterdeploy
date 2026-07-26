@@ -132,7 +132,7 @@ export function ChannelFields({
 
       {kind === "email" && emailClient === "smtp" && (
         <>
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <div className="flex flex-col gap-2">
               <Label htmlFor="smtp-host">SMTP host</Label>
               <Input
@@ -158,7 +158,7 @@ export function ChannelFields({
               <FieldError message={errors.port} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <div className="flex flex-col gap-2">
               <Label htmlFor="smtp-from">From address</Label>
               <Input

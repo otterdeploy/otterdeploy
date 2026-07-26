@@ -8,7 +8,7 @@
 
 import type { databaseResource, resource } from "@otterdeploy/db/schema/project";
 
-import { getEngineAdapter } from "../../swarm/database-engines";
+import { getEngineAdapter, resolveDatabaseMount } from "../../swarm/database-engines";
 import { STACK_DEFAULT_HEALTHCHECK, type StackService, type StackVolumeMount } from "../schema";
 import { projectNetworkName } from "./network-name";
 
@@ -34,8 +34,9 @@ export function buildDatabaseService(
   }
 
   const command = adapter.buildCommand?.({ password: row.database.password });
+  const mount = resolveDatabaseMount(adapter, adapter.defaultImage);
   const volumes: StackVolumeMount[] = [
-    { type: "volume", source: volumeName, target: adapter.mountTarget },
+    { type: "volume", source: volumeName, target: mount.target },
   ];
 
   return {

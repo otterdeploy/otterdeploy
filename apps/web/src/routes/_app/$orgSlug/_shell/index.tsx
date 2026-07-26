@@ -21,6 +21,7 @@ import { projectCollection } from "@/features/projects/data/project";
 import { useLiveQuery } from "@tanstack/react-db";
 
 export const Route = createFileRoute("/_app/$orgSlug/_shell/")({
+  staticData: { crumb: "Projects" },
   loader: async () => {
     await projectCollection.preload();
   },

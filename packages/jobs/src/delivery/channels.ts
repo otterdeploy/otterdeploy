@@ -11,9 +11,22 @@
  *   email         — Resend (packages/email)
  *   telegram      — Bot API sendMessage (bot token = secret, chat id = target)
  *   pagerduty     — Events API v2 enqueue (routing key = secret || target)
+ *
+ * `channel.target` is tenant-supplied for slack/discord/webhook (a URL the
+ * org pasted in) — every transport POSTs through `post()`, which routes
+ * through the shared egress policy: resolves and validates every address
+ * (loopback/private/link-local/metadata ranges and the control plane's own
+ * identity denied by default), pins the connection to the validated
+ * address, and re-validates every redirect hop. See
+ * packages/shared/src/egress-policy.ts. Fixed-URL transports (FCM,
+ * PagerDuty) go through the same helper for consistency — harmless, since
+ * they always resolve to a public address.
  */
 import { NotificationEmail, sendEmail, sendViaSmtpServer } from "@otterdeploy/email";
-import { env } from "@otterdeploy/env/server";
+import { EgressPolicyError, egressFetch } from "@otterdeploy/shared/egress-policy";
+
+import { controlPlaneEgressDenylist, egressAllowlist } from "./egress-denylist";
+import { fcmServerKey } from "./platform-transports";
 
 export type ChannelKind =
   | "slack"
@@ -80,19 +93,48 @@ export async function deliverToChannel(
   }
 }
 
-/** Wrap a fetch so a thrown/network error becomes a DeliveryResult, not a throw. */
-async function post(url: string, init: RequestInit): Promise<DeliveryResult> {
-  let res: Response;
+const CHANNEL_DELIVERY_TIMEOUT_MS = 10_000;
+const CHANNEL_MAX_RESPONSE_BYTES = 1024 * 1024;
+
+/** Guarded POST — resolves+validates the destination via the shared egress
+ *  policy, pins the connection, and turns a thrown/network/policy error
+ *  into a {@link DeliveryResult} rather than a throw (so one dead/blocked
+ *  channel can't fail the whole fan-out). */
+async function post(
+  url: string,
+  init: { method?: string; headers?: Record<string, string>; body?: string },
+): Promise<DeliveryResult> {
+  let statusCode: number;
+  let text: () => Promise<string>;
   try {
-    res = await fetch(url, init);
+    const denylist = await controlPlaneEgressDenylist();
+    const res = await egressFetch(
+      url,
+      { method: "POST", headers: init.headers, body: init.body },
+      {
+        // Channel receivers (self-hosted webhook sinks, internal relays)
+        // are commonly plain http — the address checks are the actual SSRF
+        // defense, not the scheme.
+        allowHttp: true,
+        timeoutMs: CHANNEL_DELIVERY_TIMEOUT_MS,
+        maxBytes: CHANNEL_MAX_RESPONSE_BYTES,
+        maxRedirects: 5,
+        denyHosts: denylist.blockedHosts,
+        denyAddresses: denylist.blockedAddresses,
+        allowAddresses: await egressAllowlist(),
+      },
+    );
+    if (res.ok) return { ok: true };
+    statusCode = res.status;
+    text = () => res.text();
   } catch (err) {
+    if (err instanceof EgressPolicyError) {
+      return { ok: false, error: `blocked by outbound egress policy: ${err.message}` };
+    }
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    return { ok: false, error: `HTTP ${res.status}${body ? `: ${body.slice(0, 200)}` : ""}` };
-  }
-  return { ok: true };
+  const body = await text().catch(() => "");
+  return { ok: false, error: `HTTP ${statusCode}${body ? `: ${body.slice(0, 200)}` : ""}` };
 }
 
 function deliverSlack(c: ResolvedChannel, e: ChannelEvent): Promise<DeliveryResult> {
@@ -216,11 +258,12 @@ async function deliverEmail(c: ResolvedChannel, e: ChannelEvent): Promise<Delive
   }
 }
 
-/** FCM push to a device token (or topic) — reuses FCM_SERVER_KEY, mirroring
- * the per-user push path in ./notify.ts. `target` is the registration token. */
-function deliverPush(c: ResolvedChannel, e: ChannelEvent): Promise<DeliveryResult> {
-  const key = env.FCM_SERVER_KEY;
-  if (!key) return Promise.resolve({ ok: false, error: "FCM not configured" });
+/** FCM push to a device token (or topic) — reuses the install-wide FCM key
+ * (Settings → Instance, seeded from FCM_SERVER_KEY), mirroring the per-user
+ * push path in ./notify.ts. `target` is the registration token. */
+async function deliverPush(c: ResolvedChannel, e: ChannelEvent): Promise<DeliveryResult> {
+  const key = await fcmServerKey();
+  if (!key) return { ok: false, error: "FCM not configured" };
   return post("https://fcm.googleapis.com/fcm/send", {
     method: "POST",
     headers: { Authorization: `key=${key}`, "content-type": "application/json" },

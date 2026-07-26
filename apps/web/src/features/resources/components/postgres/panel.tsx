@@ -7,7 +7,8 @@
  */
 
 import type { ProjectSlug } from "@otterdeploy/shared/id";
-import { Activity, useState } from "react";
+
+import { Activity } from "react";
 
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -15,13 +16,10 @@ import { toast } from "sonner";
 import { MetricsTab } from "@/features/resources/components/_shared/metrics/metrics-tab";
 import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
 import { ResourceTerminal } from "@/features/resources/components/_shared/resource-terminal";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/shared/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { orpc } from "@/shared/server/orpc";
+
+import { resolvePanelTab } from "../_shared/panel-tab";
 
 import type { PostgresBodyProps } from "./types";
 
@@ -44,7 +42,27 @@ interface RealResourcePanelProps {
   pending?: boolean;
   /** Manifest key for the staged database — the edit target in pending mode. */
   dbName?: string;
+  /** The active tab, straight off the route's `?tab=` search param — the URL
+   *  owns this, not the panel. Unrecognized/absent values fall back to the
+   *  usual pending-aware default. */
+  tab?: string;
+  /** Report a tab click so the route can write it to the URL. */
+  onTabChange: (tab: string) => void;
 }
+
+const DATABASE_TABS: readonly ResourceTab[] = [
+  "deployments",
+  "data",
+  "metrics",
+  "variables",
+  "terminal",
+  "settings",
+];
+
+// Tabs that mean anything for a staged-create ghost: nothing is provisioned
+// yet, so deployments/data/metrics/terminal are disabled below and a URL
+// naming one of them must not select it.
+const DATABASE_PENDING_TABS: readonly ResourceTab[] = ["variables", "settings"];
 
 export function RealResourcePanel({
   resource,
@@ -53,8 +71,14 @@ export function RealResourcePanel({
   onClose,
   pending = false,
   dbName,
+  tab: tabParam,
+  onTabChange,
 }: RealResourcePanelProps) {
-  const [tab, setTab] = useState<ResourceTab>(pending ? "variables" : "deployments");
+  const tab = resolvePanelTab(
+    tabParam,
+    pending ? DATABASE_PENDING_TABS : DATABASE_TABS,
+    pending ? "variables" : "deployments",
+  );
 
   // Re-roll the running container with its current spec — same image, env,
   // and public flag. Distinct from the wizard's create; this just bounces the
@@ -66,7 +90,7 @@ export function RealResourcePanel({
       toast.success("Restarting database", {
         description: "Track progress in the Deployments tab.",
       });
-      setTab("deployments");
+      onTabChange("deployments");
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to restart"),
   });
@@ -95,11 +119,11 @@ export function RealResourcePanel({
       <Tabs
         value={tab}
         onValueChange={(v) => {
-          if (v) setTab(v as ResourceTab);
+          if (v) onTabChange(v);
         }}
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
-        <div className="border-b border-border/60 px-6">
+        <div className="border-b border-border/60 px-4 sm:px-6">
           <TabsList variant="line" className="h-auto bg-transparent p-0">
             {/* Runtime tabs are disabled until the database is deployed —
                 no tasks, data, metrics, or container exist yet. */}
@@ -130,7 +154,7 @@ export function RealResourcePanel({
               {/* Runtime tabs query tasks/data/metrics by resourceId, which
                   doesn't exist for a staged create — only mount once deployed. */}
               {!pending && (
-                <TabsContent value="deployments" className="px-6 pt-5 pb-6">
+                <TabsContent value="deployments" className="px-4 sm:px-6 pt-5 pb-6">
                   <ResourceTasksTab
                     projectId={resource.projectId}
                     resourceId={resource.resourceId}
@@ -152,22 +176,22 @@ export function RealResourcePanel({
                   unmount-on-leave: they're pollers; unmounting stops their
                   intervals while hidden. */}
               {!pending && (
-                <TabsContent value="data" keepMounted className="min-h-0 px-6 pt-5 pb-6">
+                <TabsContent value="data" keepMounted className="min-h-0 px-4 sm:px-6 pt-5 pb-6">
                   <DatabaseDataTab resource={resource} />
                 </TabsContent>
               )}
 
               {!pending && (
-                <TabsContent value="metrics" className="px-6 pt-5 pb-6">
+                <TabsContent value="metrics" className="px-4 sm:px-6 pt-5 pb-6">
                   <MetricsTab resourceId={resource.resourceId} />
                 </TabsContent>
               )}
 
-              <TabsContent value="variables" keepMounted className="px-6 pt-5 pb-6">
+              <TabsContent value="variables" keepMounted className="px-4 sm:px-6 pt-5 pb-6">
                 <PostgresVariablesTabBody resource={resource} pending={pending} dbName={dbName} />
               </TabsContent>
 
-              <TabsContent value="settings" keepMounted className="px-6 pt-5 pb-8">
+              <TabsContent value="settings" keepMounted className="px-4 sm:px-6 pt-5 pb-8">
                 <PostgresSettingsBody
                   resource={resource}
                   onDeleted={onClose}

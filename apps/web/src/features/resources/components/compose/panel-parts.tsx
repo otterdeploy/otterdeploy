@@ -35,6 +35,7 @@ type DeploymentStatus =
   | "crashed"
   | "paused"
   | "failed"
+  | "cancelled"
   | "superseded"
   | "removed"
   | null;
@@ -60,7 +61,6 @@ export function baseStatus(dep: DeploymentStatus): StackServiceStatus | undefine
   }
 }
 
-
 export function ComposePanelHeader({
   name,
   serviceCount,
@@ -79,37 +79,44 @@ export function ComposePanelHeader({
   redeploying: boolean;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 px-6 pt-6">
-      <div className="flex items-start gap-3">
+    <div className="flex items-start justify-between gap-2 px-4 pt-4 sm:gap-4 sm:px-6 sm:pt-6">
+      {/* min-w-0 so the stack name and its summary line truncate instead of
+          forcing this row wider than the panel. */}
+      <div className="flex min-w-0 items-start gap-2 sm:gap-3">
         <Button
           type="button"
           variant="ghost"
           size="icon-sm"
           aria-label="Back to graph"
           onClick={onClose}
-          className="mt-1"
+          className="mt-1 shrink-0"
         >
           <HugeiconsIcon icon={ArrowLeft01Icon} strokeWidth={2} className="size-4" />
         </Button>
-        <PanelIcon node={{ kind: "compose", name, description: "", logoBrand: logoBrand ?? undefined }} />
-        <div className="flex flex-col gap-0.5">
-          <span className="text-xl leading-none font-bold tracking-tight">{name}</span>
-          <span className="font-mono text-xs text-muted-foreground">
+        <PanelIcon
+          node={{ kind: "compose", name, description: "", logoBrand: logoBrand ?? undefined }}
+        />
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="truncate text-lg leading-tight font-bold tracking-tight sm:text-xl sm:leading-none">
+            {name}
+          </span>
+          <span className="truncate font-mono text-xs text-muted-foreground">
             Stack · {serviceCount} {serviceCount === 1 ? "service" : "services"} ·{" "}
             {source === "git" ? "from repo" : "inline file"}
           </span>
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
         <Button
           type="button"
           variant="outline"
           size="sm"
           onClick={onRedeploy}
           disabled={redeploying}
+          aria-label={redeploying ? "Redeploying" : "Redeploy"}
         >
           <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
-          {redeploying ? "Redeploying…" : "Redeploy"}
+          <span className="hidden sm:inline">{redeploying ? "Redeploying…" : "Redeploy"}</span>
         </Button>
         <Button
           type="button"
@@ -138,10 +145,10 @@ export function ComposeStatusBar({
   const allRunning = runningCount === services.length && services.length > 0;
   const anyError = services.some((s) => serviceStatus(s.name) === "error");
   return (
-    <div className="mt-5 flex items-center gap-3 border-t border-border/40 px-6 py-3">
+    <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border/40 px-4 py-3 sm:px-6">
       <span
         className={cn(
-          "rounded-md px-2 py-1 font-mono text-[10.5px] font-semibold tracking-[0.18em]",
+          "shrink-0 rounded-md px-2 py-1 font-mono text-[10.5px] font-semibold tracking-[0.18em]",
           allRunning
             ? "bg-success/12 text-success"
             : anyError
@@ -151,7 +158,9 @@ export function ComposeStatusBar({
       >
         {runningCount}/{services.length} RUNNING
       </span>
-      <span className="font-mono text-[12px] text-muted-foreground">{stackName}</span>
+      <span className="min-w-0 truncate font-mono text-[12px] text-muted-foreground">
+        {stackName}
+      </span>
     </div>
   );
 }

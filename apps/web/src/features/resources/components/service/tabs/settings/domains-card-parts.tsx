@@ -13,6 +13,13 @@ import { Spinner } from "@/shared/components/ui/spinner";
 
 export type DnsState = "pointed" | "proxied" | "unpointed" | "unknown";
 
+/** Verification state of the org's base domain — generated hostnames are
+ *  `<slug>.apps.<baseDomain>`, so a not-yet-verified custom base domain
+ *  means the generated route isn't provably reachable yet either. `"unset"`
+ *  is the sslip.io fallback, which needs no ownership proof and is always
+ *  reachable once the route exists. */
+export type BaseDomainStatus = "unset" | "pending" | "verified";
+
 export interface DomainView {
   id: string;
   domain: string;
@@ -23,18 +30,35 @@ export interface DomainView {
   dnsCheckedAt: string | null;
   usesAcme: boolean;
   protected: boolean;
+  ownershipVerified: boolean;
+  verifyRecord: string | null;
+  verifyToken: string | null;
   dnsTarget: string | null;
 }
 
-/** Connection chip. Generated hosts are always reachable (ours), so they
- *  just read Live/Disabled. Custom hosts surface their DNS reachability:
- *  pointed → cert issues here, proxied → Cloudflare serves TLS, unpointed →
- *  needs the A record below. */
-export function StatusBadge({ domain }: { domain: DomainView }) {
+/** Connection chip. Generated hosts route under the org's base domain, so
+ *  they only read Live once that domain is provably owned (verified, or the
+ *  no-verification-needed sslip.io fallback) — otherwise the route exists
+ *  but nothing has confirmed it resolves, so the chip says so. Custom hosts
+ *  surface their own DNS reachability: pointed → cert issues here, proxied →
+ *  Cloudflare serves TLS, unpointed → needs the A record below. */
+export function StatusBadge({
+  domain,
+  baseDomainStatus,
+}: {
+  domain: DomainView;
+  baseDomainStatus?: BaseDomainStatus;
+}) {
   if (domain.status === "disabled") {
+    if (domain.source === "custom" && !domain.ownershipVerified) {
+      return <Badge variant="secondary">Ownership pending</Badge>;
+    }
     return <Badge variant="outline">Disabled</Badge>;
   }
   if (domain.source === "generated") {
+    if (baseDomainStatus === "pending") {
+      return <Badge variant="secondary">Pending DNS</Badge>;
+    }
     return <Badge variant="outline">Live</Badge>;
   }
   switch (domain.dnsState) {
@@ -133,21 +157,22 @@ export function DomainRowActions({
   );
 }
 
-/** The DNS record to publish so a custom host points at us. Once it
- *  resolves here, the certificate issues automatically — no extra step. */
+/** Ownership TXT proof plus the A record that routes traffic here. */
 export function DnsHint({ domain }: { domain: DomainView }) {
   return (
     <div className="rounded-md border border-dashed border-border/60 bg-muted/30 px-3 py-2 text-[11.5px]">
       <p className="mb-2 text-muted-foreground">
-        {domain.dnsTarget
-          ? "Add this DNS record at your provider, then Recheck. The certificate issues automatically once it resolves here."
-          : "Point this domain at your server, then Recheck. The certificate issues automatically once it resolves here."}
+        Add the ownership TXT record and point the host at this server, then Recheck. The route
+        stays disabled until ownership is verified.
       </p>
-      {domain.dnsTarget && (
-        <div className="flex flex-col gap-2 font-mono">
+      <div className="flex flex-col gap-2 font-mono">
+        {domain.verifyRecord && domain.verifyToken ? (
+          <DnsRecord type="TXT" name={domain.verifyRecord} value={domain.verifyToken} />
+        ) : null}
+        {domain.dnsTarget ? (
           <DnsRecord type="A" name={domain.domain} value={domain.dnsTarget} />
-        </div>
-      )}
+        ) : null}
+      </div>
     </div>
   );
 }

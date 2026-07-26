@@ -3,6 +3,7 @@
 // line .env paste = one deployment, not twelve.
 
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+
 import { useImperativeHandle, useState, type Ref } from "react";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -30,6 +31,9 @@ export interface VariablesEditorResource {
 export interface VariablesEditorHandle {
   /** Append a blank row — driven by an external "New Variable" button. */
   addRow: () => void;
+  /** Append a row pre-filled with a `${{Source.KEY}}` reference token —
+   *  driven by the "Add a Variable Reference" hint banner. */
+  insertReference: (token: string) => void;
 }
 
 interface VariablesEditorProps {
@@ -41,9 +45,20 @@ interface VariablesEditorProps {
   // that stages the env onto its manifest entry instead. Secret keys are
   // forwarded but the manifest path ignores them (manifest env is plaintext).
   onSave?: (env: Array<{ key: string; value: string }>, secretKeys: string[]) => Promise<void>;
+  // Toolbar count label ("N User Variables"). Pass null when the surrounding
+  // tab already renders its own count header — otherwise the same rows get
+  // counted twice under two different names (od-zh2.10).
+  countLabel?: string | null;
 }
 
-export function VariablesEditor({ resource, ref, onSave }: VariablesEditorProps) {
+/** Suggest an env-var key from a picked `${{Source.KEY}}` token — the KEY
+ *  segment when it looks like an env name, otherwise blank for the user. */
+function suggestKeyFromToken(token: string): string {
+  const match = /^\$\{\{[^.}]+\.([A-Z][A-Z0-9_]*)\}\}$/.exec(token);
+  return match?.[1] ?? "";
+}
+
+export function VariablesEditor({ resource, ref, onSave, countLabel }: VariablesEditorProps) {
   const [bulkOpen, setBulkOpen] = useState(false);
 
   // Tolerate undefined here — the resource list cache predates the
@@ -69,7 +84,15 @@ export function VariablesEditor({ resource, ref, onSave }: VariablesEditorProps)
   // useRef+useEffect signal counter (an anti-pattern: it bumped a monotonic
   // prop through an effect purely to fire a local action). addRow is local
   // editor state, so this exposes it directly rather than round-tripping a prop.
-  useImperativeHandle(ref, () => ({ addRow: () => void editor.addRow() }), [editor]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      addRow: () => void editor.addRow(),
+      insertReference: (token: string) =>
+        void editor.addRow({ key: suggestKeyFromToken(token), value: token }),
+    }),
+    [editor],
+  );
 
   const [stagingSave, setStagingSave] = useState(false);
   const saveMut = useMutation(
@@ -81,7 +104,14 @@ export function VariablesEditor({ resource, ref, onSave }: VariablesEditorProps)
         // surfaced on the collection's 5s poll. Invalidate the collection so the
         // just-saved var appears at once.
         await queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY });
-        toast.success("Variables saved — Deploy to apply");
+        // Stamp the draft as saved so the ADDED/EDITED chips and Save/Discard
+        // clear immediately — the refetch above returns the same values, so the
+        // effect-driven re-baseline would otherwise skip (rows still "pending"
+        // vs the OLD baseline) and the dirty state never cleared.
+        editor.commit();
+        // Saving persists only (redeploy: false) — the values take effect the
+        // next time the resource deploys (e.g. the panel's Redeploy action).
+        toast.success("Variables saved — they take effect on the next redeploy");
       },
       onError: (err) => toast.error(err.message ?? "Failed to save"),
     }),
@@ -99,9 +129,14 @@ export function VariablesEditor({ resource, ref, onSave }: VariablesEditorProps)
 
     if (onSave) {
       // Staging invalidates the manifest query, which re-feeds serverEnv and
-      // re-baselines the editor — same refresh path as the live mutation.
+      // re-baselines the editor; commit() clears the pending chips right away
+      // (see the live mutation's onSuccess). Errors already toast via the
+      // stage mutation's own onError.
       setStagingSave(true);
-      void onSave(env, secretKeys).finally(() => setStagingSave(false));
+      void onSave(env, secretKeys)
+        .then(() => editor.commit())
+        .catch(() => undefined)
+        .finally(() => setStagingSave(false));
       return;
     }
 
@@ -121,6 +156,7 @@ export function VariablesEditor({ resource, ref, onSave }: VariablesEditorProps)
     <div className="flex flex-col gap-3">
       <Toolbar
         totalCount={editor.rows.length}
+        countLabel={countLabel}
         hasPending={editor.hasPending}
         diff={editor.diff}
         saving={onSave ? stagingSave : saveMut.isPending}

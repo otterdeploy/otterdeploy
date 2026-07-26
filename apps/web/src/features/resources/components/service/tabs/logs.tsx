@@ -219,7 +219,7 @@ export function ServiceLogsTab({
           const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
           if (atBottom !== follow) setFollow(atBottom);
         }}
-        className="min-h-0 flex-1 overflow-auto rounded-md border bg-terminal text-terminal-foreground p-3 font-mono text-[11.5px] leading-relaxed"
+        className="min-h-0 flex-1 overflow-auto rounded-md border bg-terminal p-3 font-mono text-[11.5px] leading-relaxed text-terminal-foreground"
       >
         {!hasOutput ? (
           <div className="grid h-full min-h-40 place-items-center text-center">

@@ -53,7 +53,9 @@ function Panel({ line, onClose }: { line: LogLine; onClose: () => void }) {
       animate={{ x: 0 }}
       exit={{ x: "100%" }}
       transition={{ type: "spring", stiffness: 360, damping: 38 }}
-      className="absolute inset-y-0 right-0 z-20 flex w-[440px] flex-col border-l bg-card shadow-xl"
+      // Full-bleed on a phone (440px is wider than the viewport); the
+      // side-by-side drawer returns once there's room to still see the stream.
+      className="absolute inset-y-0 right-0 z-20 flex w-full flex-col border-l bg-card shadow-xl sm:w-[440px]"
     >
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div className="min-w-0">

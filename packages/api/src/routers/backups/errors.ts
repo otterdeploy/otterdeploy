@@ -41,6 +41,50 @@ export class DestinationInUseError extends TaggedError("DestinationInUseError")<
   }
 }
 
+/**
+ * Raised when a mutation targets the platform-managed local destination in a
+ * way that isn't allowed: deleting it, or editing the path/prefix the platform
+ * owns. Carries `operation` so the UI can explain which door is shut rather
+ * than showing a generic refusal — though the UI should not offer these
+ * affordances on a managed row in the first place.
+ */
+export class DestinationManagedError extends TaggedError("DestinationManagedError")<{
+  message: string;
+  destinationId: BackupDestinationId;
+  operation: "delete" | "reconfigure";
+}>() {
+  constructor(args: {
+    destinationId: BackupDestinationId;
+    operation: "delete" | "reconfigure";
+  }) {
+    super({
+      destinationId: args.destinationId,
+      operation: args.operation,
+      message:
+        args.operation === "delete"
+          ? `backup destination ${args.destinationId} is managed by the platform and cannot be deleted — disable it instead`
+          : `backup destination ${args.destinationId} is managed by the platform; its location is not editable`,
+    });
+  }
+}
+
+/**
+ * Raised when disabling the managed destination would leave the org with no
+ * active destination at all — every schedule would silently become a no-op.
+ */
+export class DestinationLastActiveError extends TaggedError("DestinationLastActiveError")<{
+  message: string;
+  destinationId: BackupDestinationId;
+}>() {
+  constructor(args: { destinationId: BackupDestinationId }) {
+    super({
+      destinationId: args.destinationId,
+      message:
+        "this is the only active backup destination — add another one before disabling it, or scheduled backups would stop running",
+    });
+  }
+}
+
 /** Raised on create/update when a destination's config is structurally
  *  incomplete (e.g. a `local` destination with no `path`) — rejected up front
  *  so the failure never waits for a backup run to surface. */

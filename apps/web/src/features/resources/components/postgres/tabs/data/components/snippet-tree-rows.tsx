@@ -108,17 +108,17 @@ export function ItemMenu({
         <HugeiconsIcon icon={MoreVerticalIcon} strokeWidth={2} className="size-3.5" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={onRename}>
+        <DropdownMenuItem onClick={onRename}>
           <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} className="size-3.5" />
           Rename
         </DropdownMenuItem>
         {onNewQuery ? (
-          <DropdownMenuItem onSelect={onNewQuery}>
+          <DropdownMenuItem onClick={onNewQuery}>
             <HugeiconsIcon icon={File01Icon} strokeWidth={2} className="size-3.5" />
             New query
           </DropdownMenuItem>
         ) : null}
-        <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+        <DropdownMenuItem variant="destructive" onClick={onDelete}>
           <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
           Delete
         </DropdownMenuItem>

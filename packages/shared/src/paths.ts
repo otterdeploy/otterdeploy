@@ -48,6 +48,21 @@ export const sourceTarballPath = (projectId: ProjectId, deploymentId: Deployment
 export const backupDir = (projectId: ProjectId, id: ResourceId): string =>
   `${DATA_ROOT}/backups/${projectId}/${id}`;
 
+/**
+ * Root of the platform-managed local backup destination — the rustic repos
+ * themselves, not the staging dumps.
+ *
+ * Deliberately a sibling of `backups/` rather than a subdirectory of it:
+ * `backupDir` above is scratch space that gets written and cleared per run,
+ * while this holds the durable repos. Mixing them would put restorable history
+ * under a path whose contents look disposable.
+ *
+ * The destination row stores this as `config.path` plus `config.prefix =
+ * <organizationId>`, so `deriveRepoId` lands each repo at
+ * `<root>/<orgId>/otterdeploy-backups/<scope>` with no engine change.
+ */
+export const managedBackupRepoRoot = (): string => `${DATA_ROOT}/backup-repos`;
+
 /** Per-project DR escape hatch — exported manifest + rendered compose. */
 export const projectDir = (id: ProjectId): string => `${DATA_ROOT}/projects/${id}`;
 

@@ -3,15 +3,23 @@
  * One polled query carries both the unread badge and the popover list; a row
  * expands in place on click to show its full message + structured context and
  * marks itself read, and the footer keeps a path to the channel settings.
+ *
+ * The badge reports exactly one thing: "is there anything I haven't looked at?"
+ * It used to also report "is anything building right now?", which made a single
+ * 8px dot answer two unrelated questions — and answered the second one badly,
+ * since the app-status rollup it read is project-scoped. Live work belongs to
+ * the activity indicator sitting next to it in the header.
  */
 import { useState } from "react";
 
-import { ArrowDown01Icon, Notification03Icon } from "@hugeicons/core-free-icons";
+import { ArrowDown01Icon, BellDotIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
+import { useDeployActivity } from "@/features/activity/use-deploy-activity";
+import { BellBadge, bellLabel } from "@/features/notifications/bell-badge";
 import {
   SEVERITY_DOT,
   eventLabel,
@@ -19,6 +27,7 @@ import {
   inboxDetailRows,
   inboxEventId,
   relativeTime,
+  worstSeverity,
 } from "@/features/notifications/shared";
 import { Button } from "@/shared/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
@@ -31,10 +40,19 @@ type InboxItem = InboxData["items"][number];
 
 const inboxInput = { input: {} } as const;
 
-function useInbox() {
+/** Idle cadence. A build's terminal notification is worth having promptly, so
+ *  the poll tightens while work is in flight (see {@link useInbox}). */
+const INBOX_POLL_IDLE_MS = 30_000;
+const INBOX_POLL_ACTIVE_MS = 5_000;
+
+function useInbox(busy: boolean) {
   return useQuery({
     ...orpc.notifications.inbox.list.queryOptions(inboxInput),
-    refetchInterval: 30_000,
+    // At the idle 30s cadence a "build failed" row could sit invisible for half
+    // a minute after the build actually failed — long enough for an operator
+    // watching the header to conclude nothing happened. While anything is
+    // queued or building, poll at the same 5s beat the activity pill uses.
+    refetchInterval: busy ? INBOX_POLL_ACTIVE_MS : INBOX_POLL_IDLE_MS,
   });
 }
 
@@ -151,7 +169,10 @@ function InboxRow({ item, onRead }: { item: InboxItem; onRead: (id: InboxItem["i
 
 export function NotificationInboxPopover({ orgSlug }: { orgSlug: string }) {
   const { t } = useTranslation();
-  const inbox = useInbox();
+  // Shares the header pill's query (same key, so no second timer) — used only to
+  // decide how fast to poll, never to render. The bell says nothing about builds.
+  const { busy } = useDeployActivity();
+  const inbox = useInbox(busy);
 
   const markRead = useMutation(
     orpc.notifications.inbox.markRead.mutationOptions({ onSuccess: invalidateInbox }),
@@ -162,30 +183,33 @@ export function NotificationInboxPopover({ orgSlug }: { orgSlug: string }) {
 
   const items = inbox.data?.items ?? [];
   const unread = inbox.data?.unread ?? 0;
-  const label =
-    unread > 0
-      ? t("common.notificationsUnread", "Notifications — {{count}} unread", { count: unread })
-      : t("common.notifications");
+  // Only unread rows drive the badge — a failure you have already read is
+  // history, and leaving it lit would make the bell permanently red.
+  const severity = worstSeverity(items.filter((item) => item.readAt === null));
+
+  const label = bellLabel({
+    unread:
+      unread > 0
+        ? t("common.notifications.unread", "Notifications — {{count}} unread", { count: unread })
+        : t("common.notifications.title", "Notifications"),
+    failure:
+      severity === "err" ? t("common.notifications.labelFailure", "includes a failure") : null,
+  });
 
   return (
     <Popover>
       <PopoverTrigger
         render={
           <Button variant="outline" size="icon" className="relative h-8 w-8" aria-label={label}>
-            <HugeiconsIcon icon={Notification03Icon} strokeWidth={2} className="size-[1.1rem]" />
-            {unread > 0 ? (
-              <span
-                aria-hidden
-                className="absolute top-1.5 right-1.5 size-2 rounded-full bg-info ring-2 ring-background"
-              />
-            ) : null}
+            <HugeiconsIcon icon={BellDotIcon} strokeWidth={2} className="size-[1.1rem]" />
+            <BellBadge severity={unread > 0 ? severity : null} />
           </Button>
         }
       />
       <PopoverContent align="end" className="w-96 max-w-[92vw] gap-0 p-0">
         <div className="flex h-9 items-center justify-between border-b px-3">
           <span className="text-[13px] font-medium">
-            {t("common.notifications", "Notifications")}
+            {t("common.notifications.title", "Notifications")}
           </span>
           {unread > 0 ? (
             <Button
@@ -210,7 +234,7 @@ export function NotificationInboxPopover({ orgSlug }: { orgSlug: string }) {
           ) : items.length === 0 ? (
             <div className="flex flex-col items-center gap-1 px-4 py-8 text-center">
               <HugeiconsIcon
-                icon={Notification03Icon}
+                icon={BellDotIcon}
                 strokeWidth={1.5}
                 className="mb-1 size-6 text-muted-foreground/40"
               />

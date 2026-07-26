@@ -3,10 +3,10 @@ import { describe, expect, test } from "vite-plus/test";
 import {
   authorizeKeyScope,
   authorizeRoleScope,
-  isReadAction,
   isReadAllowed,
   requireProjectScope,
 } from "../api-key-scope";
+import { isReadAction } from "../procedure-mode";
 
 describe("authorizeKeyScope (per-key permission map)", () => {
   test("null key permissions = full-access key ⇒ allowed", () => {

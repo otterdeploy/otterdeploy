@@ -1,10 +1,11 @@
 import { defineCommand } from "citty";
-import { consola } from "consola";
 import { writeFileSync } from "node:fs";
 
 import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";
 import { configExists, loadConfig } from "../config-file";
+import { cmd } from "../lib/name";
+import { abort, detail, dim, ok } from "../lib/ui";
 
 export const exportCommand = defineCommand({
   meta: {
@@ -24,8 +25,11 @@ export const exportCommand = defineCommand({
     const slug =
       args.slug ?? (configExists(args.config) ? (await loadConfig(args.config)).project : null);
     if (!slug) {
-      consola.error("No --slug provided and no local config to read it from.");
-      process.exit(1);
+      abort(
+        "No project to export.",
+        "pass `--slug <slug>`",
+        `or run \`${cmd("init")}\` in this directory`,
+      );
     }
 
     const project = await client.project.getBySlug({ slug });
@@ -33,7 +37,8 @@ export const exportCommand = defineCommand({
 
     if (args.out) {
       writeFileSync(args.out, yaml);
-      consola.success(`Wrote ${args.out}`);
+      ok("Wrote the compose stack.");
+      detail([["file", dim(args.out)]]);
       return;
     }
     process.stdout.write(yaml);

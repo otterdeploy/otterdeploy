@@ -1,14 +1,17 @@
 import { defineCommand } from "citty";
-import { consola } from "consola";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { createCliClient } from "../client";
 import { loadConfig, resolveToken, resolveUrl } from "../config";
-import { configExists, writeConfigTemplate } from "../config-file";
-
-const TS_FILENAME = "otterdeploy.config.ts";
-const JSON_FILENAME = "otterdeploy.config.json";
+import {
+  configExists,
+  JSON_CONFIG_FILENAME,
+  TS_CONFIG_FILENAME,
+  writeConfigTemplate,
+} from "../config-file";
+import { cmd } from "../lib/name";
+import { abort, ask, confirm, detail, dim, hint, note, ok, warn } from "../lib/ui";
 
 export const initCommand = defineCommand({
   meta: {
@@ -29,40 +32,38 @@ export const initCommand = defineCommand({
     const url = resolveUrl();
     const token = resolveToken();
     if (!url || !token) {
-      consola.error("Not logged in. Run `otterdeploy login <url>` first.");
-      process.exit(1);
+      abort("Not logged in.", `run \`${cmd("login <url>")}\` first`);
     }
 
     const targetPath = args.config
       ? resolve(process.cwd(), args.config)
-      : resolve(process.cwd(), args.format === "ts" ? TS_FILENAME : JSON_FILENAME);
+      : resolve(process.cwd(), args.format === "ts" ? TS_CONFIG_FILENAME : JSON_CONFIG_FILENAME);
 
     const alreadyExists = args.config ? existsSync(targetPath) : configExists();
     if (alreadyExists && !args.yes) {
-      const ok = await consola.prompt(
-        `A config already exists${args.config ? ` at ${targetPath}` : ""}. Overwrite ${targetPath}?`,
-        { type: "confirm", initial: false },
-      );
-      if (!ok) {
-        consola.info("Aborted.");
-        process.exit(1);
+      warn(`A config already exists at ${targetPath}.`);
+      if (!(await confirm("Overwrite it?"))) {
+        abort("Aborted — the existing config was kept.");
       }
     }
 
     const client = createCliClient({ url, token });
 
-    const slug = args.slug ?? (await consola.prompt("Project slug:", { type: "text" }));
+    const slug = args.slug ?? (await ask("Project slug"));
+    if (!slug) abort("A project slug is required.", "pass `--slug <slug>`");
     const name = args.name ?? slug;
 
     let project: { id: string; slug: string };
     try {
       project = await client.project.create({ name, slug });
-      consola.success(`Created project ${slug}`);
+      ok(`Created project ${slug}.`);
     } catch (error) {
       const code = (error as { code?: string }).code;
       if (code !== "CONFLICT") throw error;
       project = await client.project.getBySlug({ slug });
-      consola.info(`Linked to existing project ${slug}`);
+      // Linking to an existing project is the expected path on a second
+      // machine, so it reads as information rather than as a fallback.
+      note(`Linked to existing project ${slug}.`);
     }
 
     // The schema is served as a static asset on the WEB origin, not the
@@ -75,7 +76,12 @@ export const initCommand = defineCommand({
       projectSlug: project.slug,
     });
 
-    consola.success(`Wrote ${targetPath}`);
-    consola.info("Next: edit the file, then run `otterdeploy sync` or `otterdeploy deploy`.");
+    ok("Wrote the config.");
+    detail([
+      ["file", dim(targetPath)],
+      ["project", project.slug],
+    ]);
+    hint("edit the file to declare services and databases");
+    hint(`then run \`${cmd("deploy")}\``);
   },
 });

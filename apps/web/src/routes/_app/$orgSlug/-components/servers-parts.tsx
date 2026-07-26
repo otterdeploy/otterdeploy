@@ -26,8 +26,11 @@ export function StatTile({
 }) {
   const isPlaceholder = value === "—";
   return (
-    <Card className="rounded-md">
-      <CardContent className="flex items-center gap-3">
+    // min-w-0 on the Card itself, not just the text block: as a grid item its
+    // default min-width:auto lets a long label ("Containers running") set the
+    // column's minimum, widening the grid past the viewport on a phone.
+    <Card className="min-w-0 rounded-md">
+      <CardContent className="flex min-w-0 items-center gap-3">
         <div className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
           <HugeiconsIcon
             icon={icon}
@@ -36,7 +39,9 @@ export function StatTile({
           />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
+          {/* Single long tokens ("otterdeploy-managed") must be allowed to
+              break mid-word — a tile is ~85px of text width at 375px. */}
+          <div className="text-[11px] font-medium tracking-wider text-muted-foreground/70 uppercase [overflow-wrap:anywhere]">
             {label}
           </div>
           <div
@@ -47,7 +52,9 @@ export function StatTile({
           >
             {value}
           </div>
-          <div className="mt-0.5 text-[11px] text-muted-foreground">{sub}</div>
+          <div className="mt-0.5 text-[11px] text-muted-foreground [overflow-wrap:anywhere]">
+            {sub}
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -60,9 +67,18 @@ export function StatTile({
 export function ClusterStatTiles({
   servers,
   tasksRunning,
+  isSwarm,
 }: {
   servers: Array<{ cpuTotal: number; memTotalGb: number; role: string }>;
   tasksRunning: number | null;
+  /** Whether this install is running the Swarm runtime. The plain-Docker
+   *  runtime (the default) has no swarm tasks — `server.stats` counts
+   *  running otterdeploy-managed CONTAINERS instead and reports them through
+   *  the same field, so the tile must say so: labelling a container count
+   *  "Tasks running" reads as a live contradiction next to the Docker page's
+   *  Tasks tab, which is genuinely swarm-only and always empty here
+   *  (od-1kc.4 — "TASKS RUNNING 3" here vs "Tasks 0" there, same install). */
+  isSwarm: boolean;
 }) {
   const totalCpu = servers.reduce((acc, s) => acc + s.cpuTotal, 0);
   const totalMem = servers.reduce((acc, s) => acc + s.memTotalGb, 0);
@@ -83,9 +99,9 @@ export function ClusterStatTiles({
       />
       <StatTile
         icon={Task01Icon}
-        label="Tasks running"
+        label={isSwarm ? "Tasks running" : "Containers running"}
         value={tasksRunning != null ? String(tasksRunning) : "—"}
-        sub="across all replicas"
+        sub={isSwarm ? "across all replicas" : "otterdeploy-managed"}
       />
       <StatTile
         icon={ServerStack01Icon}

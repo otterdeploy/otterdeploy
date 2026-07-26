@@ -149,7 +149,7 @@ export function LimitsRow({
 }) {
   return (
     <div className={rowClass}>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <LimitField
           label="CPU limit (per replica)"
           value={form.cpuLimit}

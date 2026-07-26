@@ -2,16 +2,17 @@ import { matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../..";
 import { setServerAvailability } from "./availability";
+import { serverEnrollmentRouter } from "./enrollment-router";
 import {
   createServer,
   deleteServer,
   getServer,
   listServers,
   provisionServer,
+  reapplyFirewall,
   retryProvision,
 } from "./handlers";
 import { getServerHealth } from "./health";
-import { getSwarmJoinTokens } from "./join-tokens";
 import { streamProvisionLogs } from "./provision-stream";
 import { getServerInOrg } from "./queries";
 import { removeServerNode } from "./remove-node";
@@ -160,9 +161,7 @@ export const serverRouter = {
     return getServerHealth({ organizationId: context.activeOrganizationId });
   }),
 
-  joinTokens: orgScopedProcedure.server.joinTokens.handler(async () => {
-    return getSwarmJoinTokens();
-  }),
+  ...serverEnrollmentRouter,
 
   provision: requirePermission({ server: ["create"] }).server.provision.handler(
     async ({ input, context, errors }) => {
@@ -209,6 +208,23 @@ export const serverRouter = {
         throw matchError(result.error, {
           ServerNotFoundError: () => errors.NOT_FOUND(),
           ProvisionNotFailedError: () => errors.NOT_FAILED(),
+          ProvisionMissingCredentialError: () => errors.MISSING_CREDENTIAL(),
+        });
+      }
+      return result.value;
+    },
+  ),
+
+  reapplyFirewall: requirePermission({ server: ["create"] }).server.reapplyFirewall.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "server", id: input.id } });
+      const result = await reapplyFirewall({
+        id: input.id,
+        organizationId: context.activeOrganizationId,
+      });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ServerNotFoundError: () => errors.NOT_FOUND(),
           ProvisionMissingCredentialError: () => errors.MISSING_CREDENTIAL(),
         });
       }

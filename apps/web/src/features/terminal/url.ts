@@ -3,10 +3,12 @@ import * as z from "zod";
 import type { SessionSource } from "./types";
 
 /**
- * Search schema for the popout terminal. A single `session` search key carries
- * an ordered list of session tokens; each token encodes one SessionSource. The
+ * Search schema for the terminal — shared by the in-app page and the popout so
+ * a URL is portable between them. A single `session` search key carries an
+ * ordered list of session tokens; each token encodes one SessionSource. The
  * router serializes the array as repeated `?session=…&session=…` params so the
- * URL is human-readable and round-trippable.
+ * URL is human-readable and round-trippable. `active` is the index of the
+ * focused tab, omitted when it's the first one.
  *
  * Tanstack-router gives back a single string when the URL has only one
  * `session` param and an array when there are multiple; the union+transform
@@ -17,6 +19,7 @@ export const terminalSearchSchema = z.object({
     .union([z.string(), z.array(z.string())])
     .optional()
     .transform((v): string[] => (v == null ? [] : Array.isArray(v) ? v : [v])),
+  active: z.coerce.number().int().nonnegative().optional().catch(undefined),
 });
 
 export type TerminalSearch = z.infer<typeof terminalSearchSchema>;

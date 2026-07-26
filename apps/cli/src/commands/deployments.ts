@@ -1,23 +1,13 @@
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
+import { elapsed, orAbsent, relativeTime, shortId, shortSha, truncate } from "../lib/format";
+import { cmd } from "../lib/name";
 import { resolveResource } from "../lib/resolve";
+import { dim, hint, note, out, paint, section, stateLabel, table } from "../lib/ui";
 
 const DEFAULT_LIMIT = 20;
-
-function relativeTime(iso: string): string {
-  const s = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
-  if (s < 60) return `${s}s ago`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
-
-function truncate(text: string, max: number): string {
-  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
-}
+/** Long enough to identify a failure, short enough not to set the table width. */
+const MAX_ERROR_LENGTH = 60;
 
 export const deploymentsCommand = defineCommand({
   meta: {
@@ -46,33 +36,52 @@ export const deploymentsCommand = defineCommand({
       resourceId: ctx.resourceId,
     });
     const parsed = args.limit ? Number.parseInt(args.limit, 10) : DEFAULT_LIMIT;
-    const shown = rows.slice(0, Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_LIMIT);
+    const limit = Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_LIMIT;
+    const shown = rows.slice(0, limit);
 
     if (args.json) {
       process.stdout.write(`${JSON.stringify(shown, null, 2)}\n`);
       return;
     }
     if (shown.length === 0) {
-      consola.info(`No deployments yet for ${ctx.resourceName}.`);
+      note(`No deployments yet for ${ctx.resourceName}.`);
+      hint(`run \`${cmd(`build ${ctx.resourceName}`)}\` to create one`);
       return;
     }
 
-    // Fixed pads sized to the longest enum values: status "superseded"
-    // (10), reason "image-change" (12), relative times ≤ "999d ago" (9).
-    consola.log(
-      `  ${"ID".padEnd(8)}  ${"STATUS".padEnd(10)}  ${"REASON".padEnd(12)}  ${"SHA".padEnd(7)}  ${"CREATED".padEnd(9)}  ${"COMPLETED".padEnd(9)}  ERROR`,
+    section(`Deployments ${dim(ctx.resourceName)}`);
+    // Columns are content-measured (see ui/render.ts), which replaces the old
+    // hand-tuned pads that sheared whenever an enum value grew.
+    table(
+      [
+        { header: "id" },
+        { header: "status" },
+        { header: "reason" },
+        { header: "sha" },
+        { header: "created" },
+        { header: "took", align: "right" },
+        { header: "error" },
+      ],
+      shown.map((d) => [
+        paint("id", shortId(d.id)),
+        stateLabel(d.status),
+        dim(d.reason),
+        dim(orAbsent(shortSha(d.gitSha ?? d.sourceSha))),
+        dim(relativeTime(d.createdAt)),
+        dim(elapsed(d.createdAt, d.completedAt)),
+        d.errorMessage ? paint("danger", truncate(d.errorMessage, MAX_ERROR_LENGTH)) : "",
+      ]),
     );
-    for (const d of shown) {
-      const cols = [
-        d.id.slice(-8).padEnd(8),
-        d.status.padEnd(10),
-        d.reason.padEnd(12),
-        (d.gitSha ? d.gitSha.slice(0, 7) : d.sourceSha ? d.sourceSha.slice(0, 7) : "—").padEnd(7),
-        relativeTime(d.createdAt).padEnd(9),
-        (d.completedAt ? relativeTime(d.completedAt) : "—").padEnd(9),
-        d.errorMessage ? truncate(d.errorMessage, 60) : "",
-      ];
-      consola.log(`  ${cols.join("  ")}`.trimEnd());
+
+    // Say so when the list was cut, rather than letting it look complete.
+    if (rows.length > shown.length) {
+      out();
+      note(dim(`Showing ${shown.length} of ${rows.length}. Use \`--limit ${rows.length}\` for all.`));
+    }
+
+    const newest = shown[0];
+    if (newest && (newest.status === "failed" || newest.status === "crashed")) {
+      hint(`run \`${cmd(`logs ${ctx.resourceName} --build`)}\` to see why the newest one failed`);
     }
   },
 });

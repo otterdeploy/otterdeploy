@@ -11,11 +11,13 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
+import { clearAuthCache } from "@/lib/auth-queries";
 import { authQueryKeys } from "@/lib/auth-query-keys";
 import { Button } from "@/shared/components/ui/button";
 import { Spinner } from "@/shared/components/ui/spinner";
 
 export const Route = createFileRoute("/accept-invite/$invitationId")({
+  staticData: { crumb: "Accept invitation" },
   beforeLoad: async ({ params }) => {
     const session = await authClient.getSession();
     if (!session.data) {
@@ -40,11 +42,15 @@ function AcceptInvitePage() {
         query: { id: invitationId },
       });
       if (res.error) {
-        throw new Error(res.error.message ?? "Invitation not found or expired");
+        throw new Error(res.error.message || "Invitation not found or expired");
       }
       return res.data;
     },
     retry: false,
+    // The failure is rendered inline in the card below — opt out of the global
+    // QueryCache error toast so the raw "Error: … retry" toast doesn't stack
+    // under it.
+    meta: { suppressErrorToast: true },
   });
 
   const accept = useMutation({
@@ -100,9 +106,32 @@ function AcceptInvitePage() {
               <h1 className="text-lg font-semibold">Invitation unavailable</h1>
               <p className="mt-1 text-[13px] text-muted-foreground">{invitation.error.message}</p>
             </div>
-            <Button variant="outline" onClick={() => void navigate({ to: "/" })}>
-              Go to dashboard
-            </Button>
+            {/* No "Go to dashboard" here: an invitee mid-invite usually has no
+                org yet, so "/" would bounce them into create-organization
+                onboarding. Offer a retry, or a re-sign-in that returns HERE
+                (the invite is often addressed to a different email than the
+                current session). */}
+            <div className="flex items-center justify-center gap-2">
+              <Button variant="outline" onClick={() => void invitation.refetch()}>
+                Try again
+              </Button>
+              <Button
+                onClick={() => {
+                  void authClient.signOut().finally(() => {
+                    // Router navigation, not a reload — so the cached session
+                    // would otherwise outlive the sign-out and let the gate
+                    // wave the old user through.
+                    clearAuthCache();
+                    void navigate({
+                      to: "/sign-in",
+                      search: { redirect: `/accept-invite/${invitationId}` },
+                    });
+                  });
+                }}
+              >
+                Sign in with a different account
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="flex flex-col gap-5 text-center">

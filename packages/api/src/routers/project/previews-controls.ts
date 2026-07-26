@@ -183,7 +183,7 @@ export async function setPreviewKeepAlive(
   // Pin = NULL deadline. Un-pin = the server's configured default TTL (which is
   // itself NULL when idle teardown is globally disabled, so un-pinning under a
   // disabled policy stays un-reapable — matching the documented contract).
-  const deadline = input.keepAlive ? null : defaultTeardownAt();
+  const deadline = input.keepAlive ? null : await defaultTeardownAt();
   await setPreviewAutoTeardown(g.value.preview.id, deadline);
   return Result.ok({ pinned: deadline === null });
 }

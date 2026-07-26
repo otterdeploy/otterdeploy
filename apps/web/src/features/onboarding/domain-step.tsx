@@ -85,7 +85,8 @@ export function DomainStep({
                   <span className="font-mono text-foreground">web-store.apps.acme.com</span>. Point
                   a wildcard <span className="font-mono text-foreground">*.apps.acme.com</span>{" "}
                   record (and <span className="font-mono text-foreground">*.db.acme.com</span> for
-                  databases) at this server.
+                  databases) at this server. You'll add a DNS TXT record to verify ownership next,
+                  from Workspace settings.
                 </>
               }
               value={field.state.value}

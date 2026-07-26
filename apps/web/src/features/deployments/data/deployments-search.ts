@@ -86,6 +86,7 @@ export interface ProjectDeployment {
     | "crashed"
     | "paused"
     | "failed"
+    | "cancelled"
     | "superseded"
     | "removed";
   errorMessage: string | null;

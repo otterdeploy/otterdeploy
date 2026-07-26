@@ -1,6 +1,13 @@
 import { createElement } from "react";
 
-import { Album02Icon, Rocket01Icon, TerminalIcon } from "@hugeicons/core-free-icons";
+import {
+  Album02Icon,
+  BookOpen01Icon,
+  PlugSocketIcon,
+  Rocket01Icon,
+  SourceCodeIcon,
+  TerminalIcon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { docs } from "collections/server";
 import { loader } from "fumadocs-core/source";
@@ -10,10 +17,17 @@ import { docsRoute } from "./shared";
 
 // Resolve docs `icon:` frontmatter to Hugeicons (we use Hugeicons everywhere —
 // no lucide). Keys stay the semantic names used in the .mdx frontmatter.
+//
+// Icons mark SECTIONS, not pages. A distinct icon per folder is a wayfinding
+// aid; the same three icons scattered across every leaf page underneath is
+// just noise, so leaf pages deliberately carry no `icon:` frontmatter.
 const DOC_ICONS: Record<string, typeof Album02Icon> = {
   Album: Album02Icon,
   Rocket: Rocket01Icon,
+  Book: BookOpen01Icon,
   Terminal: TerminalIcon,
+  Code: SourceCodeIcon,
+  Api: PlugSocketIcon,
 };
 
 export const source = loader(

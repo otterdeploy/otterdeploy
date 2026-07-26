@@ -5,6 +5,10 @@
  * `useBindingSummary`.
  */
 
+// fallow-ignore-file unused-component-prop -- BindingSummary reads its props
+// through `props.x` member access rather than destructuring, which fallow's
+// prop-usage check does not follow. Every prop here is used.
+
 import { useState } from "react";
 
 import { GitBranchIcon, Tick02Icon } from "@hugeicons/core-free-icons";
@@ -55,7 +59,7 @@ export function useBindingSummary(projectSlug: string): {
 
   const reposQuery = useQuery(
     orpc.git.listRepos.queryOptions({
-      input: { installationId: (activeInstallationId ?? "") },
+      input: { installationId: activeInstallationId ?? "" },
       enabled: activeInstallationId != null,
     }),
   );
@@ -191,7 +195,7 @@ function NoProviderCard(props: BindingSummaryProps) {
               URL below — no app install needed.
             </p>
             <Link
-              to="/$orgSlug/settings/workspace/git-providers"
+              to="/$orgSlug/git-providers"
               params={{ orgSlug: props.orgSlug }}
               search={{
                 git_install: undefined,

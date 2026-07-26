@@ -12,7 +12,6 @@
 
 import {
   ChartLineData01Icon,
-  DashboardSquare01Icon,
   EarthIcon,
   File01Icon,
   Folder01Icon,
@@ -25,7 +24,12 @@ import { HugeiconsIcon } from "@hugeicons/react";
 
 import type { RoutePath } from "@/features/shell/components/sidebar";
 
-import { OPERATIONAL_NAV, SETTINGS_NAV, type NavManifestItem } from "@/features/shell/nav-manifest";
+import {
+  OPERATIONAL_NAV,
+  PALETTE_EXTRA_NAV,
+  SETTINGS_NAV,
+  type NavManifestItem,
+} from "@/features/shell/nav-manifest";
 import { CommandGroup, CommandItem } from "@/shared/components/ui/command";
 import { Kbd, KbdGroup } from "@/shared/components/ui/kbd";
 
@@ -44,7 +48,9 @@ export interface NavEntry {
 // same typed RoutePaths the tabs use. `chord` is the displayed + bound `G <key>`
 // shortcut; keep it in sync with `useProjectNavHotkeys`.
 export const PROJECT_NAV: readonly NavEntry[] = [
-  { to: "/$orgSlug/$projectSlug", label: "Overview", icon: DashboardSquare01Icon, chord: "O" },
+  // No "Overview" entry: the project index route redirects to /graph (the
+  // graph IS the project overview), so it never activated as its own
+  // destination — see project-tabs.tsx.
   {
     to: "/$orgSlug/$projectSlug/graph",
     label: "Graph",
@@ -56,9 +62,18 @@ export const PROJECT_NAV: readonly NavEntry[] = [
     to: "/$orgSlug/$projectSlug/deployments",
     label: "Deployments",
     icon: RocketIcon,
+    chord: "D",
     keywords: ["deploys", "rollback", "history"],
   },
-  { to: "/$orgSlug/$projectSlug/logs", label: "Logs", icon: File01Icon, chord: "L" },
+  {
+    to: "/$orgSlug/$projectSlug/logs",
+    label: "Logs",
+    icon: File01Icon,
+    chord: "L",
+    // Edge logs folded in as a source toggle (od-u63.5) — keep its old
+    // search terms so the palette still finds this from either name.
+    keywords: ["edge", "access", "traffic"],
+  },
   { to: "/$orgSlug/$projectSlug/metrics", label: "Metrics", icon: ChartLineData01Icon, chord: "M" },
   {
     to: "/$orgSlug/$projectSlug/variables",
@@ -74,13 +89,9 @@ export const PROJECT_NAV: readonly NavEntry[] = [
     chord: "N",
     keywords: ["domains", "routes", "caddy"],
   },
-  {
-    to: "/$orgSlug/$projectSlug/edge-logs",
-    label: "Edge logs",
-    icon: EarthIcon,
-    chord: "E",
-    keywords: ["access", "traffic"],
-  },
+  // No "Edge logs" entry (od-u63.5) — merged into Logs (chord "L") as a
+  // Runtime | Edge source toggle; "access"/"traffic" keywords moved onto the
+  // Logs entry above so the palette still finds it from either name.
   { to: "/$orgSlug/$projectSlug/settings", label: "Settings", icon: Settings01Icon, chord: "S" },
 ];
 
@@ -92,11 +103,21 @@ const toEntry = (item: NavManifestItem): NavEntry => ({
 });
 
 // Org-scoped destinations, grouped + ordered to match the operational
-// sidebar. The unlabeled top group renders under "Workspace".
+// sidebar. The unlabeled top group renders under "General" and also picks
+// up PALETTE_EXTRA_NAV — creation paths (Templates, od-u63.2) that aren't
+// sidebar slots but still need to be reachable from the palette. Folded into
+// the same group (rather than a second one) so `heading` stays a unique
+// React key across ORG_NAV_GROUPS.
+//
+// This fallback was "Workspace" until OPERATIONAL_NAV gained a group actually
+// labelled "Workspace" (git providers / registries / SSH keys). Two groups
+// resolving to the same heading is a duplicate React key AND two identical
+// headings in the palette, so the fallback must not collide with any real
+// group label — keep it a name no manifest group uses.
 export const ORG_NAV_GROUPS: readonly { heading: string; items: readonly NavEntry[] }[] = [
-  ...OPERATIONAL_NAV.map((group) => ({
-    heading: group.label ?? "Workspace",
-    items: group.items.map(toEntry),
+  ...OPERATIONAL_NAV.map((group, i) => ({
+    heading: group.label ?? "General",
+    items: [...group.items.map(toEntry), ...(i === 0 ? PALETTE_EXTRA_NAV.map(toEntry) : [])],
   })),
   // Settings-zone destinations, one palette group per rail group, so
   // "Settings · Workspace › Git providers" stays searchable from anywhere.

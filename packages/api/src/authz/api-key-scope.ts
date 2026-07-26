@@ -22,17 +22,12 @@
  */
 import { roles, type PermissionCheck } from "@otterdeploy/auth/permissions";
 
-/** Read-ish verbs that don't mutate state. Kept in sync with the
- *  `READ_VERB` classifier in ../index.ts (single source of truth lives here so
- *  read-only keys and the audit trail agree on what "read" means). */
-const READ_VERB =
-  /^(list|get|inspect|stream|search|count|fetch|read|resolve|view|preview|status|events|logs|metrics|stats)/i;
-
-/** True when the oRPC procedure path (e.g. `service.deploy`) is a read action. */
-export function isReadAction(path: string): boolean {
-  const action = path.split(".").pop() ?? path;
-  return READ_VERB.test(action);
-}
+// `isReadAction` is deliberately imported, not redefined. Read-only API keys
+// (isReadAllowed below) and the audit read-gate (../index.ts) must classify a
+// procedure identically — a divergence would either let a read-only key through
+// a mutation or drop a mutation from the audit trail. One definition, in
+// ./procedure-mode, is what keeps them honest.
+import { isReadAction } from "./procedure-mode";
 
 /**
  * Does the key's own minted permission map cover the required permission?

@@ -9,6 +9,7 @@ import { Docker, DockerConflictError, DockerNotFoundError } from "@otterdeploy/d
 
 import type { VolumeAttachment, VolumeContainerRef } from "./mapping";
 
+import { safeVolumeInspect, type SafeVolumeInspect } from "../docker/safe-view";
 import { buildVolumeMappingIndex, mapVolume } from "./mapping";
 import { loadOrgVolumeClaims } from "./queries";
 
@@ -24,10 +25,8 @@ function epochSeconds(iso: string | undefined): number | null {
 export interface EnrichedVolume {
   name: string;
   driver: string;
-  mountpoint: string;
   scope: string;
   createdAt: number | null;
-  labels: Record<string, string>;
   sizeBytes: number;
   refCount: number;
   containerNames: string[];
@@ -112,10 +111,8 @@ export async function listEnrichedVolumes(
     return {
       name: v.Name,
       driver: v.Driver,
-      mountpoint: v.Mountpoint,
       scope: v.Scope,
       createdAt: epochSeconds(v.CreatedAt),
-      labels: v.Labels ?? {},
       sizeBytes: sizes.get(v.Name) ?? v.UsageData?.Size ?? -1,
       ...mapped,
     };
@@ -134,7 +131,7 @@ export type VolumeMutationError = "not-found" | "conflict" | "error";
 export async function inspectVolume(
   name: string,
 ): Promise<
-  | { ok: true; raw: Record<string, unknown> }
+  | { ok: true; details: SafeVolumeInspect }
   | { ok: false; kind: VolumeMutationError; reason: string }
 > {
   const result = await docker.volumes.inspect(name);
@@ -142,7 +139,7 @@ export async function inspectVolume(
     const kind = result.error instanceof DockerNotFoundError ? "not-found" : "error";
     return { ok: false, kind, reason: result.error.message };
   }
-  return { ok: true, raw: result.value as Record<string, unknown> };
+  return { ok: true, details: safeVolumeInspect(result.value) };
 }
 
 export async function createVolume(input: {
@@ -155,9 +152,7 @@ export async function createVolume(input: {
       volume: {
         name: string;
         driver: string;
-        mountpoint: string;
         createdAt: number | null;
-        labels: Record<string, string>;
       };
     }
   | { ok: false; kind: VolumeMutationError; reason: string }
@@ -185,9 +180,7 @@ export async function createVolume(input: {
     volume: {
       name: v.Name,
       driver: v.Driver,
-      mountpoint: v.Mountpoint,
       createdAt: epochSeconds(v.CreatedAt),
-      labels: v.Labels ?? {},
     },
   };
 }

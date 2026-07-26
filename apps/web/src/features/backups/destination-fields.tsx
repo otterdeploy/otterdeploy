@@ -94,6 +94,7 @@ export function DestinationTypeFields({
   secret,
   onSecret,
   editing,
+  managed = false,
 }: {
   type: DestinationKind;
   config: Record<string, string>;
@@ -101,22 +102,36 @@ export function DestinationTypeFields({
   secret: Record<string, string>;
   onSecret: (next: Record<string, string>) => void;
   editing: boolean;
+  /** The platform-managed local destination: its location is derived from the
+   *  install's data directory, so the config fields are shown read-only. The
+   *  server rejects config edits on these rows regardless — this just avoids
+   *  presenting an input that cannot be saved. */
+  managed?: boolean;
 }) {
   const fields = DEST_TYPE_FIELDS[type];
   return (
     <>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {fields.config.map((f) => (
           <Field key={f.key} label={f.label} className={f.half ? undefined : "col-span-2"}>
             <Input
               value={config[f.key] ?? ""}
               placeholder={f.placeholder}
               required={f.required}
+              readOnly={managed}
+              aria-readonly={managed || undefined}
+              className={managed ? "bg-muted/50 font-mono text-muted-foreground" : undefined}
               onChange={(e) => onConfig({ ...config, [f.key]: e.target.value })}
             />
           </Field>
         ))}
       </div>
+      {managed && (
+        <p className="text-xs text-muted-foreground">
+          otterdeploy owns this location so it's always writable and never collides with another
+          workspace. Rename it freely — the path isn't editable.
+        </p>
+      )}
       {fields.secret.length > 0 && (
         <div className="flex flex-col gap-3 rounded-md border bg-muted/30 p-3">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">

@@ -1,9 +1,10 @@
 import type { CommandDef } from "citty";
 
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
 import { renderCompletion } from "../lib/completions";
+import { cmd, invokedName } from "../lib/name";
+import { abort } from "../lib/ui";
 
 // Built lazily against the live root command so completions never drift from
 // the registry. index.ts injects the root via `rootCommand` after wiring.
@@ -23,13 +24,16 @@ export const completionsCommand = defineCommand({
   async run({ args }) {
     const shell = args.shell;
     if (shell !== "bash" && shell !== "zsh" && shell !== "fish") {
-      consola.error("Usage: otterdeploy completions <bash|zsh|fish>");
-      process.exit(1);
+      abort(
+        shell === undefined ? "Which shell?" : `Unsupported shell "${shell}".`,
+        `run \`${cmd("completions bash")}\`, \`zsh\`, or \`fish\``,
+      );
     }
     if (!rootCommand) {
-      consola.error("Completion root not initialized.");
-      process.exit(1);
+      abort("Completion root not initialized.");
     }
-    process.stdout.write(await renderCompletion(rootCommand, shell));
+    // The generated script binds to the name the user invoked, so `otd` and
+    // `otterdeploy` each get completions under their own command name.
+    process.stdout.write(await renderCompletion(rootCommand, shell, invokedName()));
   },
 });

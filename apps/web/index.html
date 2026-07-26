@@ -4,10 +4,29 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>otterdeploy</title>
+
+    <!-- Modern browsers take the SVG and scale it themselves; it carries its own
+         prefers-color-scheme rule so the mark stays legible on dark tab bars.
+         The .ico is the legacy fallback (and stops /favicon.ico 404s). -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
+    <link rel="icon" href="/favicon-96x96.png" type="image/png" sizes="96x96" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <meta name="theme-color" content="#fbfbfa" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0c0c0b" media="(prefers-color-scheme: dark)" />
+
+    <meta name="description" content="Self-hostable deployments — build, ship, and operate your services on your own servers." />
+    <meta property="og:title" content="otterdeploy" />
+    <meta property="og:description" content="Self-hostable deployments — build, ship, and operate your services on your own servers." />
+    <meta property="og:image" content="/og.png" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="/og.png" />
   </head>
 
   <body>
-    <script crossorigin="anonymous" src="//unpkg.com/react-scan/dist/auto.global.js"></script>
     <div id="app"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

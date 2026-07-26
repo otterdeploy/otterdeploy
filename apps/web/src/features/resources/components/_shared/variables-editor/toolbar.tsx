@@ -5,6 +5,10 @@ import { Button } from "@/shared/components/ui/button";
 
 interface ToolbarProps {
   totalCount: number;
+  /** Count heading ("User Variables"). `null` hides the count entirely —
+   *  used when the surrounding tab already renders its own count header,
+   *  so the same rows aren't counted twice under two names. */
+  countLabel?: string | null;
   hasPending: boolean;
   diff: { added: number; edited: number; deleted: number };
   saving: boolean;
@@ -15,6 +19,7 @@ interface ToolbarProps {
 
 export function Toolbar({
   totalCount,
+  countLabel = "User Variables",
   hasPending,
   diff,
   saving,
@@ -25,10 +30,15 @@ export function Toolbar({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="flex items-center gap-2 text-[14px] font-semibold">
-        {totalCount} User Variables
+        {countLabel !== null && (
+          <span>
+            {totalCount} {countLabel}
+          </span>
+        )}
         {hasPending && (
           <span className="text-[11.5px] font-normal text-muted-foreground">
-            · <DiffSummary diff={diff} />
+            {countLabel !== null && "· "}
+            <DiffSummary diff={diff} />
           </span>
         )}
       </div>

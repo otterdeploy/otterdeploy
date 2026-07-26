@@ -9,6 +9,7 @@ import {
   listProjectResources,
   listResourceEnv,
   listResourceTasks,
+  previewResourcePublicHost,
   tailResourceLogs,
   tailTaskLogs,
 } from "./handlers";
@@ -32,6 +33,22 @@ export const resourceRouter = {
   checkName: orgScopedProcedure.project.resource.checkName.handler(
     async ({ input, context, errors }) => {
       const result = await checkResourceName({
+        projectId: input.projectId,
+        organizationId: context.activeOrganizationId,
+        name: input.name,
+      });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
+      return result.value;
+    },
+  ),
+
+  publicHostPreview: orgScopedProcedure.project.resource.publicHostPreview.handler(
+    async ({ input, context, errors }) => {
+      const result = await previewResourcePublicHost({
         projectId: input.projectId,
         organizationId: context.activeOrganizationId,
         name: input.name,

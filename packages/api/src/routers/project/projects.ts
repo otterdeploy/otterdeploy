@@ -22,6 +22,8 @@ import { destroySwarmPostgres } from "../../runtime/db";
 import { ProjectConflictError, ProjectHasServicesError, ProjectNotFoundError } from "./errors";
 import { normalizeCustomDomain } from "./projects-bindings";
 import {
+  countEnabledRoutesByProject,
+  countResourcesByProject,
   createProjectRecord,
   deleteProjectRecord,
   getProjectBySlugInOrg,
@@ -41,10 +43,18 @@ import {
 } from "./views";
 
 export async function listProjects(input: OrgRef): Promise<ProjectListItem[]> {
-  const records = await listProjectRecordsByOrg(input.organizationId);
-  const running = await countRunningServicesByProject(input.organizationId);
+  const [records, resourceTallies, routeTallies, running] = await Promise.all([
+    listProjectRecordsByOrg(input.organizationId),
+    countResourcesByProject(input.organizationId),
+    countEnabledRoutesByProject(input.organizationId),
+    countRunningServicesByProject(input.organizationId),
+  ]);
   return records.map((r) => ({
     ...r,
+    // A project with no resources/routes has no group row at all — absent means 0.
+    databaseCount: resourceTallies.get(r.id)?.databaseCount ?? 0,
+    serviceCount: resourceTallies.get(r.id)?.serviceCount ?? 0,
+    routeCount: routeTallies.get(r.id) ?? 0,
     // null (docker unreachable) propagates to every project so the UI hides the
     // running fraction rather than lying with a 0.
     runningServiceCount: running ? (running.get(r.id) ?? 0) : null,

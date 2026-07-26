@@ -1,0 +1,1 @@
+ALTER TYPE "deployment_status" ADD VALUE 'cancelled' BEFORE 'superseded';

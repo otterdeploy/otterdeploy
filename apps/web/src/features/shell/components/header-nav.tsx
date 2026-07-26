@@ -1,12 +1,9 @@
-import type { ProjectSlug } from "@otterdeploy/shared/id";
-
 import { useState, type ReactNode } from "react";
 
-import { Add01Icon, ArrowDown01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { ArrowDown01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import {
-  Link,
   useLoaderData,
   useMatch,
   useNavigate,
@@ -14,14 +11,24 @@ import {
   useSearch,
 } from "@tanstack/react-router";
 
+import { CreateProjectDialog } from "@/features/projects/components/create-project-dialog";
 import { envCollection } from "@/features/projects/data/env";
 import { projectCollection } from "@/features/projects/data/project";
 import { EnvironmentCreateDialog } from "@/features/shell/components/environment-create-dialog";
+import {
+  EnvDot,
+  EnvItems,
+  OrgItems,
+  ProjectItems,
+  type NavLists,
+} from "@/features/shell/components/header-nav-items";
 import { authClient } from "@/lib/auth-client";
+import { invalidateAuth } from "@/lib/auth-queries";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
@@ -63,16 +70,6 @@ function CrumbTrigger({
   );
 }
 
-function ActiveCheck({ active }: { active: boolean }) {
-  return (
-    <HugeiconsIcon
-      icon={Tick02Icon}
-      strokeWidth={2}
-      className={cn("ml-auto size-3.5", active ? "opacity-100" : "opacity-0")}
-    />
-  );
-}
-
 export function HeaderNav() {
   const { organizations } = useRouteContext({ from: "/_app" });
   const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
@@ -84,190 +81,159 @@ export function HeaderNav() {
 
   const navigate = useNavigate();
 
+  // Create dialogs are owned here rather than inside each picker so the
+  // desktop trail and the collapsed mobile menu drive the same two instances.
+  const [createProjectOpen, setCreateProjectOpen] = useState(false);
+  const [createEnvOpen, setCreateEnvOpen] = useState(false);
+
+  // Both collections are preloaded by the `_app` layout, so these are cheap
+  // subscriptions rather than fetches. They live here (not in the individual
+  // pickers) because the mobile menu renders all three lists at once.
+  const { data: projects } = useLiveQuery((q) => q.from({ p: projectCollection }), []);
+  const { data: environments } = useLiveQuery(
+    (q) => q.from({ e: envCollection }).where(({ e }) => eq(e.projectId, project?.id ?? "")),
+    [project?.id],
+  );
+
+  // `strict: false` — this nav also renders on org-level routes, which have no
+  // `env` search param in their schema at all.
+  const search = useSearch({ strict: false }) as { env?: string };
+  const defaultEnv = environments.find((e) => e.slug === "production") ?? environments[0];
+  const currentEnvSlug = search.env ?? defaultEnv?.slug;
+  const currentEnv = environments.find((e) => e.slug === currentEnvSlug) ?? defaultEnv;
+
+  const selectOrg = async (org: { id: string; slug: string }) => {
+    if (org.id === organization.id) return;
+    await authClient.organization.setActive({ organizationId: org.id });
+    await Promise.all([
+      // The session payload carries activeOrganizationId, and the gate now
+      // serves it from a 5min-stale cache — so switching org MUST drop it, or
+      // the app keeps resolving the previous org until the cache expires.
+      invalidateAuth(),
+      queryClient.invalidateQueries({ queryKey: orpc.project.list.queryKey() }),
+      queryClient.invalidateQueries({ queryKey: orpc.env.list.queryKey() }),
+    ]);
+    void navigate({ to: "/$orgSlug", params: { orgSlug: org.slug } });
+  };
+
+  const selectEnv = (slug: string) =>
+    void navigate({
+      search: (prev: Record<string, unknown>) => ({ ...prev, env: slug }),
+    } as never);
+
+  const lists = {
+    orgs: organizations,
+    activeOrgId: organization.id,
+    onSelectOrg: selectOrg,
+    orgSlug: organization.slug,
+    projects,
+    activeProjectId: project?.id,
+    onCreateProject: () => setCreateProjectOpen(true),
+    environments,
+    currentEnvSlug,
+    onSelectEnv: selectEnv,
+    onCreateEnv: () => setCreateEnvOpen(true),
+  };
+
+  const crumbs = { orgName: organization.name, projectName: project?.name, currentEnv, lists };
+
   return (
-    <nav aria-label="Workspace" className="hidden items-center gap-0.5 md:flex">
-      <OrgPicker
-        orgs={organizations}
-        activeOrgId={organization.id}
-        activeOrgName={organization.name}
-        onSelect={async (org) => {
-          if (org.id === organization.id) return;
-          await authClient.organization.setActive({
-            organizationId: org.id,
-          });
-          await Promise.all([
-            queryClient.invalidateQueries({
-              queryKey: orpc.project.list.queryKey(),
-            }),
-            queryClient.invalidateQueries({
-              queryKey: orpc.env.list.queryKey(),
-            }),
-          ]);
-          void navigate({
-            to: "/$orgSlug",
-            params: { orgSlug: org.slug },
-          });
-        }}
-      />
+    <>
+      <DesktopTrail {...crumbs} />
+      <MobileCrumbMenu {...crumbs} />
 
+      <CreateProjectDialog open={createProjectOpen} onOpenChange={setCreateProjectOpen} />
       {project && (
-        <>
-          <Separator />
-          <ProjectPicker
-            orgSlug={organization.slug}
-            activeProjectId={project.id}
-            activeProjectName={project.name}
-          />
-        </>
+        <EnvironmentCreateDialog
+          projectId={project.id}
+          open={createEnvOpen}
+          onOpenChange={setCreateEnvOpen}
+        />
       )}
+    </>
+  );
+}
 
-      {project && (
+interface CrumbProps {
+  orgName: string;
+  projectName?: string;
+  currentEnv?: { id: string; name: string; slug: string };
+  lists: NavLists;
+}
+
+/** Full crumb trail — org / project / environment as three separate triggers.
+ *  Needs ~26rem, so it only appears once there's room for it. */
+function DesktopTrail({ orgName, projectName, currentEnv, lists }: CrumbProps) {
+  return (
+    <nav aria-label="Workspace" className="hidden min-w-0 items-center gap-0.5 md:flex">
+      <DropdownMenu>
+        <CrumbTrigger label={orgName} />
+        <DropdownMenuContent align="start" className="min-w-56">
+          <OrgItems {...lists} />
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {projectName && (
         <>
           <Separator />
-          <EnvPicker projectId={project.id} />
+          <DropdownMenu>
+            <CrumbTrigger label={projectName} />
+            <DropdownMenuContent align="start" className="min-w-56">
+              <ProjectItems {...lists} />
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Separator />
+          {currentEnv && (
+            <DropdownMenu>
+              <CrumbTrigger label={currentEnv.name} leading={<EnvDot env={currentEnv} />} />
+              <DropdownMenuContent align="start" className="min-w-56">
+                <EnvItems {...lists} />
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </>
       )}
     </nav>
   );
 }
 
-function OrgPicker({
-  orgs,
-  activeOrgId,
-  activeOrgName,
-  onSelect,
-}: {
-  orgs: { id: string; name: string; slug: string }[];
-  activeOrgId: string;
-  activeOrgName: string;
-  onSelect: (org: { id: string; slug: string }) => void;
-}) {
+/** Below `md` the three triggers can't fit beside the sidebar toggle and the
+ *  action cluster, so they collapse into ONE trigger that opens all three lists
+ *  as labelled groups. Switching workspace, project and environment all stay
+ *  reachable — they just share a surface. */
+function MobileCrumbMenu({ orgName, projectName, currentEnv, lists }: CrumbProps) {
   return (
-    <DropdownMenu>
-      <CrumbTrigger label={activeOrgName} />
-      <DropdownMenuContent align="start" className="min-w-56">
-        {orgs.map((org) => (
-          <DropdownMenuItem key={org.id} onClick={() => onSelect(org)} className="gap-2">
-            <span className="truncate">{org.name}</span>
-            <ActiveCheck active={org.id === activeOrgId} />
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function ProjectPicker({
-  orgSlug,
-  activeProjectId,
-  activeProjectName,
-}: {
-  orgSlug: string;
-  activeProjectId: string;
-  activeProjectName: string;
-}) {
-  const { data: projects } = useLiveQuery((q) => q.from({ p: projectCollection }), []);
-
-  return (
-    <DropdownMenu>
-      <CrumbTrigger label={activeProjectName} />
-      <DropdownMenuContent align="start" className="min-w-56">
-        {projects.length === 0 ? (
-          <div className="px-2 py-1 text-xs text-muted-foreground">No projects</div>
-        ) : (
-          projects.map((p) => (
-            <DropdownMenuItem
-              key={p.id}
-              render={
-                <Link
-                  to="/$orgSlug/$projectSlug"
-                  params={{
-                    orgSlug,
-                    projectSlug: p.slug as ProjectSlug,
-                  }}
-                />
-              }
-              className="gap-2"
-            >
-              <span className="truncate">{p.name}</span>
-              <ActiveCheck active={p.id === activeProjectId} />
-            </DropdownMenuItem>
-          ))
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-/**
- * Environment status-dot color, derived from slug/name heuristics (there is
- * no explicit "kind" column on environments): production→emerald,
- * staging→amber, preview→blue, anything else→muted.
- */
-function envDotClass(env: { slug: string; name: string }): string {
-  const s = `${env.slug} ${env.name}`.toLowerCase();
-  if (s.includes("prod")) return "bg-emerald-500";
-  if (s.includes("stag")) return "bg-amber-500";
-  if (s.includes("preview")) return "bg-blue-500";
-  return "bg-muted-foreground/50";
-}
-
-function EnvDot({ env }: { env: { slug: string; name: string } }) {
-  return <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", envDotClass(env))} />;
-}
-
-function EnvPicker({ projectId }: { projectId: string }) {
-  const navigate = useNavigate();
-  const { env } = useSearch({ from: "/_app/$orgSlug/_shell/$projectSlug" });
-  const [createOpen, setCreateOpen] = useState(false);
-
-  const { data: environments } = useLiveQuery(
-    (q) => q.from({ e: envCollection }).where(({ e }) => eq(e.projectId, projectId)),
-    [projectId],
-  );
-
-  const defaultEnv = environments.find((e) => e.slug === "production") ?? environments[0];
-  const currentSlug = env ?? defaultEnv?.slug;
-  const current = environments.find((e) => e.slug === currentSlug) ?? defaultEnv;
-
-  if (!current) return null;
-
-  return (
-    <>
+    <nav aria-label="Workspace" className="flex min-w-0 items-center md:hidden">
       <DropdownMenu>
-        <CrumbTrigger label={current.name} leading={<EnvDot env={current} />} />
-        <DropdownMenuContent align="start" className="min-w-56">
-          {environments.map((e) => (
-            <DropdownMenuItem
-              key={e.id}
-              onClick={() =>
-                void navigate({
-                  search: (prev: Record<string, unknown>) => ({
-                    ...prev,
-                    env: e.slug,
-                  }),
-                } as never)
-              }
-              className="gap-2"
-            >
-              <EnvDot env={e} />
-              <span className="truncate">{e.name}</span>
-              <ActiveCheck active={e.slug === currentSlug} />
-            </DropdownMenuItem>
-          ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => setCreateOpen(true)} className="gap-2">
-            <HugeiconsIcon icon={Add01Icon} strokeWidth={2} />
-            New environment
-          </DropdownMenuItem>
+        <CrumbTrigger
+          label={projectName ?? orgName}
+          leading={projectName && currentEnv ? <EnvDot env={currentEnv} /> : undefined}
+          className="min-w-0"
+        />
+        <DropdownMenuContent align="start" className="max-h-[70svh] min-w-56 overflow-y-auto">
+          <DropdownMenuLabel className="text-muted-foreground">Workspace</DropdownMenuLabel>
+          <DropdownMenuGroup>
+            <OrgItems {...lists} />
+          </DropdownMenuGroup>
+
+          {projectName && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-muted-foreground">Project</DropdownMenuLabel>
+              <DropdownMenuGroup>
+                <ProjectItems {...lists} />
+              </DropdownMenuGroup>
+
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-muted-foreground">Environment</DropdownMenuLabel>
+              <DropdownMenuGroup>
+                <EnvItems {...lists} />
+              </DropdownMenuGroup>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
-
-      <EnvironmentCreateDialog
-        projectId={projectId}
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-      />
-    </>
+    </nav>
   );
 }

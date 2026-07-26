@@ -66,6 +66,9 @@ export const createPostgresDatabaseInput = z.object({
    *  Currently only honoured for postgres (other engines stay internal
    *  until their TCP proxy paths are wired). */
   publicEnabled: z.boolean().optional().default(false),
+  /** Image tag for the engine (the wizard's version pick, e.g. "18" or
+   *  "17-alpine"). Omitted → the catalog default tag. */
+  version: z.string().min(1).optional(),
 });
 
 /**

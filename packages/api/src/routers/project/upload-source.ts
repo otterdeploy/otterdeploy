@@ -18,7 +18,7 @@ import { db } from "@otterdeploy/db";
 import { deployment, project, resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { triggerDeploy } from "@otterdeploy/jobs";
 import { Result } from "better-result";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { emitDeployStarted } from "./deployments";
 import { publishResourceChanged } from "./project-event-bus";
@@ -26,6 +26,43 @@ import { publishResourceChanged } from "./project-event-bus";
 export interface UploadDeploymentTarget {
   projectId: ProjectId;
   deploymentId: DeploymentId;
+}
+
+export interface UploadSourceTarget {
+  organizationId: OrganizationId;
+  projectId: ProjectId;
+  source: string;
+}
+
+/** Resolve ownership and project scope before any deployment row is created. */
+export async function resolveUploadSourceTarget(args: {
+  resourceId: ResourceId;
+  organizationId: OrganizationId;
+}): Promise<UploadSourceTarget | null> {
+  const [row] = await db
+    .select({
+      projectId: resource.projectId,
+      organizationId: project.organizationId,
+      source: serviceResource.source,
+    })
+    .from(serviceResource)
+    .innerJoin(resource, eq(resource.id, serviceResource.resourceId))
+    .innerJoin(project, eq(project.id, resource.projectId))
+    .where(
+      and(
+        eq(serviceResource.resourceId, args.resourceId),
+        eq(project.organizationId, args.organizationId),
+      ),
+    )
+    .limit(1);
+
+  return row
+    ? {
+        organizationId: row.organizationId as OrganizationId,
+        projectId: row.projectId,
+        source: row.source,
+      }
+    : null;
 }
 
 /**
@@ -38,17 +75,7 @@ export async function createUploadDeployment(args: {
   resourceId: ResourceId;
   organizationId: OrganizationId;
 }): Promise<Result<UploadDeploymentTarget, string>> {
-  const [row] = await db
-    .select({
-      projectId: resource.projectId,
-      organizationId: project.organizationId,
-      source: serviceResource.source,
-    })
-    .from(serviceResource)
-    .innerJoin(resource, eq(resource.id, serviceResource.resourceId))
-    .innerJoin(project, eq(project.id, resource.projectId))
-    .where(eq(serviceResource.resourceId, args.resourceId))
-    .limit(1);
+  const row = await resolveUploadSourceTarget(args);
 
   if (!row || row.organizationId !== args.organizationId) {
     return Result.err("service not found");

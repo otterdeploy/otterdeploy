@@ -48,14 +48,27 @@ describe("shouldFanOutInApp", () => {
     ).toBe(false);
   });
 
-  test("skips events no channel is subscribed to (the matrix is the gate)", () => {
+  // od-1kc.5 regression: a fresh org with zero external channels configured
+  // (the common day-one case) must still get deploy/build/backup events in
+  // its bell — in-app is a default channel, not an opt-in row in the
+  // Slack/email/webhook subscription matrix. This used to `return
+  // input.subscribedChannelCount > 0`, which made the inbox permanently
+  // empty for exactly this org shape.
+  test("fans out even when the org has zero external channels subscribed", () => {
     expect(
       shouldFanOutInApp({
         eventId: "backup.failed",
         testChannelId: undefined,
         subscribedChannelCount: 0,
       }),
-    ).toBe(false);
+    ).toBe(true);
+    expect(
+      shouldFanOutInApp({
+        eventId: "deploy.succeeded",
+        testChannelId: undefined,
+        subscribedChannelCount: 0,
+      }),
+    ).toBe(true);
   });
 });
 

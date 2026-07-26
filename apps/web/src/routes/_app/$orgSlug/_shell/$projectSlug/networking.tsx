@@ -1,5 +1,4 @@
 import {
-  CodeIcon,
   Link01Icon,
   CheckmarkCircle02Icon,
   RefreshIcon,
@@ -30,7 +29,6 @@ import {
 } from "@/shared/components/ui/tabs";
 import { CaddyfileViewer } from "@/features/projects/components/networking/caddyfile-viewer";
 import { CertificatesTab } from "@/features/projects/components/networking/certificates-tab";
-import { CustomConfigEditor } from "@/features/projects/components/networking/custom-config-editor";
 import { DeploymentAccessTab } from "@/features/projects/components/networking/deployment-access-tab";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -48,9 +46,9 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/network
   // cache instead of spinning. Non-blocking + best-effort: a cold project row
   // or failed prefetch just falls back to fetch-on-mount, as before.
   loader: ({ params }) => {
-    // The Routes table's own data is a live react-db collection, not an orpc
-    // query — preload it too, or the main panel still fetches on mount.
-    void proxyRoutesCollection.preload();
+    // The Routes table's own data is a live react-db collection with syncMode
+    // "on-demand" — preload() is a no-op for those (it loads when the live
+    // query subscribes with its projectId filter), so we don't call it.
     const projectId = projectIdBySlug(params.projectSlug);
     if (!projectId) return;
     void queryClient
@@ -110,10 +108,6 @@ function RouteComponent() {
             <TabsTrigger value="caddyfile" className="gap-1.5 px-3 py-2">
               <HugeiconsIcon icon={ServerStack01Icon} strokeWidth={2} className="size-3.5" />
               Caddyfile
-            </TabsTrigger>
-            <TabsTrigger value="custom" className="gap-1.5 px-3 py-2">
-              <HugeiconsIcon icon={CodeIcon} strokeWidth={2} className="size-3.5" />
-              Custom config
             </TabsTrigger>
             <TabsTrigger value="tls" className="gap-1.5 px-3 py-2">
               <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className="size-3.5" />
@@ -176,10 +170,6 @@ function RouteComponent() {
                 loading={caddyfileQuery.isLoading}
               />
             )}
-          </TabsContent>
-
-          <TabsContent value="custom" className="pt-5">
-            <CustomConfigEditor projectId={projectId} />
           </TabsContent>
 
           <TabsContent value="tls" className="pt-5">

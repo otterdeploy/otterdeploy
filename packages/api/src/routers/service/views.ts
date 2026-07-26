@@ -71,7 +71,9 @@ export interface EnvVarView {
   id: string;
   serviceResourceId: string;
   key: string;
+  /** Empty string when `sealed` — see `mapEnvVar`. */
   value: string;
+  sealed: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -173,17 +175,27 @@ export async function mapServiceView(
   };
 }
 
+/**
+ * Sealed rows are write-only: the value is masked here, at the single mapper
+ * every read path funnels through, rather than at each call site — so a new
+ * endpoint cannot forget to mask. Masking is unconditional on `sealed` and
+ * never inspects the stored value, so a row that somehow holds plaintext
+ * still cannot be read back.
+ */
 export function mapEnvVar(row: {
   id: string;
   serviceResourceId: string;
   key: string;
   value: string;
+  sealed?: boolean;
 }): EnvVarView {
+  const sealed = row.sealed ?? false;
   return {
     id: row.id,
     serviceResourceId: row.serviceResourceId,
     key: row.key,
-    value: row.value,
+    value: sealed ? "" : row.value,
+    sealed,
   };
 }
 

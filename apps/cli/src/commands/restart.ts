@@ -1,7 +1,7 @@
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
 import { resolveResource } from "../lib/resolve";
+import { detail, ok, stateLabel } from "../lib/ui";
 
 export const restartCommand = defineCommand({
   meta: {
@@ -26,6 +26,7 @@ export const restartCommand = defineCommand({
       process.stdout.write(`${JSON.stringify(view, null, 2)}\n`);
       return;
     }
-    consola.success(`Restarted ${resourceName} (runtime: ${view.runtime.status}).`);
+    ok(`Restarted ${resourceName}.`);
+    detail([["runtime", stateLabel(view.runtime.status)]]);
   },
 });

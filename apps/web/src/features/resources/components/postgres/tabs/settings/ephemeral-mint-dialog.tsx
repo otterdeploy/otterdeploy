@@ -5,6 +5,7 @@
  */
 
 import type { ResourceId } from "@otterdeploy/shared/id";
+
 import { useState } from "react";
 
 import { useForm } from "@tanstack/react-form";
@@ -171,7 +172,7 @@ export function EphemeralMintDialog({
               className="flex flex-col gap-4"
               noValidate
             >
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <form.Field name="ttl">
                   {(field) => (
                     <OptionSelect

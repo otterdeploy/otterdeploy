@@ -1,3 +1,7 @@
+import { Fragment, useState } from "react";
+
+import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 /**
  * Managed tab — every enabled public domain across the org's projects with
  * the certificate the edge ACTUALLY serves for it (live probe; same
@@ -6,10 +10,6 @@
  * badged, linking the two planes together.
  */
 import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
-import { Fragment, useState } from "react";
-
-import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { Link } from "@tanstack/react-router";
 
 import { Badge } from "@/shared/components/ui/badge";
@@ -183,7 +183,7 @@ function ManagedRow({
       {open ? (
         <TableRow className="bg-muted/30 hover:bg-muted/30">
           <TableCell colSpan={6} className="py-3">
-            <div className="grid grid-cols-2 gap-x-10 gap-y-1 font-mono text-[12px]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-1 font-mono text-[12px]">
               {cert.error ? (
                 <Detail k="error" v={cert.error} wide />
               ) : (

@@ -1,7 +1,6 @@
 ---
 title: Command reference
 description: Every otterdeploy CLI command and flag.
-icon: Terminal
 ---
 
 Every command the `otterdeploy` CLI exposes, grouped the way the binary groups
@@ -12,8 +11,8 @@ aspirational.
 
 A handful of flags recur across commands:
 
-- **`--config <path>`** — path to the manifest (defaults to
-  `otterdeploy.config.json` / `.ts` in the working directory).
+- **`--config <path>`** — path to the manifest (defaults to `otterdeploy.json` /
+  `otterdeploy.ts` in the working directory).
 - **`--slug <project>`** — target a project explicitly, overriding the config's
   `project` field.
 - **`--url <url>`** — override the control-plane URL for a single command.
@@ -398,6 +397,22 @@ otterdeploy build api --wait --timeout 20
 - `--timeout <minutes>` — wait timeout in minutes.
 - `--json`.
 
+### `redeploy`
+
+Rebuild a service or compose stack from the head of its bound branch. Unlike
+`restart` (same image, new container), this produces a new build.
+
+```bash
+otterdeploy redeploy web
+otterdeploy redeploy web --wait --timeout 20
+```
+
+- `target` *(positional, required)* — service or compose stack name.
+- `--config <path>`, `--slug <project>`, `--url <url>`.
+- `--wait` — wait for the deployment to settle.
+- `--timeout <minutes>` — wait timeout in minutes.
+- `--json`.
+
 ### `deployments`
 
 List deployment history for a service.
@@ -500,6 +515,41 @@ Re-run the DNS reachability check for a domain.
 
 - `domain` *(positional, required)* — domain to recheck.
 - `--service <name>` *(required)*, `--config`, `--slug`, `--url`, `--json`.
+
+### `volume`
+
+Manage a service's persistent volumes.
+
+```bash
+otterdeploy volume list --service web
+otterdeploy volume add --service web --path /data
+otterdeploy volume remove --service web --path /data --yes
+```
+
+#### `volume list`
+
+List persistent volumes on a service.
+
+- `--service <name>` *(required)*, `--config`, `--slug`, `--url`, `--json`.
+
+#### `volume add`
+
+Attach a persistent volume to a service.
+
+- `--service <name>` *(required)*.
+- `--path <path>` *(required)* — absolute container path to mount, e.g. `/data`.
+- `--read-only` — mount the volume read-only.
+- `--config`, `--slug`, `--url`, `--json`.
+
+#### `volume remove`
+
+Detach a persistent volume from a service. **The data is left intact** — this
+removes the mount, not the volume's contents.
+
+- `--service <name>` *(required)*.
+- `--path <path>` *(required)* — absolute container path of the volume to detach.
+- `--yes` — skip the confirmation prompt.
+- `--config`, `--slug`, `--url`.
 
 ### `env`
 
@@ -783,5 +833,5 @@ otterdeploy completions fish > ~/.config/fish/completions/otterdeploy.fish
 
 <Cards>
   <Card title="CLI overview" href="/docs/cli" />
-  <Card title="Getting started guide" href="/docs/guides/getting-started" />
+  <Card title="Getting started guide" href="/docs/start/first-deploy" />
 </Cards>

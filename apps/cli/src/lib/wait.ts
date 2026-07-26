@@ -13,9 +13,10 @@
  * deployment or an errored task with nothing running.
  */
 
-import { consola } from "consola";
-
 import type { CliClient } from "./resolve";
+
+import { cmd } from "./name";
+import { dim, fail, hint, line, note, out, row, stateGlyph, stateLabel } from "./ui";
 
 export interface WaitTarget {
   resourceId: string;
@@ -144,8 +145,12 @@ async function printBuildLogTail(client: CliClient, deploymentId: string): Promi
     void iterator.return?.()?.catch(() => undefined);
   }
   if (lines.length === 0) return;
-  consola.log(`  ── build log (last ${lines.length} line(s)) ──`);
-  for (const line of lines) consola.log(`  ${line}`);
+  // Indented under the failure it explains, with a dim rule so the log is
+  // clearly transcript rather than something the CLI is saying.
+  out();
+  line(dim(`build log — last ${lines.length} line${lines.length === 1 ? "" : "s"}`));
+  for (const text of lines) line(dim(text));
+  out();
 }
 
 export async function waitForDeployments(opts: {
@@ -163,7 +168,8 @@ export async function waitForDeployments(opts: {
   let anyFailed = false;
 
   if (!json && pending.length > 0) {
-    consola.info(`Waiting for ${pending.length} service(s) to reach running…`);
+    const n = pending.length;
+    note(`Waiting for ${n} ${n === 1 ? "service" : "services"} to reach running…`);
   }
 
   while (pending.length > 0 && Date.now() - startedAt < timeoutMs) {
@@ -187,7 +193,7 @@ export async function waitForDeployments(opts: {
         const phase = evaluate(rows[0], tasks, Date.now() - startedAt);
 
         if (phase.kind === "success") {
-          if (!json) consola.log(`${state.target.name}: running ✓`);
+          if (!json) row([stateGlyph("running"), state.target.name, stateLabel("running")]);
           outcomes.push({
             name: state.target.name,
             status: "running",
@@ -214,9 +220,10 @@ export async function waitForDeployments(opts: {
           settled.add(state);
           return;
         }
-        // progress — log only on transition
+        // progress — log only on transition, so a slow build prints one line
+        // per phase change instead of one line per poll.
         if (!json && phase.label !== state.lastPhase) {
-          consola.log(`${state.target.name}: ${phase.label}…`);
+          row([stateGlyph(phase.label), state.target.name, stateLabel(phase.label)]);
         }
         state.lastPhase = phase.label;
       }),
@@ -225,11 +232,13 @@ export async function waitForDeployments(opts: {
     // Print failures sequentially so build-log tails don't interleave.
     if (!json) {
       for (const failure of failures) {
-        consola.error(
-          `${failure.name}: ${failure.label} ✗${failure.errorMessage ? ` — ${failure.errorMessage}` : ""}`,
+        fail(
+          `${failure.name}: ${failure.label}${failure.errorMessage ? ` — ${failure.errorMessage}` : ""}`,
         );
+        // A build failure has a log worth showing inline; a runtime failure
+        // doesn't, so point at the command that would show one.
         if (failure.deploymentId) await printBuildLogTail(client, failure.deploymentId);
-        else consola.log(`  Run \`otterdeploy logs ${failure.name}\` for container output.`);
+        else hint(`run \`${cmd(`logs ${failure.name}`)}\` for container output`);
       }
     }
 
@@ -239,7 +248,12 @@ export async function waitForDeployments(opts: {
 
   for (const state of pending) {
     anyFailed = true;
-    if (!json) consola.error(`${state.target.name}: timed out waiting to reach running.`);
+    if (!json) {
+      fail(
+        `${state.target.name}: timed out waiting to reach running.`,
+        `run \`${cmd(`logs ${state.target.name}`)}\` to see where it stalled`,
+      );
+    }
     outcomes.push({
       name: state.target.name,
       status: "timeout",

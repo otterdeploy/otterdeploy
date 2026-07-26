@@ -7,18 +7,20 @@
  */
 
 import type { ProjectSlug } from "@otterdeploy/shared/id";
-import type { ResourceNodeData } from "@/features/projects/components/graph/resource-node";
+
 import { useState } from "react";
 
 import { ArrowDown01Icon, GitBranchIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link } from "@tanstack/react-router";
 
+import type { ResourceNodeData } from "@/features/projects/components/graph/resource-node";
+
 import { cn } from "@/shared/lib/utils";
 
 import { PanelIcon } from "./atoms";
-import { DeploymentTimelineView } from "./deployment-timeline-view";
 import { type DeploymentInfo, DeploymentStatusBadge } from "./deployment-cards";
+import { DeploymentTimelineView } from "./deployment-timeline-view";
 import { HistoryRowMenu } from "./history-row-menu";
 
 /** What kicked off this deployment, in plain words. */
@@ -144,7 +146,7 @@ export function StagedDeploymentCard({
           <Link
             to="/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
             params={{ orgSlug, projectSlug, resourceId, deploymentId: deployment.id }}
-            search={{ tab: failed ? "build-logs" : "details" }}
+            search={(prev) => ({ ...prev, deploymentTab: failed ? "build-logs" : "details" })}
             className="rounded-md border border-border/60 px-2.5 py-1 text-[12px] text-foreground/80 transition-colors hover:bg-muted/50"
           >
             View logs

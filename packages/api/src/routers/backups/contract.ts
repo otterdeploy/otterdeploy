@@ -92,6 +92,26 @@ const destinationNotFound = {
   },
 };
 
+// The platform-managed local destination refuses deletion and relocation. The
+// UI should not offer either affordance on a managed row, so reaching this is
+// either a direct API call or a stale client.
+const destinationManaged = {
+  MANAGED: {
+    status: 409 as const,
+    message: "Destination is managed by the platform" as const,
+    data: z.object({ operation: z.enum(["delete", "reconfigure"]) }),
+  },
+};
+
+// Disabling the org's last active destination would make every schedule a
+// silent no-op, so it's refused rather than allowed-and-warned.
+const destinationLastActive = {
+  LAST_ACTIVE: {
+    status: 409 as const,
+    message: "Cannot disable the only active destination" as const,
+  },
+};
+
 // Structurally incomplete config (e.g. `local` with no `path`) — rejected at
 // create/update so it can't fail a backup run later.
 const destinationInvalidConfig = {
@@ -124,6 +144,11 @@ const updateDestinationInput = z.object({
 });
 
 const destinationIdInput = z.object({ id: backupDestinationIdField });
+
+const setDestinationEnabledInput = z.object({
+  id: backupDestinationIdField,
+  enabled: z.boolean(),
+});
 
 const testResultSchema = z.object({
   message: z.string(),
@@ -327,14 +352,24 @@ export const backupsContract = {
       .output(destinationSchema),
 
     update: oc
-      .errors({ ...destinationNotFound, ...destinationInvalidConfig })
+      .errors({ ...destinationNotFound, ...destinationInvalidConfig, ...destinationManaged })
       .meta({ path: `${basePath}/destinations/{id}`, tag, method: "PATCH" })
       .input(updateDestinationInput)
+      .output(destinationSchema),
+
+    // Operator intent, not health: a disabled destination receives no new
+    // backups but keeps its snapshots restorable. Separate from `update` so it
+    // works on the managed row, whose config is not editable.
+    setEnabled: oc
+      .errors({ ...destinationNotFound, ...destinationLastActive })
+      .meta({ path: `${basePath}/destinations/{id}/enabled`, tag, method: "PUT" })
+      .input(setDestinationEnabledInput)
       .output(destinationSchema),
 
     delete: oc
       .errors({
         ...destinationNotFound,
+        ...destinationManaged,
         CONFLICT: {
           status: 409 as const,
           message: "Destination is in use" as const,

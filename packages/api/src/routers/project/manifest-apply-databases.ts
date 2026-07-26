@@ -88,6 +88,10 @@ export async function createDatabase(
       organizationId: args.organizationId,
       name: args.name,
       engine: args.spec.engine,
+      // The wizard's version pick rides the manifest — without this the
+      // create silently deployed the catalog default tag (e.g. 17-alpine
+      // when the operator chose 18).
+      version: args.spec.version,
       publicEnabled: args.spec.publicEnabled ?? false,
       password: draftPassword,
       // Staged extensions + env deploy as part of THIS create: the stream

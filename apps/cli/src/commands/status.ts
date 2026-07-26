@@ -1,10 +1,11 @@
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
 import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";
 import { loadConfig } from "../config-file";
-import { countByKind, printDiff } from "../lib/diff-printer";
+import { countByKind, printChangeSummary, printDiff } from "../lib/diff-printer";
+import { cmd } from "../lib/name";
+import { detail, dim, hint, note, ok, out, paint, section, warn } from "../lib/ui";
 
 // `status` differs from `preview` in one important way: it doesn't
 // write the manifest. It diffs the local config against the server's
@@ -52,18 +53,27 @@ export const statusCommand = defineCommand({
 
     const localBlob = JSON.stringify(manifest);
     const serverBlob = JSON.stringify(current.manifest);
-    consola.info(`Server manifest version: v${current.version}`);
+
+    // Two independent questions, reported as two separate facts — conflating
+    // them was the old output's flaw. "Is my file the same as the server's
+    // saved manifest?" and "is what's running the same as that manifest?" fail
+    // for different reasons and have different fixes.
+    section("Config");
+    detail([
+      ["project", project.slug],
+      ["manifest", `v${current.version}`],
+      ...(args.env ? ([["environment", args.env]] as Array<[string, string]>) : []),
+    ]);
+    out();
 
     if (localBlob === serverBlob) {
-      consola.success("Local config matches server manifest exactly.");
+      ok("Local config matches the saved manifest.");
     } else if (current.manifest === null) {
-      consola.warn(
-        "Server has no saved manifest yet — first `sync` will publish the local config.",
-      );
+      warn("Server has no saved manifest yet.");
+      hint(`\`${cmd("deploy")}\` will publish this local config as v1`);
     } else {
-      consola.warn(
-        "Local config and server manifest differ. Run `preview` to see what `sync` would change.",
-      );
+      warn("Local config differs from the saved manifest.");
+      hint(`run \`${cmd("deploy --dry-run")}\` to see what would change`);
     }
 
     // Independently, surface drift in the running RESOURCES vs the
@@ -75,12 +85,25 @@ export const statusCommand = defineCommand({
     });
     const meaningful = diff.changes.filter((c) => c.kind !== "no-op");
     if (meaningful.length === 0) {
-      consola.success("Resources match the manifest.");
+      ok("Running resources match the manifest.");
       return;
     }
-    consola.warn("Resources drift from manifest:");
+
+    warn("Running resources have drifted from the manifest.");
+    section("Drift");
     printDiff(meaningful);
+    printChangeSummary(meaningful);
+    out();
+    note(dim("Drift usually means a change was made in the dashboard or another session."));
+    hint(`run \`${cmd("deploy")}\` to reconcile, or \`${cmd("pull")}\` to adopt the server's state`);
+
     const counts = countByKind(meaningful);
+    // Non-zero exit so CI can gate on "did anyone change anything?".
     if (counts.delete || counts.create || counts.update) process.exitCode = 1;
+    // Deletes are the one drift kind worth calling out by name before exit.
+    if (counts.delete) {
+      out();
+      note(paint("danger", `${counts.delete} resource(s) exist in the manifest but not in reality.`));
+    }
   },
 });

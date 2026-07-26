@@ -33,7 +33,22 @@ const SEVERITY_PATTERNS: ReadonlyArray<readonly [Exclude<LogSeverity, "normal">,
   ],
   ["success", [/[✓✔]/, /\bbuilt in\b/i, /\bready in\b/i, /\bcompiled successfully\b/i]],
   ["warn", [/(^|[^a-z])(warn|warning|deprecated)([^a-z]|$)/i, /^\(!\)/, /\[plugin\b/i]],
-  ["info", [/^\[?(info|notice)\]?[:\s-]/i]],
+  [
+    "info",
+    [
+      /^\[?(info|notice)\]?[:\s-]/i,
+      // Same `[info]`/`[notice]` tag, but not line-initial — syslog-style
+      // tools (nginx's error_log, most daemons) prefix it with their own
+      // timestamp first: `2026/07/25 12:00:00 [notice] 1#1: start worker
+      // process`. Without this, the tag never matched (the `^` anchor
+      // above only fires when the tag IS the first thing on the line), the
+      // content heuristic fell through to "normal", and the stream-based
+      // fallback in use-project-log-stream's `inferLevel` painted every one
+      // of these WARN — nginx logs its notice-level boot chatter to stderr,
+      // so a perfectly healthy boot read as a wall of orange warnings.
+      /\[(info|notice)\]/i,
+    ],
+  ],
 ];
 
 // A stack-trace frame — `    at fn (file:line:col)`. Leading whitespace is

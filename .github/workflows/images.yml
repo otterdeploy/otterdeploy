@@ -197,3 +197,158 @@ jobs:
             --generate-notes \
             --verify-tag \
             $prerelease
+
+  # Publish the install artifacts to get.otterdeploy.com (R2, fronted by the
+  # apps/get Worker) and attach them to the GitHub Release.
+  #
+  # Runs AFTER `release` so `versions.json` can carry the real release notes,
+  # and so nothing announces a version whose images aren't in the registry yet.
+  #
+  # What a host actually consumes:
+  #   get.otterdeploy.com/install.sh          ← scripts/install.sh
+  #   get.otterdeploy.com/docker-compose.yml  ← docker-compose.PROD.yml
+  #   get.otterdeploy.com/versions.json       ← built below
+  #
+  # Every object is written under BOTH `<tag>/` and `latest/`. The pinned copy
+  # is what makes an old install reproducible: install.sh resolves a version,
+  # and the compose file that shipped with it stays fetchable forever.
+  publish-artifacts:
+    name: Publish install artifacts
+    if: github.ref_type == 'tag'
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.ref_name }}
+      BUCKET: otterdeploy-get
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # A tag with a suffix (v0.5.0-rc.1) is a prerelease: it gets its pinned
+      # `<tag>/` copy so testers can install it explicitly, but it must NOT move
+      # `latest/` or `versions.json`. Mirrors the --prerelease logic above —
+      # the stable channel never sees it.
+      - name: Classify release
+        id: channel
+        run: |
+          case "$TAG" in
+            *-*) echo "stable=false" >> "$GITHUB_OUTPUT" ;;
+            *)   echo "stable=true"  >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      # The rename is the whole point of staging: the repo's docker-compose.yml
+      # builds from source and references a local dev image, so publishing it
+      # under that name would hand every new host a compose file that can't pull.
+      - name: Stage artifacts
+        run: |
+          mkdir -p dist
+          cp scripts/install.sh        dist/install.sh
+          cp scripts/uninstall.sh      dist/uninstall.sh
+          cp docker-compose.prod.yml   dist/docker-compose.yml
+
+          # Fail loudly rather than shipping a compose file that builds from
+          # source — the failure mode is silent and only shows up on a user's
+          # first install.
+          if grep -qE '^\s*build:' dist/docker-compose.yml; then
+            echo "::error::docker-compose.prod.yml contains a build: stanza — published hosts have no source tree."
+            exit 1
+          fi
+          if ! grep -q 'ghcr.io/' dist/docker-compose.yml; then
+            echo "::error::docker-compose.prod.yml references no published images."
+            exit 1
+          fi
+
+          bash -n dist/install.sh
+          bash -n dist/uninstall.sh
+
+          for f in install.sh uninstall.sh docker-compose.yml; do
+            ( cd dist && sha256sum "$f" > "$f.sha256" )
+          done
+
+      # Shaped like GitHub's `releases/latest` payload (tag_name/html_url/body)
+      # so the control-plane updater reads it unchanged — an operator only sets
+      # OTTERDEPLOY_UPDATE_MANIFEST_URL. See
+      # packages/api/src/routers/system/release-source.ts.
+      - name: Build versions.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --json body,url,publishedAt > release.json
+          jq --arg tag "$TAG" \
+             --arg registry "${{ env.REGISTRY }}/${{ github.repository_owner }}" \
+             '{
+                tag_name:     $tag,
+                html_url:     .url,
+                body:         .body,
+                published_at: .publishedAt,
+                install_url:  ("https://get.otterdeploy.com/" + $tag + "/install.sh"),
+                compose_url:  ("https://get.otterdeploy.com/" + $tag + "/docker-compose.yml"),
+                images: {
+                  server: ($registry + "/server:" + $tag),
+                  caddy:  ($registry + "/caddy:"  + $tag)
+                }
+              }' release.json > dist/versions.json
+          cat dist/versions.json
+
+      - name: Upload pinned copy to R2
+        run: |
+          for f in install.sh install.sh.sha256 \
+                   uninstall.sh uninstall.sh.sha256 \
+                   docker-compose.yml docker-compose.yml.sha256; do
+            case "$f" in
+              *.sha256)  ct="text/plain" ;;
+              *.sh)      ct="text/x-shellscript" ;;
+              *)         ct="text/yaml" ;;
+            esac
+            npx --yes wrangler@4 r2 object put "$BUCKET/$TAG/$f" \
+              --file="dist/$f" --content-type="$ct" --remote
+          done
+
+      # Only now does the release become the default for new installs.
+      - name: Promote to latest
+        if: steps.channel.outputs.stable == 'true'
+        run: |
+          for f in install.sh install.sh.sha256 \
+                   uninstall.sh uninstall.sh.sha256 \
+                   docker-compose.yml docker-compose.yml.sha256; do
+            case "$f" in
+              *.sha256)  ct="text/plain" ;;
+              *.sh)      ct="text/x-shellscript" ;;
+              *)         ct="text/yaml" ;;
+            esac
+            npx --yes wrangler@4 r2 object put "$BUCKET/latest/$f" \
+              --file="dist/$f" --content-type="$ct" --remote
+          done
+          # Written LAST: until this lands, no running instance is told the new
+          # version exists, so a half-finished promote can't advertise artifacts
+          # that aren't uploaded yet.
+          npx --yes wrangler@4 r2 object put "$BUCKET/versions.json" \
+            --file=dist/versions.json --content-type="application/json" --remote
+
+      # Secondary distribution + a second adoption signal: unlike GHCR, the
+      # GitHub API does report per-asset download counts.
+      - name: Attach artifacts to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "$TAG" \
+            dist/install.sh dist/install.sh.sha256 \
+            dist/uninstall.sh dist/uninstall.sh.sha256 \
+            dist/docker-compose.yml dist/docker-compose.yml.sha256 \
+            dist/versions.json \
+            --repo "$GITHUB_REPOSITORY" --clobber
+
+      - name: Verify the edge serves the new release
+        if: steps.channel.outputs.stable == 'true'
+        run: |
+          sleep 10
+          served="$(curl -fsSL https://get.otterdeploy.com/versions.json | jq -r .tag_name)"
+          if [ "$served" != "$TAG" ]; then
+            echo "::warning::get.otterdeploy.com/versions.json still reports '$served' (expected '$TAG') — edge cache is 60s, re-check shortly."
+          fi
+          curl -fsSL "https://get.otterdeploy.com/$TAG/docker-compose.yml" -o served-compose.yml
+          diff -q served-compose.yml dist/docker-compose.yml

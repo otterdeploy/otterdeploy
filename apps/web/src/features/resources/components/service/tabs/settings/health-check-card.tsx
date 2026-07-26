@@ -17,9 +17,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
+import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
 import { Button } from "@/shared/components/ui/button";
 import { Switch } from "@/shared/components/ui/switch";
-import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { FieldsRow } from "./health-check-fields";

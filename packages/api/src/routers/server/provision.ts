@@ -120,6 +120,19 @@ export function meshInstallScript(
   authKey: string,
   sudo: string,
   managementUrl?: string | null,
+  /**
+   * Wildcard DNS label this node registers (NetBird only), e.g. "od" →
+   * `--extra-dns-labels "*.od"` → `*.od.<peerDomain>` resolving to this node's
+   * mesh IP. Registered ONCE at join, it gives every private service on the
+   * node an internal hostname with no per-service API call and no external
+   * DNS; Caddy fans the wildcard back out by Host header.
+   *
+   * Requires the setup key to carry `allow_extra_dns_labels` — otherwise the
+   * management server rejects the label at registration. Omit for the
+   * paste-your-own-key path, where we can't know the key allows labels.
+   * Design: docs/designs/vpn-mesh.md
+   */
+  dnsLabel?: string | null,
 ): string {
   const S = sudo ? `${sudo} ` : "";
   if (provider === "tailscale") {
@@ -140,12 +153,15 @@ export function meshInstallScript(
   }
   // netbird
   const mgmt = managementUrl ? ` --management-url ${managementUrl}` : "";
+  // Single-quoted and validated: a label is a DNS label, so anything outside
+  // [a-z0-9-] can't reach the shell.
+  const labels = isSafeDnsLabel(dnsLabel) ? ` --extra-dns-labels '*.${dnsLabel}'` : "";
   return [
     "set -euo pipefail",
     "if ! command -v netbird >/dev/null 2>&1; then",
     `  curl -fsSL https://pkgs.netbird.io/install.sh | ${S}sh`,
     "fi",
-    `${S}netbird up --setup-key '${authKey}'${mgmt}`,
+    `${S}netbird up --setup-key '${authKey}'${mgmt}${labels}`,
     "IP=",
     "for _ in $(seq 1 15); do",
     "  IP=$(ip -4 -o addr show wt0 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -1 || true)",
@@ -154,6 +170,12 @@ export function meshInstallScript(
     "done",
     'echo "OTTER_MESH_IP=${IP}"',
   ].join("\n");
+}
+
+/** A single lowercase DNS label. Anything else is dropped rather than escaped
+ *  — a bad label is a config mistake, not something to smuggle into a shell. */
+export function isSafeDnsLabel(label: string | null | undefined): label is string {
+  return label != null && /^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$/.test(label);
 }
 
 export function parseMeshAddress(output: string): string | null {
@@ -229,6 +251,9 @@ export interface RemoteProvisionInput {
     authKey: string;
     /** Self-hosted netbird management URL; omit for the hosted service. */
     managementUrl?: string | null;
+    /** Wildcard DNS label to register (NetBird, managed-key path only) — see
+     *  meshInstallScript. Omitted on the paste-your-own-key path. */
+    dnsLabel?: string | null;
   };
   /** Install a Cloudflare Tunnel connector with this token (secret). */
   cloudflareTunnelToken?: string;
@@ -282,7 +307,13 @@ export async function runRemoteProvision(
   if (input.mesh) {
     onLine(`── joining ${input.mesh.provider} mesh ──`);
     const meshRes = await session.runScript(
-      meshInstallScript(input.mesh.provider, input.mesh.authKey, sudo, input.mesh.managementUrl),
+      meshInstallScript(
+        input.mesh.provider,
+        input.mesh.authKey,
+        sudo,
+        input.mesh.managementUrl,
+        input.mesh.dnsLabel,
+      ),
       onLine,
     );
     assertOk(meshRes, `${input.mesh.provider} mesh join failed`);

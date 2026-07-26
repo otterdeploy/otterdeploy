@@ -1,8 +1,9 @@
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
 import { deviceCodeLogin, promptForUrl } from "../auth-flow";
 import { loadConfig, normalizeUrl, rememberHost, saveConfig } from "../config";
+import { cmd } from "../lib/name";
+import { abort, ok } from "../lib/ui";
 
 export const loginCommand = defineCommand({
   meta: {
@@ -33,17 +34,16 @@ export const loginCommand = defineCommand({
     if (explicit) {
       url = normalizeUrl(explicit);
       if (!url) {
-        consola.error(`"${explicit}" is not a valid control plane URL.`);
-        process.exit(1);
+        abort(`"${explicit}" is not a valid control plane URL.`, "include the scheme, e.g. https://");
       }
     } else {
       url = await promptForUrl();
     }
     if (!url) {
-      consola.error(
-        "No URL provided. Run `otterdeploy login <url>` (e.g. https://otter.acme.com).",
+      abort(
+        "No control plane URL given.",
+        `run \`${cmd("login <url>")}\`, e.g. https://otter.acme.com`,
       );
-      process.exit(1);
     }
 
     // webUrl = web origin from the device verification URL — init needs it
@@ -51,6 +51,6 @@ export const loginCommand = defineCommand({
     const { token, webUrl } = await deviceCodeLogin(url);
     saveConfig({ ...loadConfig(), url, webUrl, token });
     rememberHost(url);
-    consola.success("Logged in.");
+    ok("Logged in.");
   },
 });

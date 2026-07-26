@@ -6,6 +6,16 @@
 
 name: otterdeploy
 
+# The builder image tag, declared ONCE. The build worker spawns this same image
+# as its per-build helper container, so the `image:` it is built/tagged as and
+# the `BUILDER_HELPER_IMAGE` it spawns must be identical — if they drift, every
+# build dies at "Build image" with `exit 125: Unable to find image … locally`
+# followed by a misleading `pull access denied` (docker falls back to hunting
+# for the tag on Docker Hub, where it was never published). Aliasing both from
+# one anchor makes that drift structurally impossible; don't inline the literal
+# back into either site.
+x-builder-image: &builder-image otterdeploy-builder:latest
+
 services:
   postgres:
     # Pinned to 17 — postgres:18+ refuses our /var/lib/postgresql/data mount
@@ -24,11 +34,7 @@ services:
     volumes:
       - otterdeploy-postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}",
-        ]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -59,8 +65,9 @@ services:
       context: .
       dockerfile: ./apps/server/Dockerfile
     # Pinned tag so the worker can spawn this same image as the per-build
-    # helper container (BUILDER_HELPER_IMAGE below must match).
-    image: otterdeploy-builder:latest-1
+    # helper container — both sides alias the x-builder-image anchor at the top
+    # of this file so they cannot drift apart.
+    image: *builder-image
     working_dir: /app/apps/builder
     command: ["bun", "run", "src/index.ts"]
     container_name: otterdeploy-builder
@@ -85,7 +92,7 @@ services:
       REDIS_URL: redis://redis:6379
       # Per-build helper containers: image to spawn + network to attach them to
       # (this compose project's default network, so they resolve postgres/redis).
-      BUILDER_HELPER_IMAGE: otterdeploy-builder:latest
+      BUILDER_HELPER_IMAGE: *builder-image
       BUILDER_HELPER_NETWORK: otterdeploy_default
       # Host data folder. Must match the bind-mount path below AND be a real host
       # path, since the worker bind-mounts <dir>/buildx-cache into helper
@@ -178,12 +185,37 @@ services:
     # workloads: `docker compose --profile edge up -d caddy`.
     profiles: ["edge"]
     restart: unless-stopped
-    command: sh -c "caddy run --config /etc/caddy/Caddyfile --adapter caddyfile"
+    environment:
+      # DEV ONLY — TCP admin instead of the 0600 unix socket production uses.
+      #
+      # Why: the socket has to be bind-mounted from the host so the natively-run
+      # control plane can reach it, and Docker Desktop's file sharing rejects
+      # both chmod and unlink on a socket inside a bind mount (EINVAL /
+      # "Not supported"), so Caddy cannot bind it and restart-loops.
+      #
+      # SECURITY — this reopens what od-5j8.6 (P0) closed, and not partially.
+      # Docker can only publish a port the process bound on the container's
+      # external interface, so this must listen on 0.0.0.0; binding the
+      # container's loopback would make the published port unreachable. And
+      # ensureEdgeOnProjectNetworks() (packages/api/src/swarm/client.ts) attaches
+      # Caddy to EVERY managed project network on each reconcile, so once any
+      # workload is deployed, its containers can reach :2019 — an unauthenticated
+      # API that can rewrite the whole proxy config and read managed certs.
+      # Tolerable on a single-user dev laptop; NEVER set this in production,
+      # which keeps the socket on a named volume under /run where 0600 holds.
+      #
+      # The static Caddyfile still DEFAULTS to the unix socket
+      # (infra/caddy/config/Caddyfile, asserted by the od-5j8.6 security test) —
+      # this only overrides it for this compose file.
+      CADDY_ADMIN_BIND: ${CADDY_ADMIN_BIND:-0.0.0.0:2019}
+    command: caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
     ports:
       - "${CADDY_HTTP_PORT:-80}:80"
       - "${CADDY_HTTPS_PORT:-443}:443"
       - "${CADDY_HTTPS_PORT:-443}:443/udp"
       - "${CADDY_PG_PORT:-5432}:5432"
+      # Loopback-only on the host: never 0.0.0.0, or the admin API would be
+      # exposed to the LAN on top of the container-network exposure above.
       - "127.0.0.1:${CADDY_ADMIN_HOST_PORT:-2019}:2019"
     volumes:
       - ./infra/caddy/config:/etc/caddy
@@ -194,6 +226,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
+      # Matches the TCP admin above. The socket probe (`test -S`) this replaces
+      # would never pass here, leaving the container permanently unhealthy.
       test:
         ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2019/config/"]
       interval: 10s

@@ -13,12 +13,12 @@ import { log } from "evlog";
 
 import type { EdgeLogLine } from "./types";
 
+import { edgeLogRetentionDays } from "../lib/platform-runtime-settings";
 import { startEventPersistence, stopEventPersistence } from "./event-persist";
 import { dropOldPartitions, ensureEdgeLogTable, ensurePartitions } from "./partition";
 
 const FLUSH_INTERVAL_MS = 2_000;
 const MAX_BATCH = 500;
-const RETENTION_DAYS = 7;
 const SWEEP_INTERVAL_MS = 60 * 60 * 1_000;
 
 // Shared on globalThis so the sink's captured closure and the freshly
@@ -107,8 +107,10 @@ async function flush(): Promise<void> {
 async function sweep(): Promise<void> {
   // Keep partitions ahead of ingest, then reclaim space by dropping whole
   // expired partitions — metadata-only, no row-by-row DELETE, no heap bloat.
+  // Retention is read per sweep (hourly), so shortening it in the UI reclaims
+  // disk on the next pass without a restart.
   await ensurePartitions();
-  await dropOldPartitions(RETENTION_DAYS);
+  await dropOldPartitions(await edgeLogRetentionDays());
 }
 
 function toRow(l: EdgeLogLine) {

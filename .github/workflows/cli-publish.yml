@@ -1,17 +1,30 @@
 name: CLI npm publish
 
-# Tag `cli-v<version>` (e.g. cli-v0.1.0) to publish @otterdeploy/cli to npm.
-# The tag version must match apps/cli/package.json.
+# Publishes @otterdeploy/cli to npm from the SAME `v<major>.<minor>.<patch>` tag
+# that builds the platform images (images.yml). One tag, one version, both
+# halves — so `otd -v` and `otd platform version` are directly comparable and a
+# bug report names one generation instead of two unrelated numbers.
 #
-# Auth is npm Trusted Publishing (OIDC) — no NPM_TOKEN secret. Configure it once
-# at npmjs.com → the package → Settings → Trusted Publisher: GitHub Actions,
-# repo `otterdeploy/otterdeploy`, workflow `cli-publish.yml`. The `id-token`
-# permission below is what lets npm exchange the OIDC token for publish rights,
-# and it also stamps build provenance automatically.
+# The old `cli-v*` train is gone. It let the CLI drift to 0.1.3 while the
+# platform was on v0.7.0, which told nobody anything. Version numbers matching at
+# RELEASE time still does not make a laptop CLI and a VPS control plane
+# compatible at CALL time — that is what the runtime handshake in
+# packages/api/src/routers/system/compat.ts is for.
+#
+# The version is stamped into apps/cli/package.json from the tag rather than
+# verified against it: the tag is the single source of truth, so a forgotten
+# local bump cannot block a release or publish the wrong number.
+#
+# DO NOT RENAME THIS FILE. Auth is npm Trusted Publishing (OIDC) — no NPM_TOKEN
+# secret — and the trusted publisher is bound to the workflow FILENAME. Configure
+# it once at npmjs.com → the package → Settings → Trusted Publisher: GitHub
+# Actions, repo `otterdeploy/otterdeploy`, workflow `cli-publish.yml`. The
+# `id-token` permission below is what lets npm exchange the OIDC token for
+# publish rights, and it also stamps build provenance automatically.
 on:
   push:
     tags:
-      - "cli-v*"
+      - "v*.*.*"
 
 permissions:
   contents: read
@@ -38,27 +51,61 @@ jobs:
       - name: Install workspace
         run: bun install --frozen-lockfile
 
-      - name: Verify tag matches package version
-        working-directory: apps/cli
+      # Writes the tag's version into every releasable package.json (today just
+      # apps/cli — the server/web/builder images read theirs from the image tag
+      # via OTTERDEPLOY_VERSION). Exports `version` for the steps below.
+      - name: Stamp release version
+        id: stamp
+        run: bun run scripts/update-release-package-versions.ts "$GITHUB_REF_NAME" --github-output
+
+      # A prerelease tag (v0.8.0-rc.1) must not become the default `latest` that
+      # `npm i @otterdeploy/cli` resolves to; park it on `next` instead.
+      #
+      # Also decides whether to publish at all. Now that EVERY platform release
+      # tag reaches this workflow, re-pushing a tag (the usual way a botched
+      # release gets fixed) would otherwise re-run the publish and die on npm's
+      # immutable-version error — a red X on a release that was actually fine.
+      # An already-published version is success, not failure.
+      - name: Resolve npm dist-tag
+        id: dist_tag
+        env:
+          VERSION: ${{ steps.stamp.outputs.version }}
         run: |
-          TAG_VERSION="${GITHUB_REF_NAME#cli-v}"
-          PKG_VERSION="$(node -p "require('./package.json').version")"
-          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
-            echo "Tag $GITHUB_REF_NAME ($TAG_VERSION) != package.json version ($PKG_VERSION)" >&2
-            exit 1
+          if [[ "$VERSION" == *-* ]]; then
+            echo "tag=next" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
           fi
-          echo "Publishing @otterdeploy/cli@$PKG_VERSION"
+
+          # Tested on OUTPUT, never on exit code: `npm view pkg@<missing>` exits 0
+          # with an empty result, so an exit-code check would read every
+          # unpublished version as "already there" and silently skip the release.
+          published="$(npm view "@otterdeploy/cli@$VERSION" version 2>/dev/null || true)"
+          if [[ -n "$published" ]]; then
+            echo "@otterdeploy/cli@$VERSION is already on npm — nothing to publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Publishing @otterdeploy/cli@$VERSION"
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
 
       # Build the self-contained bundle, then drop the build-time devDependencies
       # (workspace:/catalog: specifiers npm can't resolve) — everything is bundled
-      # into dist/index.js, so the published package needs no dependencies.
+      # into dist/index.js, so the published package needs no dependencies. The
+      # stamped version is inlined here (src/version.ts imports package.json), so
+      # this must run after the stamp and before the strip.
       - name: Build bundle
+        if: steps.dist_tag.outputs.publish == 'true'
         working-directory: apps/cli
         run: bun run build
       - name: Strip build-time devDependencies
+        if: steps.dist_tag.outputs.publish == 'true'
         working-directory: apps/cli
         run: npm pkg delete devDependencies
 
       - name: Publish to npm (trusted publishing)
+        if: steps.dist_tag.outputs.publish == 'true'
         working-directory: apps/cli
-        run: npm publish --provenance --access public --ignore-scripts
+        run: >-
+          npm publish --provenance --access public --ignore-scripts
+          --tag "${{ steps.dist_tag.outputs.tag }}"

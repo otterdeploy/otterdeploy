@@ -13,8 +13,11 @@ import type { ProjectRef, ResourceRef } from "../scopes";
 
 import { reconcile } from "../../caddy";
 import { deleteProxyRoutesByResource } from "../../caddy/queries";
+import { loadDomainSourcesForProject } from "../../lib/domain-sources";
+import { resolvePublicDomain, type ResolvedDomain } from "../../lib/domains";
 import { listServiceEnvVarsForResources } from "../service/queries";
-import { reclaimServiceHostArtifacts } from "../service/teardown";
+import { sanitizeSlug } from "../service/views";
+import { reclaimDatabaseVolume, reclaimServiceHostArtifacts } from "../service/teardown";
 import { getLatestDeploymentsForResources } from "./deployments";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
 import { removeDatabaseFromManifest, removeServiceFromManifest } from "./manifest";
@@ -27,6 +30,7 @@ import {
 } from "./queries";
 import {
   buildContainerName,
+  buildVolumeName,
   mapComposeResource,
   mapDatabaseResource,
   mapServiceResource,
@@ -75,6 +79,43 @@ export async function checkResourceName(
     }
   }
   return Result.ok({ available: false, suggestion: null });
+}
+
+/**
+ * Read-only preview of the public FQDN a service named `name` would publish
+ * at — the same resolver chain `exposeService` walks (project custom domain
+ * → org base → local dev base → sslip fallback; no per-resource override
+ * exists yet for a service that isn't created). Lets the new-resource wizard
+ * show and stage the real hostname instead of guessing client-side.
+ */
+export async function previewResourcePublicHost(
+  input: ProjectRef & { name: string },
+): Promise<Result<{ fqdn: string; source: ResolvedDomain["source"] }, ProjectNotFoundError>> {
+  const project = await getProjectInOrg({
+    projectId: input.projectId,
+    organizationId: input.organizationId,
+  });
+  if (!project) {
+    return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
+  }
+  const sources = (await loadDomainSourcesForProject(input.projectId)) ?? {
+    resourceOverride: null,
+    projectCustomDomain: null,
+    projectCustomDomainVerifiedAt: null,
+    orgBaseDomain: null,
+    orgBaseDomainVerifiedAt: null,
+    localBaseDomain: null,
+    serverIp: null,
+  };
+  const resolved = resolvePublicDomain(
+    {
+      resourceSlug: sanitizeSlug(input.name),
+      projectSlug: sanitizeProjectSlug(project.slug),
+      kind: "service",
+    },
+    sources,
+  );
+  return Result.ok({ fqdn: resolved.fqdn, source: resolved.source });
 }
 
 export async function listProjectResources(
@@ -217,9 +258,15 @@ export async function deleteProjectResource(
   switch (found.kind) {
     case "database": {
       const provisioner = getDatabaseProvisioner(found.record.database.engine);
+      const projectSlug = sanitizeProjectSlug(project.slug);
       const serviceName = buildContainerName({
         engine: found.record.database.engine,
-        projectSlug: sanitizeProjectSlug(project.slug),
+        projectSlug,
+        resourceName: found.record.resource.name,
+      });
+      const volumeName = buildVolumeName({
+        engine: found.record.database.engine,
+        projectSlug,
         resourceName: found.record.resource.name,
       });
 
@@ -240,12 +287,54 @@ export async function deleteProjectResource(
         found.record.resource.name,
       );
       await deleteProxyRoutesByResource(input.resourceId);
-      await provisioner.destroy({ serviceName }, log);
+      // Container teardown must never abort the delete — a crash-looped or
+      // already-exited container (od-aww's postgres:18 repro) is exactly the
+      // case that must still get cleaned up, and the DB row is the source of
+      // truth regardless of daemon hiccups. On failure, hand it to the
+      // orphan-GC sweep (same "service" resourceType it already retries
+      // stuck service teardowns with) instead of leaking it silently.
+      let containerDestroyed = true;
+      try {
+        await provisioner.destroy({ serviceName }, log);
+      } catch (cause) {
+        containerDestroyed = false;
+        const { recordOrphanedResource } = await import("../../system-health/orphan-gc");
+        await recordOrphanedResource({
+          organizationId: input.organizationId,
+          resourceType: "service",
+          ref: serviceName,
+          projectId: input.projectId,
+          label: `database teardown failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+        });
+      }
+      // The volume only detaches once the container is actually gone, so a
+      // failed container teardown makes this attempt a no-op "in use" error —
+      // expected, not a bug. Either way, fall back to orphan-GC on failure
+      // (it retries with the org-scoped guarded remover once the container
+      // teardown above has had a chance to land).
+      const { removed: volumeReclaimed } = await reclaimDatabaseVolume(volumeName, log);
+      if (!volumeReclaimed) {
+        const { recordOrphanedResource } = await import("../../system-health/orphan-gc");
+        await recordOrphanedResource({
+          organizationId: input.organizationId,
+          resourceType: "volume",
+          ref: volumeName,
+          projectId: input.projectId,
+          label: containerDestroyed
+            ? "database volume teardown failed"
+            : "database volume teardown failed (container teardown also failed)",
+        });
+      }
       await deleteResourceById(input.resourceId);
       await reconcile(log);
 
       log.set({
-        teardown: { proxyRoutesRemoved: true, swarmDestroyed: true, dbDeleted: true },
+        teardown: {
+          proxyRoutesRemoved: true,
+          swarmDestroyed: containerDestroyed,
+          volumeReclaimed,
+          dbDeleted: true,
+        },
       });
       break;
     }

@@ -118,3 +118,34 @@ describe("script builders", () => {
     expect(s).toContain(">> ~/.ssh/authorized_keys");
   });
 });
+
+describe("meshInstallScript — wildcard DNS label (od-3vy keystone)", () => {
+  test("registers the wildcard label so private hostnames resolve", () => {
+    const script = meshInstallScript("netbird", "KEY", "sudo", null, "od");
+    // One label at join covers every private service on the node.
+    expect(script).toContain(`--extra-dns-labels '*.od'`);
+  });
+
+  test("omits the flag entirely on the paste-your-own-key path", () => {
+    // We can't know an operator-supplied key carries allow_extra_dns_labels;
+    // sending the flag anyway makes the management server reject the join.
+    expect(meshInstallScript("netbird", "KEY", "sudo", null, null)).not.toContain(
+      "--extra-dns-labels",
+    );
+    expect(meshInstallScript("netbird", "KEY", "sudo")).not.toContain("--extra-dns-labels");
+  });
+
+  test("drops a label that isn't a plain DNS label rather than escaping it", () => {
+    for (const bad of ["a b", "x';rm -rf /;'", "UPPER", "-lead", "trail-", ""]) {
+      expect(meshInstallScript("netbird", "KEY", "", null, bad)).not.toContain(
+        "--extra-dns-labels",
+      );
+    }
+  });
+
+  test("never emits the flag for tailscale (no wildcard-label equivalent)", () => {
+    expect(meshInstallScript("tailscale", "KEY", "", null, "od")).not.toContain(
+      "--extra-dns-labels",
+    );
+  });
+});

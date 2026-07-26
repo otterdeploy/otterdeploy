@@ -24,7 +24,7 @@ import type { CustomCertificateWithUploader } from "./queries";
 
 import { reconcile } from "../../caddy";
 import { removeCustomCertFiles } from "../../caddy/certs";
-import { encryptSecret } from "../../lib/crypto";
+import { encryptForDomain } from "../../lib/crypto";
 import { isUniqueViolation } from "../project/views";
 import {
   CertificateConflictError,
@@ -120,7 +120,7 @@ export async function uploadCustomCertificate(
   if (Result.isError(validated)) return Result.err(validated.error);
   const { leaf, hostname } = validated.value;
 
-  const keyCiphertext = await encryptSecret(input.keyPem);
+  const keyCiphertext = await encryptForDomain(input.keyPem, "certs");
   const inserted = await Result.tryPromise({
     try: () =>
       insertCustomCert({
@@ -176,7 +176,7 @@ export async function replaceCustomCertificate(
   if (Result.isError(validated)) return Result.err(validated.error);
   const { leaf } = validated.value;
 
-  const keyCiphertext = await encryptSecret(input.keyPem);
+  const keyCiphertext = await encryptForDomain(input.keyPem, "certs");
   await replaceCustomCertMaterial({
     id: input.id,
     organizationId: input.organizationId,

@@ -10,7 +10,7 @@ import { Badge } from "@/shared/components/ui/badge";
 import { TableCell, TableRow } from "@/shared/components/ui/table";
 import { cn } from "@/shared/lib/utils";
 import { DeploymentProtectionCell } from "@/features/projects/components/networking/deployment-protection-cell";
-import { RouteDirectivesButton } from "@/features/projects/components/networking/route-directives-dialog";
+import { RoutePolicyButton } from "@/features/projects/components/networking/route-directives-dialog";
 
 import type { RouteGroup } from "./networking-routes-model";
 
@@ -111,10 +111,10 @@ export function RouteGroupRows({
           </TableCell>
           <TableCell className="text-right">
             {r.isHttp ? (
-              <RouteDirectivesButton
+              <RoutePolicyButton
                 routeId={r.id}
                 domain={r.domain}
-                customDirectives={r.customDirectives}
+                routePolicy={r.routePolicy}
               />
             ) : null}
           </TableCell>

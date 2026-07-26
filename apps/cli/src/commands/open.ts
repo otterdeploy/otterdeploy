@@ -1,10 +1,11 @@
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
 import { createCliAuthClient } from "../auth-client";
 import { loadConfig, resolveToken, saveConfig } from "../config";
 import { openInBrowser } from "../lib/browser";
+import { cmd } from "../lib/name";
 import { resolveProject, resolveResource } from "../lib/resolve";
+import { abort, dim, interactive, note, out } from "../lib/ui";
 
 // Slug of the org that owns the project — dashboard paths are org-scoped.
 // Cached in the user config; on a miss, derived the same way the web shell
@@ -16,8 +17,7 @@ async function resolveOrgSlug(url: string): Promise<string> {
 
   const token = resolveToken();
   if (!token) {
-    consola.error("Not authenticated. Run `otterdeploy whoami` to check your session.");
-    process.exit(1);
+    abort("Not authenticated.", `run \`${cmd("whoami")}\` to check your session`);
   }
   const auth = createCliAuthClient(url);
   const fetchOptions = { headers: { Authorization: `Bearer ${token}` } };
@@ -29,8 +29,7 @@ async function resolveOrgSlug(url: string): Promise<string> {
   const activeId = session.data?.session.activeOrganizationId;
   const org = organizations.find((o) => o.id === activeId) ?? organizations[0];
   if (!org) {
-    consola.error("This account has no organizations yet — create one in the dashboard first.");
-    process.exit(1);
+    abort("This account has no organizations yet.", "create one in the dashboard first");
   }
   saveConfig({ ...loadConfig(), orgSlug: org.slug });
   return org.slug;
@@ -64,7 +63,13 @@ export const openCommand = defineCommand({
     const suffix = resource ? `/graph/${resource.resourceId}` : "";
     const target = `${base}/${orgSlug}/${ctx.projectSlug}${suffix}`;
 
-    consola.log(target);
-    if (process.stdout.isTTY) openInBrowser(target);
+    // The URL goes to stdout bare so `otd open` is usable in a subshell; the
+    // "opening" line is a diagnostic and stays off stdout.
+    if (interactive()) {
+      note(`Opening ${dim(target)}`);
+      openInBrowser(target);
+      return;
+    }
+    out(target);
   },
 });

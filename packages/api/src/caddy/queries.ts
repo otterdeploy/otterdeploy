@@ -2,48 +2,10 @@ import type { PreviewId, ProjectId, ProxyRouteId, ResourceId } from "@otterdeplo
 import type { InferSelectModel } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
-import { project } from "@otterdeploy/db/schema/project";
 import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
-import { isNotNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, isNull, or } from "drizzle-orm";
 import { createError } from "evlog";
 export type ProxyRouteRecord = InferSelectModel<typeof proxyRoute>;
-
-/** Every project that has operator-authored custom Caddy config, as a
- *  projectId → config map. Drives the reconciler's per-project standalone
- *  blocks (a project can have custom config even with no routes). */
-export async function getProjectsWithCustomConfig(): Promise<Map<string, string>> {
-  const rows = await db
-    .select({ id: project.id, config: project.customCaddyConfig })
-    .from(project)
-    .where(isNotNull(project.customCaddyConfig));
-  const map = new Map<string, string>();
-  for (const r of rows) {
-    if (r.config && r.config.trim().length > 0) map.set(r.id, r.config);
-  }
-  return map;
-}
-
-/** A single project's custom Caddy config (for the read-only viewer render). */
-export async function getProjectCustomConfig(projectId: ProjectId): Promise<string | null> {
-  const [row] = await db
-    .select({ config: project.customCaddyConfig })
-    .from(project)
-    .where(eq(project.id, projectId))
-    .limit(1);
-  return row?.config ?? null;
-}
-
-/** Persist a project's custom Caddy config (null clears it). */
-export async function setProjectCustomConfig(
-  projectId: ProjectId,
-  config: string | null,
-): Promise<void> {
-  await db
-    .update(project)
-    .set({ customCaddyConfig: config, updatedAt: new Date() })
-    .where(eq(project.id, projectId));
-}
 
 export async function listEnabledProxyRoutes(): Promise<ProxyRouteRecord[]> {
   return db
@@ -134,6 +96,8 @@ export async function insertProxyRoute(input: {
   isPrimary?: boolean;
   dnsState?: "pointed" | "proxied" | "unpointed" | "unknown";
   dnsCheckedAt?: Date | null;
+  domainVerifyToken?: string | null;
+  domainVerifiedAt?: Date | null;
 }): Promise<ProxyRouteRecord> {
   const [record] = await db
     .insert(proxyRoute)
@@ -153,6 +117,8 @@ export async function insertProxyRoute(input: {
       isPrimary: input.isPrimary ?? false,
       dnsState: input.dnsState ?? "unknown",
       dnsCheckedAt: input.dnsCheckedAt ?? null,
+      domainVerifyToken: input.domainVerifyToken ?? null,
+      domainVerifiedAt: input.domainVerifiedAt ?? null,
     })
     .returning();
 
@@ -180,7 +146,9 @@ export async function updateProxyRoute(
     source: "generated" | "custom";
     dnsState: "pointed" | "proxied" | "unpointed" | "unknown";
     dnsCheckedAt: Date | null;
-    customDirectives: string | null;
+    routePolicy: ProxyRouteRecord["routePolicy"];
+    domainVerifyToken: string | null;
+    domainVerifiedAt: Date | null;
     accessPinHash: string | null;
   }>,
 ): Promise<ProxyRouteRecord | undefined> {
@@ -221,7 +189,15 @@ export async function setRoutesEnabledForResource(
   await db
     .update(proxyRoute)
     .set({ enabled, updatedAt: new Date() })
-    .where(and(eq(proxyRoute.resourceId, resourceId), isNull(proxyRoute.previewId)));
+    .where(
+      and(
+        eq(proxyRoute.resourceId, resourceId),
+        isNull(proxyRoute.previewId),
+        enabled
+          ? or(eq(proxyRoute.source, "generated"), isNotNull(proxyRoute.domainVerifiedAt))
+          : undefined,
+      ),
+    );
 }
 
 export async function deleteProxyRoute(id: ProxyRouteId): Promise<void> {

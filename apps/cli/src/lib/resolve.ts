@@ -1,15 +1,18 @@
 /**
  * Shared project/resource resolution for commands that target a service or
  * database by name. Slug precedence: --slug flag > local config's `project`.
- * Errors are thrown (not printed) so the index.ts error boundary owns the
- * exit path.
+ *
+ * The not-found paths matter more than the happy path here: "which service did
+ * you mean" is the single most common way a command fails, so a miss answers with
+ * the closest name and the real inventory rather than a comma-spliced blob.
  */
-
-import { consola } from "consola";
 
 import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";
 import { configExists, loadConfig } from "../config-file";
+import { cmd } from "./name";
+import { suggestions } from "./suggest";
+import { abort, dim, err, kindBadge, row, stateGlyph } from "./ui";
 
 export type CliClient = ReturnType<typeof createCliClient>;
 
@@ -30,8 +33,11 @@ export async function resolveProject(args: {
   const slug =
     args.slug ?? (configExists(args.config) ? (await loadConfig(args.config)).project : null);
   if (!slug) {
-    consola.error("No --slug provided and no local config to read it from.");
-    process.exit(1);
+    abort(
+      "No project to act on.",
+      "pass `--slug <slug>`",
+      `or run \`${cmd("init")}\` in this directory to create a config`,
+    );
   }
   const project = await client.project.getBySlug({ slug });
   return { client, url, projectId: project.id, projectSlug: slug };
@@ -43,6 +49,26 @@ export interface ResourceContext extends ProjectContext {
   resourceType: string;
 }
 
+interface ResourceRow {
+  name: string;
+  type: string;
+  status?: string;
+}
+
+/**
+ * Print the project's inventory to stderr so a failed lookup shows what *is*
+ * there. Listing them as real rows — glyph, name, kind — means the reader can
+ * copy a name straight out of the error.
+ */
+function printInventory(resources: ResourceRow[]): void {
+  if (resources.length === 0) return;
+  err();
+  for (const r of resources) {
+    row([stateGlyph(r.status ?? "valid"), r.name, kindBadge(r.type)]);
+  }
+  err();
+}
+
 export async function resolveResource(
   args: { slug?: string; config?: string; url?: string },
   name: string | undefined,
@@ -50,22 +76,32 @@ export async function resolveResource(
   kind?: string,
 ): Promise<ResourceContext> {
   const ctx = await resolveProject(args);
+  const noun = kind ?? "resource";
   if (!name) {
-    consola.error(`Pass a ${kind ?? "resource"} name.`);
-    process.exit(1);
+    abort(`Pass a ${noun} name.`, `run \`${cmd("status")}\` to list this project's resources`);
   }
+
   const resources = await ctx.client.project.resource.list({ projectId: ctx.projectId });
+  const candidates = kind ? resources.filter((r) => r.type === kind) : resources;
   const match = resources.find((r) => r.name === name);
+
   if (!match) {
-    const available = resources.map((r) => r.name).join(", ") || "(none)";
-    consola.error(
-      `${kind ?? "Resource"} ${name} not found in project ${ctx.projectSlug}. Available: ${available}`,
+    const near = suggestions(
+      name,
+      candidates.map((r) => r.name),
     );
-    process.exit(1);
+    printInventory(candidates);
+    abort(
+      `No ${noun} named \`${name}\` in project ${ctx.projectSlug}.`,
+      ...near.map((candidate) => `did you mean \`${candidate}\`?`),
+      ...(candidates.length === 0 ? [`this project has no ${noun}s yet`] : []),
+    );
   }
   if (kind && match.type !== kind) {
-    consola.error(`${name} is a ${match.type}, not a ${kind}.`);
-    process.exit(1);
+    abort(
+      `\`${name}\` is a ${match.type}, not a ${kind}.`,
+      `${dim("this command only operates on")} ${kind}s`,
+    );
   }
   return {
     ...ctx,

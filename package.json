@@ -5,7 +5,8 @@
   "workspaces": {
     "packages": [
       "apps/*",
-      "packages/*"
+      "packages/*",
+      "test-infra"
     ],
     "catalog": {
       "zod": "^4.4.3",
@@ -63,8 +64,9 @@
     "infra": "docker compose --profile build up -d --remove-orphans",
     "lint": "oxlint --type-aware --threads=4 --fix",
     "proxy": "sudo portless proxy start --https --lan -p 443",
-    "test": "turbo test --filter=!web-demo",
-    "typecheck": "turbo typecheck --concurrency=4 --filter=!web-demo"
+    "test": "turbo test",
+    "test:integration": "turbo -F @otterdeploy/test-infra test:integration",
+    "typecheck": "turbo typecheck --concurrency=4"
   },
   "dependencies": {
     "@otterdeploy/env": "workspace:*",

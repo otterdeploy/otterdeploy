@@ -1,13 +1,15 @@
-import { createFileRoute, useLoaderData } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { EdgeLogsPage } from "@/features/edge-logs/components/edge-logs-page";
-
+// Merged into Logs as the Edge source (od-u63.5) — Runtime | Edge is a
+// toggle on one page now, not two tabs. Shim only — keeps old links and
+// bookmarks working.
 export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/edge-logs")({
   staticData: { crumb: "Edge logs" },
-  component: RouteComponent,
+  beforeLoad: ({ params }) => {
+    throw redirect({
+      to: "/$orgSlug/$projectSlug/logs",
+      params: { orgSlug: params.orgSlug, projectSlug: params.projectSlug },
+      search: { source: "edge" },
+    });
+  },
 });
-
-function RouteComponent() {
-  const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
-  return <EdgeLogsPage projectId={project.id} />;
-}

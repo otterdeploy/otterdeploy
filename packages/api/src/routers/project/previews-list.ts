@@ -27,6 +27,7 @@ export interface PreviewServiceEntry {
     | "building"
     | "running"
     | "failed"
+    | "cancelled"
     | "superseded"
     | "removed"
     | "none"

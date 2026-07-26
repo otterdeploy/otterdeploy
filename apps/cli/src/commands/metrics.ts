@@ -1,20 +1,11 @@
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
+import { formatBytes, relativeTime } from "../lib/format";
 import { resolveResource } from "../lib/resolve";
+import { abort, detail, dim, note, section, table } from "../lib/ui";
 
-function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes)) return "-";
-  const units = ["B", "KiB", "MiB", "GiB", "TiB"];
-  let value = Math.abs(bytes);
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  const rendered = unit === 0 ? String(Math.round(value)) : value.toFixed(1);
-  return `${bytes < 0 ? "-" : ""}${rendered} ${units[unit] ?? "B"}`;
-}
+const DEFAULT_WINDOW_MINUTES = 30;
+const MAX_WINDOW_MINUTES = 1440;
 
 // Callers guarantee a non-empty array (guarded on `points.at(-1)`).
 function stats(values: number[]): { min: number; avg: number; max: number } {
@@ -50,10 +41,12 @@ export const metricsCommand = defineCommand({
       (!Number.isInteger(windowMinutes) ||
         windowMinutes === undefined ||
         windowMinutes < 1 ||
-        windowMinutes > 1440)
+        windowMinutes > MAX_WINDOW_MINUTES)
     ) {
-      consola.error("--window must be an integer between 1 and 1440 (minutes).");
-      process.exit(1);
+      abort(
+        "--window must be a whole number of minutes between 1 and 1440.",
+        "for example `--window 60`",
+      );
     }
 
     const ctx = await resolveResource(args, args.resource);
@@ -68,27 +61,57 @@ export const metricsCommand = defineCommand({
 
     const { points } = result;
     const latest = points.at(-1);
+    const window = windowMinutes ?? DEFAULT_WINDOW_MINUTES;
     if (!latest) {
-      consola.info(
-        `No metric samples for ${ctx.resourceName} in the last ${windowMinutes ?? 30} minute(s).`,
-      );
+      note(`No metric samples for ${ctx.resourceName} in the last ${window}m.`);
       return;
     }
 
     const cpu = stats(points.map((p) => p.cpuPct));
     const mem = stats(points.map((p) => p.memBytes));
-    const memLimit = latest.memLimitBytes > 0 ? ` / ${formatBytes(latest.memLimitBytes)}` : "";
-    consola.info(
-      `${ctx.resourceName}: ${points.length} sample(s) over the last ${windowMinutes ?? 30}m, latest ${latest.ts.toISOString()}`,
+
+    section(`Metrics ${dim(ctx.resourceName)}`);
+    detail([
+      ["window", dim(`${window}m · ${points.length} samples`)],
+      ["latest", dim(relativeTime(latest.ts.toISOString()))],
+      [
+        "limit",
+        latest.memLimitBytes > 0 ? formatBytes(latest.memLimitBytes) : dim("unlimited"),
+      ],
+    ]);
+
+    // now/min/avg/max as columns rather than one long line: the point of these
+    // numbers is comparison, and comparison wants them stacked.
+    table(
+      [
+        { header: "" },
+        { header: "now", align: "right" },
+        { header: "min", align: "right" },
+        { header: "avg", align: "right" },
+        { header: "max", align: "right" },
+      ],
+      [
+        [
+          "cpu",
+          `${latest.cpuPct.toFixed(1)}%`,
+          dim(`${cpu.min.toFixed(1)}%`),
+          dim(`${cpu.avg.toFixed(1)}%`),
+          dim(`${cpu.max.toFixed(1)}%`),
+        ],
+        [
+          "memory",
+          formatBytes(latest.memBytes),
+          dim(formatBytes(mem.min)),
+          dim(formatBytes(mem.avg)),
+          dim(formatBytes(mem.max)),
+        ],
+      ],
     );
-    consola.log(
-      `cpu      now ${latest.cpuPct.toFixed(1)}%   min ${cpu.min.toFixed(1)}%  avg ${cpu.avg.toFixed(1)}%  max ${cpu.max.toFixed(1)}%`,
-    );
-    consola.log(
-      `memory   now ${formatBytes(latest.memBytes)}${memLimit}   min ${formatBytes(mem.min)}  avg ${formatBytes(mem.avg)}  max ${formatBytes(mem.max)}`,
-    );
-    consola.log(
-      `network  rx ${formatBytes(latest.netRxBytes)}  tx ${formatBytes(latest.netTxBytes)}`,
-    );
+
+    section("Network");
+    detail([
+      ["rx", formatBytes(latest.netRxBytes)],
+      ["tx", formatBytes(latest.netTxBytes)],
+    ]);
   },
 });

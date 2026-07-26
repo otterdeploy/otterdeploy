@@ -73,3 +73,11 @@ photos/
 react-doctor-report.txt
 react-doctor-report.clean.txt
 bettershot_*.png
+
+# Agent session transcripts (large, local-only)
+session.jsonl
+*.session.jsonl
+
+# brand asset toolchain (build-time only)
+brand/.venv/
+brand/node_modules/

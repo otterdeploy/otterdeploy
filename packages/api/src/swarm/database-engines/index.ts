@@ -37,8 +37,17 @@ export interface DatabaseEngineAdapter {
   readonly defaultImage: string;
   /** Port the container listens on inside the swarm overlay network. */
   readonly port: number;
-  /** Volume mount target inside the container. */
+  /** Volume mount target inside the container. Used as-is for engines whose
+   *  layout is stable across versions. Engines whose data-dir layout can
+   *  change by major version (postgres 18's pg_ctlcluster-style dirs) should
+   *  also implement `resolveMount` — callers must prefer that when present. */
   readonly mountTarget: string;
+  /** Version-aware mount resolution. When present, callers MUST use this
+   *  instead of the static `mountTarget` — it inspects the resolved
+   *  `<repo>:<tag>` image and returns the mount target (and any extra env
+   *  needed to match, e.g. PGDATA) for that specific version. Falls back to
+   *  `mountTarget` for engines that don't define it. */
+  resolveMount?(image: string): { target: string; env?: string[] };
   /** Env keys this engine reserves for identity — anything user-set with one
    *  of these names gets filtered out of `extraEnv` so the operator can't
    *  accidentally break the boot by overriding e.g. POSTGRES_PASSWORD. */
@@ -78,6 +87,19 @@ const ADAPTERS: Record<DatabaseEngine, DatabaseEngineAdapter> = {
 
 export function getEngineAdapter(engine: DatabaseEngine): DatabaseEngineAdapter {
   return ADAPTERS[engine];
+}
+
+/** Resolve the volume mount (target + any extra env) for a given adapter +
+ *  resolved image. Every call-site that mounts a database's data volume
+ *  (swarm spec builder, plain-docker driver, stack renderer) should go
+ *  through this instead of reading `adapter.mountTarget` directly, so a
+ *  version-aware engine (postgres 18+) can't drift between them. */
+export function resolveDatabaseMount(
+  adapter: DatabaseEngineAdapter,
+  image: string,
+): { target: string; env: string[] } {
+  const resolved = adapter.resolveMount?.(image);
+  return { target: resolved?.target ?? adapter.mountTarget, env: resolved?.env ?? [] };
 }
 
 /** Resolve the catalog default image for an engine. Useful for create flows

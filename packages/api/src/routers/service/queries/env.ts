@@ -6,6 +6,8 @@ import { and, eq, inArray, isNull, like, or, sql } from "drizzle-orm";
 import { createError } from "evlog";
 
 import type { ResourceRow, ServiceEnvVarRow } from ".";
+
+import { encryptForDomain } from "../../../lib/crypto";
 // ---------------------------------------------------------------------------
 // Env vars
 // ---------------------------------------------------------------------------
@@ -64,87 +66,67 @@ export async function listServiceEnvVarsForResources(
 }
 
 /** A preview's override rows for one service. */
-export async function listPreviewServiceEnvVars(
-  serviceResourceId: ResourceId,
-  previewId: PreviewId,
-): Promise<ServiceEnvVarRow[]> {
-  return db
-    .select()
-    .from(serviceEnvVar)
-    .where(
-      and(
-        eq(serviceEnvVar.serviceResourceId, serviceResourceId),
-        eq(serviceEnvVar.previewId, previewId),
-      ),
-    );
-}
-
-export async function upsertPreviewServiceEnvVar(input: {
-  serviceResourceId: ResourceId;
-  previewId: PreviewId;
-  key: string;
-  value: string;
-}): Promise<ServiceEnvVarRow> {
-  const [row] = await db
-    .insert(serviceEnvVar)
-    .values(input)
-    .onConflictDoUpdate({
-      target: [serviceEnvVar.serviceResourceId, serviceEnvVar.previewId, serviceEnvVar.key],
-      targetWhere: sql`preview_id is not null`,
-      set: { value: input.value, updatedAt: new Date() },
-    })
-    .returning();
-  if (!row) {
-    throw createError({
-      message: "Failed to upsert preview env override",
-      status: 500,
-      why: "Database upsert returned no row",
-    });
-  }
-  return row;
-}
-
-export async function deletePreviewServiceEnvVar(input: {
-  serviceResourceId: ResourceId;
-  previewId: PreviewId;
-  key: string;
-}): Promise<boolean> {
-  const result = await db
-    .delete(serviceEnvVar)
-    .where(
-      and(
-        eq(serviceEnvVar.serviceResourceId, input.serviceResourceId),
-        eq(serviceEnvVar.previewId, input.previewId),
-        eq(serviceEnvVar.key, input.key),
-      ),
-    )
-    .returning({ id: serviceEnvVar.id });
-  return result.length > 0;
-}
-
+/**
+ * Sealing is sticky and one-way, mirroring `upsertProjectEnvVar`: if the
+ * existing base row (or this call) marks the key sealed, the FINAL row is
+ * sealed — a caller can never flip it back to unsealed by omitting
+ * `sealed: true` on a later write. `value` is encrypted with the
+ * "env-vars" domain key whenever the final state is sealed, whether or not
+ * THIS call's input already knew that.
+ */
 export async function upsertServiceEnvVar(input: {
   serviceResourceId: ResourceId;
   key: string;
   value: string;
+  isSecret?: boolean;
+  sealed?: boolean;
 }): Promise<ServiceEnvVarRow> {
-  const [row] = await db
-    .insert(serviceEnvVar)
-    .values(input)
-    .onConflictDoUpdate({
-      target: [serviceEnvVar.serviceResourceId, serviceEnvVar.key],
-      targetWhere: sql`preview_id is null`,
-      set: { value: input.value, updatedAt: new Date() },
-    })
-    .returning();
+  return db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select({ sealed: serviceEnvVar.sealed })
+      .from(serviceEnvVar)
+      .where(
+        and(
+          eq(serviceEnvVar.serviceResourceId, input.serviceResourceId),
+          eq(serviceEnvVar.key, input.key),
+          isNull(serviceEnvVar.previewId),
+        ),
+      )
+      .limit(1);
 
-  if (!row) {
-    throw createError({
-      message: "Failed to upsert env var",
-      status: 500,
-      why: "Database upsert returned no row",
-    });
-  }
-  return row;
+    const sealed = Boolean(existing?.sealed) || Boolean(input.sealed);
+    const value = sealed ? await encryptForDomain(input.value, "env-vars") : input.value;
+
+    const [row] = await tx
+      .insert(serviceEnvVar)
+      .values({
+        serviceResourceId: input.serviceResourceId,
+        key: input.key,
+        value,
+        isSecret: input.isSecret ?? false,
+        sealed,
+      })
+      .onConflictDoUpdate({
+        target: [serviceEnvVar.serviceResourceId, serviceEnvVar.key],
+        targetWhere: sql`preview_id is null`,
+        set: {
+          value,
+          sealed,
+          ...(input.isSecret === undefined ? {} : { isSecret: input.isSecret }),
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+
+    if (!row) {
+      throw createError({
+        message: "Failed to upsert env var",
+        status: 500,
+        why: "Database upsert returned no row",
+      });
+    }
+    return row;
+  });
 }
 
 export async function deleteServiceEnvVar(input: {
@@ -164,35 +146,63 @@ export async function deleteServiceEnvVar(input: {
   return result.length > 0;
 }
 
+/**
+ * Sealed rows are DELIBERATELY exempt from this whole dance, mirroring
+ * `bulkReplaceProjectEnvVars`: they're never deleted by the "base rows"
+ * pruning, and any `vars` entry whose key collides with an existing sealed
+ * row is dropped rather than applied. The bulk editor round-trips values it
+ * read back from the API — a sealed row's plaintext was never sent to it in
+ * the first place (masked by `mapEnvVar`), so blindly re-inserting that
+ * entry would silently clobber the secret with an empty/stale value. Sealed
+ * vars are managed one at a time via `upsertServiceEnvVar` / `deleteServiceEnvVar`.
+ */
 export async function bulkReplaceServiceEnvVars(
   serviceResourceId: ResourceId,
   vars: Array<{ key: string; value: string; isSecret?: boolean }>,
 ): Promise<ServiceEnvVarRow[]> {
   return db.transaction(async (tx) => {
-    // Base rows only — a bulk edit of the base env must never wipe a PR
-    // preview's overrides.
+    const sealedRows = (await tx
+      .select()
+      .from(serviceEnvVar)
+      .where(
+        and(
+          eq(serviceEnvVar.serviceResourceId, serviceResourceId),
+          isNull(serviceEnvVar.previewId),
+          eq(serviceEnvVar.sealed, true),
+        ),
+      )) as ServiceEnvVarRow[];
+    const sealedKeys = new Set(sealedRows.map((r) => r.key));
+
+    // Base, unsealed rows only — a bulk edit of the base env must never wipe
+    // a PR preview's overrides, and never touches a sealed row.
     await tx
       .delete(serviceEnvVar)
       .where(
         and(
           eq(serviceEnvVar.serviceResourceId, serviceResourceId),
           isNull(serviceEnvVar.previewId),
+          eq(serviceEnvVar.sealed, false),
         ),
       );
 
-    if (vars.length === 0) return [];
+    const toInsert = vars.filter((v) => !sealedKeys.has(v.key));
+    let inserted: ServiceEnvVarRow[] = [];
+    if (toInsert.length > 0) {
+      inserted = (await tx
+        .insert(serviceEnvVar)
+        .values(
+          toInsert.map((v) => ({
+            serviceResourceId,
+            key: v.key,
+            value: v.value,
+            isSecret: v.isSecret ?? false,
+            sealed: false,
+          })),
+        )
+        .returning()) as ServiceEnvVarRow[];
+    }
 
-    return tx
-      .insert(serviceEnvVar)
-      .values(
-        vars.map((v) => ({
-          serviceResourceId,
-          key: v.key,
-          value: v.value,
-          isSecret: v.isSecret ?? false,
-        })),
-      )
-      .returning();
+    return [...inserted, ...sealedRows].sort((a, b) => a.key.localeCompare(b.key));
   });
 }
 

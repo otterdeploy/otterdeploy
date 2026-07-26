@@ -38,7 +38,7 @@ export interface DeploymentRow {
     | "restart"
     | "git-push"
     | "rollback";
-  status: "pending" | "building" | "running" | "failed" | "superseded" | "removed";
+  status: "pending" | "building" | "running" | "failed" | "cancelled" | "superseded" | "removed";
   /** Full resource config at the moment of this deploy. Used by rollback to
    *  reproduce the prior state — service env, ports, command, healthcheck,
    *  database extraEnv + publicEnabled, etc. Shape is kind-specific and

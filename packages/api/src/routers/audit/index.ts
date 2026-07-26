@@ -2,7 +2,20 @@ import type { AuditLogId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { auditLog } from "@otterdeploy/db/schema";
-import { and, count, desc, eq, gte, ilike, isNotNull, lte, or, sql, type SQL } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gte,
+  ilike,
+  isNotNull,
+  isNull,
+  lte,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 
 import { orgScopedProcedure } from "../..";
 
@@ -32,9 +45,23 @@ function toAuditEvent(r: AuditRow) {
   };
 }
 
-/** Org scope + optional time window — shared by `list` and `distinct`. */
+/** Org scope + optional time window — shared by `list` and `distinct`.
+ *
+ * Includes rows with a NULL `organizationId` alongside the caller's own org:
+ * every DENIED row from an auth/org-gate rejection (UNAUTHORIZED,
+ * NO_ACTIVE_ORGANIZATION) is written before `activeOrganizationId` is ever
+ * known (see `traceProcedure` in packages/api/src/index.ts — the tenant id
+ * on the audit envelope comes from context captured at request start, and
+ * for those two denial codes that's before a session/org has resolved). An
+ * org-only `eq` filter made the DENIED counter permanently 0 — no denied row
+ * has ever carried a real org id, by construction, so it could never match.
+ * These rows aren't another tenant's private data (there IS no tenant), so
+ * surfacing them everywhere isn't a cross-org leak — it's the only way an
+ * operator ever sees "someone got blocked before establishing identity" at
+ * all. */
 function windowConds(orgId: string, from?: string, to?: string): SQL[] {
-  const conds: SQL[] = [eq(auditLog.organizationId, orgId)];
+  const orgScope = or(eq(auditLog.organizationId, orgId), isNull(auditLog.organizationId));
+  const conds: SQL[] = orgScope ? [orgScope] : [];
   if (from) conds.push(gte(auditLog.timestamp, new Date(from)));
   if (to) conds.push(lte(auditLog.timestamp, new Date(to)));
   return conds;

@@ -18,11 +18,13 @@
     "bullmq": "^5.65.0",
     "drizzle-orm": "catalog:",
     "evlog": "catalog:",
+    "tar-stream": "^3.2.0",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@otterdeploy/config": "workspace:*",
     "@types/bun": "catalog:",
+    "@types/tar-stream": "^3.1.4",
     "typescript": "catalog:"
   }
 }

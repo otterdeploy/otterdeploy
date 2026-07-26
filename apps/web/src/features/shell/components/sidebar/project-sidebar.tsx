@@ -25,6 +25,7 @@ import {
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarRail,
   SidebarSeparator,
 } from "@/shared/components/ui/sidebar";
 import { orpc } from "@/shared/server/orpc";
@@ -75,9 +76,15 @@ export function ProjectSidebar({
     // here so the single dynamic <Link> call site doesn't fight the union's
     // params inference (same loose-`to` overload the sidebar always used).
     const href: string = item.to ?? "/";
+    const label = item.i18nKey ? t(item.i18nKey, item.title) : item.title;
     return (
       <SidebarMenuItem key={item.title}>
         <SidebarMenuButton
+          // Collapsed to the icon rail, the label is clipped and each item is
+          // just a glyph. SidebarMenuButton only renders this tooltip while
+          // `state === "collapsed"` (and never on mobile), so the expanded
+          // sidebar is unaffected — it exists purely to name the icons.
+          tooltip={label}
           render={
             params.orgSlug ? (
               <Link
@@ -90,7 +97,7 @@ export function ProjectSidebar({
           }
         >
           <HugeiconsIcon icon={item.icon} strokeWidth={2} />
-          <span>{item.i18nKey ? t(item.i18nKey, item.title) : item.title}</span>
+          <span>{label}</span>
         </SidebarMenuButton>
         {count !== undefined && count > 0 && <SidebarMenuBadge>{count}</SidebarMenuBadge>}
       </SidebarMenuItem>
@@ -134,6 +141,11 @@ export function ProjectSidebar({
           {currentVersion && <span className="shrink-0 font-mono">{currentVersion}</span>}
         </div>
       </SidebarFooter>
+
+      {/* The hairline strip along the sidebar's outer edge — click anywhere on
+          it to expand/collapse. Without it the only desktop affordance was the
+          Cmd/Ctrl+B shortcut, since the header's toggle is `md:hidden`. */}
+      <SidebarRail />
     </Sidebar>
   );
 }

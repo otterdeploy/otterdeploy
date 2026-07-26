@@ -1,7 +1,19 @@
 # Server onboarding — SSH bootstrap into the shared swarm
 
-Status: **design** (MVP implementing). Supersedes the manual copy-paste
-`docker swarm join` flow in `server-create-dialog.tsx`.
+Status: **shipped**. Last verified: 2026-07-26. Supersedes the manual
+copy-paste `docker swarm join` flow in `server-create-dialog.tsx`.
+
+Built out under `packages/api/src/routers/server/`: `provision.ts` +
+`provision-runner.ts` + `provision-stream.ts` (SSH bootstrap with streamed
+logs), `ssh-exec.ts`, `enrollment.ts` / `enrollment-credential.ts` /
+`enrollment-rotation.ts` and `join-tokens.ts` (rotating join credentials),
+`provision-node-verify.ts`, and `provision-host-firewall.ts` /
+`provision-firewall.ts` / `firewall-remediation.ts`. A
+`node-enrollment-reaper` background service retries durable token rotations
+after a daemon outage and rotates any redeemed enrolment whose node never
+reported completion.
+
+Read the sections below as design background.
 
 ## Problem
 

@@ -16,11 +16,14 @@ export interface JsonViewProps {
 
 type JsonTokenKind = "key" | "string" | "number" | "boolean" | "null" | "punct";
 
+// See YamlView's matching table for why light mode gets solid -700 shades
+// instead of the dark-tuned -300/NN pairing (that combo reads as near-
+// invisible light gray on the light theme's near-white background).
 const KIND_CLASS: Record<JsonTokenKind, string> = {
-  key: "text-sky-300/90",
-  string: "text-emerald-300/85",
-  number: "text-orange-300/85",
-  boolean: "text-violet-300/85",
+  key: "text-sky-700 dark:text-sky-300/90",
+  string: "text-emerald-700 dark:text-emerald-300/85",
+  number: "text-orange-700 dark:text-orange-300/85",
+  boolean: "text-violet-700 dark:text-violet-300/85",
   null: "text-muted-foreground/60",
   punct: "text-muted-foreground/70",
 };

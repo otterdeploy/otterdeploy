@@ -1,10 +1,13 @@
 import type { PreviewId, ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
+import type { RoutePolicy } from "@otterdeploy/shared/route-policy";
 
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
+import { DEFAULT_ROUTE_POLICY } from "@otterdeploy/shared/route-policy";
 import {
   boolean,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -20,6 +23,21 @@ export const proxyRouteProtocolEnum = pgEnum("proxy_route_protocol", ["tcp", "ht
 // hostname minted on expose (resource override → project → org → sslip
 // chain). "custom" = a domain the operator typed in themselves.
 export const proxyRouteSourceEnum = pgEnum("proxy_route_source", ["generated", "custom"]);
+
+// Which network a route is served on. "public" is the internet-facing Caddy
+// listener — today's behavior, and the default for every existing and new row,
+// so this column is a no-op until an org opts in. "private" renders ONLY into
+// the mesh-bound listener (reachable from the org's own VPN, never from the
+// internet); "both" renders into each.
+//
+// Deliberately NOT a boolean: "private" has to be able to mean *instead of*
+// public, or "make this app internal only" isn't expressible.
+// Design: docs/designs/vpn-mesh.md
+export const proxyRouteExposureScopeEnum = pgEnum("proxy_route_exposure_scope", [
+  "public",
+  "private",
+  "both",
+]);
 
 // Reachability of a custom domain, refreshed by the DNS check (on add /
 // recheck / edit). Drives the UI status chip and the ACME decision —
@@ -79,6 +97,10 @@ export const proxyRoute = pgTable(
     // routes are enabled on expose; custom routes stay disabled until DNS
     // verification passes (and flip back to disabled on unexpose).
     enabled: boolean("enabled").notNull().default(true),
+    // Which network serves this route (see the enum above). Defaults to
+    // "public" so every pre-existing row and every org without a connected
+    // mesh behaves exactly as it does today.
+    exposureScope: proxyRouteExposureScopeEnum("exposure_scope").notNull().default("public"),
     // "generated" (auto-resolved on expose) vs "custom" (operator-typed,
     // gated behind DNS verification). Drives both the UI badge and whether
     // a verify token is expected.
@@ -113,6 +135,13 @@ export const proxyRoute = pgTable(
     // authorizing org is derived from projectId → project.organizationId.
     // See docs/designs/deployment-protection.md.
     protected: boolean("protected").notNull().default(false),
+    // Allowlisted edge behavior rendered by trusted builder code. Unlike the
+    // former custom_directives text escape hatch, this cannot introduce
+    // handlers, upstreams, paths, filesystem access, or global options.
+    routePolicy: jsonb("route_policy")
+      .$type<RoutePolicy>()
+      .notNull()
+      .default(DEFAULT_ROUTE_POLICY),
     // Optional access PIN for the auth wall (NetBird-style): an argon2 hash
     // of a short numeric code anyone can enter on the wall page — no org
     // account or email invite needed. Null = the PIN method is off. Only
@@ -120,13 +149,10 @@ export const proxyRoute = pgTable(
     // stored and never leaves the set mutation; the route contract omits
     // this column so the hash can't reach a client.
     accessPinHash: text("access_pin_hash"),
-    // Operator-authored Caddy directives spliced INSIDE this route's site
-    // block (e.g. `header`, `encode`, `rate_limit`, `basic_auth`). Only used
-    // for http routes. Validated as part of the project's fragment via Caddy
-    // /adapt during reconcile — if it doesn't parse, the whole project is
-    // skipped (not just this route), so the edge never half-applies. Null =
-    // no custom directives. See buildHttpBlock.
-    customDirectives: text("custom_directives"),
+    // TXT ownership proof for custom domains. Custom routes stay disabled
+    // until `_otterdeploy.<domain>` contains this token.
+    domainVerifyToken: text("domain_verify_token"),
+    domainVerifiedAt: timestamp("domain_verified_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

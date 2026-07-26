@@ -1,13 +1,14 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-// Moved into the settings zone. Shim only — keeps old links, bookmarks and
-// in-flight callbacks working; forwards any search params untouched.
+// Moved into Edge as the Certificates tab (od-u63.1). Shim only — keeps old
+// links, bookmarks and in-flight callbacks working.
 export const Route = createFileRoute("/_app/$orgSlug/certificates")({
-  beforeLoad: ({ params, location }) => {
+  staticData: { crumb: "Certificates" },
+  beforeLoad: ({ params }) => {
     throw redirect({
-      to: "/$orgSlug/settings/workspace/certificates",
+      to: "/$orgSlug/edge",
       params: { orgSlug: params.orgSlug },
-      search: location.search,
+      search: { tab: "certificates" },
     });
   },
 });

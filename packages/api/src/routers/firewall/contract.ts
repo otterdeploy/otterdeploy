@@ -116,6 +116,11 @@ const blocklistErrors = {
   NOT_FOUND: { status: 404, message: "Blocklist not found" as const },
   CONFLICT: { status: 409, message: "That list is already added" as const },
   INVALID_INPUT: { status: 422, message: "Invalid blocklist URL" as const },
+  APPLY_FAILED: { status: 503, message: "Firewall change could not be applied" as const },
+};
+
+const decisionErrors = {
+  APPLY_FAILED: { status: 503, message: "CrowdSec could not apply the decision" as const },
 };
 
 export const firewallContract = {
@@ -125,6 +130,7 @@ export const firewallContract = {
     .output(z.array(firewallDecisionSchema)),
   /** Ban a single IP / CIDR (manual CrowdSec decision). No Caddy reload needed. */
   block: oc
+    .errors(decisionErrors)
     .meta({ path: "/firewall/decisions/block", tag, method: "POST" })
     .input(
       z.object({
@@ -138,6 +144,7 @@ export const firewallContract = {
     .output(blockResultSchema),
   /** Ban a batch of IPs in one shot — the "block all suspicious" action. */
   blockMany: oc
+    .errors(decisionErrors)
     .meta({ path: "/firewall/decisions/block-many", tag, method: "POST" })
     .input(
       z.object({
@@ -149,6 +156,7 @@ export const firewallContract = {
     .output(z.object({ ok: z.boolean(), blocked: z.number(), error: z.string().nullable() })),
   /** Remove every decision targeting an IP (undo a manual block). */
   unblock: oc
+    .errors(decisionErrors)
     .meta({ path: "/firewall/decisions/unblock", tag, method: "POST" })
     .input(z.object({ ip: ipValue }))
     .output(blockResultSchema),
@@ -162,34 +170,42 @@ export const firewallContract = {
   blocklists: {
     list: oc.meta({ path: "/firewall/blocklists", tag, method: "GET" }).output(blocklistListSchema),
     addCustom: oc
-      .errors({ CONFLICT: blocklistErrors.CONFLICT, INVALID_INPUT: blocklistErrors.INVALID_INPUT })
+      .errors({
+        CONFLICT: blocklistErrors.CONFLICT,
+        INVALID_INPUT: blocklistErrors.INVALID_INPUT,
+        APPLY_FAILED: blocklistErrors.APPLY_FAILED,
+      })
       .meta({ path: "/firewall/blocklists", tag, method: "POST" })
       .input(
         z.object({
           name: z.string().min(1).max(80),
-          url: z.string().url(),
+          url: z.url(),
           durationHours: z.number().int().min(1).max(720).default(24),
           intervalMinutes: z.number().int().min(15).max(10080).default(360),
         }),
       )
       .output(blocklistSchema),
     enableCatalog: oc
-      .errors({ CONFLICT: blocklistErrors.CONFLICT, INVALID_INPUT: blocklistErrors.INVALID_INPUT })
+      .errors({
+        CONFLICT: blocklistErrors.CONFLICT,
+        INVALID_INPUT: blocklistErrors.INVALID_INPUT,
+        APPLY_FAILED: blocklistErrors.APPLY_FAILED,
+      })
       .meta({ path: "/firewall/blocklists/catalog", tag, method: "POST" })
       .input(z.object({ slug: z.string() }))
       .output(blocklistSchema),
     toggle: oc
-      .errors({ NOT_FOUND: blocklistErrors.NOT_FOUND })
+      .errors({ NOT_FOUND: blocklistErrors.NOT_FOUND, APPLY_FAILED: blocklistErrors.APPLY_FAILED })
       .meta({ path: "/firewall/blocklists/{id}/toggle", tag, method: "POST" })
       .input(z.object({ id: z.string(), enabled: z.boolean() }))
       .output(blocklistSchema),
     remove: oc
-      .errors({ NOT_FOUND: blocklistErrors.NOT_FOUND })
+      .errors({ NOT_FOUND: blocklistErrors.NOT_FOUND, APPLY_FAILED: blocklistErrors.APPLY_FAILED })
       .meta({ path: "/firewall/blocklists/{id}", tag, method: "DELETE" })
       .input(z.object({ id: z.string() }))
       .output(z.object({ ok: z.boolean() })),
     syncNow: oc
-      .errors({ NOT_FOUND: blocklistErrors.NOT_FOUND })
+      .errors({ NOT_FOUND: blocklistErrors.NOT_FOUND, APPLY_FAILED: blocklistErrors.APPLY_FAILED })
       .meta({ path: "/firewall/blocklists/{id}/sync", tag, method: "POST" })
       .input(z.object({ id: z.string() }))
       .output(syncResultSchema),

@@ -9,14 +9,18 @@
     "create": "Create",
     "openSidebar": "Open sidebar",
     "closeSidebar": "Close sidebar",
-    "notifications": "Notifications",
+    "notifications": {
+      "title": "Notifications",
+      "unread": "Notifications — {{count}} unread",
+      "labelFailure": "includes a failure"
+    },
     "toggleTheme": "Toggle theme",
     "language": "Language"
   },
   "auth": {
     "signIn": {
       "title": "Sign in",
-      "subtitle": "Welcome back. Enter your details to continue.",
+      "subtitle": "Enter your details to continue.",
       "emailLabel": "Email",
       "emailPlaceholder": "you@example.com",
       "passwordLabel": "Password",

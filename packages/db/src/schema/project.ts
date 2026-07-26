@@ -103,14 +103,6 @@ export const project = pgTable(
     customDomain: text("custom_domain"),
     customDomainVerifiedAt: timestamp("custom_domain_verified_at"),
     customDomainVerifyToken: text("custom_domain_verify_token"),
-    // Operator-authored Caddy config (standalone site blocks / snippets)
-    // appended to this project's generated fragment. Lets users define whole
-    // custom sites, redirects, or reusable snippets alongside the auto-managed
-    // routes. Validated together with the project's generated blocks via Caddy
-    // /adapt on save + every reconcile — invalid config skips just this project
-    // (the rest of the edge keeps serving). Null = none. See buildCaddyfile /
-    // buildProjectFragment.
-    customCaddyConfig: text("custom_caddy_config"),
     // Git source + image target moved to the SERVICE (service_resource) — each
     // git service owns its own repo/branch/image now, so two services in one
     // project can build from two different repos. The project no longer carries
@@ -651,11 +643,18 @@ export const composeResource = pgTable(
 // spec with `otterdeploy.deployment.id=<id>` so the tasks docker schedules
 // inherit the link via Spec.ContainerSpec.Labels. The Deployments tab in
 // the UI lists these rows and expands each to show its underlying tasks.
+// `cancelled` is deliberately its own terminal rather than a flavour of
+// `failed`: an operator stopping a build and a build breaking are different
+// events, and collapsing them makes deployment history unreadable (every
+// abandoned build reads as a red failure you have to open to understand). It
+// also gives the builder a way to tell "the helper died" from "a human stopped
+// this", which is what suppresses the retry in apps/builder/src/handler.ts.
 export const deploymentStatusEnum = pgEnum("deployment_status", [
   "pending",
   "building",
   "running",
   "failed",
+  "cancelled",
   "superseded",
   "removed",
 ]);
@@ -853,6 +852,15 @@ export const serviceEnvVar = pgTable(
     value: text("value").notNull(),
     // Drives masking in the UI. Does not affect storage (plaintext for v1).
     isSecret: boolean("is_secret").notNull().default(false),
+    // Write-only secret (Railway-style "sealed" variable). When true,
+    // `value` holds a v2 ciphertext envelope (domain "env-vars" — see
+    // packages/api/src/lib/crypto.ts), never plaintext. Sticky one-way flag:
+    // once sealed, a row can be REPLACED or DELETED but never unsealed back
+    // to a readable value — see upsertServiceEnvVar. The resolver
+    // (packages/api/src/lib/variables/resolver.ts) is the only reader
+    // allowed to decrypt it, and only at deploy/injection time; every
+    // list/read surface must mask it before it reaches the API/UI.
+    sealed: boolean("sealed").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -896,6 +904,10 @@ export const projectEnvVar = pgTable(
     key: text("key").notNull(),
     value: text("value").notNull(),
     isSecret: boolean("is_secret").notNull().default(true),
+    // Write-only secret (Railway-style "sealed" variable) — see the matching
+    // column on `serviceEnvVar` for the full contract (sticky one-way,
+    // ciphertext-in-`value`, decrypt only at deploy/injection time).
+    sealed: boolean("sealed").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

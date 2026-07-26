@@ -4,7 +4,7 @@
  * GHCR, GitLab, Harbor) so the parser is pinned to what's in the wild.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { buildTokenUrl, parseAuthChallenge } from "../test-connection";
 

@@ -242,3 +242,51 @@ describe("deriveDeploymentStatus", () => {
     expect(status).toBe("superseded");
   });
 });
+
+// ─── cancelled is terminal by operator intent ───────────────────────────────
+
+describe("deriveDeploymentStatus — cancelled", () => {
+  test("survives the failed tasks that cancelling itself leaves behind", () => {
+    // Cancelling force-removes the helper mid-build, so docker routinely reports
+    // failed tasks afterwards. Deriving from those would relabel a deliberate
+    // stop as `failed` and send the operator hunting a fault that never existed.
+    const status = deriveDeploymentStatus(
+      "cancelled",
+      true,
+      [glimpse({ state: "failed", exitCode: 137 })],
+      fresh(),
+      false,
+      false,
+    );
+    expect(status).toBe("cancelled");
+  });
+
+  test("outranks paused", () => {
+    // `paused` implies the service could come back; a cancelled deploy will not.
+    expect(deriveDeploymentStatus("cancelled", true, [], fresh(), false, true)).toBe("cancelled");
+  });
+
+  test("is not rewritten to superseded once a newer deploy replaces it", () => {
+    // Same argument the code makes for `failed`: an outcome must survive being
+    // replaced, or history loses the answer to "why did this stop?".
+    expect(deriveDeploymentStatus("cancelled", false, [], fresh(), false, false)).toBe("cancelled");
+  });
+
+  test("stays cancelled when stale with no instances", () => {
+    // The zero-instance staleness path repairs abandoned pending/building rows
+    // into `failed`; a cancelled row is already terminal and must not be touched.
+    expect(deriveDeploymentStatus("cancelled", true, [], stale(), false, false)).toBe("cancelled");
+  });
+
+  test("a crash-looping instance still cannot override it", () => {
+    const status = deriveDeploymentStatus(
+      "cancelled",
+      false,
+      [glimpse({ state: "restarting", restartCount: 5 })],
+      fresh(),
+      false,
+      false,
+    );
+    expect(status).toBe("cancelled");
+  });
+});

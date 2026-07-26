@@ -37,8 +37,7 @@ const isRetired = (t: Task): boolean => t.desiredState === "shutdown";
 
 /** Total restarts for a service — sum of the per-task contributions the server
  *  already normalized across runtimes (Docker RestartCount / swarm retries). */
-const restartCount = (tasks: Task[]): number =>
-  tasks.reduce((n, t) => n + (t.restarts ?? 0), 0);
+const restartCount = (tasks: Task[]): number => tasks.reduce((n, t) => n + (t.restarts ?? 0), 0);
 
 type LiveNode = Node<ResourceNodeData, "resource">;
 
@@ -77,10 +76,7 @@ const withReplicas = (node: LiveNode, tasks: Task[]): LiveNode => {
  *  Exported so the compose DETAIL panel derives per-service status identically
  *  to the graph node — they read the same child resources + tasks and must
  *  never disagree. */
-export const childServiceStatus = (
-  child: ServiceResource,
-  tasks: Task[],
-): StackServiceStatus => {
+export const childServiceStatus = (child: ServiceResource, tasks: Task[]): StackServiceStatus => {
   if (tasks.length > 0) return rollupStatus(tasks) as StackServiceStatus;
   switch (child.latestDeploymentStatus) {
     case "starting":
@@ -207,7 +203,12 @@ export const buildLiveNodes = (
     }
     if (r.type === "compose") {
       const children = stackChildren.get(r.resourceId) ?? [];
-      const childByName = new Map(children.map((c) => [c.name, c] as const));
+      // Join on `serviceName` (the runtime name, `${stack}-${composeKey}`),
+      // NOT the resource's `name` — pickResourceName collision-suffixes the
+      // resource name (e.g. stack "excalidraw" + service "excalidraw" ->
+      // child resource "excalidraw-service"), which diverges from the
+      // compose file's declared key and makes the join below miss forever.
+      const childByServiceName = new Map(children.map((c) => [c.serviceName, c] as const));
       const liveCard = (c: ServiceResource, volumes: string[]): ComposeServiceInfo => {
         const all = tasksByResourceId.get(c.resourceId) ?? [];
         const live = all.filter((t) => !isRetired(t));
@@ -236,7 +237,7 @@ export const buildLiveNodes = (
       // flash 4 cards → 1 → 4 as they landed. Merging with the declared summary
       // keeps all N cards visible; the not-yet-created ones read as "building".
       const services: ComposeServiceInfo[] = r.services.map((s) => {
-        const child = childByName.get(s.name);
+        const child = childByServiceName.get(s.serviceName);
         return child
           ? liveCard(child, s.volumes)
           : {

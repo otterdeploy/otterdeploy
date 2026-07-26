@@ -37,8 +37,10 @@ export function DatabasePanelHeader({
   restarting: boolean;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 px-6 pt-6">
-      <div className="flex items-start gap-3">
+    <div className="flex items-start justify-between gap-2 px-4 pt-4 sm:gap-4 sm:px-6 sm:pt-6">
+      {/* min-w-0 so the name below can actually truncate instead of forcing
+          this row wider than the panel and pushing the close button off-screen. */}
+      <div className="flex min-w-0 items-start gap-2 sm:gap-3">
         <Button
           type="button"
           variant="ghost"
@@ -57,9 +59,11 @@ export function DatabasePanelHeader({
             engine: resource.engine as ResourceEngine,
           }}
         />
-        <div className="flex flex-col gap-0.5">
-          <span className="text-xl leading-none font-bold tracking-tight">{resource.name}</span>
-          <span className="font-mono text-xs text-muted-foreground">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="truncate text-lg leading-tight font-bold tracking-tight sm:text-xl sm:leading-none">
+            {resource.name}
+          </span>
+          <span className="truncate font-mono text-xs text-muted-foreground">
             {resource.engine}
             {!pending && (
               <>
@@ -70,7 +74,7 @@ export function DatabasePanelHeader({
           </span>
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
         {/* Restart needs a running container — omit it while the database is
             still a staged create (Deploy from the pending bar). */}
         {!pending && (
@@ -80,9 +84,12 @@ export function DatabasePanelHeader({
             size="sm"
             onClick={onRestart}
             disabled={restarting}
+            aria-label={restarting ? "Restarting" : "Restart"}
           >
             <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
-            {restarting ? "Restarting…" : "Restart"}
+            {/* Label drops below `sm` — the icon carries it, and the row has to
+                leave room for the resource name. */}
+            <span className="hidden sm:inline">{restarting ? "Restarting…" : "Restart"}</span>
           </Button>
         )}
         <Button
@@ -105,7 +112,38 @@ export function DatabaseStatusBar({
   latestDeploymentStatus,
 }: {
   pending: boolean;
-  runtime: DbResource["runtime"];
+  /** Absent on a staged create — no container (and so no runtime) exists
+   *  until the first apply, so this must never be read in pending mode. */
+  runtime: DbResource["runtime"] | undefined;
+  latestDeploymentStatus?: DbResource["latestDeploymentStatus"];
+}) {
+  return (
+    // flex-wrap: the badge + explanatory sentence is ~420px and must be allowed
+    // to break onto a second line rather than force the panel to scroll sideways.
+    <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border/40 px-4 py-3 sm:px-6">
+      {pending || !runtime ? (
+        <>
+          <span className="shrink-0 rounded-md bg-info/12 px-2 py-1 font-mono text-[10.5px] font-semibold tracking-[0.18em] text-info">
+            PENDING
+          </span>
+          <span className="min-w-0 text-[13px] text-muted-foreground">
+            Staged — Deploy the pending changes to create it
+          </span>
+        </>
+      ) : (
+        <ProvisionedStatus runtime={runtime} latestDeploymentStatus={latestDeploymentStatus} />
+      )}
+    </div>
+  );
+}
+
+/** Split out so `runtime` is narrowed to present by the caller's guard — the
+ *  status computation reads it unconditionally and a staged database has none. */
+function ProvisionedStatus({
+  runtime,
+  latestDeploymentStatus,
+}: {
+  runtime: NonNullable<DbResource["runtime"]>;
   latestDeploymentStatus?: DbResource["latestDeploymentStatus"];
 }) {
   // A container that's missing/stopped while a deploy is in flight isn't
@@ -118,27 +156,14 @@ export function DatabaseStatusBar({
       latestDeploymentStatus === "pending" ||
       latestDeploymentStatus === "starting");
   return (
-    <div className="mt-5 flex items-center gap-3 border-t border-border/40 px-6 py-3">
-      {pending ? (
-        <>
-          <span className="rounded-md bg-info/12 px-2 py-1 font-mono text-[10.5px] font-semibold tracking-[0.18em] text-info">
-            PENDING
-          </span>
-          <span className="text-[13px] text-muted-foreground">
-            Staged — Deploy the pending changes to create it
-          </span>
-        </>
-      ) : (
-        <>
-          <RuntimeStatusBadge status={deploying ? "deploying" : runtime.status} />
-          <span className="text-[13px] text-muted-foreground">
-            {deploying
-              ? "Deploy in progress — pulling the image can take a few minutes"
-              : (runtime.health ?? "Provisioned")}
-          </span>
-        </>
-      )}
-    </div>
+    <>
+      <RuntimeStatusBadge status={deploying ? "deploying" : runtime.status} />
+      <span className="min-w-0 text-[13px] text-muted-foreground">
+        {deploying
+          ? "Deploy in progress — pulling the image can take a few minutes"
+          : (runtime.health ?? "Provisioned")}
+      </span>
+    </>
   );
 }
 

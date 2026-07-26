@@ -17,6 +17,7 @@ export interface DeploymentRow {
     | "crashed"
     | "paused"
     | "failed"
+    | "cancelled"
     | "superseded"
     | "removed";
   errorMessage: string | null;

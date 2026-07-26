@@ -13,25 +13,24 @@
  * Design: docs/designs/server-onboarding.md
  */
 
-import type { Node } from "@otterdeploy/docker";
 import type { ProvisionServerPayload } from "@otterdeploy/jobs";
 import type { OrganizationId, ServerId, SshKeyId } from "@otterdeploy/shared/id";
 
-import { Docker } from "@otterdeploy/docker";
 import { triggerProvisionServer } from "@otterdeploy/jobs";
 
-import { decryptSecret, encryptSecret } from "../../lib/crypto";
+import { decryptForDomain, encryptForDomain } from "../../lib/crypto";
 import { getSshKeyInOrg } from "../sshKeys/queries";
+import { rotateSwarmJoinCredential } from "./enrollment";
+import { resolveFirewallPeers, runFirewallOnlyJob } from "./firewall-remediation";
+import { filterIpv4Peers } from "./host-firewall";
 import { getSwarmJoinTokens } from "./join-tokens";
 import { type MeshProvider, runRemoteProvision } from "./provision";
-import { installNodeFirewallBouncer } from "./provision-firewall";
+import { installNodeFirewallBouncer, managerHostOf } from "./provision-firewall";
+import { installHostFirewall } from "./provision-host-firewall";
+import { labelBuildNode, verifyNodeJoined } from "./provision-node-verify";
 import { emitProvisionLine, endProvisionStream } from "./provision-stream";
-import { patchServerProvision } from "./queries";
+import { patchServerFirewall, patchServerProvision } from "./queries";
 import { SshSession } from "./ssh-exec";
-
-const VERIFY_ATTEMPTS = 30;
-const VERIFY_INTERVAL_MS = 2000;
-const BUILD_NODE_LABEL = "otterdeploy.role";
 
 export interface EnqueueProvisionInput {
   serverId: ServerId;
@@ -48,11 +47,17 @@ export interface EnqueueProvisionInput {
   password?: string;
   meshAuthKey?: string;
   cloudflareToken?: string;
+  /** od-5j8.11 drift remediation: re-run only the firewall steps. */
+  firewallOnly?: boolean;
 }
 
 /** Encrypt the secrets and enqueue the provision job. */
 export async function enqueueProvision(input: EnqueueProvisionInput): Promise<void> {
-  const enc = (v: string | undefined) => (v ? encryptSecret(v) : Promise.resolve(null));
+  // "server-secrets" — ephemeral, job-payload-lifetime credentials (one-time
+  // password / mesh auth key / Cloudflare tunnel token), domain-separated
+  // from the persistent "ssh-keys" material decrypted below.
+  const enc = (v: string | undefined) =>
+    v ? encryptForDomain(v, "server-secrets") : Promise.resolve(null);
   const [passwordCiphertext, meshAuthKeyCiphertext, cloudflareTokenCiphertext] = await Promise.all([
     enc(input.password),
     enc(input.meshAuthKey),
@@ -72,12 +77,20 @@ export async function enqueueProvision(input: EnqueueProvisionInput): Promise<vo
     passwordCiphertext,
     meshAuthKeyCiphertext,
     cloudflareTokenCiphertext,
+    firewallOnly: input.firewallOnly ?? false,
   });
 }
 
 /** The BullMQ worker body. Records a terminal provisionStatus either way and
- *  never throws (attempts=1; the operator retries explicitly). */
+ *  never throws (attempts=1; the operator retries explicitly). od-5j8.11:
+ *  `firewallOnly` re-runs just the host-firewall + native-bouncer steps
+ *  against an already-joined node (drift remediation), skipping Docker
+ *  install/swarm join entirely. */
 export async function runProvisionJob(payload: ProvisionServerPayload): Promise<void> {
+  if (payload.firewallOnly) {
+    await runFirewallOnlyJob(payload);
+    return;
+  }
   const serverId = payload.serverId as ServerId;
   const organizationId = payload.organizationId as OrganizationId;
   const emit = (line: string) => emitProvisionLine(serverId, line);
@@ -141,6 +154,23 @@ export async function runProvisionJob(payload: ProvisionServerPayload): Promise<
         { nodeHost: payload.host, managerAddr, privilege: result.probe.privilege },
         emit,
       );
+      // od-5j8.11: the host-level nftables baseline — "every node, not just
+      // the primary". Also best-effort; recorded on the row so a failure
+      // shows up as drift instead of silently vanishing.
+      const peers = await resolveFirewallPeers(organizationId, payload.host);
+      peers.push(managerHostOf(managerAddr));
+      const firewallOutcome = await installHostFirewall(
+        session,
+        { sshPort: payload.sshPort, peerIpsV4: filterIpv4Peers(peers), privilege: result.probe.privilege },
+        emit,
+      );
+      await patchServerFirewall({
+        serverId,
+        organizationId,
+        firewallStatus: firewallOutcome.status,
+        firewallError: firewallOutcome.status === "applied" ? null : firewallOutcome.reason,
+        firewallBouncerActive: firewallOutcome.status === "applied" && firewallOutcome.probe.bouncerActive,
+      }).catch(() => undefined);
     } finally {
       session.dispose();
     }
@@ -159,6 +189,9 @@ export async function runProvisionJob(payload: ProvisionServerPayload): Promise<
         "The node ran `docker swarm join` but never appeared as ready in `docker node ls`. Check the manager is reachable from the new host on port 2377.",
       );
     }
+
+    emit("── rotating consumed swarm join credential ──");
+    await rotateSwarmJoinCredential(payload.role);
 
     if (payload.buildServer) {
       emit("── labelling as a build node ──");
@@ -192,7 +225,7 @@ export async function runProvisionJob(payload: ProvisionServerPayload): Promise<
 }
 
 function decryptOptional(blob: string | null | undefined): Promise<string | null> {
-  return blob ? decryptSecret(blob) : Promise.resolve(null);
+  return blob ? decryptForDomain(blob, "server-secrets") : Promise.resolve(null);
 }
 
 /** Resolve the swarm join token + manager address from OUR daemon. We don't
@@ -232,7 +265,7 @@ async function resolvePrivateKey(
     if (!key?.privateKeyCiphertext) {
       throw new Error("The selected SSH key has no private half stored — pick a generated key.");
     }
-    return decryptSecret(key.privateKeyCiphertext);
+    return decryptForDomain(key.privateKeyCiphertext, "ssh-keys");
   }
   if (!hasPassword) {
     throw new Error("No SSH credential supplied — choose a managed key or enter a password.");
@@ -240,46 +273,3 @@ async function resolvePrivateKey(
   return undefined;
 }
 
-/** Poll the local manager's `docker node ls` until a node with `hostname`
- *  reports ready; return the node so callers can label it. */
-async function verifyNodeJoined(
-  hostname: string,
-  emit: (line: string) => void,
-): Promise<Node | null> {
-  const docker = Docker.fromEnv();
-  try {
-    for (let attempt = 1; attempt <= VERIFY_ATTEMPTS; attempt++) {
-      const nodes = await docker.nodes.list({});
-      if (nodes.isOk()) {
-        const match = nodes.value.find((n) => n.Description?.Hostname === hostname);
-        if (match?.Status?.State === "ready") return match;
-        if (match) emit(`node ${hostname} present, state: ${match.Status?.State ?? "unknown"}…`);
-      }
-      await new Promise((r) => setTimeout(r, VERIFY_INTERVAL_MS));
-    }
-    return null;
-  } finally {
-    docker.destroy();
-  }
-}
-
-/** Add the `otterdeploy.role=build` swarm label so build workloads can target
- *  this node. Carries the full existing NodeSpec (labels/role/availability) so
- *  the update doesn't clear anything. Best-effort: a label failure doesn't fail
- *  an otherwise-joined node. */
-async function labelBuildNode(node: Node, emit: (line: string) => void): Promise<void> {
-  if (!node.ID) return;
-  const docker = Docker.fromEnv();
-  try {
-    const update = await docker.nodes.getNode(node.ID).update({
-      version: node.Version?.Index ?? 0,
-      ...(node.Spec?.Name !== undefined ? { Name: node.Spec.Name } : {}),
-      ...(node.Spec?.Role !== undefined ? { Role: node.Spec.Role } : {}),
-      ...(node.Spec?.Availability !== undefined ? { Availability: node.Spec.Availability } : {}),
-      Labels: { ...node.Spec?.Labels, [BUILD_NODE_LABEL]: "build" },
-    });
-    if (update.isErr()) emit(`could not apply build label: ${update.error.message}`);
-  } finally {
-    docker.destroy();
-  }
-}

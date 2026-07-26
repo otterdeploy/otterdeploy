@@ -50,7 +50,7 @@ export function StepVersion({ kind, projectId }: StepVersionProps) {
         title={`${kind.name} version`}
         sub="Pick a major version — minor versions are auto-upgraded during maintenance windows"
       />
-      <div className="mt-3 grid grid-cols-2 gap-2.5">
+      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         {(kind.versions ?? []).map((v, i) => (
           <button
             key={v}
@@ -110,8 +110,12 @@ export function StepVersion({ kind, projectId }: StepVersionProps) {
             }}
           >
             {(f) => (
+              // Match the section heading above (`traits.nameLabel`) — this is
+              // the same field under two labels otherwise ("Database name"
+              // heading, "Service name" input), and the description already
+              // names what it really controls: the internal hostname.
               <f.TextField
-                label="Service name"
+                label={traits.nameLabel}
                 className="font-mono"
                 description={`Reachable at ${name || kind.id}.internal:${port}`}
               />

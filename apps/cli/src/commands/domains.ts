@@ -1,9 +1,29 @@
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
 import type { CliClient } from "../lib/resolve";
 
+import { relativeTime } from "../lib/format";
+import { cmd } from "../lib/name";
 import { resolveResource } from "../lib/resolve";
+import { suggestions } from "../lib/suggest";
+import {
+  abort,
+  confirm,
+  detail,
+  dim,
+  err,
+  hint,
+  note,
+  ok,
+  out,
+  paint,
+  row,
+  section,
+  stateGlyph,
+  stateLabel,
+  table,
+  warn,
+} from "../lib/ui";
 
 type DomainRow = Awaited<ReturnType<CliClient["service"]["domains"]["list"]>>[number];
 
@@ -23,47 +43,73 @@ async function findDomain(
   const needle = normalizeDomain(domain);
   const match = rows.find((r) => r.domain === needle);
   if (!match) {
-    const available = rows.map((r) => r.domain).join(", ") || "(none)";
-    consola.error(`Domain ${domain} not found on this service. Available: ${available}`);
-    process.exit(1);
+    // Show the real inventory rather than a comma-spliced list, so the reader
+    // can copy a hostname straight out of the failure.
+    if (rows.length > 0) {
+      err();
+      for (const r of rows) row([stateGlyph(r.dnsState), r.domain]);
+      err();
+    }
+    abort(
+      `No domain \`${domain}\` on this service.`,
+      ...suggestions(
+        needle,
+        rows.map((r) => r.domain),
+      ).map((s) => `did you mean \`${s}\`?`),
+      ...(rows.length === 0 ? ["this service has no domains yet"] : []),
+    );
   }
   return match;
 }
 
-function printDomainState(row: DomainRow): void {
-  const primary = row.isPrimary ? " (primary)" : "";
-  consola.log(`  domain:  ${row.domain}${primary}`);
-  consola.log(`  status:  ${row.status}`);
-  consola.log(
-    `  dns:     ${row.dnsState}${row.dnsCheckedAt ? ` (checked ${row.dnsCheckedAt})` : ""}`,
-  );
-  consola.log(`  cert:    ${row.certState}${row.certError ? ` — ${row.certError}` : ""}`);
+/**
+ * The three independent states a domain has, as their own block.
+ *
+ * They fail separately and are fixed separately: `status` is whether the route
+ * is served at all, `dns` is whether the world points here, `cert` is whether
+ * TLS was issued. Collapsing them into one line hid which of the three was
+ * actually broken.
+ */
+function printDomainState(record: DomainRow): void {
+  section("Domain");
+  detail([
+    ["domain", record.isPrimary ? `${record.domain} ${dim("(primary)")}` : record.domain],
+    ["route", stateLabel(record.status)],
+    [
+      "dns",
+      record.dnsCheckedAt
+        ? `${stateLabel(record.dnsState)} ${dim(`checked ${relativeTime(record.dnsCheckedAt)}`)}`
+        : stateLabel(record.dnsState),
+    ],
+    [
+      "cert",
+      record.certError
+        ? `${stateLabel(record.certState)} ${paint("danger", record.certError)}`
+        : stateLabel(record.certState),
+    ],
+  ]);
+  out();
 }
 
-function printDnsInstructions(row: DomainRow, serviceName: string): void {
-  if (row.status === "disabled") {
-    consola.warn("Service is not publicly exposed — the route stays disabled until it is.");
+function printDnsInstructions(record: DomainRow, serviceName: string): void {
+  if (record.status === "disabled") {
+    warn("Service is not publicly exposed — the route stays disabled until it is.");
   }
-  switch (row.dnsState) {
+  switch (record.dnsState) {
     case "pointed":
       return;
     case "proxied":
-      consola.info(
-        "Domain appears to be behind a proxy (e.g. Cloudflare) — TLS is terminated there.",
-      );
+      note("Domain is behind a proxy (e.g. Cloudflare) — TLS is terminated there.");
       return;
-    default:
-      if (row.dnsTarget) {
-        consola.info(
-          `Point an A record for ${row.domain} to ${row.dnsTarget}, then run ` +
-            `\`otterdeploy domains recheck ${row.domain} --service ${serviceName}\`.`,
-        );
+    default: {
+      if (record.dnsTarget) {
+        note(`DNS is not pointed at this control plane yet.`);
+        hint(`add an A record for ${record.domain} → ${record.dnsTarget}`);
       } else {
-        consola.info(
-          `DNS is not pointed yet — run \`otterdeploy domains recheck ${row.domain} ` +
-            `--service ${serviceName}\` after updating your records.`,
-        );
+        note("DNS is not pointed yet.");
       }
+      hint(`then run \`${cmd(`domains recheck ${record.domain} --service ${serviceName}`)}\``);
+    }
   }
 }
 
@@ -84,19 +130,36 @@ const listDomains = defineCommand({
       return;
     }
     if (rows.length === 0) {
-      consola.info(`No domains on ${args.service}. Add one with \`domains add <domain>\`.`);
+      note(`No domains on ${args.service}.`);
+      hint(`run \`${cmd(`domains add <domain> --service ${args.service}`)}\``);
       return;
     }
-    const width = Math.max(...rows.map((r) => r.domain.length));
-    for (const r of rows) {
-      const primary = r.isPrimary ? "*" : " ";
-      consola.log(
-        `${primary} ${r.domain.padEnd(width)}  dns:${r.dnsState}  cert:${r.certState}  ${r.status}`,
-      );
-    }
+
+    section(`Domains ${dim(args.service)}`);
+    table(
+      [
+        { header: "" },
+        { header: "domain" },
+        { header: "route" },
+        { header: "dns" },
+        { header: "cert" },
+      ],
+      rows.map((r) => [
+        // The primary domain is marked with the live glyph rather than an
+        // asterisk, so it reads in the same vocabulary as every other row.
+        r.isPrimary ? stateGlyph("running") : " ",
+        r.domain,
+        stateLabel(r.status),
+        stateLabel(r.dnsState),
+        stateLabel(r.certState),
+      ]),
+    );
+
     const target = rows.find((r) => r.dnsTarget)?.dnsTarget;
-    if (target && rows.some((r) => r.dnsState === "unpointed" || r.dnsState === "unknown")) {
-      consola.info(`Unpointed domains need an A record to ${target}.`);
+    const unpointed = rows.filter((r) => r.dnsState === "unpointed" || r.dnsState === "unknown");
+    if (target && unpointed.length > 0) {
+      out();
+      note(`${unpointed.length} domain(s) need an A record to ${target}.`);
     }
   },
 });
@@ -112,14 +175,14 @@ const addDomain = defineCommand({
   },
   async run({ args }) {
     const ctx = await resolveResource(args, args.service, "service");
-    const row = await ctx.client.service.domains.add({
+    const record = await ctx.client.service.domains.add({
       projectId: ctx.projectId,
       resourceId: ctx.resourceId,
       domain: args.domain,
     });
-    consola.success(`Added ${row.domain} to ${ctx.resourceName}.`);
-    printDomainState(row);
-    printDnsInstructions(row, ctx.resourceName);
+    ok(`Added ${record.domain} to ${ctx.resourceName}.`);
+    printDomainState(record);
+    printDnsInstructions(record, ctx.resourceName);
   },
 });
 
@@ -135,24 +198,20 @@ const removeDomain = defineCommand({
   },
   async run({ args }) {
     const ctx = await resolveResource(args, args.service, "service");
-    const row = await findDomain(ctx.client, ctx.projectId, ctx.resourceId, args.domain);
+    const record = await findDomain(ctx.client, ctx.projectId, ctx.resourceId, args.domain);
     if (!args.yes) {
-      const note = row.isPrimary ? " (primary — another domain will be promoted)" : "";
-      const ok = await consola.prompt(`Remove ${row.domain} from ${ctx.resourceName}${note}?`, {
-        type: "confirm",
-        initial: false,
-      });
-      if (!ok) {
-        consola.info("Aborted.");
-        process.exit(1);
-      }
+      // Removing the primary silently promotes another domain, which changes
+      // where generated URLs point — say so before asking.
+      const caveat = record.isPrimary ? " (primary — another domain will be promoted)" : "";
+      const q = `Remove ${record.domain} from ${ctx.resourceName}${caveat}?`;
+      if (!(await confirm(q))) abort("Aborted — nothing was removed.");
     }
     await ctx.client.service.domains.remove({
       projectId: ctx.projectId,
       resourceId: ctx.resourceId,
-      routeId: row.id,
+      routeId: record.id,
     });
-    consola.success(`Removed ${row.domain} from ${ctx.resourceName}.`);
+    ok(`Removed ${record.domain} from ${ctx.resourceName}.`);
   },
 });
 
@@ -167,17 +226,17 @@ const setPrimaryDomain = defineCommand({
   },
   async run({ args }) {
     const ctx = await resolveResource(args, args.service, "service");
-    const row = await findDomain(ctx.client, ctx.projectId, ctx.resourceId, args.domain);
-    if (row.isPrimary) {
-      consola.info(`${row.domain} is already the primary domain.`);
+    const record = await findDomain(ctx.client, ctx.projectId, ctx.resourceId, args.domain);
+    if (record.isPrimary) {
+      note(`${record.domain} is already the primary domain.`);
       return;
     }
     const updated = await ctx.client.service.domains.setPrimary({
       projectId: ctx.projectId,
       resourceId: ctx.resourceId,
-      routeId: row.id,
+      routeId: record.id,
     });
-    consola.success(`${updated.domain} is now the primary domain for ${ctx.resourceName}.`);
+    ok(`${updated.domain} is now primary for ${ctx.resourceName}.`);
   },
 });
 
@@ -193,17 +252,17 @@ const recheckDomain = defineCommand({
   },
   async run({ args }) {
     const ctx = await resolveResource(args, args.service, "service");
-    const row = await findDomain(ctx.client, ctx.projectId, ctx.resourceId, args.domain);
+    const record = await findDomain(ctx.client, ctx.projectId, ctx.resourceId, args.domain);
     const updated = await ctx.client.service.domains.recheck({
       projectId: ctx.projectId,
       resourceId: ctx.resourceId,
-      routeId: row.id,
+      routeId: record.id,
     });
     if (args.json) {
       process.stdout.write(`${JSON.stringify(updated, null, 2)}\n`);
       return;
     }
-    consola.success(`Rechecked ${updated.domain}.`);
+    ok(`Rechecked ${updated.domain}.`);
     printDomainState(updated);
     printDnsInstructions(updated, ctx.resourceName);
   },

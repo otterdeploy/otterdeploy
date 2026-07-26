@@ -42,7 +42,7 @@ export function DeploymentHistory(props: {
                   resourceId: service.resourceId,
                   deploymentId: d.id,
                 }}
-                search={{ tab: "details", previewId }}
+                search={{ deploymentTab: "details", tab: "deployments", previewId }}
                 className="flex items-center gap-3 px-3 py-2 transition-colors hover:bg-muted/50"
               >
                 <span className={cn(badgeBase, pillClass(d.status))}>

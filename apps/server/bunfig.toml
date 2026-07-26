@@ -1,0 +1,5 @@
+[test]
+# Runs before any test module is imported, so the env schema validated at
+# import time by `@otterdeploy/env/server` is already satisfied. See
+# test-setup.ts.
+preload = ["./test-setup.ts"]

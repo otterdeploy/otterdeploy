@@ -12,31 +12,20 @@
  */
 
 import type { ProjectSlug } from "@otterdeploy/shared/id";
-import { useState } from "react";
 
-import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import {
-  childServiceStatus,
-  type Task,
-} from "@/features/projects/components/graph/build-live-nodes";
 import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
-import { resourceCollection } from "@/features/resources/data/resource";
-import { serviceTasksCollection } from "@/features/resources/data/service-tasks";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/shared/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { orpc } from "@/shared/server/orpc";
 
-import type { ComposeService, StackServiceStatus } from "./panel-parts";
+import type { ComposeService } from "./panel-parts";
 
-import { baseStatus, ComposePanelHeader, ComposeStatusBar } from "./panel-parts";
+import { resolvePanelTab } from "../_shared/panel-tab";
+import { ComposePanelHeader, ComposeStatusBar } from "./panel-parts";
 import { ComposeFileTab, ComposeServicesTab, ComposeSettingsTab } from "./panel-tabs";
+import { useComposeServiceStatus } from "./use-compose-service-status";
 
 type ComposeTab = "deployments" | "services" | "file" | "settings";
 
@@ -54,6 +43,7 @@ interface ComposeResourcePanelProps {
       | "crashed"
       | "paused"
       | "failed"
+      | "cancelled"
       | "superseded"
       | "removed"
       | null;
@@ -67,57 +57,55 @@ interface ComposeResourcePanelProps {
   orgSlug: string;
   projectSlug: ProjectSlug;
   onClose: () => void;
+  /** Staged create — no resource row exists yet (resourceId is the empty
+   *  sentinel). Disables tabs/actions that need a real resourceId and skips
+   *  the resource-scoped fetches, mirroring the service/database draft
+   *  panels' `pending` mode. */
+  pending?: boolean;
+  /** The active tab, straight off the route's `?tab=` search param — the URL
+   *  owns this, not the panel. Unrecognized/absent values fall back to the
+   *  usual pending-aware default. */
+  tab?: string;
+  /** Report a tab click so the route can write it to the URL. */
+  onTabChange: (tab: string) => void;
 }
+
+const COMPOSE_TABS: readonly ComposeTab[] = ["deployments", "services", "file", "settings"];
+
+// The only tab that means anything for a staged-create ghost: the stack isn't
+// parsed or deployed yet, so deployments/file/settings are disabled below and a
+// URL naming one of them must not select it.
+const COMPOSE_PENDING_TABS: readonly ComposeTab[] = ["services"];
 
 export function ComposeResourcePanel({
   resource,
   orgSlug,
   projectSlug,
   onClose,
+  pending = false,
+  tab: tabParam,
+  onTabChange,
 }: ComposeResourcePanelProps) {
-  const [tab, setTab] = useState<ComposeTab>("deployments");
-
-  // Per-service status is derived from the EXACT same source the graph node
-  // reads: the stack's real child service resources + their live tasks. A
-  // compose child owns its swarm tasks under its OWN resourceId, so we key
-  // tasks by resourceId and run the shared `childServiceStatus` — the node and
-  // this panel then can never disagree about what's running.
-  const { data: taskRows } = useLiveQuery(
-    (q) =>
-      q.from({ d: serviceTasksCollection }).where(({ d }) => eq(d.projectId, resource.projectId)),
-    [resource.projectId],
+  const tab = resolvePanelTab(
+    tabParam,
+    pending ? COMPOSE_PENDING_TABS : COMPOSE_TABS,
+    pending ? "services" : "deployments",
   );
-  // `stackId` lives only on the service variant, so we can't filter on it in the
-  // typed where-clause — scope by projectId and narrow to this stack's children
-  // in JS below.
-  const { data: projectResources } = useLiveQuery(
-    (q) => q.from({ r: resourceCollection }).where(({ r }) => eq(r.projectId, resource.projectId)),
-    [resource.projectId],
-  );
-  const tasksByResourceId = (() => {
-    const m = new Map<string, Task[]>();
-    for (const row of taskRows) m.set(row.resourceId, row.tasks as Task[]);
-    return m;
-  })();
-  const statusByName = (() => {
-    const m = new Map<string, StackServiceStatus>();
-    for (const c of projectResources) {
-      if (c.type !== "service" || c.stackId !== resource.resourceId) continue;
-      m.set(c.name, childServiceStatus(c, tasksByResourceId.get(c.resourceId) ?? []));
-    }
-    return m;
-  })();
-  const base = baseStatus(resource.latestDeploymentStatus);
-  const serviceStatus = (name: string): StackServiceStatus =>
-    statusByName.get(name) ?? base ?? "offline";
 
-  // The raw compose file (inline source) for the read-only viewer.
+  // Per-service status — see use-compose-service-status.ts. Reads the EXACT
+  // same source the graph node does, so the node and this panel can never
+  // disagree about what's running.
+  const serviceStatus = useComposeServiceStatus(resource);
+
+  // The raw compose file (inline source) for the read-only viewer. Skipped
+  // while pending — there's no resourceId yet to fetch it by.
   const fileQuery = useQuery(
     orpc.compose.get.queryOptions({
       input: {
         projectId: resource.projectId,
         resourceId: resource.resourceId,
       },
+      enabled: !pending,
     }),
   );
 
@@ -127,7 +115,7 @@ export function ComposeResourcePanel({
       toast.success("Redeploying stack", {
         description: "Track progress in the Deployments tab.",
       });
-      setTab("deployments");
+      onTabChange("deployments");
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to redeploy"),
   });
@@ -155,7 +143,7 @@ export function ComposeResourcePanel({
             resourceId: resource.resourceId,
           })
         }
-        redeploying={redeploy.isPending}
+        redeploying={pending || redeploy.isPending}
       />
 
       <ComposeStatusBar
@@ -167,22 +155,22 @@ export function ComposeResourcePanel({
       <Tabs
         value={tab}
         onValueChange={(v: ComposeTab) => {
-          if (v) setTab(v);
+          if (v) onTabChange(v);
         }}
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
-        <div className="border-b border-border/60 px-6">
+        <div className="border-b border-border/60 px-4 sm:px-6">
           <TabsList variant="line" className="h-auto bg-transparent p-0">
-            <TabsTrigger value="deployments" className="px-2.5 py-2.5">
+            <TabsTrigger value="deployments" className="px-2.5 py-2.5" disabled={pending}>
               Deployments
             </TabsTrigger>
             <TabsTrigger value="services" className="px-2.5 py-2.5">
               Services
             </TabsTrigger>
-            <TabsTrigger value="file" className="px-2.5 py-2.5">
+            <TabsTrigger value="file" className="px-2.5 py-2.5" disabled={pending}>
               Compose
             </TabsTrigger>
-            <TabsTrigger value="settings" className="px-2.5 py-2.5">
+            <TabsTrigger value="settings" className="px-2.5 py-2.5" disabled={pending}>
               Settings
             </TabsTrigger>
           </TabsList>
@@ -191,7 +179,7 @@ export function ComposeResourcePanel({
         <div className="relative min-h-0 flex-1">
           <div className="h-full overflow-y-auto">
             <div className="relative">
-              <TabsContent value="deployments" className="px-6 pt-5 pb-6">
+              <TabsContent value="deployments" className="px-4 pt-5 pb-6 sm:px-6">
                 <ResourceTasksTab
                   projectId={resource.projectId}
                   resourceId={resource.resourceId}
@@ -200,7 +188,7 @@ export function ComposeResourcePanel({
                 />
               </TabsContent>
 
-              <TabsContent value="services" className="px-6 pt-5 pb-6">
+              <TabsContent value="services" className="px-4 pt-5 pb-6 sm:px-6">
                 <ComposeServicesTab
                   services={resource.services}
                   source={resource.source}
@@ -208,7 +196,7 @@ export function ComposeResourcePanel({
                 />
               </TabsContent>
 
-              <TabsContent value="file" className="px-6 pt-5 pb-6">
+              <TabsContent value="file" className="px-4 pt-5 pb-6 sm:px-6">
                 <ComposeFileTab
                   projectId={resource.projectId}
                   resourceId={resource.resourceId}
@@ -218,10 +206,12 @@ export function ComposeResourcePanel({
                 />
               </TabsContent>
 
-              <TabsContent value="settings" className="px-6 pt-5 pb-8">
+              <TabsContent value="settings" className="px-4 pt-5 pb-8 sm:px-6">
                 <ComposeSettingsTab
                   projectId={resource.projectId}
                   resourceId={resource.resourceId}
+                  orgSlug={orgSlug}
+                  projectSlug={projectSlug}
                   name={resource.name}
                   serviceCount={resource.services.length}
                   onDelete={() =>

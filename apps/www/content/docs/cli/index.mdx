@@ -1,7 +1,6 @@
 ---
 title: CLI
 description: Install, authenticate, and drive Otterdeploy from the terminal.
-icon: Terminal
 ---
 
 The `otterdeploy` CLI drives everything the dashboard can — projects, services,
@@ -10,9 +9,9 @@ and your CI. It talks to the same typed oRPC API as the web app.
 
 ## Install
 
+<PackageManager pkg="@otterdeploy/cli" global />
+
 ```bash
-npm install -g @otterdeploy/cli
-# or: bun add -g @otterdeploy/cli
 otterdeploy --version
 ```
 
@@ -45,11 +44,17 @@ export OTTERDEPLOY_URL=https://deploy.example.com
 
 ## The config file
 
-Most commands operate on a project described by an `otterdeploy.config.json`
-(or `.ts`) file in the working directory — a declarative manifest of services,
-databases, and compose stacks. `deploy`/`sync`/`up` reconcile the live project
-to match it; `pull` writes the server's manifest back to disk; `status` shows
-drift.
+Most commands operate on a project described by an `otterdeploy.json` (or
+`otterdeploy.ts`) file in the working directory — a declarative manifest of
+services, databases, and compose stacks. `deploy`/`sync`/`up` reconcile the live
+project to match it; `pull` writes the server's manifest back to disk; `status`
+shows drift.
+
+Files named `otterdeploy.config.json` / `otterdeploy.config.ts` (the pre-0.8
+spelling) are still resolved, so an existing repo keeps working, and commands
+that rewrite the manifest (`add`, `pull`) keep writing to the file that is
+already there. Only `init` picks the new name. To move over, rename the file —
+nothing else changes.
 
 ```json
 {
@@ -92,5 +97,5 @@ otterdeploy completions fish > ~/.config/fish/completions/otterdeploy.fish
 
 <Cards>
   <Card title="Full command reference" href="/docs/cli/commands" />
-  <Card title="Getting started guide" href="/docs/guides/getting-started" />
+  <Card title="Getting started guide" href="/docs/start/first-deploy" />
 </Cards>

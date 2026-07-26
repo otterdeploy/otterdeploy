@@ -36,11 +36,12 @@ import type { EnvironmentRef, EnvVarRow } from "./-components/variables-types";
 export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/variables")({
   staticData: { crumb: "Variables" },
   component: VariablesRoute,
-  // Warm the live collections on hover (intent-preload) so the tab renders from
-  // cache instead of fetching on mount. Non-blocking + best-effort.
+  // Warm the eager env collection on hover (intent-preload) so the tab renders
+  // from cache instead of fetching on mount. Non-blocking + best-effort.
+  // `variablesCollection` is syncMode "on-demand" — preload() is a no-op there
+  // (it loads when a live query subscribes with its filters), so don't call it.
   loader: () => {
     void envCollection.preload();
-    void variablesCollection.preload();
   },
 });
 

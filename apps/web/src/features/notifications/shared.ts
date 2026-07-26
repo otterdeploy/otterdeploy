@@ -144,6 +144,45 @@ export const SEVERITY_DOT: Record<Severity, string> = {
   err: "bg-red-500",
 };
 
+/**
+ * Severity colours for the header-bell BADGE specifically.
+ *
+ * Deliberately the semantic tokens rather than {@link SEVERITY_DOT}'s palette
+ * classes: the badge sits in the header chrome, which is themed, and the tokens
+ * carry a light/dark pair (index.css) where `bg-red-500` is one fixed hue. The
+ * popover rows below keep SEVERITY_DOT — they sit on a surface where the
+ * palette reads correctly in both themes.
+ */
+export const SEVERITY_BADGE: Record<Severity, string> = {
+  info: "bg-info",
+  ok: "bg-success",
+  warn: "bg-warning",
+  err: "bg-destructive",
+};
+
+/** Worst-first, so a single failure is never buried under newer chatter. */
+const SEVERITY_RANK: readonly Severity[] = ["err", "warn", "info", "ok"];
+
+/**
+ * The headline severity across `items`, or null when there's nothing to report.
+ *
+ * The bell badge summarizes many notifications in one 8px dot, so it has to pick
+ * ONE — and the only safe pick is the most concerning, matching how
+ * `rollupStatus` (build-live-nodes.ts) and the app-status rollup resolve ties.
+ * Callers pass the unread subset; a read failure is history, not a badge.
+ */
+export function worstSeverity(
+  items: readonly { data: Record<string, unknown> | null }[],
+): Severity | null {
+  if (items.length === 0) return null;
+  const present = new Set<Severity>();
+  for (const item of items) {
+    const id = inboxEventId(item.data);
+    present.add(id ? eventSeverityOf(id) : "info");
+  }
+  return SEVERITY_RANK.find((s) => present.has(s)) ?? null;
+}
+
 /** Compact relative time from an ISO string. `null` → "never". */
 export function relativeTime(iso: string | null): string {
   if (!iso) return "never";

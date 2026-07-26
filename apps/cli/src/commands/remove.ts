@@ -2,9 +2,11 @@ import type { Manifest } from "@otterdeploy/api/manifest";
 import type { ArgsDef } from "citty";
 
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
 import { loadConfig, writeConfig } from "../config-file";
+import { cmd } from "../lib/name";
+import { suggestions } from "../lib/suggest";
+import { abort, confirm, detail, dim, hint, ok, warn } from "../lib/ui";
 
 const removeArgs = {
   name: { type: "positional", required: true, description: "Resource name" },
@@ -13,26 +15,29 @@ const removeArgs = {
 } as const satisfies ArgsDef;
 
 function notFound(kind: string, name: string, available: string[]): never {
-  const list = available.join(", ") || "(none)";
-  consola.error(`No ${kind} named ${name} in the config. Available: ${list}`);
-  process.exit(1);
+  abort(
+    `No ${kind} named \`${name}\` in the config.`,
+    ...suggestions(name, available).map((s) => `did you mean \`${s}\`?`),
+    ...(available.length === 0
+      ? [`the config declares no ${kind}s`]
+      : [`declared: ${available.join(", ")}`]),
+  );
 }
 
 async function confirmRemoval(kind: string, name: string, yes: boolean | undefined): Promise<void> {
   if (yes) return;
-  const ok = await consola.prompt(
-    `Remove ${kind} ${name} from the config? The next deploy will DELETE the live resource.`,
-    { type: "confirm", initial: false },
-  );
-  if (!ok) {
-    consola.info("Aborted.");
-    process.exit(1);
+  // This edits a file; the destruction happens on the next deploy. Separating
+  // the two makes the prompt honest about what is about to happen right now.
+  warn(`The next deploy will DELETE the live ${kind}.`);
+  if (!(await confirm(`Remove ${kind} ${name} from the config?`))) {
+    abort("Aborted — the config was not changed.");
   }
 }
 
 function reportRemoved(kind: string, name: string, path: string): void {
-  consola.success(`Removed ${kind} ${name} from ${path}.`);
-  consola.info("Run `otterdeploy deploy` to delete the live resource.");
+  ok(`Removed ${kind} ${name}.`);
+  detail([["config", dim(path)]]);
+  hint(`run \`${cmd("deploy")}\` to delete the live ${kind}`);
 }
 
 const removeService = defineCommand({

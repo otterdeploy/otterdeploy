@@ -1,10 +1,12 @@
-import { idSchema, type OrganizationId } from "@otterdeploy/shared/id";
+import { type OrganizationId } from "@otterdeploy/shared/id";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
 import { CommandPalette } from "@/features/command-palette";
 import { useInstallCallbackToast } from "@/features/git-providers/install-callback-toast";
 import { ResourceOverlayProvider } from "@/features/projects/components/new-resource/overlay-provider";
-import { authClient } from "@/lib/auth-client";
+import { organizationsQuery, sessionQuery } from "@/lib/auth-queries";
+import { queryClient } from "@/shared/server/orpc";
+import { useFaviconStatus } from "@/shared/hooks/use-favicon-status";
 
 export interface Organization {
   id: OrganizationId;
@@ -42,39 +44,36 @@ function initialsOf(name: string): string {
 
 export const Route = createFileRoute("/_app")({
   beforeLoad: async ({ location }) => {
-    // Fire both independent reads concurrently — the session gate and the org
-    // list don't depend on each other, so there's no reason to await them in
-    // series. getSession is a local cookie read now (better-auth cookieCache),
-    // so this collapses the app-entry gate to a single org.list round-trip.
-    const [session, orgs] = await Promise.all([
-      authClient.getSession(),
-      authClient.organization.list(),
+    // ensureQueryData, NOT a direct authClient call: this gate runs on every
+    // navigation, and hitting `/api/auth/*` twice each time exhausted the auth
+    // rate limit (100/60s, shared across callers when no trusted-proxy IP is
+    // available) — after which a 429 read as "signed out" and bounced the
+    // operator to /sign-in mid-session. Within the 5min staleTime this is now a
+    // cache read and makes no request at all. See lib/auth-queries.ts.
+    //
+    // Both reads are independent, so they still resolve concurrently.
+    const [session, organizations] = await Promise.all([
+      queryClient.ensureQueryData(sessionQuery),
+      queryClient.ensureQueryData(organizationsQuery),
     ]);
-    if (!session.data) {
+    // Only a RESOLVED-but-absent session means "not signed in". A failed
+    // request throws out of ensureQueryData above and never reaches here, so a
+    // rate-limited or briefly-unreachable server can no longer masquerade as a
+    // logout.
+    if (!session) {
       throw redirect({
         to: "/sign-in",
         search: { redirect: location.pathname },
       });
     }
-    if (orgs.error) {
-      throw new Error(orgs.error.message ?? "Failed to load organizations");
-    }
-    // Brand every org id at this single entry point (better-auth types them as
-    // plain `string`). Downstream `organization.id` is `OrganizationId` for
-    // free — no per-callsite laundering. Safe at runtime: auth's `generateId`
-    // override always prefixes org ids with `org_` (packages/auth/src/index.ts).
-    const organizations = (orgs.data ?? []).map((o) => ({
-      ...o,
-      id: idSchema.organization.parse(o.id),
-    }));
     if (organizations.length === 0) {
       throw redirect({ to: "/onboarding/create-organization" });
     }
 
-    const activeId = session.data.session.activeOrganizationId;
+    const activeId = session.session.activeOrganizationId;
     const activeOrg = organizations.find((o) => o.id === activeId) ?? organizations[0];
 
-    const u = session.data.user;
+    const u = session.user;
     const user = {
       id: u.id,
       name: u.name,
@@ -97,6 +96,10 @@ function RouteComponent() {
   // connect was started from — handle the toast at the layout so every
   // landing page gets it.
   useInstallCallbackToast();
+  // One favicon controller for the whole signed-in app. Mounted here rather
+  // than at the root so the sign-in and device-approval pages keep the plain
+  // static icon — they have no system state to report.
+  useFaviconStatus();
   return (
     <ResourceOverlayProvider>
       <Outlet />

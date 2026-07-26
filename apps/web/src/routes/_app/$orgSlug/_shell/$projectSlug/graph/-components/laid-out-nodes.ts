@@ -13,6 +13,7 @@ import {
   topologySignature,
   type XY,
 } from "@/features/projects/components/graph/layout-graph";
+import { orpc } from "@/shared/server/orpc";
 
 import type { useGraphModel } from "./graph-model";
 
@@ -112,4 +113,45 @@ export function resolveDroppedPositions(
   }
   resolveNewCollisions(resolved, coreRendered, (id) => movedIds.has(id));
   return resolved;
+}
+
+/** Commit a drop's resolved (clear) position(s): update local state so the
+ *  card(s) render there immediately, mirror non-satellite nodes into the
+ *  layout cache so a later relayout pins from where they ended up, and
+ *  best-effort persist to the project's saved layout (satellites are
+ *  ephemeral — PR lifetime only — so they never persist). Extracted out of
+ *  GraphCanvas's onNodeDragStop so that handler stays a one-liner. */
+export function commitNodeDrop(args: {
+  projectId: string;
+  moved: Array<Pick<Node, "id" | "position" | "data">>;
+  resolved: Map<string, XY>;
+  layoutCache: LayoutCacheRef;
+  setDragged: (updater: (prev: Map<string, XY>) => Map<string, XY>) => void;
+}): void {
+  const { projectId, moved, resolved, layoutCache, setDragged } = args;
+  setDragged((prev) => {
+    const next = new Map(prev);
+    for (const m of moved) {
+      const pos = resolved.get(m.id) ?? m.position;
+      next.set(m.id, pos);
+      if (m.data.kind !== "preview") {
+        layoutCache.current.positions.set(m.id, pos);
+      }
+    }
+    return next;
+  });
+
+  const persist = moved.filter((m) => m.data.kind !== "preview");
+  if (persist.length === 0) return;
+  void orpc.project.saveGraphLayout
+    .call({
+      id: projectId,
+      positions: Object.fromEntries(
+        persist.map((m) => {
+          const p = resolved.get(m.id) ?? m.position;
+          return [m.id, { x: p.x, y: p.y }];
+        }),
+      ),
+    })
+    .catch(() => {});
 }

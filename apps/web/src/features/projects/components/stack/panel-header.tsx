@@ -19,8 +19,11 @@ export interface PanelHeaderProps {
 
 export function PanelHeader({ tab, onTabChange, open, onToggle, dirty }: PanelHeaderProps) {
   return (
-    <div className="flex h-10 items-center justify-between border-b border-border/40 pr-3 pl-2">
-      <div className="flex items-center gap-1">
+    <div className="flex h-10 items-center justify-between gap-2 border-b border-border/40 pr-3 pl-2">
+      {/* The three tabs total ~230px and the collapse chevron must stay
+          reachable, so the strip scrolls rather than squashing the chevron
+          off the edge on a phone. */}
+      <div className="no-scrollbar flex min-w-0 items-center gap-1 overflow-x-auto">
         <TabButton
           active={tab === "stack"}
           onClick={() => onTabChange("stack")}
@@ -43,7 +46,7 @@ export function PanelHeader({ tab, onTabChange, open, onToggle, dirty }: PanelHe
         type="button"
         onClick={onToggle}
         aria-label={open ? "Collapse panel" : "Expand panel"}
-        className="grid size-6 place-items-center rounded text-muted-foreground/70 hover:bg-muted hover:text-foreground"
+        className="grid size-6 shrink-0 place-items-center rounded text-muted-foreground/70 hover:bg-muted hover:text-foreground"
       >
         <HugeiconsIcon
           icon={open ? ArrowDown01Icon : ArrowUp01Icon}
@@ -69,7 +72,7 @@ function TabButton({ active, onClick, label, icon, badge }: TabButtonProps) {
       type="button"
       onClick={onClick}
       className={cn(
-        "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] transition-colors",
+        "flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] whitespace-nowrap transition-colors",
         active
           ? "bg-muted text-foreground"
           : "text-muted-foreground/80 hover:bg-muted/60 hover:text-foreground",

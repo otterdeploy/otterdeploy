@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import * as z from "zod";
 
 import { authClient } from "@/lib/auth-client";
+import { clearAuthCache } from "@/lib/auth-queries";
 
 import { AuthInput, AuthSubmitButton } from "./auth-fields";
 import { SocialSignIn } from "./social-sign-in";
@@ -27,7 +28,16 @@ function safeServerRedirect(target: string): string | null {
   return null;
 }
 
-export function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
+export function SignInForm({
+  allowSignUp,
+  socialProviders,
+  onSwitchToSignUp,
+}: {
+  allowSignUp: boolean;
+  /** Provider ids live on the server right now — see /api/auth/public-config. */
+  socialProviders: string[];
+  onSwitchToSignUp: () => void;
+}) {
   const navigate = useNavigate();
   const { redirect } = useSearch({ from: "/sign-in" });
   const { t } = useTranslation();
@@ -39,6 +49,10 @@ export function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void 
   /** Finish login (after password, or after the 2FA challenge): honor a safe
    *  absolute deployment-protection redirect, else land on the internal path. */
   const completeLogin = () => {
+    // A session exists now, but the gate's cache may still hold the `null` that
+    // sent us to /sign-in in the first place — drop it before navigating or the
+    // redirect bounces straight back here. See lib/auth-queries.ts.
+    clearAuthCache();
     toast.success(t("auth.signIn.welcomeBack"));
     if (redirect && /^https?:\/\//i.test(redirect)) {
       const safe = safeServerRedirect(redirect);
@@ -166,18 +180,24 @@ export function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void 
         </form.Subscribe>
       </form>
 
-      <SocialSignIn dividerLabel="or continue with" />
+      <SocialSignIn dividerLabel="or continue with" providers={socialProviders} />
 
-      <p className="mt-6 text-[13px] text-muted-foreground">
-        {t("auth.signIn.noAccount")}{" "}
-        <button
-          type="button"
-          onClick={onSwitchToSignUp}
-          className="font-medium text-foreground underline-offset-4 hover:underline"
-        >
-          {t("auth.signIn.createAccount")}
-        </button>
-      </p>
+      {allowSignUp ? (
+        <p className="mt-6 text-[13px] text-muted-foreground">
+          {t("auth.signIn.noAccount")}{" "}
+          <button
+            type="button"
+            onClick={onSwitchToSignUp}
+            className="font-medium text-foreground underline-offset-4 hover:underline"
+          >
+            {t("auth.signIn.createAccount")}
+          </button>
+        </p>
+      ) : (
+        <p className="mt-6 text-[13px] text-muted-foreground">
+          Account creation is invitation-only on this installation.
+        </p>
+      )}
     </div>
   );
 }

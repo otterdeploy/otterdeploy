@@ -14,7 +14,7 @@ describe("builder", () => {
     projectId: "project_abc",
     type: "http",
     domain: "myapp-acme.otterdeploy.dev",
-    upstreamHost: "myapp.acme.otterdeploy.internal",
+    upstreamHost: "otterdeploy-acme-myapp",
     upstreamPort: 3000,
     protocol: "http",
     layer4Alpn: null,
@@ -44,7 +44,7 @@ describe("builder", () => {
       [
         "myapp-acme.otterdeploy.dev {",
         "\ttls internal",
-        "\treverse_proxy myapp.acme.otterdeploy.internal:3000",
+        "\treverse_proxy otterdeploy-acme-myapp:3000",
         "}",
       ].join("\n"),
     );
@@ -55,7 +55,7 @@ describe("builder", () => {
     expect(output).toBe(
       [
         "myapp-acme.otterdeploy.dev {",
-        "\treverse_proxy myapp.acme.otterdeploy.internal:3000",
+        "\treverse_proxy otterdeploy-acme-myapp:3000",
         "}",
       ].join("\n"),
     );
@@ -79,7 +79,7 @@ describe("builder", () => {
         "\t\t\turi /api/internal/deploy-authz?domain=myapp-acme.otterdeploy.dev",
         "\t\t\tcopy_headers Remote-User Remote-Email",
         "\t\t}",
-        "\t\treverse_proxy myapp.acme.otterdeploy.internal:3000",
+        "\t\treverse_proxy otterdeploy-acme-myapp:3000",
         "\t}",
         "}",
       ].join("\n"),
@@ -134,7 +134,7 @@ describe("builder", () => {
   test("buildHttpBlock protected=false is unchanged (no forward_auth)", () => {
     const output = buildHttpBlock({ ...httpRoute, protected: false });
     expect(output).not.toContain("forward_auth");
-    expect(output).toContain("reverse_proxy myapp.acme.otterdeploy.internal:3000");
+    expect(output).toContain("reverse_proxy otterdeploy-acme-myapp:3000");
   });
 
   test("buildLayer4Block produces a listener-wrapper SNI+ALPN matcher (no :5432 listener)", () => {
@@ -162,7 +162,7 @@ describe("builder", () => {
     expect(output).not.toContain(":5432 {");
     expect(output).toContain("sni primary-acme.db.otterdeploy.dev");
     expect(output).toContain("myapp-acme.otterdeploy.dev {");
-    expect(output).toContain("reverse_proxy myapp.acme.otterdeploy.internal:3000");
+    expect(output).toContain("reverse_proxy otterdeploy-acme-myapp:3000");
     // Dummy site block for cert automation
     expect(output).toContain('respond "ok" 200');
   });
@@ -193,67 +193,46 @@ describe("builder", () => {
     expect(buildProjectFragment([])).toBe("");
   });
 
-  // ─── Custom config ────────────────────────────────────────────────
-  test("buildHttpBlock injects custom directives inside the site block", () => {
+  test("buildHttpBlock renders the complete allowlisted route policy", () => {
     const output = buildHttpBlock({
       ...httpRoute,
-      customDirectives: "encode gzip\nheader X-Foo bar",
+      routePolicy: {
+        compression: "gzip-zstd",
+        maxRequestBodyMb: 25,
+        hsts: "preload",
+        contentTypeNosniff: true,
+        frameOptions: "deny",
+        referrerPolicy: "strict-origin-when-cross-origin",
+        contentSecurityPolicy: "default-src 'self'; object-src 'none'",
+      },
     });
-    expect(output).toBe(
-      [
-        "myapp-acme.otterdeploy.dev {",
-        "\ttls internal",
-        "\treverse_proxy myapp.acme.otterdeploy.internal:3000",
-        "\tencode gzip",
-        "\theader X-Foo bar",
-        "}",
-      ].join("\n"),
+    expect(output).toContain("\tencode zstd gzip");
+    expect(output).toContain("\t\tmax_size 25MB");
+    expect(output).toContain(
+      '\t\tStrict-Transport-Security "max-age=31536000; includeSubDomains; preload"',
+    );
+    expect(output).toContain('\t\tX-Content-Type-Options "nosniff"');
+    expect(output).toContain('\t\tX-Frame-Options "DENY"');
+    expect(output).toContain('\t\tReferrer-Policy "strict-origin-when-cross-origin"');
+    expect(output).toContain(
+      `\t\tContent-Security-Policy "default-src 'self'; object-src 'none'"`,
     );
   });
 
-  test("buildHttpBlock re-indents nested custom directives, preserving structure", () => {
-    const output = buildHttpBlock({
-      ...httpRoute,
-      // Over-indented input dedents so the block opener sits at one tab while
-      // its relative nesting is preserved.
-      customDirectives: "    header {\n      X-Foo bar\n    }",
-    });
-    const lines = output.split("\n");
-    expect(lines).toContain("\theader {");
-    expect(lines).toContain("\t}");
-    // The nested line is indented deeper than its opener.
-    const nested = lines.find((l) => l.includes("X-Foo bar")) ?? "";
-    const indentLen = (s: string) => s.match(/^\s*/)?.[0].length ?? 0;
-    expect(indentLen(nested)).toBeGreaterThan(indentLen("\theader {"));
-  });
-
-  test("empty/whitespace custom directives are ignored", () => {
-    expect(buildHttpBlock({ ...httpRoute, customDirectives: "   \n  " })).toBe(
-      buildHttpBlock(httpRoute),
-    );
-  });
-
-  test("buildCaddyfile appends custom standalone blocks after generated sites", () => {
-    const block = "redirect.example.com {\n\tredir https://example.com{uri}\n}";
-    const output = buildCaddyfile([httpRoute], ":2019", {
-      customBlocks: [block],
-    });
-    expect(output).toContain("reverse_proxy myapp.acme.otterdeploy.internal:3000");
-    expect(output).toContain(block);
-    // Generated site comes before the custom block.
-    expect(output.indexOf("myapp-acme.otterdeploy.dev {")).toBeLessThan(
-      output.indexOf("redirect.example.com {"),
-    );
-  });
-
-  test("buildProjectFragment emits custom config even with no routes", () => {
-    const block = "redirect.example.com {\n\tredir https://example.com{uri}\n}";
-    const output = buildProjectFragment([], { customConfig: block });
-    expect(output).toContain("admin off");
-    expect(output).toContain(block);
-  });
-
-  test("buildProjectFragment stays empty when routes and custom config are empty", () => {
-    expect(buildProjectFragment([], { customConfig: "  \n " })).toBe("");
+  test("invalid persisted policy is rejected before Caddyfile rendering", () => {
+    expect(() =>
+      buildHttpBlock({
+        ...httpRoute,
+        routePolicy: {
+          compression: "gzip",
+          maxRequestBodyMb: null,
+          hsts: "off",
+          contentTypeNosniff: false,
+          frameOptions: "off",
+          referrerPolicy: "off",
+          contentSecurityPolicy: "safe\n}\nfile_server /etc",
+        },
+      }),
+    ).toThrow("Unsafe proxy route");
   });
 });

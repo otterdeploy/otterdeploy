@@ -125,14 +125,14 @@ export async function materializeCustomCerts(rlog?: RequestLogger): Promise<Serv
   const rows = await listServableRows();
   if (rows.length === 0) return [];
 
-  // Lazy import: decryptSecret pulls the env boundary; keep this module cheap
-  // to import for the pure matching helpers below.
-  const { decryptSecret } = await import("../lib/crypto");
+  // Lazy import: decryptForDomain pulls the env boundary; keep this module
+  // cheap to import for the pure matching helpers below.
+  const { decryptForDomain } = await import("../lib/crypto");
 
   const servable: ServableCustomCert[] = [];
   for (const row of rows) {
     try {
-      const key = await decryptSecret(row.keyCiphertext);
+      const key = await decryptForDomain(row.keyCiphertext, "certs");
       const dir = join(caddyCertsHostDir(), row.id);
       await mkdir(dir, { recursive: true, mode: 0o700 });
       await writeFile(join(dir, "cert.pem"), row.certPem, { mode: 0o600 });

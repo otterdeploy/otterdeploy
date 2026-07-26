@@ -40,7 +40,7 @@ export function CertificateStats({
       <Stat
         label="Custom uploads"
         value={customs ? String(custom) : "—"}
-        sub="manual rotation required"
+        sub={custom > 0 ? "manual rotation required" : "none uploaded"}
       />
     </div>
   );

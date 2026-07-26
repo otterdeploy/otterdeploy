@@ -11,12 +11,14 @@ import { useQuery } from "@tanstack/react-query";
 
 import type { VolumeRow } from "@/features/volumes/shared";
 
+import { BulkRemoveVolumesDialog } from "@/features/volumes/bulk-remove-volumes-dialog";
 import { CreateVolumeDialog } from "@/features/volumes/create-volume-dialog";
 import { volumesListQuery } from "@/features/volumes/data/volumes";
 import { InspectVolumeDialog } from "@/features/volumes/inspect-volume-dialog";
 import { RemoveVolumeDialog } from "@/features/volumes/remove-volume-dialog";
 import { VolumesStats } from "@/features/volumes/volumes-stats";
 import { VolumesTable } from "@/features/volumes/volumes-table";
+import { SelectionBar, useTableSelection } from "@/shared/components/table-selection";
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
 import {
@@ -35,8 +37,12 @@ export function VolumesSection({ orgSlug }: { orgSlug: string }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [inspecting, setInspecting] = useState<string | null>(null);
   const [removing, setRemoving] = useState<VolumeRow | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   const volumes = list.data?.volumes ?? [];
+  // Keyed by name — the daemon's own identifier for a volume, and what
+  // `volumes.remove` takes.
+  const selection = useTableSelection(volumes, (v) => v.name);
   const drivers = list.data?.drivers ?? ["local"];
   const node = list.data?.node ?? null;
 
@@ -94,6 +100,7 @@ export function VolumesSection({ orgSlug }: { orgSlug: string }) {
           <VolumesTable
             volumes={volumes}
             orgSlug={orgSlug}
+            selection={selection}
             onInspect={(v) => setInspecting(v.name)}
             onRemove={(v) => setRemoving(v)}
           />
@@ -116,6 +123,21 @@ export function VolumesSection({ orgSlug }: { orgSlug: string }) {
         onOpenChange={(open) => {
           if (!open) setRemoving(null);
         }}
+      />
+      {/* Floating — fixed to the viewport, so it renders outside the table's
+          flow and stays put while a long inventory scrolls. */}
+      <SelectionBar
+        selection={selection}
+        noun="volume"
+        actionLabel="Remove"
+        onAction={() => setBulkOpen(true)}
+        pending={bulkOpen}
+      />
+      <BulkRemoveVolumesDialog
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        selection={selection}
+        onDone={() => void list.refetch()}
       />
     </div>
   );

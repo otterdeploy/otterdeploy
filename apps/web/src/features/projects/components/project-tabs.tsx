@@ -25,7 +25,10 @@ interface Tab {
 }
 
 const tabs: readonly Tab[] = [
-  { titleKey: "nav.overview", to: "/$orgSlug/$projectSlug", exact: true },
+  // No "Overview" tab: the project index route redirects straight to
+  // /graph (the graph IS the project overview), so an Overview entry here
+  // would never actually activate — clicking it lands on Graph with the
+  // Graph tab highlighted instead. See routes/.../$projectSlug/index.tsx.
   { titleKey: "nav.graph", to: "/$orgSlug/$projectSlug/graph" },
   {
     titleKey: "nav.deployments",
@@ -36,17 +39,15 @@ const tabs: readonly Tab[] = [
   { titleKey: "nav.metrics", to: "/$orgSlug/$projectSlug/metrics" },
   { titleKey: "nav.variables", to: "/$orgSlug/$projectSlug/variables" },
   { titleKey: "nav.networking", to: "/$orgSlug/$projectSlug/networking" },
-  {
-    titleKey: "nav.edgeLogs",
-    to: "/$orgSlug/$projectSlug/edge-logs",
-    fallback: "Edge logs",
-  },
+  // No "Edge logs" tab (od-u63.5) — merged into Logs as a Runtime | Edge
+  // source toggle (see $projectSlug/logs.tsx). The route still exists as a
+  // redirect shim for old links.
   { titleKey: "nav.settings", to: "/$orgSlug/$projectSlug/settings" },
 ] as const;
 
 /**
- * Horizontal nav for the project shell — Overview / Graph / Deployments /
- * Logs / etc. Renders below the top `SiteHeader`, above the page content.
+ * Horizontal nav for the project shell — Graph / Deployments / Logs / etc.
+ * Renders below the top `SiteHeader`, above the page content.
  * Sliding underline tracks the active route via the same measure-active
  * pattern the shadcn `TabsList variant="line"` uses (ResizeObserver +
  * MutationObserver on `data-active`), reimplemented here because the
@@ -72,7 +73,19 @@ export function ProjectTabs() {
     const update = () => {
       const active = node.querySelector<HTMLElement>("[data-active]");
       if (active) {
-        setIndicator({ left: active.offsetLeft, width: active.offsetWidth });
+        const left = active.offsetLeft;
+        const width = active.offsetWidth;
+        setIndicator({ left, width });
+        // Seven tabs don't fit a phone, so this row scrolls. Keep the active
+        // one visible — landing on Settings from the command palette otherwise
+        // shows a strip scrolled to Graph with no visible selection. Scoped to
+        // this container's scrollLeft on purpose (not `scrollIntoView`, which
+        // would drag every ancestor scroller along with it).
+        if (left < node.scrollLeft) {
+          node.scrollLeft = left;
+        } else if (left + width > node.scrollLeft + node.clientWidth) {
+          node.scrollLeft = left + width - node.clientWidth;
+        }
       }
     };
     update();
@@ -97,7 +110,7 @@ export function ProjectTabs() {
     <nav aria-label="Project" className="sticky top-(--header-height) z-30 border-b bg-background">
       <div
         ref={listRef}
-        className="relative flex h-10 items-center gap-0.5 overflow-x-auto overflow-y-hidden px-3"
+        className="no-scrollbar relative flex h-10 items-center gap-0.5 overflow-x-auto overflow-y-hidden px-3"
       >
         {tabs.map((tab) => (
           <Link

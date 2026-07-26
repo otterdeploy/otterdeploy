@@ -8,10 +8,10 @@
  * v1.7.8). Rows are enriched with country / AS from the local GeoIP DBs and
  * deduped per target.
  */
-import { env } from "@otterdeploy/env/server";
 import { Result } from "better-result";
 
 import { initGeo, lookupAsn, lookupCountry } from "../../edge-logs/geo";
+import { crowdsecConfig } from "../../lib/platform-runtime-settings";
 import { cscliRead } from "./cscli";
 
 export interface Decision {
@@ -29,11 +29,12 @@ export interface Decision {
   createdAt: string | null;
 }
 
-/** Enforcement is "configured" when the bouncer env is set — that's what wires
- *  the `crowdsec` gate into the generated Caddyfile. Independent of whether the
- *  control plane can currently read decisions. */
-export function configured(): boolean {
-  return Boolean(env.CROWDSEC_LAPI_URL && env.CROWDSEC_BOUNCER_KEY);
+/** Enforcement is "configured" when bouncer credentials resolve AND the
+ *  operator hasn't switched it off — that's exactly what wires the `crowdsec`
+ *  gate into the generated Caddyfile. Independent of whether the control plane
+ *  can currently read decisions, and of whether the agent container is up. */
+export async function configured(): Promise<boolean> {
+  return (await crowdsecConfig()) !== null;
 }
 
 /** Parse `cscli … -o json` output. Empty result is printed as `null`. */
@@ -84,12 +85,13 @@ const DECISION_ORIGINS = ["cscli", "crowdsec"];
 /** Primary read path — LAPI decisions endpoint. Returns null when
  *  unconfigured or unreachable (caller falls back to cscli). */
 async function fetchDecisionsViaLapi(): Promise<Decision[] | null> {
-  if (!configured()) return null;
-  const url = `${env.CROWDSEC_LAPI_URL}/v1/decisions?origins=${DECISION_ORIGINS.join(",")}`;
+  const crowdsec = await crowdsecConfig();
+  if (!crowdsec) return null;
+  const url = `${crowdsec.apiUrl}/v1/decisions?origins=${DECISION_ORIGINS.join(",")}`;
   const res = await Result.tryPromise({
     try: () =>
       fetch(url, {
-        headers: { "X-Api-Key": env.CROWDSEC_BOUNCER_KEY as string },
+        headers: { "X-Api-Key": crowdsec.apiKey },
         signal: AbortSignal.timeout(10_000),
       }),
     catch: (cause) => cause,

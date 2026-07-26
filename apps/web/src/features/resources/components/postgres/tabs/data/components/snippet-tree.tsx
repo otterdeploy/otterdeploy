@@ -97,11 +97,11 @@ export function SnippetTree({
             <HugeiconsIcon icon={Add01Icon} strokeWidth={2} className="size-3.5" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => newQuery(null)}>
+            <DropdownMenuItem onClick={() => newQuery(null)}>
               <HugeiconsIcon icon={File01Icon} strokeWidth={2} className="size-3.5" />
               New query
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={newFolder}>
+            <DropdownMenuItem onClick={newFolder}>
               <HugeiconsIcon icon={FolderAddIcon} strokeWidth={2} className="size-3.5" />
               New folder
             </DropdownMenuItem>

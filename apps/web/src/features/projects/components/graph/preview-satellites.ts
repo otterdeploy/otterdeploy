@@ -23,6 +23,7 @@ export interface PreviewApiEntry {
       | "building"
       | "running"
       | "failed"
+      | "cancelled"
       | "superseded"
       | "removed"
       | "none"

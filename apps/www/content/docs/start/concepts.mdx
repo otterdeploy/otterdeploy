@@ -1,0 +1,110 @@
+---
+title: Concepts
+description: Organisations, projects, resources, deployments and previews — the model the rest of the docs assume.
+---
+
+Five nouns carry almost everything in Otterdeploy. Learn these and the rest of
+the product is mostly naming.
+
+## Organisation
+
+The tenancy boundary. Servers, projects, API keys, git connections, backup
+destinations, notification channels and the audit log all belong to exactly one
+organisation, and nothing crosses between them.
+
+Members hold one of three roles:
+
+| Role | Can do |
+| --- | --- |
+| `owner` | Everything, including billing-shaped and destructive org actions |
+| `admin` | Everything operational — deploy, configure, manage members |
+| `member` | Work inside projects; no org or member administration |
+
+Roles are built from explicit permission statements and enforced on the server
+for every procedure, not just hidden in the UI.
+
+## Project
+
+A group of resources that belong together — typically one application and the
+data it needs. A project owns its own environment variables, its own graph, and
+its own deployment history.
+
+Projects are addressed by slug: `otterdeploy status --slug storefront`.
+
+## Resource
+
+The thing that actually runs. Three kinds:
+
+- **`service`** — a long-running container. Its source is `git` (built for you),
+  `image` (pulled), or `upload`.
+- **`database`** — a managed engine: `postgres`, `redis`, `mariadb`, `mongodb`
+  or `clickhouse`.
+- **`compose`** — a `docker-compose` project deployed as a single resource that
+  fans out to several Swarm services.
+
+Resources reference each other by **name**, not by id — which is what makes
+[environment references](/docs/guides/environment#references) and previews work.
+
+## Deployment
+
+One attempt to get a resource into a desired state. Every deployment records
+why it happened and how it ended.
+
+`deployment_status` is one of:
+
+| Status | Meaning |
+| --- | --- |
+| `pending` | Row created, waiting for the builder |
+| `building` | The image is being built |
+| `running` | Live and serving |
+| `failed` | Build or rollout failed |
+| `superseded` | A newer deployment replaced it |
+| `removed` | Torn down |
+
+`deployment_reason` records the trigger: `create`, `redeploy`, `env-change`,
+`image-change`, `restart`, `git-push` or `rollback`. These are the same words
+the dashboard shows you — the UI does not translate them into friendlier ones.
+
+## Environment
+
+A named configuration context — Development, Staging, Production — whose
+overrides deep-merge onto the project's base manifest. One manifest, several
+resolved shapes.
+
+## Preview
+
+A pull request's own deployment. A preview is **not** an environment: it is a
+first-class record bound to `(project, repo, PR number)`, with its own
+deployments, routes and — if you opt in per database — its own database copy.
+Close the pull request and everything is torn down; leave it idle past its
+deadline and it is reaped hourly.
+
+## How they fit together
+
+```text
+organisation
+├── servers            (Swarm managers and workers)
+├── git connections    (a GitHub App installation)
+├── backup destinations
+└── projects
+    ├── environment variables
+    ├── environments   (development / staging / production)
+    ├── resources
+    │   ├── service    → deployments → routes → certificates
+    │   ├── database   → backups
+    │   └── compose    → n swarm services
+    └── previews       (one per open pull request)
+```
+
+## What isn't built yet
+
+Kept here rather than left for you to discover after installing:
+
+| Not built | What that means in practice |
+| --- | --- |
+| ZFS copy-on-write database branches | Previews branch by logical copy. An explicit `zfs` request falls back to `copy` with a logged warning |
+| GitLab and other git sources | Only a GitHub App installation can be a deploy source. GitLab exists elsewhere in the product — as a container registry and a sign-in provider — but not as a place to build from |
+| Cloudflare Domain Connect | The one-click relay isn't built. Cloudflare DNS **is** supported with an API token: list zones, and auto-configure the base and control-plane domain records |
+
+Each has a design document in the repository. Trust the code over the document
+— some designs shipped without their status line being updated.

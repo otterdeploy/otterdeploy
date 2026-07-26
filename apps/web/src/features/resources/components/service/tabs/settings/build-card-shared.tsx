@@ -5,8 +5,8 @@
 
 import type { BuildDockerfileConfig, BuildRailpackConfig } from "@otterdeploy/shared/build-config";
 
-import { Button } from "@/shared/components/ui/button";
 import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
+import { Button } from "@/shared/components/ui/button";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 export interface ServiceBuildResource {

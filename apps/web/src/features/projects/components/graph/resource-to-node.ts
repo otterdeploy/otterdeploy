@@ -135,6 +135,7 @@ export function resourceToNode(r: ProjectResource): ResourceFlowNode {
           projectId: r.projectId,
           resourceId: r.resourceId,
           engine: r.engine,
+          internalHostname: r.internalHostname,
           status: databaseStatus(r),
         },
       };
@@ -149,6 +150,7 @@ export function resourceToNode(r: ProjectResource): ResourceFlowNode {
           description: serviceDescription(r),
           projectId: r.projectId,
           resourceId: r.resourceId,
+          internalHostname: r.internalHostname,
           // Machine ref belongs in the muted footer, shortened. A pulled image
           // already IS the description — no footer echo for those.
           ...(r.source === "git" ? { tech: { label: shortImageRef(r.image) } } : {}),

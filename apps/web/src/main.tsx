@@ -8,11 +8,14 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { I18nextProvider } from "react-i18next";
 
+import { installReactScanIfEnabled } from "./lib/dev-tools";
 import { routeTree } from "./route-tree.gen";
 import { Spinner } from "./shared/components/ui/spinner";
 import { NotFound } from "./shared/features/errors/not-found";
 import { ServerError } from "./shared/features/errors/server-error";
 import { orpc, queryClient } from "./shared/server/orpc";
+
+installReactScanIfEnabled();
 
 // Fallback shown while a route's beforeLoad/loader resolves and the route
 // defines no pendingComponent of its own. Without this, a navigation whose

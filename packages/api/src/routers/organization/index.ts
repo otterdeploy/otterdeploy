@@ -65,12 +65,19 @@ import {
 } from "./handlers";
 import { platformSettingsRouter } from "./platform-settings-router";
 
+// Every handler below derives the org it acts on from `context.activeOrganizationId`
+// (the caller's own session/API-key org), NEVER from `input.organizationId`.
+// The path/input still carries `organizationId` (REST needs it in the URL,
+// and the contract types it as required) but it is intentionally unused for
+// authorization or data access — trusting it let one org's owner/admin
+// read or mutate ANY other org's base domain, Cloudflare config, or member
+// list just by editing the id in the request. See od-5j8.8.
 export const organizationRouter = {
-  settings: orgScopedProcedure.organization.settings.handler(async ({ input, context }) => {
+  settings: orgScopedProcedure.organization.settings.handler(async ({ context }) => {
     context.log.set({
-      target: { type: "organization", id: input.organizationId },
+      target: { type: "organization", id: context.activeOrganizationId },
     });
-    const result = await getOrganizationSettings(input.organizationId);
+    const result = await getOrganizationSettings(context.activeOrganizationId);
     if (result.isErr()) throw result.error;
     return result.value;
   }),
@@ -78,21 +85,24 @@ export const organizationRouter = {
   setBaseDomain: orgUpdateProcedure.organization.setBaseDomain.handler(
     async ({ input, context }) => {
       context.log.set({
-        target: { type: "organization", id: input.organizationId },
+        target: { type: "organization", id: context.activeOrganizationId },
         domain: { baseDomain: input.baseDomain },
       });
-      const result = await updateOrganizationBaseDomain(input);
+      const result = await updateOrganizationBaseDomain({
+        organizationId: context.activeOrganizationId,
+        baseDomain: input.baseDomain,
+      });
       if (result.isErr()) throw result.error;
       return result.value;
     },
   ),
 
   verifyBaseDomain: orgUpdateProcedure.organization.verifyBaseDomain.handler(
-    async ({ input, context }) => {
+    async ({ context }) => {
       context.log.set({
-        target: { type: "organization", id: input.organizationId },
+        target: { type: "organization", id: context.activeOrganizationId },
       });
-      const result = await verifyOrganizationBaseDomain(input.organizationId);
+      const result = await verifyOrganizationBaseDomain(context.activeOrganizationId);
       if (result.isErr()) throw result.error;
       context.log.set({
         verify: { ok: result.value.ok, reason: result.value.reason },
@@ -117,24 +127,28 @@ export const organizationRouter = {
   setCloudflareConfig: orgUpdateProcedure.organization.setCloudflareConfig.handler(
     async ({ input, context }) => {
       context.log.set({
-        target: { type: "organization", id: input.organizationId },
+        target: { type: "organization", id: context.activeOrganizationId },
         cloudflare: {
           zoneId: input.zoneId,
           tokenConfigured: input.token.length > 0,
         },
       });
-      const result = await saveOrganizationCloudflareConfig(input);
+      const result = await saveOrganizationCloudflareConfig({
+        organizationId: context.activeOrganizationId,
+        token: input.token,
+        zoneId: input.zoneId,
+      });
       if (result.isErr()) throw result.error;
       return result.value;
     },
   ),
 
   autoConfigureBaseDomain: orgUpdateProcedure.organization.autoConfigureBaseDomain.handler(
-    async ({ input, context, errors }) => {
+    async ({ context, errors }) => {
       context.log.set({
-        target: { type: "organization", id: input.organizationId },
+        target: { type: "organization", id: context.activeOrganizationId },
       });
-      const result = await autoConfigureBaseDomainViaCloudflare(input.organizationId);
+      const result = await autoConfigureBaseDomainViaCloudflare(context.activeOrganizationId);
       if (result.isErr()) {
         throw matchError(result.error, {
           CloudflareConfigError: (err) => errors.INVALID_INPUT({ message: err.message }),
@@ -156,14 +170,18 @@ export const organizationRouter = {
   ...platformSettingsRouter,
 
   // ─── Members + invitations (better-auth org plugin) ───────────────
-  listMembers: orgScopedProcedure.organization.listMembers.handler(async ({ input, context }) => {
+  // organizationId passed to auth.api.* below is always context.activeOrganizationId,
+  // never input.organizationId — better-auth's own handlers additionally
+  // re-derive/re-check the caller's membership in that org, but we don't
+  // rely on that alone: this router's own scope guard must hold on its own.
+  listMembers: orgScopedProcedure.organization.listMembers.handler(async ({ context }) => {
     context.log.set({
-      target: { type: "organization", id: input.organizationId },
+      target: { type: "organization", id: context.activeOrganizationId },
     });
     const res = await Result.tryPromise({
       try: () =>
         auth.api.listMembers({
-          query: { organizationId: input.organizationId },
+          query: { organizationId: context.activeOrganizationId },
           headers: context.headers,
         }),
       catch: (e) => (e instanceof Error ? e : new Error(String(e))),
@@ -175,14 +193,14 @@ export const organizationRouter = {
   removeMember: orgMemberDelete.organization.removeMember.handler(
     async ({ input, context, errors }) => {
       context.log.set({
-        target: { type: "organization", id: input.organizationId },
+        target: { type: "organization", id: context.activeOrganizationId },
       });
       const res = await Result.tryPromise({
         try: () =>
           auth.api.removeMember({
             body: {
               memberIdOrEmail: input.memberIdOrEmail,
-              organizationId: input.organizationId,
+              organizationId: context.activeOrganizationId,
             },
             headers: context.headers,
           }),
@@ -196,7 +214,7 @@ export const organizationRouter = {
   updateMemberRole: orgMemberUpdate.organization.updateMemberRole.handler(
     async ({ input, context, errors }) => {
       context.log.set({
-        target: { type: "organization", id: input.organizationId },
+        target: { type: "organization", id: context.activeOrganizationId },
       });
       const res = await Result.tryPromise({
         try: () =>
@@ -204,7 +222,7 @@ export const organizationRouter = {
             body: {
               memberId: input.memberId,
               role: input.role,
-              organizationId: input.organizationId,
+              organizationId: context.activeOrganizationId,
             },
             headers: context.headers,
           }),
@@ -215,30 +233,28 @@ export const organizationRouter = {
     },
   ),
 
-  listInvitations: orgScopedProcedure.organization.listInvitations.handler(
-    async ({ input, context }) => {
-      context.log.set({
-        target: { type: "organization", id: input.organizationId },
-      });
-      const res = await Result.tryPromise({
-        try: () =>
-          auth.api.listInvitations({
-            query: { organizationId: input.organizationId },
-            headers: context.headers,
-          }),
-        catch: (e) => (e instanceof Error ? e : new Error(String(e))),
-      });
-      if (res.isErr()) throw res.error;
-      // Surface only still-actionable invites (pending), not accepted/expired.
-      const list = (res.value ?? []) as Parameters<typeof toInvitationView>[0][];
-      return list.filter((i) => i.status === "pending").map(toInvitationView);
-    },
-  ),
+  listInvitations: orgScopedProcedure.organization.listInvitations.handler(async ({ context }) => {
+    context.log.set({
+      target: { type: "organization", id: context.activeOrganizationId },
+    });
+    const res = await Result.tryPromise({
+      try: () =>
+        auth.api.listInvitations({
+          query: { organizationId: context.activeOrganizationId },
+          headers: context.headers,
+        }),
+      catch: (e) => (e instanceof Error ? e : new Error(String(e))),
+    });
+    if (res.isErr()) throw res.error;
+    // Surface only still-actionable invites (pending), not accepted/expired.
+    const list = (res.value ?? []) as Parameters<typeof toInvitationView>[0][];
+    return list.filter((i) => i.status === "pending").map(toInvitationView);
+  }),
 
   cancelInvitation: orgInviteCancel.organization.cancelInvitation.handler(
     async ({ input, context, errors }) => {
       context.log.set({
-        target: { type: "organization", id: input.organizationId },
+        target: { type: "organization", id: context.activeOrganizationId },
       });
       const res = await Result.tryPromise({
         try: () =>

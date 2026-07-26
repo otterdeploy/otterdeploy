@@ -7,8 +7,9 @@
  * every consumer already uses.
  */
 
-import { memo } from "react";
 import type { NodeProps } from "@xyflow/react";
+
+import { memo } from "react";
 
 import type { ResourceFlowNode } from "./resource-node-types";
 
@@ -47,8 +48,5 @@ export const ResourceNode = memo(
     return <ResourceCardNode {...props} />;
   },
   (a, b) =>
-    a.id === b.id &&
-    a.data === b.data &&
-    a.selected === b.selected &&
-    a.dragging === b.dragging,
+    a.id === b.id && a.data === b.data && a.selected === b.selected && a.dragging === b.dragging,
 );

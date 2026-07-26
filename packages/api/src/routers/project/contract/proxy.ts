@@ -6,6 +6,7 @@
 
 import { oc } from "@orpc/contract";
 import { proxyRoute } from "@otterdeploy/db/schema";
+import { routePolicySchema } from "@otterdeploy/shared/route-policy";
 import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
@@ -16,11 +17,12 @@ import { projectIdField, proxyRouteIdField, resourceIdField } from "./shared";
 // The access-PIN hash never leaves the server — omitted here so no endpoint
 // that outputs a route can leak it (PIN state is read via `accessPin` below).
 export const proxyRouteSchema = createSelectSchema(proxyRoute)
-  .omit({ accessPinHash: true })
+  .omit({ accessPinHash: true, domainVerifyToken: true })
   .extend({
     id: proxyRouteIdField,
     projectId: projectIdField,
     resourceId: resourceIdField.nullable(),
+    routePolicy: routePolicySchema,
   });
 
 export const listProxyRoutesInput = z.object({
@@ -59,26 +61,9 @@ const projectCertificatesSchema = z.object({
   certificates: z.array(certificateSchema),
 });
 
-// ─── Custom Caddy config (operator-authored) ────────────────────────
-/** Max length for an operator-authored config blob (project-level or
- *  per-route). Generous — a Caddyfile snippet, not a whole site. */
-const CUSTOM_CONFIG_MAX = 20_000;
-
-/** A project's raw custom config for editing (null when unset). */
-const projectCustomConfigSchema = z.object({
-  config: z.string().nullable(),
-});
-
-const setProjectCustomConfigInput = z.object({
-  projectId: projectIdField,
-  /** Standalone Caddy blocks/snippets. Empty or null clears it. */
-  config: z.string().max(CUSTOM_CONFIG_MAX).nullable(),
-});
-
-const setRouteDirectivesInput = z.object({
+const setRoutePolicyInput = z.object({
   routeId: proxyRouteIdField,
-  /** Directives spliced inside the route's site block. Empty/null clears. */
-  directives: z.string().max(CUSTOM_CONFIG_MAX).nullable(),
+  policy: routePolicySchema,
 });
 
 // ─── Global edge-proxy options (instance-wide platform_settings) ─────
@@ -96,16 +81,7 @@ const setGlobalOptionsInput = z.object({
   httpsAutoRedirect: z.boolean(),
 });
 
-/** Result of saving custom config: the post-change render, plus whether it
- *  validated + went live (`applied`) or was rejected with Caddy's `error`. */
-const saveCustomConfigResultSchema = z.object({
-  caddyfile: z.string(),
-  revision: z.string(),
-  applied: z.boolean(),
-  error: z.string().nullable(),
-});
-
-const saveRouteDirectivesResultSchema = z.object({
+const saveRoutePolicyResultSchema = z.object({
   route: proxyRouteSchema,
   applied: z.boolean(),
   error: z.string().nullable(),
@@ -152,26 +128,6 @@ export const proxyContractSlice = {
     .input(listProxyRoutesInput)
     .output(projectCertificatesSchema),
 
-  customConfig: oc
-    .errors(projectNotFoundErrors)
-    .meta({
-      path: `${basePath}/{projectId}/custom-config`,
-      tag,
-      method: "GET",
-    })
-    .input(listProxyRoutesInput)
-    .output(projectCustomConfigSchema),
-
-  setCustomConfig: oc
-    .errors(projectNotFoundErrors)
-    .meta({
-      path: `${basePath}/{projectId}/custom-config`,
-      tag,
-      method: "POST",
-    })
-    .input(setProjectCustomConfigInput)
-    .output(saveCustomConfigResultSchema),
-
   globalOptions: oc
     .errors(projectNotFoundErrors)
     .meta({
@@ -192,15 +148,15 @@ export const proxyContractSlice = {
     .input(setGlobalOptionsInput)
     .output(globalCaddyOptionsSchema),
 
-  setRouteDirectives: oc
+  setRoutePolicy: oc
     .errors(resourceNotFoundErrors)
     .meta({
-      path: `${basePath}/proxy-routes/{routeId}/directives`,
+      path: `${basePath}/proxy-routes/{routeId}/policy`,
       tag,
       method: "POST",
     })
-    .input(setRouteDirectivesInput)
-    .output(saveRouteDirectivesResultSchema),
+    .input(setRoutePolicyInput)
+    .output(saveRoutePolicyResultSchema),
 
   setProtection: oc
     .errors(resourceNotFoundErrors)

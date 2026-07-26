@@ -39,11 +39,17 @@
                     },
                     "protocol": {
                       "type": "string",
-                      "enum": ["tcp", "udp"]
+                      "enum": [
+                        "tcp",
+                        "udp"
+                      ]
                     },
                     "appProtocol": {
                       "type": "string",
-                      "enum": ["http", "tcp"]
+                      "enum": [
+                        "http",
+                        "tcp"
+                      ]
                     },
                     "primary": {
                       "type": "boolean"
@@ -53,7 +59,9 @@
                       "pattern": "^[a-z][a-z0-9-]*$"
                     }
                   },
-                  "required": ["container"],
+                  "required": [
+                    "container"
+                  ],
                   "additionalProperties": false
                 }
               },
@@ -125,7 +133,9 @@
                         "maximum": 9007199254740991
                       }
                     },
-                    "required": ["cmd"],
+                    "required": [
+                      "cmd"
+                    ],
                     "additionalProperties": false
                   },
                   {
@@ -177,7 +187,11 @@
                 "properties": {
                   "condition": {
                     "type": "string",
-                    "enum": ["none", "on-failure", "any"]
+                    "enum": [
+                      "none",
+                      "on-failure",
+                      "any"
+                    ]
                   },
                   "maxAttempts": {
                     "anyOf": [
@@ -202,7 +216,9 @@
                     "maximum": 9007199254740991
                   }
                 },
-                "required": ["condition"],
+                "required": [
+                  "condition"
+                ],
                 "additionalProperties": false
               },
               "preDeploy": {
@@ -218,6 +234,38 @@
                   }
                 ]
               },
+              "postDeploy": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "domains": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "domain": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "primary": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "domain"
+                  ],
+                  "additionalProperties": false
+                }
+              },
               "source": {
                 "type": "string",
                 "const": "image"
@@ -227,7 +275,10 @@
                 "minLength": 1
               }
             },
-            "required": ["source", "image"],
+            "required": [
+              "source",
+              "image"
+            ],
             "additionalProperties": false
           },
           {
@@ -250,11 +301,17 @@
                     },
                     "protocol": {
                       "type": "string",
-                      "enum": ["tcp", "udp"]
+                      "enum": [
+                        "tcp",
+                        "udp"
+                      ]
                     },
                     "appProtocol": {
                       "type": "string",
-                      "enum": ["http", "tcp"]
+                      "enum": [
+                        "http",
+                        "tcp"
+                      ]
                     },
                     "primary": {
                       "type": "boolean"
@@ -264,7 +321,9 @@
                       "pattern": "^[a-z][a-z0-9-]*$"
                     }
                   },
-                  "required": ["container"],
+                  "required": [
+                    "container"
+                  ],
                   "additionalProperties": false
                 }
               },
@@ -336,7 +395,9 @@
                         "maximum": 9007199254740991
                       }
                     },
-                    "required": ["cmd"],
+                    "required": [
+                      "cmd"
+                    ],
                     "additionalProperties": false
                   },
                   {
@@ -388,7 +449,11 @@
                 "properties": {
                   "condition": {
                     "type": "string",
-                    "enum": ["none", "on-failure", "any"]
+                    "enum": [
+                      "none",
+                      "on-failure",
+                      "any"
+                    ]
                   },
                   "maxAttempts": {
                     "anyOf": [
@@ -413,7 +478,9 @@
                     "maximum": 9007199254740991
                   }
                 },
-                "required": ["condition"],
+                "required": [
+                  "condition"
+                ],
                 "additionalProperties": false
               },
               "preDeploy": {
@@ -429,9 +496,56 @@
                   }
                 ]
               },
+              "postDeploy": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "domains": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "domain": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "primary": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "domain"
+                  ],
+                  "additionalProperties": false
+                }
+              },
               "source": {
                 "type": "string",
                 "const": "git"
+              },
+              "repo": {
+                "type": "string",
+                "minLength": 1
+              },
+              "branch": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "sourceSubdir": {
                 "anyOf": [
@@ -459,7 +573,9 @@
                         }
                       }
                     },
-                    "required": ["builder"],
+                    "required": [
+                      "builder"
+                    ],
                     "additionalProperties": false
                   },
                   {
@@ -479,37 +595,17 @@
                           }
                         ]
                       },
-                      "watchPatterns": {
-                        "type": "array",
-                        "items": {
-                          "type": "string"
-                        }
-                      }
-                    },
-                    "required": ["builder"],
-                    "additionalProperties": false
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "builder": {
-                        "type": "string",
-                        "const": "nixpacks"
-                      },
-                      "buildCommand": {
+                      "buildArgs": {
                         "anyOf": [
                           {
-                            "type": "string"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
-                      },
-                      "nixpacksConfigPath": {
-                        "anyOf": [
-                          {
-                            "type": "string"
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string",
+                              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                            },
+                            "additionalProperties": {
+                              "type": "string"
+                            }
                           },
                           {
                             "type": "null"
@@ -523,7 +619,9 @@
                         }
                       }
                     },
-                    "required": ["builder"],
+                    "required": [
+                      "builder"
+                    ],
                     "additionalProperties": false
                   },
                   {
@@ -543,6 +641,36 @@
                           }
                         ]
                       },
+                      "spa": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "staticRoot": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "packageManager": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
                       "watchPatterns": {
                         "type": "array",
                         "items": {
@@ -550,7 +678,9 @@
                         }
                       }
                     },
-                    "required": ["builder"],
+                    "required": [
+                      "builder"
+                    ],
                     "additionalProperties": false
                   },
                   {
@@ -577,13 +707,466 @@
                         }
                       }
                     },
-                    "required": ["builder"],
+                    "required": [
+                      "builder"
+                    ],
                     "additionalProperties": false
+                  }
+                ]
+              },
+              "imageRepository": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "previews": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "source"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "replicas": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "ports": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "container": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "protocol": {
+                      "type": "string",
+                      "enum": [
+                        "tcp",
+                        "udp"
+                      ]
+                    },
+                    "appProtocol": {
+                      "type": "string",
+                      "enum": [
+                        "http",
+                        "tcp"
+                      ]
+                    },
+                    "primary": {
+                      "type": "boolean"
+                    },
+                    "name": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9-]*$"
+                    }
+                  },
+                  "required": [
+                    "container"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "env": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "pattern": "^[A-Z_][A-Z0-9_]*$"
+                },
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "startCommand": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "entrypoint": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "healthcheck": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "cmd": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "intervalMs": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "timeoutMs": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "retries": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "startMs": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "cmd"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "resources": {
+                "type": "object",
+                "properties": {
+                  "cpuLimit": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "memoryMb": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "cpuReservation": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "memoryReservationMb": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "diskMb": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "swapMb": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "pidsLimit": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "additionalProperties": false
+              },
+              "restart": {
+                "type": "object",
+                "properties": {
+                  "condition": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "on-failure",
+                      "any"
+                    ]
+                  },
+                  "maxAttempts": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "delayMs": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "windowMs": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "condition"
+                ],
+                "additionalProperties": false
+              },
+              "preDeploy": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "postDeploy": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "domains": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "domain": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "primary": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "domain"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "source": {
+                "type": "string",
+                "const": "upload"
+              },
+              "sourceSubdir": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "build": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "builder": {
+                        "type": "string",
+                        "const": "auto"
+                      },
+                      "watchPatterns": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "required": [
+                      "builder"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "builder": {
+                        "type": "string",
+                        "const": "dockerfile"
+                      },
+                      "dockerfilePath": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "buildArgs": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string",
+                              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                            },
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "watchPatterns": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "required": [
+                      "builder"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "builder": {
+                        "type": "string",
+                        "const": "railpack"
+                      },
+                      "buildCommand": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "spa": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "staticRoot": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "packageManager": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "watchPatterns": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "required": [
+                      "builder"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "builder": {
+                        "type": "string",
+                        "const": "compose"
+                      },
+                      "composePath": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "watchPatterns": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "required": [
+                      "builder"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "imageRepository": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "type": "null"
                   }
                 ]
               }
             },
-            "required": ["source"],
+            "required": [
+              "source"
+            ],
             "additionalProperties": false
           }
         ]
@@ -643,6 +1226,9 @@
               "publicEnabled": {
                 "type": "boolean"
               },
+              "previews": {
+                "type": "boolean"
+              },
               "extraEnv": {
                 "type": "object",
                 "propertyNames": {
@@ -668,7 +1254,9 @@
                 }
               }
             },
-            "required": ["engine"],
+            "required": [
+              "engine"
+            ],
             "additionalProperties": false
           },
           {
@@ -714,6 +1302,9 @@
                 "additionalProperties": false
               },
               "publicEnabled": {
+                "type": "boolean"
+              },
+              "previews": {
                 "type": "boolean"
               },
               "extraEnv": {
@@ -748,7 +1339,9 @@
                 ]
               }
             },
-            "required": ["engine"],
+            "required": [
+              "engine"
+            ],
             "additionalProperties": false
           },
           {
@@ -794,6 +1387,9 @@
                 "additionalProperties": false
               },
               "publicEnabled": {
+                "type": "boolean"
+              },
+              "previews": {
                 "type": "boolean"
               },
               "extraEnv": {
@@ -815,7 +1411,9 @@
                 "minLength": 1
               }
             },
-            "required": ["engine"],
+            "required": [
+              "engine"
+            ],
             "additionalProperties": false
           },
           {
@@ -863,6 +1461,9 @@
               "publicEnabled": {
                 "type": "boolean"
               },
+              "previews": {
+                "type": "boolean"
+              },
               "extraEnv": {
                 "type": "object",
                 "propertyNames": {
@@ -882,7 +1483,209 @@
                 "minLength": 1
               }
             },
-            "required": ["engine"],
+            "required": [
+              "engine"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "composes": {
+      "default": {},
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]{0,62}$"
+      },
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "string",
+                "const": "inline"
+              },
+              "content": {
+                "type": "string",
+                "minLength": 1
+              },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "content": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "content"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "composePath": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "env": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "exposed": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "service": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "port": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "domain": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "service",
+                    "port"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "logoBrand": {
+                "type": "string",
+                "maxLength": 64
+              }
+            },
+            "required": [
+              "source",
+              "content"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "string",
+                "const": "git"
+              },
+              "gitRepoId": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "gitRepoUrl": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "gitRef": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "composePath": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "sourceSubdir": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "env": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "exposed": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "service": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "port": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "domain": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "service",
+                    "port"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "logoBrand": {
+                "type": "string",
+                "maxLength": 64
+              }
+            },
+            "required": [
+              "source"
+            ],
             "additionalProperties": false
           }
         ]
@@ -925,11 +1728,17 @@
                           },
                           "protocol": {
                             "type": "string",
-                            "enum": ["tcp", "udp"]
+                            "enum": [
+                              "tcp",
+                              "udp"
+                            ]
                           },
                           "appProtocol": {
                             "type": "string",
-                            "enum": ["http", "tcp"]
+                            "enum": [
+                              "http",
+                              "tcp"
+                            ]
                           },
                           "primary": {
                             "type": "boolean"
@@ -939,7 +1748,9 @@
                             "pattern": "^[a-z][a-z0-9-]*$"
                           }
                         },
-                        "required": ["container"],
+                        "required": [
+                          "container"
+                        ],
                         "additionalProperties": false
                       }
                     },
@@ -1011,7 +1822,9 @@
                               "maximum": 9007199254740991
                             }
                           },
-                          "required": ["cmd"],
+                          "required": [
+                            "cmd"
+                          ],
                           "additionalProperties": false
                         },
                         {
@@ -1063,7 +1876,11 @@
                       "properties": {
                         "condition": {
                           "type": "string",
-                          "enum": ["none", "on-failure", "any"]
+                          "enum": [
+                            "none",
+                            "on-failure",
+                            "any"
+                          ]
                         },
                         "maxAttempts": {
                           "anyOf": [
@@ -1088,7 +1905,9 @@
                           "maximum": 9007199254740991
                         }
                       },
-                      "required": ["condition"],
+                      "required": [
+                        "condition"
+                      ],
                       "additionalProperties": false
                     },
                     "preDeploy": {
@@ -1103,6 +1922,38 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "postDeploy": {
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "domains": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "domain": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "primary": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "domain"
+                        ],
+                        "additionalProperties": false
+                      }
                     },
                     "source": {
                       "type": "string",
@@ -1135,11 +1986,17 @@
                           },
                           "protocol": {
                             "type": "string",
-                            "enum": ["tcp", "udp"]
+                            "enum": [
+                              "tcp",
+                              "udp"
+                            ]
                           },
                           "appProtocol": {
                             "type": "string",
-                            "enum": ["http", "tcp"]
+                            "enum": [
+                              "http",
+                              "tcp"
+                            ]
                           },
                           "primary": {
                             "type": "boolean"
@@ -1149,7 +2006,9 @@
                             "pattern": "^[a-z][a-z0-9-]*$"
                           }
                         },
-                        "required": ["container"],
+                        "required": [
+                          "container"
+                        ],
                         "additionalProperties": false
                       }
                     },
@@ -1221,7 +2080,9 @@
                               "maximum": 9007199254740991
                             }
                           },
-                          "required": ["cmd"],
+                          "required": [
+                            "cmd"
+                          ],
                           "additionalProperties": false
                         },
                         {
@@ -1273,7 +2134,11 @@
                       "properties": {
                         "condition": {
                           "type": "string",
-                          "enum": ["none", "on-failure", "any"]
+                          "enum": [
+                            "none",
+                            "on-failure",
+                            "any"
+                          ]
                         },
                         "maxAttempts": {
                           "anyOf": [
@@ -1298,7 +2163,9 @@
                           "maximum": 9007199254740991
                         }
                       },
-                      "required": ["condition"],
+                      "required": [
+                        "condition"
+                      ],
                       "additionalProperties": false
                     },
                     "preDeploy": {
@@ -1314,9 +2181,56 @@
                         }
                       ]
                     },
+                    "postDeploy": {
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "domains": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "domain": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "primary": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "domain"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
                     "source": {
                       "type": "string",
                       "const": "git"
+                    },
+                    "repo": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "branch": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "sourceSubdir": {
                       "anyOf": [
@@ -1344,7 +2258,9 @@
                               }
                             }
                           },
-                          "required": ["builder"],
+                          "required": [
+                            "builder"
+                          ],
                           "additionalProperties": false
                         },
                         {
@@ -1364,37 +2280,17 @@
                                 }
                               ]
                             },
-                            "watchPatterns": {
-                              "type": "array",
-                              "items": {
-                                "type": "string"
-                              }
-                            }
-                          },
-                          "required": ["builder"],
-                          "additionalProperties": false
-                        },
-                        {
-                          "type": "object",
-                          "properties": {
-                            "builder": {
-                              "type": "string",
-                              "const": "nixpacks"
-                            },
-                            "buildCommand": {
+                            "buildArgs": {
                               "anyOf": [
                                 {
-                                  "type": "string"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            },
-                            "nixpacksConfigPath": {
-                              "anyOf": [
-                                {
-                                  "type": "string"
+                                  "type": "object",
+                                  "propertyNames": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                                  },
+                                  "additionalProperties": {
+                                    "type": "string"
+                                  }
                                 },
                                 {
                                   "type": "null"
@@ -1408,7 +2304,9 @@
                               }
                             }
                           },
-                          "required": ["builder"],
+                          "required": [
+                            "builder"
+                          ],
                           "additionalProperties": false
                         },
                         {
@@ -1428,6 +2326,36 @@
                                 }
                               ]
                             },
+                            "spa": {
+                              "anyOf": [
+                                {
+                                  "type": "boolean"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "staticRoot": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "packageManager": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "watchPatterns": {
                               "type": "array",
                               "items": {
@@ -1435,7 +2363,9 @@
                               }
                             }
                           },
-                          "required": ["builder"],
+                          "required": [
+                            "builder"
+                          ],
                           "additionalProperties": false
                         },
                         {
@@ -1462,10 +2392,26 @@
                               }
                             }
                           },
-                          "required": ["builder"],
+                          "required": [
+                            "builder"
+                          ],
                           "additionalProperties": false
                         }
                       ]
+                    },
+                    "imageRepository": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "previews": {
+                      "type": "boolean"
                     }
                   },
                   "additionalProperties": false
@@ -1490,11 +2436,17 @@
                           },
                           "protocol": {
                             "type": "string",
-                            "enum": ["tcp", "udp"]
+                            "enum": [
+                              "tcp",
+                              "udp"
+                            ]
                           },
                           "appProtocol": {
                             "type": "string",
-                            "enum": ["http", "tcp"]
+                            "enum": [
+                              "http",
+                              "tcp"
+                            ]
                           },
                           "primary": {
                             "type": "boolean"
@@ -1504,7 +2456,9 @@
                             "pattern": "^[a-z][a-z0-9-]*$"
                           }
                         },
-                        "required": ["container"],
+                        "required": [
+                          "container"
+                        ],
                         "additionalProperties": false
                       }
                     },
@@ -1576,7 +2530,9 @@
                               "maximum": 9007199254740991
                             }
                           },
-                          "required": ["cmd"],
+                          "required": [
+                            "cmd"
+                          ],
                           "additionalProperties": false
                         },
                         {
@@ -1628,7 +2584,11 @@
                       "properties": {
                         "condition": {
                           "type": "string",
-                          "enum": ["none", "on-failure", "any"]
+                          "enum": [
+                            "none",
+                            "on-failure",
+                            "any"
+                          ]
                         },
                         "maxAttempts": {
                           "anyOf": [
@@ -1653,7 +2613,9 @@
                           "maximum": 9007199254740991
                         }
                       },
-                      "required": ["condition"],
+                      "required": [
+                        "condition"
+                      ],
                       "additionalProperties": false
                     },
                     "preDeploy": {
@@ -1668,6 +2630,470 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "postDeploy": {
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "domains": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "domain": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "primary": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "domain"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "source": {
+                      "type": "string",
+                      "const": "upload"
+                    },
+                    "sourceSubdir": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "build": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "builder": {
+                              "type": "string",
+                              "const": "auto"
+                            },
+                            "watchPatterns": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": [
+                            "builder"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "builder": {
+                              "type": "string",
+                              "const": "dockerfile"
+                            },
+                            "dockerfilePath": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "buildArgs": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "propertyNames": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                                  },
+                                  "additionalProperties": {
+                                    "type": "string"
+                                  }
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "watchPatterns": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": [
+                            "builder"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "builder": {
+                              "type": "string",
+                              "const": "railpack"
+                            },
+                            "buildCommand": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "spa": {
+                              "anyOf": [
+                                {
+                                  "type": "boolean"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "staticRoot": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "packageManager": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "watchPatterns": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": [
+                            "builder"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "builder": {
+                              "type": "string",
+                              "const": "compose"
+                            },
+                            "composePath": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "watchPatterns": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": [
+                            "builder"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "imageRepository": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "replicas": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "ports": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "container": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "protocol": {
+                            "type": "string",
+                            "enum": [
+                              "tcp",
+                              "udp"
+                            ]
+                          },
+                          "appProtocol": {
+                            "type": "string",
+                            "enum": [
+                              "http",
+                              "tcp"
+                            ]
+                          },
+                          "primary": {
+                            "type": "boolean"
+                          },
+                          "name": {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9-]*$"
+                          }
+                        },
+                        "required": [
+                          "container"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "env": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string",
+                        "pattern": "^[A-Z_][A-Z0-9_]*$"
+                      },
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "startCommand": {
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "entrypoint": {
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "healthcheck": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "cmd": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "intervalMs": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "timeoutMs": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "retries": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "startMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "cmd"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "resources": {
+                      "type": "object",
+                      "properties": {
+                        "cpuLimit": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "memoryMb": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "cpuReservation": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "memoryReservationMb": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "diskMb": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "swapMb": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "pidsLimit": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "restart": {
+                      "type": "object",
+                      "properties": {
+                        "condition": {
+                          "type": "string",
+                          "enum": [
+                            "none",
+                            "on-failure",
+                            "any"
+                          ]
+                        },
+                        "maxAttempts": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "delayMs": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "windowMs": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "condition"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "preDeploy": {
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "postDeploy": {
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "domains": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "domain": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "primary": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "domain"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "additionalProperties": false
@@ -1726,6 +3152,9 @@
                       "additionalProperties": false
                     },
                     "publicEnabled": {
+                      "type": "boolean"
+                    },
+                    "previews": {
                       "type": "boolean"
                     },
                     "extraEnv": {
@@ -1798,6 +3227,9 @@
                       "additionalProperties": false
                     },
                     "publicEnabled": {
+                      "type": "boolean"
+                    },
+                    "previews": {
                       "type": "boolean"
                     },
                     "extraEnv": {
@@ -1879,6 +3311,9 @@
                     "publicEnabled": {
                       "type": "boolean"
                     },
+                    "previews": {
+                      "type": "boolean"
+                    },
                     "extraEnv": {
                       "type": "object",
                       "propertyNames": {
@@ -1943,6 +3378,9 @@
                       "additionalProperties": false
                     },
                     "publicEnabled": {
+                      "type": "boolean"
+                    },
+                    "previews": {
                       "type": "boolean"
                     },
                     "extraEnv": {
@@ -2011,6 +3449,9 @@
                     "publicEnabled": {
                       "type": "boolean"
                     },
+                    "previews": {
+                      "type": "boolean"
+                    },
                     "extraEnv": {
                       "type": "object",
                       "propertyNames": {
@@ -2032,9 +3473,11 @@
       }
     }
   },
-  "required": ["project"],
+  "required": [
+    "project"
+  ],
   "additionalProperties": false,
   "$id": "https://otterdeploy.com/otterdeploy.schema.json",
   "title": "Otterdeploy Manifest",
-  "description": "Schema for otterdeploy.config.json — the declarative manifest of services + databases for an otterdeploy project."
+  "description": "Schema for otterdeploy.json — the declarative manifest of services + databases for an otterdeploy project."
 }

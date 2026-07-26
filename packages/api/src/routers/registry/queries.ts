@@ -1,8 +1,10 @@
 /**
  * DB-facing helpers for container registry credentials.
  *
- * Encryption is applied at the boundary here: callers pass plaintext,
- * we encryptSecret() before INSERT/UPDATE, and we never SELECT the
+ * Encryption is applied at the boundary here: callers pass plaintext, we
+ * encryptForDomain(..., "registry-creds") before INSERT/UPDATE — a key
+ * derived independently of every other secret category, see
+ * packages/api/src/lib/crypto.ts — and we never SELECT the
  * encrypted_password column for the "view" shape. The decrypted paths
  * are swarm/registry-auth.ts (resolveRegistryAuth), the build pipeline
  * (apps/builder/src/pipeline.ts), and getRegistryCredentialForOrg below
@@ -14,7 +16,7 @@ import { db } from "@otterdeploy/db";
 import { containerRegistry } from "@otterdeploy/db/schema";
 import { and, asc, desc, eq } from "drizzle-orm";
 
-import { decryptSecret, encryptSecret } from "../../lib/crypto";
+import { decryptForDomain, encryptForDomain } from "../../lib/crypto";
 
 type OrgId = OrganizationId;
 type RegistryId = ContainerRegistryId;
@@ -103,7 +105,7 @@ export async function getRegistryCredentialForOrg(organizationId: OrgId, id: Reg
     id: row.id,
     host: row.host,
     username: row.username,
-    password: await decryptSecret(row.encryptedPassword),
+    password: await decryptForDomain(row.encryptedPassword, "registry-creds"),
   };
 }
 
@@ -135,7 +137,7 @@ export async function getRegistryCredentialForOrgByHost(organizationId: OrgId, h
     id: row.id,
     host: row.host,
     username: row.username,
-    password: await decryptSecret(row.encryptedPassword),
+    password: await decryptForDomain(row.encryptedPassword, "registry-creds"),
   };
 }
 
@@ -147,7 +149,7 @@ export async function createRegistryRecord(input: {
   plaintextPassword: string;
   authType: "password" | "token";
 }) {
-  const encrypted = await encryptSecret(input.plaintextPassword);
+  const encrypted = await encryptForDomain(input.plaintextPassword, "registry-creds");
   const rows = await db
     .insert(containerRegistry)
     .values({
@@ -181,7 +183,7 @@ export async function updateRegistryRecord(input: {
   if (input.username !== undefined) patch.username = input.username;
   if (input.authType !== undefined) patch.authType = input.authType;
   if (input.plaintextPassword) {
-    patch.encryptedPassword = await encryptSecret(input.plaintextPassword);
+    patch.encryptedPassword = await encryptForDomain(input.plaintextPassword, "registry-creds");
   }
 
   if (Object.keys(patch).length === 0) {

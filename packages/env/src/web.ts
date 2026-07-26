@@ -22,10 +22,12 @@ export const env = createEnv({
       .transform(
         (v) => v ?? (globalThis as { location?: { origin?: string } }).location?.origin ?? "",
       ),
-    // Comma list of enabled social sign-in providers (e.g. "github,google"),
-    // mirroring the server's configured socialProviders. Drives which SSO
-    // buttons render on the sign-in/up forms. Unset ⇒ no social buttons.
-    VITE_AUTH_SOCIAL_PROVIDERS: z.string().optional(),
+    // NOTE: VITE_AUTH_SOCIAL_PROVIDERS used to live here, listing the enabled
+    // SSO providers so the sign-in form knew which buttons to render. It was
+    // removed because it was baked in at `vite build`: a self-hoster running
+    // the published image could not turn SSO on without rebuilding the SPA.
+    // The sign-in page now reads the live provider list at runtime from
+    // /api/auth/public-config. Configure providers in Settings → Instance.
   },
   runtimeEnv: import.meta.env,
   emptyStringAsUndefined: true,

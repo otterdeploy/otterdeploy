@@ -7,6 +7,7 @@
 import { Result } from "better-result";
 import { log } from "evlog";
 
+import { recordSystemAudit } from "../../audit/system";
 import { listBlocklistsDue } from "./queries";
 import { syncBlocklist } from "./sync";
 
@@ -22,8 +23,29 @@ async function runDueBlocklistSyncs(): Promise<Result<number, string>> {
   const result = await Result.tryPromise({
     try: async () => {
       const due = await listBlocklistsDue(new Date());
-      for (const row of due) await syncBlocklist(row);
-      return due.length;
+      let synced = 0;
+      for (const row of due) {
+        try {
+          const outcome = await syncBlocklist(row);
+          if (outcome.ok) synced++;
+          await recordSystemAudit({
+            action: "firewall.blocklist.sync",
+            outcome: outcome.ok ? "success" : "failure",
+            reason: outcome.error,
+            target: { type: "blocklist", id: row.id },
+          });
+        } catch (cause) {
+          const reason = cause instanceof Error ? cause.message : String(cause);
+          await recordSystemAudit({
+            action: "firewall.blocklist.sync",
+            outcome: "failure",
+            reason,
+            target: { type: "blocklist", id: row.id },
+          });
+          log.error({ blocklist: { step: "sync", id: row.id, status: "error" }, error: reason });
+        }
+      }
+      return synced;
     },
     catch: (e) => (e instanceof Error ? e.message : String(e)),
   });

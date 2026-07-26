@@ -1,11 +1,12 @@
 import type { Manifest } from "@otterdeploy/api/manifest";
 
 import { defineCommand } from "citty";
-import { consola } from "consola";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { loadConfig, writeConfig } from "../config-file";
+import { cmd } from "../lib/name";
+import { abort, detail, dim, hint, ok } from "../lib/ui";
 
 type ServiceEntry = Manifest["services"][string];
 
@@ -34,8 +35,7 @@ function parseEnvPairs(values: string[]): Record<string, string> {
     const idx = pair.indexOf("=");
     const key = idx > 0 ? pair.slice(0, idx) : "";
     if (!key) {
-      consola.error(`--env expects KEY=VAL, got: ${pair}`);
-      process.exit(1);
+      abort(`--env expects KEY=VAL, got: ${pair}`);
     }
     out[key] = pair.slice(idx + 1);
   }
@@ -45,13 +45,11 @@ function parseEnvPairs(values: string[]): Record<string, string> {
 function parseExpose(spec: string): { service: string; port: number; domain?: string } {
   const [service, portRaw, domain, ...rest] = spec.split(":");
   if (!service || !portRaw || !/^\d+$/.test(portRaw) || rest.length > 0) {
-    consola.error(`--expose expects service:port[:domain], got: ${spec}`);
-    process.exit(1);
+    abort(`--expose expects service:port[:domain], got: ${spec}`);
   }
   const port = Number.parseInt(portRaw, 10);
   if (port <= 0) {
-    consola.error(`--expose port must be positive, got: ${spec}`);
-    process.exit(1);
+    abort(`--expose port must be positive, got: ${spec}`);
   }
   return { service, port, ...(domain ? { domain } : {}) };
 }
@@ -78,23 +76,19 @@ const addService = defineCommand({
   async run({ args, rawArgs }) {
     const manifest = await loadConfig(args.config);
     if (manifest.services[args.name]) {
-      consola.error(`Service ${args.name} already exists.`);
-      process.exit(1);
+      abort(`Service ${args.name} already exists.`);
     }
 
     if (args.upload && args.git) {
-      consola.error("--upload and --git are mutually exclusive — pick one source.");
-      process.exit(1);
+      abort("--upload and --git are mutually exclusive — pick one source.");
     }
     if ((args.repo || args.branch) && !args.git) {
-      consola.error("--repo/--branch only apply to git services — pass --git as well.");
-      process.exit(1);
+      abort("--repo/--branch only apply to git services — pass --git as well.");
     }
     if (args.repo) {
       const parts = args.repo.split("/");
       if (parts.length !== 2 || parts.some((p) => !p)) {
-        consola.error(`--repo must be "owner/name", got: ${args.repo}`);
-        process.exit(1);
+        abort(`--repo must be "owner/name", got: ${args.repo}`);
       }
     }
 
@@ -138,8 +132,7 @@ const addService = defineCommand({
       };
     } else {
       if (!args.image) {
-        consola.error("--image is required (or pass --git to build from the project's repo)");
-        process.exit(1);
+        abort("--image is required (or pass --git to build from the project's repo)");
       }
       next.services[args.name] = {
         source: "image",
@@ -149,9 +142,9 @@ const addService = defineCommand({
     }
 
     const path = writeConfig(next, args.config);
-    consola.success(
-      `Added service ${args.name}. Edit ${path} to refine, then \`otterdeploy deploy\`.`,
-    );
+    ok(`Added service ${args.name}.`);
+    detail([["config", dim(path)]]);
+    hint(`edit the file to refine it, then run \`${cmd("deploy")}\``);
   },
 });
 
@@ -174,13 +167,11 @@ const addDatabase = defineCommand({
   async run({ args }) {
     const manifest = await loadConfig(args.config);
     if (manifest.databases[args.name]) {
-      consola.error(`Database ${args.name} already exists.`);
-      process.exit(1);
+      abort(`Database ${args.name} already exists.`);
     }
     const engine = args.engine as "postgres" | "redis" | "mariadb" | "mongodb";
     if (!["postgres", "redis", "mariadb", "mongodb"].includes(engine)) {
-      consola.error(`Unknown engine: ${args.engine}`);
-      process.exit(1);
+      abort(`Unknown engine: ${args.engine}`);
     }
 
     const next: Manifest = {
@@ -194,9 +185,12 @@ const addDatabase = defineCommand({
     } as Manifest["databases"][string];
 
     const path = writeConfig(next, args.config);
-    consola.success(
-      `Added database ${args.name} (${engine}). Edit ${path} and \`otterdeploy deploy\`.`,
-    );
+    ok(`Added database ${args.name}.`);
+    detail([
+      ["engine", engine],
+      ["config", dim(path)],
+    ]);
+    hint(`run \`${cmd("deploy")}\` to provision it`);
   },
 });
 
@@ -218,18 +212,15 @@ const addCompose = defineCommand({
   async run({ args, rawArgs }) {
     const manifest = await loadConfig(args.config);
     if (manifest.composes[args.name]) {
-      consola.error(`Compose stack ${args.name} already exists.`);
-      process.exit(1);
+      abort(`Compose stack ${args.name} already exists.`);
     }
 
     const gitUrl = args["git-url"];
     if ((args.file ? 1 : 0) + (gitUrl ? 1 : 0) !== 1) {
-      consola.error("Pass exactly one of --file <path> or --git-url <https url>.");
-      process.exit(1);
+      abort("Pass exactly one of --file <path> or --git-url <https url>.");
     }
     if (!gitUrl && (args["git-ref"] || args["compose-path"])) {
-      consola.error("--git-ref/--compose-path only apply with --git-url.");
-      process.exit(1);
+      abort("--git-ref/--compose-path only apply with --git-url.");
     }
 
     const env = parseEnvPairs(collectFlag(rawArgs, "env"));
@@ -247,19 +238,16 @@ const addCompose = defineCommand({
     if (args.file) {
       const filePath = resolve(args.file);
       if (!existsSync(filePath)) {
-        consola.error(`File not found: ${filePath}`);
-        process.exit(1);
+        abort(`File not found: ${filePath}`);
       }
       const content = readFileSync(filePath, "utf8");
       if (!content.trim()) {
-        consola.error(`Compose file is empty: ${filePath}`);
-        process.exit(1);
+        abort(`Compose file is empty: ${filePath}`);
       }
       next.composes[args.name] = { source: "inline", content, ...extras };
     } else if (gitUrl) {
       if (!/^https?:\/\//.test(gitUrl)) {
-        consola.error(`--git-url must be an http(s) URL, got: ${gitUrl}`);
-        process.exit(1);
+        abort(`--git-url must be an http(s) URL, got: ${gitUrl}`);
       }
       next.composes[args.name] = {
         source: "git",
@@ -271,9 +259,9 @@ const addCompose = defineCommand({
     }
 
     const path = writeConfig(next, args.config);
-    consola.success(
-      `Added compose stack ${args.name}. Edit ${path} to refine, then \`otterdeploy deploy\`.`,
-    );
+    ok(`Added compose stack ${args.name}.`);
+    detail([["config", dim(path)]]);
+    hint(`edit the file to refine it, then run \`${cmd("deploy")}\``);
   },
 });
 

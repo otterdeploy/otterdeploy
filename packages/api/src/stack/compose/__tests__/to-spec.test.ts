@@ -44,7 +44,7 @@ services:
     );
     const spec = composeServiceToSpec(svc, ctx);
 
-    expect(spec.serviceName).toBe("myproj-stack-postgres");
+    expect(spec.serviceName).toBe("od-myproj-stack-postgres");
     expect(spec.internalHostname).toBe("postgres"); // bare name for DNS
     expect(spec.projectSlug).toBe("my-proj"); // sanitized
     expect(spec.image).toBe("postgres:16");

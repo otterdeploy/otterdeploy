@@ -1,7 +1,9 @@
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
+import { shortId } from "../lib/format";
+import { cmd } from "../lib/name";
 import { resolveResource } from "../lib/resolve";
+import { abort, detail, hint, ok, paint, section } from "../lib/ui";
 import { waitForDeployments } from "../lib/wait";
 
 export const buildCommand = defineCommand({
@@ -23,8 +25,10 @@ export const buildCommand = defineCommand({
     if (args.timeout !== undefined) {
       const minutes = Number(args.timeout);
       if (!Number.isFinite(minutes) || minutes <= 0) {
-        consola.error(`Invalid --timeout: ${args.timeout} (expected minutes, e.g. --timeout 20).`);
-        process.exit(1);
+        abort(
+          `--timeout expects a positive number of minutes, got "${args.timeout}".`,
+          "for example `--timeout 20`",
+        );
       }
       timeoutMs = minutes * 60_000;
     }
@@ -36,19 +40,23 @@ export const buildCommand = defineCommand({
     );
     const { deploymentId } = await client.service.build({ projectId, resourceId });
 
-    if (!args.wait) {
-      if (args.json) {
-        process.stdout.write(`${JSON.stringify({ deploymentId }, null, 2)}\n`);
-        return;
+    if (!args.json) {
+      ok(`Build queued for ${resourceName}.`);
+      section("Deployment");
+      detail([["id", paint("id", shortId(deploymentId))]]);
+      if (!args.wait) {
+        hint(`run \`${cmd(`logs ${resourceName} --build`)}\` to follow it`);
+        hint(`or re-run with \`--wait\` to block until it settles`);
       }
-      consola.success(`Build queued for ${resourceName} — deployment ${deploymentId}.`);
+    }
+
+    if (!args.wait) {
+      if (args.json) process.stdout.write(`${JSON.stringify({ deploymentId }, null, 2)}\n`);
       return;
     }
 
-    if (!args.json) {
-      consola.success(`Build queued for ${resourceName} — deployment ${deploymentId}.`);
-    }
-    const { ok, outcomes } = await waitForDeployments({
+    // `succeeded`, not `ok` — `ok` is the outcome printer imported above.
+    const { ok: succeeded, outcomes } = await waitForDeployments({
       client,
       projectId,
       targets: [{ resourceId, name: resourceName }],
@@ -56,8 +64,10 @@ export const buildCommand = defineCommand({
       json: args.json,
     });
     if (args.json) {
-      process.stdout.write(`${JSON.stringify({ deploymentId, ok, outcomes }, null, 2)}\n`);
+      process.stdout.write(
+        `${JSON.stringify({ deploymentId, ok: succeeded, outcomes }, null, 2)}\n`,
+      );
     }
-    if (!ok) process.exitCode = 1;
+    if (!succeeded) process.exitCode = 1;
   },
 });

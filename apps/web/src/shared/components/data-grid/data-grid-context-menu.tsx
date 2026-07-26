@@ -191,22 +191,22 @@ function ContextMenuImpl<TData>({
     <DropdownMenu open={contextMenu.open} onOpenChange={onContextMenuOpenChange}>
       <DropdownMenuTrigger style={triggerStyle} />
       <DropdownMenuContent data-grid-popover="" align="start" className="w-48">
-        <DropdownMenuItem onSelect={onCopy}>
+        <DropdownMenuItem onClick={onCopy}>
           <CopyIcon />
           Copy
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={onCut} disabled={tableMeta?.readOnly}>
+        <DropdownMenuItem onClick={onCut} disabled={tableMeta?.readOnly}>
           <ScissorsIcon />
           Cut
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={onClear} disabled={tableMeta?.readOnly}>
+        <DropdownMenuItem onClick={onClear} disabled={tableMeta?.readOnly}>
           <EraserIcon />
           Clear
         </DropdownMenuItem>
         {onRowsDelete && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+            <DropdownMenuItem variant="destructive" onClick={onDelete}>
               <Trash2Icon />
               Delete rows
             </DropdownMenuItem>

@@ -1,13 +1,7 @@
 import * as z from "zod";
 
 import { kindFragment, nameFragment } from "./_base";
-
-const portSchema = z.object({
-  port: z.number().int().min(1).max(65535),
-  protocol: z.string().min(1),
-  public: z.boolean(),
-  host: z.string(),
-});
+import { portsListSchema } from "./networking";
 
 const varSchema = z.object({
   key: z.string(),
@@ -30,7 +24,7 @@ export const reviewStepSchema = z.object({
   registry: z.string(),
   image: z.string(),
   tag: z.string(),
-  ports: z.array(portSchema),
+  ports: portsListSchema,
   healthPath: z.string(),
   healthInterval: z.number().int().min(1),
   healthTimeout: z.number().int().min(1),

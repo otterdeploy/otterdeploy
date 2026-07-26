@@ -16,12 +16,13 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { languageNames, supportedLngs } from "@otterdeploy/i18n";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useTheme } from "next-themes";
 import { useTranslation } from "react-i18next";
 
 import { setCommandPaletteOpen } from "@/features/command-palette";
 import { authClient } from "@/lib/auth-client";
+import { clearAuthCache } from "@/lib/auth-queries";
 import { Avatar, AvatarFallback, AvatarImage } from "@/shared/components/ui/avatar";
 import {
   DropdownMenu,
@@ -44,9 +45,7 @@ import {
   useSidebar,
 } from "@/shared/components/ui/sidebar";
 
-import { ActiveSessionsDialog } from "./active-sessions-dialog";
 import { ConnectCliDialog } from "./connect-cli-dialog";
-import { TwoFactorDialog } from "./two-factor-dialog";
 
 export interface User {
   name: string;
@@ -67,11 +66,13 @@ export function NavUser({ user }: { user: User }) {
   const navigate = useNavigate();
   const { orgSlug } = useParams({ strict: false }) as { orgSlug?: string };
   const [cliOpen, setCliOpen] = useState(false);
-  const [sessionsOpen, setSessionsOpen] = useState(false);
-  const [twoFactorOpen, setTwoFactorOpen] = useState(false);
 
   async function handleSignOut() {
     await authClient.signOut();
+    // The gate reads the session from React Query now; without this the cached
+    // user survives sign-out and the next navigation would sail past the gate
+    // on stale data. See lib/auth-queries.ts.
+    clearAuthCache();
     void navigate({ to: "/sign-in", replace: true });
   }
 
@@ -158,11 +159,28 @@ export function NavUser({ user }: { user: User }) {
                   <HugeiconsIcon icon={CommandLineIcon} strokeWidth={2} />
                   Connect CLI
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSessionsOpen(true)}>
+                {/* Links, not dialogs (od-u63.7) — the settings pages already own
+                    this UI (SessionsCard / TwoFactorCard), so the menu just
+                    navigates there instead of duplicating it in a popover. */}
+                <DropdownMenuItem
+                  disabled={!orgSlug}
+                  render={
+                    orgSlug ? (
+                      <Link to="/$orgSlug/settings/account/sessions" params={{ orgSlug }} />
+                    ) : undefined
+                  }
+                >
                   <HugeiconsIcon icon={DeviceAccessIcon} strokeWidth={2} />
                   Active sessions
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setTwoFactorOpen(true)}>
+                <DropdownMenuItem
+                  disabled={!orgSlug}
+                  render={
+                    orgSlug ? (
+                      <Link to="/$orgSlug/settings/account/security" params={{ orgSlug }} />
+                    ) : undefined
+                  }
+                >
                   <HugeiconsIcon icon={ShieldKeyIcon} strokeWidth={2} />
                   Two-factor authentication
                 </DropdownMenuItem>
@@ -179,8 +197,6 @@ export function NavUser({ user }: { user: User }) {
         </SidebarMenuItem>
       </SidebarMenu>
       <ConnectCliDialog open={cliOpen} onOpenChange={setCliOpen} />
-      <ActiveSessionsDialog open={sessionsOpen} onOpenChange={setSessionsOpen} />
-      <TwoFactorDialog open={twoFactorOpen} onOpenChange={setTwoFactorOpen} />
     </>
   );
 }

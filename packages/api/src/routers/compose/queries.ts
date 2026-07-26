@@ -166,18 +166,6 @@ export async function listComposeRecords(projectId: ProjectId): Promise<ComposeR
     .orderBy(asc(resource.createdAt));
 }
 
-/** Replace the stack's `exposed` (service:port→domain) list. The caller
- *  re-runs the Caddy domain reconcile afterwards from the refreshed record. */
-export async function updateComposeExposed(input: {
-  resourceId: ResourceId;
-  exposed: ComposeExposed[];
-}): Promise<void> {
-  await db
-    .update(composeResource)
-    .set({ exposed: input.exposed })
-    .where(eq(composeResource.resourceId, input.resourceId));
-}
-
 /** Replace an inline stack's compose YAML + its re-parsed service summary (and,
  *  for a multi-file stack, the matching file entry). The caller keeps the
  *  project manifest in lockstep and the change takes effect on redeploy. */

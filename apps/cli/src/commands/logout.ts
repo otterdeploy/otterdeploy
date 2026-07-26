@@ -1,7 +1,7 @@
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
 import { clearConfig } from "../config";
+import { ok } from "../lib/ui";
 
 export const logoutCommand = defineCommand({
   meta: {
@@ -10,6 +10,6 @@ export const logoutCommand = defineCommand({
   },
   async run() {
     clearConfig();
-    consola.success("Logged out.");
+    ok("Logged out.");
   },
 });

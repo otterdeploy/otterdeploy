@@ -1,6 +1,11 @@
 # PR Previews + Environments + Copy-on-Write DB Branching
 
-**Status:** Implemented (superseded in one respect — see below) · zfs COW (P3), caps/idle-GC and job-queue branching still open
+**Status:** Implemented (superseded in one respect — see below). Still open: zfs COW (P3),
+per-project preview caps, and job-queue branching. **Idle GC shipped** — `startPreviewReaper`
+runs hourly and tears down any active, non-paused preview past its `autoTeardownAt`; a NULL
+deadline is a keep-alive pin and is never reaped.
+
+**Last verified:** 2026-07-26
 **Owner:** —
 **Scope:** Per-PR ephemeral preview deployments, copy-on-write Postgres branching, and GitHub write-back (the PR bot).
 

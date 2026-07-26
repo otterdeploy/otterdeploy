@@ -1,134 +1,241 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
-import { Copy01Icon, ServerStack01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 
+import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/shared/components/ui/empty";
-import { Skeleton } from "@/shared/components/ui/skeleton";
+import { Input } from "@/shared/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/components/ui/toggle-group";
-import { copyToClipboard } from "@/shared/lib/clipboard";
-import { cn } from "@/shared/lib/utils";
-import { orpc } from "@/shared/server/orpc";
+import { orpc, queryClient } from "@/shared/server/orpc";
+
+import { JoinCommandBlock } from "./join-command-block";
 
 export type JoinRole = "worker" | "manager";
-
-/**
- * Shared hook for the swarm join tokens + manager advertise address. Both
- * the panel and the surrounding dialog descriptions read from the same
- * query — tanstack-query dedupes on queryKey so it's one network call per
- * dialog open regardless of how many places need the data.
- */
-function useSwarmJoinTokens() {
-  return useQuery(orpc.server.joinTokens.queryOptions());
-}
 
 interface JoinTokenPanelProps {
   role: JoinRole;
   onRoleChange: (role: JoinRole) => void;
 }
 
-export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
-  const { data, isLoading } = useSwarmJoinTokens();
-  const token = role === "worker" ? data?.worker : data?.manager;
-  const managerAddr = data?.managerAddr ?? null;
+interface EnrollmentSummary {
+  id: string;
+  role: JoinRole;
+  status: "active" | "expired" | "redeemed" | "completed" | "revoked";
+}
 
-  const command = token && managerAddr ? `docker swarm join --token ${token} ${managerAddr}` : null;
+interface StepUpFormProps {
+  role: JoinRole;
+  totpCode: string;
+  managerConfirmation: string;
+  canSubmit: boolean;
+  creating: boolean;
+  rotating: boolean;
+  onTotpCodeChange: (value: string) => void;
+  onManagerConfirmationChange: (value: string) => void;
+  onCreate: () => void;
+  onRotate: () => void;
+}
 
+function StepUpForm(props: StepUpFormProps) {
   return (
-    <div className="flex flex-col gap-3">
-      <ToggleGroup
-        value={[role]}
-        onValueChange={(next) => {
-          const v = next[0];
-          if (v === "worker" || v === "manager") onRoleChange(v);
-        }}
-        className="self-start"
-      >
-        <ToggleGroupItem value="worker" aria-label="Worker join command">
-          Worker
-        </ToggleGroupItem>
-        <ToggleGroupItem value="manager" aria-label="Manager join command">
-          Manager
-        </ToggleGroupItem>
-      </ToggleGroup>
+    <div className="grid gap-3 rounded-md border bg-muted/20 p-3">
+      <label htmlFor="node-enrollment-totp" className="grid gap-1.5">
+        <span className="text-xs font-medium">Authenticator code</span>
+        <Input
+          id="node-enrollment-totp"
+          value={props.totpCode}
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={8}
+          placeholder="000000"
+          className="max-w-40 font-mono"
+          onChange={(event) => props.onTotpCodeChange(event.target.value.replace(/\D/g, ""))}
+        />
+      </label>
+      {props.role === "manager" ? (
+        <label htmlFor="node-enrollment-manager-confirmation" className="grid gap-1.5">
+          <span className="text-xs font-medium">Confirm manager authority</span>
+          <Input
+            id="node-enrollment-manager-confirmation"
+            value={props.managerConfirmation}
+            placeholder="ENROLL MANAGER"
+            className="font-mono"
+            onChange={(event) => props.onManagerConfirmationChange(event.target.value)}
+          />
+          <span className="text-[11px] text-muted-foreground">
+            Managers participate in cluster quorum and can control every workload.
+          </span>
+        </label>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" disabled={!props.canSubmit || props.creating} onClick={props.onCreate}>
+          {props.creating ? "Creating…" : "Create 10-minute enrollment"}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!props.canSubmit || props.rotating}
+          onClick={props.onRotate}
+        >
+          {props.rotating ? "Rotating…" : `Rotate ${props.role} credential`}
+        </Button>
+      </div>
+    </div>
+  );
+}
 
-      {isLoading ? (
-        <Skeleton className="h-16 w-full rounded-md" />
-      ) : command ? (
-        <CommandBlock command={command} />
+function EnrollmentHistory({
+  enrollments,
+  revoking,
+  onRevoke,
+}: {
+  enrollments: EnrollmentSummary[];
+  revoking: boolean;
+  onRevoke: (id: string) => void;
+}) {
+  return (
+    <div className="grid gap-2">
+      <span className="text-xs font-medium">Recent enrollment credentials</span>
+      {enrollments.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No enrollment credentials created.</p>
       ) : (
-        <Empty className="rounded-md border border-dashed bg-muted/20 py-12">
-          <EmptyHeader>
-            <HugeiconsIcon
-              icon={ServerStack01Icon}
-              strokeWidth={1.5}
-              className="size-10 text-muted-foreground/50"
-            />
-            <EmptyTitle>Swarm hasn't been initialized</EmptyTitle>
-            <EmptyDescription>Run the command below on the manager, then refresh.</EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent>
-            <code className="rounded-sm bg-muted px-1 py-px font-mono text-[12px] text-foreground">
-              docker swarm init
-            </code>
-          </EmptyContent>
-        </Empty>
+        <div className="divide-y rounded-md border">
+          {enrollments.map((enrollment) => (
+            <div key={enrollment.id} className="flex items-center gap-2 px-3 py-2 text-xs">
+              <Badge variant="secondary">{enrollment.role}</Badge>
+              <code className="min-w-0 flex-1 truncate text-muted-foreground">{enrollment.id}</code>
+              <span className="text-muted-foreground">{enrollment.status}</span>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label={`Revoke ${enrollment.id}`}
+                disabled={
+                  revoking || enrollment.status === "revoked" || enrollment.status === "completed"
+                }
+                onClick={() => onRevoke(enrollment.id)}
+              >
+                <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
+              </Button>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
 }
 
-/** Inline chip showing the manager join address, self-fetching so callers
- *  don't have to thread it through props. */
-export function ManagerAddressChip() {
-  const { data } = useSwarmJoinTokens();
-  return (
-    <code className="rounded-sm bg-muted px-1 py-px font-mono text-[12px] text-foreground">
-      {data?.managerAddr ?? "—"}
-    </code>
+export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
+  const [totpCode, setTotpCode] = useState("");
+  const [managerConfirmation, setManagerConfirmation] = useState("");
+  const [created, setCreated] = useState<{
+    id: string;
+    credential: string;
+    expiresAt: string;
+  } | null>(null);
+
+  const enrollments = useQuery({
+    ...orpc.server.enrollments.queryOptions(),
+    refetchInterval: 5000,
+  });
+  const create = useMutation(
+    orpc.server.createEnrollment.mutationOptions({
+      onSuccess: (value) => {
+        setCreated(value);
+        setTotpCode("");
+        void queryClient.invalidateQueries({ queryKey: orpc.server.enrollments.queryKey() });
+      },
+      onError: (error) => toast.error(error.message),
+    }),
   );
-}
+  const revoke = useMutation(
+    orpc.server.revokeEnrollment.mutationOptions({
+      onSuccess: (_value, variables) => {
+        toast.success("Enrollment revoked");
+        setCreated((current) => (current?.id === variables.id ? null : current));
+        void queryClient.invalidateQueries({ queryKey: orpc.server.enrollments.queryKey() });
+      },
+      onError: (error) => toast.error(error.message),
+    }),
+  );
+  const rotate = useMutation(
+    orpc.server.rotateJoinCredential.mutationOptions({
+      onSuccess: () => {
+        toast.success(`${role === "manager" ? "Manager" : "Worker"} join credential rotated`);
+        setTotpCode("");
+        setCreated(null);
+        void queryClient.invalidateQueries({ queryKey: orpc.server.enrollments.queryKey() });
+      },
+      onError: (error) => toast.error(error.message),
+    }),
+  );
 
-function CommandBlock({ command }: { command: string }) {
-  const [copied, setCopied] = useState(false);
+  const command = useMemo(() => {
+    if (!created) return null;
+    const url = `${window.location.origin}/api/node-enrollments/${created.id}/redeem`;
+    return `( set -e; script="$(curl -fsS -X POST '${url}' -H 'Authorization: Bearer ${created.credential}')"; printf '%s\\n' "$script" | sudo sh )`;
+  }, [created]);
 
-  const copy = () => {
-    void copyToClipboard(command).then((ok) => {
-      if (!ok) return;
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
+  const stepUpInput = {
+    role,
+    totpCode,
+    managerConfirmation: role === "manager" ? managerConfirmation : undefined,
   };
+  const canSubmit =
+    /^\d{6}(\d{2})?$/.test(totpCode) &&
+    (role !== "manager" || managerConfirmation === "ENROLL MANAGER");
 
   return (
-    <div className="relative rounded-md border bg-muted/50 p-3 pr-11 font-mono text-[12px] leading-relaxed text-foreground/90">
-      <code className="block break-all whitespace-pre-wrap">{command}</code>
-      <Button
-        type="button"
-        variant="outline"
-        size="icon-sm"
-        onClick={copy}
-        aria-label={copied ? "Copied" : "Copy command"}
-        title={copied ? "Copied" : "Copy command"}
-        className={cn(
-          "absolute top-2 right-2 size-7 bg-background shadow-sm",
-          copied && "text-success",
-        )}
+    <div className="flex flex-col gap-4">
+      <ToggleGroup
+        value={[role]}
+        onValueChange={(next) => {
+          const value = next[0];
+          if (value === "worker" || value === "manager") {
+            onRoleChange(value);
+            setCreated(null);
+          }
+        }}
+        className="self-start"
       >
-        <HugeiconsIcon
-          icon={copied ? Tick02Icon : Copy01Icon}
-          strokeWidth={2}
-          className="size-3.5"
-        />
-      </Button>
+        <ToggleGroupItem value="worker" aria-label="Worker enrollment">
+          Worker
+        </ToggleGroupItem>
+        <ToggleGroupItem value="manager" aria-label="Manager enrollment">
+          Manager
+        </ToggleGroupItem>
+      </ToggleGroup>
+
+      <StepUpForm
+        role={role}
+        totpCode={totpCode}
+        managerConfirmation={managerConfirmation}
+        canSubmit={canSubmit}
+        creating={create.isPending}
+        rotating={rotate.isPending}
+        onTotpCodeChange={setTotpCode}
+        onManagerConfirmationChange={setManagerConfirmation}
+        onCreate={() => create.mutate({ ...stepUpInput, ttlMinutes: 10 })}
+        onRotate={() => rotate.mutate(stepUpInput)}
+      />
+
+      {command && created ? (
+        <div className="grid gap-2">
+          <p className="text-xs text-muted-foreground">
+            Shown once. It expires {new Date(created.expiresAt).toLocaleTimeString()} and can enroll
+            one {role}. Completion rotates Docker&apos;s underlying {role} token.
+          </p>
+          <JoinCommandBlock command={command} />
+        </div>
+      ) : null}
+
+      <EnrollmentHistory
+        enrollments={enrollments.data ?? []}
+        revoking={revoke.isPending}
+        onRevoke={(id) => revoke.mutate({ id })}
+      />
     </div>
   );
 }

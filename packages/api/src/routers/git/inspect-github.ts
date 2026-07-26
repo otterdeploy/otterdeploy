@@ -9,6 +9,10 @@
  *     Bearer for Contents API calls. 5000 req/hr.
  *   - public-URL gitRepo (installationId is null) → anonymous request,
  *     60 req/hr per source IP.
+ *
+ * All outbound HTTP goes through `ghFetch` (packages/api/src/git/github-app.ts),
+ * which routes every request through the shared SSRF-hardened egress policy
+ * (packages/shared/src/egress-policy.ts) instead of calling `fetch` directly.
  */
 
 import { db } from "@otterdeploy/db";
@@ -17,7 +21,7 @@ import { gitRepo } from "@otterdeploy/db/schema";
 import { Result, TaggedError } from "better-result";
 import { eq } from "drizzle-orm";
 
-import { getInstallationToken } from "../../git/github-app";
+import { getInstallationToken, ghFetch } from "../../git/github-app";
 
 // Tagged so the oRPC handler can dispatch via `matchError` — same shape
 // as ProjectNotFoundError etc. in routers/project/errors.ts.
@@ -150,11 +154,22 @@ export async function ghHeaders(
 }
 
 /**
+ * Minimal response shape shared by both the real DOM `Response` and
+ * `ghFetch`'s egress-policy-wrapped return value — just enough for the
+ * rate-limit checks below, so callers on either side of the SSRF-hardened
+ * `ghFetch` migration can use these helpers unchanged.
+ */
+interface RateLimitResponseLike {
+  status: number;
+  headers: { get(name: string): string | null };
+}
+
+/**
  * Detect a GitHub rate-limit response. The strongest signal is the
  * `X-RateLimit-Remaining: 0` header on a 403; we fall back to a body
  * substring match for older edge cases.
  */
-export function isRateLimited(res: Response, body: string): boolean {
+export function isRateLimited(res: RateLimitResponseLike, body: string): boolean {
   if (res.status === 403 || res.status === 429) {
     const remaining = res.headers.get("X-RateLimit-Remaining");
     if (remaining === "0") return true;
@@ -164,7 +179,7 @@ export function isRateLimited(res: Response, body: string): boolean {
   return false;
 }
 
-export function rateLimitReset(res: Response): number | null {
+export function rateLimitReset(res: RateLimitResponseLike): number | null {
   const v = res.headers.get("X-RateLimit-Reset");
   if (!v) return null;
   const n = Number.parseInt(v, 10);
@@ -190,7 +205,7 @@ async function fetchFullTree(
   );
   url.searchParams.set("recursive", "1");
   const headers = await ghHeaders(binding.installationGithubId);
-  const res = await fetch(url, { headers });
+  const res = await ghFetch(url.toString(), { headers });
   const body = await res.text();
   if (!res.ok) {
     if (isRateLimited(res, body)) {
@@ -257,7 +272,7 @@ export async function fetchPackageJson(
   url.searchParams.set("ref", binding.defaultBranch);
   const headers = await ghHeaders(binding.installationGithubId);
   headers.Accept = "application/vnd.github.raw+json";
-  const res = await fetch(url, { headers });
+  const res = await ghFetch(url.toString(), { headers });
   if (!res.ok) {
     pkgCache.set(key, { value: null, expiresAt: Date.now() + CACHE_TTL_MS });
     return null;
@@ -280,7 +295,7 @@ export async function fetchTextFile(binding: RepoBinding, path: string): Promise
   url.searchParams.set("ref", binding.defaultBranch);
   const headers = await ghHeaders(binding.installationGithubId);
   headers.Accept = "application/vnd.github.raw+json";
-  const res = await fetch(url, { headers });
+  const res = await ghFetch(url.toString(), { headers });
   if (!res.ok) return null;
   return await res.text();
 }

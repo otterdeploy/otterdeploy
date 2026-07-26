@@ -1,11 +1,16 @@
 # Edge Access Logs
 
-**Status:** Implemented — live ring buffer + DB persistence (Phase 2). GeoIP is a wired stub
-(needs a MaxMind database); upstream/cache fields await a `reverse_proxy`-logging / cache layer.
+**Status:** Implemented — live ring buffer + DB persistence (Phase 2). **GeoIP is no longer a
+stub:** `edge-logs/geo.ts` is zero-config — with `EDGE_LOG_GEOIP_DB` unset it downloads the
+free, no-key DB-IP country-lite database to `<DATA_ROOT>/geoip`, opens it once at startup, and
+`ingest.ts` stamps a country on every access log via a sync lookup. Point
+`EDGE_LOG_GEOIP_DB` at your own `.mmdb` to skip the download; every failure path is
+best-effort and leaves ingest working. Upstream/cache fields still await a
+`reverse_proxy`-logging / cache layer.
 **Phase 3 (operational log plane — cert/ACME + upstream-error events) is implemented as a live tail
 (no persistence yet); promoting cert events into per-domain state is still future work.**
 
-**Last verified:** 2026-06-10
+**Last verified:** 2026-07-26
 
 **TL;DR:** A live tail of every HTTP request that hit the Caddy edge proxy — method, status,
 host, path, latency, client IP, user-agent, TLS — with a status-class volume histogram, filters
@@ -93,8 +98,9 @@ aggregates into SQL (`percentile_cont`) is the next step if volume demands it.
 
 ### Remaining Phase 2
 
-- **GeoIP** — `geo.ts` is a wired stub (`lookupCountry` → null); dropping in a MaxMind GeoLite2
-  reader (gated on a DB path) lights up the `country` flag end-to-end.
+- ~~**GeoIP**~~ — done. `geo.ts` resolves a MaxMind-format DB (zero-config download of DB-IP
+  country-lite, or `EDGE_LOG_GEOIP_DB` for your own), opens it once via `initGeo()`, and
+  `ingest.ts` stamps `country` per line through the sync `lookupCountry()`.
 - **Upstream / cache** — `reverse_proxy` upstream logging + a cache layer (souin) to populate
   `upstream` and a `cache HIT/MISS` field (plumbed, currently null/absent).
 - **Per-minute rollups** — pre-aggregate counts/percentiles so high-volume 7d windows don't scan

@@ -1,4 +1,9 @@
+import type { RoutePolicy } from "@otterdeploy/shared/route-policy";
+
+import { DEFAULT_ROUTE_POLICY, routePolicySchema } from "@otterdeploy/shared/route-policy";
+
 import { buildLayer4Block, buildLayer4SiteBlocks, sanitizeMatcherName } from "./layer4";
+import { assertSafeRoute } from "./route-validation";
 
 // Re-exported so existing `./builder` import sites keep working after the
 // layer4 fragments moved to ./layer4.
@@ -22,10 +27,8 @@ export interface ProxyRouteInput {
    *  the feature keep compiling; absent ⇒ unprotected. See
    *  docs/designs/deployment-protection.md. */
   protected?: boolean;
-  /** Operator-authored directives spliced inside this route's site block
-   *  (http only) — e.g. `header`, `encode`, `rate_limit`. Indentation is
-   *  normalized on emit; null/absent ⇒ none. */
-  customDirectives?: string | null;
+  /** Allowlisted behavior rendered by trusted builder code. */
+  routePolicy?: RoutePolicy;
   /** Operator-uploaded certificate to serve for this domain instead of
    *  ACME / tls internal. Paths are CONTAINER paths under the `/etc/caddy`
    *  mount, set by the reconcile layer only for certs whose files were
@@ -33,27 +36,6 @@ export interface ProxyRouteInput {
    *  references a file the edge can't read. Absent ⇒ normal ACME/internal
    *  behaviour. */
   customCert?: { certPath: string; keyPath: string } | null;
-}
-
-/** Re-indent an operator-authored directive block to sit one level inside a
- *  site block. Caddy is whitespace-insensitive, so this is purely cosmetic
- *  (keeps the rendered + viewer output tidy): dedent by the block's common
- *  leading indentation (preserving relative nesting), then prefix every
- *  non-blank line with `depth` tabs. */
-function indentDirectives(raw: string, depth = 1): string {
-  const tab = "\t".repeat(depth);
-  const lines = raw
-    .replace(/\r\n/g, "\n")
-    .split("\n")
-    .map((l) => l.replace(/\s+$/, ""));
-  const indents = lines
-    .filter((l) => l.trim().length > 0)
-    .map((l) => l.match(/^[\t ]*/)?.[0].length ?? 0);
-  const common = indents.length ? Math.min(...indents) : 0;
-  return lines
-    .map((l) => (l.trim().length === 0 ? "" : tab + l.slice(common)))
-    .join("\n")
-    .replace(/\n+$/, "");
 }
 
 /** Reserved, ungated path prefix on every protected deployment domain.
@@ -143,7 +125,49 @@ export interface CaddyfileOptions {
   acmeEmail?: string | null;
 }
 
+function hstsValue(policy: RoutePolicy): string | null {
+  if (policy.hsts === "off") return null;
+  if (policy.hsts === "one-year") return "max-age=31536000";
+  if (policy.hsts === "one-year-subdomains") return "max-age=31536000; includeSubDomains";
+  return "max-age=31536000; includeSubDomains; preload";
+}
+
+function policyHeaderLines(policy: RoutePolicy): string[] {
+  const headers: Array<[string, string | null]> = [
+    ["Strict-Transport-Security", hstsValue(policy)],
+    ["X-Content-Type-Options", policy.contentTypeNosniff ? "nosniff" : null],
+    [
+      "X-Frame-Options",
+      policy.frameOptions === "off" ? null : policy.frameOptions.toUpperCase(),
+    ],
+    ["Referrer-Policy", policy.referrerPolicy === "off" ? null : policy.referrerPolicy],
+    ["Content-Security-Policy", policy.contentSecurityPolicy],
+  ];
+  const configured = headers.filter((entry): entry is [string, string] => entry[1] !== null);
+  if (configured.length === 0) return [];
+  return [
+    "\theader {",
+    ...configured.map(([name, value]) => `\t\t${name} ${JSON.stringify(value)}`),
+    "\t}",
+  ];
+}
+
+function routePolicyLines(input: unknown): string[] {
+  const parsed = routePolicySchema.safeParse(input);
+  const policy = parsed.success ? parsed.data : DEFAULT_ROUTE_POLICY;
+  const lines: string[] = [];
+  if (policy.compression === "gzip") lines.push("\tencode gzip");
+  if (policy.compression === "zstd") lines.push("\tencode zstd");
+  if (policy.compression === "gzip-zstd") lines.push("\tencode zstd gzip");
+  if (policy.maxRequestBodyMb !== null) {
+    lines.push("\trequest_body {", `\t\tmax_size ${policy.maxRequestBodyMb}MB`, "\t}");
+  }
+  lines.push(...policyHeaderLines(policy));
+  return lines;
+}
+
 export function buildHttpBlock(route: ProxyRouteInput, options: HttpBlockOptions = {}): string {
+  assertSafeRoute(route);
   const lines = [`${route.domain} {`];
   // Operator-uploaded cert wins over both ACME and `tls internal` — Caddy
   // serves exactly this pair and never tries to manage the domain itself.
@@ -210,14 +234,7 @@ export function buildHttpBlock(route: ProxyRouteInput, options: HttpBlockOptions
     lines.push(`\treverse_proxy ${route.upstreamHost}:${route.upstreamPort}`);
   }
 
-  // Operator-authored directives, spliced at the site-block level. Caddy
-  // orders handler directives by its built-in directive order regardless of
-  // source position, so placement here is safe for the common cases (header,
-  // encode, rate_limit, basic_auth). A parse error is caught by the per-
-  // project /adapt pass in the reconciler.
-  if (route.customDirectives && route.customDirectives.trim().length > 0) {
-    lines.push(indentDirectives(route.customDirectives));
-  }
+  lines.push(...routePolicyLines(route.routePolicy));
 
   lines.push("}");
   return lines.join("\n");
@@ -299,12 +316,9 @@ export function buildCaddyfile(
     /** false ⇒ emit `auto_https disable_redirects` (operator runs HTTP→HTTPS
      *  elsewhere). Undefined/true keeps Caddy's default auto-redirect. */
     httpsAutoRedirect?: boolean | null;
-    /** Operator-authored, already-validated standalone Caddyfile blocks
-     *  (one entry per project that has custom config), appended verbatim
-     *  after the generated site blocks. */
-    customBlocks?: string[];
   } = {},
 ): string {
+  for (const route of routes) assertSafeRoute(route);
   const httpRoutes = routes.filter((r) => r.type === "http");
   const layer4Routes = routes.filter((r) => r.type === "layer4");
   // A custom-cert route never triggers ACME (Caddy serves the uploaded pair),
@@ -323,13 +337,6 @@ export function buildCaddyfile(
   lines.push(...buildHttpSiteBlocks(httpRoutes, options));
   lines.push(...buildLayer4SiteBlocks(layer4Routes));
 
-  for (const block of options.customBlocks ?? []) {
-    const trimmed = block.trim();
-    if (trimmed.length === 0) continue;
-    lines.push("");
-    lines.push(trimmed);
-  }
-
   return lines.join("\n") + "\n";
 }
 
@@ -340,16 +347,13 @@ export function buildProjectFragment(
     authzUpstream?: string;
     edgeLogSink?: string;
     crowdsec?: CrowdsecConfig;
-    /** Operator-authored standalone Caddyfile blocks for this project,
-     *  appended after the generated blocks and validated together with them. */
-    customConfig?: string | null;
   } = {},
 ): string {
+  for (const route of routes) assertSafeRoute(route);
   const httpRoutes = routes.filter((r) => r.type === "http");
   const layer4Routes = routes.filter((r) => r.type === "layer4");
-  const customConfig = options.customConfig?.trim() ?? "";
 
-  if (httpRoutes.length === 0 && layer4Routes.length === 0 && customConfig.length === 0) {
+  if (httpRoutes.length === 0 && layer4Routes.length === 0) {
     return "";
   }
 
@@ -366,11 +370,6 @@ export function buildProjectFragment(
   });
   lines.push(...buildHttpSiteBlocks(httpRoutes, options));
   lines.push(...buildLayer4SiteBlocks(layer4Routes));
-
-  if (customConfig.length > 0) {
-    lines.push("");
-    lines.push(customConfig);
-  }
 
   return lines.join("\n") + "\n";
 }

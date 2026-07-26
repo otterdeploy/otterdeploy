@@ -115,6 +115,9 @@ const serviceDomainSchema = z.object({
   certCheckedAt: z.string().nullable(),
   usesAcme: z.boolean(),
   protected: z.boolean(),
+  ownershipVerified: z.boolean(),
+  verifyRecord: z.string().nullable(),
+  verifyToken: z.string().nullable(),
   // The IP to point an A record at (our server). Null when unknown (dev).
   dnsTarget: z.string().nullable(),
 });

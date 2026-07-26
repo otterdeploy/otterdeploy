@@ -44,6 +44,10 @@ export const blocklist = pgTable(
     lastStatus: text("last_status").$type<"ok" | "error" | "pending">(),
     lastError: text("last_error"),
     lastCount: integer("last_count"),
+    /** Currently-enforced blue/green CrowdSec scenario. A sync imports the
+     *  inactive slot before deleting this one, so a bad fetch/import never
+     *  removes the last known-good rules. */
+    activeScenario: text("active_scenario"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

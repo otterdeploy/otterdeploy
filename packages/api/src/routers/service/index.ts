@@ -2,6 +2,7 @@ import type { DeploymentId } from "@otterdeploy/shared/id";
 
 import { matchError } from "better-result";
 
+import { recordAuditChanges } from "../../audit/changes";
 import { projectScopedProcedure, requirePermission } from "../..";
 import {
   createService,
@@ -90,6 +91,16 @@ export const serviceRouter = {
       context.log.set({
         target: { type: "resource", id: input.resourceId, projectId: input.projectId },
       });
+      // Snapshot first: `service.update` covers replicas, health checks, ports,
+      // build config and source, and a row saying only "the service was
+      // updated" answers none of the questions asked of it afterwards. Read
+      // failures are ignored — an update the caller is entitled to must not
+      // fail because the audit diff could not be built.
+      const before = await getService({
+        projectId: input.projectId,
+        resourceId: input.resourceId,
+        organizationId: context.activeOrganizationId,
+      });
       const result = await updateService(
         {
           ...input,
@@ -108,6 +119,9 @@ export const serviceRouter = {
           RefParseError: () => errors.INVALID_INPUT(),
           RefUnknownVarError: () => errors.INVALID_INPUT(),
         });
+      }
+      if (before.isOk()) {
+        recordAuditChanges(context, { before: before.value, after: result.value });
       }
       return result.value;
     },

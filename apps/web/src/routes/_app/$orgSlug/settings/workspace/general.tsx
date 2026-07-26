@@ -1,7 +1,9 @@
 /**
- * Workspace → General — the workspace-scoped configuration: base domain +
- * Cloudflare hookup. Install-wide settings (control-plane domain, public IP,
- * edge defaults, email transport) live under Instance → General.
+ * Workspace → Domains (od-u63.7 label-only rename; path unchanged — this file
+ * still lives at `/settings/workspace/general`) — the workspace-scoped
+ * configuration: base domain + Cloudflare hookup. Install-wide settings
+ * (control-plane domain, public IP, edge defaults, email transport) live
+ * under Instance.
  *
  * Each card is a self-contained component under `$orgSlug/-components/`.
  */
@@ -14,7 +16,7 @@ import { DomainCard } from "../../-components/settings-domain";
 import { CloudflareCard } from "../../-components/settings-cloudflare";
 
 export const Route = createFileRoute("/_app/$orgSlug/settings/workspace/general")({
-  staticData: { crumb: "General" },
+  staticData: { crumb: "Domains" },
   component: SettingsRoute,
 });
 
@@ -23,7 +25,7 @@ function SettingsRoute() {
   return (
     <Page width="narrow">
       <PageHeader
-        title="General"
+        title="Domains"
         description={
           <>
             Workspace-wide configuration for{" "}

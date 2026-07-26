@@ -1,5 +1,4 @@
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
 import type { CliClient } from "../lib/resolve";
 
@@ -7,6 +6,31 @@ import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";
 import { configExists } from "../config-file";
 import { resolveProject } from "../lib/resolve";
+import { dim, note, padEnd, paint } from "../lib/ui";
+
+const CLIENT_ERROR = 400;
+const SERVER_ERROR = 500;
+const REDIRECT = 300;
+
+/**
+ * An HTTP status, coloured by class. This is the one field people actually scan
+ * an access log for, so it carries the only hue on the line.
+ */
+function statusCell(status: number): string {
+  const text = String(status);
+  if (status >= SERVER_ERROR) return paint("danger", text);
+  if (status >= CLIENT_ERROR) return paint("warn", text);
+  if (status >= REDIRECT) return dim(text);
+  return paint("ok", text);
+}
+
+/** A log level, coloured the same way statuses are. */
+function levelCell(level: string): string {
+  const text = padEnd(level, 5);
+  if (level === "error" || level === "fatal") return paint("danger", text);
+  if (level === "warn") return paint("warn", text);
+  return dim(text);
+}
 
 interface EdgeScope {
   client: CliClient;
@@ -48,7 +72,7 @@ const tailCommand = defineCommand({
       host: args.host,
     });
     if (!args.json) {
-      consola.info(
+      note(
         `Tailing edge access logs (${scopeLabel(projectId, args.host)}) — Ctrl-C to stop.`,
       );
     }
@@ -72,8 +96,10 @@ const tailCommand = defineCommand({
           process.stdout.write(`${JSON.stringify(line)}\n`);
           continue;
         }
+        // Kept as one greppable line — only the status and the trailing
+        // latency are styled, so `| grep ' 500 '` still works.
         process.stdout.write(
-          `${line.ts}  ${line.status}  ${line.method.padEnd(7)} ${line.host}${line.path}  ${Math.round(line.latencyMs)}ms\n`,
+          `${dim(String(line.ts))}  ${statusCell(line.status)}  ${padEnd(line.method, 7)} ${line.host}${line.path}  ${dim(`${Math.round(line.latencyMs)}ms`)}\n`,
         );
       }
     } catch (error) {
@@ -98,7 +124,7 @@ const eventsCommand = defineCommand({
       host: args.host,
     });
     if (!args.json) {
-      consola.info(`Tailing edge events (${scopeLabel(projectId, args.host)}) — Ctrl-C to stop.`);
+      note(`Tailing edge events (${scopeLabel(projectId, args.host)}) — Ctrl-C to stop.`);
     }
 
     // Exit on Ctrl-C: installing a SIGINT listener suppresses the default
@@ -118,9 +144,9 @@ const eventsCommand = defineCommand({
           process.stdout.write(`${JSON.stringify(event)}\n`);
           continue;
         }
-        const suffix = event.error ? ` — ${event.error}` : "";
+        const suffix = event.error ? paint("danger", ` — ${event.error}`) : "";
         process.stdout.write(
-          `${event.ts}  ${event.level.padEnd(5)}  ${event.category.padEnd(8)} ${event.host ?? "-"}  ${event.msg}${suffix}\n`,
+          `${dim(String(event.ts))}  ${levelCell(event.level)}  ${dim(padEnd(event.category, 8))} ${event.host ?? dim("-")}  ${event.msg}${suffix}\n`,
         );
       }
     } catch (error) {

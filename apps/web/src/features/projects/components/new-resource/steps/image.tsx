@@ -16,6 +16,8 @@
  * pipeline polls digests or verifies signatures, so they'd be fake.
  */
 
+import { useEffect, useRef } from "react";
+
 import { useLiveQuery } from "@tanstack/react-db";
 import { useStore } from "@tanstack/react-form";
 
@@ -28,6 +30,7 @@ import { cn } from "@/shared/lib/utils";
 import { useFormContext } from "../form-context";
 import { SectionHeader, builderCardClass, builderCardActiveClass } from "../form-primitives";
 import { I } from "../icons";
+import { imageBasename, knownImagePort } from "../image-defaults";
 import { ImageTagBrowser } from "./image-tags";
 
 const ANONYMOUS = {
@@ -45,6 +48,41 @@ export function StepImage() {
   const tag = useStore(form.store, (s) => s.values.tag as string);
 
   const { data: registries } = useLiveQuery((q) => q.from({ r: registryCollection }));
+
+  // Image-driven defaults, never clobbering a user edit (same contract as
+  // useDetectionDefaults): the service name follows the image's basename
+  // ("nginx", not the source kind "docker"), and the port fills only for
+  // well-known official images whose EXPOSE is a lookup. We overwrite a
+  // value only while it's still empty, the kind id, or our own last auto
+  // value — anything else is the operator's and is left alone.
+  const auto = useRef<{ name: string; port: number }>({ name: "", port: 0 });
+  useEffect(() => {
+    const base = imageBasename(image);
+    if (!base) return;
+    const currentName = form.getFieldValue("name");
+    if (currentName === "" || currentName === "docker" || currentName === auto.current.name) {
+      form.setFieldValue("name", base);
+      auto.current.name = base;
+    }
+    const port = knownImagePort(image);
+    const ports = form.getFieldValue("ports");
+    const only = ports.length === 1 ? ports[0] : undefined;
+    if (
+      port != null &&
+      only &&
+      (only.port === 0 || only.port === auto.current.port) &&
+      only.port !== port
+    ) {
+      form.setFieldValue("ports", [{ ...only, port }]);
+      auto.current.port = port;
+    } else if (port == null && only && auto.current.port !== 0 && only.port === auto.current.port) {
+      // Image changed from a known one to an unknown one and the port is
+      // still our previous auto-fill — empty it rather than keep a stale
+      // guess from a different image.
+      form.setFieldValue("ports", [{ ...only, port: 0 }]);
+      auto.current.port = 0;
+    }
+  }, [image, form]);
 
   const options: Array<{
     id: string;
@@ -69,7 +107,7 @@ export function StepImage() {
         title="Container registry"
         sub="Used to browse tags below. At deploy time the pull credential is matched by the image's host automatically."
       />
-      <div className="mt-3 grid grid-cols-2 gap-2.5">
+      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         {options.map((r) => (
           <button
             key={r.id || "anon"}

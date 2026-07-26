@@ -47,34 +47,36 @@ export function ScopePicker({
         {API_SCOPES.map((scope) => {
           const selectedActions = new Set(value[scope.resource] ?? []);
           return (
-          <div key={scope.resource} className="flex items-center gap-3 px-3 py-2.5">
-            <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-medium">{scope.label}</div>
-              <div className="truncate text-[11px] text-muted-foreground">{scope.description}</div>
-            </div>
-            {/* Fixed two-column grid so every row's first action lines up
+            <div key={scope.resource} className="flex items-center gap-3 px-3 py-2.5">
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] font-medium">{scope.label}</div>
+                <div className="truncate text-[11px] text-muted-foreground">
+                  {scope.description}
+                </div>
+              </div>
+              {/* Fixed two-column grid so every row's first action lines up
                 under the next, regardless of how many actions it has. */}
-            <div className="grid shrink-0 grid-cols-[5rem_5rem] gap-x-2">
-              {scope.actions.map((action) => {
-                const id = `scope-${scope.resource}-${action}`;
-                const checked = selectedActions.has(action);
-                return (
-                  <label
-                    key={action}
-                    htmlFor={id}
-                    className="flex cursor-pointer items-center gap-1.5 text-[12px] text-muted-foreground select-none"
-                  >
-                    <Checkbox
-                      id={id}
-                      checked={checked}
-                      onCheckedChange={() => toggle(scope.resource, action)}
-                    />
-                    {action}
-                  </label>
-                );
-              })}
+              <div className="grid shrink-0 grid-cols-[5rem_5rem] gap-x-2">
+                {scope.actions.map((action) => {
+                  const id = `scope-${scope.resource}-${action}`;
+                  const checked = selectedActions.has(action);
+                  return (
+                    <label
+                      key={action}
+                      htmlFor={id}
+                      className="flex cursor-pointer items-center gap-1.5 text-[12px] text-muted-foreground select-none"
+                    >
+                      <Checkbox
+                        id={id}
+                        checked={checked}
+                        onCheckedChange={() => toggle(scope.resource, action)}
+                      />
+                      {action}
+                    </label>
+                  );
+                })}
+              </div>
             </div>
-          </div>
           );
         })}
       </div>

@@ -14,11 +14,7 @@ import type { DeploymentRow } from "./deployments";
  * the DB row stays at its lifecycle status, so they live here at the derivation
  * boundary rather than in the `deployment_status` DB enum.
  */
-export type DerivedDeploymentStatus =
-  | DeploymentRow["status"]
-  | "crashed"
-  | "starting"
-  | "paused";
+export type DerivedDeploymentStatus = DeploymentRow["status"] | "crashed" | "starting" | "paused";
 
 /** The slice of a live container/task the derivation needs. Swarm tasks carry
  *  exitCode on failed tasks; plain-docker fills exitCode/restartCount/oomKilled
@@ -120,12 +116,18 @@ function diedAbnormally(i: InstanceGlimpse): boolean {
  * live/in-flight when a newer deploy took over" — never a swallowed failure,
  * which would erase the one thing you want to know about an old deployment (did
  * it succeed or fail?). A failed deploy stays failed forever.
+ *
+ * `cancelled` is an outcome by the same argument and is preserved ahead of
+ * everything else: someone stopped this build on purpose, and rewriting that to
+ * `superseded` (or to `failed`, if docker left failed tasks behind from the
+ * container we killed) would erase the answer to "why did this stop?".
  */
 function deriveReplacedStatus(
   stored: DeploymentRow["status"],
   failedCount: number,
   crashLooping: boolean,
 ): DerivedDeploymentStatus {
+  if (stored === "cancelled") return "cancelled";
   return stored === "failed" || failedCount > 0 || crashLooping ? "failed" : "superseded";
 }
 
@@ -148,27 +150,16 @@ function deriveZeroInstanceStatus(
   return stored;
 }
 
-export function deriveDeploymentStatus(
-  stored: DeploymentRow["status"],
-  isLatest: boolean,
-  instances: InstanceGlimpse[],
-  createdAt: Date,
-  buildActive: boolean,
-  paused: boolean,
-): DerivedDeploymentStatus {
-  // A paused service is scaled to zero on purpose. That overrides the runtime
-  // status of its current deployment — otherwise the last-known "running"
-  // sticks (0 tasks derives back to the stored status) and the card shows a
-  // green RUNNING badge over a service the operator explicitly stopped. Mirrors
-  // the service panel, where `pausedReplicas` overrides the runtime status.
-  // Only the latest row is "paused"; historical rows keep their real outcome.
-  if (isLatest && paused) return "paused";
-  if (instances.length === 0) {
-    return deriveZeroInstanceStatus(stored, isLatest, createdAt, buildActive);
-  }
+/** The task-state signals every live-instance decision below is made from. */
+interface TaskSignals {
+  hasRunning: boolean;
+  hasBuilding: boolean;
+  failedCount: number;
+  crashLooping: boolean;
+}
+
+function summarizeTasks(instances: InstanceGlimpse[]): TaskSignals {
   const taskStates = instances.map((i) => i.state);
-  const hasRunning = taskStates.some((s) => s === "running");
-  const hasBuilding = taskStates.some((s) => BUILDING_STATES.has(s));
   const failedCount = taskStates.reduce((n, s) => (FAILED_STATES.has(s) ? n + 1 : n), 0);
   // Crash-loop signal, unified across runtimes. Swarm schedules a fresh (failed)
   // task per restart attempt, so repeated failures pile up (failedCount). Plain
@@ -176,7 +167,24 @@ export function deriveDeploymentStatus(
   // daemon reports as `restarting` — a single such instance already means the
   // RestartPolicy is actively bouncing a crashing container.
   const restartingNow = taskStates.some((s) => s === "restarting");
-  const crashLooping = failedCount >= CRASH_LOOP_FAILURE_THRESHOLD || restartingNow;
+
+  return {
+    hasRunning: taskStates.some((s) => s === "running"),
+    hasBuilding: taskStates.some((s) => BUILDING_STATES.has(s)),
+    failedCount,
+    crashLooping: failedCount >= CRASH_LOOP_FAILURE_THRESHOLD || restartingNow,
+  };
+}
+
+/** The decision once we know at least one task exists for this deployment. */
+function deriveLiveStatus(
+  stored: DeploymentRow["status"],
+  isLatest: boolean,
+  instances: InstanceGlimpse[],
+  signals: TaskSignals,
+): DerivedDeploymentStatus {
+  const { hasRunning, hasBuilding, failedCount, crashLooping } = signals;
+
   if (hasRunning) {
     // Up right now — but if it's also racked up repeated failures it keeps
     // coming up and dying (crash loop, e.g. a bad env var). Surface that
@@ -212,4 +220,33 @@ export function deriveDeploymentStatus(
   if (failedCount > 0) return "failed";
   // Fallthrough: tasks exist but in unknown state. Honour the DB row.
   return stored;
+}
+
+export function deriveDeploymentStatus(
+  stored: DeploymentRow["status"],
+  isLatest: boolean,
+  instances: InstanceGlimpse[],
+  createdAt: Date,
+  buildActive: boolean,
+  paused: boolean,
+): DerivedDeploymentStatus {
+  // Cancelled is terminal by operator intent and outranks every live signal,
+  // including `paused`. Cancelling kills the helper container mid-build, which
+  // routinely leaves failed tasks behind — deriving from those would relabel a
+  // deliberate stop as `failed` (or, on a paused service, as `paused`, implying
+  // it might still come back). Nothing observed after the fact can change the
+  // fact that a human stopped this deployment.
+  if (stored === "cancelled") return "cancelled";
+
+  // A paused service is scaled to zero on purpose. That overrides the runtime
+  // status of its current deployment — otherwise the last-known "running"
+  // sticks (0 tasks derives back to the stored status) and the card shows a
+  // green RUNNING badge over a service the operator explicitly stopped. Mirrors
+  // the service panel, where `pausedReplicas` overrides the runtime status.
+  // Only the latest row is "paused"; historical rows keep their real outcome.
+  if (isLatest && paused) return "paused";
+  if (instances.length === 0) {
+    return deriveZeroInstanceStatus(stored, isLatest, createdAt, buildActive);
+  }
+  return deriveLiveStatus(stored, isLatest, instances, summarizeTasks(instances));
 }

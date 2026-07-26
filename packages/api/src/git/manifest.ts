@@ -34,8 +34,8 @@ import { db } from "@otterdeploy/db";
 import { gitProvider } from "@otterdeploy/db/schema";
 import { and, eq } from "drizzle-orm";
 
-import { encryptSecret } from "../lib/crypto";
-import { apiBaseUrlForHost } from "./github-app";
+import { encryptForDomain } from "../lib/crypto";
+import { apiBaseUrlForHost, ghFetch } from "./github-app";
 
 type OrgId = OrganizationId;
 
@@ -174,8 +174,11 @@ export async function completeManifestExchange(opts: {
   const host = opts.host ?? "github.com";
   const apiBase = apiBaseUrlForHost(host);
 
-  // No auth needed — the `code` is the auth, and it's single-use.
-  const res = await fetch(`${apiBase}/app-manifests/${opts.code}/conversions`, {
+  // No auth needed — the `code` is the auth, and it's single-use. `host`
+  // (via apiBase) may be a self-hosted GHE host the operator just typed in
+  // — goes through the shared egress policy the same as every other
+  // GitHub API call (see ghFetch in ./github-app.ts).
+  const res = await ghFetch(`${apiBase}/app-manifests/${opts.code}/conversions`, {
     method: "POST",
     headers: {
       Accept: "application/vnd.github+json",
@@ -189,9 +192,9 @@ export async function completeManifestExchange(opts: {
   const json = (await res.json()) as ManifestConversionResponse;
 
   const [clientSecretCt, webhookSecretCt, privateKeyCt] = await Promise.all([
-    encryptSecret(json.client_secret),
-    encryptSecret(json.webhook_secret),
-    encryptSecret(json.pem),
+    encryptForDomain(json.client_secret, "git-secrets"),
+    encryptForDomain(json.webhook_secret, "git-secrets"),
+    encryptForDomain(json.pem, "git-secrets"),
   ]);
 
   // Upsert by (orgId, kind=github) — the unique index. An org has at

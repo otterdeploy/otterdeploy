@@ -10,34 +10,18 @@ import { Result } from "better-result";
 
 import type { OrgRef } from "../scopes";
 
-import { decryptSecret, encryptSecret } from "../../lib/crypto";
-import { missingConfigKeys, missingSecret } from "./destination-config";
-import {
-  BackupNotFoundError,
-  DestinationConfigInvalidError,
-  DestinationInUseError,
-  DestinationNotFoundError,
-  DestinationTestFailedError,
-} from "./errors";
+import { BackupNotFoundError } from "./errors";
 import {
   type BackupRow,
-  type DestinationRow,
   type DestinationView,
   type ScheduleRow,
-  countDestinationReferences,
-  createDestinationRecord,
-  deleteDestinationRecord,
   getBackupInOrg,
-  getDestinationWithSecret,
   listBackupsByOrg,
-  listDestinationsByOrg,
   listSchedulesByOrg,
   resolveDestinationNames,
-  updateDestinationRecord,
 } from "./queries";
 
 type BackupKind = "database" | "volume";
-type DestinationType = "s3" | "local" | "sftp";
 
 /** The mutation response shape — destination view plus computed usage. */
 export type DestinationResult = DestinationView & { usedBytes: number };
@@ -78,162 +62,14 @@ export async function scheduleDestinationNames(
   });
 }
 
-export async function listDestinations(input: OrgRef): Promise<DestinationRow[]> {
-  return listDestinationsByOrg(input.organizationId);
-}
-
-// Secret creds are JSON-serialized then AES-GCM encrypted at rest (registry
-// crypto). Empty/undefined → no secret stored (e.g. `local` destinations).
-async function encryptDestinationSecret(
-  secret: Record<string, string> | undefined,
-): Promise<string | null> {
-  if (!secret || Object.keys(secret).length === 0) return null;
-  return encryptSecret(JSON.stringify(secret));
-}
-
-export async function createDestination(
-  input: OrgRef & {
-    name: string;
-    type: DestinationType;
-    config: Record<string, unknown>;
-    secret?: Record<string, string>;
-  },
-): Promise<Result<DestinationResult, DestinationConfigInvalidError>> {
-  const missing = missingConfigKeys(input.type, input.config);
-  if (missing.length > 0) {
-    return Result.err(
-      new DestinationConfigInvalidError({
-        reason: `missing required config: ${missing.join(", ")}`,
-      }),
-    );
-  }
-  if (missingSecret(input.type, input.secret)) {
-    return Result.err(new DestinationConfigInvalidError({ reason: "missing credentials" }));
-  }
-  const encryptedSecret = await encryptDestinationSecret(input.secret);
-  const row = await createDestinationRecord({
-    organizationId: input.organizationId,
-    name: input.name,
-    type: input.type,
-    config: input.config,
-    encryptedSecret,
-  });
-  return Result.ok({ ...row, usedBytes: 0 });
-}
-
-export async function updateDestination(
-  input: OrgRef & {
-    id: BackupDestinationId;
-    name?: string;
-    config?: Record<string, unknown>;
-    secret?: Record<string, string>;
-  },
-): Promise<Result<DestinationResult, DestinationNotFoundError | DestinationConfigInvalidError>> {
-  if (input.config) {
-    const existing = await getDestinationWithSecret({
-      organizationId: input.organizationId,
-      id: input.id,
-    });
-    if (!existing) {
-      return Result.err(new DestinationNotFoundError({ destinationId: input.id }));
-    }
-    const missing = missingConfigKeys(existing.type, input.config);
-    if (missing.length > 0) {
-      return Result.err(
-        new DestinationConfigInvalidError({
-          reason: `missing required config: ${missing.join(", ")}`,
-        }),
-      );
-    }
-  }
-  const encryptedSecret = await encryptDestinationSecret(input.secret);
-  const row = await updateDestinationRecord({
-    organizationId: input.organizationId,
-    id: input.id,
-    name: input.name,
-    config: input.config,
-    // Only overwrite the secret when a non-empty one was supplied.
-    encryptedSecret: encryptedSecret ?? undefined,
-  });
-  if (!row) {
-    return Result.err(new DestinationNotFoundError({ destinationId: input.id }));
-  }
-  return Result.ok({ ...row, usedBytes: 0 });
-}
-
-export async function deleteDestination(
-  input: OrgRef & { id: BackupDestinationId },
-): Promise<Result<{ ok: true }, DestinationNotFoundError | DestinationInUseError>> {
-  const refs = await countDestinationReferences({
-    organizationId: input.organizationId,
-    id: input.id,
-  });
-  if (refs > 0) {
-    return Result.err(new DestinationInUseError({ destinationId: input.id, references: refs }));
-  }
-  const deleted = await deleteDestinationRecord({
-    organizationId: input.organizationId,
-    id: input.id,
-  });
-  if (!deleted) {
-    return Result.err(new DestinationNotFoundError({ destinationId: input.id }));
-  }
-  return Result.ok({ ok: true });
-}
-
-/**
- * Validates a stored destination credential: required config keys are present
- * and the encrypted secret decrypts cleanly. A failed validation is a typed
- * error (`DestinationTestFailedError`), not a success payload. This is a
- * structural check, not a live connectivity probe — real head-bucket/list
- * lands with the execution engine once an S3 client exists.
- */
-export async function testDestination(
-  input: OrgRef & { id: BackupDestinationId },
-): Promise<Result<{ message: string }, DestinationNotFoundError | DestinationTestFailedError>> {
-  const row = await getDestinationWithSecret({
-    organizationId: input.organizationId,
-    id: input.id,
-  });
-  if (!row) {
-    return Result.err(new DestinationNotFoundError({ destinationId: input.id }));
-  }
-
-  const missing = missingConfigKeys(row.type, row.config);
-  if (missing.length > 0) {
-    return Result.err(
-      new DestinationTestFailedError({
-        destinationId: input.id,
-        reason: `Missing required config: ${missing.join(", ")}`,
-      }),
-    );
-  }
-
-  // `local` needs no secret; s3/sftp must carry decryptable creds.
-  if (row.type !== "local") {
-    if (!row.encryptedSecret) {
-      return Result.err(
-        new DestinationTestFailedError({
-          destinationId: input.id,
-          reason: "No credentials configured",
-        }),
-      );
-    }
-    const decrypted = await Result.tryPromise({
-      try: () => decryptSecret(row.encryptedSecret as string),
-      catch: (cause) => (cause instanceof Error ? cause : new Error("decrypt")),
-    });
-    if (Result.isError(decrypted)) {
-      return Result.err(
-        new DestinationTestFailedError({
-          destinationId: input.id,
-          reason: "Stored credential could not be decrypted",
-        }),
-      );
-    }
-  }
-
-  return Result.ok({
-    message: "Destination credential is valid (structural check).",
-  });
-}
+// Destination orchestration lives in a sibling module (mirrors the
+// queries.ts / destination-queries.ts split); re-exported here so the router's
+// `./service` import surface stays a single entry point.
+export {
+  createDestination,
+  deleteDestination,
+  listDestinations,
+  setDestinationEnabled,
+  testDestination,
+  updateDestination,
+} from "./destination-service";

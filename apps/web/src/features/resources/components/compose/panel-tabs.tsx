@@ -1,8 +1,11 @@
 /**
  * Content tabs for {@link ComposeResourcePanel} — the Services list, the
- * read-only Compose file viewer, and the Settings (exposed editor + delete)
- * pane. Pulled into a sibling module so the panel component stays small.
+ * read-only Compose file viewer, and the Settings (exposed-services summary +
+ * delete) pane. Pulled into a sibling module so the panel component stays
+ * small.
  */
+
+import type { ProjectSlug } from "@otterdeploy/shared/id";
 
 import { useState } from "react";
 
@@ -16,7 +19,7 @@ import { useMutation } from "@tanstack/react-query";
 import CodeMirror from "@uiw/react-codemirror";
 import { toast } from "sonner";
 
-import { ComposeExposedEditor } from "@/features/resources/components/compose/exposed-editor";
+import { ComposeExposedSummary } from "@/features/resources/components/compose/exposed-summary";
 import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
 import { TypedConfirmDialog } from "@/shared/components/typed-confirm-dialog";
 import { Button } from "@/shared/components/ui/button";
@@ -270,6 +273,8 @@ function ComposeFileEditor({
 export function ComposeSettingsTab({
   projectId,
   resourceId,
+  orgSlug,
+  projectSlug,
   name,
   serviceCount,
   onDelete,
@@ -277,6 +282,8 @@ export function ComposeSettingsTab({
 }: {
   projectId: string;
   resourceId: string;
+  orgSlug: string;
+  projectSlug: ProjectSlug;
   name: string;
   serviceCount: number;
   onDelete: () => void;
@@ -285,7 +292,12 @@ export function ComposeSettingsTab({
   return (
     <>
       <div className="mb-4">
-        <ComposeExposedEditor projectId={projectId} resourceId={resourceId} />
+        <ComposeExposedSummary
+          projectId={projectId}
+          resourceId={resourceId}
+          orgSlug={orgSlug}
+          projectSlug={projectSlug}
+        />
       </div>
       <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
         <div className="text-[13px] font-semibold text-destructive">Delete stack</div>

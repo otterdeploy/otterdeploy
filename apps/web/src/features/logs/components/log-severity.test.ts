@@ -47,6 +47,27 @@ describe("classifyLogSeverity", () => {
     expect(classifyLogSeverity("✓ Ready in 1200ms")).toBe("success");
   });
 
+  test("nginx-style timestamped [notice] lines classify as info, not warn (od-1kc.1)", () => {
+    // nginx's error_log writes notice-level boot chatter to stderr with its
+    // own timestamp ahead of the bracketed level tag — the old `^`-anchored
+    // pattern only matched when `[notice]` opened the line, so these fell
+    // through to "normal" and the stream-based fallback (stderr → warn)
+    // painted a healthy boot as a wall of warnings.
+    expect(
+      classifyLogSeverity('2026/07/25 12:00:00 [notice] 1#1: using the "epoll" event method'),
+    ).toBe("info");
+    expect(classifyLogSeverity("2026/07/25 12:00:00 [notice] 1#1: start worker processes")).toBe(
+      "info",
+    );
+    expect(classifyLogSeverity("2026/07/25 12:00:00 [notice] 1#1: start worker process 29")).toBe(
+      "info",
+    );
+    // A real timestamped warning still classifies as warn.
+    expect(
+      classifyLogSeverity('2026/07/25 12:00:00 [warn] 1#1: conflicting server name "x" ignored'),
+    ).toBe("warn");
+  });
+
   test("structured JSON logs use their `level` field, not keywords", () => {
     // The all-white regression: authentik ships JSON with the severity in
     // `level`; the keyword scan saw none of these and painted every line white.

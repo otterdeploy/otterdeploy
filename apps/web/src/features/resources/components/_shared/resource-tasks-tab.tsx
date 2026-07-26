@@ -7,10 +7,12 @@
  */
 
 import type { ProjectSlug } from "@otterdeploy/shared/id";
-import type { ResourceNodeData } from "@/features/projects/components/graph/resource-node";
+
 import { ContainerIcon, EarthIcon, Layers01Icon, ViewOffIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
+
+import type { ResourceNodeData } from "@/features/projects/components/graph/resource-node";
 
 import { deploymentsCollection } from "@/features/resources/data/deployments";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/components/ui/empty";
@@ -126,7 +128,7 @@ export function ResourceTasksTab({
                 />
                 <EmptyTitle>No deployments yet</EmptyTitle>
                 <EmptyDescription>
-                  Once this resource is pushed to swarm, the active one will appear here.
+                  Once this resource is deployed, the active deployment will appear here.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>

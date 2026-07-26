@@ -55,7 +55,7 @@ export function BuilderConfig({ builderId }: { builderId: string }) {
           Railpack inspects your repo and assembles an OCI image automatically. Override individual
           layers below if needed.
         </p>
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <Field label="Install command (override)">
             <Input className="font-mono" placeholder="auto" />
           </Field>
@@ -79,7 +79,7 @@ export function BuilderConfig({ builderId }: { builderId: string }) {
           icon={<I.doc width={14} height={14} className="text-muted-foreground" />}
           title="Dockerfile"
         />
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <Field label="Dockerfile path">
             <Input className="font-mono" placeholder="Dockerfile" />
           </Field>

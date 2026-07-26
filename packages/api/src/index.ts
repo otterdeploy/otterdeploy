@@ -1,18 +1,16 @@
 import type { PermissionCheck } from "@otterdeploy/auth/permissions";
 import type { Id } from "@otterdeploy/shared/id";
 
-import { implement, ORPCError, os as orpc } from "@orpc/server";
-import { auth } from "@otterdeploy/auth";
+import { implement, os as orpc } from "@orpc/server";
 import { ID_PREFIX } from "@otterdeploy/shared/id";
 
+import type { AuditDraft } from "./audit/changes";
 import type { Context } from "./context";
 
-import {
-  authorizeKeyScope,
-  authorizeRoleScope,
-  isReadAction as isReadActionPath,
-  requireProjectScope,
-} from "./authz/api-key-scope";
+import { requireProjectScope } from "./authz/api-key-scope";
+import { authorizeCapability } from "./authz/capability";
+import { classifyTraceError, traceActor } from "./authz/procedure-audit";
+import { isReadAction, isReadMethod } from "./authz/procedure-mode";
 import { apiKeysContract } from "./routers/apiKeys/contract";
 import { auditContract } from "./routers/audit/contract";
 import { backupsContract } from "./routers/backups/contract";
@@ -25,6 +23,7 @@ import { edgeLogsContract } from "./routers/edge-logs/contract";
 import { envContract } from "./routers/env/contract";
 import { firewallContract } from "./routers/firewall/contract";
 import { gitContract } from "./routers/git/contract";
+import { meshContract } from "./routers/mesh/contract";
 import { metricsContract } from "./routers/metrics/contract";
 import { notificationsContract } from "./routers/notifications/contract";
 import { organizationContract } from "./routers/organization/contract";
@@ -37,86 +36,68 @@ import { systemContract } from "./routers/system/contract";
 import { terminalContract } from "./routers/terminal/contract";
 import { volumesContract } from "./routers/volumes/contract";
 import { webhooksContract } from "./routers/webhooks/contract";
-// Per-procedure compliance trail, shaped to the evlog audit schema
-// (https://www.evlog.dev/use-cases/audit/schema). Stamps the request-scoped
-// wide event with action, actor, outcome, duration, and reason so every RPC
-// call lands in the drain as a single, fully-attributed audit record.
-// Handlers add `target` (and any domain-specific fields) via
-// context.log.set(...).
-const DENIED_ORPC_CODES = new Set(["UNAUTHORIZED", "FORBIDDEN", "NO_ACTIVE_ORGANIZATION"]);
-
-// Read-ish verbs that aren't worth a persisted audit row on success. We still
-// audit every *denial* (even of a read) — a blocked read is exactly what
-// auditors want — and every non-read mutation.
-const READ_VERB =
-  /^(list|get|inspect|stream|search|count|fetch|read|resolve|view|preview|status|events|logs|metrics|stats)/i;
-function isReadAction(action: string): boolean {
-  return READ_VERB.test(action.split(".").pop() ?? action);
-}
-
-/** Resolve the audit actor from the request context (user session or API key). */
-function traceActor(context: Context) {
-  const user = context.session?.user;
-  return user
-    ? { type: "user" as const, id: user.id, email: user.email }
-    : { type: "api" as const, id: context.apiKey?.id ?? "anonymous" };
-}
-
-/** Shape a thrown error into audit fields: denial flag, reason, and the wide-event
- *  `error` detail (ORPC code-bearing, plain Error, or raw value). */
-function classifyTraceError(error: unknown) {
-  const isOrpc = error instanceof ORPCError;
-  const code = isOrpc ? error.code : undefined;
-  const reason = error instanceof Error ? error.message : String(error);
-  const denied = Boolean(code && DENIED_ORPC_CODES.has(code));
-  const detail = isOrpc
-    ? { name: error.name, message: error.message, code: error.code }
-    : error instanceof Error
-      ? { name: error.name, message: error.message }
-      : error;
-  return { reason, denied, detail };
-}
-
-const traceProcedure = orpc.$context<Context>().middleware(async ({ context, path, next }) => {
-  const action = path.join(".");
-  const actor = traceActor(context);
-  // Top-level fields keep the console/observability wide event informative.
-  context.log.set({
-    action,
-    actor,
-    context: { tenantId: context.activeOrganizationId },
+// Per-procedure evlog compliance trail. Handlers add target/domain fields.
+const traceProcedure = orpc
+  .$context<Context>()
+  .middleware(async ({ context, path, procedure, next }) => {
+    const action = path.join(".");
+    const actor = traceActor(context);
+    // Prefer the procedure's own REST method (GET ⇒ read) — exact, and
+    // immune to naming drift. Only endpoints with no method at all (neither
+    // `.route()` nor `.meta({method})`) fall back to the verb-prefix guess.
+    const orpcDef = procedure["~orpc"];
+    const meta = orpcDef.meta as Record<string, unknown> | undefined;
+    const route = orpcDef.route as { method?: string } | undefined;
+    const isRead = isReadMethod(meta, route) ?? isReadAction(action);
+    // Top-level fields keep the console/observability wide event informative.
+    context.log.set({
+      action,
+      actor,
+      context: { tenantId: context.activeOrganizationId },
+    });
+    // Fresh per invocation, and passed by reference so a handler's write is
+    // visible here even if an inner middleware rebuilt the context object.
+    // See audit/changes.ts for why it is a draft and not a plain field.
+    const auditDraft: AuditDraft = {};
+    const start = performance.now();
+    try {
+      const result = await next({ context: { auditDraft } });
+      context.log.set({
+        outcome: "success",
+        durationMs: performance.now() - start,
+      });
+      // Persist mutations; skip read successes. Tenant id rides on the
+      // top-level `context.tenantId` set above (the pg drain reads it); request
+      // meta (ip/ua/requestId) is filled into `audit.context` by auditEnricher.
+      if (!isRead) {
+        context.log.audit?.({
+          action,
+          actor,
+          outcome: "success",
+          // Present only for handlers that recorded one; the rest keep the
+          // column null rather than claiming an empty diff.
+          ...(auditDraft.changes ? { changes: auditDraft.changes } : {}),
+        });
+      }
+      return result;
+    } catch (error) {
+      const { reason, denied, detail } = classifyTraceError(error);
+      context.log.set({
+        outcome: denied ? "denied" : "failure",
+        reason,
+        error: detail,
+        durationMs: performance.now() - start,
+      });
+      // Always audit denials (even of a read — a blocked read is exactly
+      // what auditors want); audit failures only for mutating actions.
+      if (denied) {
+        context.log.audit?.deny(reason, { action, actor });
+      } else if (!isRead) {
+        context.log.audit?.({ action, actor, outcome: "failure", reason });
+      }
+      throw error;
+    }
   });
-  const start = performance.now();
-  try {
-    const result = await next();
-    context.log.set({
-      outcome: "success",
-      durationMs: performance.now() - start,
-    });
-    // Persist mutations; skip read successes. Tenant id rides on the
-    // top-level `context.tenantId` set above (the pg drain reads it); request
-    // meta (ip/ua/requestId) is filled into `audit.context` by auditEnricher.
-    if (!isReadAction(action)) {
-      context.log.audit?.({ action, actor, outcome: "success" });
-    }
-    return result;
-  } catch (error) {
-    const { reason, denied, detail } = classifyTraceError(error);
-    context.log.set({
-      outcome: denied ? "denied" : "failure",
-      reason,
-      error: detail,
-      durationMs: performance.now() - start,
-    });
-    // Always audit denials; audit failures only for mutating actions.
-    if (denied) {
-      context.log.audit?.deny(reason, { action, actor });
-    } else if (!isReadAction(action)) {
-      context.log.audit?.({ action, actor, outcome: "failure", reason });
-    }
-    throw error;
-  }
-});
 
 export const publicProcedure = implement({
   apiKeys: apiKeysContract,
@@ -131,6 +112,7 @@ export const publicProcedure = implement({
   env: envContract,
   firewall: firewallContract,
   git: gitContract,
+  mesh: meshContract,
   metrics: metricsContract,
   notifications: notificationsContract,
   organization: organizationContract,
@@ -158,11 +140,12 @@ const authMiddleware = orpc
     // A session/cookie/CLI-bearer user OR a verified API-key actor counts as
     // authenticated. Session-identity handlers still read `context.session`
     // directly (null for key actors) — guard there if they need a real user.
-    if (!context.session?.user && !context.apiKey) {
+    if (!context.actor) {
       throw errors.UNAUTHORIZED();
     }
     return next({
       context: {
+        actor: context.actor,
         session: context.session,
         apiKey: context.apiKey,
       },
@@ -188,7 +171,7 @@ const orgScopedMiddleware = orpc
     // Session/cookie/CLI-bearer user OR a verified API-key actor. For a key
     // actor `activeOrganizationId` was already populated from the key's owning
     // org in createContext, so the NO_ACTIVE_ORGANIZATION gate still holds.
-    if (!context.session?.user && !context.apiKey) {
+    if (!context.actor) {
       throw errors.UNAUTHORIZED();
     }
     if (!context.activeOrganizationId) {
@@ -196,6 +179,7 @@ const orgScopedMiddleware = orpc
     }
     return next({
       context: {
+        actor: context.actor,
         session: context.session,
         apiKey: context.apiKey,
         activeOrganizationId: context.activeOrganizationId as Id<typeof ID_PREFIX.organization>,
@@ -204,6 +188,41 @@ const orgScopedMiddleware = orpc
   });
 
 export const orgScopedProcedure = publicProcedure.use(orgScopedMiddleware);
+
+/**
+ * Installation administration is a server-owned user attribute, never an
+ * organization role and never an organization API key.
+ */
+const installAdminMiddleware = orpc
+  .$context<Context>()
+  .errors({
+    FORBIDDEN: {
+      status: 403,
+      message: "Installation administrator access is required.",
+    },
+  })
+  .middleware(async ({ context, procedure, next, errors }) => {
+    const definition = procedure["~orpc"];
+    const mode =
+      (isReadMethod(
+        definition.meta as Record<string, unknown> | undefined,
+        definition.route as { method?: string } | undefined,
+      ) ?? false)
+        ? "read"
+        : "write";
+    const decision = await authorizeCapability(context.actor, {
+      scope: "install",
+      mode,
+    });
+    if (!decision.allowed) {
+      throw errors.FORBIDDEN({ message: decision.reason });
+    }
+    return next();
+  });
+
+export function requireInstallAdmin() {
+  return orgScopedProcedure.use(installAdminMiddleware);
+}
 
 /**
  * Constrains an API-key actor to the project(s) its scope allows. `projectId`
@@ -256,39 +275,46 @@ export function requirePermission(permission: PermissionCheck) {
         message: "You don't have permission to perform this action.",
       },
     })
-    .middleware(async ({ context, path, next, errors }) => {
-      // API-key actor: session-bound `hasPermission` can't see the key, so we
-      // enforce scope ourselves. Effective permission = min(key scope, member
-      // role) — DECISION A in authz/api-key-scope.ts. A read-only key
-      // additionally blocks any non-read action.
-      if (context.apiKey) {
-        if (context.apiKey.accessLevel === "read" && !isReadActionPath(path.join("."))) {
-          throw errors.FORBIDDEN({ message: "This API key is read-only." });
-        }
-        const ok =
-          authorizeKeyScope(context.apiKey.permissions, permission) &&
-          authorizeRoleScope(permission);
-        if (!ok) {
-          throw errors.FORBIDDEN();
-        }
-        return next();
+    .middleware(async ({ context, path, procedure, next, errors }, input: unknown) => {
+      if (!context.activeOrganizationId) {
+        throw errors.FORBIDDEN({ message: "An active organization is required." });
       }
-
-      // Session actor (cookie / CLI device-grant bearer) — unchanged path:
-      // delegate role resolution to better-auth's session-bound check.
-      const { success } = await auth.api.hasPermission({
-        headers: context.headers,
-        body: {
-          permissions: permission as Record<string, string[]>,
-        },
+      const definition = procedure["~orpc"];
+      const mode =
+        (isReadMethod(
+          definition.meta as Record<string, unknown> | undefined,
+          definition.route as { method?: string } | undefined,
+        ) ?? isReadAction(path.join(".")))
+          ? "read"
+          : "write";
+      const projectId =
+        input && typeof input === "object" && "projectId" in input
+          ? (input as { projectId?: unknown }).projectId
+          : undefined;
+      const decision = await authorizeCapability(context.actor, {
+        scope: "organization",
+        mode,
+        organizationId: context.activeOrganizationId,
+        permission,
+        projectId: typeof projectId === "string" ? projectId : undefined,
       });
-      if (!success) {
-        throw errors.FORBIDDEN();
+      if (!decision.allowed) {
+        throw errors.FORBIDDEN({ message: decision.reason });
       }
       return next();
     });
 
   return orgScopedProcedure.use(permissionMiddleware).use(projectScopeMiddleware);
+}
+
+/**
+ * Instance-wide mutations may also have an organization permission for custom
+ * role policy. Require both: organization ownership/admin alone never grants
+ * host authority, and install-admin status does not bypass the declared RBAC
+ * capability inside the active organization.
+ */
+export function requireInstallAdminPermission(permission: PermissionCheck) {
+  return requirePermission(permission).use(installAdminMiddleware);
 }
 
 /**
@@ -298,3 +324,5 @@ export function requirePermission(permission: PermissionCheck) {
  * which layers the RBAC check on top of this same project-scope guard.
  */
 export const projectScopedProcedure = orgScopedProcedure.use(projectScopeMiddleware);
+
+export { isReadAction, isReadMethod } from "./authz/procedure-mode";

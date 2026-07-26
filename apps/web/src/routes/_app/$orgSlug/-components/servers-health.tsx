@@ -166,9 +166,12 @@ function HealthBody({
       {dockerRows ? (
         <div className="flex flex-col divide-y divide-border/60 rounded-md ring-1 ring-foreground/10">
           {dockerRows.map(([label, section]) => (
-            <div key={label} className="flex items-baseline justify-between gap-3 px-3 py-2">
+            <div
+              key={label}
+              className="flex flex-wrap items-baseline justify-between gap-x-3 px-3 py-2"
+            >
               <span className="text-[12.5px]">{label}</span>
-              <span className="font-mono text-[11.5px] tabular-nums text-muted-foreground">
+              <span className="min-w-0 font-mono text-[11.5px] tabular-nums text-muted-foreground">
                 {section.count} · {fmtBytes(section.totalBytes)}
                 {section.reclaimableBytes > 0 &&
                   ` (${fmtBytes(section.reclaimableBytes)} reclaimable)`}
@@ -186,8 +189,10 @@ function HealthBody({
         onReclaim={(target) => onReclaim([target])}
       />
 
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-[11.5px] text-muted-foreground">
+      {/* The sentence runs ~90 characters; it must be allowed to take its own
+          line rather than hold the button out past the viewport edge. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="min-w-0 flex-1 text-[11.5px] text-muted-foreground">
           {reclaimable > 0
             ? `${fmtBytes(reclaimable)} reclaimable across unused images, idle build cache and the branching pool.`
             : "Nothing significant to reclaim right now."}
@@ -196,6 +201,7 @@ function HealthBody({
           type="button"
           size="sm"
           variant="outline"
+          className="shrink-0"
           disabled={pending || reclaimable === 0}
           onClick={() => onReclaim(reclaimAllTargets)}
         >

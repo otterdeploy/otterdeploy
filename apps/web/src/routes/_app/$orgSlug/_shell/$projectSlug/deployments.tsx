@@ -145,7 +145,7 @@ function RouteComponent() {
         resourceId: d.resourceId,
         deploymentId: d.id,
       },
-      search: { tab: "details" },
+      search: { deploymentTab: "details", tab: "deployments" },
     });
   };
 

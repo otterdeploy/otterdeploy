@@ -1,15 +1,37 @@
 # Backups, Schedules & Restore
 
-**Status:** Design proposal (not yet implemented — UI is fully mocked, zero backend exists)
+**Status:** Implemented. Read the sections below as design background, not as a plan —
+the shape that shipped diverges from this document in one significant respect (see
+"What actually shipped").
 
-**Last verified:** 2026-05-30
+**Last verified:** 2026-07-26
 
-**TL;DR:** The Backups page is a 2,289-line fully-mocked UI. Landing real APIs is greenfield:
-add four Drizzle tables, an org-scoped `backups` oRPC router, a `cron.backup-scheduler` +
-`backup.run` BullMQ job split (stub in `packages/jobs`, real engine builder-style), and a
-destination/storage layer. Architecturally this is "deployments again" — every primitive we need
-already exists. The one genuine unknown is how the execution worker reaches DB containers across
-Swarm nodes.
+**TL;DR (original):** The Backups page is a 2,289-line fully-mocked UI. Landing real APIs is
+greenfield: add four Drizzle tables, an org-scoped `backups` oRPC router, a
+`cron.backup-scheduler` + `backup.run` BullMQ job split (stub in `packages/jobs`, real engine
+builder-style), and a destination/storage layer. Architecturally this is "deployments again" —
+every primitive we need already exists. The one genuine unknown is how the execution worker
+reaches DB containers across Swarm nodes.
+
+## What actually shipped
+
+- **Engine** — `packages/api/src/backups/`: `engine.ts`, `rustic.ts`, `backends.ts`,
+  `restore.ts`, `retention.ts`, `copy.ts`, plus `db.ts` / `volume.ts` / `stack.ts` sources.
+  Snapshots go through [rustic](https://rustic.cli.rs/), not a hand-rolled dump pipeline.
+- **Destinations** — `s3` (OpenDAL), `local`, `sftp`. SFTP is **key-auth only**; rustic's
+  OpenDAL SFTP backend cannot authenticate with a password, and a password-configured
+  destination is rejected up front with that reason.
+- **Scheduling** — `scheduler.ts`, started from the server bootstrap as
+  `backup-scheduler` (see `apps/server/src/background-services.ts`), **not** as a BullMQ
+  repeatable. It scans `backup_schedule` every 60s so an edited cron expression or retention
+  rule takes effect immediately, with the DB as the source of truth. This is the main
+  divergence from §6 of this document.
+- **Schema** — `packages/db/src/schema/backup.ts`: destination type/status, backup kind
+  (`database` | `volume` | `stack`), status, encryption, retention class, and a per-run log
+  stream (`stdout` | `stderr` | `system`).
+- **Surfaces** — `packages/api/src/routers/backups/` (runs, schedules, destinations),
+  the `otterdeploy backups` CLI command group, and the dashboard Backups page reading real
+  data.
 
 ---
 

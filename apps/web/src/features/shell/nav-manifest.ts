@@ -21,7 +21,7 @@
 
 import {
   Alert01Icon,
-  Certificate01Icon,
+  BellDotIcon,
   Database02Icon,
   DatabaseIcon,
   DeviceAccessIcon,
@@ -78,12 +78,9 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         icon: Home01Icon,
         exact: true,
       },
-      {
-        title: "Templates",
-        to: "/$orgSlug/templates",
-        icon: PackageIcon,
-        keywords: ["gallery", "stacks", "deploy", "catalog"],
-      },
+      // No "Templates" slot (od-u63.2) — it's a creation path (the + New
+      // service wizard's "From template" source), not a destination. The
+      // gallery page + its palette entry stay reachable via PALETTE_EXTRA_NAV.
       {
         title: "Terminal",
         i18nKey: "nav.terminal",
@@ -101,46 +98,58 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         i18nKey: "nav.servers",
         to: "/$orgSlug/servers",
         icon: ServerStack01Icon,
-        keywords: ["nodes", "swarm"],
-      },
-      {
-        title: "Docker",
-        to: "/$orgSlug/docker",
-        icon: ServerStack01Icon,
-        // Volumes folded into Docker as a tab — keep its old search terms.
-        keywords: ["containers", "images", "volumes", "storage", "disk", "orphan"],
+        // Docker (od-u63.3), Volumes ("Raw Docker" tab) and Platform
+        // (od-u63.4, "Install health" tab) all fold in here — keep every
+        // surface's old search terms so the palette still finds this page.
+        keywords: [
+          "nodes",
+          "swarm",
+          "docker",
+          "containers",
+          "images",
+          "volumes",
+          "storage",
+          "disk",
+          "orphan",
+          "platform",
+          "health",
+          "queues",
+          "deploys",
+        ],
       },
       {
         title: "Backups",
         to: "/$orgSlug/backups",
         icon: DatabaseIcon,
-        keywords: ["restore", "snapshot"],
+        keywords: ["restore", "snapshot", "database", "databases", "connections"],
       },
       {
-        title: "Networking",
-        i18nKey: "nav.networking",
-        to: "/$orgSlug/networking",
+        title: "Edge",
+        to: "/$orgSlug/edge",
         icon: EarthIcon,
-        keywords: ["domains", "routes", "caddy"],
+        // Networking, Edge logs and Settings → Certificates all folded in as
+        // tabs (od-u63.1) — keep every surface's old search terms so the
+        // palette still finds this from any of their names.
+        keywords: [
+          "domains",
+          "routes",
+          "caddy",
+          "caddyfile",
+          "access",
+          "traffic",
+          "firewall",
+          "crowdsec",
+          "blocklist",
+          "ip",
+          "tls",
+          "ssl",
+          "certificates",
+          "certs",
+        ],
       },
-    ],
-  },
-  {
-    label: "Observability",
-    items: [
-      {
-        title: "Platform",
-        to: "/$orgSlug/platform",
-        icon: FlashIcon,
-        keywords: ["health", "queues", "deploys"],
-      },
-      {
-        title: "Edge logs",
-        to: "/$orgSlug/edge-logs",
-        icon: EarthIcon,
-        // Firewall folded into Edge logs as a tab — keep its old search terms.
-        keywords: ["access", "traffic", "firewall", "crowdsec", "blocklist", "ip"],
-      },
+      // Audit folds in here rather than keeping its own single-item
+      // "Observability" group now that Platform is gone (od-u63.4) — one
+      // less group heading for one destination reads calmer.
       {
         title: "Audit",
         to: "/$orgSlug/audit",
@@ -148,6 +157,61 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         keywords: ["activity", "history"],
       },
     ],
+  },
+  {
+    // The outbound connections a deployment runs on: where code is pulled from,
+    // where images are pulled from, and the keys used to reach both plus the
+    // swarm nodes. These lived in Settings → Workspace, which framed them as
+    // one-time configuration; they are operating surfaces you return to
+    // (connect a repo, add a registry, rotate a key), so they belong in the
+    // shell next to the things they serve. API keys stayed behind: that is
+    // programmatic access to otterdeploy itself, not something a deploy uses.
+    label: "Workspace",
+    items: [
+      {
+        title: "Git providers",
+        to: "/$orgSlug/git-providers",
+        icon: GitBranchIcon,
+        keywords: ["github", "gitlab", "gitea", "bitbucket", "source", "repo", "connection"],
+      },
+      {
+        title: "Registries",
+        to: "/$orgSlug/registries",
+        icon: Database02Icon,
+        keywords: ["docker", "image", "ghcr", "ecr", "pull", "credentials"],
+      },
+      {
+        title: "SSH keys",
+        to: "/$orgSlug/ssh-keys",
+        icon: Key01Icon,
+        keywords: ["deploy key", "git", "node", "credentials", "keypair"],
+      },
+      {
+        // Same reasoning as its neighbours: routing an event to a channel is
+        // something you come back to (add a channel, mute a noisy event, check
+        // a failed delivery), not one-time setup. Moved out of
+        // Settings → Workspace.
+        title: "Notifications",
+        to: "/$orgSlug/notifications",
+        icon: BellDotIcon,
+        keywords: ["alerts", "slack", "discord", "email", "webhook", "telegram", "pagerduty"],
+      },
+    ],
+  },
+];
+
+/**
+ * Destinations that are reachable (palette, deep link) but intentionally NOT
+ * sidebar slots — creation paths rather than places you "go" (od-u63.2).
+ * Merged into the palette only; see `ORG_NAV_GROUPS` in
+ * `command-palette/components/nav-items.tsx`.
+ */
+export const PALETTE_EXTRA_NAV: readonly NavManifestItem[] = [
+  {
+    title: "Templates",
+    to: "/$orgSlug/templates",
+    icon: PackageIcon,
+    keywords: ["gallery", "stacks", "deploy", "catalog"],
   },
 ];
 
@@ -196,10 +260,13 @@ export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
     label: "Workspace",
     items: [
       {
-        title: "General",
+        // Label-only rename (od-u63.7) — path is unchanged. "General" was
+        // ambiguous with Instance → General; this page is base domain +
+        // Cloudflare, so "Domains" says what it actually does.
+        title: "Domains",
         to: "/$orgSlug/settings/workspace/general",
         icon: Settings01Icon,
-        keywords: ["domain", "cloudflare", "workspace settings"],
+        keywords: ["domain", "cloudflare", "workspace settings", "general"],
       },
       {
         title: "Team",
@@ -207,12 +274,9 @@ export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
         icon: UserMultipleIcon,
         keywords: ["members", "invite"],
       },
-      {
-        title: "Git providers",
-        to: "/$orgSlug/settings/workspace/git-providers",
-        icon: GitBranchIcon,
-        keywords: ["github", "source"],
-      },
+      // Git providers, Registries and SSH keys moved to the operational
+      // sidebar's Workspace group — see OPERATIONAL_NAV above. The settings
+      // paths remain as redirect shims, so old bookmarks still land.
       {
         title: "API keys",
         to: "/$orgSlug/settings/workspace/api-keys",
@@ -220,42 +284,25 @@ export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
         keywords: ["tokens", "access"],
       },
       {
-        title: "SSH keys",
-        to: "/$orgSlug/settings/workspace/ssh-keys",
-        icon: Key01Icon,
-        keywords: ["deploy key", "git", "node"],
-      },
-      {
-        title: "Registries",
-        to: "/$orgSlug/settings/workspace/registries",
-        icon: Database02Icon,
-        keywords: ["docker", "image"],
-      },
-      {
-        title: "Certificates",
-        to: "/$orgSlug/settings/workspace/certificates",
-        icon: Certificate01Icon,
-        keywords: ["tls", "ssl", "pem", "ca", "acme"],
-      },
-      {
         title: "Webhooks",
         to: "/$orgSlug/settings/workspace/webhooks",
         icon: WebhookIcon,
         keywords: ["hmac", "deliveries", "inbound", "events"],
       },
-      {
-        title: "Notifications",
-        to: "/$orgSlug/settings/workspace/notifications",
-        icon: Alert01Icon,
-        keywords: ["slack", "discord", "alerts"],
-      },
+      // Notifications moved to OPERATIONAL_NAV → Workspace; the old settings
+      // path now redirects there. Its transport cards (email provider, Twilio,
+      // FCM) were removed outright — per-channel delivery credentials are
+      // captured by the channel dialog itself.
     ],
   },
   {
     label: "Instance",
     items: [
       {
-        title: "General",
+        // Label-only rename (od-u63.7) — path is unchanged. No page should be
+        // named "General" twice in the same rail; "Instance" says whose
+        // config this is (install-wide, not workspace-scoped).
+        title: "Instance",
         to: "/$orgSlug/settings/instance/general",
         icon: ServerStack01Icon,
         keywords: [
@@ -264,8 +311,8 @@ export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
           "server ip",
           "control plane",
           "acme",
-          "email",
           "updates",
+          "general",
         ],
       },
     ],

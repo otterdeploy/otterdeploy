@@ -17,6 +17,9 @@
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"]
     },
+    "test:integration": {
+      "cache": false
+    },
     "//#infra": {
       "cache": false
     },

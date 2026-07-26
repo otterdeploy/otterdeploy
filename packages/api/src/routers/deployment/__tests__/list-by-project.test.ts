@@ -25,11 +25,13 @@ vi.mock("../../project/deployments-list", () => ({
 const selectChain = {
   from: vi.fn(),
   innerJoin: vi.fn(),
+  leftJoin: vi.fn(),
   where: vi.fn(),
   orderBy: vi.fn(),
 };
 selectChain.from.mockReturnValue(selectChain);
 selectChain.innerJoin.mockReturnValue(selectChain);
+selectChain.leftJoin.mockReturnValue(selectChain);
 selectChain.where.mockReturnValue(selectChain);
 
 vi.mock("@otterdeploy/db", () => ({
@@ -102,6 +104,9 @@ describe("effectiveListedStatus", () => {
     expect(effectiveListedStatus("failed", false)).toBe("failed");
     expect(effectiveListedStatus("removed", false)).toBe("removed");
     expect(effectiveListedStatus("superseded", false)).toBe("superseded");
+    // A cancel is an outcome, not an in-flight row a newer deploy replaced —
+    // it must not be rewritten to `superseded` once something newer lands.
+    expect(effectiveListedStatus("cancelled", false)).toBe("cancelled");
   });
 
   test("latest rows always keep their stored status", () => {
@@ -110,6 +115,7 @@ describe("effectiveListedStatus", () => {
       "building",
       "running",
       "failed",
+      "cancelled",
       "superseded",
       "removed",
     ] as const) {
@@ -245,5 +251,23 @@ describe("listProjectDeployments", () => {
     if (!first) throw new Error("expected a deployment item");
     expect(first.status).toBe("running");
     expect(derivation.reconcileDeploySuccess).toHaveBeenCalledWith([first.id], a);
+  });
+});
+
+describe("matchesStatusFilter — cancelled", () => {
+  test("is filterable on its own so stopped builds are findable in history", () => {
+    expect(matchesStatusFilter("cancelled", "cancelled", true)).toBe(true);
+    expect(matchesStatusFilter("cancelled", "cancelled", false)).toBe(true);
+  });
+
+  test("the building filter does not sweep up cancelled rows", () => {
+    // `building` covers stored `pending` because both render as in-flight; a
+    // cancelled row is settled and must not appear under it.
+    expect(matchesStatusFilter("building", "cancelled", true)).toBe(false);
+  });
+
+  test("cancelled is not confused with failed in either direction", () => {
+    expect(matchesStatusFilter("failed", "cancelled", true)).toBe(false);
+    expect(matchesStatusFilter("cancelled", "failed", true)).toBe(false);
   });
 });

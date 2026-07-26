@@ -61,8 +61,10 @@ const STEP_RENDERERS: Record<Step, (ctx: StepCtx) => React.ReactNode | null> = {
   source: ({ kind, isSourceBased }) => (kind && isSourceBased ? <StepSource /> : null),
   builder: ({ kind, isSourceBased }) => (kind && isSourceBased ? <StepBuilder /> : null),
   image: ({ kind, isDocker }) => (kind && isDocker ? <StepImage /> : null),
-  networking: ({ kind, isSourceBased, isDocker }) =>
-    kind && (isSourceBased || isDocker) ? <StepNetworking kind={kind} /> : null,
+  networking: ({ kind, isSourceBased, isDocker, projectId }) =>
+    kind && (isSourceBased || isDocker) ? (
+      <StepNetworking kind={kind} projectId={projectId} />
+    ) : null,
   resources: ({ kind, isDb }) => (kind ? <StepResources isDb={isDb} /> : null),
   variables: ({ kind, isSourceBased, isDocker, projectId }) =>
     kind && (isSourceBased || isDocker) ? (
@@ -72,7 +74,7 @@ const STEP_RENDERERS: Record<Step, (ctx: StepCtx) => React.ReactNode | null> = {
     kind && isDb ? <StepVersion kind={kind} projectId={projectId} /> : null,
   storage: ({ kind, isDb }) => (kind && isDb ? <StepStorage kind={kind} /> : null),
   advanced: ({ kind, isDb }) => (kind && isDb ? <StepAdvancedDb kind={kind} /> : null),
-  review: ({ kind }) => (kind ? <StepReview kind={kind} /> : null),
+  review: ({ kind, projectId }) => (kind ? <StepReview kind={kind} projectId={projectId} /> : null),
 };
 
 export function WizardStepBody({
@@ -111,24 +113,21 @@ export function WizardStepBody({
   );
 }
 
+/** Post-attempt footer strip: the human validation messages blocking
+ *  Continue (deduped), never raw field names — "Pick a source to continue",
+ *  not "kindId". Only rendered after a failed Continue (see wizard.tsx). */
 export function RequiredHint({
   issues,
 }: {
-  issues: ReadonlyArray<{ path: ReadonlyArray<PropertyKey> }>;
+  issues: ReadonlyArray<{ path: ReadonlyArray<PropertyKey>; message: string }>;
 }) {
+  const messages = Array.from(
+    new Set(issues.filter((i) => i.path[0] !== "__step").map((i) => i.message)),
+  );
+  if (messages.length === 0) return null;
   return (
     <div className="flex shrink-0 items-center gap-2 border-t border-destructive/30 bg-destructive/5 px-4 py-2 text-[11px] text-destructive">
-      <span className="font-medium">Required to continue:</span>
-      <span className="font-mono text-foreground/80">
-        {Array.from(
-          new Set(
-            issues.flatMap((i) => {
-              const p = i.path[0];
-              return typeof p === "string" && p !== "__step" ? [p] : [];
-            }),
-          ),
-        ).join(", ")}
-      </span>
+      <span>{messages.join(" · ")}</span>
     </div>
   );
 }

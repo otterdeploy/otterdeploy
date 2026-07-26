@@ -55,14 +55,22 @@ export async function setBlocklistEnabled(
   id: BlocklistId,
   enabled: boolean,
 ): Promise<BlocklistRow | undefined> {
-  const [row] = await db.update(blocklist).set({ enabled }).where(eq(blocklist.id, id)).returning();
+  const [row] = await db
+    .update(blocklist)
+    .set(
+      enabled
+        ? { enabled, lastStatus: "pending", lastError: null }
+        : { enabled, activeScenario: null },
+    )
+    .where(eq(blocklist.id, id))
+    .returning();
   return row;
 }
 
 export async function setBlocklistSyncResult(
   id: BlocklistId,
   result:
-    | { status: "ok"; count: number }
+    | { status: "ok"; count: number; activeScenario: string }
     | { status: "error"; error: string }
     | { status: "pending" },
 ): Promise<void> {
@@ -73,6 +81,7 @@ export async function setBlocklistSyncResult(
       lastSyncedAt: result.status === "pending" ? undefined : new Date(),
       lastCount: result.status === "ok" ? result.count : undefined,
       lastError: result.status === "error" ? result.error.slice(0, 500) : null,
+      activeScenario: result.status === "ok" ? result.activeScenario : undefined,
     })
     .where(eq(blocklist.id, id));
 }

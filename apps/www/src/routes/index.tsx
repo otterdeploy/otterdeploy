@@ -1,14 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { ReadmeLanding } from "@/components/landing/readme-landing";
+import { Landing } from "@/components/landing/landing";
+import { canonical, seo, softwareJsonLd } from "@/lib/seo";
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: seo({ path: "/" }),
+    links: [canonical("/")],
+    scripts: [{ type: "application/ld+json", children: softwareJsonLd() }],
+  }),
   component: Home,
 });
 
-// Better-Auth-style split-screen README landing: a fixed left brand panel and a
-// right column that scrolls like a project README. Light-first; the theme
-// toggle re-scopes the shared design tokens. See readme-landing.tsx.
+// The marketing landing page. Composition, fold order, and the reasoning
+// behind both live in components/landing/landing.tsx.
 function Home() {
-  return <ReadmeLanding />;
+  return <Landing />;
 }

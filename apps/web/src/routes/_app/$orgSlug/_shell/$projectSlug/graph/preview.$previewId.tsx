@@ -6,10 +6,13 @@
  * vars + this preview's overrides, revertable), and Settings (rebuild/redeploy,
  * pause/resume, teardown, keep-alive/TTL, DB branch toggle + reset).
  * The tab bodies live in `-components/preview-panel/`.
+ *
+ * The drawer it slides in as belongs to the parent graph layout
+ * (`-components/panel-shell`), so clicking a satellite opens it immediately and
+ * this route's chunk + previews query fill in behind a skeleton.
  */
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, useLoaderData, useNavigate } from "@tanstack/react-router";
-import * as m from "motion/react-client";
+import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 
 import { ArrowUpRight01Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -19,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
+import { GraphPanelPending, useGraphPanelClose } from "./-components/panel-shell";
 import { DeploymentHistory } from "./-components/preview-panel/deployment-history";
 import { OverviewTab } from "./-components/preview-panel/overview-tab";
 import { SettingsTab } from "./-components/preview-panel/settings-tab";
@@ -28,12 +32,16 @@ import { VariablesTab } from "./-components/preview-panel/variables-tab";
 export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/graph/preview/$previewId")({
   staticData: { crumb: "Preview" },
   component: PreviewPanel,
+  // Open the drawer on click, not after this route's chunk loads — same
+  // reasoning as the $resourceId route; see panel-shell.tsx.
+  pendingMs: 0,
+  pendingMinMs: 0,
+  pendingComponent: GraphPanelPending,
 });
 
 function PreviewPanel() {
   const { orgSlug, projectSlug, previewId } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
-  const navigate = useNavigate();
 
   const previews = useQuery(
     orpc.project.previews.list.queryOptions({
@@ -42,20 +50,13 @@ function PreviewPanel() {
     }),
   );
   const preview = (previews.data ?? []).find((p) => p.id === previewId);
-  const close = () =>
-    void navigate({ to: "/$orgSlug/$projectSlug/graph", params: { orgSlug, projectSlug } });
+  // Owned by the parent's drawer: slides out and pans the camera back before
+  // the route change lands.
+  const close = useGraphPanelClose();
   const url = preview?.services.find((s) => s.url)?.url ?? null;
 
   return (
-    <m.div
-      key={previewId}
-      initial={{ x: "100%" }}
-      animate={{ x: 0 }}
-      exit={{ x: "100%" }}
-      transition={{ type: "spring", stiffness: 320, damping: 32 }}
-      className="pointer-events-auto relative h-full w-full rounded-lg rounded-tr-none border border-r-0 border-border bg-card lg:w-4/5 xl:w-3/5"
-    >
-      <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden">
         <header className="flex items-center gap-3 border-b border-border/60 px-6 py-4">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2.5">
@@ -156,7 +157,6 @@ function PreviewPanel() {
             </div>
           </Tabs>
         ) : null}
-      </div>
-    </m.div>
+    </div>
   );
 }

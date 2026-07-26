@@ -1,15 +1,18 @@
-import { env } from "@otterdeploy/env/web";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/shared/components/ui/button";
 
 /**
- * Social (SSO) sign-in buttons, one per provider the operator enabled via
- * VITE_AUTH_SOCIAL_PROVIDERS (which mirrors the server's configured
- * socialProviders). Renders nothing when none are enabled, so the email form
- * stands alone on a vanilla install. All flows go through better-auth's
- * `signIn.social` — no hand-rolled OAuth.
+ * Social (SSO) sign-in buttons, one per provider the server reports as live on
+ * the current auth instance (`/api/auth/public-config`, fetched by the sign-in
+ * route). Renders nothing when none are enabled, so the email form stands alone
+ * on a vanilla install. All flows go through better-auth's `signIn.social` — no
+ * hand-rolled OAuth.
+ *
+ * The list arrives as a prop rather than being read from env: it used to come
+ * from the build-time VITE_AUTH_SOCIAL_PROVIDERS, which made SSO impossible to
+ * enable on a prebuilt self-hosted image without rebuilding the SPA.
  */
 const PROVIDER_LABELS = {
   github: "GitHub",
@@ -19,11 +22,10 @@ const PROVIDER_LABELS = {
 
 type ProviderId = keyof typeof PROVIDER_LABELS;
 
-function enabledProviders(): ProviderId[] {
-  return (env.VITE_AUTH_SOCIAL_PROVIDERS ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s): s is ProviderId => s in PROVIDER_LABELS);
+/** Ignore anything the server names that this build has no label for, so a
+ *  newer server can add a provider without breaking an older SPA. */
+function knownProviders(ids: string[]): ProviderId[] {
+  return ids.filter((id): id is ProviderId => id in PROVIDER_LABELS);
 }
 
 const start = (provider: ProviderId) => {
@@ -34,8 +36,14 @@ const start = (provider: ProviderId) => {
     );
 };
 
-export function SocialSignIn({ dividerLabel }: { dividerLabel: string }) {
-  const providers = enabledProviders();
+export function SocialSignIn({
+  dividerLabel,
+  providers: providerIds,
+}: {
+  dividerLabel: string;
+  providers: string[];
+}) {
+  const providers = knownProviders(providerIds);
   if (providers.length === 0) return null;
 
   return (

@@ -3,10 +3,12 @@ import { eq, useLiveQuery } from "@tanstack/react-db";
 import { createFileRoute, notFound, Outlet } from "@tanstack/react-router";
 import * as z from "zod";
 
+import { useProjectDeployStatus } from "@/features/deployments/hooks/use-deploy-status";
 import { envCollection } from "@/features/projects/data/env";
 import { projectCollection } from "@/features/projects/data/project";
 import { resourceCollection } from "@/features/resources/data/resource";
 import { useProjectEvents } from "@/features/projects/hooks/use-project-events";
+import { useProjectStatus } from "@/features/projects/hooks/use-project-status";
 import { PendingChangesBar } from "@/features/projects/components/pending-changes-bar";
 import { ProjectTabs } from "@/features/projects/components/project-tabs";
 import { ProjectSidebar } from "@/features/shell/components/sidebar/project-sidebar";
@@ -70,6 +72,16 @@ function RouteComponent() {
   // routes refetch immediately instead of waiting on their polling
   // intervals.
   useProjectEvents(project?.id ?? null);
+
+  // Publish this project's live task rollup to the tab. Mounted alongside the
+  // event stream so the two share a lifetime — the tab stops reporting the
+  // moment you leave the project.
+  useProjectStatus(project?.id ?? null);
+
+  // …and the build pipeline's state, which the task rollup cannot see: a
+  // deployment has no swarm task while it is still building, so without this the
+  // tab stays blank through the slowest part of a deploy.
+  useProjectDeployStatus(project?.id ?? null);
 
   const { data: resources } = useLiveQuery(
     (q) =>

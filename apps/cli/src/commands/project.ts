@@ -1,8 +1,23 @@
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
 import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";
+import { cmd } from "../lib/name";
+import {
+  abort,
+  ask,
+  confirm,
+  detail,
+  dim,
+  hint,
+  note,
+  ok,
+  out,
+  paint,
+  section,
+  table,
+  warn,
+} from "../lib/ui";
 
 const listCommand = defineCommand({
   meta: { name: "list", description: "List projects in the active organization" },
@@ -21,17 +36,17 @@ const listCommand = defineCommand({
     }
 
     if (projects.length === 0) {
-      consola.info(
-        "No projects yet. Create one with `otterdeploy project create --name <name> --slug <slug>`.",
-      );
+      note("No projects yet.");
+      hint(`run \`${cmd("project create --name <name> --slug <slug>")}\``);
+      hint(`or \`${cmd("init")}\` to scaffold one from this directory`);
       return;
     }
 
-    for (const p of projects) {
-      consola.log(
-        `${p.slug.padEnd(24)} ${p.name}  (${p.databaseCount} db${p.databaseCount === 1 ? "" : "s"})`,
-      );
-    }
+    section("Projects");
+    table(
+      [{ header: "slug" }, { header: "name" }, { header: "databases", align: "right" }],
+      projects.map((p) => [p.slug, p.name, dim(String(p.databaseCount))]),
+    );
   },
 });
 
@@ -53,7 +68,12 @@ const createCommand = defineCommand({
       return;
     }
 
-    consola.success(`Created ${project.slug} (${project.id})`);
+    ok(`Created project ${project.slug}.`);
+    detail([
+      ["name", project.name],
+      ["id", paint("id", project.id)],
+    ]);
+    hint(`run \`${cmd("init")}\` here to link a config to it`);
   },
 });
 
@@ -77,31 +97,32 @@ const deleteCommand = defineCommand({
 
     if (!args.force) {
       if (!process.stdin.isTTY) {
-        consola.error(
-          "Refusing to delete without confirmation in a non-interactive shell. Pass --force.",
+        abort(
+          "Refusing to delete without confirmation in a non-interactive shell.",
+          "pass `--force` if you are certain",
         );
-        process.exit(1);
       }
-      consola.warn(
-        `This permanently deletes ${project.slug} (${project.id}) and every service, database, and route in it.`,
-      );
-      const confirmed = await consola.prompt(`Delete project ${project.slug}?`, {
-        type: "confirm",
-        initial: false,
-      });
-      if (confirmed !== true) {
-        consola.error("Aborted.");
-        process.exit(1);
+      // Two gates for the most destructive command in the CLI: a yes/no, then
+      // typing the slug. State exactly what goes with it before either.
+      section("Delete project");
+      detail([
+        ["project", paint("danger", project.slug)],
+        ["id", dim(project.id)],
+      ]);
+      out();
+      warn("This permanently deletes every service, database, and route in it.");
+
+      if (!(await confirm(`Delete project ${project.slug}?`))) {
+        abort("Aborted — nothing was deleted.");
       }
-      const typed = await consola.prompt("Type the project slug to confirm:", { type: "text" });
+      const typed = await ask("Type the project slug to confirm");
       if (typed !== args.slug) {
-        consola.error("Slug mismatch — nothing deleted.");
-        process.exit(1);
+        abort("Slug did not match — nothing was deleted.");
       }
     }
 
     await client.project.delete({ id: project.id });
-    consola.success(`Deleted project ${args.slug}.`);
+    ok(`Deleted project ${args.slug}.`);
   },
 });
 

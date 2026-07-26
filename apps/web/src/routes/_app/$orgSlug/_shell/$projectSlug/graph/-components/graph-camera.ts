@@ -5,10 +5,12 @@
  */
 import { useEffect, useRef } from "react";
 
-import { useMatch } from "@tanstack/react-router";
+import { useMatch, type useRouter } from "@tanstack/react-router";
 import { useReactFlow, type Node } from "@xyflow/react";
 
 import { CARD_W } from "./laid-out-nodes";
+
+type Router = ReturnType<typeof useRouter>;
 
 // Approx card dimensions for refocus math. Keep in sync with ResourceNode size.
 const CARD_H = 200;
@@ -37,6 +39,40 @@ export function focusNodeInView(node: Node, setCenter: SetCenter): void {
   const shiftRatio = PANEL_WIDTH_RATIO / 2;
   const xOffset = (canvasWidth * shiftRatio) / FOCUS_ZOOM;
   void setCenter(targetX + xOffset, targetY, { zoom: FOCUS_ZOOM, duration: 400 });
+}
+
+/** Preload a node's target route's code-split chunk (and float its data
+ *  prefetch) on hover, so a subsequent click mounts the drawer with no
+ *  network wait. Mirrors the target computation in GraphCanvas's onNodeClick
+ *  — a preview satellite routes to its own detail page, everything else to
+ *  the generic $resourceId route (by resourceId, or by node id for a
+ *  pending-create ghost that has none yet). Best-effort: a rejected/
+ *  cancelled preload must never surface. */
+export function preloadNodeRoute(
+  node: Node,
+  router: Router,
+  params: { orgSlug: string; projectSlug: string },
+): void {
+  if (node.data.pending === "delete") return;
+  if (node.data.kind === "preview") {
+    const preview = node.data.preview as { id?: string } | undefined;
+    if (typeof preview?.id === "string" && preview.id.length > 0) {
+      void router
+        .preloadRoute({
+          to: "/$orgSlug/$projectSlug/graph/preview/$previewId",
+          params: { ...params, previewId: preview.id },
+        })
+        .catch(() => {});
+    }
+    return;
+  }
+  const resourceId = typeof node.data.resourceId === "string" ? node.data.resourceId : node.id;
+  void router
+    .preloadRoute({
+      to: "/$orgSlug/$projectSlug/graph/$resourceId",
+      params: { ...params, resourceId },
+    })
+    .catch(() => {});
 }
 
 /** Whether a right-hand detail panel (resource or preview) is open — and, on the

@@ -2,11 +2,12 @@ import type { Manifest } from "@otterdeploy/api/manifest";
 
 import { Result } from "better-result";
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
 import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";
 import { configExists, loadConfig, writeConfig } from "../config-file";
+import { cmd } from "../lib/name";
+import { abort, confirm, detail, dim, ok, out, section, warn } from "../lib/ui";
 
 function countsOf(manifest: {
   services?: Record<string, unknown>;
@@ -15,7 +16,7 @@ function countsOf(manifest: {
 }): string {
   const n = (record: Record<string, unknown> | undefined): number =>
     Object.keys(record ?? {}).length;
-  return `${n(manifest.services)} services, ${n(manifest.databases)} databases, ${n(manifest.composes)} composes`;
+  return `${n(manifest.services)} services ${dim("·")} ${n(manifest.databases)} databases ${dim("·")} ${n(manifest.composes)} composes`;
 }
 
 export const pullCommand = defineCommand({
@@ -53,39 +54,45 @@ export const pullCommand = defineCommand({
 
     const slug = args.slug ?? localManifest?.project ?? null;
     if (!slug) {
-      consola.error(
+      abort(
         localError
-          ? `Local config is unreadable (${localError.message}). Pass --slug to pull anyway.`
-          : "No --slug provided and no local config to read it from.",
+          ? `Local config is unreadable: ${localError.message}`
+          : "No project to pull.",
+        "pass `--slug <slug>` to pull anyway",
       );
-      process.exit(1);
     }
 
     const project = await client.project.getBySlug({ slug });
     const { manifest } = await client.project.manifest.get({ id: project.id });
     if (!manifest) {
-      consola.error("Server has no manifest saved yet for this project.");
-      process.exit(1);
+      abort(
+        "Server has no manifest saved for this project yet.",
+        `run \`${cmd("deploy")}\` to publish the local config first`,
+      );
     }
 
     if (hasLocal && !args.yes) {
       if (!process.stdin.isTTY) {
-        consola.error("Refusing to overwrite the existing config non-interactively. Pass --yes.");
-        process.exit(1);
+        abort(
+          "Refusing to overwrite the existing config non-interactively.",
+          "pass `--yes` if you are certain",
+        );
       }
-      const localCounts = localManifest ? countsOf(localManifest) : "unreadable";
-      consola.info(`Local: ${localCounts} — server: ${countsOf(manifest)}.`);
-      const confirmed = await consola.prompt("Overwrite the local config?", {
-        type: "confirm",
-        initial: false,
-      });
-      if (confirmed !== true) {
-        consola.error("Aborted — local config left untouched.");
-        process.exit(1);
+      // Show both sides before overwriting — the counts are what tell you
+      // whether you are about to lose local work.
+      section("Overwrite local config");
+      detail([
+        ["local", localManifest ? countsOf(localManifest) : dim("unreadable")],
+        ["server", countsOf(manifest)],
+      ]);
+      out();
+      warn("The local file is replaced wholesale. Uncommitted edits are lost.");
+      if (!(await confirm("Overwrite the local config?"))) {
+        abort("Aborted — the local config was left untouched.");
       }
     }
 
     const path = writeConfig(manifest, args.config);
-    consola.success(`Wrote ${path}`);
+    ok(`Wrote ${path}`);
   },
 });

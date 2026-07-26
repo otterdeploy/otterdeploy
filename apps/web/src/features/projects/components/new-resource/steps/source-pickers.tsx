@@ -217,7 +217,11 @@ export function DetectedFrameworkBadge({
         "relative grid size-11 shrink-0 place-items-center rounded-full border bg-background",
         className,
       )}
-      title={inspect.isLoading ? "Detecting framework…" : (frameworkLabel(inspect.data?.framework) ?? undefined)}
+      title={
+        inspect.isLoading
+          ? "Detecting framework…"
+          : (frameworkLabel(inspect.data?.framework) ?? undefined)
+      }
     >
       {inspect.isLoading ? (
         <span

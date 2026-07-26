@@ -3,11 +3,18 @@ import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import {
+  SelectAllHead,
+  SelectionBar,
+  SelectRowCell,
+  useTableSelection,
+} from "@/shared/components/table-selection";
 import { Badge } from "@/shared/components/ui/badge";
 import { TableCell, TableRow } from "@/shared/components/ui/table";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
+import { DockerBulkRemoveDialog } from "./docker-bulk-remove";
 import { ConfirmRemoveDialog, InspectDialog } from "./docker-dialogs";
 import { shortId, timeAgoSeconds } from "./docker-format";
 import { Panel, type QueryLike } from "./docker-panel";
@@ -30,9 +37,19 @@ interface Network {
 
 const BUILTIN_NETWORKS = new Set(["bridge", "host", "none", "ingress", "docker_gwbridge"]);
 
+const isBuiltin = (n: Network) => BUILTIN_NETWORKS.has(n.name) || n.ingress;
+
 export function NetworksTable({ query }: { query: QueryLike<Network> }) {
   const [inspectFor, setInspectFor] = useState<Network | null>(null);
   const [removeFor, setRemoveFor] = useState<Network | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
+
+  // Built-in networks can never be removed — that's a Docker invariant, not a
+  // racy ref-count — so select-all skips them rather than queueing guaranteed
+  // failures. They stay individually selectable.
+  const selection = useTableSelection(query.data ?? [], (n) => n.id, {
+    bulkEligible: (n) => !isBuiltin(n),
+  });
 
   const inspect = useQuery({
     ...orpc.docker.networks.inspect.queryOptions({ input: { id: inspectFor?.id ?? "" } }),
@@ -55,16 +72,18 @@ export function NetworksTable({ query }: { query: QueryLike<Network> }) {
       <Panel
         query={query}
         headers={["Name", "Driver", "Scope", "Subnet", "Gateway", "Attached", "Created", ""]}
+        leadingHead={<SelectAllHead selection={selection} />}
         emptyTitle="No networks"
         emptyText="No networks exist on this daemon."
       >
         {(rows) =>
           rows.map((n) => {
-            const builtin = BUILTIN_NETWORKS.has(n.name) || n.ingress;
+            const builtin = isBuiltin(n);
             return (
               <TableRow key={n.id}>
+                <SelectRowCell selection={selection} row={n} label={n.name} />
                 <TableCell
-                  className="max-w-[180px] truncate pl-4 font-mono text-xs font-medium"
+                  className="max-w-[180px] truncate font-mono text-xs font-medium"
                   title={n.name}
                 >
                   {n.name}
@@ -127,6 +146,24 @@ export function NetworksTable({ query }: { query: QueryLike<Network> }) {
         onConfirm={() => {
           if (removeFor) remove.mutate({ id: removeFor.id });
         }}
+      />
+
+      <SelectionBar
+        selection={selection}
+        noun="network"
+        actionLabel="Remove"
+        onAction={() => setBulkOpen(true)}
+        pending={bulkOpen}
+      />
+      <DockerBulkRemoveDialog
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        selection={selection}
+        noun="network"
+        labelOf={(n) => n.name}
+        removeOne={(n) => orpc.docker.networks.remove.call({ id: n.id })}
+        consequence="They'll be deleted from this daemon. Anything still referencing one by name will fail to start. Networks with containers still attached — and Docker's built-in networks — will be refused."
+        onDone={() => query.refetch()}
       />
     </>
   );

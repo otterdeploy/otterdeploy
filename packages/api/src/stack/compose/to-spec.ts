@@ -13,6 +13,8 @@
 import type { SpecMount, SwarmServiceRestart, SwarmServiceSpec } from "../../swarm";
 import type { ParsedComposeService } from "./types";
 
+import { PLATFORM } from "../../constants";
+
 export interface ComposeSpecContext {
   resourceId: string;
   projectSlug: string;
@@ -28,11 +30,18 @@ export interface ComposeSpecContext {
 
 /**
  * Swarm service name for a compose sub-service. The single source of truth for
- * the `${stack}-${service}` naming — used both at deploy (here) and by the
- * live-task query that maps swarm tasks back to their compose sub-service.
+ * the naming — used both at deploy (here) and by the live-task query that maps
+ * swarm tasks back to their compose sub-service.
+ *
+ * The prefix is what makes the result a *minted* identity: a bare
+ * `${stack}-${service}` is indistinguishable from any other alias on the
+ * overlay network, so `caddy/route-validation.ts` cannot tell a legitimate
+ * upstream from an arbitrary container a tenant asked to proxy to. It is the
+ * same `od-` every other swarm service carries — one convention, and the short
+ * form leaves room under Docker's 63-char cap for `${stack}-${service}`.
  */
 export function composeSwarmServiceName(stackName: string, serviceName: string): string {
-  return sanitize(`${stackName}-${serviceName}`).slice(0, 63);
+  return sanitize(`${PLATFORM.service.serviceNamePrefix}${stackName}-${serviceName}`).slice(0, 63);
 }
 
 export function composeServiceToSpec(
@@ -40,6 +49,11 @@ export function composeServiceToSpec(
   ctx: ComposeSpecContext,
 ): SwarmServiceSpec {
   const serviceName = composeSwarmServiceName(ctx.stackName, svc.name);
+  // Anonymous volumes are keyed off the *unprefixed* stack-service name on
+  // purpose: the prefix exists so route validation can recognise a swarm
+  // service, and folding it into volume identity would strand every existing
+  // anonymous volume behind a renamed one on the next deploy.
+  const volumeBase = sanitize(`${ctx.stackName}-${svc.name}`).slice(0, 63);
 
   return {
     resourceId: ctx.resourceId,
@@ -67,7 +81,7 @@ export function composeServiceToSpec(
       // We can't infer L7 from compose; assume http for tcp, raw for udp.
       appProtocol: p.protocol === "udp" ? ("tcp" as const) : ("http" as const),
     })),
-    mounts: toMounts(svc, serviceName, ctx.stackName),
+    mounts: toMounts(svc, volumeBase, ctx.stackName),
     forceUpdateCounter: ctx.forceUpdateCounter,
     deploymentId: ctx.deploymentId ?? null,
   };
@@ -104,13 +118,13 @@ function toRestart(r: ParsedComposeService["restart"]): SwarmServiceRestart {
 
 /** Volume mounts only — binds were dropped at parse, tmpfs is dropped here.
  *  Named volumes get the stack prefix; anonymous ones a stable derived name. */
-function toMounts(svc: ParsedComposeService, serviceName: string, stackName: string): SpecMount[] {
+function toMounts(svc: ParsedComposeService, volumeBase: string, stackName: string): SpecMount[] {
   const out: SpecMount[] = [];
   for (const v of svc.volumes) {
     if (v.type !== "volume") continue;
     const source = v.source
       ? `${stackName}-${v.source}`
-      : `${serviceName}-${sanitize(v.target).replace(/^-+/, "") || "data"}`;
+      : `${volumeBase}-${sanitize(v.target).replace(/^-+/, "") || "data"}`;
     out.push({
       Type: "volume",
       Source: source,

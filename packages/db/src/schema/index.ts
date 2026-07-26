@@ -13,6 +13,7 @@ export * from "./edge-event";
 // packages/api/src/edge-logs/partition.ts. Import its typed object directly
 // from "@otterdeploy/db/schema/edge-log" for queries.
 export * from "./git";
+export * from "./mesh";
 export * from "./notification";
 export * from "./notification-channel";
 export * from "./orphaned-resource";

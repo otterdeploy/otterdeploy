@@ -1,0 +1,124 @@
+---
+title: Services
+description: Build from a repo, roll out, roll back, and read the logs.
+---
+
+A service is a long-running container. Its **source** decides how the image
+gets made.
+
+## Sources
+
+| Source | What it means |
+| --- | --- |
+| `git` | Cloned and built for you on every deploy |
+| `image` | A pre-built image pulled from a registry |
+| `upload` | An archive you supply |
+
+### Building from git
+
+Connect a GitHub App installation to the organisation, then bind a service to a
+repository and branch. On each deploy the builder clones the repo, inspects it,
+and builds an image.
+
+The inspection detects a framework and a monorepo tool where it can — Next.js,
+Nuxt, Vite, Remix, Astro, SvelteKit, React, Vue, Express, Fastify, Hono, NestJS,
+Node, Bun, Go, Python, Rust, Ruby and plain static, across Turborepo, Nx, and
+pnpm / yarn / npm workspaces. Detection only picks the defaults; you can
+override them.
+
+Two builders are available:
+
+- **Railpack** — works out how to build the project without a Dockerfile.
+- **Dockerfile** — uses yours. Auto-detected when a Dockerfile is present, and
+  selectable explicitly with an optional `dockerfilePath`.
+
+<Callout title="GitHub only, for now">
+  `git_provider_kind` has exactly one member. GitLab and other providers are
+  not wired.
+</Callout>
+
+### Push to deploy
+
+Once a service is bound to a branch, a push to that branch creates a
+deployment. It is recorded with `reason: git-push`, so the history distinguishes
+it from a manual redeploy.
+
+## Rolling out
+
+Deployments become Swarm service updates. The new tasks come up, the old ones
+drain.
+
+```bash
+otterdeploy deploy --wait          # reconcile the whole project, block until healthy
+otterdeploy redeploy web           # rebuild from the head of the bound branch
+otterdeploy restart web            # cycle the container, same image
+otterdeploy build web              # build without rolling out
+```
+
+`--wait` exits non-zero if anything fails to settle, which makes it usable as a
+CI gate. `redeploy` also takes `--wait` and `--timeout <minutes>`.
+
+## Rolling back
+
+```bash
+otterdeploy deployments web        # list history
+otterdeploy rollback web           # redeploy an earlier one
+```
+
+The new deployment records `reason: rollback` rather than pretending the old one
+came back, so the history stays readable.
+
+## Logs
+
+```bash
+otterdeploy logs web               # runtime logs
+otterdeploy logs web --build       # the build phase
+```
+
+Deployment logs are split into `build` and `deploy` phases and stay queryable
+after the run. Severity is parsed out of the line, so filtering works on
+unstructured output.
+
+### When a container keeps dying
+
+A container that exits or is OOM-killed doesn't just flap silently. The crash
+watcher writes real lines into the deployment log — `restarting, attempt 2 of 5`,
+then `gave up after 5 attempts` — and emits a `deploy.crashed` notification to
+any channel subscribed to it.
+
+## Ports and exposure
+
+A service declares container ports with a protocol (`tcp` / `udp`) and an
+application protocol (`http` / `tcp`). One port is the **primary** — that's what
+a domain routes to by default, and what `${service:<name>.port}` resolves to.
+
+Public exposure is owned by the service's own settings. For a service inside a
+compose stack, that is still the child service's settings — the stack panel only
+summarises it.
+
+## Volumes
+
+```bash
+otterdeploy volume list --service web
+otterdeploy volume add --service web --path /data
+otterdeploy volume add --service web --path /cache --read-only
+otterdeploy volume remove --service web --path /data --yes
+```
+
+Removing a volume detaches it; the data is left intact. Mount types are
+`volume` (a named Docker volume), `bind`, and `file`.
+
+<Callout title="Volumes survive a reconcile">
+  Manifest apply never touches service mounts, so a volume you added by hand
+  isn't wiped by the next declarative sync — unlike environment variables,
+  which the manifest does own.
+</Callout>
+
+## Shelling in
+
+```bash
+otterdeploy exec web -- sh
+```
+
+The dashboard has the same thing as a web terminal. Web sessions are
+origin-checked and ticketed rather than relying on the session cookie alone.

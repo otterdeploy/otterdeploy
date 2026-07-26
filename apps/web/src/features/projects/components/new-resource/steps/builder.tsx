@@ -134,7 +134,7 @@ export function StepBuilder() {
 
       <DetectionBanner />
 
-      <div className="mt-3 mb-4 grid grid-cols-2 gap-2.5">
+      <div className="mt-3 mb-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         {BUILDERS.map((b) => {
           const isActive = builderId === b.id;
           return (

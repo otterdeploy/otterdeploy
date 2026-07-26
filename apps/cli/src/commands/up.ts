@@ -13,7 +13,6 @@
 import type { Manifest } from "@otterdeploy/api/manifest";
 
 import { defineCommand } from "citty";
-import { consola } from "consola";
 import { existsSync } from "node:fs";
 import { basename } from "node:path";
 
@@ -28,6 +27,8 @@ import {
   writeConfigTemplate,
 } from "../config-file";
 import { parseTimeoutMinutes, runDeploy } from "../lib/deploy-run";
+import { cmd } from "../lib/name";
+import { ask, confirm, detail, dim, hint, note, ok, select, warn } from "../lib/ui";
 
 // Project slugs are lowercase kebab; derive a sane default from the cwd.
 function slugify(input: string): string {
@@ -102,11 +103,7 @@ async function scaffoldProject(
     args.slug ??
     (args.yes || args.json
       ? defaultSlug
-      : await consola.prompt("Project slug:", {
-          type: "text",
-          initial: defaultSlug,
-          default: defaultSlug,
-        }));
+      : ((await ask("Project slug", defaultSlug)) ?? defaultSlug));
   const name = args.name ?? slug;
 
   // create, or link if the slug is already taken (same as `init`). Status
@@ -114,11 +111,11 @@ async function scaffoldProject(
   let project: { id: string; slug: string };
   try {
     project = await client.project.create({ name, slug });
-    if (!args.json) consola.success(`Created project ${slug}`);
+    if (!args.json) ok(`Created project ${slug}.`);
   } catch (error) {
     if ((error as { code?: string }).code !== "CONFLICT") throw error;
     project = await client.project.getBySlug({ slug });
-    if (!args.json) consola.info(`Linked to existing project ${slug}`);
+    if (!args.json) note(`Linked to existing project ${slug}.`);
   }
 
   // $schema lives on the web origin (captured at login), not the API.
@@ -128,7 +125,10 @@ async function scaffoldProject(
     schemaUrl: `${schemaHost.replace(/\/$/, "")}/otterdeploy.schema.json`,
     projectSlug: project.slug,
   });
-  if (!args.json) consola.success(`Wrote ${targetPath}`);
+  if (!args.json) {
+    ok("Wrote the config.");
+    detail([["file", dim(targetPath)]]);
+  }
 
   // A bare template deploys nothing useful — offer a first service.
   if (!args.yes && !args.json) {
@@ -139,29 +139,22 @@ async function scaffoldProject(
 // Interactive first-service builder. Mirrors `add service`'s manifest
 // shape; skipped entirely in non-interactive mode.
 async function maybeAddFirstService(configOverride?: string): Promise<void> {
-  const wants = await consola.prompt("Add a service now?", { type: "confirm", initial: true });
-  if (!wants) return;
+  // Adding a service defaults to yes: a bare template deploys nothing, so the
+  // helpful path is the default one.
+  if (!(await confirm("Add a service now?", true))) return;
 
-  const name = (await consola.prompt("Service name:", {
-    type: "text",
-    initial: "web",
-    default: "web",
-  })) as string;
+  const name = (await ask("Service name", "web")) ?? "web";
 
-  const source = (await consola.prompt("Source:", {
-    type: "select",
-    options: [
-      { label: "Upload this directory (build on server)", value: "upload" },
-      { label: "Container image", value: "image" },
-      { label: "Build from a connected git repo", value: "git" },
-    ],
-  })) as "image" | "git" | "upload";
+  const SOURCES = {
+    "Upload this directory (build on server)": "upload",
+    "Container image": "image",
+    "Build from a connected git repo": "git",
+  } as const;
+  const picked = await select("Source", Object.keys(SOURCES));
+  const source: "image" | "git" | "upload" =
+    picked && picked in SOURCES ? SOURCES[picked as keyof typeof SOURCES] : "upload";
 
-  const portRaw = (await consola.prompt("HTTP port (blank to skip):", {
-    type: "text",
-    initial: "3000",
-    default: "3000",
-  })) as string;
+  const portRaw = (await ask("HTTP port (blank to skip)", "3000")) ?? "";
   const portNum = portRaw ? Number.parseInt(portRaw, 10) : undefined;
   const hasPort = portNum !== undefined && Number.isFinite(portNum);
 
@@ -169,9 +162,7 @@ async function maybeAddFirstService(configOverride?: string): Promise<void> {
   const next: Manifest = { ...manifest, services: { ...manifest.services } };
 
   if (source === "upload" || source === "git") {
-    const subdir = (await consola.prompt("Build subdir (blank for root):", {
-      type: "text",
-    })) as string;
+    const subdir = (await ask("Build subdir (blank for root)")) ?? "";
     next.services[name] = {
       source,
       sourceSubdir: subdir || null,
@@ -179,13 +170,10 @@ async function maybeAddFirstService(configOverride?: string): Promise<void> {
       ...(hasPort ? { ports: [{ container: portNum, appProtocol: "http", primary: true }] } : {}),
     };
   } else {
-    const image = (await consola.prompt("Container image (e.g. ghcr.io/org/app:latest):", {
-      type: "text",
-    })) as string;
+    const image = await ask("Container image", "ghcr.io/org/app:latest");
     if (!image) {
-      consola.warn(
-        "No image given — skipping service. Edit the config and run `otterdeploy deploy`.",
-      );
+      warn("No image given — skipping the service.");
+      hint(`edit the config, then run \`${cmd("deploy")}\``);
       return;
     }
     next.services[name] = {
@@ -197,5 +185,6 @@ async function maybeAddFirstService(configOverride?: string): Promise<void> {
   }
 
   const path = writeConfig(next, configOverride);
-  consola.success(`Added service ${name} to ${path}.`);
+  ok(`Added service ${name}.`);
+  detail([["config", dim(path)]]);
 }

@@ -5,8 +5,9 @@
  * + per-env table + bulk-edit dialog) reads/writes through this slice.
  *
  * Values are returned in plaintext; masking happens client-side
- * (see `isSecret`). Server-side encryption-at-rest is a Plan 7 follow-up
- * that doesn't change this wire shape.
+ * (see `isSecret`) — EXCEPT for `sealed` rows, which the server masks to
+ * `""` unconditionally (write-only: set, replace or delete, never read
+ * back). See packages/api/src/routers/project/env-var.ts's `maskSealed`.
  */
 import { oc } from "@orpc/contract";
 import * as z from "zod";
@@ -20,6 +21,9 @@ export const projectEnvVarSchema = z.object({
   key: z.string(),
   value: z.string(),
   isSecret: z.boolean(),
+  // Write-only. True once a value has ever been sealed for this key — sticky,
+  // never flips back to false. `value` is always `""` on a sealed row.
+  sealed: z.boolean(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });
@@ -35,6 +39,10 @@ export const upsertProjectEnvVarInput = z.object({
   key: z.string().min(1).max(255),
   value: z.string(),
   isSecret: z.boolean().optional(),
+  // Seal this variable: the value can never be read back through the API
+  // after this write. Sticky — omitting it on a later upsert of the same
+  // key does NOT unseal an already-sealed row.
+  sealed: z.boolean().optional(),
 });
 
 export const deleteProjectEnvVarInput = z.object({

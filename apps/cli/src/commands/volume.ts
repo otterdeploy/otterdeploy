@@ -1,7 +1,8 @@
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
+import { cmd } from "../lib/name";
 import { resolveResource } from "../lib/resolve";
+import { abort, confirm, detail, dim, hint, note, ok, section, table } from "../lib/ui";
 
 const listVolumes = defineCommand({
   meta: { name: "list", description: "List persistent volumes on a service" },
@@ -20,16 +21,16 @@ const listVolumes = defineCommand({
       return;
     }
     if (rows.length === 0) {
-      consola.info(
-        `No volumes on ${args.service}. Add one with \`volume add --service ${args.service} --mount-path /data\`.`,
-      );
+      note(`No volumes on ${args.service}.`);
+      hint(`run \`${cmd(`volume add --service ${args.service} --mount-path /data`)}\``);
       return;
     }
-    const width = Math.max(...rows.map((r) => r.mountPath.length));
-    for (const r of rows) {
-      const ro = r.readOnly ? "  (read-only)" : "";
-      consola.log(`  ${r.mountPath.padEnd(width)}  →  ${r.volumeName}${ro}`);
-    }
+
+    section(`Volumes ${dim(String(args.service))}`);
+    table(
+      [{ header: "mount path" }, { header: "volume" }, { header: "" }],
+      rows.map((r) => [r.mountPath, dim(r.volumeName), r.readOnly ? dim("read-only") : ""]),
+    );
   },
 });
 
@@ -60,8 +61,12 @@ const addVolume = defineCommand({
       process.stdout.write(`${JSON.stringify(row, null, 2)}\n`);
       return;
     }
-    consola.success(`Attached ${row.mountPath} to ${ctx.resourceName} (volume ${row.volumeName}).`);
-    consola.info("The service is redeploying to mount it. Data persists across future deploys.");
+    ok(`Attached ${row.mountPath} to ${ctx.resourceName}.`);
+    detail([
+      ["volume", dim(row.volumeName)],
+      ["mode", row.readOnly ? "read-only" : "read-write"],
+    ]);
+    note(dim("The service is redeploying to mount it. Data persists across future deploys."));
   },
 });
 
@@ -86,21 +91,18 @@ const removeVolume = defineCommand({
     const ctx = await resolveResource(args, args.service, "service");
     const mountPath = args["mount-path"];
     if (!args.yes) {
-      const ok = await consola.prompt(
-        `Detach ${mountPath} from ${ctx.resourceName}? The volume's data is kept, but the container will no longer see it.`,
-        { type: "confirm", initial: false },
-      );
-      if (!ok) {
-        consola.info("Aborted.");
-        process.exit(1);
-      }
+      // Say what survives as well as what changes: the data is kept, which is
+      // the fact that decides whether this is safe to run.
+      note(dim("The volume's data is kept — the container just stops seeing it."));
+      const proceed = await confirm(`Detach ${mountPath} from ${ctx.resourceName}?`);
+      if (!proceed) abort("Aborted — nothing was detached.");
     }
     await ctx.client.service.mounts.remove({
       projectId: ctx.projectId,
       resourceId: ctx.resourceId,
       mountPath,
     });
-    consola.success(`Detached ${mountPath} from ${ctx.resourceName}.`);
+    ok(`Detached ${mountPath} from ${ctx.resourceName}.`);
   },
 });
 

@@ -8,7 +8,8 @@ import { orpc } from "@/shared/server/orpc";
 
 import { ContainerLogsDialog, InspectDialog } from "./docker-dialogs";
 import { containerTone, shortId, timeAgoSeconds } from "./docker-format";
-import { Panel, type QueryLike, StateBadge } from "./docker-panel";
+import { Panel, type QueryLike } from "./docker-panel";
+import { StateBadge } from "./docker-state-badge";
 import { RowActionButton } from "./docker-tables";
 
 /** Local row type — mirrors the docker contract output shape. */
@@ -16,7 +17,6 @@ interface Container {
   id: string;
   name: string;
   image: string;
-  command: string;
   state: string;
   status: string;
   ports: string[];
@@ -54,7 +54,7 @@ export function ContainersTable({ query }: { query: QueryLike<Container> }) {
     <>
       <Panel
         query={query}
-        headers={["ID", "Name", "Image", "Command", "Status", "Ports", "Created", ""]}
+        headers={["ID", "Name", "Image", "Status", "Ports", "Created", ""]}
         emptyTitle="No containers"
         emptyText="The daemon reported no containers."
       >
@@ -72,12 +72,6 @@ export function ContainersTable({ query }: { query: QueryLike<Container> }) {
                 title={c.image}
               >
                 {c.image}
-              </TableCell>
-              <TableCell
-                className="max-w-[160px] truncate font-mono text-xs text-muted-foreground"
-                title={c.command}
-              >
-                {c.command || "—"}
               </TableCell>
               <TableCell>
                 <StateBadge

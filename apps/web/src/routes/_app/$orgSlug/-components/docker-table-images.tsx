@@ -3,11 +3,18 @@ import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import {
+  SelectAllHead,
+  SelectionBar,
+  SelectRowCell,
+  useTableSelection,
+} from "@/shared/components/table-selection";
 import { Badge } from "@/shared/components/ui/badge";
 import { TableCell, TableRow } from "@/shared/components/ui/table";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
+import { DockerBulkRemoveDialog } from "./docker-bulk-remove";
 import { ConfirmRemoveDialog, InspectDialog } from "./docker-dialogs";
 import { formatBytes, shortId, splitRef, timeAgoSeconds } from "./docker-format";
 import { Panel, type QueryLike } from "./docker-panel";
@@ -25,6 +32,11 @@ interface Image {
 export function ImagesTable({ query }: { query: QueryLike<Image> }) {
   const [inspectFor, setInspectFor] = useState<Image | null>(null);
   const [removeFor, setRemoveFor] = useState<Image | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
+
+  // Selection spans the WHOLE list, not the current page — paging away from a
+  // selection and back must not silently drop it.
+  const selection = useTableSelection(query.data ?? [], (img) => img.id);
 
   const inspect = useQuery({
     ...orpc.docker.images.inspect.queryOptions({ input: { id: inspectFor?.id ?? "" } }),
@@ -53,6 +65,7 @@ export function ImagesTable({ query }: { query: QueryLike<Image> }) {
       <Panel
         query={query}
         headers={["Repository", "Tag", "Image ID", "Size", "In use", "Created", ""]}
+        leadingHead={<SelectAllHead selection={selection} />}
         emptyTitle="No images"
         emptyText="No images are cached on this daemon."
       >
@@ -62,9 +75,10 @@ export function ImagesTable({ query }: { query: QueryLike<Image> }) {
             const inUse = img.containers > 0;
             return (
               <TableRow key={img.id}>
+                <SelectRowCell selection={selection} row={img} label={repo} />
                 <TableCell
                   className={cn(
-                    "max-w-[260px] truncate pl-4 font-mono text-xs",
+                    "max-w-[260px] truncate font-mono text-xs",
                     repo === "<none>" ? "text-muted-foreground" : "font-medium",
                   )}
                   title={repo}
@@ -144,6 +158,24 @@ export function ImagesTable({ query }: { query: QueryLike<Image> }) {
         onConfirm={() => {
           if (removeFor) remove.mutate({ id: removeFor.id });
         }}
+      />
+
+      <SelectionBar
+        selection={selection}
+        noun="image"
+        actionLabel="Remove"
+        onAction={() => setBulkOpen(true)}
+        pending={bulkOpen}
+      />
+      <DockerBulkRemoveDialog
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        selection={selection}
+        noun="image"
+        labelOf={(img) => splitRef(img.repoTags[0] ?? "").repo || shortId(img.id)}
+        removeOne={(img) => orpc.docker.images.remove.call({ id: img.id })}
+        consequence="They'll be deleted from this daemon's cache. The next deploy that needs one will pull or rebuild it from scratch. Images still backing a container will be skipped."
+        onDone={() => query.refetch()}
       />
     </>
   );

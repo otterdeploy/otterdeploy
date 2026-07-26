@@ -15,9 +15,9 @@
 import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 import type { ReactCodeMirrorRef } from "@uiw/react-codemirror";
 
-import { omitUndefined } from "@otterdeploy/shared/object";
 import { useEffect, useRef, useState } from "react";
 
+import { omitUndefined } from "@otterdeploy/shared/object";
 import { useStore } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
 
@@ -124,7 +124,7 @@ export function ComposeWizard({
   const [step, setStep] = useState<"file" | "vars">("file");
 
   const stage = useStageManifestChange(projectId, {
-    successToast: "Stack staged — review and click Deploy to apply",
+    successToast: "Stack staged — review and Apply",
   });
 
   const form = useComposeForm();
@@ -166,7 +166,7 @@ export function ComposeWizard({
 
   // Stage a `composes[name]` entry into the manifest — no immediate deploy. The
   // graph then shows the stack as a pending ghost; the pending-changes bar's
-  // Deploy provisions it (manifest.apply → reconciler). Defined here, after
+  // Apply provisions it (manifest.apply → reconciler). Defined here, after
   // `derivedName`, so the blank-name fallback reads it straight off the derived
   // value — no ref/effect round-trip.
   const stageStack = async () => {

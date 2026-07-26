@@ -13,6 +13,7 @@
  */
 
 import type { ProjectSlug } from "@otterdeploy/shared/id";
+
 import {
   ArrowRight01Icon,
   Cancel01Icon,
@@ -22,16 +23,12 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link } from "@tanstack/react-router";
 
-import type {
-  Phase,
-  PhaseState,
-  TimelineInput,
-  Tone,
-} from "./deployment-timeline-model";
-
-import { buildTimeline } from "./deployment-timeline-model";
 import { Spinner } from "@/shared/components/ui/spinner";
 import { cn } from "@/shared/lib/utils";
+
+import type { Phase, PhaseState, TimelineInput, Tone } from "./deployment-timeline-model";
+
+import { buildTimeline } from "./deployment-timeline-model";
 
 /** Total duration as a mm:ss clock ("00:10"), matching the mockup. */
 function formatClock(ms: number): string {
@@ -122,7 +119,7 @@ function PhaseRow({ phase, link }: { phase: Phase; link: LinkCtx }) {
                 resourceId: link.resourceId,
                 deploymentId: link.deploymentId,
               }}
-              search={{ tab: "build-logs" }}
+              search={(prev) => ({ ...prev, deploymentTab: "build-logs" })}
               className="inline-flex w-fit items-center gap-1 text-[11.5px] text-primary underline-offset-2 hover:underline"
             >
               View the build logs for more detail
@@ -162,7 +159,7 @@ function DiagnoseRow({ link }: { link: LinkCtx }) {
           resourceId: link.resourceId,
           deploymentId: link.deploymentId,
         }}
-        search={{ tab: "build-logs" }}
+        search={(prev) => ({ ...prev, deploymentTab: "build-logs" })}
         className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-[12px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
       >
         View build logs
@@ -179,11 +176,7 @@ function ToneIcon({ tone }: { tone: Tone }) {
     );
   if (tone === "success")
     return (
-      <HugeiconsIcon
-        icon={CheckmarkCircle02Icon}
-        strokeWidth={2}
-        className="size-4 text-success"
-      />
+      <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className="size-4 text-success" />
     );
   return (
     <HugeiconsIcon
@@ -198,11 +191,7 @@ function PhaseIcon({ state }: { state: PhaseState }) {
   if (state === "active") return <Spinner className="size-3.5 text-warning" />;
   if (state === "done")
     return (
-      <HugeiconsIcon
-        icon={CheckmarkCircle02Icon}
-        strokeWidth={2}
-        className="size-4 text-success"
-      />
+      <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className="size-4 text-success" />
     );
   if (state === "failed")
     return (

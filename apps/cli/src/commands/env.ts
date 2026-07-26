@@ -1,5 +1,4 @@
 import { defineCommand } from "citty";
-import { consola } from "consola";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -7,7 +6,40 @@ import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";
 import { loadConfig } from "../config-file";
 import { parseDotenv, parsePairs } from "../lib/dotenv";
+import { cmd } from "../lib/name";
 import { resolveProject } from "../lib/resolve";
+import { suggestions } from "../lib/suggest";
+import { abort, dim, interactive, note, ok, out, section, table } from "../lib/ui";
+
+interface EnvVar {
+  key: string;
+  value: string;
+  isSecret?: boolean;
+}
+
+/**
+ * Print a variable set.
+ *
+ * Piped output stays raw `KEY=value`, because `env list --service web > .env` is
+ * a real workflow and decorating it would corrupt the file. A terminal gets an
+ * aligned table with secrets flagged — same data, formatted for the reader that
+ * is actually there. This is the one place output shape depends on the TTY.
+ */
+function printVars(vars: EnvVar[], subject: string): void {
+  if (vars.length === 0) {
+    note(`No env vars on ${subject}.`);
+    return;
+  }
+  if (!interactive()) {
+    for (const { key, value } of vars) out(`${key}=${value}`);
+    return;
+  }
+  section(`Env ${dim(subject)}`);
+  table(
+    [{ header: "key" }, { header: "value" }, { header: "" }],
+    vars.map((v) => [v.key, v.value, v.isSecret ? dim("secret") : ""]),
+  );
+}
 
 async function requireService(args: {
   service?: string;
@@ -20,14 +52,18 @@ async function requireService(args: {
   const slug = args.slug ?? (await loadConfig(args.config)).project;
   const project = await client.project.getBySlug({ slug });
   if (!args.service) {
-    consola.error("--service <name> is required (or pass --shared for project-level vars).");
-    process.exit(1);
+    abort("No service named.", "pass `--service <name>`", "or `--shared` for project-level vars");
   }
   const resources = await client.project.resource.list({ projectId: project.id });
   const svc = resources.find((r) => r.name === args.service);
   if (!svc) {
-    consola.error(`Service ${args.service} not found in project ${slug}.`);
-    process.exit(1);
+    abort(
+      `No service \`${args.service}\` in project ${slug}.`,
+      ...suggestions(
+        args.service,
+        resources.filter((r) => r.type === "service").map((r) => r.name),
+      ).map((s) => `did you mean \`${s}\`?`),
+    );
   }
   return { client, projectId: project.id, resourceId: svc.resourceId, projectSlug: slug };
 }
@@ -45,10 +81,8 @@ async function requireSharedEnv(args: { url?: string; slug?: string; config?: st
     environmentId = envs[0]?.id ?? null;
   }
   if (!environmentId) {
-    consola.error(
-      `Project ${ctx.projectSlug} has no environment — create one with \`otterdeploy environments create\`.`,
-    );
-    process.exit(1);
+    const create = cmd("environments create <name>");
+    abort(`Project ${ctx.projectSlug} has no environment.`, `run \`${create}\` first`);
   }
   return {
     client: ctx.client,
@@ -60,8 +94,7 @@ async function requireSharedEnv(args: { url?: string; slug?: string; config?: st
 
 function rejectSharedWithService(args: { shared?: boolean; service?: string }): void {
   if (args.shared && args.service) {
-    consola.error("--shared targets project-level vars — it cannot be combined with --service.");
-    process.exit(1);
+    abort("`--shared` is project-level — drop it, or drop `--service`.");
   }
 }
 
@@ -78,13 +111,13 @@ const listEnv = defineCommand({
   async run({ args }) {
     rejectSharedWithService(args);
     if (args.shared) {
-      const { client, projectId, environmentId } = await requireSharedEnv(args);
+      const { client, projectId, environmentId, projectSlug } = await requireSharedEnv(args);
       const vars = await client.project.envVar.list({ projectId, environmentId });
       if (args.json) {
         process.stdout.write(`${JSON.stringify(vars, null, 2)}\n`);
         return;
       }
-      for (const { key, value } of vars) consola.log(`${key}=${value}`);
+      printVars(vars, `${projectSlug} (shared)`);
       return;
     }
     const { client, projectId, resourceId } = await requireService(args);
@@ -93,7 +126,7 @@ const listEnv = defineCommand({
       process.stdout.write(`${JSON.stringify(env, null, 2)}\n`);
       return;
     }
-    for (const { key, value } of env) consola.log(`${key}=${value}`);
+    printVars(env, String(args.service));
   },
 });
 
@@ -111,17 +144,14 @@ const setEnv = defineCommand({
     rejectSharedWithService(args);
     const pairs = parsePairs(rawArgs);
     if (pairs.length === 0) {
-      consola.error(
-        "Pass at least one KEY=VAL pair, e.g. `env set --service web DATABASE_URL=postgres://...`",
-      );
-      process.exit(1);
+      abort("No KEY=VAL pairs given.", `e.g. \`${cmd("env set --service web LOG_LEVEL=debug")}\``);
     }
     if (args.shared) {
       const { client, projectId, environmentId, projectSlug } = await requireSharedEnv(args);
       for (const { key, value } of pairs) {
         await client.project.envVar.upsert({ projectId, environmentId, key, value });
       }
-      consola.success(`Set ${pairs.length} shared var(s) on ${projectSlug}.`);
+      ok(`Set ${pairs.length} shared var(s) on ${projectSlug}.`);
       return;
     }
     const { client, projectId, resourceId } = await requireService(args);
@@ -134,7 +164,10 @@ const setEnv = defineCommand({
     for (const { key, value } of pairs) merged.set(key, value);
     const vars = [...merged.entries()].map(([key, value]) => ({ key, value }));
     await client.service.env.bulkSet({ projectId, resourceId, vars });
-    consola.success(`Set ${pairs.length} var(s) on ${args.service}.`);
+    ok(`Set ${pairs.length} var(s) on ${args.service}.`);
+    // Setting a var restarts the service — say so rather than letting the
+    // rolling update look like an unrelated event.
+    note(dim("The service is rolling to pick up the change."));
   },
 });
 
@@ -159,15 +192,14 @@ const unsetEnv = defineCommand({
       return prev === undefined || !valueFlags.has(prev);
     });
     if (keys.length === 0) {
-      consola.error("Pass at least one key, e.g. `env unset --service web OLD_VAR`");
-      process.exit(1);
+      abort("No keys given.", `for example \`${cmd("env unset --service web OLD_VAR")}\``);
     }
     if (args.shared) {
       const { client, projectId, environmentId, projectSlug } = await requireSharedEnv(args);
       for (const key of keys) {
         await client.project.envVar.delete({ projectId, environmentId, key });
       }
-      consola.success(`Unset ${keys.length} shared key(s) on ${projectSlug}.`);
+      ok(`Unset ${keys.length} shared key(s) on ${projectSlug}.`);
       return;
     }
     const { client, projectId, resourceId } = await requireService(args);
@@ -179,7 +211,7 @@ const unsetEnv = defineCommand({
       .filter((e) => !toRemove.has(e.key))
       .map(({ key, value }) => ({ key, value }));
     await client.service.env.bulkSet({ projectId, resourceId, vars });
-    consola.success(`Unset ${keys.length} key(s) on ${args.service}.`);
+    ok(`Unset ${keys.length} key(s) on ${args.service}.`);
   },
 });
 
@@ -201,18 +233,21 @@ const importEnv = defineCommand({
     rejectSharedWithService(args);
     const path = resolve(args.file);
     if (!existsSync(path)) {
-      consola.error(`File not found: ${path}`);
-      process.exit(1);
+      abort(`No file at ${path}.`);
     }
     const parsed = parseDotenv(readFileSync(path, "utf8"));
+    // Without --merge this replaces the whole set, which silently drops any var
+    // that isn't in the file. Naming that up front is the honest thing to do.
+    if (!args.merge) note(dim(`Replacing all vars (pass --merge to keep existing ones).`));
+
     if (args.shared) {
       const { client, projectId, environmentId, projectSlug } = await requireSharedEnv(args);
-      let vars: Array<{ key: string; value: string; isSecret?: boolean }> = parsed;
+      let vars: EnvVar[] = parsed;
       if (args.merge) {
         // bulkReplace is wholesale, so merge client-side — and carry the
         // existing isSecret flags or the replace would reset them.
         const existing = await client.project.envVar.list({ projectId, environmentId });
-        const map = new Map<string, { key: string; value: string; isSecret?: boolean }>();
+        const map = new Map<string, EnvVar>();
         for (const e of existing) {
           map.set(e.key, { key: e.key, value: e.value, isSecret: e.isSecret });
         }
@@ -223,7 +258,7 @@ const importEnv = defineCommand({
         vars = [...map.values()];
       }
       await client.project.envVar.bulkReplace({ projectId, environmentId, vars });
-      consola.success(`Imported ${parsed.length} shared var(s) into ${projectSlug}.`);
+      ok(`Imported ${parsed.length} shared var(s) into ${projectSlug}.`);
       return;
     }
     const { client, projectId, resourceId } = await requireService(args);
@@ -236,7 +271,7 @@ const importEnv = defineCommand({
       vars = [...map.entries()].map(([key, value]) => ({ key, value }));
     }
     await client.service.env.bulkSet({ projectId, resourceId, vars });
-    consola.success(`Imported ${parsed.length} var(s) from ${args.file}.`);
+    ok(`Imported ${parsed.length} var(s) from ${args.file}.`);
   },
 });
 

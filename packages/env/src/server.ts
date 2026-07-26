@@ -1,6 +1,16 @@
 import { createEnv } from "@t3-oss/env-core";
 import * as z from "zod";
 
+// The native dev server and the Caddy container can share a bind-mounted
+// socket under OTTERDEPLOY_DATA_DIR. The production compose explicitly
+// overrides this with a root-only named volume under /run.
+const defaultCaddySocketPath =
+  // oxlint-disable-next-line node/no-process-env -- environment boundary chooses the transport default
+  process.env.NODE_ENV === "development"
+    ? // oxlint-disable-next-line node/no-process-env -- same environment-boundary default
+      `${process.env.OTTERDEPLOY_DATA_DIR ?? "/tmp/otterdeploy"}/caddy-admin/admin.sock`
+    : "/run/caddy-admin/admin.sock";
+
 export const env = createEnv({
   server: {
     DATABASE_URL: z.string().min(1),
@@ -16,6 +26,25 @@ export const env = createEnv({
 
     BETTER_AUTH_URL: z.url(),
     BETTER_AUTH_SECRET: z.string().min(32),
+
+    // Data-encryption keyring (packages/api/src/lib/crypto.ts) — separate
+    // from BETTER_AUTH_SECRET (auth signing) by design, so the two can
+    // rotate independently. Optional: an install with neither set falls
+    // back to deriving every secret domain's key from BETTER_AUTH_SECRET
+    // (zero-config default; each domain still gets its own HKDF-derived
+    // key). Format: "id:secret,id:secret,..." — each secret must be >= 32
+    // chars (fails closed at boot otherwise). Never remove an id that's
+    // still referenced by stored ciphertext; add a new id + set
+    // DATA_ENCRYPTION_KEY_ID to rotate instead. See
+    // packages/api/scripts/rotate-encryption-keys.ts.
+    DATA_ENCRYPTION_KEYS: z.string().min(1).optional(),
+    // Which keyring id new encryptions use. Defaults to "1" (or, absent a
+    // keyring entirely, the BETTER_AUTH_SECRET-derived fallback above).
+    DATA_ENCRYPTION_KEY_ID: z.string().min(1).optional(),
+    // One-time credential printed by the installer and required to create the
+    // first account. It is optional for upgraded installs that already have an
+    // installation owner; a fresh install without it fails signup closed.
+    OTTERDEPLOY_BOOTSTRAP_TOKEN: z.string().min(32).optional(),
 
     CORS_ORIGIN: z
       .string()
@@ -39,8 +68,15 @@ export const env = createEnv({
     TWILIO_FROM_NUMBER: z.string().min(1).optional(),
     FCM_SERVER_KEY: z.string().min(1).optional(),
 
-    CADDY_ADMIN_URL: z.url().default("http://127.0.0.1:2019"),
-    CADDY_ADMIN_BIND: z.string().min(1).default("0.0.0.0:2019"),
+    // Caddy recommends a permissioned Unix socket whenever untrusted
+    // workloads run on the same host. Production overrides these with the
+    // shared /run volume; native development may point both values at the
+    // bind-mounted data directory.
+    CADDY_ADMIN_URL: z.url().default(`unix://${defaultCaddySocketPath}`),
+    CADDY_ADMIN_BIND: z
+      .string()
+      .min(1)
+      .default(`unix/${defaultCaddySocketPath}|0600`),
 
     // Public IP the swarm manager exposes — embedded in sslip.io fallback
     // domains (`<ip>.sslip.io`) so a fresh install resolves without the
@@ -84,6 +120,23 @@ export const env = createEnv({
     // Set this to the PORT in DEPLOY_AUTHZ_UPSTREAM (e.g. 3000). Unset in
     // production (the Swarm service has stable DNS).
     CONTROL_PLANE_PORT: z.coerce.number().int().positive().optional(),
+
+    // Trusted-proxy allowlist for X-Forwarded-For / X-Forwarded-Proto
+    // (packages/api/src/security/trusted-proxy.ts). A request's forwarding
+    // headers are only honored when its IMMEDIATE TCP peer matches one of
+    // these bare IPs/CIDRs (comma-separated) — otherwise they're ignored
+    // outright and the raw connection is authoritative, so a tenant workload
+    // or a direct internet caller can never spoof its IP/scheme past rate
+    // limits, IP allowlists, the firewall/blocklist, or audit-log
+    // attribution. Default: loopback only — safe with zero configuration
+    // (matches the SSH-tunnel/localhost bootstrap path). The published prod
+    // compose install writes the shared install network's actual subnet
+    // here (scripts/install.sh `ensure_network` + `write_env`) so requests
+    // proxied by the Caddy edge container are trusted too; homelab/manual
+    // Docker operators fronting the dashboard with their own Caddy should
+    // set this to that proxy's reachable address/subnet.
+    TRUSTED_PROXIES: z.string().min(1).default("127.0.0.1/32,::1/128"),
+
     // Port the main HTTP server (Bun's default export) binds. Bun reads PORT
     // itself; mirrored here so the server can detect when CONTROL_PLANE_PORT
     // equals it (docker-compose passes both as 3000) and skip binding a second,
@@ -159,6 +212,29 @@ export const env = createEnv({
     CROWDSEC_LAPI_URL: z.url().optional(),
     CROWDSEC_BOUNCER_KEY: z.string().min(1).optional(),
 
+    // Outbound egress policy (SSRF hardening — packages/shared/src/egress-policy.ts).
+    // Every outbound call the control plane makes on a tenant's behalf
+    // (webhook delivery, Slack/Discord/generic notification channels,
+    // container registry probes, self-hosted git provider calls) resolves
+    // the destination and denies loopback/link-local/RFC1918/CGNAT/ULA/
+    // metadata addresses by default — safe with zero configuration.
+    // Homelab/LAN operators who WANT a tenant-supplied target to reach an
+    // internal address (e.g. a webhook receiver on their own LAN) can carve
+    // out specific IPs or CIDRs here. Comma-separated bare IPs and/or CIDRs
+    // only (no hostnames — an allowlisted name could itself be rebound).
+    // Empty by default: nothing private is reachable until an operator
+    // opts in. This can NEVER re-permit the control plane's own detected
+    // address/origins — that denial is unconditional.
+    OTTERDEPLOY_EGRESS_ALLOWLIST: z
+      .string()
+      .default("")
+      .transform((v) =>
+        v
+          .split(",")
+          .map((entry) => entry.trim())
+          .filter((entry) => entry.length > 0),
+      ),
+
     // GitHub Apps are created through the manifest flow (UI button in
     // Settings → Git Providers). App ID, client secret, webhook secret,
     // PEM private key, and slug all live on the `git_provider` row
@@ -188,8 +264,13 @@ export const env = createEnv({
     // Social sign-in (SSO). All optional — a provider is only registered when
     // BOTH its client id + secret are set, so leaving these unset is a clean
     // no-op. Distinct from the GitHub *App* used for git providers (that's
-    // configured in the UI, not env). The web mirrors which are enabled via
-    // VITE_AUTH_SOCIAL_PROVIDERS so it only renders configured buttons.
+    // configured in the UI, not env).
+    //
+    // These now SEED the platform_settings columns rather than being the only
+    // way in: Settings → Instance → Social sign-in edits them at runtime and
+    // hot-reloads the auth instance, and the sign-in page reads the live
+    // provider list from /api/auth/public-config. A provider configured here
+    // and never touched in the UI keeps working exactly as before.
     GITHUB_OAUTH_CLIENT_ID: z.string().min(1).optional(),
     GITHUB_OAUTH_CLIENT_SECRET: z.string().min(1).optional(),
     GOOGLE_OAUTH_CLIENT_ID: z.string().min(1).optional(),

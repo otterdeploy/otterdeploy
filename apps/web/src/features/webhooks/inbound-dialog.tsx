@@ -64,7 +64,7 @@ function persistEndpoint(args: {
           id: args.editing.id,
           name: args.name,
           action: args.action,
-          resourceId: args.action === "redeploy" ? (args.resourceId) : null,
+          resourceId: args.action === "redeploy" ? args.resourceId : null,
           ipAllowlist: args.ipAllowlist,
         })
         .then(() => {

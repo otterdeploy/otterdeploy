@@ -6,6 +6,9 @@
   "exports": {
     "./*": "./src/*.ts"
   },
+  "scripts": {
+    "test": "bun test ./src"
+  },
   "dependencies": {
     "@paralleldrive/cuid2": "^3.3.0",
     "zod": "catalog:"

@@ -1,0 +1,126 @@
+---
+title: First deploy
+description: From an empty project to a running, routed service.
+---
+
+This walks from nothing to a service on a real URL using the
+[`otterdeploy` CLI](/docs/cli). It assumes you have a control plane already —
+if not, [install one](/docs/start/install) first.
+
+## 1. Install the CLI
+
+<PackageManager pkg="@otterdeploy/cli" global />
+
+Runs on Node ≥ 20 or Bun.
+
+## 2. Sign in
+
+```bash
+otterdeploy login https://deploy.example.com
+```
+
+This opens your browser to approve the device — the same flow `gh` and `vercel`
+use. The token is stored at `~/.config/otterdeploy/config.json` (mode `0600`).
+
+For CI, set `OTTERDEPLOY_URL` and `OTTERDEPLOY_TOKEN` instead of logging in, and
+mint the token with `otterdeploy tokens create`.
+
+If you belong to more than one organisation, pick the active one:
+
+```bash
+otterdeploy org list
+otterdeploy org use acme
+```
+
+## 3. Scaffold and deploy
+
+`up` links (or creates) the project, writes a config file, offers a first
+service, and deploys — all in one step:
+
+```bash
+cd my-app
+otterdeploy up
+```
+
+Prefer explicit steps?
+
+```bash
+otterdeploy init                                        # write the config
+otterdeploy add service web --image nginx:latest --port 80
+otterdeploy deploy                                      # reconcile
+```
+
+To build from the repo instead of pulling an image, connect a GitHub App
+installation in the dashboard first, then bind the service to a repo and
+branch — see [services](/docs/guides/services).
+
+## 4. Watch it converge
+
+Deploy and block until every resource is healthy. Non-zero exit on failure, so
+it works as a CI gate:
+
+```bash
+otterdeploy deploy --wait
+```
+
+Stream logs, tail a build, or check deployment history:
+
+```bash
+otterdeploy logs web
+otterdeploy logs web --build
+otterdeploy deployments web
+```
+
+## 5. Put it on a domain
+
+Point a DNS record at the server, then attach the domain:
+
+```bash
+otterdeploy domains add app.example.com --service web
+otterdeploy domains list --service web
+```
+
+The Caddy edge picks it up and requests a certificate. Both the DNS and
+certificate states are reported honestly — see
+[domains and TLS](/docs/guides/domains) for what each state means and what to
+do about it.
+
+## 6. Add a database
+
+```bash
+otterdeploy add database postgres --engine postgres
+```
+
+Then reference it from the service rather than copying a connection string:
+
+```json
+{ "DATABASE_URL": "${database:postgres.DATABASE_URL}" }
+```
+
+The value is resolved at deploy time. See
+[environment variables](/docs/guides/environment).
+
+## What next
+
+<Cards>
+  <Card
+    title="Services"
+    href="/docs/guides/services"
+    description="Builds, rollbacks, restarts and logs."
+  />
+  <Card
+    title="Previews"
+    href="/docs/guides/previews"
+    description="A URL for every pull request."
+  />
+  <Card
+    title="Backups"
+    href="/docs/guides/backups"
+    description="Scheduled, encrypted, restorable."
+  />
+  <Card
+    title="CLI reference"
+    href="/docs/cli/commands"
+    description="Every command and flag."
+  />
+</Cards>

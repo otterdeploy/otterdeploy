@@ -7,7 +7,7 @@ import type { BackupDestinationId, OrganizationId } from "@otterdeploy/shared/id
 
 import { db } from "@otterdeploy/db";
 import { backup, backupDestination, backupSchedule } from "@otterdeploy/db/schema";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 
 export interface DestinationRow {
   destination: Omit<typeof backupDestination.$inferSelect, "encryptedSecret">;
@@ -22,6 +22,7 @@ const DESTINATION_VIEW = {
   type: backupDestination.type,
   config: backupDestination.config,
   status: backupDestination.status,
+  managed: backupDestination.managed,
   createdAt: backupDestination.createdAt,
   updatedAt: backupDestination.updatedAt,
 } as const;
@@ -42,6 +43,49 @@ async function getDestinationForOrg(input: {
       ),
     )
     .limit(1);
+  return row ?? null;
+}
+
+/** Type + managed flag only — the guard read for update/delete/disable, which
+ *  must not pull a secret into memory just to check whether a row is ours. */
+export async function getDestinationGuardFields(input: {
+  organizationId: OrganizationId;
+  id: BackupDestinationId;
+}): Promise<{ type: "s3" | "local" | "sftp"; managed: boolean; status: string } | null> {
+  const [row] = await db
+    .select({
+      type: backupDestination.type,
+      managed: backupDestination.managed,
+      status: backupDestination.status,
+    })
+    .from(backupDestination)
+    .where(
+      and(
+        eq(backupDestination.id, input.id),
+        eq(backupDestination.organizationId, input.organizationId),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+/** Flip operator intent on a destination. `disabled` makes the scheduler skip
+ *  it on future runs; existing snapshots stay readable and restorable. */
+export async function setDestinationStatusRecord(input: {
+  organizationId: OrganizationId;
+  id: BackupDestinationId;
+  status: "active" | "disabled";
+}): Promise<DestinationView | null> {
+  const [row] = await db
+    .update(backupDestination)
+    .set({ status: input.status })
+    .where(
+      and(
+        eq(backupDestination.id, input.id),
+        eq(backupDestination.organizationId, input.organizationId),
+      ),
+    )
+    .returning(DESTINATION_VIEW);
   return row ?? null;
 }
 
@@ -182,6 +226,7 @@ export async function listDestinationsByOrg(
       type: backupDestination.type,
       config: backupDestination.config,
       status: backupDestination.status,
+      managed: backupDestination.managed,
       createdAt: backupDestination.createdAt,
       updatedAt: backupDestination.updatedAt,
       // bigint sum comes back as a string in pg; coerce in JS below.
@@ -191,7 +236,9 @@ export async function listDestinationsByOrg(
     .leftJoin(backup, eq(backup.destinationId, backupDestination.id))
     .where(eq(backupDestination.organizationId, organizationId))
     .groupBy(backupDestination.id)
-    .orderBy(asc(backupDestination.createdAt));
+    // Managed first — it is the default the schedule form pre-selects, so it
+    // should also be the first row the operator sees.
+    .orderBy(desc(backupDestination.managed), asc(backupDestination.createdAt));
 
   return rows.map(({ usedBytes, ...destination }) => ({
     destination,

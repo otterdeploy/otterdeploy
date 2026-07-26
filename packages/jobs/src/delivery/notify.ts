@@ -8,12 +8,14 @@
  *   - sms  → `data.phone` (E.164, e.g. "+14155550123")
  *   - push → `data.deviceToken` (FCM registration token)
  *
- * Missing provider config or destination is a logged no-op, not an error —
- * the job still succeeds on the strength of the persisted in-app row.
+ * Provider credentials come from ./platform-transports (settings row, seeded
+ * from TWILIO_* / FCM_SERVER_KEY). Missing provider config or destination is a
+ * logged no-op, not an error — the job still succeeds on the strength of the
+ * persisted in-app row.
  */
-import { env } from "@otterdeploy/env/server";
-
 import type { JobLogger } from "../define";
+
+import { fcmServerKey, twilioConfig } from "./platform-transports";
 
 interface DeliverInput {
   channel: "push" | "sms";
@@ -31,12 +33,10 @@ export async function deliverExternal(input: DeliverInput): Promise<boolean> {
 }
 
 async function deliverSms(input: DeliverInput): Promise<boolean> {
-  const sid = env.TWILIO_ACCOUNT_SID;
-  const token = env.TWILIO_AUTH_TOKEN;
-  const from = env.TWILIO_FROM_NUMBER;
+  const twilio = await twilioConfig();
   const to = typeof input.data?.phone === "string" ? input.data.phone : null;
 
-  if (!sid || !token || !from) {
+  if (!twilio) {
     input.log.warn({ notification: { channel: "sms", skipped: "no_provider" } });
     return false;
   }
@@ -47,17 +47,20 @@ async function deliverSms(input: DeliverInput): Promise<boolean> {
 
   const body = new URLSearchParams({
     To: to,
-    From: from,
+    From: twilio.fromNumber,
     Body: `${input.title}\n${input.message}`,
   });
-  const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${btoa(`${sid}:${token}`)}`,
-      "Content-Type": "application/x-www-form-urlencoded",
+  const res = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${twilio.accountSid}/Messages.json`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${btoa(`${twilio.accountSid}:${twilio.authToken}`)}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body,
     },
-    body,
-  });
+  );
   if (!res.ok) {
     input.log.error({
       notification: { channel: "sms", status: res.status, error: await res.text() },
@@ -69,7 +72,7 @@ async function deliverSms(input: DeliverInput): Promise<boolean> {
 }
 
 async function deliverPush(input: DeliverInput): Promise<boolean> {
-  const key = env.FCM_SERVER_KEY;
+  const key = await fcmServerKey();
   const deviceToken = typeof input.data?.deviceToken === "string" ? input.data.deviceToken : null;
 
   if (!key) {

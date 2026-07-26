@@ -9,7 +9,8 @@ import { TableCell, TableRow } from "@/shared/components/ui/table";
 import { cn } from "@/shared/lib/utils";
 
 import { shortId, taskTone, timeAgoIso } from "./docker-format";
-import { Panel, type QueryLike, StateBadge } from "./docker-panel";
+import { Panel, type QueryLike } from "./docker-panel";
+import { StateBadge } from "./docker-state-badge";
 
 /** Local row type — mirrors the docker contract output shape. */
 interface Task {

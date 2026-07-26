@@ -1,9 +1,3 @@
-/**
- * Volumes inventory table. Attached-to chips deep-link to the owning
- * resource's graph panel; orphans get a warning badge (icon + label, never
- * color alone). Sizes render "—" when the daemon didn't report usage.
- */
-import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import {
   Alert02Icon,
   CubeIcon,
@@ -14,6 +8,12 @@ import {
   MoreVerticalIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+/**
+ * Volumes inventory table. Attached-to chips deep-link to the owning
+ * resource's graph panel; orphans get a warning badge (icon + label, never
+ * color alone). Sizes render "—" when the daemon didn't report usage.
+ */
+import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { Link } from "@tanstack/react-router";
 
 import { Badge } from "@/shared/components/ui/badge";
@@ -34,6 +34,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/shared/components/ui/table";
+import {
+  SelectAllHead,
+  SelectRowCell,
+  type TableSelection,
+} from "@/shared/components/table-selection";
 import { cn } from "@/shared/lib/utils";
 
 import type { VolumeAttachment, VolumeRow } from "./shared";
@@ -123,12 +128,12 @@ function RowMenu({
         <HugeiconsIcon icon={MoreVerticalIcon} strokeWidth={2} className="size-3.5" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">
-        <DropdownMenuItem onSelect={() => onInspect(volume)}>
+        <DropdownMenuItem onClick={() => onInspect(volume)}>
           <HugeiconsIcon icon={EyeIcon} strokeWidth={2} className="size-3.5" />
           Inspect
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onSelect={() => onRemove(volume)}>
+        <DropdownMenuItem variant="destructive" onClick={() => onRemove(volume)}>
           <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
           Remove…
         </DropdownMenuItem>
@@ -140,23 +145,27 @@ function RowMenu({
 export function VolumesTable({
   volumes,
   orgSlug,
+  selection,
   onInspect,
   onRemove,
 }: {
   volumes: VolumeRow[];
   orgSlug: string;
+  /** Row multi-select, owned by the section so the action bar can live
+   *  outside the card. */
+  selection: TableSelection<VolumeRow>;
   onInspect: (volume: VolumeRow) => void;
   onRemove: (volume: VolumeRow) => void;
 }) {
   return (
-    <Card className="gap-0 overflow-hidden rounded-md p-0">
+    <Card className="min-w-0 gap-0 overflow-hidden rounded-md p-0">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="pl-4">Name</TableHead>
+            <SelectAllHead selection={selection} />
+            <TableHead>Name</TableHead>
             <TableHead>Driver</TableHead>
             <TableHead>Size</TableHead>
-            <TableHead>Mountpoint</TableHead>
             <TableHead>Attached to</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Created</TableHead>
@@ -165,8 +174,9 @@ export function VolumesTable({
         </TableHeader>
         <TableBody>
           {volumes.map((v) => (
-            <TableRow key={v.name}>
-              <TableCell className="max-w-[260px] pl-4">
+            <TableRow key={v.name} data-selected={selection.isSelected(v) ? "" : undefined}>
+              <SelectRowCell selection={selection} row={v} label={v.name} />
+              <TableCell className="max-w-[260px]">
                 <span className="block truncate font-mono text-xs font-medium" title={v.name}>
                   {v.name}
                 </span>
@@ -180,12 +190,6 @@ export function VolumesTable({
                 className={cn("text-muted-foreground", v.sizeBytes >= 0 && "font-mono text-xs")}
               >
                 {fmtBytes(v.sizeBytes)}
-              </TableCell>
-              <TableCell
-                className="max-w-[240px] truncate font-mono text-xs text-muted-foreground"
-                title={v.mountpoint}
-              >
-                {v.mountpoint}
               </TableCell>
               <TableCell className="max-w-[260px]">
                 {v.attachedTo.length > 0 ? (

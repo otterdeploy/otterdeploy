@@ -13,6 +13,14 @@ import { auditLog } from "@otterdeploy/db/schema";
  *   A. Denial burst — ≥ DENIAL_THRESHOLD failed/denied actions from ONE ip
  *      within an org in the window (RBAC denials + auth failures are audited:
  *      a sign of probing / brute force / a misconfigured client).
+ *
+ *      Auth failures only started reaching this rule once packages/auth/src/
+ *      audit.ts began recording them — better-auth serves its own routes and
+ *      emitted no audit envelope, so before that the rule could see a refused
+ *      RPC but never a refused password. It relies on those rows carrying the
+ *      target account's org: the `isNotNull(organizationId)` filter below skips
+ *      un-attributable rows, which is why a failed sign-in resolves the org
+ *      from the user being signed in to rather than leaving it null.
  *   B. Deletion burst — ≥ DELETE_THRESHOLD successful `*.delete` actions by ONE
  *      actor within the window (a sign of mass teardown — accidental or hostile).
  *

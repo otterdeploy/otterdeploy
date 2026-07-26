@@ -23,6 +23,9 @@ const zOrgSlug = z.object({
  * General page hosts the UpdatesCard (`useUpdate`).
  */
 export const Route = createFileRoute("/_app/$orgSlug")({
+  // The org name is true of every page under here, so it is breadcrumb context,
+  // not tab-title context — see useDocumentTitle.
+  staticData: { ambientCrumb: true },
   component: () => (
     <UpdateProvider>
       <Outlet />

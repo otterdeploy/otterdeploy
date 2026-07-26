@@ -14,9 +14,9 @@ const routeIdSchema = zId("proxy_route");
  *
  * Routes themselves are reconciler-owned (no create/delete from the client) —
  * the only user-settable fields are `protected` (the auth wall) and
- * `customDirectives`. Both ride `onUpdate`, dispatching to the matching oRPC
- * procedure on whichever field changed, so the protection switch and the
- * directives dialog mutate the collection instead of holding their own
+ * `routePolicy`. Both ride `onUpdate`, dispatching to the matching oRPC
+ * procedure on whichever field changed, so the protection switch and policy
+ * dialog mutate the collection instead of holding their own
  * mutations. The Networking tab reads via a live query.
  *
  * Single shared collection rather than one-per-project: consumers scope it by
@@ -24,15 +24,15 @@ const routeIdSchema = zId("proxy_route");
  * filter as `loadSubsetOptions`, from which `queryKey` / `queryFn` recover the
  * `projectId` to fetch (and cache) the right subset.
  *
- * `setRouteDirectives` is validate-before-save: Caddy can reject the directives
+ * `setRoutePolicy` is rollback-safe: Caddy can reject the generated config
  * (`applied: false`), in which case `onUpdate` throws so the optimistic row
  * rolls back and the caller can surface the inline parse error from the
  * rejection.
  */
-export class RouteDirectivesRejectedError extends Error {
+export class RoutePolicyRejectedError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "RouteDirectivesRejectedError";
+    this.name = "RoutePolicyRejectedError";
   }
 }
 
@@ -68,18 +68,14 @@ export const proxyRoutesCollection = createCollection(
               protected: m.changes.protected,
             });
           }
-          // Per-route custom directives. Validate-before-save: a Caddy parse
-          // rejection comes back as `applied: false` — throw so the optimistic
-          // row rolls back and the dialog renders the inline error.
-          if (m.changes.customDirectives !== undefined) {
-            const directives = m.changes.customDirectives;
-            const result = await orpc.project.proxyRoute.setRouteDirectives.call({
+          if (m.changes.routePolicy !== undefined) {
+            const result = await orpc.project.proxyRoute.setRoutePolicy.call({
               routeId,
-              directives: directives && directives.trim().length > 0 ? directives : null,
+              policy: m.changes.routePolicy,
             });
             if (!result.applied) {
-              throw new RouteDirectivesRejectedError(
-                result.error ?? "Caddy rejected these directives",
+              throw new RoutePolicyRejectedError(
+                result.error ?? "Caddy rejected the generated route policy",
               );
             }
           }

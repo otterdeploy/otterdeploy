@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "vite-plus/test";
 
 import { computeStages, type ProvisionStageRow } from "./server-provision-stepper";
 

@@ -59,6 +59,24 @@ const NEW_SCHEDULE: ScheduleFormValues = {
   enabled: true,
 };
 
+/**
+ * Which destination a brand-new schedule starts with.
+ *
+ * Prefers the platform-managed local one: it always exists and needs no setup,
+ * which is the whole point of it — creating a working schedule should not
+ * require configuring storage first. Falls back to any other enabled
+ * destination, and never pre-selects a `disabled` one, since that would hand
+ * the operator a schedule that silently writes nowhere.
+ *
+ * Chosen explicitly rather than taking `destinations[0]` so the default doesn't
+ * silently change if the list's sort order is ever revisited.
+ */
+function defaultDestinationIds(destinations: Destination[]): string[] {
+  const enabled = destinations.filter((d) => d.status !== "disabled");
+  const preferred = enabled.find((d) => d.managed) ?? enabled[0];
+  return preferred ? [preferred.id] : [];
+}
+
 function scheduleDefaults(
   initial: Schedule | null,
   destinations: Destination[],
@@ -66,7 +84,7 @@ function scheduleDefaults(
   if (!initial)
     return {
       ...NEW_SCHEDULE,
-      destinationIds: destinations[0] ? [destinations[0].id] : [],
+      destinationIds: defaultDestinationIds(destinations),
     };
   return {
     name: initial.name,

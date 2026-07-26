@@ -1,6 +1,6 @@
 import { ORPCError } from "@orpc/server";
 import { db } from "@otterdeploy/db";
-import { gitInstallation, gitProvider, gitRepo } from "@otterdeploy/db/schema";
+import { gitInstallation, gitProvider } from "@otterdeploy/db/schema";
 import { env } from "@otterdeploy/env/server";
 import { matchError } from "better-result";
 import { and, eq } from "drizzle-orm";
@@ -25,6 +25,7 @@ import { connectPublicRepo } from "./public-repos";
 import {
   getInstallationForOrg,
   getProviderDetail,
+  getRepoForOrg,
   listProvidersForOrg,
   listReposForInstallation,
   listResourcesForProvider,
@@ -294,6 +295,15 @@ export const gitRouter = {
     context.log.set({
       target: { type: "git_repo", id: input.gitRepoId, path: input.path },
     });
+    // gitRepoId is caller-supplied — a private (installation-backed) repo
+    // must resolve to the caller's own org before we mint an installation
+    // token and hand back its tree. NOT_FOUND (not FORBIDDEN) so a foreign
+    // id is indistinguishable from a nonexistent one.
+    const repo = await getRepoForOrg({
+      gitRepoId: input.gitRepoId,
+      organizationId: context.activeOrganizationId,
+    });
+    if (!repo) throw errors.NOT_FOUND();
     const result = await inspectRepoTree({
       gitRepoId: input.gitRepoId,
       path: input.path,
@@ -312,6 +322,11 @@ export const gitRouter = {
     context.log.set({
       target: { type: "git_repo", id: input.gitRepoId },
     });
+    const repo = await getRepoForOrg({
+      gitRepoId: input.gitRepoId,
+      organizationId: context.activeOrganizationId,
+    });
+    if (!repo) throw errors.NOT_FOUND();
     const result = await listRepoBranches(input.gitRepoId);
     if (result.isErr()) {
       throw matchError(result.error, {
@@ -323,16 +338,14 @@ export const gitRouter = {
     return result.value;
   }),
 
-  getRepo: orgScopedProcedure.git.getRepo.handler(async ({ input, errors }) => {
-    const [row] = await db
-      .select({
-        fullName: gitRepo.fullName,
-        defaultBranch: gitRepo.defaultBranch,
-      })
-      .from(gitRepo)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .where(eq(gitRepo.id, input.gitRepoId as any))
-      .limit(1);
+  getRepo: orgScopedProcedure.git.getRepo.handler(async ({ input, context, errors }) => {
+    context.log.set({
+      target: { type: "git_repo", id: input.gitRepoId },
+    });
+    const row = await getRepoForOrg({
+      gitRepoId: input.gitRepoId,
+      organizationId: context.activeOrganizationId,
+    });
     if (!row) throw errors.NOT_FOUND();
     return {
       fullName: row.fullName,
@@ -344,6 +357,11 @@ export const gitRouter = {
     context.log.set({
       target: { type: "git_repo", id: input.gitRepoId, path: input.path },
     });
+    const repo = await getRepoForOrg({
+      gitRepoId: input.gitRepoId,
+      organizationId: context.activeOrganizationId,
+    });
+    if (!repo) throw errors.NOT_FOUND();
     const result = await inspectEnvFiles(input.gitRepoId, input.path);
     if (result.isErr()) {
       throw matchError(result.error, {

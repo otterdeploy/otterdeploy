@@ -150,7 +150,9 @@ function EnvChangeRow({ row }: { row: EnvRow }) {
           {ENV_SIGN[row.kind]}
         </span>{" "}
         <span
-          className={row.kind === "delete" ? "text-muted-foreground line-through" : "text-foreground"}
+          className={
+            row.kind === "delete" ? "text-muted-foreground line-through" : "text-foreground"
+          }
         >
           {row.key}
         </span>

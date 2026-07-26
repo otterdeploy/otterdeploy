@@ -178,7 +178,7 @@ export function kindLabel(k: BackupKind): string {
 // ────── Badges ──────
 
 // Status tone → Tailwind classes.
-function statusTone(status: BackupStatus | "active" | "degraded"): string {
+function statusTone(status: BackupStatus | "active" | "degraded" | "disabled"): string {
   switch (status) {
     case "succeeded":
     case "active":
@@ -189,6 +189,8 @@ function statusTone(status: BackupStatus | "active" | "degraded"): string {
       return "border-blue-500/30 bg-blue-500/10 text-blue-500";
     case "degraded":
       return "border-amber-500/30 bg-amber-500/10 text-amber-500";
+    // `disabled` falls through to muted on purpose: it's operator intent, not a
+    // fault, so it must not compete visually with a real failure.
     default:
       return "text-muted-foreground";
   }
@@ -198,7 +200,7 @@ export function StatusBadge({
   status,
   children,
 }: {
-  status: BackupStatus | "active" | "degraded";
+  status: BackupStatus | "active" | "degraded" | "disabled";
   children?: React.ReactNode;
 }) {
   return (

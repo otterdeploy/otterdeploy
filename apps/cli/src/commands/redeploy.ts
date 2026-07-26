@@ -1,10 +1,12 @@
 import { ORPCError } from "@orpc/client";
 import { defineCommand } from "citty";
-import { consola } from "consola";
 
 import type { ResourceContext } from "../lib/resolve";
 
+import { shortId } from "../lib/format";
+import { cmd } from "../lib/name";
 import { resolveResource } from "../lib/resolve";
+import { abort, detail, hint, ok, paint, section } from "../lib/ui";
 import { waitForDeployments } from "../lib/wait";
 
 // Parse an optional --timeout (minutes) shared by the service/compose paths.
@@ -12,15 +14,56 @@ function parseTimeout(raw: string | undefined): number | undefined {
   if (raw === undefined) return undefined;
   const minutes = Number(raw);
   if (!Number.isFinite(minutes) || minutes <= 0) {
-    consola.error(`Invalid --timeout: ${raw} (expected minutes, e.g. --timeout 20).`);
-    process.exit(1);
+    abort(
+      `--timeout expects a positive number of minutes, got "${raw}".`,
+      "for example `--timeout 20`",
+    );
   }
   return minutes * 60_000;
 }
 
+/** Shared tail: announce the queued deployment, then optionally wait on it. */
+async function announceAndWait(
+  ctx: ResourceContext,
+  opts: { wait: boolean; timeoutMs?: number; json: boolean },
+  announce: { deploymentId?: string; status?: string; payload: unknown },
+): Promise<void> {
+  if (!opts.json) {
+    ok(`Redeploy queued for ${ctx.resourceName}.`);
+    if (announce.deploymentId || announce.status) {
+      section("Deployment");
+      detail([
+        ["id", announce.deploymentId ? paint("id", shortId(announce.deploymentId)) : ""],
+        ["status", announce.status ?? ""],
+      ]);
+    }
+    if (!opts.wait) hint(`re-run with \`--wait\` to block until it settles`);
+  }
+
+  if (!opts.wait) {
+    if (opts.json) process.stdout.write(`${JSON.stringify(announce.payload, null, 2)}\n`);
+    return;
+  }
+
+  // `succeeded`, not `ok` — `ok` is the outcome printer imported above.
+  const { ok: succeeded, outcomes } = await waitForDeployments({
+    client: ctx.client,
+    projectId: ctx.projectId,
+    targets: [{ resourceId: ctx.resourceId, name: ctx.resourceName }],
+    timeoutMs: opts.timeoutMs,
+    json: opts.json,
+  });
+  if (opts.json) {
+    process.stdout.write(
+      `${JSON.stringify({ ...(announce.payload as object), ok: succeeded, outcomes }, null, 2)}\n`,
+    );
+  }
+  if (!succeeded) process.exitCode = 1;
+}
+
 // A git-sourced service: rebuild from the head of its bound branch (same path
-// as `otterdeploy build`). Image-sourced services have nothing to build —
-// point the user at `restart` / an image change instead of a raw error code.
+// as `build`). Image-sourced services have nothing to build — point the user at
+// `restart` / an image change instead of a raw error code.
 async function redeployService(
   ctx: ResourceContext,
   opts: { wait: boolean; timeoutMs?: number; json: boolean },
@@ -33,38 +76,17 @@ async function redeployService(
     }));
   } catch (error) {
     if (error instanceof ORPCError && error.code === "NOT_GIT_SOURCED") {
-      consola.error(`${ctx.resourceName} runs a prebuilt image — there is nothing to rebuild.`);
-      consola.info(
-        `Use \`otterdeploy restart ${ctx.resourceName}\` to roll it, or change its image tag and \`otterdeploy deploy\`.`,
+      // Both recoveries are real and different, so both are offered.
+      abort(
+        `${ctx.resourceName} runs a prebuilt image — there is nothing to rebuild.`,
+        `run \`${cmd(`restart ${ctx.resourceName}`)}\` to roll it with the current image`,
+        `or change its image tag and run \`${cmd("deploy")}\``,
       );
-      process.exit(1);
     }
     throw error;
   }
 
-  if (!opts.wait) {
-    if (opts.json) {
-      process.stdout.write(`${JSON.stringify({ deploymentId }, null, 2)}\n`);
-      return;
-    }
-    consola.success(`Redeploy queued for ${ctx.resourceName} — deployment ${deploymentId}.`);
-    return;
-  }
-
-  if (!opts.json) {
-    consola.success(`Redeploy queued for ${ctx.resourceName} — deployment ${deploymentId}.`);
-  }
-  const { ok, outcomes } = await waitForDeployments({
-    client: ctx.client,
-    projectId: ctx.projectId,
-    targets: [{ resourceId: ctx.resourceId, name: ctx.resourceName }],
-    timeoutMs: opts.timeoutMs,
-    json: opts.json,
-  });
-  if (opts.json) {
-    process.stdout.write(`${JSON.stringify({ deploymentId, ok, outcomes }, null, 2)}\n`);
-  }
-  if (!ok) process.exitCode = 1;
+  await announceAndWait(ctx, opts, { deploymentId, payload: { deploymentId } });
 }
 
 // A compose stack: `compose.redeploy` re-clones at branch HEAD (git stacks),
@@ -83,36 +105,16 @@ async function redeployCompose(
   if (!result.ok) {
     if (opts.json) {
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-    } else {
-      consola.error(`Redeploy failed for ${ctx.resourceName}: ${result.error ?? result.status}`);
-    }
-    process.exitCode = 1;
-    return;
-  }
-
-  if (!opts.wait) {
-    if (opts.json) {
-      process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      process.exitCode = 1;
       return;
     }
-    consola.success(`Redeploy queued for ${ctx.resourceName} (${result.status}).`);
-    return;
+    abort(
+      `Redeploy failed for ${ctx.resourceName}: ${result.error ?? result.status}`,
+      `run \`${cmd(`logs ${ctx.resourceName} --build`)}\` for the build output`,
+    );
   }
 
-  if (!opts.json) {
-    consola.success(`Redeploy queued for ${ctx.resourceName} (${result.status}).`);
-  }
-  const { ok, outcomes } = await waitForDeployments({
-    client: ctx.client,
-    projectId: ctx.projectId,
-    targets: [{ resourceId: ctx.resourceId, name: ctx.resourceName }],
-    timeoutMs: opts.timeoutMs,
-    json: opts.json,
-  });
-  if (opts.json) {
-    process.stdout.write(`${JSON.stringify({ ...result, ok, outcomes }, null, 2)}\n`);
-  }
-  if (!ok) process.exitCode = 1;
+  await announceAndWait(ctx, opts, { status: result.status, payload: result });
 }
 
 export const redeployCommand = defineCommand({
@@ -148,9 +150,11 @@ export const redeployCommand = defineCommand({
       await redeployCompose(ctx, opts);
       return;
     }
-    consola.error(
-      `${ctx.resourceName} is a ${ctx.resourceType}; only services and compose stacks can be redeployed.`,
+    // Previously this printed and then fell through with exit code 0, so a
+    // no-op redeploy of a database looked like a success.
+    abort(
+      `${ctx.resourceName} is a ${ctx.resourceType}.`,
+      "only services and compose stacks can be redeployed",
     );
-    process.exit(1);
   },
 });

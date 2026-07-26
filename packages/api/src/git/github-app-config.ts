@@ -22,7 +22,7 @@ import { db } from "@otterdeploy/db";
 import { gitInstallation, gitProvider } from "@otterdeploy/db/schema";
 import { and, eq } from "drizzle-orm";
 
-import { decryptSecret } from "../lib/crypto";
+import { decryptForDomain } from "../lib/crypto";
 import {
   apiBaseUrlForHost,
   type GithubAppConfig,
@@ -87,7 +87,7 @@ export async function loadGithubAppByExternalAppIdForWebhook(
     return null;
   }
   const config = await rowToConfig(row);
-  const webhookSecret = await decryptSecret(row.webhookSecretCiphertext);
+  const webhookSecret = await decryptForDomain(row.webhookSecretCiphertext, "git-secrets");
   return { ...config, webhookSecret, providerId: row.id };
 }
 
@@ -101,7 +101,7 @@ async function rowToConfig(row: {
   }
   return {
     appId: row.externalAppId,
-    privateKeyPem: await decryptSecret(row.privateKeyPemCiphertext),
+    privateKeyPem: await decryptForDomain(row.privateKeyPemCiphertext, "git-secrets"),
     apiBaseUrl: apiBaseUrlForHost(row.host),
   };
 }

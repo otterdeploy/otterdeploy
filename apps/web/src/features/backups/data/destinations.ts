@@ -76,3 +76,19 @@ export const destinationsCollection = createCollection(
 export function testDestination(id: Destination["id"]) {
   return orpc.backups.destinations.test.call({ id });
 }
+
+/**
+ * Enable or disable a destination. Separate from the collection's `onUpdate`
+ * because `status` isn't part of the update input — and because this is the only
+ * mutation the platform-managed destination accepts, so it must not be coupled
+ * to the config edit path that managed rows reject.
+ *
+ * Refetches rather than mutating optimistically: the server can refuse (it won't
+ * let you disable the last active destination), and an optimistic flip would
+ * briefly show a state the operator never gets.
+ */
+export async function setDestinationEnabled(id: Destination["id"], enabled: boolean) {
+  const row = await orpc.backups.destinations.setEnabled.call({ id, enabled });
+  await queryClient.invalidateQueries({ queryKey: destinationsListKey });
+  return row;
+}

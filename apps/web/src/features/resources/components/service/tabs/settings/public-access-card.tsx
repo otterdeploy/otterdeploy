@@ -75,6 +75,15 @@ export function ServicePublicAccessCard({
         }),
       }),
       queryClient.invalidateQueries({ queryKey: SERVICE_DOMAINS_COLLECTION_KEY }),
+      // The Deployment protection card gates on this resource's proxy route
+      // (`!route` -> "expose first" copy). Without invalidating it here, that
+      // gate text stays stale after toggling — reachable, but pointed at
+      // last poll's routes.
+      queryClient.invalidateQueries({
+        queryKey: orpc.project.proxyRoute.list.queryKey({
+          input: { projectId: resource.projectId },
+        }),
+      }),
     ]);
   };
 
@@ -160,8 +169,8 @@ export function ServicePublicAccessCard({
             <AlertDialogDescription>
               This service has no domain yet. Turning on public access will make it reachable at{" "}
               <span className="font-mono text-foreground">{pendingSslipHost}</span> — a temporary
-              sslip.io address with a self-signed certificate. Add your own domain below for a
-              real, trusted URL.
+              sslip.io address with a self-signed certificate. Add your own domain below for a real,
+              trusted URL.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

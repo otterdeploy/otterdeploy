@@ -170,7 +170,7 @@ export function RemoveFromSwarmAction({
         open={open}
         onOpenChange={setOpen}
         title={`Remove ${node.hostname} from the swarm`}
-        description={`The node is detached from the swarm and this server row is deleted. To bring the host back it must re-join with a fresh join token. This can't be undone.`}
+        description={`The node is detached from the swarm and this server row is deleted. To bring the host back it must re-join with a fresh one-time enrollment. This can't be undone.`}
         confirmPhrase={node.hostname}
         confirmLabel="Remove node"
         pendingLabel="Removing…"

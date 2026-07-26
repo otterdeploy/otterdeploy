@@ -8,8 +8,16 @@ import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { createAuditPgDrain } from "@otterdeploy/api/audit/pg-drain";
 import { createContext } from "@otterdeploy/api/context";
 import { appRouter } from "@otterdeploy/api/routers/index";
+import {
+  MIN_CLI_VERSION,
+  MIN_CLI_VERSION_HEADER,
+  SERVER_VERSION_HEADER,
+} from "@otterdeploy/api/routers/system/compat";
+import { bodyLimitMiddleware } from "@otterdeploy/api/security/body-limit";
+import { sanitizeForwardingHeaders } from "@otterdeploy/api/security/trusted-proxy";
 import { agentHealthIngestHandler } from "@otterdeploy/api/system-health";
-import { auth } from "@otterdeploy/auth";
+import { auth, enabledSocialProviderIds, getRegistrationMode } from "@otterdeploy/auth";
+import { BOOTSTRAP_TOKEN_HEADER } from "@otterdeploy/auth/registration-policy";
 import { env } from "@otterdeploy/env/server";
 import { workbenchQueues } from "@otterdeploy/jobs";
 import {
@@ -44,6 +52,7 @@ import {
   terminalWebSocketHandler,
   withCanonicalDeviceOrigin,
 } from "./handlers";
+import { completeNodeEnrollmentHandler, redeemNodeEnrollmentHandler } from "./handlers/enrollment";
 import { uploadSourceHandler } from "./handlers/upload/source";
 import { invalidate } from "./lib/invalidate";
 
@@ -61,6 +70,22 @@ initLogger({
 });
 
 const app = new Hono<EvlogVariables>();
+
+// od-5j8.10 — trusted-proxy + body-limit gates. Both run FIRST, ahead of
+// every other middleware (including evlog): sanitizing X-Forwarded-*
+// against the trusted-proxy list before evlog's auditEnricher reads
+// x-forwarded-for straight off the headers is what keeps a spoofed IP out of
+// the audit trail (evlog has no injectable IP resolver — see
+// packages/api/src/security/trusted-proxy.ts), and rejecting an oversized
+// body before any handler/logger touches it is what makes the 413 early
+// rather than post-buffer. Shared with the terminal-WS/ticket work
+// (od-5j8.9) landing in this same file — kept to these two focused
+// `app.use` calls so the two changes don't collide.
+app.use(async (c, next) => {
+  sanitizeForwardingHeaders(c);
+  await next();
+});
+app.use(bodyLimitMiddleware());
 
 const identify = createAuthMiddleware(auth, {
   exclude: [
@@ -119,7 +144,12 @@ app.use(
   cors({
     origin: env.CORS_ORIGIN,
     allowMethods: ["GET", "POST", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization"],
+    // The bootstrap header MUST be listed: the web app and the API are separate
+    // origins (3001 vs 3000 in dev, and any split-origin deploy), so sign-up
+    // sends `x-otterdeploy-bootstrap-token` as a CORS-unsafe request header. Left
+    // out, the browser fails the preflight and the first-account form can never
+    // reach the server — the one flow with no alternative path in.
+    allowHeaders: ["Content-Type", "Authorization", BOOTSTRAP_TOKEN_HEADER],
     credentials: true,
   }),
 );
@@ -131,6 +161,32 @@ app.onError((error, c) => {
     { message: parsed.message, why: parsed.why, fix: parsed.fix },
     parsed.status as ContentfulStatusCode,
   );
+});
+
+// Public but deliberately low-information: everything the unauthenticated
+// sign-in page needs to render itself correctly, and nothing more.
+//
+//   mode            — bootstrap form / open sign-up / invitation-only.
+//   socialProviders — the ids actually registered on the live auth instance.
+//
+// The provider list has to be served at RUNTIME rather than baked into the
+// bundle (the old VITE_AUTH_SOCIAL_PROVIDERS): a self-hoster runs a prebuilt
+// image, so a build-time value meant they could never turn SSO on without
+// rebuilding the SPA. Advertising only live providers also means the page
+// cannot render a button that dead-ends on an unconfigured provider.
+app.get("/api/auth/public-config", async (c) => {
+  c.header("Cache-Control", "no-store");
+  return c.json({
+    mode: await getRegistrationMode(),
+    socialProviders: enabledSocialProviderIds(),
+  });
+});
+
+// Superseded by /api/auth/public-config; kept so an SPA build cached by a
+// browser across an upgrade keeps resolving its registration mode.
+app.get("/api/auth/bootstrap-status", async (c) => {
+  c.header("Cache-Control", "no-store");
+  return c.json({ mode: await getRegistrationMode() });
 });
 
 // Device-code responses get their verification URLs rebased onto the canonical
@@ -164,6 +220,23 @@ const rpcHandler = new RPCHandler(appRouter, {
   interceptors: [onError(logRpcError("rpc"))],
 });
 
+/**
+ * Announce this control plane's generation, and the oldest CLI it supports, on
+ * every RPC and OpenAPI response.
+ *
+ * The CLI reads these off the call it was already making and warns the user
+ * when the pair has drifted apart — see packages/api/src/routers/system/compat.ts
+ * for why release-time lockstep does not make that check redundant. Set on the
+ * response rather than served from an endpoint so it costs no round trip and
+ * needs no auth; browsers ignore it, and a CLI talking to an older server sees
+ * neither header and stays quiet.
+ */
+function withCompatHeaders(response: Response): Response {
+  response.headers.set(SERVER_VERSION_HEADER, env.OTTERDEPLOY_VERSION);
+  response.headers.set(MIN_CLI_VERSION_HEADER, MIN_CLI_VERSION);
+  return response;
+}
+
 app.use("/*", async (c, next) => {
   const context = await createContext({
     context: c,
@@ -176,7 +249,7 @@ app.use("/*", async (c, next) => {
   });
 
   if (rpcResult.matched) {
-    return c.newResponse(rpcResult.response.body, rpcResult.response);
+    return withCompatHeaders(c.newResponse(rpcResult.response.body, rpcResult.response));
   }
 
   const apiResult = await apiHandler.handle(c.req.raw, {
@@ -185,7 +258,7 @@ app.use("/*", async (c, next) => {
   });
 
   if (apiResult.matched) {
-    return c.newResponse(apiResult.response.body, apiResult.response);
+    return withCompatHeaders(c.newResponse(apiResult.response.body, apiResult.response));
   }
 
   await next();
@@ -206,9 +279,16 @@ app.get(
 // Liveness + version. `/health` is what the prod compose healthcheck probes;
 // `/api/health` (already auth-excluded) is what the browser polls to detect the
 // new container after a self-update cutover, then reloads. Reports the running
-// image tag so the updater UI can confirm the version actually changed.
-app.get("/health", (c) => c.json({ ok: true, version: env.OTTERDEPLOY_VERSION }));
-app.get("/api/health", (c) => c.json({ ok: true, version: env.OTTERDEPLOY_VERSION }));
+// image tag so the updater UI can confirm the version actually changed, and the
+// CLI floor alongside it so support can read both off one unauthenticated curl
+// without decoding an RPC response's headers.
+const healthPayload = {
+  ok: true,
+  version: env.OTTERDEPLOY_VERSION,
+  minCliVersion: MIN_CLI_VERSION,
+};
+app.get("/health", (c) => c.json(healthPayload));
+app.get("/api/health", (c) => c.json(healthPayload));
 
 // ─── Workbench: BullMQ dashboard (dev only) ────────────────────────
 // The queue-inspection UI (every registry queue, incl. the builder's
@@ -223,9 +303,10 @@ if (env.NODE_ENV !== "production") {
   app.route("/jobs", workbench({ queues: workbenchQueues(), title: "otterdeploy jobs" }));
 }
 
-// Terminal websocket
-// Auth seam left here for when better-auth cookie verification is
-// re-enabled (handler reads c.var.userId).
+// Terminal websocket. Auth is NOT cookie-based here (od-5j8.9) — the handler
+// validates Origin and consumes a single-use ticket minted by the
+// authenticated `terminal.mintTicket` oRPC call; see
+// apps/server/src/handlers/terminal/ws.ts.
 app.get("/pty", terminalWebSocketHandler);
 
 app.post("/api/webhooks/github", githubWebhookHandler);
@@ -240,6 +321,12 @@ app.get("/api/integrations/github/manifest/callback", githubManifestCallbackHand
 // Per-node health reports from the swarm global agent service (Bearer HMAC
 // token, verified in the handler). See docs/designs/server-health-agent.md.
 app.post("/api/agent/health", agentHealthIngestHandler);
+
+// One-time manual node enrollment. The high-entropy enrollment bearer is
+// hashed in Postgres, single-use, expiring and role-scoped; completion rotates
+// Docker's underlying role-wide join token.
+app.post("/api/node-enrollments/:id/redeem", redeemNodeEnrollmentHandler);
+app.post("/api/node-enrollments/:id/complete", completeNodeEnrollmentHandler);
 
 // ─── Local source upload ───────────────────────────────────────────
 // `otterdeploy deploy` streams a source tarball here for a `source: "upload"`

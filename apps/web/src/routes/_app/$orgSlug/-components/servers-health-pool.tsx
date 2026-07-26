@@ -28,10 +28,16 @@ export function UsageRow({
   detail: string;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="text-[13px] font-medium">{label}</span>
-        <span className="font-mono text-[11.5px] tabular-nums text-muted-foreground">
+    <div className="flex min-w-0 flex-col gap-1.5">
+      {/* The label carries a filesystem path ("Disk (/Users/…/data)") with no
+          spaces to break at. Without min-w-0 + truncate its intrinsic width
+          became the row's minimum, which propagated all the way up and made
+          the whole Servers page scroll horizontally on a phone. */}
+      <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3">
+        <span className="min-w-0 truncate text-[13px] font-medium" title={label}>
+          {label}
+        </span>
+        <span className="shrink-0 font-mono text-[11.5px] tabular-nums text-muted-foreground">
           {detail}
         </span>
       </div>
