@@ -65,7 +65,7 @@
     "lint": "oxlint --type-aware --threads=4 --fix",
     "proxy": "sudo portless proxy start --https --lan -p 443",
     "test": "turbo test",
-    "test:integration": "turbo -F @otterdeploy/test-infra test:integration",
+    "test:integration": "turbo test:integration",
     "typecheck": "turbo typecheck --concurrency=4"
   },
   "dependencies": {
