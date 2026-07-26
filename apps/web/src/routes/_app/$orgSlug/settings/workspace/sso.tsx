@@ -41,6 +41,7 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/shared/components/ui/empty";
+import { ErrorState } from "@/shared/components/ui/error-state";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
 export const Route = createFileRoute("/_app/$orgSlug/settings/workspace/sso")({
@@ -186,11 +187,11 @@ function RouteComponent() {
           ))}
         </div>
       ) : providers.isError ? (
-        <p className="text-[13px] text-destructive">
-          {providers.error instanceof Error
-            ? providers.error.message
-            : "Could not load SSO providers."}
-        </p>
+        <ErrorState
+          title="Couldn't load identity providers"
+          message={providers.error instanceof Error ? providers.error.message : undefined}
+          onRetry={() => void providers.refetch()}
+        />
       ) : providers.data && providers.data.length > 0 ? (
         <div className="flex flex-col gap-2">
           {providers.data.map((provider) => (

@@ -32,6 +32,11 @@ const ssoProvidersKey = (organizationId: string) => ["sso", "providers", organiz
 export function useSsoProviders(organizationId: string) {
   return useQuery({
     queryKey: ssoProvidersKey(organizationId),
+    // The page renders this failure inline via ErrorState, so opt out of the
+    // global error toast in shared/server/orpc.ts — otherwise the same "Not
+    // Found" is reported twice, once in the body and once in a toast with its
+    // own competing retry button.
+    meta: { suppressErrorToast: true },
     queryFn: async () => {
       const result = await authClient.sso.providers();
       if (result.error) {
