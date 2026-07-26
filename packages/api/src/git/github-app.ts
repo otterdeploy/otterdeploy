@@ -65,7 +65,7 @@ export async function ghFetch(
       maxRedirects: 5,
       denyHosts: denylist.blockedHosts,
       denyAddresses: denylist.blockedAddresses,
-      allowAddresses: egressAllowlist(),
+      allowAddresses: await egressAllowlist(),
     });
   } catch (err) {
     if (err instanceof EgressPolicyError) {

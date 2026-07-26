@@ -71,6 +71,11 @@ export const SECRET_DOMAINS = [
   "certs",
   "db-creds",
   "server-secrets",
+  // Private-networking provider credentials — the org's NetBird PAT /
+  // Tailscale OAuth client secret on the `mesh_network` row. Domain-separated
+  // from "server-secrets" (which is ephemeral, job-payload-lifetime material)
+  // because these are long-lived and grant API control of the org's whole VPN.
+  "mesh-creds",
 ] as const;
 export type SecretDomain = (typeof SECRET_DOMAINS)[number];
 

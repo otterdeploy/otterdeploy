@@ -10,9 +10,11 @@ import { db } from "@otterdeploy/db";
 import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
 import { env } from "@otterdeploy/env/server";
 import { matchError } from "better-result";
+import { log } from "evlog";
 import { eq } from "drizzle-orm";
 
 import { requireInstallAdmin } from "../..";
+import { reconcile } from "../../caddy";
 import { getGlobalCaddyOptions, saveGlobalCaddyOptions } from "../project/proxy-routes";
 import {
   autoConfigureControlPlaneDomain,
@@ -21,6 +23,17 @@ import {
   verifyControlPlaneDomain,
 } from "./control-plane-domain";
 import { getEmailSettings, saveEmailSettings, sendTestEmail } from "./handlers";
+import {
+  getAccessSettings,
+  getCrowdsecSettings,
+  getMessagingSettings,
+  getRuntimeSettings,
+  saveAccessSettings,
+  saveCrowdsecSettings,
+  saveMessagingSettings,
+  saveRuntimeSettings,
+} from "./runtime-settings";
+import { listSocialProviders, saveSocialProvider } from "./social-providers";
 
 /** serverIp view for the Instance page. envOverride tells the UI the value
  *  is pinned by env SERVER_IP (re-applied every boot) so edits won't stick. */
@@ -159,5 +172,116 @@ export const platformSettingsRouter = {
 
   testEmail: requireInstallAdmin().organization.testEmail.handler(async ({ input }) =>
     sendTestEmail(input.to),
+  ),
+
+  // ─── Runtime configuration (od-gfg) ────────────────────────────────
+  // Formerly env-only settings that are runtime policy rather than boot-time
+  // infrastructure. Install-admin only, like everything else on this router:
+  // these are install-wide, so an organization role must not confer authority
+  // over them.
+  getAccessSettings: requireInstallAdmin().organization.getAccessSettings.handler(async () =>
+    getAccessSettings(),
+  ),
+
+  setAccessSettings: requireInstallAdmin().organization.setAccessSettings.handler(
+    async ({ input, context }) => {
+      context.log.set({
+        target: { type: "organization", id: context.activeOrganizationId },
+        access: { registrationMode: input.registrationMode },
+      });
+      return saveAccessSettings(input.registrationMode);
+    },
+  ),
+
+  listSocialProviders: requireInstallAdmin().organization.listSocialProviders.handler(async () =>
+    listSocialProviders(),
+  ),
+
+  setSocialProvider: requireInstallAdmin().organization.setSocialProvider.handler(
+    async ({ input, context }) => {
+      context.log.set({
+        target: { type: "organization", id: context.activeOrganizationId },
+        // Credentials never reach the log — only which provider moved and how.
+        sso: { provider: input.id, enabled: input.enabled },
+      });
+      return saveSocialProvider({
+        id: input.id,
+        enabled: input.enabled,
+        clientId: input.clientId,
+        clientSecret: input.clientSecret,
+        issuer: input.issuer,
+      });
+    },
+  ),
+
+  getMessagingSettings: requireInstallAdmin().organization.getMessagingSettings.handler(async () =>
+    getMessagingSettings(),
+  ),
+
+  setMessagingSettings: requireInstallAdmin().organization.setMessagingSettings.handler(
+    async ({ input, context }) => {
+      context.log.set({ target: { type: "organization", id: context.activeOrganizationId } });
+      return saveMessagingSettings({
+        twilioAccountSid: input.twilioAccountSid,
+        twilioFromNumber: input.twilioFromNumber,
+        twilioAuthToken: input.twilioAuthToken,
+        fcmServerKey: input.fcmServerKey,
+      });
+    },
+  ),
+
+  getCrowdsecSettings: requireInstallAdmin().organization.getCrowdsecSettings.handler(async () =>
+    getCrowdsecSettings(),
+  ),
+
+  setCrowdsecSettings: requireInstallAdmin().organization.setCrowdsecSettings.handler(
+    async ({ input, context }) => {
+      context.log.set({
+        target: { type: "organization", id: context.activeOrganizationId },
+        firewall: { crowdsecEnabled: input.enabled },
+      });
+      const saved = await saveCrowdsecSettings({
+        enabled: input.enabled,
+        lapiUrl: input.lapiUrl,
+        bouncerKey: input.bouncerKey,
+      });
+      // Re-render the edge so the `crowdsec` app + per-site gate appear or
+      // disappear now, rather than at whatever unrelated change reconciles
+      // next. Best-effort: the setting is already persisted, and a failed
+      // reconcile must not read as a failed save.
+      await reconcile(context.log).catch((cause) =>
+        log.warn({
+          firewall: { event: "reconcile-after-crowdsec-save-failed" },
+          error: cause instanceof Error ? cause.message : String(cause),
+        }),
+      );
+      return saved;
+    },
+  ),
+
+  getRuntimeSettings: requireInstallAdmin().organization.getRuntimeSettings.handler(async () =>
+    getRuntimeSettings(),
+  ),
+
+  setRuntimeSettings: requireInstallAdmin().organization.setRuntimeSettings.handler(
+    async ({ input, context }) => {
+      context.log.set({
+        target: { type: "organization", id: context.activeOrganizationId },
+        runtime: {
+          previewIdleTeardownHours: input.previewIdleTeardownHours,
+          edgeLogRetentionDays: input.edgeLogRetentionDays,
+          builderConcurrency: input.builderConcurrency,
+        },
+      });
+      return saveRuntimeSettings({
+        egressAllowlist: input.egressAllowlist,
+        previewIdleTeardownHours: input.previewIdleTeardownHours,
+        edgeLogPersist: input.edgeLogPersist,
+        edgeLogRetentionDays: input.edgeLogRetentionDays,
+        edgeLogGeoipUrl: input.edgeLogGeoipUrl,
+        edgeLogGeoipAsnUrl: input.edgeLogGeoipAsnUrl,
+        builderConcurrency: input.builderConcurrency,
+      });
+    },
   ),
 };

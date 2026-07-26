@@ -33,6 +33,7 @@ import type {
  *     pub/sub without scanning a JSONB blob.
  */
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
+import { sql } from "drizzle-orm";
 import {
   bigint,
   bigserial,
@@ -44,6 +45,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 import { organization } from "./auth";
@@ -55,9 +57,16 @@ import { project, resource } from "./project";
 
 export const backupDestinationTypeEnum = pgEnum("backup_destination_type", ["s3", "local", "sftp"]);
 
+/**
+ * `disabled` is operator intent, not a health signal: the scheduler skips a
+ * disabled destination when fanning a run out (see backups/scheduler.ts), so it
+ * stops receiving backups while its existing snapshots and history stay
+ * readable/restorable. `degraded` is a health signal and still runs.
+ */
 export const backupDestinationStatusEnum = pgEnum("backup_destination_status", [
   "active",
   "degraded",
+  "disabled",
 ]);
 
 /**
@@ -123,13 +132,28 @@ export const backupDestination = pgTable(
     config: jsonb("config").$type<Record<string, unknown>>().notNull().default({}),
     encryptedSecret: text("encrypted_secret"),
     status: backupDestinationStatusEnum("status").notNull().default("active"),
+    /**
+     * The platform-owned local destination every org gets, so a fresh install
+     * can schedule a backup without first inventing a host path. Its `config`
+     * (path + org prefix) is owned by ensureManagedLocalDestination and is NOT
+     * user-editable; it cannot be deleted, only disabled, and only while
+     * another active destination exists. At most one per org — enforced by the
+     * partial unique index below, which is also what makes the ensure path
+     * safe to call concurrently.
+     */
+    managed: boolean("managed").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [index("backup_destination_org_idx").on(table.organizationId)],
+  (table) => [
+    index("backup_destination_org_idx").on(table.organizationId),
+    uniqueIndex("backup_destination_managed_org_idx")
+      .on(table.organizationId)
+      .where(sql`${table.managed}`),
+  ],
 );
 
 // ---------------------------------------------------------------------------

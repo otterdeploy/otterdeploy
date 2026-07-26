@@ -1,7 +1,30 @@
 {
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
-  "entry": ["src/index.{ts,tsx,js,jsx}", "src/main.{ts,tsx,js,jsx}"],
-  "ignorePatterns": ["apps/web-demo/**", "research/**", ".agents/**", ".claude/**"],
+  // Patterns are RESOLVED FROM THE REPO ROOT, not per-workspace. Each app's
+  // main entry already comes from its package.json `main`; everything listed
+  // here is a process the module graph cannot reach by static import.
+  "entry": [
+    // Spawned as `bun run src/build-one.ts <deploymentId>` inside the
+    // throwaway helper container — see apps/builder/src/helper-args.ts.
+    "apps/builder/src/build-one.ts",
+    // Deployed as a swarm GLOBAL service, one task per node; boots from raw
+    // env with no DB — see docs/designs/server-health-agent.md.
+    "apps/server/src/health-agent.ts",
+    // TanStack Start server entry.
+    "apps/www/src/start.ts",
+    // One-shot operator/CI scripts, invoked by path from package.json scripts.
+    "scripts/**/*.{ts,js,mjs}",
+    "apps/*/scripts/**/*.{ts,js,mjs}",
+    "packages/*/scripts/**/*.{ts,js,mjs}",
+    "test-infra/scripts/**/*.{ts,js,mjs}"
+  ],
+  // `brand/` is deliberately outside the bun workspaces (see brand/package.json:
+  // Playwright is build-time-only and must not enter the app dependency graph),
+  // so analysing it only produces undeclared-workspace noise.
+  "ignorePatterns": ["research/**", ".agents/**", ".claude/**", "brand/**"],
+  // `collections/*` is the virtual module fumadocs-mdx generates at postinstall
+  // for apps/www; it has no package.json entry to resolve against.
+  "ignoreDependencies": ["collections"],
   "workspaces": {
     "packages": ["apps/*", "packages/*"]
   },

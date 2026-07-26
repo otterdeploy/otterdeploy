@@ -105,7 +105,36 @@ export function DatabaseStatusBar({
   latestDeploymentStatus,
 }: {
   pending: boolean;
-  runtime: DbResource["runtime"];
+  /** Absent on a staged create — no container (and so no runtime) exists
+   *  until the first apply, so this must never be read in pending mode. */
+  runtime: DbResource["runtime"] | undefined;
+  latestDeploymentStatus?: DbResource["latestDeploymentStatus"];
+}) {
+  return (
+    <div className="mt-5 flex items-center gap-3 border-t border-border/40 px-6 py-3">
+      {pending || !runtime ? (
+        <>
+          <span className="rounded-md bg-info/12 px-2 py-1 font-mono text-[10.5px] font-semibold tracking-[0.18em] text-info">
+            PENDING
+          </span>
+          <span className="text-[13px] text-muted-foreground">
+            Staged — Deploy the pending changes to create it
+          </span>
+        </>
+      ) : (
+        <ProvisionedStatus runtime={runtime} latestDeploymentStatus={latestDeploymentStatus} />
+      )}
+    </div>
+  );
+}
+
+/** Split out so `runtime` is narrowed to present by the caller's guard — the
+ *  status computation reads it unconditionally and a staged database has none. */
+function ProvisionedStatus({
+  runtime,
+  latestDeploymentStatus,
+}: {
+  runtime: NonNullable<DbResource["runtime"]>;
   latestDeploymentStatus?: DbResource["latestDeploymentStatus"];
 }) {
   // A container that's missing/stopped while a deploy is in flight isn't
@@ -118,27 +147,14 @@ export function DatabaseStatusBar({
       latestDeploymentStatus === "pending" ||
       latestDeploymentStatus === "starting");
   return (
-    <div className="mt-5 flex items-center gap-3 border-t border-border/40 px-6 py-3">
-      {pending ? (
-        <>
-          <span className="rounded-md bg-info/12 px-2 py-1 font-mono text-[10.5px] font-semibold tracking-[0.18em] text-info">
-            PENDING
-          </span>
-          <span className="text-[13px] text-muted-foreground">
-            Staged — Deploy the pending changes to create it
-          </span>
-        </>
-      ) : (
-        <>
-          <RuntimeStatusBadge status={deploying ? "deploying" : runtime.status} />
-          <span className="text-[13px] text-muted-foreground">
-            {deploying
-              ? "Deploy in progress — pulling the image can take a few minutes"
-              : (runtime.health ?? "Provisioned")}
-          </span>
-        </>
-      )}
-    </div>
+    <>
+      <RuntimeStatusBadge status={deploying ? "deploying" : runtime.status} />
+      <span className="text-[13px] text-muted-foreground">
+        {deploying
+          ? "Deploy in progress — pulling the image can take a few minutes"
+          : (runtime.health ?? "Provisioned")}
+      </span>
+    </>
   );
 }
 

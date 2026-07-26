@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "otterdeploy-www",
+  // Kept in step with the nitro compatibilityDate in vite.config.ts, and with
+  // the newest date the pinned wrangler's workerd binary supports.
+  "compatibility_date": "2026-05-28",
+  "observability": { "enabled": true },
+
+  // `main` and `assets` are deliberately absent: the nitro cloudflare_workers
+  // preset merges this file with the entry + asset paths it generates and
+  // writes the result to .output/server/wrangler.json, then points wrangler at
+  // it via .wrangler/deploy/config.json. Setting either here makes nitro warn
+  // and ignore it.
+
+  // Both hostnames are served directly so the site is reachable today with no
+  // dashboard work. Follow-up: a Cloudflare redirect rule sending
+  // www → apex, so the docs aren't indexed twice.
+  "routes": [
+    { "pattern": "otterdeploy.com", "custom_domain": true },
+    { "pattern": "www.otterdeploy.com", "custom_domain": true }
+  ]
+}

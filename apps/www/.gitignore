@@ -4,8 +4,9 @@ dist
 .nitro
 .tanstack
 
-# vercel
-.vercel
+# cloudflare — .wrangler holds the local dev state and the generated
+# deploy/config.json that points wrangler at .output/server/wrangler.json
+.wrangler
 
 # fumadocs generated source
 .source

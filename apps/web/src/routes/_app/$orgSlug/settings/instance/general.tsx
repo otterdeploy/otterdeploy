@@ -15,7 +15,12 @@ import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { Page, PageHeader } from "@/shared/components/page";
 
 import { ControlPlaneCard } from "../../-components/settings-control-plane";
+import { AccessCard } from "../../-components/instance-access";
+import { CrowdsecCard } from "../../-components/instance-crowdsec";
+import { MessagingCard } from "../../-components/instance-messaging";
+import { RuntimeSettingsCard } from "../../-components/instance-runtime";
 import { ServerIpCard } from "../../-components/instance-server-ip";
+import { SocialSignInCard } from "../../-components/instance-social-sign-in";
 import { EdgeDefaultsCard } from "../../-components/instance-edge";
 import { EmailCard } from "../../-components/settings-email";
 import { UpdatesCard } from "../../-components/instance-updates";
@@ -38,7 +43,14 @@ function InstanceRoute() {
       <ControlPlaneCard organizationId={organization.id} />
       <ServerIpCard organizationId={organization.id} />
       <EdgeDefaultsCard organizationId={organization.id} />
+      {/* Identity before delivery before enforcement before knobs — who gets in
+          is the setting an operator comes here for most often. */}
+      <AccessCard organizationId={organization.id} />
+      <SocialSignInCard organizationId={organization.id} />
       <EmailCard organizationId={organization.id} />
+      <MessagingCard organizationId={organization.id} />
+      <CrowdsecCard organizationId={organization.id} />
+      <RuntimeSettingsCard organizationId={organization.id} />
     </Page>
   );
 }

@@ -8,6 +8,7 @@
  * never even reached once the tenant guard rejects the id.
  */
 import type { GitRepoId, OrganizationId } from "@otterdeploy/shared/id";
+import type { Context } from "../../../context";
 
 import { createProcedureClient, ORPCError } from "@orpc/server";
 import { describe, expect, test, vi } from "vite-plus/test";
@@ -66,8 +67,9 @@ function sessionContext(activeOrganizationId: string) {
     headers: new Headers(),
     log: { set: vi.fn(), audit: undefined },
     broadcast: vi.fn(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as any;
+    // Deliberately partial: these tests only exercise the tenant-scope guard,
+    // so the context carries just the fields those code paths read.
+  } as unknown as Context;
 }
 
 describe("git router tenant scope (od-5j8.8)", () => {

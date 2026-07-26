@@ -71,7 +71,7 @@ async function previewServices(
  *  preview the user just interacted with. */
 export async function resumeActivity(preview: PreviewRow): Promise<void> {
   await setPreviewPaused(preview.id, false);
-  const next = defaultTeardownAt();
+  const next = await defaultTeardownAt();
   // Only re-arm a timed deadline; a pin (NULL) stays pinned, and a disabled
   // idle policy (next===null) leaves it alone.
   if (next && preview.autoTeardownAt !== null) {

@@ -339,8 +339,6 @@
   },
   "globals": {},
   "ignorePatterns": [
-    "apps/beta-landing/**",
-    "apps/web-demo/**",
     "**/route-tree.gen.ts",
     "routeTree.gen.ts",
     ".agents/",

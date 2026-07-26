@@ -34,10 +34,32 @@ import { SQL } from "bun";
 import { randomUUID } from "node:crypto";
 
 import { allMigrationsDir, applyMigrations } from "./migrations";
-import { dockerAvailable, integrationRunnable, type PostgresInstance, startPostgresInstance } from "./postgres-harness";
+import { integrationRunnable, type PostgresInstance, startPostgresInstance } from "./postgres-harness";
 
 const BOOTSTRAP_TOKEN = "integration-test-bootstrap-token-32chars-min";
 const BOOTSTRAP_TOKEN_HEADER = "x-otterdeploy-bootstrap-token";
+
+/**
+ * This suite's only environment boundary, kept in one place. `@otterdeploy/env`
+ * validates the server schema when its module is first evaluated, so every
+ * variable has to be *written* before the dynamic `import("@otterdeploy/auth")`
+ * in `beforeAll` pulls it in. The validated `env` object can't do this itself —
+ * it only reads. Takes the database URL because that one isn't known until the
+ * ephemeral database has been created.
+ */
+/* oxlint-disable node/no-process-env -- seeds the vars @otterdeploy/env validates at import time */
+function seedServerEnv(databaseUrl: string): void {
+  process.env.DATABASE_URL = databaseUrl;
+  // Deliberately unreachable — RedisCache degrades to a no-op cache miss and
+  // never throws (see packages/db/src/cache.ts).
+  process.env.REDIS_URL = "redis://127.0.0.1:65535/0";
+  process.env.BETTER_AUTH_URL = "http://localhost:3000";
+  process.env.BETTER_AUTH_SECRET = "integration-test-better-auth-secret-32chars-min";
+  process.env.OTTERDEPLOY_BOOTSTRAP_TOKEN = BOOTSTRAP_TOKEN;
+  process.env.CORS_ORIGIN = "http://localhost:3001";
+  process.env.NODE_ENV = "test";
+}
+/* oxlint-enable node/no-process-env */
 
 const canRun = integrationRunnable();
 if (!canRun) {
@@ -74,13 +96,7 @@ describe.skipIf(!canRun)("bootstrap (fresh install) — real better-auth hook + 
 
     // Set every env var @otterdeploy/env/server validates, BEFORE the
     // dynamic import below evaluates that module for the first time.
-    process.env.DATABASE_URL = databaseUrl;
-    process.env.REDIS_URL = "redis://127.0.0.1:65535/0"; // deliberately unreachable — RedisCache degrades to a no-op cache miss, never throws (see packages/db/src/cache.ts)
-    process.env.BETTER_AUTH_URL = "http://localhost:3000";
-    process.env.BETTER_AUTH_SECRET = "integration-test-better-auth-secret-32chars-min";
-    process.env.OTTERDEPLOY_BOOTSTRAP_TOKEN = BOOTSTRAP_TOKEN;
-    process.env.CORS_ORIGIN = "http://localhost:3001";
-    process.env.NODE_ENV = "test";
+    seedServerEnv(databaseUrl);
 
     ({ auth } = await import("@otterdeploy/auth"));
   }, 90_000);
@@ -92,7 +108,8 @@ describe.skipIf(!canRun)("bootstrap (fresh install) — real better-auth hook + 
   });
 
   async function userCount(): Promise<number> {
-    const [row] = await sql`select count(*)::int as count from "user"`;
+    // `sql` template results are `any`; name the one shape we select.
+    const [row] = (await sql`select count(*)::int as count from "user"`) as [{ count: number }];
     return row.count;
   }
 

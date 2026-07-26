@@ -35,7 +35,7 @@ export const firewallRouter = {
     // Reachable = the agent answered `cscli lapi status` over the Docker exec.
     const lapi = await cscliRead("cscli lapi status");
     return {
-      configured: configured(),
+      configured: await configured(),
       reachable: lapi !== null,
     };
   }),

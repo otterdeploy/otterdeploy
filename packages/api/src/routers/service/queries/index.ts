@@ -36,15 +36,18 @@ export {
   getServiceRecord,
   getServiceRecordByName,
   listServiceRecordsByProject,
-  setPublicExposure,
-  setServicePublicDomain,
-  setServiceReplicaState,
-  bumpForceUpdateCounter,
   updateServiceRecord,
   updateServiceResourceStatus,
   type CreateServiceInput,
   type UpdateServiceInput,
 } from "./service";
+
+export {
+  bumpForceUpdateCounter,
+  setPublicExposure,
+  setServicePublicDomain,
+  setServiceReplicaState,
+} from "./service-state";
 
 export { getPrimaryHttpPort, listServicePorts, replaceServicePorts } from "./ports";
 
@@ -55,12 +58,15 @@ export {
   getResourceByProjectAndName,
   listServiceEnvVars,
   listServiceEnvVarsForResources,
-  deletePreviewServiceEnvVar,
-  listPreviewServiceEnvVars,
   resolveResourceForPreview,
-  upsertPreviewServiceEnvVar,
   upsertServiceEnvVar,
 } from "./env";
+
+export {
+  deletePreviewServiceEnvVar,
+  listPreviewServiceEnvVars,
+  upsertPreviewServiceEnvVar,
+} from "./env-preview";
 
 export {
   bulkReplaceServiceMounts,

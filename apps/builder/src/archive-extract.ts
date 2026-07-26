@@ -163,6 +163,90 @@ export function resolveEntryPath(
 }
 
 /**
+ * Why an entry's *type* disqualifies it, or null when the type is permitted.
+ * Split out of the extraction loop so the rejection rules read as one list
+ * rather than a stack of branches — the loop stays about streaming.
+ */
+function entryTypeViolation(
+  name: string,
+  type: string,
+  linkname: string | null | undefined,
+): string | null {
+  if (type === "symlink")
+    return `entry "${name}" is a symlink (→ "${linkname}") — symlinks are not permitted in uploaded source archives`;
+  if (type === "link")
+    return `entry "${name}" is a hard link (→ "${linkname}") — hard links are not permitted in uploaded source archives`;
+  if (type === "character-device" || type === "block-device" || type === "fifo")
+    return `entry "${name}" is a device/special file (${type}) — not permitted in uploaded source archives`;
+  if (!ALLOWED_TYPES.has(type)) return `entry "${name}" has unsupported type "${type}"`;
+  return null;
+}
+
+/**
+ * Why the bytes seen so far bust a limit, or null while still within them.
+ * Evaluated per chunk, so it stays allocation-free on the happy path.
+ */
+function byteLimitViolation(args: {
+  name: string;
+  entryBytes: number;
+  decompressedBytes: number;
+  limits: ArchiveExtractLimits;
+  ratioDenominator: number;
+}): string | null {
+  const { name, entryBytes, decompressedBytes, limits, ratioDenominator } = args;
+
+  if (entryBytes > limits.maxEntryBytes)
+    return `entry "${name}" exceeds the per-file ${fmtBytes(limits.maxEntryBytes)} limit`;
+  if (decompressedBytes > limits.maxUncompressedBytes)
+    return `archive exceeds the ${fmtBytes(limits.maxUncompressedBytes)} total uncompressed size limit`;
+  if (
+    decompressedBytes > limits.ratioCheckFloorBytes &&
+    decompressedBytes > ratioDenominator * limits.maxCompressionRatio
+  )
+    return `archive compression ratio exceeds ${limits.maxCompressionRatio}:1 — rejected as a likely decompression bomb`;
+  return null;
+}
+
+/**
+ * Stream one regular file entry to disk, enforcing the byte limits as it
+ * goes, and return how many bytes it contributed. Opened "wx": fail if the
+ * path already exists rather than silently overwrite — belt-and-suspenders
+ * alongside the duplicate-entry check, and it means we never write through
+ * anything we didn't just create ourselves in this same extraction.
+ */
+async function writeEntryToDisk(args: {
+  entry: AsyncIterable<Buffer>;
+  destPath: string;
+  name: string;
+  limits: ArchiveExtractLimits;
+  ratioDenominator: number;
+  /** Running archive total *before* this entry, for the aggregate limits. */
+  decompressedBefore: number;
+}): Promise<number> {
+  const fh = await open(args.destPath, "wx", 0o644);
+  try {
+    let entryBytes = 0;
+    for await (const chunk of args.entry) {
+      entryBytes += chunk.length;
+
+      const overLimit = byteLimitViolation({
+        name: args.name,
+        entryBytes,
+        decompressedBytes: args.decompressedBefore + entryBytes,
+        limits: args.limits,
+        ratioDenominator: args.ratioDenominator,
+      });
+      if (overLimit) throw new Error(overLimit);
+
+      await fh.write(chunk);
+    }
+    return entryBytes;
+  } finally {
+    await fh.close();
+  }
+}
+
+/**
  * Extract a `.tar.gz` archive into `destDir`, rejecting the whole archive
  * (no partial extraction left behind for the caller to trip over) the
  * moment any entry violates a safety rule. `destDir` must already exist
@@ -222,37 +306,10 @@ export async function extractArchiveSafely(opts: {
         continue;
       }
 
-      if (header.type === "symlink") {
+      const typeViolation = entryTypeViolation(header.name, header.type ?? "", header.linkname);
+      if (typeViolation) {
         entry.resume();
-        fail(
-          new Error(
-            `entry "${header.name}" is a symlink (→ "${header.linkname}") — symlinks are not permitted in uploaded source archives`,
-          ),
-        );
-      }
-      if (header.type === "link") {
-        entry.resume();
-        fail(
-          new Error(
-            `entry "${header.name}" is a hard link (→ "${header.linkname}") — hard links are not permitted in uploaded source archives`,
-          ),
-        );
-      }
-      if (
-        header.type === "character-device" ||
-        header.type === "block-device" ||
-        header.type === "fifo"
-      ) {
-        entry.resume();
-        fail(
-          new Error(
-            `entry "${header.name}" is a device/special file (${header.type}) — not permitted in uploaded source archives`,
-          ),
-        );
-      }
-      if (!ALLOWED_TYPES.has(header.type ?? "")) {
-        entry.resume();
-        fail(new Error(`entry "${header.name}" has unsupported type "${header.type}"`));
+        fail(new Error(typeViolation));
       }
 
       const destPath = resolveEntryPath(header.name, root, limits, seen);
@@ -274,41 +331,14 @@ export async function extractArchiveSafely(opts: {
       }
 
       await mkdir(path.dirname(destPath), { recursive: true, mode: 0o755 });
-      // "wx": fail if the path already exists rather than silently
-      // overwrite — belt-and-suspenders alongside the duplicate-entry
-      // check above, and it means we never write through anything we
-      // didn't just create ourselves in this same extraction.
-      const fh = await open(destPath, "wx", 0o644);
-      try {
-        let entryBytes = 0;
-        for await (const chunk of entry) {
-          entryBytes += chunk.length;
-          decompressedBytes += chunk.length;
-
-          if (entryBytes > limits.maxEntryBytes) {
-            throw new Error(
-              `entry "${header.name}" exceeds the per-file ${fmtBytes(limits.maxEntryBytes)} limit`,
-            );
-          }
-          if (decompressedBytes > limits.maxUncompressedBytes) {
-            throw new Error(
-              `archive exceeds the ${fmtBytes(limits.maxUncompressedBytes)} total uncompressed size limit`,
-            );
-          }
-          if (
-            decompressedBytes > limits.ratioCheckFloorBytes &&
-            decompressedBytes > ratioDenominator * limits.maxCompressionRatio
-          ) {
-            throw new Error(
-              `archive compression ratio exceeds ${limits.maxCompressionRatio}:1 — rejected as a likely decompression bomb`,
-            );
-          }
-
-          await fh.write(chunk);
-        }
-      } finally {
-        await fh.close();
-      }
+      decompressedBytes += await writeEntryToDisk({
+        entry,
+        destPath,
+        name: header.name,
+        limits,
+        ratioDenominator,
+        decompressedBefore: decompressedBytes,
+      });
     }
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));

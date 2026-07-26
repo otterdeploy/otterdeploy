@@ -18,15 +18,9 @@ import { Result } from "better-result";
 import type { ResourceRef } from "../scopes";
 import type { ServiceTaskInfo } from "./service-tasks";
 
-import { updateSwarmDatabase } from "../../runtime/db";
-import { defaultImageFor } from "../../swarm";
 import { bulkReplaceServiceEnvVars, listServiceEnvVars } from "../service/queries";
 import { redeployAndFanOut } from "../service/redeploy";
-import {
-  getLatestDeploymentForResource,
-  insertDeployment,
-  markDeploymentFailed,
-} from "./deployments";
+import { rollDatabaseEnv } from "./database-env-roll";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
 import {
   getDatabaseResourceRecord,
@@ -40,7 +34,7 @@ import {
   listResourceInstances,
   type ResourceInstance,
 } from "./resource-instances";
-import { buildContainerName, buildVolumeName, sanitizeProjectSlug } from "./views";
+import { buildContainerName, sanitizeProjectSlug } from "./views";
 
 export interface EnvEntry {
   key: string;
@@ -228,69 +222,13 @@ export async function bulkSetResourceEnv(
 
     const dbRecord = await getDatabaseResourceRecord(input.projectId, input.resourceId);
     if (dbRecord && shouldRedeploy) {
-      const projectSlug = sanitizeProjectSlug(project.slug);
-      const resourceName = dbRecord.resource.name;
-      // Use the engine from the row — not "postgres" — so redis/mariadb/
-      // mongo containers don't get silently replaced with postgres on
-      // every env edit. Same bug pattern as env.ts; see the comment
-      // there for the full incident.
-      const engine = dbRecord.database.engine;
-      // Preserve the image that's actually running (latest deployment row) —
-      // falling back to the catalog default rolled a version-pinned or
-      // extension-bundled database onto the default tag on every env edit.
-      const latest = await getLatestDeploymentForResource(input.resourceId);
-      const engineImage = latest?.image ?? defaultImageFor(engine);
-      const envDeployment = await insertDeployment({
+      await rollDatabaseEnv({
         resourceId: input.resourceId,
-        image: engineImage,
-        reason: "env-change",
-        snapshot: {
-          kind: "postgres",
-          version: 1,
-          image: engineImage,
-          databaseName: dbRecord.database.databaseName,
-          username: dbRecord.database.username,
-          password: dbRecord.database.password,
-          publicEnabled: dbRecord.database.publicEnabled,
-          publicHostname: dbRecord.database.publicHostname,
-          internalHostname: dbRecord.database.internalHostname,
-          extraEnv: next,
-        },
+        dbRecord,
+        projectSlug: sanitizeProjectSlug(project.slug),
+        next,
+        log,
       });
-      // Wrapped so a driver throw marks the just-inserted row failed instead of
-      // stranding it "building" forever (the stale-row rescue only covers
-      // zero-task rows; a live DB container keeps deriving from its tasks).
-      const rolled = await Result.tryPromise({
-        try: () =>
-          updateSwarmDatabase(
-            {
-              engine,
-              resourceId: input.resourceId,
-              // Without an explicit image the driver falls back to the engine
-              // default — which would swap the running version on an env roll.
-              image: engineImage,
-              serviceName: buildContainerName({ engine, projectSlug, resourceName }),
-              volumeName: buildVolumeName({ engine, projectSlug, resourceName }),
-              hostnameAlias: dbRecord.database.internalHostname,
-              databaseName: dbRecord.database.databaseName,
-              username: dbRecord.database.username,
-              password: dbRecord.database.password,
-              projectSlug,
-              deploymentId: envDeployment.id,
-              extraEnv: next,
-              public: dbRecord.database.publicEnabled,
-            },
-            log,
-          ),
-        catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
-      });
-      if (rolled.isErr()) {
-        await markDeploymentFailed(
-          envDeployment.id,
-          `database env roll failed: ${rolled.error.message}`,
-        ).catch(() => undefined);
-        throw rolled.error;
-      }
     }
     log.set({
       resource: {

@@ -11,13 +11,15 @@ import type { GitRepoId, ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { preview } from "@otterdeploy/db/schema/project";
-import { env as serverEnv } from "@otterdeploy/env/server";
 import { and, eq, sql } from "drizzle-orm";
 
+import { previewIdleTeardownHours } from "../lib/platform-runtime-settings";
+
 /** Idle-teardown instant for a freshly opened preview, or null when idle
- *  teardown is disabled (PREVIEW_IDLE_TEARDOWN_HOURS=0). */
-export function defaultTeardownAt(): Date | null {
-  const hours = serverEnv.PREVIEW_IDLE_TEARDOWN_HOURS;
+ *  teardown is disabled (the window set to 0 in Settings → Instance, seeded
+ *  from PREVIEW_IDLE_TEARDOWN_HOURS). */
+export async function defaultTeardownAt(): Promise<Date | null> {
+  const hours = await previewIdleTeardownHours();
   return hours > 0 ? new Date(Date.now() + hours * 60 * 60 * 1000) : null;
 }
 
@@ -55,7 +57,7 @@ export interface EnsurePreviewInput {
  */
 export async function ensurePreview(input: EnsurePreviewInput): Promise<PreviewRow | undefined> {
   // Compute once so the insert value and the conflict-branch bump agree.
-  const teardownAt = defaultTeardownAt();
+  const teardownAt = await defaultTeardownAt();
   const [row] = await db
     .insert(preview)
     .values({

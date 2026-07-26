@@ -11,6 +11,7 @@ import { Result } from "better-result";
 import type { SwarmServiceRuntime } from "../../swarm";
 
 import { loadPreviewScope } from "../../lib/environment/load";
+import { markDeploymentFailed, reconcileDeploySuccess } from "../project/deployments";
 import { findTransitiveDependents, resolveServiceEnv } from "../../lib/variables";
 import { runtime } from "../../runtime";
 import { ServiceNotFoundError, type ResolveError } from "./errors";
@@ -210,3 +211,27 @@ export async function redeployAndFanOut(
 
   return Result.ok(true);
 }
+/**
+ * Settle the row a create opened: the driver already waited for the container,
+ * so flip pending → running (emits deploy.succeeded exactly once) or mark it
+ * failed with the task's reason — never leave it dangling at "pending".
+ * No-ops for git/upload creates, which have no row yet.
+ */
+export async function settleCreateDeployment(
+  deploymentId: Parameters<typeof markDeploymentFailed>[0] | null,
+  resourceId: Parameters<typeof reconcileDeploySuccess>[1],
+  runtimeStatus: string,
+  runtimeError: string | null | undefined,
+): Promise<void> {
+  if (!deploymentId) return;
+
+  if (runtimeStatus === "error") {
+    await markDeploymentFailed(
+      deploymentId,
+      runtimeError ?? "runtime reported an error state",
+    ).catch(() => undefined);
+    return;
+  }
+  await reconcileDeploySuccess([deploymentId], resourceId);
+}
+

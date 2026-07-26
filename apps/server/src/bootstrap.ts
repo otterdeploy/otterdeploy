@@ -7,10 +7,12 @@
  */
 import { reconcile } from "@otterdeploy/api/caddy";
 import { startEdgeLogPersistence, startEdgeLogSink } from "@otterdeploy/api/edge-logs";
+import { edgeLogPersistEnabled } from "@otterdeploy/api/lib/platform-runtime-settings";
 import { ensureServerIp } from "@otterdeploy/api/lib/server-ip";
 import { runProvisionJob } from "@otterdeploy/api/routers/server/provision-runner";
 import { finalizeUpdateRunOnBoot } from "@otterdeploy/api/routers/system/apply";
 import { initializeSwarm } from "@otterdeploy/api/swarm";
+import { reloadAuth } from "@otterdeploy/auth";
 import { runMigrations } from "@otterdeploy/db/migrate";
 import { env } from "@otterdeploy/env/server";
 import { createWorkers, jobs as allJobs, type ProvisionServerPayload } from "@otterdeploy/jobs";
@@ -65,17 +67,29 @@ async function bootstrap() {
     log.info({ startup: { step: "otel-tracing", status: "ready" } });
   }
 
+  // Rebuild the auth instance against the DB-resolved social sign-in providers.
+  // Module evaluation could only use the env-seeded set (it's synchronous, and
+  // Postgres wasn't necessarily reachable), so until this runs a provider the
+  // operator configured in the UI isn't registered. Runs after migrations for
+  // that reason. Never throws — a failure keeps the env-configured instance.
+  const socialProviders = (await reloadAuth()).providers;
+  log.info({ startup: { step: "auth-providers", status: "ready" }, socialProviders });
+
   // Edge-log sink: bind the TCP listener Caddy streams logs to — both per-site
   // access logs and the global default logger's operational events (Phase 3).
   // Only when EDGE_LOG_SINK is configured (otherwise the Caddyfile carries
   // no `output net`, so nothing would connect anyway).
   if (env.EDGE_LOG_SINK) {
+    // Persistence is a settings-backed toggle (env seeds it) and is read here,
+    // at start, because it decides whether the writer loop exists at all —
+    // which is exactly why its card says a change needs a restart.
+    const persist = await edgeLogPersistEnabled();
     Result.try({
       try: () => {
         startEdgeLogSink(env.EDGE_LOG_PORT);
         // Persist behind the live ring unless explicitly disabled, so the
         // 24h/7d ranges and percentiles work and survive restarts.
-        if (env.EDGE_LOG_PERSIST) startEdgeLogPersistence();
+        if (persist) startEdgeLogPersistence();
       },
       catch: (cause) => new BootstrapError({ step: "edge-log-sink", cause }),
     }).match({
@@ -84,7 +98,7 @@ async function bootstrap() {
           startup: {
             step: "edge-log-sink",
             port: env.EDGE_LOG_PORT,
-            persist: env.EDGE_LOG_PERSIST,
+            persist,
           },
         }),
       err: (err) =>

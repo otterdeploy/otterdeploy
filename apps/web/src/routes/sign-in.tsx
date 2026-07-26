@@ -5,7 +5,7 @@ import * as z from "zod";
 import { AuthLayout } from "@/features/auth/components/auth-layout";
 import { SignInForm } from "@/features/auth/components/sign-in-form";
 import { SignUpForm } from "@/features/auth/components/sign-up-form";
-import { fetchRegistrationMode } from "@/features/auth/data/registration-mode";
+import { fetchAuthPublicConfig } from "@/features/auth/data/registration-mode";
 
 // `mode` is the URL's source of truth for the sign-in/sign-up toggle (was a
 // local useState) — otherwise sharing a "create an account" link or hitting
@@ -26,13 +26,17 @@ function SignInPage() {
   const { mode: modeParam, redirect } = Route.useSearch();
   const navigate = Route.useNavigate();
   const registration = useQuery({
-    queryKey: ["auth", "registration-mode"],
-    queryFn: fetchRegistrationMode,
+    queryKey: ["auth", "public-config"],
+    queryFn: fetchAuthPublicConfig,
     staleTime: 0,
     retry: false,
   });
+  const mode_ = registration.data?.mode;
   const invitationFlow = redirect?.startsWith("/accept-invite/") ?? false;
-  const allowSignUp = registration.data === "bootstrap" || invitationFlow;
+  // "open" is the operator opting into self-registration (Instance → Access);
+  // "bootstrap" is the one-time first-account flow. Both surface the sign-up
+  // form — only "bootstrap" also asks for the installer token.
+  const allowSignUp = mode_ === "bootstrap" || mode_ === "open" || invitationFlow;
   const mode = modeParam === "signup" && allowSignUp ? "sign-up" : "sign-in";
   const setMode = (next: "sign-in" | "sign-up") =>
     void navigate({
@@ -54,10 +58,15 @@ function SignInPage() {
       }
     >
       {mode === "sign-in" ? (
-        <SignInForm allowSignUp={allowSignUp} onSwitchToSignUp={() => setMode("sign-up")} />
+        <SignInForm
+          allowSignUp={allowSignUp}
+          socialProviders={registration.data?.socialProviders ?? []}
+          onSwitchToSignUp={() => setMode("sign-up")}
+        />
       ) : (
         <SignUpForm
-          bootstrap={registration.data === "bootstrap"}
+          bootstrap={mode_ === "bootstrap"}
+          socialProviders={registration.data?.socialProviders ?? []}
           onSwitchToSignIn={() => setMode("sign-in")}
         />
       )}

@@ -12,23 +12,39 @@ import { afterEach, beforeEach, describe, expect, test } from "vite-plus/test";
 
 let dir: string;
 
+/**
+ * This suite's only environment boundary, kept in one place. `config.ts`
+ * resolves its directory from `OTTERDEPLOY_CONFIG_DIR` at module load, so the
+ * tests have to *write* the variable before re-importing it — a write can't go
+ * through the validated `@otterdeploy/env` object, which only reads.
+ */
+/* oxlint-disable node/no-process-env -- seeds the var config.ts reads at import time */
+function setConfigDir(value: string): void {
+  process.env.OTTERDEPLOY_CONFIG_DIR = value;
+}
+
+function clearConfigDir(): void {
+  delete process.env.OTTERDEPLOY_CONFIG_DIR;
+}
+/* oxlint-enable node/no-process-env */
+
 // config.ts reads its directory from env at module load, so point it at a temp
 // dir and re-import per test rather than writing to the developer's real
 // ~/.config/otterdeploy.
 async function freshConfigModule() {
   dir = mkdtempSync(join(tmpdir(), "otterdeploy-cli-test-"));
-  process.env.OTTERDEPLOY_CONFIG_DIR = dir;
+  setConfigDir(dir);
   const mod = await import(`../config?${Math.random().toString(36).slice(2)}`);
   return mod as typeof import("../config");
 }
 
 beforeEach(() => {
-  delete process.env.OTTERDEPLOY_CONFIG_DIR;
+  clearConfigDir();
 });
 
 afterEach(() => {
   if (dir) rmSync(dir, { recursive: true, force: true });
-  delete process.env.OTTERDEPLOY_CONFIG_DIR;
+  clearConfigDir();
 });
 
 describe("known hosts", () => {

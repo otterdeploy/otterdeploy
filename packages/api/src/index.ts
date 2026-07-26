@@ -23,6 +23,7 @@ import { edgeLogsContract } from "./routers/edge-logs/contract";
 import { envContract } from "./routers/env/contract";
 import { firewallContract } from "./routers/firewall/contract";
 import { gitContract } from "./routers/git/contract";
+import { meshContract } from "./routers/mesh/contract";
 import { metricsContract } from "./routers/metrics/contract";
 import { notificationsContract } from "./routers/notifications/contract";
 import { organizationContract } from "./routers/organization/contract";
@@ -111,6 +112,7 @@ export const publicProcedure = implement({
   env: envContract,
   firewall: firewallContract,
   git: gitContract,
+  mesh: meshContract,
   metrics: metricsContract,
   notifications: notificationsContract,
   organization: organizationContract,

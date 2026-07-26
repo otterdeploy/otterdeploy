@@ -128,7 +128,7 @@ export async function probeFetch(
         timeoutMs: PROBE_TIMEOUT_MS,
         denyHosts: denylist.blockedHosts,
         denyAddresses: denylist.blockedAddresses,
-        allowAddresses: egressAllowlist(),
+        allowAddresses: await egressAllowlist(),
       },
     );
     return Result.ok(res);

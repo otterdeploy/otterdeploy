@@ -59,6 +59,13 @@ export const statements = {
   // trusted-CA inventory (certificates oRPC router). Private keys are
   // secret-bearing infra material, so mutation stays admin/owner like sshKey.
   certificate: ["create", "read", "update", "delete"],
+  // Private networking — the org's connected VPN account (NetBird/Tailscale).
+  // The stored credential grants API control of the org's ENTIRE mesh (mint
+  // keys, write access policy, delete peers), so connect/disconnect stays
+  // admin/owner like sshKey and certificate. `read` is what the service
+  // exposure UI needs to know a mesh exists at all.
+  // Design: docs/designs/vpn-mesh.md
+  mesh: ["create", "read", "update", "delete"],
   // Interactive container shells are a distinct high-risk capability. Do not
   // infer shell access from the ability to deploy or update a service.
   terminal: ["open"],
@@ -93,6 +100,9 @@ export const member = ac.newRole({
   sshKey: ["read"],
   // Certificates: members can inspect the inventory, not touch key material.
   certificate: ["read"],
+  // Private networking: members can see that a mesh is connected (so the
+  // service exposure control renders) but can't connect/disconnect it.
+  mesh: ["read"],
   terminal: ["open"],
 });
 
@@ -112,6 +122,7 @@ export const admin = ac.newRole({
   apiKey: ["create", "read", "update", "delete"],
   sshKey: ["create", "read", "update", "delete"],
   certificate: ["create", "read", "update", "delete"],
+  mesh: ["create", "read", "update", "delete"],
   terminal: ["open"],
 });
 
@@ -131,6 +142,7 @@ export const owner = ac.newRole({
   apiKey: ["create", "read", "update", "delete"],
   sshKey: ["create", "read", "update", "delete"],
   certificate: ["create", "read", "update", "delete"],
+  mesh: ["create", "read", "update", "delete"],
   terminal: ["open"],
 });
 

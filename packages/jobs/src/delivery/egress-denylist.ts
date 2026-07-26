@@ -57,8 +57,28 @@ export async function controlPlaneEgressDenylist(): Promise<{
   };
 }
 
-/** The operator-configured egress allowlist (bare IPs/CIDRs) — see
- *  packages/env/src/server.ts's `OTTERDEPLOY_EGRESS_ALLOWLIST`. */
-export function egressAllowlist(): string[] {
-  return env.OTTERDEPLOY_EGRESS_ALLOWLIST;
+/**
+ * The operator-configured egress allowlist (bare IPs/CIDRs). Editable in
+ * Settings → Instance and seeded from OTTERDEPLOY_EGRESS_ALLOWLIST — the
+ * column is authoritative once set, and an EMPTY string there is a deliberate
+ * "allow nothing" that overrides a non-empty env, so only NULL falls back.
+ *
+ * Mirrors packages/api/src/lib/platform-runtime-settings.ts's resolution for
+ * the same dependency reason this whole module is duplicated (see the header):
+ * `api` depends on `jobs`, so the import can't go the other way. The parsing
+ * is kept byte-identical to the env transform so a value typed in the UI and
+ * one supplied via env normalize the same.
+ */
+export async function egressAllowlist(): Promise<string[]> {
+  const [row] = await db
+    .select({ egressAllowlist: platformSettings.egressAllowlist })
+    .from(platformSettings)
+    .where(eq(platformSettings.id, PLATFORM_SETTINGS_ID))
+    .limit(1);
+  const stored = row?.egressAllowlist;
+  if (stored === null || stored === undefined) return env.OTTERDEPLOY_EGRESS_ALLOWLIST;
+  return stored
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
 }

@@ -8,19 +8,20 @@
  */
 import { db } from "@otterdeploy/db";
 import { deployment, preview, project } from "@otterdeploy/db/schema/project";
-import { env as serverEnv } from "@otterdeploy/env/server";
 import { Result } from "better-result";
 import { and, eq, exists, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { log as globalLog } from "evlog";
 
+import { previewIdleTeardownHours } from "../lib/platform-runtime-settings";
 import { markPreviewClosedById } from "../routers/project/queries";
 import { teardownPreview } from "./preview-teardown";
 
 /** Tear down previews past their idle deadline. Returns how many were reaped. */
 export async function reapIdlePreviews(now: Date = new Date()): Promise<number> {
   // Idle teardown disabled globally — never reap, even previously-seeded
-  // deadlines (matches the documented PREVIEW_IDLE_TEARDOWN_HOURS=0 contract).
-  if (serverEnv.PREVIEW_IDLE_TEARDOWN_HOURS === 0) return 0;
+  // deadlines (matches the documented "0 disables it" contract, whether that
+  // 0 comes from the settings row or PREVIEW_IDLE_TEARDOWN_HOURS).
+  if ((await previewIdleTeardownHours()) === 0) return 0;
   const due = await db
     .select({
       id: preview.id,

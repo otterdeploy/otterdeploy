@@ -15,22 +15,31 @@ export default defineConfig({
     mdx(),
     tailwindcss(),
     tanstackStart({
-      // SSR every route at request time (Vercel Node functions). Build-time
-      // prerender is off: the docs source eagerly loads the live OpenAPI spec,
-      // which isn't reachable during a Vercel build, and page enumeration for
-      // the `/docs/$` splat isn't wired. Revisit once those are addressed.
+      // SSR every route at request time. Build-time prerender is off: the docs
+      // source eagerly loads the live OpenAPI spec, which isn't reachable
+      // during a build, and page enumeration for the `/docs/$` splat isn't
+      // wired. Revisit once those are addressed.
       prerender: { enabled: false },
     }),
     react(),
-    // Nitro auto-selects the `vercel` preset in Vercel's build env (it sets
-    // `VERCEL=1`), emitting `.vercel/output` (Build Output API v3). Locally,
-    // `vite build` defaults to the node-server preset. compatibilityDate pins
-    // Vercel's modern function/runtime features.
+    // Pinned to `cloudflare-module` rather than left to auto-detection: the
+    // site deploys to Workers on every path (CI, `bun run deploy`, a local
+    // `vite build`), so what you build locally is what ships. The preset emits
+    // `.output/server/index.mjs` + `.output/public`, merges apps/www/
+    // wrangler.jsonc into `.output/server/wrangler.json`, and enables the
+    // `nodejs_compat` flag.
     // `noExternals` bundles every dependency into the server output instead of
-    // tracing them into `.output/server/node_modules`. The Fumadocs/tslib
-    // cluster otherwise traces incompletely (tslib's `modules/index.js` goes
-    // missing), and a fully bundled server is self-contained for any Node host.
-    nitro({ compatibilityDate: "2025-07-15", noExternals: true }),
+    // tracing them into `.output/server/node_modules` — required on Workers,
+    // which has no node_modules at runtime. It also fixes the Fumadocs/tslib
+    // cluster, which traces incompletely (tslib's `modules/index.js` goes
+    // missing) and 500s every SSR route.
+    nitro({
+      // `cloudflare-module`, not its std alias `cloudflare_workers` — nitro
+      // 3.0.260603-beta fails to resolve the alias at any compatibilityDate.
+      preset: "cloudflare-module",
+      compatibilityDate: "2026-05-28",
+      noExternals: true,
+    }),
   ],
   resolve: {
     tsconfigPaths: true,

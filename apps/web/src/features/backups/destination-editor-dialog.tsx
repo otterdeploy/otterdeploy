@@ -74,7 +74,11 @@ function saveDestination(
   if (initial) {
     return destinationsCollection.update(initial.id, { metadata }, (draft) => {
       draft.name = value.name.trim();
-      draft.config = cleanConfig;
+      // Never touch a managed row's config: the platform owns that path and the
+      // server rejects the write. Leaving the draft field untouched is what
+      // keeps `config` out of the PATCH body (see the collection's onUpdate,
+      // which only sends changed keys), so a rename still succeeds.
+      if (!initial.managed) draft.config = cleanConfig;
     });
   }
   return destinationsCollection.insert(
@@ -85,6 +89,9 @@ function saveDestination(
       type: value.type,
       config: cleanConfig,
       status: "active",
+      // Operator-created destinations are never managed — only the platform's
+      // own local row is, and that one is provisioned server-side.
+      managed: false,
       usedBytes: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -103,6 +110,8 @@ function DestinationEditorBody({
   onClose: () => void;
 }) {
   const editing = initial !== null;
+  // The platform-managed local destination: name is editable, location isn't.
+  const managed = initial?.managed === true;
 
   const form = useForm({
     defaultValues: {
@@ -126,7 +135,7 @@ function DestinationEditorBody({
     <DialogContent className="gap-0 p-0 sm:max-w-3xl">
       <DialogHeader className="border-b px-5 py-3">
         <DialogTitle className="text-sm font-semibold">
-          {editing ? "Edit destination" : "Add destination"}
+          {managed ? "Rename destination" : editing ? "Edit destination" : "Add destination"}
         </DialogTitle>
         <p className="text-xs text-muted-foreground">
           Where backups are written. Credentials are encrypted at rest.
@@ -188,6 +197,7 @@ function DestinationEditorBody({
                         secret={sec.state.value}
                         onSecret={sec.handleChange}
                         editing={editing}
+                        managed={managed}
                       />
                     )}
                   </form.Field>

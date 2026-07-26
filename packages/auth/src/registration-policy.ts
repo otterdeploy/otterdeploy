@@ -26,9 +26,22 @@ export function decideRegistration(input: {
   authPath: string | undefined;
   configuredBootstrapToken: string | undefined;
   presentedBootstrapToken: string | undefined;
+  /**
+   * Operator opt-in (Instance → Access) letting anyone who can reach the
+   * sign-in page create an account, instead of requiring an invitation.
+   *
+   * Optional, defaulting to FALSE, so the safe policy is what a caller that
+   * forgets to thread it through gets. It is deliberately consulted only in
+   * the post-bootstrap branch: open registration can never satisfy the first
+   * account (that still needs the installer's token) and never grants
+   * install-admin — otherwise flipping one switch would hand the next visitor
+   * authority over the whole install.
+   */
+  openRegistration?: boolean;
 }): RegistrationDecision {
   if (input.bootstrapComplete) {
-    return input.hasPendingInvitation
+    if (input.hasPendingInvitation) return { allowed: true, installAdmin: false };
+    return input.openRegistration
       ? { allowed: true, installAdmin: false }
       : { allowed: false, reason: "invite-required" };
   }

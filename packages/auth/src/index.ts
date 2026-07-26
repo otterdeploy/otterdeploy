@@ -23,6 +23,7 @@ import { log } from "evlog";
 
 import { createAuthAuditHook } from "./audit";
 import { ac, roles } from "./permissions";
+import { resolveSocialProviders, toBetterAuthSocialProviders } from "./platform-config";
 import { BOOTSTRAP_TOKEN_HEADER, decideRegistration } from "./registration-policy";
 import { resolveCanonicalWebOrigin } from "./web-origin";
 
@@ -60,11 +61,16 @@ async function resolveActiveOrganizationId(userId: string): Promise<string | nul
 }
 
 /**
- * Social providers, included ONLY when both the client id + secret are present,
- * so an unconfigured provider is a clean no-op (the build/boot doesn't require
- * any OAuth creds). Distinct from the GitHub *App* used for git providers.
+ * Env-seeded social providers — the set used to build the FIRST auth instance,
+ * before the database is reachable. Included only when both halves of a
+ * credential are present, so an unconfigured provider is a clean no-op.
+ * Distinct from the GitHub *App* used for git providers.
+ *
+ * Once the server has booted, `reloadAuth()` replaces this with the resolved
+ * DB-or-env set (see ./platform-config.ts) — the env values remain the
+ * fallback for any provider the operator has not configured in the UI.
  */
-const configuredSocialProviders = {
+const envSocialProviders = {
   ...(env.GITHUB_OAUTH_CLIENT_ID && env.GITHUB_OAUTH_CLIENT_SECRET
     ? {
         github: {
@@ -92,20 +98,28 @@ const configuredSocialProviders = {
     : {}),
 };
 
-/** Provider ids the server has configured — handy for logging / parity checks
- *  with the web's VITE_AUTH_SOCIAL_PROVIDERS. */
-export const enabledSocialProviders = Object.keys(configuredSocialProviders);
+/**
+ * Registration surface the sign-in page renders:
+ *   "bootstrap"   — no account exists yet; offer the bootstrap-token form.
+ *   "open"        — operator allows self-registration; offer plain sign-up.
+ *   "invite-only" — sign-up only reachable through an invitation link.
+ */
+export type RegistrationMode = "bootstrap" | "invite-only" | "open";
 
-export async function getRegistrationMode(): Promise<"bootstrap" | "invite-only"> {
+export async function getRegistrationMode(): Promise<RegistrationMode> {
   const [[existingUser], [installation]] = await Promise.all([
     db.select({ id: userTbl.id }).from(userTbl).limit(1),
     db
-      .select({ bootstrapCompletedAt: platformSettings.bootstrapCompletedAt })
+      .select({
+        bootstrapCompletedAt: platformSettings.bootstrapCompletedAt,
+        registrationMode: platformSettings.registrationMode,
+      })
       .from(platformSettings)
       .where(eq(platformSettings.id, PLATFORM_SETTINGS_ID))
       .limit(1),
   ]);
-  return existingUser || installation?.bootstrapCompletedAt ? "invite-only" : "bootstrap";
+  if (!existingUser && !installation?.bootstrapCompletedAt) return "bootstrap";
+  return installation?.registrationMode === "open" ? "open" : "invite-only";
 }
 
 // Cookie security must track the scheme the platform is actually served over.
@@ -116,12 +130,19 @@ export async function getRegistrationMode(): Promise<"bootstrap" | "invite-only"
 // the app can never see a session — the user is stuck on the sign-in page.
 const servedOverHttps = env.BETTER_AUTH_URL.startsWith("https://");
 
-export const auth = betterAuth({
+type SocialProvidersConfig = Record<
+  string,
+  { clientId: string; clientSecret: string; issuer?: string }
+>;
+
+function buildAuth(socialProviders: SocialProvidersConfig) {
+  return betterAuth({
   appName: "otterdeploy",
-  // Social sign-in (env-gated above) + account linking, so signing in with a
-  // provider whose email matches an existing account links to it rather than
-  // erroring or creating a duplicate.
-  socialProviders: configuredSocialProviders,
+  // Social sign-in + account linking, so signing in with a provider whose
+  // email matches an existing account links to it rather than erroring or
+  // creating a duplicate. The set is resolved at build time from the DB (with
+  // env as the fallback) and swapped in wholesale by `reloadAuth()`.
+  socialProviders,
   account: {
     accountLinking: {
       enabled: true,
@@ -247,7 +268,10 @@ export const auth = betterAuth({
           const [[existingUser], [installation]] = await Promise.all([
             db.select({ id: userTbl.id }).from(userTbl).limit(1),
             db
-              .select({ bootstrapCompletedAt: platformSettings.bootstrapCompletedAt })
+              .select({
+                bootstrapCompletedAt: platformSettings.bootstrapCompletedAt,
+                registrationMode: platformSettings.registrationMode,
+              })
               .from(platformSettings)
               .where(eq(platformSettings.id, PLATFORM_SETTINGS_ID))
               .limit(1),
@@ -273,6 +297,10 @@ export const auth = betterAuth({
             authPath: context?.path,
             configuredBootstrapToken: env.OTTERDEPLOY_BOOTSTRAP_TOKEN,
             presentedBootstrapToken: context?.headers?.get(BOOTSTRAP_TOKEN_HEADER) ?? undefined,
+            // Read from the row we already fetched rather than a cached
+            // resolver: closing registration must bind on the very next signup
+            // attempt, and this hook is the only place it's enforced.
+            openRegistration: installation?.registrationMode === "open",
           });
 
           if (!decision.allowed) {
@@ -454,6 +482,86 @@ export const auth = betterAuth({
       },
     }),
   ],
+  });
+}
+
+export type AuthInstance = ReturnType<typeof buildAuth>;
+
+/**
+ * The live instance. Starts from the env-configured providers because module
+ * evaluation is synchronous and the database may not be reachable yet; the
+ * server calls `reloadAuth()` once during boot (and again after any social
+ * sign-in setting is saved) to swap in the DB-resolved set.
+ */
+let currentAuth: AuthInstance = buildAuth(envSocialProviders);
+
+/** Provider ids the live instance has registered. The sign-in page reads this
+ *  through /api/auth/public-config so it renders exactly the buttons that
+ *  actually work — it used to read the build-time VITE_AUTH_SOCIAL_PROVIDERS,
+ *  which meant a self-hoster running the published image could never enable
+ *  SSO without rebuilding the SPA. */
+export function enabledSocialProviderIds(): string[] {
+  return liveSocialProviderIds;
+}
+
+let liveSocialProviderIds: string[] = Object.keys(envSocialProviders);
+
+/**
+ * Rebuild the auth instance against the current social-provider settings.
+ *
+ * Swapping the whole instance (rather than mutating config in place) is the
+ * only supported way to change `socialProviders` — better-auth reads them when
+ * the instance is constructed. This is safe to do at runtime because every
+ * durable piece of auth state lives outside the instance: sessions are rows
+ * plus cookies signed with BETTER_AUTH_SECRET, which doesn't change here, so
+ * signed-in users are unaffected. The one thing that does reset is the
+ * in-memory rate-limit window — an acceptable cost on an admin-triggered,
+ * infrequent action.
+ *
+ * Never throws: on failure the previous instance stays live and serving.
+ */
+export async function reloadAuth(): Promise<{ providers: string[] }> {
+  try {
+    const resolved = await resolveSocialProviders();
+    const providers = toBetterAuthSocialProviders(resolved);
+    currentAuth = buildAuth(providers);
+    liveSocialProviderIds = resolved.map((p) => p.id);
+    log.info({ auth: { event: "reloaded", socialProviders: liveSocialProviderIds } });
+    return { providers: liveSocialProviderIds };
+  } catch (error) {
+    log.error({
+      auth: { event: "reload-failed", keeping: liveSocialProviderIds },
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { providers: liveSocialProviderIds };
+  }
+}
+
+/**
+ * Stable façade over the swappable instance. Every consumer imports `auth` as
+ * a module-level const, so the reference they hold has to keep working across
+ * a reload — hence a Proxy that forwards to whatever `currentAuth` is at call
+ * time rather than a value they'd capture once.
+ *
+ * Methods are bound to the real instance so `this` never resolves to the proxy
+ * (`auth.handler(req)` would otherwise pass the proxy as the receiver).
+ * `getOwnPropertyDescriptor` has to report `configurable: true`: the proxy
+ * target is a permanently-empty object, and reporting a non-configurable
+ * property that doesn't exist on the target violates a Proxy invariant and
+ * throws.
+ */
+export const auth: AuthInstance = new Proxy({} as AuthInstance, {
+  get(_target, prop) {
+    const value: unknown = Reflect.get(currentAuth as object, prop, currentAuth);
+    if (typeof value !== "function") return value;
+    return (value as (...args: unknown[]) => unknown).bind(currentAuth);
+  },
+  has: (_target, prop) => Reflect.has(currentAuth as object, prop),
+  ownKeys: () => Reflect.ownKeys(currentAuth as object),
+  getOwnPropertyDescriptor: (_target, prop) => {
+    const descriptor = Reflect.getOwnPropertyDescriptor(currentAuth as object, prop);
+    return descriptor ? { ...descriptor, configurable: true } : undefined;
+  },
 });
 
-export type Session = typeof auth.$Infer.Session;
+export type Session = AuthInstance["$Infer"]["Session"];

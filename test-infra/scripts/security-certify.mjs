@@ -40,6 +40,14 @@ function parseArgs(argv) {
 }
 
 /** Run vitest's JSON reporter over the security suite and return the parsed report. */
+/**
+ * The slice of vitest's `--reporter=json` output this script actually consumes.
+ * @typedef {{ status: string, fullName: string, failureMessages: string[] }} VitestAssertion
+ * @typedef {{ name: string, assertionResults: VitestAssertion[] }} VitestFileResult
+ * @typedef {{ testResults: VitestFileResult[] }} VitestReport
+ */
+
+/** @returns {Promise<VitestReport>} */
 async function runSuite() {
   const proc = Bun.spawn(
     ["bun", "--bun", "vitest", "run", securitySuiteDir, "--reporter=json"],
@@ -51,6 +59,7 @@ async function runSuite() {
     proc.exited,
   ]);
 
+  /** @type {VitestReport} */
   let parsed;
   try {
     parsed = JSON.parse(stdout);
@@ -63,7 +72,10 @@ async function runSuite() {
   return parsed;
 }
 
-/** Group vitest's per-file test results into one entry per issue-id invariant. */
+/**
+ * Group vitest's per-file test results into one entry per issue-id invariant.
+ * @param {VitestReport} vitestReport
+ */
 function buildInvariantReport(vitestReport) {
   const invariants = [];
   const unattributed = [];

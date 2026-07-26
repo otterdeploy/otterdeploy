@@ -21,6 +21,7 @@
  * never a leak/500 in between.
  */
 import type { OrganizationId } from "@otterdeploy/shared/id";
+import type { Context } from "../../../context";
 
 import { createProcedureClient } from "@orpc/server";
 import { Result } from "better-result";
@@ -100,8 +101,9 @@ function sessionContext(activeOrganizationId: string) {
     headers: new Headers(),
     log: { set: vi.fn(), audit: undefined },
     broadcast: vi.fn(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as any;
+    // Deliberately partial: these tests only exercise the tenant-scope guard,
+    // so the context carries just the fields those code paths read.
+  } as unknown as Context;
 }
 
 describe("organization router tenant scope (od-5j8.8)", () => {

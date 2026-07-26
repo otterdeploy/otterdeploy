@@ -18,6 +18,7 @@
  */
 import { useLiveQuery } from "@tanstack/react-db";
 import { useLoaderData } from "@tanstack/react-router";
+import { useState } from "react";
 
 import { projectCollection } from "@/features/projects/data/project";
 
@@ -27,7 +28,12 @@ export function useIsFirstSession(): boolean {
   const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
   const { data: projects } = useLiveQuery((q) => q.from({ p: projectCollection }), []);
 
-  const orgAgeMs = Date.now() - new Date(organization.createdAt).getTime();
+  // Pinned at mount rather than read on every render: `Date.now()` in render
+  // is impure, and re-reading it could flip the answer mid-session — the
+  // banner would pop in the moment the window elapsed under the user.
+  const [mountedAt] = useState(() => Date.now());
+
+  const orgAgeMs = mountedAt - new Date(organization.createdAt).getTime();
   const recentlyCreated = Number.isFinite(orgAgeMs) && orgAgeMs < FIRST_SESSION_WINDOW_MS;
   const hasNoProjects = projects.length === 0;
 

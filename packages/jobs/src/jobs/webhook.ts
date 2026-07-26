@@ -234,7 +234,7 @@ export const webhookDeliverJob = defineJob({
       },
       denyHosts: denylist.blockedHosts,
       denyAddresses: denylist.blockedAddresses,
-      allowAddresses: egressAllowlist(),
+      allowAddresses: await egressAllowlist(),
     });
     const latencyMs = Math.round(performance.now() - started);
 

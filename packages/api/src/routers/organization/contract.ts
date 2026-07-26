@@ -236,6 +236,134 @@ const testEmailOutput = z.object({
   error: z.string().nullable(),
 });
 
+// ─── Runtime configuration (platform-wide, od-gfg) ───────────────────
+// Settings that used to be env-only but are runtime policy rather than
+// boot-time infrastructure. All live on the platform_settings singleton with
+// the env var as the seed/fallback; see
+// packages/api/src/lib/platform-runtime-settings.ts for the resolution rule.
+// Secrets are write-only here exactly like the email transport: a string sets
+// it, null clears it, omitting it leaves it — reads return `*Configured`.
+
+const registrationModeEnum = z.enum(["invite-only", "open"]);
+
+const accessSettingsSchema = z.object({
+  registrationMode: registrationModeEnum,
+  /** True once an account exists — before that the install is still in
+   *  bootstrap and the mode is moot, which the card explains. */
+  bootstrapComplete: z.boolean(),
+});
+
+const setAccessSettingsInput = z.object({
+  organizationId: organizationIdField,
+  registrationMode: registrationModeEnum,
+});
+
+const socialProviderIdEnum = z.enum(["github", "google", "gitlab"]);
+
+const socialProviderSchema = z.object({
+  id: socialProviderIdEnum,
+  /** Operator's explicit toggle. Null = never set ⇒ treated as enabled when
+   *  credentials exist, which is what keeps env-only installs working. */
+  enabled: z.boolean().nullable(),
+  clientId: z.string().nullable(),
+  secretConfigured: z.boolean(),
+  /** GitLab only. */
+  issuer: z.string().nullable(),
+  /** Both halves come from env, so the provider works with nothing stored. */
+  envConfigured: z.boolean(),
+  /** Registered on the live auth instance right now — the single honest
+   *  answer to "is this button on the sign-in page?". */
+  live: z.boolean(),
+});
+
+const setSocialProviderInput = z.object({
+  organizationId: organizationIdField,
+  id: socialProviderIdEnum,
+  enabled: z.boolean(),
+  clientId: z.string().trim().max(255).nullable(),
+  clientSecret: z.string().min(1).nullable().optional(),
+  issuer: z.url().nullable().optional(),
+});
+
+const messagingSettingsSchema = z.object({
+  twilioAccountSid: z.string().nullable(),
+  twilioFromNumber: z.string().nullable(),
+  twilioAuthTokenConfigured: z.boolean(),
+  fcmServerKeyConfigured: z.boolean(),
+  /** env supplies a complete Twilio / FCM config, so these work unset. */
+  twilioEnvConfigured: z.boolean(),
+  fcmEnvConfigured: z.boolean(),
+});
+
+const setMessagingSettingsInput = z.object({
+  organizationId: organizationIdField,
+  twilioAccountSid: z.string().trim().max(255).nullable(),
+  twilioFromNumber: z.string().trim().max(32).nullable(),
+  twilioAuthToken: z.string().min(1).nullable().optional(),
+  fcmServerKey: z.string().min(1).nullable().optional(),
+});
+
+const crowdsecSettingsSchema = z.object({
+  enabled: z.boolean(),
+  lapiUrl: z.string().nullable(),
+  bouncerKeyConfigured: z.boolean(),
+  envConfigured: z.boolean(),
+  /** Whether credentials resolve AND the toggle is on — i.e. whether the next
+   *  reconcile will actually render the edge gate. */
+  effective: z.boolean(),
+});
+
+const setCrowdsecSettingsInput = z.object({
+  organizationId: organizationIdField,
+  enabled: z.boolean(),
+  lapiUrl: z.url().nullable(),
+  bouncerKey: z.string().min(1).nullable().optional(),
+});
+
+// Bare IPs / CIDRs only — a hostname could itself be rebound, which is the
+// whole attack this allowlist has to not reopen. Same grammar as the env var.
+const IP_OR_CIDR_RE =
+  /^((\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?|[0-9a-fA-F:]*:[0-9a-fA-F:]*(\/\d{1,3})?)$/;
+
+const runtimeSettingsSchema = z.object({
+  /** Comma-separated; empty string = explicitly allow nothing. */
+  egressAllowlist: z.string(),
+  /** True when the value shown is the env fallback rather than a stored one. */
+  egressFromEnv: z.boolean(),
+  previewIdleTeardownHours: z.number(),
+  edgeLogPersist: z.boolean(),
+  edgeLogRetentionDays: z.number(),
+  edgeLogGeoipUrl: z.string(),
+  edgeLogGeoipAsnUrl: z.string(),
+  builderConcurrency: z.number(),
+  /** Edge logging is off entirely unless EDGE_LOG_SINK is set, so the card can
+   *  say why its toggles are inert instead of silently doing nothing. */
+  edgeLogSinkConfigured: z.boolean(),
+});
+
+const setRuntimeSettingsInput = z.object({
+  organizationId: organizationIdField,
+  egressAllowlist: z
+    .string()
+    .trim()
+    .refine(
+      (v) =>
+        v === "" ||
+        v
+          .split(",")
+          .map((e) => e.trim())
+          .filter((e) => e.length > 0)
+          .every((e) => IP_OR_CIDR_RE.test(e)),
+      { message: "must be a comma-separated list of bare IPs or CIDRs (no hostnames)" },
+    ),
+  previewIdleTeardownHours: z.number().int().min(0).max(8760),
+  edgeLogPersist: z.boolean(),
+  edgeLogRetentionDays: z.number().int().min(1).max(365),
+  edgeLogGeoipUrl: z.url(),
+  edgeLogGeoipAsnUrl: z.url(),
+  builderConcurrency: z.number().int().min(1).max(32),
+});
+
 // ─── Members + invitations (delegated to better-auth's org plugin) ────────
 const orgRef = z.object({ organizationId: organizationIdField });
 
@@ -415,6 +543,57 @@ export const organizationContract = {
     .meta({ path: `${basePath}/{organizationId}/email/test`, tag, method: "POST" })
     .input(testEmailInput)
     .output(testEmailOutput),
+
+  // ── Runtime configuration ──────────────────────────────────────────
+  getAccessSettings: oc
+    .meta({ path: `${basePath}/{organizationId}/instance/access`, tag, method: "GET" })
+    .input(getOrganizationSettingsInput)
+    .output(accessSettingsSchema),
+
+  setAccessSettings: oc
+    .meta({ path: `${basePath}/{organizationId}/instance/access`, tag, method: "PATCH" })
+    .input(setAccessSettingsInput)
+    .output(accessSettingsSchema),
+
+  listSocialProviders: oc
+    .meta({ path: `${basePath}/{organizationId}/instance/social-providers`, tag, method: "GET" })
+    .input(getOrganizationSettingsInput)
+    .output(z.array(socialProviderSchema)),
+
+  setSocialProvider: oc
+    .meta({ path: `${basePath}/{organizationId}/instance/social-providers`, tag, method: "PATCH" })
+    .input(setSocialProviderInput)
+    .output(z.array(socialProviderSchema)),
+
+  getMessagingSettings: oc
+    .meta({ path: `${basePath}/{organizationId}/instance/messaging`, tag, method: "GET" })
+    .input(getOrganizationSettingsInput)
+    .output(messagingSettingsSchema),
+
+  setMessagingSettings: oc
+    .meta({ path: `${basePath}/{organizationId}/instance/messaging`, tag, method: "PATCH" })
+    .input(setMessagingSettingsInput)
+    .output(messagingSettingsSchema),
+
+  getCrowdsecSettings: oc
+    .meta({ path: `${basePath}/{organizationId}/instance/crowdsec`, tag, method: "GET" })
+    .input(getOrganizationSettingsInput)
+    .output(crowdsecSettingsSchema),
+
+  setCrowdsecSettings: oc
+    .meta({ path: `${basePath}/{organizationId}/instance/crowdsec`, tag, method: "PATCH" })
+    .input(setCrowdsecSettingsInput)
+    .output(crowdsecSettingsSchema),
+
+  getRuntimeSettings: oc
+    .meta({ path: `${basePath}/{organizationId}/instance/runtime`, tag, method: "GET" })
+    .input(getOrganizationSettingsInput)
+    .output(runtimeSettingsSchema),
+
+  setRuntimeSettings: oc
+    .meta({ path: `${basePath}/{organizationId}/instance/runtime`, tag, method: "PATCH" })
+    .input(setRuntimeSettingsInput)
+    .output(runtimeSettingsSchema),
 
   // ── Members + invitations ──────────────────────────────────────────
   listMembers: oc

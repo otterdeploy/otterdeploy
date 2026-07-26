@@ -2,6 +2,11 @@
  * One destination in the destinations list: name + connection summary, storage
  * usage, status, and test/edit/delete affordances. Delete mutates the
  * collection optimistically; test is a one-shot validation.
+ *
+ * The platform-managed local destination is deliberately narrower: it always
+ * exists so a fresh install can schedule a backup without inventing a host path,
+ * so it offers no Delete — only Disable, and the server refuses even that while
+ * it's the last active destination. See packages/api/src/backups/managed-destination.ts.
  */
 import { useState } from "react";
 
@@ -14,8 +19,37 @@ import { cn } from "@/shared/lib/utils";
 
 import type { Destination } from "./data/destinations";
 
-import { destinationsCollection, testDestination } from "./data/destinations";
+import { destinationsCollection, setDestinationEnabled, testDestination } from "./data/destinations";
 import { StatusBadge, destIcon, destSub, destUri } from "./shared";
+
+/** Name, connection summary, and the managed marker + its honesty note. */
+function DestinationIdentity({ dest }: { dest: Destination }) {
+  return (
+    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-semibold">{dest.name}</span>
+        <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+          {destUri(dest)}
+        </span>
+        {dest.managed && (
+          <span
+            className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground"
+            title="Created and located by otterdeploy. Always available, so a backup can be scheduled without configuring storage first."
+          >
+            Managed
+          </span>
+        )}
+      </div>
+      <div className="text-[11px] text-muted-foreground">
+        {dest.managed
+          ? // Honesty over reassurance (PRODUCT.md): this copy exists so nobody
+            // reads an always-present local destination as "I have backups".
+            "On this host — fast restores, not disaster recovery. Add off-host storage for that."
+          : destSub(dest)}
+      </div>
+    </div>
+  );
+}
 
 export function DestinationRow({
   dest,
@@ -52,20 +86,35 @@ export function DestinationRow({
       );
   };
 
+  const disabled = dest.status === "disabled";
+
+  const toggleEnabled = () => {
+    setBusy(true);
+    setDestinationEnabled(dest.id, disabled)
+      .then(() => toast.success(disabled ? "Destination enabled" : "Destination disabled"))
+      .catch((err: unknown) =>
+        // The server refuses to disable the last active destination — surfacing
+        // its message verbatim explains why better than a generic failure.
+        toast.error(err instanceof Error ? err.message : "Couldn't change destination"),
+      )
+      .finally(() => setBusy(false));
+  };
+
   return (
-    <div className={cn("flex items-center gap-3 px-4 py-3.5", !first && "border-t")}>
+    <div
+      className={cn(
+        "flex items-center gap-3 px-4 py-3.5",
+        !first && "border-t",
+        // A disabled destination takes no new backups. Dimming it keeps that
+        // legible at a glance without hiding the row, since its existing
+        // snapshots are still restorable.
+        disabled && "opacity-60",
+      )}
+    >
       <div className="grid size-8 place-items-center rounded-md border bg-muted/30 text-muted-foreground">
         <HugeiconsIcon icon={DIcon} className="size-3.5" />
       </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold">{dest.name}</span>
-          <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
-            {destUri(dest)}
-          </span>
-        </div>
-        <div className="text-[11px] text-muted-foreground">{destSub(dest)}</div>
-      </div>
+      <DestinationIdentity dest={dest} />
       <div className="flex min-w-40 flex-col items-end gap-0.5">
         <span className="font-mono text-xs">
           {usedGB.toFixed(usedGB >= 10 ? 0 : 1)} GB
@@ -92,12 +141,36 @@ export function DestinationRow({
         <HugeiconsIcon icon={Tick02Icon} className="size-3.5" />
         Test
       </Button>
-      <Button variant="ghost" size="icon" className="size-7" title="Edit" onClick={onEdit}>
+      <Button
+        variant="ghost"
+        size="sm"
+        disabled={busy}
+        title={
+          disabled
+            ? "Resume sending backups here"
+            : "Stop sending new backups here. Existing snapshots stay restorable."
+        }
+        onClick={toggleEnabled}
+      >
+        {disabled ? "Enable" : "Disable"}
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-7"
+        title={dest.managed ? "Rename" : "Edit"}
+        onClick={onEdit}
+      >
         <HugeiconsIcon icon={Settings01Icon} className="size-3.5" />
       </Button>
-      <Button variant="ghost" size="icon" className="size-7" title="Delete" onClick={remove}>
-        <HugeiconsIcon icon={Delete02Icon} className="size-3.5" />
-      </Button>
+      {/* No delete for the managed destination — it must always exist, or the
+          org is back to "configure storage before you can back anything up".
+          Disable is the escape hatch. */}
+      {!dest.managed && (
+        <Button variant="ghost" size="icon" className="size-7" title="Delete" onClick={remove}>
+          <HugeiconsIcon icon={Delete02Icon} className="size-3.5" />
+        </Button>
+      )}
     </div>
   );
 }

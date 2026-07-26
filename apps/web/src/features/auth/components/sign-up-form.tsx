@@ -13,9 +13,12 @@ import { SocialSignIn } from "./social-sign-in";
 
 export function SignUpForm({
   bootstrap,
+  socialProviders,
   onSwitchToSignIn,
 }: {
   bootstrap: boolean;
+  /** Provider ids live on the server right now — see /api/auth/public-config. */
+  socialProviders: string[];
   onSwitchToSignIn: () => void;
 }) {
   const navigate = useNavigate();
@@ -198,7 +201,7 @@ export function SignUpForm({
         </form.Subscribe>
       </form>
 
-      {!bootstrap && <SocialSignIn dividerLabel="or sign up with" />}
+      {!bootstrap && <SocialSignIn dividerLabel="or sign up with" providers={socialProviders} />}
 
       <p className="mt-6 text-[13px] text-muted-foreground">
         {t("auth.signUp.hasAccount")}{" "}

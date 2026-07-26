@@ -4,9 +4,14 @@
 # everything it created. DESTRUCTIVE and IRREVERSIBLE.
 #
 # Run with NO flags to pick interactively what to delete, then type "wipe":
+#   curl -fsSL https://get.otterdeploy.com/uninstall.sh | sudo bash
 #   sudo bash uninstall.sh
 #
+# Prompts are read from /dev/tty, so the piped form above stays interactive.
+# With no terminal at all, the script refuses unless --yes is passed.
+#
 # Or preview / preset non-interactively:
+#   curl -fsSL https://get.otterdeploy.com/uninstall.sh | sudo bash -s -- --dry-run
 #   sudo bash uninstall.sh --dry-run     # show every action, change nothing
 #   sudo bash uninstall.sh --yes         # no prompts, use the defaults below
 #
@@ -38,7 +43,9 @@ for a in "$@"; do case "$a" in
   --keep-swarm)    KEEP_SWARM=true ;;
   --keep-docker)   KEEP_DOCKER=true ;;
   --remove-docker) KEEP_DOCKER=false ;;
-  -h|--help)       sed -n '2,32p' "$0"; exit 0 ;;
+  # Print the header block only — bounded by the first non-comment line, so
+  # editing the header can't leak code into --help (it previously did).
+  -h|--help)       sed -n '2,${/^[^#]/q;p;}' "$0"; exit 0 ;;
   *) echo "unknown arg: $a (try --help)"; exit 1 ;;
 esac; done
 
@@ -60,11 +67,29 @@ run()  { if $DRY_RUN; then printf '   + %s\n' "$*"; else printf '   $ %s\n' "$*"
 sh_()  { if $DRY_RUN; then printf '   + %s\n' "$*"; else printf '   $ %s\n' "$*"; $SUDO sh -c "$*"; fi; }
 D()    { $SUDO docker "$@"; }
 
+# Every prompt reads from /dev/tty, never stdin — this script is served at
+# get.otterdeploy.com/uninstall.sh, so under `curl | bash` stdin IS the piped
+# script. A plain `read` there consumes the script's own source as the operator's
+# answers: the selection prompts get garbage (which silently flips what gets
+# deleted) and the "wipe" confirmation reads a line of bash instead of consent.
+# On a destructive, irreversible script that is not an acceptable failure mode.
+TTY=""; [ -r /dev/tty ] && TTY=/dev/tty
+
+# No terminal and no explicit intent (CI, cron, `| bash < /dev/null`) — refuse
+# rather than fall through to the defaults, which delete volumes, the data
+# directory and the ZFS pool. Unattended callers must say so with --yes.
+if [ -z "$TTY" ] && ! $DRY_RUN && ! $ASSUME_YES; then
+  printf 'error: no terminal to confirm on. Re-run with --yes to accept the defaults (destructive), or --dry-run to preview.\n' >&2
+  exit 1
+fi
+
 # ask_yn "Question" DEFAULT(Y|N)  → 0=yes 1=no  (Enter takes the default)
 ask_yn() {
   local q="$1" def="$2" ans hint
   [ "$def" = Y ] && hint='[Y/n]' || hint='[y/N]'
-  printf '   %s %s ' "$q" "$hint"; read -r ans; ans="${ans:-$def}"
+  printf '   %s %s ' "$q" "$hint" > "$TTY"
+  IFS= read -r ans < "$TTY" || ans=""
+  ans="${ans:-$def}"
   case "$ans" in [Yy]*) return 0 ;; *) return 1 ;; esac
 }
 # resolve one selectable var: if unset, ask (interactive) or take the default.
@@ -110,8 +135,9 @@ say "Remove Docker engine          : $($KEEP_DOCKER && echo 'no (kept)' || echo 
 
 # ── confirm ───────────────────────────────────────────────────────────────────
 if ! $DRY_RUN && ! $ASSUME_YES; then
-  printf '\n\033[31mThis is permanent.\033[0m Type "wipe" to proceed: '
-  read -r ans; [ "$ans" = wipe ] || { echo "Aborted."; exit 1; }
+  printf '\n\033[31mThis is permanent.\033[0m Type "wipe" to proceed: ' > "$TTY"
+  IFS= read -r ans < "$TTY" || ans=""
+  [ "$ans" = wipe ] || { echo "Aborted."; exit 1; }
 fi
 
 # ── 1. stack ──────────────────────────────────────────────────────────────────

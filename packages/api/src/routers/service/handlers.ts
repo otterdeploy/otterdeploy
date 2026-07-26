@@ -17,11 +17,7 @@ import { reconcile } from "../../caddy";
 import { deleteProxyRoutesByResource } from "../../caddy/queries";
 import { PLATFORM } from "../../constants";
 import { runtime } from "../../runtime";
-import {
-  insertDeployment,
-  markDeploymentFailed,
-  reconcileDeploySuccess,
-} from "../project/deployments";
+import { insertDeployment, markDeploymentFailed } from "../project/deployments";
 import { removeServiceFromManifest } from "../project/manifest";
 import { loadProject, loadResource } from "./context";
 import {
@@ -50,7 +46,7 @@ import {
   updateServiceRecord,
   type ServiceRecord,
 } from "./queries";
-import { provisionFresh, redeployAndFanOut } from "./redeploy";
+import { provisionFresh, redeployAndFanOut, settleCreateDeployment } from "./redeploy";
 import { reclaimServiceHostArtifacts } from "./teardown";
 import {
   isUniqueViolation,
@@ -196,19 +192,12 @@ export async function createService(
     return Result.err(provisioned.error);
   }
   const runtime = provisioned.value;
-  // Settle the row: the driver already waited for the container, so flip
-  // pending → running (emits deploy.succeeded exactly once) or mark it failed
-  // with the task's reason — never leave it dangling at "pending".
-  if (deploymentRow) {
-    if (runtime.status === "error") {
-      await markDeploymentFailed(
-        deploymentRow.id,
-        runtime.errorMessage ?? "runtime reported an error state",
-      ).catch(() => undefined);
-    } else {
-      await reconcileDeploySuccess([deploymentRow.id], record.service.resourceId);
-    }
-  }
+  await settleCreateDeployment(
+    deploymentRow?.id ?? null,
+    record.service.resourceId,
+    runtime.status,
+    runtime.errorMessage,
+  );
   log.set({ provision: { service: serviceName, status: runtime.status } });
 
   const refreshed = await getServiceRecord(input.projectId, record.service.resourceId);

@@ -20,6 +20,7 @@ import { resolveSecret } from "./engine-helpers";
 import { type ForgetSpec, RusticCli } from "./rustic";
 import {
   type DueSchedule,
+  activeDestinationIdsFor,
   deleteBackupRow,
   listDueSchedules,
   listScheduleBackups,
@@ -70,16 +71,23 @@ async function runSchedule(schedule: DueSchedule, now: Date): Promise<void> {
   }
 
   const resolved = await resolveScheduleSources(schedule.organizationId, schedule.sources);
+  // Operator intent is enforced here, at fan-out: a disabled destination stops
+  // receiving new backups while its existing snapshots stay restorable. Without
+  // this the `disabled` status would be decorative and "disable" a lie.
+  const destinationIds = await activeDestinationIdsFor(schedule.destinationIds);
 
   // A due schedule that resolves to no runnable (source × destination) pair is
   // orphaned or misconfigured — record `failed`, not the benign `queued`
-  // placeholder that made a broken schedule look perpetually about-to-run.
+  // placeholder that made a broken schedule look perpetually about-to-run. A
+  // schedule whose every destination is disabled lands here too, which is
+  // correct: it is configured but not backing anything up, and the operator
+  // should see that rather than a reassuring green row.
   let lastStatus: "succeeded" | "failed" = "failed";
-  if (resolved.length > 0 && schedule.destinationIds.length > 0) {
+  if (resolved.length > 0 && destinationIds.length > 0) {
     // One dump per (source × destination) — each is its own single-destination
     // backup record, so the engine, restore, and retention stay unchanged.
     for (const { id: resourceId, kind } of resolved) {
-      for (const destinationId of schedule.destinationIds) {
+      for (const destinationId of destinationIds) {
         const backupId = await createBackupRun({
           organizationId: schedule.organizationId,
           source: { kind, resourceId },

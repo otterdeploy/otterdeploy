@@ -9,6 +9,7 @@ import { eq } from "drizzle-orm";
 import { createHash } from "node:crypto";
 
 import { asStepLogger } from "../lib/logger";
+import { crowdsecConfig } from "../lib/platform-runtime-settings";
 import { isSwarmRuntime } from "../runtime";
 import { ensureEdgeOnProjectNetworks } from "../swarm/client";
 import {
@@ -89,10 +90,10 @@ async function loadCaddyOptions(): Promise<CaddyBuildOptions> {
     httpsAutoRedirect: settings?.httpsAutoRedirect ?? null,
     authzUpstream: env.DEPLOY_AUTHZ_UPSTREAM,
     edgeLogSink: env.EDGE_LOG_SINK,
-    crowdsec:
-      env.CROWDSEC_LAPI_URL && env.CROWDSEC_BOUNCER_KEY
-        ? { apiUrl: env.CROWDSEC_LAPI_URL, apiKey: env.CROWDSEC_BOUNCER_KEY }
-        : undefined,
+    // Settings-backed (env seeds it): saving credentials or flipping the
+    // toggle in Settings → Firewall re-renders the global block + per-site
+    // gate on the next reconcile, with no .env edit.
+    crowdsec: (await crowdsecConfig()) ?? undefined,
     controlPlane: settings?.controlPlaneFqdn
       ? {
           domain: settings.controlPlaneFqdn,

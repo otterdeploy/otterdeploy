@@ -66,64 +66,6 @@ export async function listServiceEnvVarsForResources(
 }
 
 /** A preview's override rows for one service. */
-export async function listPreviewServiceEnvVars(
-  serviceResourceId: ResourceId,
-  previewId: PreviewId,
-): Promise<ServiceEnvVarRow[]> {
-  return db
-    .select()
-    .from(serviceEnvVar)
-    .where(
-      and(
-        eq(serviceEnvVar.serviceResourceId, serviceResourceId),
-        eq(serviceEnvVar.previewId, previewId),
-      ),
-    );
-}
-
-export async function upsertPreviewServiceEnvVar(input: {
-  serviceResourceId: ResourceId;
-  previewId: PreviewId;
-  key: string;
-  value: string;
-}): Promise<ServiceEnvVarRow> {
-  const [row] = await db
-    .insert(serviceEnvVar)
-    .values(input)
-    .onConflictDoUpdate({
-      target: [serviceEnvVar.serviceResourceId, serviceEnvVar.previewId, serviceEnvVar.key],
-      targetWhere: sql`preview_id is not null`,
-      set: { value: input.value, updatedAt: new Date() },
-    })
-    .returning();
-  if (!row) {
-    throw createError({
-      message: "Failed to upsert preview env override",
-      status: 500,
-      why: "Database upsert returned no row",
-    });
-  }
-  return row;
-}
-
-export async function deletePreviewServiceEnvVar(input: {
-  serviceResourceId: ResourceId;
-  previewId: PreviewId;
-  key: string;
-}): Promise<boolean> {
-  const result = await db
-    .delete(serviceEnvVar)
-    .where(
-      and(
-        eq(serviceEnvVar.serviceResourceId, input.serviceResourceId),
-        eq(serviceEnvVar.previewId, input.previewId),
-        eq(serviceEnvVar.key, input.key),
-      ),
-    )
-    .returning({ id: serviceEnvVar.id });
-  return result.length > 0;
-}
-
 /**
  * Sealing is sticky and one-way, mirroring `upsertProjectEnvVar`: if the
  * existing base row (or this call) marks the key sealed, the FINAL row is

@@ -1,0 +1,5 @@
+# local wrangler dev state (simulated R2, caches)
+.wrangler
+
+node_modules
+*.log

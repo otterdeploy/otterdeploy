@@ -6,7 +6,7 @@
   "sideEffects": false,
   "scripts": {
     "build": "vite build",
-    "build:vercel": "NITRO_PRESET=vercel vite build",
+    "deploy": "vite build && wrangler deploy",
     "dev": "vite dev",
     "postinstall": "fumadocs-mdx",
     "serve": "vite preview",
@@ -40,6 +40,7 @@
     "nitro": "3.0.260603-beta",
     "tailwindcss": "^4.3.0",
     "typescript": "catalog:",
-    "vite": "^8.0.16"
+    "vite": "^8.0.16",
+    "wrangler": "^4.94.0"
   }
 }

@@ -31,6 +31,15 @@ export interface PostgresInstance {
   stop: () => Promise<void>;
 }
 
+/**
+ * This module's only environment boundary, kept in one place. Read through a
+ * function rather than a module constant so it still resolves at call time.
+ * `INTEGRATION_POSTGRES_URL` is a harness-only variable supplied by CI, so it
+ * deliberately isn't part of the validated `@otterdeploy/env` server schema.
+ */
+/* oxlint-disable-next-line node/no-process-env -- CI-supplied integration target, outside the server env schema */
+const externalPostgresUrl = (): string | undefined => process.env.INTEGRATION_POSTGRES_URL;
+
 /** Cheap, synchronous check so test files can `describe.skipIf` before ever
  *  touching the network — used both for the "is Docker present" gate and to
  *  decide whether we need to spin up a container at all. */
@@ -49,7 +58,7 @@ export function dockerAvailable(): boolean {
  *  directly, so CI (no local `docker run` needed — the service container is
  *  already running) and local dev (Docker required) both work. */
 export function integrationRunnable(): boolean {
-  return Boolean(process.env.INTEGRATION_POSTGRES_URL) || dockerAvailable();
+  return Boolean(externalPostgresUrl()) || dockerAvailable();
 }
 
 async function waitForPostgres(url: string, timeoutMs = 60_000): Promise<void> {
@@ -100,7 +109,7 @@ async function createDatabaseOn(adminUrl: string, prefix: string): Promise<Postg
 
 /** Uses `INTEGRATION_POSTGRES_URL` as-is when set (CI's postgres:17 service
  *  container — already running, nothing for us to start or stop). */
-async function useExternalInstance(url: string): Promise<PostgresInstance> {
+async function openExternalInstance(url: string): Promise<PostgresInstance> {
   await waitForPostgres(url);
   return {
     adminUrl: url,
@@ -159,8 +168,8 @@ async function startEphemeralContainer(): Promise<PostgresInstance> {
 }
 
 export async function startPostgresInstance(): Promise<PostgresInstance> {
-  const external = process.env.INTEGRATION_POSTGRES_URL;
-  if (external) return useExternalInstance(external);
+  const external = externalPostgresUrl();
+  if (external) return openExternalInstance(external);
   if (!dockerAvailable()) {
     throw new Error(
       "No INTEGRATION_POSTGRES_URL and Docker is unavailable — call integrationRunnable() first and skip instead of calling startPostgresInstance().",

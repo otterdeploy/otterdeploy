@@ -16,7 +16,7 @@ import {
 import { bodyLimitMiddleware } from "@otterdeploy/api/security/body-limit";
 import { sanitizeForwardingHeaders } from "@otterdeploy/api/security/trusted-proxy";
 import { agentHealthIngestHandler } from "@otterdeploy/api/system-health";
-import { auth, getRegistrationMode } from "@otterdeploy/auth";
+import { auth, enabledSocialProviderIds, getRegistrationMode } from "@otterdeploy/auth";
 import { BOOTSTRAP_TOKEN_HEADER } from "@otterdeploy/auth/registration-policy";
 import { env } from "@otterdeploy/env/server";
 import { workbenchQueues } from "@otterdeploy/jobs";
@@ -163,8 +163,27 @@ app.onError((error, c) => {
   );
 });
 
-// Public but deliberately low-information: the sign-in page only needs to know
-// whether to offer the one-time bootstrap form or invitation-only registration.
+// Public but deliberately low-information: everything the unauthenticated
+// sign-in page needs to render itself correctly, and nothing more.
+//
+//   mode            — bootstrap form / open sign-up / invitation-only.
+//   socialProviders — the ids actually registered on the live auth instance.
+//
+// The provider list has to be served at RUNTIME rather than baked into the
+// bundle (the old VITE_AUTH_SOCIAL_PROVIDERS): a self-hoster runs a prebuilt
+// image, so a build-time value meant they could never turn SSO on without
+// rebuilding the SPA. Advertising only live providers also means the page
+// cannot render a button that dead-ends on an unconfigured provider.
+app.get("/api/auth/public-config", async (c) => {
+  c.header("Cache-Control", "no-store");
+  return c.json({
+    mode: await getRegistrationMode(),
+    socialProviders: enabledSocialProviderIds(),
+  });
+});
+
+// Superseded by /api/auth/public-config; kept so an SPA build cached by a
+// browser across an upgrade keeps resolving its registration mode.
 app.get("/api/auth/bootstrap-status", async (c) => {
   c.header("Cache-Control", "no-store");
   return c.json({ mode: await getRegistrationMode() });

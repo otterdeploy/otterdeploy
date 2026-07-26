@@ -264,8 +264,13 @@ export const env = createEnv({
     // Social sign-in (SSO). All optional — a provider is only registered when
     // BOTH its client id + secret are set, so leaving these unset is a clean
     // no-op. Distinct from the GitHub *App* used for git providers (that's
-    // configured in the UI, not env). The web mirrors which are enabled via
-    // VITE_AUTH_SOCIAL_PROVIDERS so it only renders configured buttons.
+    // configured in the UI, not env).
+    //
+    // These now SEED the platform_settings columns rather than being the only
+    // way in: Settings → Instance → Social sign-in edits them at runtime and
+    // hot-reloads the auth instance, and the sign-in page reads the live
+    // provider list from /api/auth/public-config. A provider configured here
+    // and never touched in the UI keeps working exactly as before.
     GITHUB_OAUTH_CLIENT_ID: z.string().min(1).optional(),
     GITHUB_OAUTH_CLIENT_SECRET: z.string().min(1).optional(),
     GOOGLE_OAUTH_CLIENT_ID: z.string().min(1).optional(),

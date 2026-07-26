@@ -84,7 +84,7 @@ with your own network.
 Preview the whole run before committing to it:
 
 ```bash
-OTTERDEPLOY_DRY_RUN=true curl -fsSL https://get.otterdeploy.com/install.sh | bash
+curl -fsSL https://get.otterdeploy.com/install.sh | bash -s -- --dry-run
 ```
 
 ## Updating
@@ -95,6 +95,30 @@ OTTERDEPLOY_DRY_RUN=true curl -fsSL https://get.otterdeploy.com/install.sh | bas
 
 `update` skips host setup entirely — it pulls the new image tag and restarts,
 preserving every generated secret.
+
+## Uninstalling
+
+```bash
+curl -fsSL https://get.otterdeploy.com/uninstall.sh | sudo bash
+```
+
+The uninstaller prints what it found on the host, then asks item by item what
+to remove before requiring you to type `wipe`. The stack, every container it
+provisioned, its networks and its images always go. Volumes, `/data/otterdeploy`,
+the ZFS branching pool, Swarm membership and Docker itself are each a separate
+choice — so "remove otterdeploy" doesn't have to mean "remove Docker".
+
+<Callout type="warn" title="Deleting data is the default">
+  Left at the defaults, this removes your database volumes and
+  `/data/otterdeploy` — including backups. Take a copy off the box first.
+  Preview the whole run and change nothing with
+  `curl -fsSL https://get.otterdeploy.com/uninstall.sh | sudo bash -s -- --dry-run`.
+</Callout>
+
+Flags let you keep individual pieces (`--keep-volumes`, `--keep-data`,
+`--keep-zfs`, `--keep-swarm`), and `--yes` runs unattended. Prompts are read
+from the terminal rather than stdin, so the piped form above stays interactive;
+with no terminal at all the script refuses unless you pass `--yes`.
 
 ## Then
 

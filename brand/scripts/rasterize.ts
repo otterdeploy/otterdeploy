@@ -9,6 +9,11 @@
  * Run `brand/scripts/build.sh`; this script is step 3 of 4.
  */
 
+/// <reference lib="dom" />
+// ^ The `page.evaluate` callbacks below are serialised and run inside Chromium,
+//   so they reference browser globals. The repo's base tsconfig is lib:["ESNext"]
+//   (this is a Node script), which leaves `document` unresolved without this.
+
 import { chromium, type Browser } from "playwright";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
@@ -37,8 +42,12 @@ const ACCENT_DARK = "#3b82f6";
 
 const svgCache = new Map<string, string>();
 async function svg(name: string): Promise<string> {
-  if (!svgCache.has(name)) svgCache.set(name, await readFile(`${LOGO}/${name}`, "utf8"));
-  return svgCache.get(name)!;
+  const cached = svgCache.get(name);
+  if (cached !== undefined) return cached;
+
+  const loaded = await readFile(`${LOGO}/${name}`, "utf8");
+  svgCache.set(name, loaded);
+  return loaded;
 }
 
 interface Shot { path: string; html: string; width: number; height: number; transparent?: boolean }

@@ -97,6 +97,10 @@ export const ID_PREFIX = {
 
   // orphaned remote resources awaiting GC (teardown couldn't reach the daemon)
   orphanedResource: "orphres",
+
+  // private networking — the org's connected VPN/mesh account (NetBird,
+  // Tailscale). One row per org. Design: docs/designs/vpn-mesh.md
+  meshNetwork: "mesh",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
@@ -290,6 +294,9 @@ export type WebhookDeliveryId = Id<typeof ID_PREFIX.webhookDelivery>;
 export type InboundEndpointId = Id<typeof ID_PREFIX.inboundEndpoint>;
 
 export type OrphanedResourceId = Id<typeof ID_PREFIX.orphanedResource>;
+
+// Private networking (NetBird / Tailscale) — docs/designs/vpn-mesh.md
+export type MeshNetworkId = Id<typeof ID_PREFIX.meshNetwork>;
 
 // Notification channels
 export type NotificationChannelId = Id<typeof ID_PREFIX.notificationChannel>;

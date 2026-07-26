@@ -52,7 +52,9 @@ otterdeploy/
 │   ├── web/         # Frontend application
 │   ├── server/      # Backend API
 │   ├── builder/     # BullMQ build worker — git-sourced services
-│   └── cli/         # End-user CLI (`otterdeploy`)
+│   ├── cli/         # End-user CLI (`otterdeploy`)
+│   ├── www/         # Marketing site + docs (otterdeploy.com) — Cloudflare Workers
+│   └── get/         # get.otterdeploy.com install edge (CF Worker + R2)
 ├── packages/
 │   ├── api/         # API layer (oRPC contracts + handlers + manifest schema)
 │   ├── auth/        # Authentication (better-auth)

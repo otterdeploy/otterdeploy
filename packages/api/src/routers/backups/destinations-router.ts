@@ -6,6 +6,7 @@ import {
   createDestination,
   deleteDestination,
   listDestinations,
+  setDestinationEnabled,
   testDestination,
   updateDestination,
 } from "./service";
@@ -57,6 +58,27 @@ export const backupDestinationsRouter = {
           DestinationNotFoundError: () => errors.NOT_FOUND(),
           DestinationConfigInvalidError: (err) =>
             errors.INVALID_CONFIG({ data: { reason: err.reason } }),
+          DestinationManagedError: (err) => errors.MANAGED({ data: { operation: err.operation } }),
+        });
+      }
+      return presentDestinationResult(result.value);
+    },
+  ),
+
+  setEnabled: requirePermission({ backup: ["update"] }).backups.destinations.setEnabled.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({
+        target: { type: "backup_destination", id: input.id },
+      });
+      const result = await setDestinationEnabled({
+        organizationId: context.activeOrganizationId,
+        id: input.id,
+        enabled: input.enabled,
+      });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          DestinationNotFoundError: () => errors.NOT_FOUND(),
+          DestinationLastActiveError: () => errors.LAST_ACTIVE(),
         });
       }
       return presentDestinationResult(result.value);
@@ -76,6 +98,7 @@ export const backupDestinationsRouter = {
         throw matchError(result.error, {
           DestinationNotFoundError: () => errors.NOT_FOUND(),
           DestinationInUseError: (err) => errors.CONFLICT({ data: { references: err.references } }),
+          DestinationManagedError: (err) => errors.MANAGED({ data: { operation: err.operation } }),
         });
       }
       return result.value;

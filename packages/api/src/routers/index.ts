@@ -12,6 +12,7 @@ import { edgeLogsRouter } from "./edge-logs";
 import { envRouter } from "./env";
 import { firewallRouter } from "./firewall";
 import { gitRouter } from "./git";
+import { meshRouter } from "./mesh";
 import { metricsRouter } from "./metrics";
 import { notificationsRouter } from "./notifications";
 import { organizationRouter } from "./organization";
@@ -38,6 +39,7 @@ export const appRouter = {
   env: envRouter,
   firewall: firewallRouter,
   git: gitRouter,
+  mesh: meshRouter,
   metrics: metricsRouter,
   notifications: notificationsRouter,
   organization: organizationRouter,

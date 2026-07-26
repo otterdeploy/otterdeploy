@@ -1,6 +1,8 @@
 import { env } from "@otterdeploy/env/server";
 import { asnDbPath, geoDbPath } from "@otterdeploy/shared/paths";
 import { log } from "evlog";
+
+import { edgeLogGeoipUrls } from "../lib/platform-runtime-settings";
 /**
  * GeoIP country lookup (edge-logs Phase 2).
  *
@@ -103,11 +105,16 @@ async function openMmdb<T>(dbPath: string): Promise<MmdbReader<T>> {
 export async function initGeo(): Promise<void> {
   if (g.__edgeGeoInit) return;
   g.__edgeGeoInit = true;
+  // Source URLs are settings-backed (env seeds them) so an air-gapped or
+  // mirrored install can be repointed from the UI. The *_DB path overrides
+  // stay env-only: they name a file that has to already exist on this host,
+  // which isn't something the dashboard can meaningfully validate.
+  const geoipUrls = await edgeLogGeoipUrls();
   try {
     const dbPath = await ensureDbPath({
       override: env.EDGE_LOG_GEOIP_DB,
       path: geoDbPath(),
-      url: env.EDGE_LOG_GEOIP_URL,
+      url: geoipUrls.country,
       kind: "country",
     });
     if (dbPath) {
@@ -125,7 +132,7 @@ export async function initGeo(): Promise<void> {
     const asnPath = await ensureDbPath({
       override: env.EDGE_LOG_GEOIP_ASN_DB,
       path: asnDbPath(),
-      url: env.EDGE_LOG_GEOIP_ASN_URL,
+      url: geoipUrls.asn,
       kind: "asn",
     });
     if (asnPath) {

@@ -11,7 +11,7 @@
  * Concurrency is configurable via BUILDER_CONCURRENCY (default 1).
  */
 
-import { env } from "@otterdeploy/env/server";
+import { builderConcurrency } from "@otterdeploy/api/lib/platform-runtime-settings";
 import { createWorkers, reconcileInterruptedDeployments } from "@otterdeploy/jobs";
 import { Result } from "better-result";
 import { log } from "evlog";
@@ -49,10 +49,12 @@ async function runReconcile(trigger: "boot" | "interval"): Promise<void> {
 }
 
 async function bootstrap() {
-  log.info({ builder: { event: "starting", concurrency: env.BUILDER_CONCURRENCY } } as Record<
-    string,
-    unknown
-  >);
+  // Settings-backed (seeded from BUILDER_CONCURRENCY). BullMQ fixes a worker's
+  // concurrency when it's constructed, so this is read exactly once, here —
+  // which is why the settings card says a change needs the builder restarted
+  // rather than implying it takes effect live.
+  const concurrency = await builderConcurrency();
+  log.info({ builder: { event: "starting", concurrency } } as Record<string, unknown>);
 
   // Reset deployments stranded before we start pulling new jobs. Best-effort:
   // a reconcile failure must never block the worker.
@@ -60,7 +62,7 @@ async function bootstrap() {
 
   const workers = await createWorkers({
     jobs: [makeBuildJob()],
-    concurrency: env.BUILDER_CONCURRENCY,
+    concurrency,
   });
   stop = workers.stop;
 

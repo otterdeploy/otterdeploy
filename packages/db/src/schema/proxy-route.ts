@@ -24,6 +24,21 @@ export const proxyRouteProtocolEnum = pgEnum("proxy_route_protocol", ["tcp", "ht
 // chain). "custom" = a domain the operator typed in themselves.
 export const proxyRouteSourceEnum = pgEnum("proxy_route_source", ["generated", "custom"]);
 
+// Which network a route is served on. "public" is the internet-facing Caddy
+// listener — today's behavior, and the default for every existing and new row,
+// so this column is a no-op until an org opts in. "private" renders ONLY into
+// the mesh-bound listener (reachable from the org's own VPN, never from the
+// internet); "both" renders into each.
+//
+// Deliberately NOT a boolean: "private" has to be able to mean *instead of*
+// public, or "make this app internal only" isn't expressible.
+// Design: docs/designs/vpn-mesh.md
+export const proxyRouteExposureScopeEnum = pgEnum("proxy_route_exposure_scope", [
+  "public",
+  "private",
+  "both",
+]);
+
 // Reachability of a custom domain, refreshed by the DNS check (on add /
 // recheck / edit). Drives the UI status chip and the ACME decision —
 // "pointed" earns a real Let's Encrypt cert; "proxied" (resolves into a
@@ -82,6 +97,10 @@ export const proxyRoute = pgTable(
     // routes are enabled on expose; custom routes stay disabled until DNS
     // verification passes (and flip back to disabled on unexpose).
     enabled: boolean("enabled").notNull().default(true),
+    // Which network serves this route (see the enum above). Defaults to
+    // "public" so every pre-existing row and every org without a connected
+    // mesh behaves exactly as it does today.
+    exposureScope: proxyRouteExposureScopeEnum("exposure_scope").notNull().default("public"),
     // "generated" (auto-resolved on expose) vs "custom" (operator-typed,
     // gated behind DNS verification). Drives both the UI badge and whether
     // a verify token is expected.

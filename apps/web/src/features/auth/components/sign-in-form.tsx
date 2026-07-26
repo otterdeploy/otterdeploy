@@ -29,9 +29,12 @@ function safeServerRedirect(target: string): string | null {
 
 export function SignInForm({
   allowSignUp,
+  socialProviders,
   onSwitchToSignUp,
 }: {
   allowSignUp: boolean;
+  /** Provider ids live on the server right now — see /api/auth/public-config. */
+  socialProviders: string[];
   onSwitchToSignUp: () => void;
 }) {
   const navigate = useNavigate();
@@ -172,7 +175,7 @@ export function SignInForm({
         </form.Subscribe>
       </form>
 
-      <SocialSignIn dividerLabel="or continue with" />
+      <SocialSignIn dividerLabel="or continue with" providers={socialProviders} />
 
       {allowSignUp ? (
         <p className="mt-6 text-[13px] text-muted-foreground">

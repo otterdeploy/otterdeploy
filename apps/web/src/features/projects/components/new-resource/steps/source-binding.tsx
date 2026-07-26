@@ -5,6 +5,10 @@
  * `useBindingSummary`.
  */
 
+// fallow-ignore-file unused-component-prop -- BindingSummary reads its props
+// through `props.x` member access rather than destructuring, which fallow's
+// prop-usage check does not follow. Every prop here is used.
+
 import { useState } from "react";
 
 import { GitBranchIcon, Tick02Icon } from "@hugeicons/core-free-icons";
