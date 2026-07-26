@@ -8,6 +8,7 @@
     "dev": "bun run --env-file ../../.env --hot src/index.ts",
     "dev:funnel": " PORTLESS_FUNNEL=1 portless api.otterdeploy --force bun run --env-file ../../.env --hot src/index.ts",
     "start": "bun run dist/index.mjs",
+    "test": "bun test ./src",
     "typecheck": "tsc -b --checkers 4"
   },
   "dependencies": {
