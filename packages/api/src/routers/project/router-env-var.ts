@@ -37,6 +37,7 @@ export const envVarRouter = {
         key: input.key,
         value: input.value,
         isSecret: input.isSecret,
+        sealed: input.sealed,
       });
       if (result.isErr()) {
         throw matchError(result.error, {

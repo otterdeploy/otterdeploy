@@ -845,6 +845,15 @@ export const serviceEnvVar = pgTable(
     value: text("value").notNull(),
     // Drives masking in the UI. Does not affect storage (plaintext for v1).
     isSecret: boolean("is_secret").notNull().default(false),
+    // Write-only secret (Railway-style "sealed" variable). When true,
+    // `value` holds a v2 ciphertext envelope (domain "env-vars" — see
+    // packages/api/src/lib/crypto.ts), never plaintext. Sticky one-way flag:
+    // once sealed, a row can be REPLACED or DELETED but never unsealed back
+    // to a readable value — see upsertServiceEnvVar. The resolver
+    // (packages/api/src/lib/variables/resolver.ts) is the only reader
+    // allowed to decrypt it, and only at deploy/injection time; every
+    // list/read surface must mask it before it reaches the API/UI.
+    sealed: boolean("sealed").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -888,6 +897,10 @@ export const projectEnvVar = pgTable(
     key: text("key").notNull(),
     value: text("value").notNull(),
     isSecret: boolean("is_secret").notNull().default(true),
+    // Write-only secret (Railway-style "sealed" variable) — see the matching
+    // column on `serviceEnvVar` for the full contract (sticky one-way,
+    // ciphertext-in-`value`, decrypt only at deploy/injection time).
+    sealed: boolean("sealed").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

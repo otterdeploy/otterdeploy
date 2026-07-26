@@ -4,6 +4,12 @@
  * `getProjectInOrg`) so a stray `projectId` can't read or write a row in
  * a sibling tenant's bag. The queries themselves accept a raw Scope and
  * don't enforce tenancy.
+ *
+ * Sealed variables: `listProjectEnvVarsForOrg` is the API/UI-facing read
+ * path, so it masks `value` to `""` for any row with `sealed: true` — the
+ * ciphertext-or-plaintext behind a sealed var must never reach an RPC
+ * response. The query layer (`./queries/project-env`) still returns the raw
+ * stored value because the deploy-time resolver needs it to decrypt.
  */
 
 import type { EnvironmentId, OrganizationId, ProjectId } from "@otterdeploy/shared/id";
@@ -39,6 +45,12 @@ async function verifyProjectOwnership(
   return Result.ok(true);
 }
 
+/** Never returns a sealed row's real value — masked to "" here so no caller
+ *  of this handler can accidentally leak it by forgetting to mask. */
+function maskSealed(row: ProjectEnvVarRow): ProjectEnvVarRow {
+  return row.sealed ? { ...row, value: "" } : row;
+}
+
 export async function listProjectEnvVarsForOrg(
   scope: ProjectEnvScope,
 ): Promise<Result<ProjectEnvVarRow[], ProjectNotFoundError>> {
@@ -48,11 +60,11 @@ export async function listProjectEnvVarsForOrg(
     projectId: scope.projectId,
     environmentId: scope.environmentId,
   });
-  return Result.ok(rows);
+  return Result.ok(rows.map(maskSealed));
 }
 
 export async function upsertProjectEnvVarForOrg(
-  input: ProjectEnvScope & { key: string; value: string; isSecret?: boolean },
+  input: ProjectEnvScope & { key: string; value: string; isSecret?: boolean; sealed?: boolean },
 ): Promise<Result<ProjectEnvVarRow, ProjectNotFoundError>> {
   const own = await verifyProjectOwnership(input);
   if (own.isErr()) return Result.err(own.error);
@@ -61,8 +73,14 @@ export async function upsertProjectEnvVarForOrg(
     key: input.key,
     value: input.value,
     isSecret: input.isSecret,
+    sealed: input.sealed,
   });
-  return Result.ok(row);
+  // The just-written row's `value` is the caller's own plaintext echoed
+  // back on a normal write — but once sealed, the RETURNED row must mask
+  // it too (the caller already knows what they just set; the response
+  // shouldn't become a "reveal" oracle for a value that was previously
+  // sealed and this call merely REPLACED, or for the ciphertext itself).
+  return Result.ok(maskSealed(row));
 }
 
 export async function deleteProjectEnvVarForOrg(
@@ -88,5 +106,5 @@ export async function bulkReplaceProjectEnvVarsForOrg(
     { projectId: input.projectId, environmentId: input.environmentId },
     input.vars,
   );
-  return Result.ok(rows);
+  return Result.ok(rows.map(maskSealed));
 }

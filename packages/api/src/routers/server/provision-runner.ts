@@ -20,7 +20,7 @@ import type { OrganizationId, ServerId, SshKeyId } from "@otterdeploy/shared/id"
 import { Docker } from "@otterdeploy/docker";
 import { triggerProvisionServer } from "@otterdeploy/jobs";
 
-import { decryptSecret, encryptSecret } from "../../lib/crypto";
+import { decryptForDomain, encryptForDomain } from "../../lib/crypto";
 import { getSshKeyInOrg } from "../sshKeys/queries";
 import { rotateSwarmJoinCredential } from "./enrollment";
 import { getSwarmJoinTokens } from "./join-tokens";
@@ -53,7 +53,11 @@ export interface EnqueueProvisionInput {
 
 /** Encrypt the secrets and enqueue the provision job. */
 export async function enqueueProvision(input: EnqueueProvisionInput): Promise<void> {
-  const enc = (v: string | undefined) => (v ? encryptSecret(v) : Promise.resolve(null));
+  // "server-secrets" — ephemeral, job-payload-lifetime credentials (one-time
+  // password / mesh auth key / Cloudflare tunnel token), domain-separated
+  // from the persistent "ssh-keys" material decrypted below.
+  const enc = (v: string | undefined) =>
+    v ? encryptForDomain(v, "server-secrets") : Promise.resolve(null);
   const [passwordCiphertext, meshAuthKeyCiphertext, cloudflareTokenCiphertext] = await Promise.all([
     enc(input.password),
     enc(input.meshAuthKey),
@@ -196,7 +200,7 @@ export async function runProvisionJob(payload: ProvisionServerPayload): Promise<
 }
 
 function decryptOptional(blob: string | null | undefined): Promise<string | null> {
-  return blob ? decryptSecret(blob) : Promise.resolve(null);
+  return blob ? decryptForDomain(blob, "server-secrets") : Promise.resolve(null);
 }
 
 /** Resolve the swarm join token + manager address from OUR daemon. We don't
@@ -236,7 +240,7 @@ async function resolvePrivateKey(
     if (!key?.privateKeyCiphertext) {
       throw new Error("The selected SSH key has no private half stored — pick a generated key.");
     }
-    return decryptSecret(key.privateKeyCiphertext);
+    return decryptForDomain(key.privateKeyCiphertext, "ssh-keys");
   }
   if (!hasPassword) {
     throw new Error("No SSH credential supplied — choose a managed key or enter a password.");

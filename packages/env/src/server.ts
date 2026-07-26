@@ -26,6 +26,21 @@ export const env = createEnv({
 
     BETTER_AUTH_URL: z.url(),
     BETTER_AUTH_SECRET: z.string().min(32),
+
+    // Data-encryption keyring (packages/api/src/lib/crypto.ts) — separate
+    // from BETTER_AUTH_SECRET (auth signing) by design, so the two can
+    // rotate independently. Optional: an install with neither set falls
+    // back to deriving every secret domain's key from BETTER_AUTH_SECRET
+    // (zero-config default; each domain still gets its own HKDF-derived
+    // key). Format: "id:secret,id:secret,..." — each secret must be >= 32
+    // chars (fails closed at boot otherwise). Never remove an id that's
+    // still referenced by stored ciphertext; add a new id + set
+    // DATA_ENCRYPTION_KEY_ID to rotate instead. See
+    // packages/api/scripts/rotate-encryption-keys.ts.
+    DATA_ENCRYPTION_KEYS: z.string().min(1).optional(),
+    // Which keyring id new encryptions use. Defaults to "1" (or, absent a
+    // keyring entirely, the BETTER_AUTH_SECRET-derived fallback above).
+    DATA_ENCRYPTION_KEY_ID: z.string().min(1).optional(),
     // One-time credential printed by the installer and required to create the
     // first account. It is optional for upgraded installs that already have an
     // installation owner; a fresh install without it fails signup closed.

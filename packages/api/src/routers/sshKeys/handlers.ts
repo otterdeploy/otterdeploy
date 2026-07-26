@@ -3,8 +3,10 @@
  * server registry — keys don't transitively belong to a project).
  *
  * Generated keys: `ssh-keygen` produces the pair; we encrypt the private half
- * at rest (`encryptSecret`) and store the public half in the clear. Imported
- * keys hold only the pasted public half (`privateKeyCiphertext = null`).
+ * at rest (`encryptForDomain(..., "ssh-keys")`, domain-separated from every
+ * other secret category — see packages/api/src/lib/crypto.ts) and store the
+ * public half in the clear. Imported keys hold only the pasted public half
+ * (`privateKeyCiphertext = null`).
  */
 import type { OrganizationId, SshKeyId } from "@otterdeploy/shared/id";
 
@@ -12,7 +14,7 @@ import { panic, Result } from "better-result";
 
 import type { OrgRef } from "../scopes";
 
-import { encryptSecret } from "../../lib/crypto";
+import { encryptForDomain } from "../../lib/crypto";
 import { emitPlatformEvent } from "../../notifications/emit";
 import { isUniqueViolation } from "../project/views";
 import {
@@ -50,7 +52,7 @@ export async function generateSshKey(
     comment: input.comment ?? input.name,
     passphrase: input.passphrase ?? null,
   });
-  const privateKeyCiphertext = await encryptSecret(pair.privateKey);
+  const privateKeyCiphertext = await encryptForDomain(pair.privateKey, "ssh-keys");
 
   return insertOrConflict({
     organizationId: input.organizationId,
@@ -110,7 +112,7 @@ export async function rotateSshKey(
     comment: existing.comment ?? existing.name,
     passphrase: null,
   });
-  const privateKeyCiphertext = await encryptSecret(pair.privateKey);
+  const privateKeyCiphertext = await encryptForDomain(pair.privateKey, "ssh-keys");
 
   const updated = await Result.tryPromise({
     try: () =>

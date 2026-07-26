@@ -11,6 +11,7 @@ import type { EnvironmentId, PreviewId, ProjectId, ResourceId } from "@otterdepl
 import { Result } from "better-result";
 
 import { listProxyRoutesByResourceId } from "../../caddy/queries";
+import { decryptForDomain } from "../crypto";
 import {
   getDatabaseResourceRecord,
   getProjectRecord,
@@ -114,7 +115,14 @@ async function resolveEnvFor(
   }
 
   for (const envVar of rows) {
-    const parsed = parseValue(envVar.value);
+    // Sealed vars store a ciphertext envelope, not a template string — this
+    // IS the deploy/injection boundary, so decrypt here (and nowhere a
+    // list/read API surface can reach) before any template parsing.
+    const rawValue = envVar.sealed
+      ? await decryptForDomain(envVar.value, "env-vars")
+      : envVar.value;
+
+    const parsed = parseValue(rawValue);
     if (!parsed.ok) {
       return Result.err(
         new RefParseError({

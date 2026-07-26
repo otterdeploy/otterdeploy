@@ -8,9 +8,10 @@
  * references the affected registry.
  *
  * Backed by the `container_registry` table introduced in the build-
- * pipeline phase. Passwords are encrypted at rest via `encryptSecret`
- * (HKDF-derived AES-GCM); we decrypt on each call rather than caching
- * plaintext.
+ * pipeline phase. Passwords are encrypted at rest via
+ * `encryptForDomain(..., "registry-creds")` (HKDF-derived AES-GCM, domain-
+ * separated from every other secret category); we decrypt on each call
+ * rather than caching plaintext.
  */
 
 import { db } from "@otterdeploy/db";
@@ -19,7 +20,7 @@ import { and, eq } from "drizzle-orm";
 
 import type { RegistryAuth } from "./image-pull";
 
-import { decryptSecret } from "../lib/crypto";
+import { decryptForDomain } from "../lib/crypto";
 
 /** Extract the registry hostname from an image ref. */
 function imageRegistry(image: string): string {
@@ -66,7 +67,7 @@ export async function resolveRegistryAuth(input: {
   // Pick the most-recently-updated credential as the active one.
   const cred = rows.reduce((a, b) => (a.updatedAt.getTime() >= b.updatedAt.getTime() ? a : b));
 
-  const password = await decryptSecret(cred.encryptedPassword);
+  const password = await decryptForDomain(cred.encryptedPassword, "registry-creds");
   return {
     username: cred.username,
     password,

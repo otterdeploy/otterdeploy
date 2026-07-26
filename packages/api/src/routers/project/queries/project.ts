@@ -19,6 +19,7 @@ import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { createError } from "evlog";
 
 import { getProxyRouteById } from "../../../caddy/queries";
+import { decryptForDomain } from "../../../lib/crypto";
 
 export async function listProjectRecordsByOrg(organizationId: OrganizationId) {
   return db
@@ -323,14 +324,17 @@ export async function createProjectRecord(input: {
  *
  * Returns an empty record when nothing is configured. Secrets are not
  * specially masked here — values are emitted verbatim into the container
- * env, which is the only way a workload can actually consume them.
+ * env, which is the only way a workload can actually consume them. This IS
+ * the deploy/injection boundary, so sealed rows are decrypted here (and
+ * only here / the equivalent service-env path) — see packages/api/src/
+ * lib/crypto.ts's "env-vars" domain.
  */
 export async function loadProjectEnvBag(input: {
   projectId: ProjectId;
   environmentId: EnvironmentId;
 }): Promise<Record<string, string>> {
   const rows = await db
-    .select({ key: projectEnvVar.key, value: projectEnvVar.value })
+    .select({ key: projectEnvVar.key, value: projectEnvVar.value, sealed: projectEnvVar.sealed })
     .from(projectEnvVar)
     .where(
       and(
@@ -339,6 +343,8 @@ export async function loadProjectEnvBag(input: {
       ),
     );
   const out: Record<string, string> = {};
-  for (const row of rows) out[row.key] = row.value;
+  for (const row of rows) {
+    out[row.key] = row.sealed ? await decryptForDomain(row.value, "env-vars") : row.value;
+  }
   return out;
 }
