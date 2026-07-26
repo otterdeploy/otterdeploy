@@ -49,6 +49,7 @@ import { Route as AppOrgSlugShellProjectSlugLayoutRouteImport } from "./routes/_
 import { Route as AppOrgSlugShellProjectSlugIndexRouteImport } from "./routes/_app/$orgSlug/_shell/$projectSlug/index"
 import { Route as AppOrgSlugSettingsWorkspaceWebhooksRouteImport } from "./routes/_app/$orgSlug/settings/workspace/webhooks"
 import { Route as AppOrgSlugSettingsWorkspaceTeamRouteImport } from "./routes/_app/$orgSlug/settings/workspace/team"
+import { Route as AppOrgSlugSettingsWorkspaceSsoRouteImport } from "./routes/_app/$orgSlug/settings/workspace/sso"
 import { Route as AppOrgSlugSettingsWorkspaceSshKeysRouteImport } from "./routes/_app/$orgSlug/settings/workspace/ssh-keys"
 import { Route as AppOrgSlugSettingsWorkspaceRegistriesRouteImport } from "./routes/_app/$orgSlug/settings/workspace/registries"
 import { Route as AppOrgSlugSettingsWorkspaceNotificationsRouteImport } from "./routes/_app/$orgSlug/settings/workspace/notifications"
@@ -286,6 +287,12 @@ const AppOrgSlugSettingsWorkspaceTeamRoute =
     path: "/workspace/team",
     getParentRoute: () => AppOrgSlugSettingsLayoutRoute,
   } as any)
+const AppOrgSlugSettingsWorkspaceSsoRoute =
+  AppOrgSlugSettingsWorkspaceSsoRouteImport.update({
+    id: "/workspace/sso",
+    path: "/workspace/sso",
+    getParentRoute: () => AppOrgSlugSettingsLayoutRoute,
+  } as any)
 const AppOrgSlugSettingsWorkspaceSshKeysRoute =
   AppOrgSlugSettingsWorkspaceSshKeysRouteImport.update({
     id: "/workspace/ssh-keys",
@@ -490,6 +497,7 @@ export interface FileRoutesByFullPath {
   "/$orgSlug/settings/workspace/notifications": typeof AppOrgSlugSettingsWorkspaceNotificationsRoute
   "/$orgSlug/settings/workspace/registries": typeof AppOrgSlugSettingsWorkspaceRegistriesRoute
   "/$orgSlug/settings/workspace/ssh-keys": typeof AppOrgSlugSettingsWorkspaceSshKeysRoute
+  "/$orgSlug/settings/workspace/sso": typeof AppOrgSlugSettingsWorkspaceSsoRoute
   "/$orgSlug/settings/workspace/team": typeof AppOrgSlugSettingsWorkspaceTeamRoute
   "/$orgSlug/settings/workspace/webhooks": typeof AppOrgSlugSettingsWorkspaceWebhooksRoute
   "/$orgSlug/$projectSlug/": typeof AppOrgSlugShellProjectSlugIndexRoute
@@ -551,6 +559,7 @@ export interface FileRoutesByTo {
   "/$orgSlug/settings/workspace/notifications": typeof AppOrgSlugSettingsWorkspaceNotificationsRoute
   "/$orgSlug/settings/workspace/registries": typeof AppOrgSlugSettingsWorkspaceRegistriesRoute
   "/$orgSlug/settings/workspace/ssh-keys": typeof AppOrgSlugSettingsWorkspaceSshKeysRoute
+  "/$orgSlug/settings/workspace/sso": typeof AppOrgSlugSettingsWorkspaceSsoRoute
   "/$orgSlug/settings/workspace/team": typeof AppOrgSlugSettingsWorkspaceTeamRoute
   "/$orgSlug/settings/workspace/webhooks": typeof AppOrgSlugSettingsWorkspaceWebhooksRoute
   "/$orgSlug/$projectSlug": typeof AppOrgSlugShellProjectSlugIndexRoute
@@ -618,6 +627,7 @@ export interface FileRoutesById {
   "/_app/$orgSlug/settings/workspace/notifications": typeof AppOrgSlugSettingsWorkspaceNotificationsRoute
   "/_app/$orgSlug/settings/workspace/registries": typeof AppOrgSlugSettingsWorkspaceRegistriesRoute
   "/_app/$orgSlug/settings/workspace/ssh-keys": typeof AppOrgSlugSettingsWorkspaceSshKeysRoute
+  "/_app/$orgSlug/settings/workspace/sso": typeof AppOrgSlugSettingsWorkspaceSsoRoute
   "/_app/$orgSlug/settings/workspace/team": typeof AppOrgSlugSettingsWorkspaceTeamRoute
   "/_app/$orgSlug/settings/workspace/webhooks": typeof AppOrgSlugSettingsWorkspaceWebhooksRoute
   "/_app/$orgSlug/_shell/$projectSlug/": typeof AppOrgSlugShellProjectSlugIndexRoute
@@ -684,6 +694,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/settings/workspace/notifications"
     | "/$orgSlug/settings/workspace/registries"
     | "/$orgSlug/settings/workspace/ssh-keys"
+    | "/$orgSlug/settings/workspace/sso"
     | "/$orgSlug/settings/workspace/team"
     | "/$orgSlug/settings/workspace/webhooks"
     | "/$orgSlug/$projectSlug/"
@@ -745,6 +756,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/settings/workspace/notifications"
     | "/$orgSlug/settings/workspace/registries"
     | "/$orgSlug/settings/workspace/ssh-keys"
+    | "/$orgSlug/settings/workspace/sso"
     | "/$orgSlug/settings/workspace/team"
     | "/$orgSlug/settings/workspace/webhooks"
     | "/$orgSlug/$projectSlug"
@@ -811,6 +823,7 @@ export interface FileRouteTypes {
     | "/_app/$orgSlug/settings/workspace/notifications"
     | "/_app/$orgSlug/settings/workspace/registries"
     | "/_app/$orgSlug/settings/workspace/ssh-keys"
+    | "/_app/$orgSlug/settings/workspace/sso"
     | "/_app/$orgSlug/settings/workspace/team"
     | "/_app/$orgSlug/settings/workspace/webhooks"
     | "/_app/$orgSlug/_shell/$projectSlug/"
@@ -1109,6 +1122,13 @@ declare module "@tanstack/react-router" {
       path: "/workspace/team"
       fullPath: "/$orgSlug/settings/workspace/team"
       preLoaderRoute: typeof AppOrgSlugSettingsWorkspaceTeamRouteImport
+      parentRoute: typeof AppOrgSlugSettingsLayoutRoute
+    }
+    "/_app/$orgSlug/settings/workspace/sso": {
+      id: "/_app/$orgSlug/settings/workspace/sso"
+      path: "/workspace/sso"
+      fullPath: "/$orgSlug/settings/workspace/sso"
+      preLoaderRoute: typeof AppOrgSlugSettingsWorkspaceSsoRouteImport
       parentRoute: typeof AppOrgSlugSettingsLayoutRoute
     }
     "/_app/$orgSlug/settings/workspace/ssh-keys": {
@@ -1416,6 +1436,7 @@ interface AppOrgSlugSettingsLayoutRouteChildren {
   AppOrgSlugSettingsWorkspaceNotificationsRoute: typeof AppOrgSlugSettingsWorkspaceNotificationsRoute
   AppOrgSlugSettingsWorkspaceRegistriesRoute: typeof AppOrgSlugSettingsWorkspaceRegistriesRoute
   AppOrgSlugSettingsWorkspaceSshKeysRoute: typeof AppOrgSlugSettingsWorkspaceSshKeysRoute
+  AppOrgSlugSettingsWorkspaceSsoRoute: typeof AppOrgSlugSettingsWorkspaceSsoRoute
   AppOrgSlugSettingsWorkspaceTeamRoute: typeof AppOrgSlugSettingsWorkspaceTeamRoute
   AppOrgSlugSettingsWorkspaceWebhooksRoute: typeof AppOrgSlugSettingsWorkspaceWebhooksRoute
   AppOrgSlugSettingsWorkspaceGithubAppProviderIdRoute: typeof AppOrgSlugSettingsWorkspaceGithubAppProviderIdRoute
@@ -1446,6 +1467,7 @@ const AppOrgSlugSettingsLayoutRouteChildren: AppOrgSlugSettingsLayoutRouteChildr
       AppOrgSlugSettingsWorkspaceRegistriesRoute,
     AppOrgSlugSettingsWorkspaceSshKeysRoute:
       AppOrgSlugSettingsWorkspaceSshKeysRoute,
+    AppOrgSlugSettingsWorkspaceSsoRoute: AppOrgSlugSettingsWorkspaceSsoRoute,
     AppOrgSlugSettingsWorkspaceTeamRoute: AppOrgSlugSettingsWorkspaceTeamRoute,
     AppOrgSlugSettingsWorkspaceWebhooksRoute:
       AppOrgSlugSettingsWorkspaceWebhooksRoute,

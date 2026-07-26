@@ -1,12 +1,14 @@
 import type { IdPrefix } from "@otterdeploy/shared/id";
 
 import { apiKey } from "@better-auth/api-key";
+import { sso } from "@better-auth/sso";
 import { db } from "@otterdeploy/db";
 import * as schema from "@otterdeploy/db/schema";
 import {
   invitation,
   member,
   session as sessionTbl,
+  ssoProvider,
   user as userTbl,
 } from "@otterdeploy/db/schema/auth";
 import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
@@ -24,7 +26,11 @@ import { log } from "evlog";
 import { createAuthAuditHook } from "./audit";
 import { ac, roles } from "./permissions";
 import { resolveSocialProviders, toBetterAuthSocialProviders } from "./platform-config";
-import { BOOTSTRAP_TOKEN_HEADER, decideRegistration } from "./registration-policy";
+import {
+  BOOTSTRAP_TOKEN_HEADER,
+  decideRegistration,
+  isSsoCallbackPath,
+} from "./registration-policy";
 import { resolveCanonicalWebOrigin } from "./web-origin";
 
 /**
@@ -58,6 +64,32 @@ async function resolveActiveOrganizationId(userId: string): Promise<string | nul
     .limit(1);
 
   return firstMembership?.organizationId ?? null;
+}
+
+/**
+ * Is there a registered SSO provider for this email address's domain?
+ *
+ * Half of the SSO admission gate in the user-create hook — the other half is
+ * {@link isSsoCallbackPath}, and the caller MUST require both. On its own this
+ * would let anyone self-register at an SSO'd domain through `/sign-up/email`
+ * without ever meeting the IdP.
+ *
+ * Compares lowercased on BOTH sides. The registration form normalizes before
+ * writing (`normalizeDomain` in features/sso/register-provider-dialog.tsx), but
+ * that is a client-side courtesy — a provider registered through the API
+ * directly can still land mixed-case, and an email arrives however the user
+ * typed it. Lowering both ends is what makes `Alice@ACME.com` find `acme.com`
+ * either way.
+ */
+async function hasSsoProviderForEmail(email: string): Promise<boolean> {
+  const domain = email.split("@")[1]?.toLowerCase();
+  if (!domain) return false;
+  const [found] = await db
+    .select({ id: ssoProvider.id })
+    .from(ssoProvider)
+    .where(sql`lower(${ssoProvider.domain}) = ${domain}`)
+    .limit(1);
+  return Boolean(found);
 }
 
 /**
@@ -291,9 +323,19 @@ function buildAuth(socialProviders: SocialProvidersConfig) {
                   .limit(1)
               : [];
 
+            // Both halves of the SSO gate. The path check runs first and
+            // short-circuits, so an ordinary email signup never pays for this
+            // lookup — and a signup that is NOT an SSO callback can never be
+            // admitted by a registered domain.
+            const ssoProviderVouches =
+              bootstrapComplete &&
+              isSsoCallbackPath(context?.path) &&
+              (await hasSsoProviderForEmail(newUser.email));
+
             const decision = decideRegistration({
               bootstrapComplete,
               hasPendingInvitation: Boolean(pendingInvitation),
+              ssoProviderVouches,
               authPath: context?.path,
               configuredBootstrapToken: env.OTTERDEPLOY_BOOTSTRAP_TOKEN,
               presentedBootstrapToken: context?.headers?.get(BOOTSTRAP_TOKEN_HEADER) ?? undefined,
@@ -400,6 +442,37 @@ function buildAuth(socialProviders: SocialProvidersConfig) {
         // object means "use the plugin's default table + field names"
         // (we hand-rolled the matching deviceCode table in db/schema/auth.ts).
         schema: {},
+      }),
+      // Enterprise SSO — per-workspace OIDC identity providers, registered at
+      // runtime through Settings → Workspace → SSO rather than baked into env.
+      //
+      // OIDC only, deliberately: Okta, Entra ID, Google Workspace, Authentik,
+      // Keycloak and Auth0 all speak it, and enabling SAML would pull in an
+      // XML-signature verification path that needs its own hostile-input suite
+      // before it should be anywhere near a login. The `sso_provider` table
+      // already carries the `saml_config` column the plugin's schema declares,
+      // so turning SAML on later is a configuration change, not a migration.
+      //
+      // NOTE: a first-time SSO user still has to clear the registration policy
+      // in `databaseHooks.user.create.before` above. `ssoProviderVouches` is
+      // what lets them through, and it requires BOTH an SSO callback path and a
+      // provider registered for their email domain.
+      sso({
+        // Sign-in lands the user in the workspace that owns the provider. This
+        // is the whole point of registering SSO per-organization — without it
+        // an SSO user authenticates successfully into no workspace at all and
+        // gets bounced to onboarding they have no permission to complete.
+        organizationProvisioning: {
+          disabled: false,
+          // Always the least privilege. An IdP asserts identity, not authority:
+          // who is an admin here is this workspace's decision, made in the
+          // members UI, not something an external directory gets to declare.
+          defaultRole: "member",
+        },
+        // Re-run provisioning on every login, not just first, so a user removed
+        // from the workspace and still present in the IdP is restored on next
+        // sign-in rather than silently locked out with a valid session.
+        provisionUserOnEveryLogin: true,
       }),
       organization({
         // Workspace creation is an installation concern. Invitees can join the

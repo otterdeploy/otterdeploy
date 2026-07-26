@@ -278,6 +278,12 @@ export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
       // sidebar's Workspace group — see OPERATIONAL_NAV above. The settings
       // paths remain as redirect shims, so old bookmarks still land.
       {
+        title: "Single sign-on",
+        to: "/$orgSlug/settings/workspace/sso",
+        icon: ShieldKeyIcon,
+        keywords: ["sso", "saml", "oidc", "okta", "entra", "azure", "identity provider", "idp"],
+      },
+      {
         title: "API keys",
         to: "/$orgSlug/settings/workspace/api-keys",
         icon: Key02Icon,

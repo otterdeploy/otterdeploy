@@ -297,6 +297,64 @@ export const apikey = pgTable(
   ],
 );
 
+// better-auth `sso` plugin store (@better-auth/sso). One row per registered
+// identity provider. Like `device_code` and `apikey` above, the plugin owns
+// every column — property keys MUST stay camelCase to match its model field
+// names (the drizzle adapter maps field name → table property) while DB columns
+// stay snake_case with the rest of the schema.
+//
+// `oidcConfig` is the plugin's own JSON blob, stored as text because that is the
+// type the plugin declares (`type: "string"`). It CONTAINS THE CLIENT SECRET —
+// never select this column into anything user-facing. The UI never needs to:
+// the plugin's own `/sso/providers` endpoint already projects a redacted view
+// (`clientIdLastFour`, endpoints, scopes — no secret, no full client id), which
+// is why the settings page reads through `authClient.sso.*` rather than a
+// hand-rolled query over this table.
+//
+// `samlConfig` is declared by the plugin's schema even though this install is
+// OIDC-only (see the `sso()` registration in packages/auth/src/index.ts). The
+// column has to exist or the adapter's insert/select field map breaks; it simply
+// stays null until SAML is enabled.
+export const ssoProvider = pgTable(
+  "sso_provider",
+  {
+    // Minted by better-auth's `generateId`, like `device_code` and `two_factor`
+    // — so no `$defaultFn` here.
+    id: text("id").primaryKey(),
+    // The IdP's issuer URL. Doubles as a login hint: `signIn.sso({ issuer })`
+    // resolves a provider by this value when no email domain is supplied.
+    issuer: text("issuer").notNull(),
+    oidcConfig: text("oidc_config"),
+    samlConfig: text("saml_config"),
+    // Who registered it. Nullable rather than cascading: deleting the admin who
+    // set up SSO must not silently take the whole workspace's login with them.
+    userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+    // Stable public handle for the provider, used in callback URLs
+    // (`/sso/callback/:providerId`). Unique across the install.
+    providerId: text("provider_id").notNull().unique(),
+    // The workspace this provider signs users into. Null would mean an
+    // install-wide provider; every provider registered through our UI is
+    // org-scoped, which is what makes per-workspace SSO possible.
+    organizationId: text("organization_id").$type<OrganizationId>(),
+    // Email domain that routes to this provider ("acme.com"). Stored lowercase
+    // — see `normalizeDomain` in packages/api/src/routers/sso/queries.ts; the
+    // sign-in lookup compares against an already-lowercased address, so a
+    // mixed-case row here would simply never match.
+    domain: text("domain").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    // The sign-in path is "given an email domain, find the provider" — the one
+    // lookup that happens before every SSO login.
+    index("sso_provider_domain_idx").on(table.domain),
+    index("sso_provider_organization_id_idx").on(table.organizationId),
+  ],
+);
+
 // `relations()` was removed from drizzle-orm 1.0 in favour of the
 // `defineRelations()` RQB v2 API. None of the exports above were
 // consumed at runtime (better-auth talks to drizzle via plain selects),

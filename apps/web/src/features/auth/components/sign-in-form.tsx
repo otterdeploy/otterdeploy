@@ -12,6 +12,7 @@ import { authClient } from "@/lib/auth-client";
 import { clearAuthCache } from "@/lib/auth-queries";
 
 import { AuthInput, AuthSubmitButton } from "./auth-fields";
+import { EnterpriseSsoSignIn } from "./enterprise-sso-sign-in";
 import { SocialSignIn } from "./social-sign-in";
 import { TwoFactorChallenge } from "./two-factor-challenge";
 
@@ -181,6 +182,10 @@ export function SignInForm({
       </form>
 
       <SocialSignIn dividerLabel="or continue with" providers={socialProviders} />
+
+      {/* Always rendered, unlike SocialSignIn: whether SSO applies depends on
+          the email domain the visitor types, which we cannot know up front. */}
+      <EnterpriseSsoSignIn />
 
       {allowSignUp ? (
         <p className="mt-6 text-[13px] text-muted-foreground">

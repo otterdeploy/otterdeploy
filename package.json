@@ -18,7 +18,7 @@
       "@orpc/server": "^1.14.1",
       "@orpc/openapi": "^1.14.1",
       "@orpc/zod": "^1.14.1",
-      "better-auth": "^1.6.9",
+      "better-auth": "^1.6.25",
       "react": "^19.2.5",
       "vitest": "^4.1.5",
       "@vitest/ui": "^4.1.5",

@@ -15,7 +15,8 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@better-auth/api-key": "^1.6.11",
+    "@better-auth/api-key": "^1.6.25",
+    "@better-auth/sso": "^1.6.25",
     "@otterdeploy/db": "workspace:*",
     "@otterdeploy/email": "workspace:*",
     "@otterdeploy/env": "workspace:*",
