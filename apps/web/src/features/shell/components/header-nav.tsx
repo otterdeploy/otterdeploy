@@ -23,6 +23,7 @@ import {
   type NavLists,
 } from "@/features/shell/components/header-nav-items";
 import { authClient } from "@/lib/auth-client";
+import { invalidateAuth } from "@/lib/auth-queries";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -105,6 +106,10 @@ export function HeaderNav() {
     if (org.id === organization.id) return;
     await authClient.organization.setActive({ organizationId: org.id });
     await Promise.all([
+      // The session payload carries activeOrganizationId, and the gate now
+      // serves it from a 5min-stale cache — so switching org MUST drop it, or
+      // the app keeps resolving the previous org until the cache expires.
+      invalidateAuth(),
       queryClient.invalidateQueries({ queryKey: orpc.project.list.queryKey() }),
       queryClient.invalidateQueries({ queryKey: orpc.env.list.queryKey() }),
     ]);

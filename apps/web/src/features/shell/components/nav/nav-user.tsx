@@ -22,6 +22,7 @@ import { useTranslation } from "react-i18next";
 
 import { setCommandPaletteOpen } from "@/features/command-palette";
 import { authClient } from "@/lib/auth-client";
+import { clearAuthCache } from "@/lib/auth-queries";
 import { Avatar, AvatarFallback, AvatarImage } from "@/shared/components/ui/avatar";
 import {
   DropdownMenu,
@@ -68,6 +69,10 @@ export function NavUser({ user }: { user: User }) {
 
   async function handleSignOut() {
     await authClient.signOut();
+    // The gate reads the session from React Query now; without this the cached
+    // user survives sign-out and the next navigation would sail past the gate
+    // on stale data. See lib/auth-queries.ts.
+    clearAuthCache();
     void navigate({ to: "/sign-in", replace: true });
   }
 

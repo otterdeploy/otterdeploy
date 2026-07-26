@@ -13,6 +13,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
+import { sessionQuery } from "@/lib/auth-queries";
 import { authQueryKeys } from "@/lib/auth-query-keys";
 import { Badge } from "@/shared/components/ui/badge";
 import {
@@ -48,11 +49,10 @@ export function TwoFactorDialog({
 }) {
   const qc = useQueryClient();
 
-  const sessionQ = useQuery({
-    queryKey: authQueryKeys.currentSession,
-    queryFn: async () => (await authClient.getSession()).data,
-    enabled: open,
-  });
+  // Shares the gate's cached session rather than declaring a second queryFn on
+  // the same key — two fetchers under one key is a race over which one a
+  // refetch uses. Opening the dialog is now usually a cache hit too.
+  const sessionQ = useQuery({ ...sessionQuery, enabled: open });
   const enabled = Boolean(
     (sessionQ.data?.user as { twoFactorEnabled?: boolean } | undefined)?.twoFactorEnabled,
   );

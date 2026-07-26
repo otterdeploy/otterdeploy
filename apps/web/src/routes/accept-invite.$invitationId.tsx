@@ -11,6 +11,7 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
+import { clearAuthCache } from "@/lib/auth-queries";
 import { authQueryKeys } from "@/lib/auth-query-keys";
 import { Button } from "@/shared/components/ui/button";
 import { Spinner } from "@/shared/components/ui/spinner";
@@ -117,6 +118,10 @@ function AcceptInvitePage() {
               <Button
                 onClick={() => {
                   void authClient.signOut().finally(() => {
+                    // Router navigation, not a reload — so the cached session
+                    // would otherwise outlive the sign-out and let the gate
+                    // wave the old user through.
+                    clearAuthCache();
                     void navigate({
                       to: "/sign-in",
                       search: { redirect: `/accept-invite/${invitationId}` },

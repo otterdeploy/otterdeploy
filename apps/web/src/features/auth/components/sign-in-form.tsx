@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import * as z from "zod";
 
 import { authClient } from "@/lib/auth-client";
+import { clearAuthCache } from "@/lib/auth-queries";
 
 import { AuthInput, AuthSubmitButton } from "./auth-fields";
 import { SocialSignIn } from "./social-sign-in";
@@ -48,6 +49,10 @@ export function SignInForm({
   /** Finish login (after password, or after the 2FA challenge): honor a safe
    *  absolute deployment-protection redirect, else land on the internal path. */
   const completeLogin = () => {
+    // A session exists now, but the gate's cache may still hold the `null` that
+    // sent us to /sign-in in the first place — drop it before navigating or the
+    // redirect bounces straight back here. See lib/auth-queries.ts.
+    clearAuthCache();
     toast.success(t("auth.signIn.welcomeBack"));
     if (redirect && /^https?:\/\//i.test(redirect)) {
       const safe = safeServerRedirect(redirect);

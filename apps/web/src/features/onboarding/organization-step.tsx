@@ -3,6 +3,7 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 
 import { authClient } from "@/lib/auth-client";
+import { invalidateAuth } from "@/lib/auth-queries";
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";
 
 import { messages, nameAndSlugSchema, slugifier, type CreatedOrg } from "./shared";
@@ -28,7 +29,13 @@ export function OrganizationStep({ onComplete }: { onComplete: (org: CreatedOrg)
 
       return { id: created.data.id, slug: created.data.slug, name: created.data.name };
     },
-    onSuccess: onComplete,
+    onSuccess: async (org) => {
+      // Both cached auth reads are now wrong: the org list is missing this org,
+      // and the session's activeOrganizationId just changed. Drop them before
+      // the gate runs, or it redirects straight back to onboarding.
+      await invalidateAuth();
+      onComplete(org);
+    },
   });
 
   const form = useForm({
