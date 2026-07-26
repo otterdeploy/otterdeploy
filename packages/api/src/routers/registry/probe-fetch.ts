@@ -2,11 +2,27 @@
  * HTTP plumbing for the registry connection probe — the timed fetch wrapper
  * and the thrown-error → operator-readable-message mapping. Split out of
  * test-connection.ts, which keeps the /v2/ handshake logic.
+ *
+ * `host` (and, for a bearer challenge, the token endpoint `realm`) is
+ * tenant-supplied — an org can type any string as a registry host, and a
+ * malicious/misconfigured registry's `WWW-Authenticate` header can point
+ * the token realm anywhere. Both go through {@link egressFetch}, which
+ * resolves and validates every address (denying loopback/private/link-local/
+ * metadata ranges by default, plus the control plane's own identity
+ * unconditionally) and pins the connection to the validated address —
+ * see packages/shared/src/egress-policy.ts.
  */
 
+import type { EgressResponse } from "@otterdeploy/shared/egress-policy";
+
+import { egressFetch, EgressPolicyError } from "@otterdeploy/shared/egress-policy";
 import { Result, TaggedError } from "better-result";
 
+import { controlPlaneEgressDenylist } from "../../lib/egress-denylist";
+import { egressAllowlist } from "../../lib/egress-options";
+
 export const PROBE_TIMEOUT_MS = 10_000;
+const PROBE_MAX_BYTES = 10 * 1024 * 1024;
 
 export class RegistryProbeError extends TaggedError("RegistryProbeError")<{
   message: string;
@@ -61,6 +77,13 @@ export function fetchFailure(host: string, err: unknown): RegistryProbeError {
       message: `Timed out after ${PROBE_TIMEOUT_MS / 1000}s waiting for ${host}`,
     });
   }
+  // The egress policy fails closed with its own honest message (denied
+  // address, denied scheme, control-plane target, redirect cap, timeout,
+  // ...) — surface it as-is rather than falling through to the generic
+  // "unknown network error" mapping below.
+  if (err instanceof EgressPolicyError) {
+    return new RegistryProbeError({ status: undefined, message: `${host}: ${err.message}` });
+  }
 
   const { codes, texts } = unwrapErrorChain(err);
   const text = texts.join(" ").toLowerCase();
@@ -93,13 +116,21 @@ export async function probeFetch(
   host: string,
   url: string,
   headers?: Record<string, string>,
-): Promise<Result<Response, RegistryProbeError>> {
+): Promise<Result<EgressResponse, RegistryProbeError>> {
   try {
-    const res = await fetch(url, {
-      ...(headers && { headers }),
-      redirect: "follow",
-      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
-    });
+    const denylist = await controlPlaneEgressDenylist();
+    const res = await egressFetch(
+      url,
+      { ...(headers && { headers }) },
+      {
+        maxRedirects: 5,
+        maxBytes: PROBE_MAX_BYTES,
+        timeoutMs: PROBE_TIMEOUT_MS,
+        denyHosts: denylist.blockedHosts,
+        denyAddresses: denylist.blockedAddresses,
+        allowAddresses: egressAllowlist(),
+      },
+    );
     return Result.ok(res);
   } catch (err) {
     return Result.err(fetchFailure(host, err));

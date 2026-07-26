@@ -25,13 +25,52 @@
 
 import type { GitProviderId } from "@otterdeploy/shared/id";
 
+import { egressFetch, EgressPolicyError } from "@otterdeploy/shared/egress-policy";
 import { TaggedError } from "better-result";
 import { createError } from "evlog";
 import { createPrivateKey, createSign } from "node:crypto";
 
+import { controlPlaneEgressDenylist } from "../lib/egress-denylist";
+import { egressAllowlist } from "../lib/egress-options";
 import { loadGithubAppForInstallation } from "./github-app-config";
 
 const JWT_TTL_SECONDS = 9 * 60; // 9 minutes — GitHub allows up to 10.
+const GITHUB_FETCH_TIMEOUT_MS = 15_000;
+const GITHUB_MAX_RESPONSE_BYTES = 10 * 1024 * 1024;
+
+/**
+ * `config.apiBaseUrl` embeds `git_provider.host` — tenant-configurable for
+ * a self-hosted GitHub Enterprise Server install (`apiBaseUrlForHost`
+ * below). Every call to GitHub's API goes through the shared egress
+ * policy: resolve + validate every address, deny loopback/private/
+ * link-local/metadata ranges (and the control plane's own identity)
+ * unconditionally by default, and pin the connection to the validated
+ * address. See packages/shared/src/egress-policy.ts.
+ */
+export async function ghFetch(
+  url: string,
+  init: { method?: string; headers?: Record<string, string>; body?: string } = {},
+): Promise<{ ok: boolean; status: number; text(): Promise<string>; json(): Promise<unknown> }> {
+  const denylist = await controlPlaneEgressDenylist();
+  try {
+    return await egressFetch(url, init, {
+      timeoutMs: GITHUB_FETCH_TIMEOUT_MS,
+      maxBytes: GITHUB_MAX_RESPONSE_BYTES,
+      maxRedirects: 5,
+      denyHosts: denylist.blockedHosts,
+      denyAddresses: denylist.blockedAddresses,
+      allowAddresses: egressAllowlist(),
+    });
+  } catch (err) {
+    if (err instanceof EgressPolicyError) {
+      throw createError({
+        message: `GitHub API request blocked by outbound egress policy: ${err.message}`,
+        status: 502,
+      });
+    }
+    throw err;
+  }
+}
 
 /**
  * Everything needed to authenticate as a specific GitHub App. Loaded from a
@@ -134,7 +173,7 @@ export async function getInstallationToken(
 ): Promise<InstallationTokenResponse> {
   const config = await loadGithubAppForInstallation(installationId);
   const jwt = await mintAppJwt(config);
-  const res = await fetch(
+  const res = await ghFetch(
     `${config.apiBaseUrl}/app/installations/${installationId}/access_tokens`,
     {
       method: "POST",
@@ -184,7 +223,7 @@ export async function lookupInstallation(
   config: GithubAppConfig,
 ): Promise<InstallationLookup> {
   const jwt = await mintAppJwt(config);
-  const res = await fetch(`${config.apiBaseUrl}/app/installations/${installationId}`, {
+  const res = await ghFetch(`${config.apiBaseUrl}/app/installations/${installationId}`, {
     headers: {
       Authorization: `Bearer ${jwt}`,
       Accept: "application/vnd.github+json",
@@ -236,7 +275,7 @@ export async function listInstallationRepos(
   let totalCount = 0;
   let page = 1;
   while (true) {
-    const res = await fetch(
+    const res = await ghFetch(
       `${config.apiBaseUrl}/installation/repositories?per_page=100&page=${page}`,
       {
         headers: {
@@ -287,7 +326,7 @@ export async function fetchBranchHeadSha(
   // repos — rate-limited to 60/hr per IP, fine for the UI deploy path.
   // Private repos pass a real installation token.
   const token = installationId ? (await getInstallationToken(installationId)).token : null;
-  const res = await fetch(
+  const res = await ghFetch(
     `${apiBaseUrlForHost("github.com")}/repos/${owner}/${repo}/commits/${encodeURIComponent(branch)}`,
     {
       headers: {
@@ -365,7 +404,7 @@ export async function createCommitStatus(input: {
   context?: string;
 }): Promise<void> {
   const { token, config } = await installationAuth(input.installationId);
-  const res = await fetch(
+  const res = await ghFetch(
     `${config.apiBaseUrl}/repos/${input.owner}/${input.repo}/statuses/${input.sha}`,
     {
       method: "POST",
@@ -406,7 +445,7 @@ async function findMarkedComment(input: {
 }): Promise<IssueComment | null> {
   let page = 1;
   while (true) {
-    const res = await fetch(
+    const res = await ghFetch(
       `${input.config.apiBaseUrl}/repos/${input.owner}/${input.repo}/issues/${input.prNumber}/comments?per_page=100&page=${page}`,
       { headers: githubJsonHeaders(input.token) },
     );
@@ -449,7 +488,7 @@ export async function upsertPrComment(input: {
   const url = existing
     ? `${config.apiBaseUrl}/repos/${input.owner}/${input.repo}/issues/comments/${existing.id}`
     : `${config.apiBaseUrl}/repos/${input.owner}/${input.repo}/issues/${input.prNumber}/comments`;
-  const res = await fetch(url, {
+  const res = await ghFetch(url, {
     method: existing ? "PATCH" : "POST",
     headers: githubJsonHeaders(token),
     body: JSON.stringify({ body: bodyWithMarker }),

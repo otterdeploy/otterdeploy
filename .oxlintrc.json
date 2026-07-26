@@ -239,6 +239,12 @@
       }
     },
     {
+      "files": ["packages/shared/src/egress-policy.ts"],
+      "rules": {
+        "max-lines": ["error", { "max": 450, "skipBlankLines": true, "skipComments": true }]
+      }
+    },
+    {
       "files": ["packages/api/src/git/github-app.ts", "packages/api/src/routers/git/index.ts"],
       "rules": {
         "max-lines": ["error", { "max": 400, "skipBlankLines": true, "skipComments": true }]

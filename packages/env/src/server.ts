@@ -180,6 +180,29 @@ export const env = createEnv({
     CROWDSEC_LAPI_URL: z.url().optional(),
     CROWDSEC_BOUNCER_KEY: z.string().min(1).optional(),
 
+    // Outbound egress policy (SSRF hardening — packages/shared/src/egress-policy.ts).
+    // Every outbound call the control plane makes on a tenant's behalf
+    // (webhook delivery, Slack/Discord/generic notification channels,
+    // container registry probes, self-hosted git provider calls) resolves
+    // the destination and denies loopback/link-local/RFC1918/CGNAT/ULA/
+    // metadata addresses by default — safe with zero configuration.
+    // Homelab/LAN operators who WANT a tenant-supplied target to reach an
+    // internal address (e.g. a webhook receiver on their own LAN) can carve
+    // out specific IPs or CIDRs here. Comma-separated bare IPs and/or CIDRs
+    // only (no hostnames — an allowlisted name could itself be rebound).
+    // Empty by default: nothing private is reachable until an operator
+    // opts in. This can NEVER re-permit the control plane's own detected
+    // address/origins — that denial is unconditional.
+    OTTERDEPLOY_EGRESS_ALLOWLIST: z
+      .string()
+      .default("")
+      .transform((v) =>
+        v
+          .split(",")
+          .map((entry) => entry.trim())
+          .filter((entry) => entry.length > 0),
+      ),
+
     // GitHub Apps are created through the manifest flow (UI button in
     // Settings → Git Providers). App ID, client secret, webhook secret,
     // PEM private key, and slug all live on the `git_provider` row

@@ -15,16 +15,94 @@ import { webhook, webhookDelivery } from "@otterdeploy/db/schema";
  *     PER ATTEMPT (status code, ok, attempt #, latency, error). On failure it
  *     throws so BullMQ retries with exponential backoff (5 attempts); every
  *     attempt is already recorded by the time the throw happens.
+ *
+ *     `target.url` is entirely tenant-supplied — the POST goes through the
+ *     shared egress policy (`deliverWebhookHttp` below), which resolves and
+ *     validates every address (loopback/private/link-local/metadata ranges
+ *     and the control plane's own identity denied by default), pins the
+ *     connection to the validated address, and re-validates every redirect
+ *     hop. A denied target fails exactly like any other delivery failure —
+ *     recorded as a `webhook_delivery` row with a clear error — so it never
+ *     silently no-ops. See packages/shared/src/egress-policy.ts.
  */
 import { hmacSha256Hex } from "@otterdeploy/shared/crypto";
+import { EgressPolicyError, egressFetch } from "@otterdeploy/shared/egress-policy";
 import { and, arrayContains, eq } from "drizzle-orm";
 import * as z from "zod";
 
 import { defineJob } from "../define";
 import { decryptSecret } from "../delivery/secret-crypto";
+import { controlPlaneEgressDenylist, egressAllowlist } from "../delivery/egress-denylist";
 
 export const SIGNATURE_HEADER = "X-Otterdeploy-Signature";
 const DELIVERY_TIMEOUT_MS = 10_000;
+const DELIVERY_MAX_RESPONSE_BYTES = 1024 * 1024;
+
+export interface WebhookDeliveryOutcome {
+  statusCode: number | null;
+  error: string | null;
+}
+
+/**
+ * Performs the guarded outbound POST for one webhook delivery attempt.
+ * Isolated from the job handler (DB/BullMQ) so it's directly unit-testable:
+ * a denied target resolves to `{ statusCode: null, error: <clear message> }`
+ * — fails closed, never throws past this function, exactly like any other
+ * delivery failure the caller records.
+ */
+export async function deliverWebhookHttp(input: {
+  url: string;
+  body: string;
+  headers: Record<string, string>;
+  timeoutMs?: number;
+  denyHosts?: Iterable<string>;
+  denyAddresses?: Iterable<string>;
+  allowAddresses?: Iterable<string>;
+}): Promise<WebhookDeliveryOutcome> {
+  try {
+    const res = await egressFetch(
+      input.url,
+      { method: "POST", headers: input.headers, body: input.body },
+      {
+        // Webhook receivers are commonly plain http (local/dev tooling,
+        // internal reverse proxies without TLS) — the tenant already chose
+        // the scheme when they registered the URL; the egress policy's
+        // address checks are the actual SSRF defense, not the scheme.
+        allowHttp: true,
+        timeoutMs: input.timeoutMs ?? DELIVERY_TIMEOUT_MS,
+        maxBytes: DELIVERY_MAX_RESPONSE_BYTES,
+        maxRedirects: 5,
+        denyHosts: input.denyHosts,
+        denyAddresses: input.denyAddresses,
+        allowAddresses: input.allowAddresses,
+      },
+    );
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return {
+        statusCode: res.status,
+        error: `HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ""}`,
+      };
+    }
+    // Drain/discard the body on success so the socket is released.
+    await res.arrayBuffer().catch(() => undefined);
+    return { statusCode: res.status, error: null };
+  } catch (err) {
+    if (err instanceof EgressPolicyError) {
+      // Blocked before a socket ever opened — fail closed with an
+      // unambiguous, operator-readable reason instead of a generic network
+      // error.
+      return { statusCode: null, error: `blocked by outbound egress policy: ${err.message}` };
+    }
+    const error =
+      err instanceof Error
+        ? err.name === "TimeoutError"
+          ? `timeout after ${input.timeoutMs ?? DELIVERY_TIMEOUT_MS}ms`
+          : err.message
+        : String(err);
+    return { statusCode: null, error };
+  }
+}
 
 export const WebhookEventPayload = z.object({
   organizationId: z.string().min(1),
@@ -143,36 +221,21 @@ export const webhookDeliverJob = defineJob({
     const attempt = (job.attemptsMade ?? 0) + 1;
 
     const started = performance.now();
-    let statusCode: number | null = null;
-    let error: string | null = null;
-    try {
-      const res = await fetch(target.url, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "user-agent": "otterdeploy-webhooks/1",
-          [SIGNATURE_HEADER]: signature,
-          "X-Otterdeploy-Event": payload.event,
-          "X-Otterdeploy-Delivery": String(job.id ?? ""),
-        },
-        body: rawBody,
-        signal: AbortSignal.timeout(DELIVERY_TIMEOUT_MS),
-      });
-      statusCode = res.status;
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        error = `HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ""}`;
-      }
-      // Drain/discard the body on success so the socket is released.
-      else await res.arrayBuffer().catch(() => undefined);
-    } catch (err) {
-      error =
-        err instanceof Error
-          ? err.name === "TimeoutError"
-            ? `timeout after ${DELIVERY_TIMEOUT_MS}ms`
-            : err.message
-          : String(err);
-    }
+    const denylist = await controlPlaneEgressDenylist();
+    const { statusCode, error } = await deliverWebhookHttp({
+      url: target.url,
+      body: rawBody,
+      headers: {
+        "content-type": "application/json",
+        "user-agent": "otterdeploy-webhooks/1",
+        [SIGNATURE_HEADER]: signature,
+        "X-Otterdeploy-Event": payload.event,
+        "X-Otterdeploy-Delivery": String(job.id ?? ""),
+      },
+      denyHosts: denylist.blockedHosts,
+      denyAddresses: denylist.blockedAddresses,
+      allowAddresses: egressAllowlist(),
+    });
     const latencyMs = Math.round(performance.now() - started);
 
     await db.insert(webhookDelivery).values({

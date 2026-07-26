@@ -5,8 +5,24 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 vi.mock("./github-app-config", () => ({
   loadGithubAppForInstallation: vi.fn(),
 }));
+// github-app.ts's `ghFetch` wrapper routes every request through the shared
+// egress policy (SSRF hardening) — stub both the network call and the
+// control-plane-identity denylist lookup (a DB read) so this stays a pure
+// unit test.
+vi.mock("@otterdeploy/shared/egress-policy", () => ({
+  egressFetch: vi.fn(),
+  EgressPolicyError: class EgressPolicyError extends Error {},
+}));
+vi.mock("../lib/egress-denylist", () => ({
+  controlPlaneEgressDenylist: vi.fn().mockResolvedValue({ blockedHosts: [], blockedAddresses: [] }),
+}));
+vi.mock("../lib/egress-options", () => ({
+  egressAllowlist: () => [],
+}));
 
 import type { GithubAppConfig, InstallationRepo } from "./github-app";
+
+import { egressFetch } from "@otterdeploy/shared/egress-policy";
 
 import { listInstallationRepos } from "./github-app";
 
@@ -46,8 +62,8 @@ describe("listInstallationRepos → repo list + truthful count", () => {
   let fetchMock: FetchMock;
 
   beforeEach(() => {
-    fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+    fetchMock = egressFetch as unknown as FetchMock;
+    fetchMock.mockReset();
   });
 
   it("returns all repos and GitHub's total_count from a single page", async () => {

@@ -18,14 +18,24 @@
  *      per-platform sizes behind another round-trip, so size is
  *      honestly omitted for them rather than guessed.
  *
- * No db imports — pure fetch + parsing so the module stays unit
- * testable. The pure ref/response parsers live in tag-parse.ts
- * (re-exported here); credential lookup lives in queries.ts; index.ts
- * glues.
+ * `host`/`apiHost` here is tenant-supplied (a registry credential's host
+ * field, or an image ref's host segment) — every network call goes through
+ * {@link egressFetch}, which resolves and validates every address (denying
+ * loopback/private/link-local/metadata ranges by default, plus the control
+ * plane's own identity unconditionally) and pins the connection to the
+ * validated address. See packages/shared/src/egress-policy.ts.
+ *
+ * The pure ref/response parsers live in tag-parse.ts (re-exported here);
+ * credential lookup lives in queries.ts; index.ts glues.
  */
 
+import type { EgressResponse } from "@otterdeploy/shared/egress-policy";
+
+import { egressFetch, EgressPolicyError } from "@otterdeploy/shared/egress-policy";
 import { Result, TaggedError } from "better-result";
 
+import { controlPlaneEgressDenylist } from "../../lib/egress-denylist";
+import { egressAllowlist } from "../../lib/egress-options";
 import { imageSizeFromManifest, parseTagsBody, registryApiHost, hasNextPage } from "./tag-parse";
 import { parseAuthChallenge, buildTokenUrl } from "./test-connection";
 
@@ -79,19 +89,29 @@ async function timedFetch(
   host: string,
   url: string,
   headers?: Record<string, string>,
-): Promise<Result<Response, RegistryTagsError>> {
+): Promise<Result<EgressResponse, RegistryTagsError>> {
   try {
-    const res = await fetch(url, {
-      ...(headers && { headers }),
-      redirect: "follow",
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    });
+    const denylist = await controlPlaneEgressDenylist();
+    const res = await egressFetch(
+      url,
+      { ...(headers && { headers }) },
+      {
+        maxRedirects: 5,
+        maxBytes: 10 * 1024 * 1024,
+        timeoutMs: FETCH_TIMEOUT_MS,
+        denyHosts: denylist.blockedHosts,
+        denyAddresses: denylist.blockedAddresses,
+        allowAddresses: egressAllowlist(),
+      },
+    );
     return Result.ok(res);
   } catch (err) {
     const message =
-      err instanceof DOMException && err.name === "TimeoutError"
-        ? `Timed out after ${FETCH_TIMEOUT_MS / 1000}s waiting for ${host}`
-        : `Could not reach ${host}: ${err instanceof Error ? err.message : "network error"}`;
+      err instanceof EgressPolicyError
+        ? err.message
+        : err instanceof DOMException && err.name === "TimeoutError"
+          ? `Timed out after ${FETCH_TIMEOUT_MS / 1000}s waiting for ${host}`
+          : `Could not reach ${host}: ${err instanceof Error ? err.message : "network error"}`;
     return Result.err(new RegistryTagsError({ status: undefined, message }));
   }
 }

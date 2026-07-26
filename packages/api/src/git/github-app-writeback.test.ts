@@ -2,10 +2,27 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 // The write-back helpers mint a real App JWT (crypto.subtle) before hitting the
 // network, so the config loader must return a genuine PKCS8 key — generated
-// once below. Only the HTTP layer (fetch) is mocked, exercising URL/method/body.
+// once below. Only the HTTP layer (egressFetch, via ghFetch) is mocked,
+// exercising URL/method/body.
 vi.mock("./github-app-config", () => ({
   loadGithubAppForInstallation: vi.fn(),
 }));
+// github-app.ts's `ghFetch` wrapper routes every request through the shared
+// egress policy (SSRF hardening) — stub both the network call and the
+// control-plane-identity denylist lookup (a DB read) so this stays a pure
+// unit test.
+vi.mock("@otterdeploy/shared/egress-policy", () => ({
+  egressFetch: vi.fn(),
+  EgressPolicyError: class EgressPolicyError extends Error {},
+}));
+vi.mock("../lib/egress-denylist", () => ({
+  controlPlaneEgressDenylist: vi.fn().mockResolvedValue({ blockedHosts: [], blockedAddresses: [] }),
+}));
+vi.mock("../lib/egress-options", () => ({
+  egressAllowlist: () => [],
+}));
+
+import { egressFetch } from "@otterdeploy/shared/egress-policy";
 
 import { createCommitStatus, PR_COMMENT_MARKER, upsertPrComment } from "./github-app";
 import { loadGithubAppForInstallation } from "./github-app-config";
@@ -68,8 +85,7 @@ describe("github write-back", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+    fetchMock = egressFetch as unknown as FetchMock;
     (loadGithubAppForInstallation as unknown as FetchMock).mockResolvedValue({
       appId: "123",
       privateKeyPem: TEST_PEM,
