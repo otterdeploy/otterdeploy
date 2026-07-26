@@ -1,4 +1,3 @@
-import { RocketIcon } from "@hugeicons/core-free-icons";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import * as z from "zod";
@@ -46,27 +45,12 @@ function SignInPage() {
       // with zero accounts. Detecting that state needs a first-run
       // create-admin flow (backend user-count check), which is out of scope
       // here; this is the trivial neutral-copy fix in the meantime.
-      eyebrow={mode === "sign-in" ? "Sign in" : "Get started"}
-      headline={
-        mode === "sign-in" ? (
-          <>
-            Ship your stack.
-            <br />
-            <span className="font-normal text-muted-foreground">Sign in to deploy.</span>
-          </>
-        ) : (
-          <>
-            One account.
-            <br />
-            <span className="font-normal text-muted-foreground">Every deploy.</span>
-          </>
-        )
+      headline={mode === "sign-in" ? "Ship your stack." : "Set up your stack."}
+      subhead={
+        mode === "sign-in"
+          ? "Git-sourced builds, zero-downtime rollouts, and logs that tell the truth — on infrastructure you own."
+          : "One account for every project, service and server running on this installation."
       }
-      pill={{
-        icon: RocketIcon,
-        label: "Deploy from git in",
-        value: "~ 90 seconds",
-      }}
     >
       {mode === "sign-in" ? (
         <SignInForm allowSignUp={allowSignUp} onSwitchToSignUp={() => setMode("sign-up")} />
