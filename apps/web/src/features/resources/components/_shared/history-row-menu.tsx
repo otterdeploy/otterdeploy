@@ -81,7 +81,11 @@ export function HistoryRowMenu({
               variant="ghost"
               size="icon-sm"
               aria-label="Deployment actions"
-              className="opacity-0 group-hover:opacity-100 data-[popup-open]:opacity-100"
+              // Recessed rather than hidden — same reason as the Roll back
+              // button in features/deployments/components/deployment-row.tsx:
+              // `opacity-0` has no reveal on a touch device, leaving the only
+              // route to rollback invisible while still tappable.
+              className="opacity-70 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[popup-open]:opacity-100"
               onClick={(e) => e.stopPropagation()}
             />
           }

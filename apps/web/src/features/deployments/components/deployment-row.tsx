@@ -157,7 +157,13 @@ export function DeployRow({
             type="button"
             variant="outline"
             size="sm"
-            className="h-6 gap-1 px-2 text-[11px] opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+            // Recessed, never hidden. This was `opacity-0` until hover, which
+            // made rollback look like a feature the product did not have — and
+            // on a touch device, where there IS no hover, the button stayed at
+            // zero opacity permanently while remaining tappable: an invisible
+            // live control. Resting at 70% keeps the row calm without lying
+            // about what is available.
+            className="h-6 gap-1 px-2 text-[11px] opacity-70 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
             onClick={(e) => {
               e.stopPropagation();
               onRollback(d);
