@@ -105,6 +105,32 @@ export async function patchServerProvision(input: {
   return row;
 }
 
+/**
+ * Record the host-firewall + native-bouncer provisioning outcome (od-5j8.11)
+ * — written by provision-runner.ts on join and by the reapplyFirewall
+ * remediation path. Separate from patchServerProvision so a firewall-only
+ * remediation run (which doesn't touch provisionStatus) can't accidentally
+ * clobber the swarm-join lifecycle fields.
+ */
+export async function patchServerFirewall(input: {
+  serverId: ServerId;
+  organizationId: OrgId;
+  firewallStatus: "unknown" | "applied" | "failed" | "unsupported";
+  firewallError?: string | null;
+  firewallBouncerActive?: boolean;
+}): Promise<ServerRecord | undefined> {
+  const { serverId, organizationId, ...set } = input;
+  const [row] = await db
+    .update(server)
+    .set({
+      ...set,
+      firewallAppliedAt: input.firewallStatus === "applied" ? new Date() : null,
+    })
+    .where(and(eq(server.id, serverId), eq(server.organizationId, organizationId)))
+    .returning();
+  return row;
+}
+
 /** Persist a swarm-confirmed promote/demote back onto the server row. */
 export async function updateServerRoleRecord(input: {
   serverId: ServerId;

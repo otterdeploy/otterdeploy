@@ -28,7 +28,15 @@
 #              (skips host setup; preserves all secrets).
 #   OTTERDEPLOY_ZFS_POOL      pool name               (default otter)
 #   OTTERDEPLOY_ZFS_SIZE      file-backed pool size   (default: ¼ of free disk, 5G–40G)
-#   OTTERDEPLOY_FIREWALL      true | false            (default false) — start CrowdSec profile
+#   OTTERDEPLOY_FIREWALL      true | false            (default true — od-5j8.11) — CrowdSec
+#                             bundled + on by default: the bouncer key/LAPI wiring is
+#                             generated automatically and the `firewall` compose profile is
+#                             started, so a fresh install is protected with no manual steps.
+#                             Set to false (or pass --no-firewall) to opt out explicitly.
+#                             Independently, a host-level nftables baseline (default-deny
+#                             INPUT + a DOCKER-USER guard) is applied unless another firewall
+#                             manager (ufw/firewalld) is already active on the host, or nftables
+#                             can't be installed — both are narrated, never silently skipped.
 #   OTTERDEPLOY_SWAP          auto | on | off         (default auto) — add a swapfile so heavy
 #                             builds don't OOM (auto: only when RAM is tight and no swap exists)
 #   OTTERDEPLOY_SWAP_SIZE     swapfile size           (default: sized from RAM, e.g. 4G)
@@ -66,7 +74,11 @@ BRANCHING="${OTTERDEPLOY_BRANCHING:-auto}"     # auto | on | off
 ZFS_POOL="${OTTERDEPLOY_ZFS_POOL:-otter}"
 ZFS_SIZE="${OTTERDEPLOY_ZFS_SIZE:-}"   # empty = size from free disk (see pool_size)
 ZFS_IMG="$DATA_DIR/branch-pool.img"
-FIREWALL="${OTTERDEPLOY_FIREWALL:-false}"
+# od-5j8.11: on by default — this is the product's headline differentiator
+# (CrowdSec bundled + blocking hostile traffic at the edge on every node, not
+# an opt-in an operator has to discover). Explicit opt-out: OTTERDEPLOY_FIREWALL=false
+# or --no-firewall.
+FIREWALL="${OTTERDEPLOY_FIREWALL:-true}"
 
 SWAP="${OTTERDEPLOY_SWAP:-auto}"          # auto | on | off — swapfile for build OOM headroom
 SWAP_SIZE="${OTTERDEPLOY_SWAP_SIZE:-}"    # empty ⇒ sized from RAM (see swap_size_default)
@@ -560,12 +572,32 @@ prepare_tree() {
 write_env() {
   step "Writing $ENV_FILE"
   local pg_pass auth_secret bootstrap_token pg_user pg_db pool_line public_host public_url cors_origin trusted_proxies
+  local crowdsec_bouncer_key crowdsec_lapi_url crowdsec_firewall_bouncer_key crowdsec_env_lines
   pg_user="$(keep_or POSTGRES_USER otterdeploy)"
   pg_db="$(keep_or POSTGRES_DB otterdeploy)"
   pg_pass="$(keep_or POSTGRES_PASSWORD "$(random_secret)")"
   auth_secret="$(keep_or BETTER_AUTH_SECRET "$(random_secret)")"
   bootstrap_token="$(keep_or OTTERDEPLOY_BOOTSTRAP_TOKEN "$(random_secret)")"
   public_host="$(keep_or PUBLIC_HOST "$(detect_public_host)")"
+
+  # od-5j8.11: generate the CrowdSec wiring so the firewall is protected with
+  # ZERO manual steps when FIREWALL=true (the default) — previously an
+  # operator had to hand-set these two vars and start the profile themselves.
+  # keep_or preserves them across re-runs so bouncer registrations don't
+  # churn. Left EMPTY when firewall=false so the Caddy `crowdsec` gate stays
+  # unconfigured (packages/env/src/server.ts's `configured()`) and the
+  # compose profile stays off — an explicit, honest opt-out.
+  if [ "$FIREWALL" = "true" ]; then
+    crowdsec_bouncer_key="$(keep_or CROWDSEC_BOUNCER_KEY "$(random_secret)")"
+    crowdsec_lapi_url="$(keep_or CROWDSEC_LAPI_URL "http://crowdsec:8080")"
+    crowdsec_firewall_bouncer_key="$(keep_or CROWDSEC_FIREWALL_BOUNCER_KEY "$(random_secret)")"
+    crowdsec_env_lines="CROWDSEC_BOUNCER_KEY=$crowdsec_bouncer_key
+CROWDSEC_LAPI_URL=$crowdsec_lapi_url
+# The native host firewall bouncer's own key (see provision_native_bouncer).
+CROWDSEC_FIREWALL_BOUNCER_KEY=$crowdsec_firewall_bouncer_key"
+  else
+    crowdsec_env_lines="# Firewall disabled (OTTERDEPLOY_FIREWALL=false) — CROWDSEC_* left unset."
+  fi
   # od-5j8.10: the control-plane port is published to loopback only (see
   # docker-compose.prod.yml) — it's never actually reachable at the public
   # host, so the auth authority/CORS origin default to loopback too (the
@@ -590,6 +622,12 @@ write_env() {
     say "       PUBLIC_HOST=$public_host  CONTROL_PLANE_PORT=$CONTROL_PLANE_PORT"
     say "       BETTER_AUTH_URL=$public_url  CORS_ORIGIN=$cors_origin  NODE_ENV=production"
     say "       TRUSTED_PROXIES=$trusted_proxies"
+    if [ "$FIREWALL" = "true" ]; then
+      say "       CROWDSEC_BOUNCER_KEY=********  CROWDSEC_LAPI_URL=http://crowdsec:8080"
+      say "       CROWDSEC_FIREWALL_BOUNCER_KEY=********"
+    else
+      say "       (firewall disabled — no CROWDSEC_* vars written)"
+    fi
     return
   fi
 
@@ -632,6 +670,12 @@ NODE_ENV=production
 
 # Database branching (docs/designs/db-branching.md). Empty = logical tier only.
 BRANCH_ZFS_POOL=$pool_line
+
+# od-5j8.11: CrowdSec IP-reputation bouncer — bundled + wired automatically
+# when the firewall is enabled (the default). packages/env/src/server.ts
+# treats both as required together; the Caddyfile gains the `crowdsec` gate
+# and the `firewall` compose profile starts as soon as these are set.
+$crowdsec_env_lines
 EOF
   say " - Secrets generated (and preserved across re-runs)"
 }
@@ -760,6 +804,248 @@ provision_branching() {
   say " - Instant CoW branching enabled (pool '$ZFS_POOL', dataset '$ZFS_POOL/pg')"
 }
 
+# ── 7b. host-level firewall (nftables baseline) ─────────────────────────────
+# od-5j8.11: layer 1 of the two-layer defense — see
+# docs/designs/vps-firewall-layering.md. Mirrors the ruleset
+# packages/api/src/routers/server/host-firewall.ts renders for nodes added
+# to the swarm afterward: SAME shape (table inet otterdeploy, default-deny
+# INPUT except lo/established/ssh/80/443, swarm control-plane ports
+# 2377/7946/4789 scoped to a peer set that starts empty on a single host) so
+# `nft list ruleset` reads the same policy on every node in the fleet.
+# Layer 2 (the native CrowdSec bouncer, provision_native_bouncer below) adds
+# dynamic IP-reputation bans into the SAME table.
+#
+# Best-effort: NEVER blocks the install. Skips cleanly (narrated) when
+# ufw/firewalld is already active — we don't fight an operator's existing
+# choice — or when nftables can't be installed.
+OTTERDEPLOY_NFT_RULESET=/etc/nftables-otterdeploy.conf
+
+# The CURRENT sshd port — never assumed to be 22, so a customized install
+# can't get locked out. `ct state established,related accept` (in the
+# ruleset below) means even a WRONG detection can't kill the session this
+# installer is already running over; only a NEW connection would be refused.
+detect_ssh_port() {
+  local p
+  p="$($SUDO sshd -T 2>/dev/null | awk '/^port /{print $2; exit}')"
+  case "$p" in ''|*[!0-9]*) printf '22' ;; *) printf '%s' "$p" ;; esac
+}
+
+# Known limitation (documented in docs/designs/vps-firewall-layering.md
+# §Drift detection / peer-set freshness): the control plane runs as an
+# unprivileged CONTAINER (no host network namespace / NET_ADMIN), so it
+# cannot update the PRIMARY's own nftables peer set when a node joins later
+# — only a node ADDED via the dashboard gets a live peer set (computed from
+# the server registry at provisioning time, over SSH — see
+# provision-host-firewall.ts). Re-running this installer on the primary
+# after adding nodes closes that gap: it re-reads current swarm membership
+# from the LOCAL Docker socket (which this script — unlike the control
+# plane — always has host-level access to) and re-renders the peer set.
+# Space-separated IPv4 addresses; empty on a fresh single-node install.
+detect_swarm_peer_ips() {
+  $SUDO docker info 2>/dev/null | grep -q 'Swarm: active' || return 0
+  $SUDO docker node ls -q 2>/dev/null | while read -r id; do
+    $SUDO docker node inspect "$id" --format '{{.Status.Addr}}' 2>/dev/null
+  done | grep -E '^[0-9]+(\.[0-9]+){3}$' | sort -u | tr '\n' ' '
+}
+
+provision_host_firewall() {
+  step "Applying host firewall (nftables baseline)"
+  if [ "$FIREWALL" != "true" ]; then
+    say " - Skipped (OTTERDEPLOY_FIREWALL=false)"
+    return
+  fi
+  local ssh_port; ssh_port="$(detect_ssh_port)"
+  if dry; then
+    say "   + would install nftables (if missing) and load a default-deny table 'otterdeploy':"
+    say "     allow loopback, established/related, SSH ($ssh_port/tcp), 80/443/tcp"
+    say "     swarm ports 2377/7946/4789 stay peer-scoped (current swarm members, if any joined already)"
+    say "   + would insert a DOCKER-USER guard dropping forwarded traffic to non-80/443 ports"
+    say "   + would skip entirely if ufw/firewalld is already active"
+    return
+  fi
+  if command -v ufw >/dev/null 2>&1 && $SUDO ufw status 2>/dev/null | grep -qi 'Status: active'; then
+    say " - ufw is active — leaving it in place (otterdeploy will not install nftables alongside it)"
+    return
+  fi
+  if command -v firewall-cmd >/dev/null 2>&1 && $SUDO firewall-cmd --state 2>/dev/null | grep -q running; then
+    say " - firewalld is active — leaving it in place"
+    return
+  fi
+  if ! command -v nft >/dev/null 2>&1; then
+    case "$OS_FAMILY" in
+      debian) run $SUDO apt-get install -y nftables || true ;;
+      rhel)   run $SUDO dnf install -y nftables || true ;;
+      arch)   run $SUDO pacman -Sy --noconfirm nftables || true ;;
+    esac
+  fi
+  if ! command -v nft >/dev/null 2>&1; then
+    warn "nftables unavailable on this host — host-level firewall not applied (the CrowdSec bouncers still protect what they cover)."
+    return
+  fi
+  run $SUDO mkdir -p /etc/otterdeploy
+  # Peer set for the swarm control-plane ports — read from the LOCAL swarm
+  # membership (this script, unlike the containerized control plane, always
+  # has host-level `docker` access). Empty on a fresh single-node install;
+  # re-running the installer after adding nodes refreshes it (see
+  # detect_swarm_peer_ips's doc comment for why this isn't fully automatic).
+  local peers peer_set_body
+  peers="$(detect_swarm_peer_ips)"
+  if [ -n "$(printf '%s' "$peers" | tr -d '[:space:]')" ]; then
+    peer_set_body="$(printf '\t\ttype ipv4_addr\n\t\telements = { %s }' "$(echo "$peers" | sed 's/ *$//;s/ /, /g')")"
+  else
+    peer_set_body="$(printf '\t\ttype ipv4_addr')"
+  fi
+  {
+    printf 'table inet otterdeploy {\n'
+    printf '\tset otterdeploy_peers {\n%s\n\t}\n\n' "$peer_set_body"
+    printf '\tchain input {\n'
+    printf '\t\ttype filter hook input priority filter; policy drop;\n'
+    printf '\t\tiif "lo" accept\n'
+    printf '\t\tct state invalid drop\n'
+    printf '\t\tct state established,related accept\n'
+    printf '\t\ticmp type { echo-request, destination-unreachable, time-exceeded } accept\n'
+    printf '\t\ticmpv6 type { echo-request, nd-neighbor-solicit, nd-neighbor-advert, destination-unreachable, time-exceeded } accept\n'
+    printf '\t\ttcp dport %s accept\n' "$ssh_port"
+    printf '\t\ttcp dport { 80, 443 } accept\n'
+    printf '\t\ttcp dport { 2377, 7946 } ip saddr @otterdeploy_peers accept\n'
+    printf '\t\tudp dport { 7946, 4789 } ip saddr @otterdeploy_peers accept\n'
+    printf '\t}\n}\n'
+  } | $SUDO tee "$OTTERDEPLOY_NFT_RULESET" >/dev/null
+  if ! $SUDO nft -c -f "$OTTERDEPLOY_NFT_RULESET"; then
+    warn "generated nftables ruleset failed validation — NOT applied. See $OTTERDEPLOY_NFT_RULESET."
+    return
+  fi
+  if [ -f /etc/nftables.conf ]; then
+    grep -qxF "include \"$OTTERDEPLOY_NFT_RULESET\"" /etc/nftables.conf \
+      || $SUDO sh -c "echo 'include \"$OTTERDEPLOY_NFT_RULESET\"' >> /etc/nftables.conf"
+  else
+    $SUDO sh -c "printf '#!/usr/sbin/nft -f\ninclude \"$OTTERDEPLOY_NFT_RULESET\"\n' > /etc/nftables.conf"
+  fi
+  $SUDO systemctl enable nftables >/dev/null 2>&1 || true
+  $SUDO nft -f "$OTTERDEPLOY_NFT_RULESET"
+  # DOCKER-USER guard — defense in depth: Docker manipulates iptables/nftables
+  # DIRECTLY for published container ports (the classic ufw+Docker footgun —
+  # a published port never touches the INPUT chain above), so an accidental
+  # extra `-p hostport:containerport` publish is blocked here instead.
+  if $SUDO nft list chain ip filter DOCKER-USER >/dev/null 2>&1; then
+    $SUDO nft -a list chain ip filter DOCKER-USER 2>/dev/null | awk '/otterdeploy-guard/{print $NF}' \
+      | while read -r h; do $SUDO nft delete rule ip filter DOCKER-USER handle "$h"; done
+    $SUDO nft insert rule ip filter DOCKER-USER tcp dport != { 80, 443 } ct state new counter drop comment "otterdeploy-guard"
+  fi
+  say " - nftables baseline active (SSH $ssh_port, 80/443, swarm ports peer-scoped)"
+  say "   Rollback if needed: sudo nft delete table inet otterdeploy   (or: bash $0 firewall-rollback)"
+}
+
+# ── 7c. native CrowdSec firewall bouncer on the primary ─────────────────────
+# od-5j8.11: the manager-parity gap this closed — the compose file has
+# always accepted a CROWDSEC_FIREWALL_BOUNCER_KEY (auto-registering it via
+# CrowdSec's own BOUNCER_KEY_<name> convention), but nothing ever installed
+# the HOST-SIDE systemd bouncer that key is for; only nodes added later
+# (provision-firewall.ts) got one. Mirrors that same script almost exactly —
+# it just runs locally instead of over SSH.
+provision_native_bouncer() {
+  step "Installing native CrowdSec firewall bouncer (host-level enforcement)"
+  if [ "$FIREWALL" != "true" ]; then
+    say " - Skipped (OTTERDEPLOY_FIREWALL=false)"
+    return
+  fi
+  if dry; then
+    say "   + would install crowdsec-firewall-bouncer-nftables and point it at the local LAPI"
+    return
+  fi
+  local key lapi_bind lapi_url
+  key="$(env_value CROWDSEC_FIREWALL_BOUNCER_KEY)"
+  if [ -z "$key" ]; then
+    say " - No CROWDSEC_FIREWALL_BOUNCER_KEY in $ENV_FILE — skipping"
+    return
+  fi
+  lapi_bind="$(env_value CROWDSEC_LAPI_BIND)"; [ -z "$lapi_bind" ] && lapi_bind="127.0.0.1"
+  lapi_url="http://$lapi_bind:8080/"
+  if ! command -v crowdsec-firewall-bouncer >/dev/null 2>&1; then
+    if ! command -v apt-get >/dev/null 2>&1 && [ "$OS_FAMILY" != "rhel" ]; then
+      warn "crowdsec-firewall-bouncer has no package for this distro ($OS_PRETTY) — install it manually: https://docs.crowdsec.net/u/bouncers/firewall"
+      return
+    fi
+    local pc_env=""
+    if [ -r /etc/os-release ]; then
+      # shellcheck disable=SC1091
+      . /etc/os-release
+      [ "${ID:-}" = "ubuntu" ] && pc_env="os=ubuntu dist=noble"
+    fi
+    curl -s https://packagecloud.io/install/repositories/crowdsec/crowdsec/script.deb.sh | $SUDO env $pc_env bash
+    case "$OS_FAMILY" in
+      debian) run $SUDO apt-get install -y crowdsec-firewall-bouncer-nftables ;;
+      rhel)   run $SUDO dnf install -y crowdsec-firewall-bouncer-nftables 2>/dev/null || run $SUDO yum install -y crowdsec-firewall-bouncer-nftables ;;
+    esac
+  fi
+  if ! command -v crowdsec-firewall-bouncer >/dev/null 2>&1; then
+    warn "crowdsec-firewall-bouncer install failed — the Caddy-edge bouncer (BOUNCER_KEY_caddy) still protects HTTP traffic; host-level enforcement is missing."
+    return
+  fi
+  run $SUDO mkdir -p /etc/crowdsec/bouncers
+  $SUDO tee /etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml >/dev/null <<BOUNCER_EOF
+mode: nftables
+update_frequency: 10s
+log_mode: file
+log_dir: /var/log/
+log_level: info
+api_url: $lapi_url
+api_key: $key
+BOUNCER_EOF
+  $SUDO chmod 600 /etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml
+  if ! curl -s -m 5 -o /dev/null "${lapi_url%/}health"; then
+    warn "LAPI $lapi_url not reachable yet — normal if the crowdsec container is still starting; the bouncer service retries on its own."
+  fi
+  $SUDO systemctl enable --now crowdsec-firewall-bouncer >/dev/null 2>&1 || true
+  if $SUDO systemctl is-active crowdsec-firewall-bouncer >/dev/null 2>&1; then
+    say " - Native firewall bouncer active (LAPI $lapi_url)"
+  else
+    warn "crowdsec-firewall-bouncer did not start — check: systemctl status crowdsec-firewall-bouncer"
+  fi
+}
+
+# `install.sh firewall-rollback` — the documented, tested-by-inspection
+# recovery path (od-5j8.11 acceptance: "lockout recovery is documented").
+# The whole host ruleset lives in ONE named table, so removing it is a
+# single atomic, safe command — it can never partially apply.
+firewall_rollback() {
+  say "Rolling back the otterdeploy host firewall…"
+  if ! command -v nft >/dev/null 2>&1; then
+    say "nft not installed — nothing to roll back."
+    return 0
+  fi
+  if $SUDO nft delete table inet otterdeploy 2>/dev/null; then
+    say "Removed table 'inet otterdeploy' — host firewall fully reverted."
+  else
+    say "No 'inet otterdeploy' table present — nothing to roll back."
+  fi
+  say ""
+  say "The DOCKER-USER guard rule (if inserted) is left in place by design — it's independent of"
+  say "the otterdeploy table. To remove it too:"
+  say "  sudo nft -a list chain ip filter DOCKER-USER   # find the handle tagged 'otterdeploy-guard'"
+  say "  sudo nft delete rule ip filter DOCKER-USER handle <N>"
+}
+
+# `install.sh firewall-status` — read-only inspection of both layers.
+firewall_status_cmd() {
+  say "Host firewall (nftables):"
+  if command -v nft >/dev/null 2>&1 && $SUDO nft list table inet otterdeploy >/dev/null 2>&1; then
+    say "  table 'inet otterdeploy': present"
+  else
+    say "  table 'inet otterdeploy': absent"
+  fi
+  say ""
+  say "Native CrowdSec bouncer:"
+  if command -v systemctl >/dev/null 2>&1 && $SUDO systemctl is-active crowdsec-firewall-bouncer >/dev/null 2>&1; then
+    say "  crowdsec-firewall-bouncer: active"
+  else
+    say "  crowdsec-firewall-bouncer: inactive or not installed"
+  fi
+  say ""
+  say "CrowdSec agent + Caddy edge bouncer: check with"
+  say "  sudo docker compose -f $COMPOSE_FILE --env-file $ENV_FILE ps crowdsec caddy"
+}
+
 # ── 8. bring up the stack ───────────────────────────────────────────────────
 # Populate the COMPOSE_F array with the -f flags to pass to docker compose: the
 # base file, plus an operator-supplied override beside it if present. Compose
@@ -885,8 +1171,22 @@ update_stack() {
 print_firewall_hint() {
   if command -v ufw >/dev/null 2>&1 && $SUDO ufw status 2>/dev/null | grep -qi 'Status: active'; then
     say ""
-    say "UFW is active — allow the edge ports:"
-    say "  sudo ufw allow 80/tcp && sudo ufw allow 443/tcp"
+    say "UFW is active, so otterdeploy left it in place instead of installing nftables alongside it."
+    say "Allow the ports the platform needs:"
+    say "  sudo ufw allow 80,443/tcp"
+    say "  (CrowdSec's Caddy-edge + native bouncers still enforce IP-reputation decisions either way.)"
+    return
+  fi
+  if [ "$FIREWALL" = "true" ]; then
+    say ""
+    say "Firewall: nftables baseline + CrowdSec are ON by default (OTTERDEPLOY_FIREWALL=false to opt out)."
+    say "  Inspect:  bash $0 firewall-status"
+    say "  Rollback: bash $0 firewall-rollback   (removes the host nftables table only; the CrowdSec"
+    say "            containers/profile are unaffected — stop them with --profile firewall down)"
+  else
+    say ""
+    say "Firewall: disabled (OTTERDEPLOY_FIREWALL=false). Re-run with OTTERDEPLOY_FIREWALL=true (or"
+    say "--firewall) to enable the bundled nftables baseline + CrowdSec IP-reputation blocking."
   fi
 }
 
@@ -1001,15 +1301,18 @@ configure() {
   _ctx "host isn't reachable. Only change this if you self-host the compose file."
   _ask COMPOSE_URL OTTERDEPLOY_COMPOSE_URL "Compose source (URL / path / file://)" "$COMPOSE_URL"
 
-  # 3) Firewall
+  # 3) Firewall — od-5j8.11: ON by default (the product's headline
+  #    differentiator). Community IP-reputation blocking (CrowdSec) at both
+  #    the Caddy edge AND the host, plus a default-deny nftables baseline.
   _ctx ""
-  _ctx "Firewall (CrowdSec) — community IP-reputation blocking at the edge proxy."
-  _ctx "Optional, and you can enable it later; it adds a container + a compose profile."
+  _ctx "Firewall — CrowdSec IP-reputation blocking (edge + host) and a default-deny"
+  _ctx "nftables baseline, protecting SSH/edge traffic on this host out of the box."
+  _ctx "Recommended to leave ON; you can disable it later (OTTERDEPLOY_FIREWALL=false)."
   if [ -z "${OTTERDEPLOY_FIREWALL:-}" ]; then
     local fw
-    printf '   \033[1mEnable the bundled CrowdSec firewall?\033[0m [y/N]: ' > "$tty"
+    printf '   \033[1mEnable the bundled firewall (CrowdSec + nftables)?\033[0m [Y/n]: ' > "$tty"
     IFS= read -r fw < "$tty" || fw=""
-    case "$fw" in [Yy]*) FIREWALL=true ;; *) FIREWALL=false ;; esac
+    case "$fw" in [Nn]*) FIREWALL=false ;; *) FIREWALL=true ;; esac
   fi
 
   printf '\n   Config → branching=%s  version=%s  firewall=%s\n           compose=%s\n' \
@@ -1024,13 +1327,17 @@ otterdeploy installer
   curl -fsSL https://get.otterdeploy.com/install.sh | bash -s -- --dry-run
 
 Subcommands:
-  (none)           Install / re-install.
-  update           Pull the new image tag and restart; skips host setup.
+  (none)              Install / re-install.
+  update              Pull the new image tag and restart; skips host setup.
+  firewall-status     Inspect the host nftables table + native CrowdSec bouncer.
+  firewall-rollback   Remove the host nftables table (documented lockout recovery —
+                      the CrowdSec containers/profile are untouched by this).
 
 Flags:
   -n, --dry-run    Preview every action; change nothing on the host.
   -y, --yes        Don't prompt; use env vars + defaults (unattended install).
-      --firewall   Start the bundled CrowdSec (firewall) profile.
+      --firewall   Force-enable the bundled firewall (CrowdSec + nftables) — the default.
+      --no-firewall  Opt out of the bundled firewall entirely.
   -h, --help       Show this help.
 
 Run \`bash install.sh\` on a terminal and it asks for the main options (compose
@@ -1038,6 +1345,13 @@ source, port, data dir, version, branching, firewall) before installing. Piped
 \`curl | bash\`, --yes, --dry-run, or no TTY skip the prompts and use env vars +
 defaults. Any OTTERDEPLOY_* env var that's set is used as-is (that prompt is
 skipped). All flags have env-var equivalents (see header), e.g. OTTERDEPLOY_YES=true.
+
+The bundled firewall (od-5j8.11) is ON BY DEFAULT: CrowdSec's bouncer key/LAPI wiring
+is generated automatically, the \`firewall\` compose profile starts, a default-deny
+nftables baseline is applied to this host (skipped, narrated, if ufw/firewalld is
+already active), and — for servers added later via the dashboard — the same nftables
+baseline + a per-node CrowdSec bouncer are installed during provisioning. Opt out with
+OTTERDEPLOY_FIREWALL=false / --no-firewall.
 EOF
 }
 
@@ -1045,14 +1359,26 @@ main() {
   local mode="install"
   for arg in "$@"; do
     case "$arg" in
-      update)       mode="update" ;;
-      -n|--dry-run) DRY_RUN=true ;;
-      -y|--yes)     ASSUME_YES=true ;;
-      --firewall)   FIREWALL=true ;;
-      -h|--help)    usage; exit 0 ;;
+      update)             mode="update" ;;
+      firewall-status)    mode="firewall-status" ;;
+      firewall-rollback)  mode="firewall-rollback" ;;
+      -n|--dry-run)       DRY_RUN=true ;;
+      -y|--yes)           ASSUME_YES=true ;;
+      --firewall)         FIREWALL=true ;;
+      --no-firewall)      FIREWALL=false ;;
+      -h|--help)          usage; exit 0 ;;
       *) fail "Unknown argument: $arg (try --help)" ;;
     esac
   done
+
+  if [ "$mode" = "firewall-status" ]; then
+    firewall_status_cmd
+    return
+  fi
+  if [ "$mode" = "firewall-rollback" ]; then
+    firewall_rollback
+    return
+  fi
 
   # Ask for the main options on a fresh install when run interactively (no-op
   # under --yes / --dry-run / no TTY). Must run BEFORE the log capture so a
@@ -1090,8 +1416,10 @@ main() {
   prepare_tree
   write_env
   provision_branching
+  provision_host_firewall
   start_stack
   wait_for_health
+  provision_native_bouncer
 
   if [ "$DRY_RUN" = "true" ]; then
     say ""

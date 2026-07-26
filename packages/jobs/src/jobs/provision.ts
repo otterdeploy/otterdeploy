@@ -28,6 +28,11 @@ export const ProvisionServerPayload = z.object({
   passwordCiphertext: z.string().nullable().optional(),
   meshAuthKeyCiphertext: z.string().nullable().optional(),
   cloudflareTokenCiphertext: z.string().nullable().optional(),
+  // od-5j8.11: re-run ONLY the host-firewall + native-bouncer steps against
+  // an already-joined node (drift remediation) — skips Docker install/swarm
+  // join entirely. Requires sshKeyId (no password path: nothing is stored to
+  // reconnect with after the initial join).
+  firewallOnly: z.boolean().default(false),
 });
 export type ProvisionServerPayload = z.infer<typeof ProvisionServerPayload>;
 

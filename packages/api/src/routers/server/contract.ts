@@ -92,6 +92,9 @@ const provisionLineSchema = z.object({
 
 const retryProvisionInput = z.object({ id: serverIdField });
 
+/** od-5j8.11 drift remediation. */
+const reapplyFirewallInput = z.object({ id: serverIdField });
+
 /**
  * `docker node update --availability` for a swarm node, resolved from the
  * server row by hostname. Availability is a swarm scheduler concept, so the
@@ -431,5 +434,23 @@ export const serverContract = {
     })
     .meta({ path: `${basePath}/{id}/retry-provision`, tag, method: "POST" })
     .input(retryProvisionInput)
+    .output(serverSchema),
+  /**
+   * od-5j8.11 — re-apply the host firewall + native CrowdSec bouncer to an
+   * already-joined node. Enqueues the same provisioning job in
+   * firewall-only mode; the operator polls provisionLogs / server.get to
+   * watch firewallStatus flip off "unknown"/"failed".
+   */
+  reapplyFirewall: oc
+    .errors({
+      NOT_FOUND: { status: 404, message: "Server not found" as const },
+      MISSING_CREDENTIAL: {
+        status: 409,
+        message:
+          "This server has no stored managed SSH key — re-add it with a managed key to enable remediation" as const,
+      },
+    })
+    .meta({ path: `${basePath}/{id}/reapply-firewall`, tag, method: "POST" })
+    .input(reapplyFirewallInput)
     .output(serverSchema),
 };

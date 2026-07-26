@@ -9,6 +9,7 @@ import {
   getServer,
   listServers,
   provisionServer,
+  reapplyFirewall,
   retryProvision,
 } from "./handlers";
 import { getServerHealth } from "./health";
@@ -207,6 +208,23 @@ export const serverRouter = {
         throw matchError(result.error, {
           ServerNotFoundError: () => errors.NOT_FOUND(),
           ProvisionNotFailedError: () => errors.NOT_FAILED(),
+          ProvisionMissingCredentialError: () => errors.MISSING_CREDENTIAL(),
+        });
+      }
+      return result.value;
+    },
+  ),
+
+  reapplyFirewall: requirePermission({ server: ["create"] }).server.reapplyFirewall.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "server", id: input.id } });
+      const result = await reapplyFirewall({
+        id: input.id,
+        organizationId: context.activeOrganizationId,
+      });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ServerNotFoundError: () => errors.NOT_FOUND(),
           ProvisionMissingCredentialError: () => errors.MISSING_CREDENTIAL(),
         });
       }

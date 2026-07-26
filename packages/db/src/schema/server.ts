@@ -45,6 +45,17 @@ export const serverMeshProviderEnum = pgEnum("server_mesh_provider", [
   "tailscale",
   "netbird",
 ]);
+// Host-firewall provisioning outcome (od-5j8.11 — docs/designs/vps-firewall-layering.md).
+// "unknown" is the honest default for every row that predates this feature
+// (or ran an older provision) — it's drift, not a false "protected" claim.
+// "unsupported" means an existing ufw/firewalld took precedence (narrated,
+// not a failure); "failed" means the install attempt itself errored.
+export const serverFirewallStatusEnum = pgEnum("server_firewall_status", [
+  "unknown",
+  "applied",
+  "failed",
+  "unsupported",
+]);
 
 export const server = pgTable(
   "server",
@@ -97,6 +108,14 @@ export const server = pgTable(
     // build workloads can be placed on it, off the deploy nodes. Image hand-off
     // is via a registry (build here, deploy nodes pull) — see the design doc.
     buildServer: boolean("build_server").notNull().default(false),
+    // Host-firewall provisioning state (nftables baseline + native CrowdSec
+    // bouncer) — see host-firewall.ts's isFirewallDrifted(). Set by
+    // provision-runner.ts on join and by the reapplyFirewall remediation
+    // path; never by the operator directly.
+    firewallStatus: serverFirewallStatusEnum("firewall_status").notNull().default("unknown"),
+    firewallAppliedAt: timestamp("firewall_applied_at"),
+    firewallError: text("firewall_error"),
+    firewallBouncerActive: boolean("firewall_bouncer_active").notNull().default(false),
     labels: jsonb("labels").$type<string[]>().notNull().default([]),
     joinedAt: timestamp("joined_at").defaultNow().notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),

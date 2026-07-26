@@ -8,7 +8,8 @@
 #   - includes the `server` control plane (dashboard/API on ${CONTROL_PLANE_PORT}).
 #   - all services join the shared EXTERNAL `otterdeploy` network the installer
 #     created (see `networks:` at the bottom).
-#   - the `firewall` profile (CrowdSec) is preserved, still opt-in.
+#   - the `firewall` profile (CrowdSec) is started by DEFAULT by install.sh
+#     (od-5j8.11) — set OTTERDEPLOY_FIREWALL=false / --no-firewall to opt out.
 #   - 5432 is intentionally NOT published — the control plane reaches its own
 #     Postgres over the container network; databases are never exposed on the host.
 #
@@ -194,6 +195,11 @@ services:
       - otterdeploy-caddy-data:/data
       - otterdeploy-caddy-state:/config
       - otterdeploy-caddy-admin:/run/caddy-admin
+      # Rolled access-log mirror the CrowdSec agent tails below (`log
+      # crowdsec-access` in the reconciled Caddyfile) — od-5j8.11: without
+      # this mount, CrowdSec's `crowdsecurity/caddy` collection never sees a
+      # request and HTTP brute-force/CVE-probe scenarios never fire.
+      - otterdeploy-caddy-logs:/var/log/caddy
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
@@ -202,21 +208,56 @@ services:
       timeout: 3s
       retries: 5
 
-  # ── firewall (opt-in: COMPOSE_PROFILES=firewall) ──────────────────────────
+  # ── firewall (od-5j8.11: on by DEFAULT via install.sh — set
+  # OTTERDEPLOY_FIREWALL=false / COMPOSE_PROFILES= to opt out) ───────────────
+  # Full parity with the dev compose (docker-compose.yml) — this is the file
+  # install.sh actually fetches to a host, so it's the one that must carry
+  # the log acquisition + collections wiring or CrowdSec never sees SSH/HTTP
+  # attack traffic in production (the gap od-5j8.11 closed: this block used
+  # to be a bare CAPI-blocklist-only agent with no sshd/Caddy detection).
   crowdsec:
     image: crowdsecurity/crowdsec:latest
+    container_name: otterdeploy-crowdsec
     profiles: ["firewall"]
     restart: unless-stopped
     environment:
       # Auto-register the Caddy bouncer with our shared key on first boot.
       BOUNCER_KEY_caddy: ${CROWDSEC_BOUNCER_KEY:-}
+      # The native host firewall bouncer's own key — install.sh sets it up as
+      # a systemd service on the primary (provision-host-firewall.ts extends
+      # the same install to every node added afterward). Separate key so
+      # either bouncer can be revoked without breaking the other. Empty ⇒
+      # registration skipped.
+      BOUNCER_KEY_firewall: ${CROWDSEC_FIREWALL_BOUNCER_KEY:-}
+      # Parsers + scenarios for the two log sources below (installed on boot)
+      # — od-5j8.11: without this, the agent only ever consumes the CAPI
+      # community blocklist; SSH brute force and HTTP/CVE probes never
+      # generate decisions.
+      COLLECTIONS: "crowdsecurity/sshd crowdsecurity/caddy"
+      # SQLite WAL — without it, concurrent access (cscli + LAPI + blocklist
+      # imports) starves the LAPI into "database is locked" 401s.
+      USE_WAL: "true"
     volumes:
       - otterdeploy-crowdsec-config:/etc/crowdsec
       - otterdeploy-crowdsec-data:/var/lib/crowdsec/data
-    expose:
-      # LAPI — internal only; reached as http://crowdsec:8080 by the Caddy
-      # bouncer, and by the control plane via `cscli` over the Docker socket.
-      - "8080"
+      # Host logs, read-only — the whole directory rather than auth.log
+      # alone, so logrotate's rename doesn't strand a single-file bind mount
+      # on a stale inode.
+      - /var/log:/var/log/host:ro
+      # Caddy's rolled access-log file (`log crowdsec-access` capture).
+      - otterdeploy-caddy-logs:/var/log/caddy:ro
+    configs:
+      - source: crowdsec-acquis
+        target: /etc/crowdsec/acquis.d/otterdeploy.yaml
+    ports:
+      # LAPI on the host LOOPBACK by default — how the native firewall
+      # bouncer (a host process, outside the compose network) reaches the
+      # engine. Multi-server installs: set CROWDSEC_LAPI_BIND to the
+      # manager's routable/mesh IP so firewall bouncers installed on added
+      # nodes can connect (each authenticates with its own API key).
+      # In-network callers are unaffected: Caddy still uses
+      # http://crowdsec:8080 via service DNS.
+      - "${CROWDSEC_LAPI_BIND:-127.0.0.1}:8080:8080"
     healthcheck:
       test: ["CMD", "cscli", "lapi", "status"]
       interval: 15s
@@ -237,5 +278,27 @@ volumes:
   otterdeploy-caddy-data:
   otterdeploy-caddy-state:
   otterdeploy-caddy-admin:
+  otterdeploy-caddy-logs:
   otterdeploy-crowdsec-config:
   otterdeploy-crowdsec-data:
+
+configs:
+  # CrowdSec log acquisition — which logs the agent parses for its
+  # scenarios. Inline so the compose file stays the single artifact an
+  # install carries (mirrors docker-compose.yml).
+  crowdsec-acquis:
+    content: |
+      # Host SSH auth log (sshd parser → ssh-bf / ssh-slow-bf scenarios).
+      source: file
+      filenames:
+        - /var/log/host/auth.log
+      labels:
+        type: syslog
+      ---
+      # Caddy access logs (caddy parser → http scenarios). Written by the
+      # generated Caddyfile's `log crowdsec-access` capture.
+      source: file
+      filenames:
+        - /var/log/caddy/access*.json
+      labels:
+        type: caddy

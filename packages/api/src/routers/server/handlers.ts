@@ -153,6 +153,40 @@ export async function provisionServer(
   return Result.ok(insert.value);
 }
 
+/**
+ * od-5j8.11 drift remediation: re-apply the host firewall + native CrowdSec
+ * bouncer to an already-joined server. Unlike retryProvision this works on
+ * ANY provisionStatus (a "ready" node can still be firewall-drifted) — it
+ * only requires a stored managed SSH key, since a one-time bootstrap
+ * password is never persisted past the initial join.
+ */
+export async function reapplyFirewall(
+  input: { id: ServerId } & OrgRef,
+): Promise<Result<ServerRecord, ServerNotFoundError | ProvisionMissingCredentialError>> {
+  const existing = await getServerInOrg({
+    serverId: input.id,
+    organizationId: input.organizationId,
+  });
+  if (!existing) return Result.err(new ServerNotFoundError({ serverId: input.id }));
+  if (!existing.sshKeyId) {
+    return Result.err(new ProvisionMissingCredentialError({ serverId: input.id }));
+  }
+
+  await enqueueProvision({
+    serverId: existing.id,
+    organizationId: input.organizationId,
+    host: existing.host,
+    sshUser: existing.sshUser,
+    sshPort: existing.sshPort,
+    role: existing.role,
+    sshKeyId: existing.sshKeyId,
+    buildServer: existing.buildServer,
+    meshProvider: "none",
+    firewallOnly: true,
+  });
+  return Result.ok(existing);
+}
+
 export async function retryProvision(
   input: { id: ServerId } & OrgRef,
 ): Promise<
