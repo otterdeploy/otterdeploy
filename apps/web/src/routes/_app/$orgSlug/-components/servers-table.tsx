@@ -83,6 +83,7 @@ export function ServersTable({
             <TableHead className="w-[150px]">Live</TableHead>
             <TableHead className="w-[80px] text-right">Tasks</TableHead>
             <TableHead className="w-[110px]">Status</TableHead>
+            <TableHead className="w-[200px]">Firewall</TableHead>
             <TableHead className="w-[40px] pr-3" aria-label="Open" />
           </TableRow>
         </TableHeader>

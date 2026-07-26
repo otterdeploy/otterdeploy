@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/shared/components/ui/table";
 
+import { FirewallCell } from "./servers-firewall";
 import { LiveHealthCell } from "./servers-live-cell";
 import { RoleBadge, ServerNameCell, StatusBadge, UsageBars } from "./servers-row-cells";
 
@@ -92,6 +93,12 @@ export function ServerRow({
 
       <TableCell>
         <StatusBadge status={server.status} availability={server.availability} />
+      </TableCell>
+
+      {/* stopPropagation: the reapply action opens its own progress popover;
+          it shouldn't also open the row's health sheet. */}
+      <TableCell onClick={(e) => e.stopPropagation()}>
+        <FirewallCell server={server} />
       </TableCell>
 
       <TableCell className="pr-3">
