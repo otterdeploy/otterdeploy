@@ -52,6 +52,7 @@ export const deploymentSchema = z.object({
     "crashed",
     "paused",
     "failed",
+    "cancelled",
     "superseded",
     "removed",
   ]),

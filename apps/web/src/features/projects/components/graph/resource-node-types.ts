@@ -89,6 +89,7 @@ export interface PreviewInfo {
     | "building"
     | "running"
     | "failed"
+    | "cancelled"
     | "superseded"
     | "removed"
     | "none"

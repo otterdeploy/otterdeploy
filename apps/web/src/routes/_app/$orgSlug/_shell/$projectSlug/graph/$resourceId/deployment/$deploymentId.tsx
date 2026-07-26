@@ -14,6 +14,7 @@ import { deploymentsCollection } from "@/features/resources/data/deployments";
 import { orpc } from "@/shared/server/orpc";
 import { resourceCollection } from "@/features/resources/data/resource";
 
+import { CancelDeploymentButton } from "@/features/deployments/components/cancel-deployment-button";
 import { DeploymentStatusDot } from "./-components/deployment-detail";
 import { DeploymentTabs, type DeploymentTab, DEPLOYMENT_TABS } from "./-components/deployment-tabs";
 
@@ -152,6 +153,15 @@ function RouteComponent() {
             )}
           </div>
           <div className="flex items-center gap-3">
+            {/* Renders itself away unless this deployment is still in flight. */}
+            {deployment && (
+              // The loaded row's id, not the route param — it carries the
+              // branded type, and it is the row we are actually acting on.
+              <CancelDeploymentButton
+                deploymentId={deployment.id}
+                status={deployment.status}
+              />
+            )}
             <span className="font-mono text-[11.5px] text-muted-foreground">
               {deployment
                 ? new Date(deployment.createdAt).toLocaleString()

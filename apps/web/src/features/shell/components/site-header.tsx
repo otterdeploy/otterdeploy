@@ -5,6 +5,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Link, useLoaderData, useMatch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
+import { ActivityIndicator } from "@/features/activity/activity-indicator";
 import { setCommandPaletteOpen } from "@/features/command-palette/hooks/use-command-palette";
 import { NotificationInboxPopover } from "@/features/notifications/inbox-popover";
 import { useResourceOverlay } from "@/features/projects/components/new-resource/overlay-provider";
@@ -79,6 +80,10 @@ export function SiteHeader() {
           >
             <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="size-4" />
           </Button>
+
+          {/* Left of the bell, and self-hiding when idle: present state first,
+              then unread history. Two controls, one question each. */}
+          <ActivityIndicator orgSlug={organization.slug} />
 
           <NotificationInboxPopover orgSlug={organization.slug} />
 

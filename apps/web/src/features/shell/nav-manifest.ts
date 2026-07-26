@@ -21,6 +21,7 @@
 
 import {
   Alert01Icon,
+  BellDotIcon,
   Database02Icon,
   DatabaseIcon,
   DeviceAccessIcon,
@@ -29,7 +30,6 @@ import {
   FlashIcon,
   GitBranchIcon,
   Home01Icon,
-  Notification03Icon,
   Key01Icon,
   Key02Icon,
   PackageIcon,
@@ -193,7 +193,7 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         // Settings → Workspace.
         title: "Notifications",
         to: "/$orgSlug/notifications",
-        icon: Notification03Icon,
+        icon: BellDotIcon,
         keywords: ["alerts", "slack", "discord", "email", "webhook", "telegram", "pagerduty"],
       },
     ],

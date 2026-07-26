@@ -42,6 +42,10 @@ export { jobs, jobsByName } from "./registry";
 export { reconcileInterruptedDeployments } from "./reconcile";
 export { inFlightDeploys, type InFlightDeploys } from "./in-flight";
 
+// The deploy job definition itself — the control plane needs its queue name to
+// pull a not-yet-started build out of the queue when an operator cancels it.
+export { deployTriggeredJob } from "./jobs/deploy";
+
 // Definition helper — exported for callers adding new jobs in apps.
 export { defineJob } from "./define";
 export type { JobDef, JobContext } from "./define";

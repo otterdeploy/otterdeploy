@@ -9,7 +9,11 @@
     "create": "Create",
     "openSidebar": "Open sidebar",
     "closeSidebar": "Close sidebar",
-    "notifications": "Notifications",
+    "notifications": {
+      "title": "Notifications",
+      "unread": "Notifications — {{count}} unread",
+      "labelFailure": "includes a failure"
+    },
     "toggleTheme": "Toggle theme",
     "language": "Language"
   },

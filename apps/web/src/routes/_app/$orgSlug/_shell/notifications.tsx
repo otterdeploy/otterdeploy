@@ -19,7 +19,7 @@
  */
 import { useMemo, useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Notification03Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import { BellDotIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { createFileRoute } from "@tanstack/react-router";
 import { useLiveQuery } from "@tanstack/react-db";
 import { toast } from "sonner";
@@ -175,7 +175,7 @@ function RouteComponent() {
         <Empty className="rounded-md border border-dashed bg-muted/20 py-12">
           <EmptyHeader>
             <HugeiconsIcon
-              icon={Notification03Icon}
+              icon={BellDotIcon}
               strokeWidth={1.5}
               className="size-10 text-muted-foreground/50"
             />

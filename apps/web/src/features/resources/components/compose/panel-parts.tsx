@@ -35,6 +35,7 @@ type DeploymentStatus =
   | "crashed"
   | "paused"
   | "failed"
+  | "cancelled"
   | "superseded"
   | "removed"
   | null;

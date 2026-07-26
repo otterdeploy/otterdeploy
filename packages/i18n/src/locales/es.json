@@ -9,7 +9,11 @@
     "create": "Crear",
     "openSidebar": "Abrir barra lateral",
     "closeSidebar": "Cerrar barra lateral",
-    "notifications": "Notificaciones",
+    "notifications": {
+      "title": "Notificaciones",
+      "unread": "Notificaciones — {{count}} sin leer",
+      "labelFailure": "incluye un fallo"
+    },
     "toggleTheme": "Cambiar tema",
     "language": "Idioma"
   },

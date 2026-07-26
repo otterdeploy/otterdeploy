@@ -31,7 +31,17 @@ export const databaseResourceSchema = z.object({
   // (building/pending) from "container genuinely gone" — the graph card
   // falls back to it before declaring an error. Null when never deployed.
   latestDeploymentStatus: z
-    .enum(["pending", "building", "starting", "running", "crashed", "failed", "superseded", "removed"])
+    .enum([
+      "pending",
+      "building",
+      "starting",
+      "running",
+      "crashed",
+      "failed",
+      "cancelled",
+      "superseded",
+      "removed",
+    ])
     .nullable(),
   latestDeploymentStartedAt: z.string().nullable(),
   latestDeploymentFinishedAt: z.string().nullable(),
@@ -101,6 +111,7 @@ export const serviceResourceSchema = z.object({
       "crashed",
       "paused",
       "failed",
+      "cancelled",
       "superseded",
       "removed",
     ])
@@ -170,7 +181,17 @@ export const composeResourceSchema = z.object({
   type: z.literal("compose"),
   status: z.enum(["draft", "valid", "invalid"]),
   latestDeploymentStatus: z
-    .enum(["pending", "building", "starting", "running", "crashed", "failed", "superseded", "removed"])
+    .enum([
+      "pending",
+      "building",
+      "starting",
+      "running",
+      "crashed",
+      "failed",
+      "cancelled",
+      "superseded",
+      "removed",
+    ])
     .nullable(),
   // Latest deployment timestamps — drive the live build/deploy duration on the
   // graph node. ISO strings; `finishedAt` is null while the deploy is in flight.

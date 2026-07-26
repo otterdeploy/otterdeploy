@@ -35,8 +35,9 @@ interface Env {
  * the fallback source when R2 has no object yet (see `fallback`).
  *
  * Note `docker-compose.yml` maps to `docker-compose.prod.yml`. The repo's own
- * `docker-compose.yml` builds from source and references a local dev image
- * (`otterdeploy-builder:latest-1`); serving it to a fresh host fails on pull.
+ * `docker-compose.yml` builds from source and references a locally-built dev
+ * image (the `x-builder-image` anchor, never published to a registry); serving
+ * it to a fresh host fails on pull.
  * The published name is deliberately the plain one so the installer's default
  * `docker compose -f docker-compose.yml` works with no flag.
  */

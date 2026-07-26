@@ -209,6 +209,19 @@ export function makeBuildJob() {
           try {
             const { exitCode, tail } = await runHelperContainer(deploymentId, { sourceTarball });
             const status = await getDeploymentStatus(deploymentId).catch(() => null);
+
+            // An operator cancelled while this was building: the control plane
+            // wrote `cancelled` and THEN force-removed the container, so the
+            // non-zero exit we just saw is the cancellation itself, not a
+            // failure. Stop here — retrying would relaunch the very build they
+            // asked us to stop, and marking it failed would overwrite their
+            // intent with a red row.
+            if (status === "cancelled") {
+              log.info({ build: { event: "cancelled", deploymentId, exitCode, attempt } });
+              outcome = { ok: false, error: "cancelled" };
+              break;
+            }
+
             const unconverged = status === "pending" || status === "building";
 
             if (unconverged && attempt < MAX_ATTEMPTS) {

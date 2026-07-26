@@ -35,6 +35,7 @@ export interface DeploymentInfo {
     | "crashed"
     | "paused"
     | "failed"
+    | "cancelled"
     | "superseded"
     | "removed";
   errorMessage: string | null;
@@ -137,6 +138,10 @@ const STATUS_LABEL: Record<DeploymentInfo["status"], string> = {
   // never reads as the green live "running" it replaces.
   paused: "paused",
   failed: "failed",
+  // Grey like `replaced`, never the destructive palette: a build someone
+  // stopped on purpose is not an incident, and colouring it red would send
+  // people digging through logs for a fault that was never there.
+  cancelled: "cancelled",
   superseded: "replaced",
   removed: "removed",
 };

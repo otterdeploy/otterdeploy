@@ -19,7 +19,7 @@ import type { DeploymentId } from "@otterdeploy/shared/id";
 import { publishResourceChanged } from "@otterdeploy/api/routers/project/project-event-bus";
 import { db } from "@otterdeploy/db";
 import { deployment } from "@otterdeploy/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 // Build error tails routinely carry ANSI color codes (pino pretty output, tool
 // progress bars, the captured container stderr). Strip them at the storage
@@ -58,7 +58,14 @@ export async function markFailed(deploymentId: DeploymentId, errorMessage: strin
       errorMessage: stripAnsi(errorMessage).slice(0, 2000),
       completedAt: new Date(),
     })
-    .where(eq(deployment.id, deploymentId))
+    // Only from a still-in-flight row. Cancelling force-removes the helper
+    // container, so the build reliably dies mid-step and its error path calls
+    // in here — unconditional, that would rewrite the operator's `cancelled`
+    // into a red `failed` moments after they clicked stop. Terminal states are
+    // terminal; the last writer must not win.
+    .where(
+      and(eq(deployment.id, deploymentId), inArray(deployment.status, ["pending", "building"])),
+    )
     .returning({ resourceId: deployment.resourceId });
   publishFor(rows);
 }

@@ -3,6 +3,7 @@ import { eq, useLiveQuery } from "@tanstack/react-db";
 import { createFileRoute, notFound, Outlet } from "@tanstack/react-router";
 import * as z from "zod";
 
+import { useProjectDeployStatus } from "@/features/deployments/hooks/use-deploy-status";
 import { envCollection } from "@/features/projects/data/env";
 import { projectCollection } from "@/features/projects/data/project";
 import { resourceCollection } from "@/features/resources/data/resource";
@@ -76,6 +77,11 @@ function RouteComponent() {
   // event stream so the two share a lifetime — the tab stops reporting the
   // moment you leave the project.
   useProjectStatus(project?.id ?? null);
+
+  // …and the build pipeline's state, which the task rollup cannot see: a
+  // deployment has no swarm task while it is still building, so without this the
+  // tab stays blank through the slowest part of a deploy.
+  useProjectDeployStatus(project?.id ?? null);
 
   const { data: resources } = useLiveQuery(
     (q) =>

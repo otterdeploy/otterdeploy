@@ -48,6 +48,7 @@ export type ProjectDeploymentsStatusFilter =
   | "building"
   | "running"
   | "failed"
+  | "cancelled"
   | "superseded"
   | "removed";
 

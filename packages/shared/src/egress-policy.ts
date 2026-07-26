@@ -314,19 +314,39 @@ function requestPinnedAddress(
     // observed on Bun, a `destroy(err)` during the TCP-connect phase (e.g.
     // dialing a routable-but-unreachable private address) fires `close`
     // without ever firing `error`. Track settlement explicitly and treat
-    // `close` as a fallback timeout rather than trusting `error` alone —
+    // `close` as a fallback failure rather than trusting `error` alone —
     // otherwise a single unreachable target can wedge the caller (a BullMQ
     // worker slot, a request handler) indefinitely instead of failing
     // within `timeoutMs` as documented.
+    //
+    // That fallback MUST be gated on never having seen a response: Bun emits
+    // the request's `close` BEFORE the response's `end` (node emits it after),
+    // so an ungated `close` handler rejects perfectly good 200s and takes down
+    // every outbound call on Bun — GitHub App auth and repo inspect, registry
+    // probes, webhook and notification delivery.
     let settled = false;
+    let responseStarted = false;
+    // Why we destroyed the request, when we destroyed it deliberately. Bun can
+    // swallow a `destroy(err)` during connect (firing `close` with no `error`),
+    // so the close handler below reports this instead of a generic failure —
+    // otherwise a genuine timeout surfaces as an unexplained connect abort.
+    let abortReason: Error | undefined;
+    // Deliberately our own timer rather than `req.setTimeout`: this is the
+    // documented hard wall-clock deadline for the hop (not an idle-socket
+    // timeout), and on Bun the socket-timeout path emits `close` BEFORE it runs
+    // the `setTimeout` callback — so only a timer we control is guaranteed to
+    // have set `abortReason` before the close handler reads it.
+    let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
     const settleResolve = (value: RawEgressResponse) => {
       if (settled) return;
       settled = true;
+      clearTimeout(deadlineTimer);
       resolve(value);
     };
     const settleReject = (cause: unknown) => {
       if (settled) return;
       settled = true;
+      clearTimeout(deadlineTimer);
       reject(cause instanceof Error ? cause : new EgressPolicyError(String(cause)));
     };
 
@@ -344,6 +364,7 @@ function requestPinnedAddress(
         lookup: fixedLookup(address),
       },
       (res) => {
+        responseStarted = true;
         const declared = Number(res.headers["content-length"] ?? 0);
         if (Number.isFinite(declared) && declared > maxBytes) {
           res.destroy();
@@ -370,12 +391,20 @@ function requestPinnedAddress(
         res.on("error", settleReject);
       },
     );
-    req.setTimeout(timeoutMs, () => {
-      req.destroy(new EgressPolicyError("Outbound request timed out."));
-    });
+    deadlineTimer = setTimeout(() => {
+      abortReason = new EgressPolicyError("Outbound request timed out.");
+      req.destroy(abortReason);
+    }, timeoutMs);
+    deadlineTimer.unref?.();
     req.on("error", settleReject);
     req.on("close", () => {
-      settleReject(new EgressPolicyError("Outbound request timed out."));
+      // Response in flight (or already delivered) → this is normal completion
+      // on Bun, and `res`'s own `end`/`error` owns the outcome. Only a close
+      // with no response at all is the silent connect abort worth failing on.
+      if (responseStarted) return;
+      settleReject(
+        abortReason ?? new EgressPolicyError("Outbound request failed before any response."),
+      );
     });
     if (bodyBuf) req.write(bodyBuf);
     req.end();
@@ -496,7 +525,8 @@ function resolveRedirectTarget(input: {
   // body. A demoted redirect drops the body — never silently replay a
   // signed/authenticated payload to a hop the tenant's original target
   // chose.
-  const demote = raw.status === 303 || (input.method !== "GET" && raw.status !== 307 && raw.status !== 308);
+  const demote =
+    raw.status === 303 || (input.method !== "GET" && raw.status !== 307 && raw.status !== 308);
   return {
     url: next,
     method: demote ? "GET" : input.method,

@@ -34,6 +34,7 @@ export const previewServiceSchema = z.object({
     "building",
     "running",
     "failed",
+    "cancelled",
     "superseded",
     "removed",
     "none",

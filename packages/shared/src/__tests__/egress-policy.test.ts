@@ -1,6 +1,8 @@
 import type { LookupAddress } from "node:dns";
+import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { describe, expect, mock, test } from "bun:test";
+import { createServer } from "node:http";
 
 import {
   assertAllowedEgressUrl,
@@ -100,7 +102,12 @@ describe("isForbiddenEgressAddress", () => {
 
 describe("assertAllowedEgressUrl", () => {
   test("normalizes every encoded IPv4 form to the canonical dotted form", () => {
-    for (const url of ["http://127.1/", "http://0x7f.1/", "http://2130706433/", "http://017700000001/"]) {
+    for (const url of [
+      "http://127.1/",
+      "http://0x7f.1/",
+      "http://2130706433/",
+      "http://017700000001/",
+    ]) {
       expect(assertAllowedEgressUrl(url, { allowHttp: true }).hostname).toBe("127.0.0.1");
     }
   });
@@ -246,9 +253,157 @@ describe("egressFetch", () => {
 
   test("denies a plain-http target unless allowHttp is set", async () => {
     const resolveHost = mock(() => Promise.resolve([publicAddress]));
-    await expect(
-      egressFetch("http://public.example/hook", {}, { resolveHost }),
-    ).rejects.toThrow("Only HTTPS");
+    await expect(egressFetch("http://public.example/hook", {}, { resolveHost })).rejects.toThrow(
+      "Only HTTPS",
+    );
     expect(resolveHost).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The tests above all inject a fake `request`, so none of them touch
+ * `requestPinnedAddress` — the function that actually opens the socket. That
+ * gap let a release ship in which EVERY outbound call failed on Bun: the
+ * request's `close` fires before the response's `end` there (node emits it
+ * after), so an ungated close-as-failure fallback rejected successful 200s and
+ * broke GitHub App auth, repo inspect, registry probes, and webhook delivery
+ * while the suite stayed green.
+ *
+ * These drive the real node http path against a throwaway loopback server,
+ * using the operator `allowAddresses` carve-out (the documented mechanism for
+ * reaching a private target) so the policy's own SSRF denial doesn't reject
+ * the fixture before a socket opens.
+ */
+describe("egressFetch over a real socket", () => {
+  const loopbackCarveOut = { allowHttp: true, allowAddresses: ["127.0.0.0/8"] } as const;
+
+  /** Starts a server on a random loopback port; returns its base URL + stop fn. */
+  async function serve(
+    handler: (req: IncomingMessage, res: ServerResponse) => void,
+  ): Promise<{ url: string; stop: () => Promise<void> }> {
+    const server = createServer(handler);
+    await new Promise<void>((ready) => server.listen(0, "127.0.0.1", ready));
+    const address = server.address();
+    if (address === null || typeof address === "string") throw new Error("no port");
+    return {
+      url: `http://127.0.0.1:${address.port}`,
+      stop: () =>
+        new Promise<void>((done) => {
+          server.closeAllConnections?.();
+          server.close(() => done());
+        }),
+    };
+  }
+
+  test("resolves a successful response instead of rejecting when the request closes", async () => {
+    const { url, stop } = await serve((_req, res) => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+    });
+    try {
+      const res = await egressFetch(`${url}/repos`, {}, { ...loopbackCarveOut, timeoutMs: 5000 });
+      expect(res.status).toBe(200);
+      expect(res.ok).toBe(true);
+      expect(await res.json()).toEqual({ ok: true });
+    } finally {
+      await stop();
+    }
+  });
+
+  test("sends the method, headers and body, and reads back a chunked response", async () => {
+    let seen: { method?: string; auth?: string; body?: string } = {};
+    const { url, stop } = await serve((req, res) => {
+      const chunks: Buffer[] = [];
+      req.on("data", (c: Buffer) => chunks.push(c));
+      req.on("end", () => {
+        seen = {
+          method: req.method,
+          auth: req.headers.authorization,
+          body: Buffer.concat(chunks).toString("utf8"),
+        };
+        res.writeHead(201);
+        // Two writes → the body arrives across multiple `data` events.
+        res.write("part-one;");
+        res.end("part-two");
+      });
+    });
+    try {
+      const res = await egressFetch(
+        `${url}/access_tokens`,
+        { method: "POST", headers: { authorization: "Bearer jwt" }, body: '{"n":1}' },
+        { ...loopbackCarveOut, timeoutMs: 5000 },
+      );
+      expect(res.status).toBe(201);
+      expect(await res.text()).toBe("part-one;part-two");
+      expect(seen).toEqual({ method: "POST", auth: "Bearer jwt", body: '{"n":1}' });
+    } finally {
+      await stop();
+    }
+  });
+
+  test("follows a real redirect hop", async () => {
+    const target = await serve((_req, res) => res.end("landed"));
+    const origin = await serve((_req, res) => {
+      res.writeHead(302, { location: `${target.url}/final` });
+      res.end();
+    });
+    try {
+      const res = await egressFetch(
+        `${origin.url}/start`,
+        {},
+        { ...loopbackCarveOut, timeoutMs: 5000 },
+      );
+      expect(res.status).toBe(200);
+      expect(await res.text()).toBe("landed");
+      expect(res.url).toBe(`${target.url}/final`);
+    } finally {
+      await origin.stop();
+      await target.stop();
+    }
+  });
+
+  test("enforces the body cap against the streamed bytes", async () => {
+    const { url, stop } = await serve((_req, res) => {
+      // No content-length → the cap must be caught while streaming.
+      res.writeHead(200, { "transfer-encoding": "chunked" });
+      res.write("x".repeat(400));
+      res.end("x".repeat(400));
+    });
+    try {
+      await expect(
+        egressFetch(`${url}/big`, {}, { ...loopbackCarveOut, timeoutMs: 5000, maxBytes: 128 }),
+      ).rejects.toThrow("exceeds 128 bytes");
+    } finally {
+      await stop();
+    }
+  });
+
+  test("fails bounded rather than wedging when the peer closes without responding", async () => {
+    const { url, stop } = await serve((_req, res) => res.socket?.destroy());
+    try {
+      const started = Date.now();
+      // A socket reset surfaces as the runtime's own connection Error (not an
+      // EgressPolicyError); what the close fallback guarantees is that the call
+      // settles at all, well inside the budget, instead of wedging the caller.
+      await expect(
+        egressFetch(`${url}/dead`, {}, { ...loopbackCarveOut, timeoutMs: 5000 }),
+      ).rejects.toThrow(Error);
+      expect(Date.now() - started).toBeLessThan(5000);
+    } finally {
+      await stop();
+    }
+  });
+
+  test("times out a peer that accepts the connection but never responds", async () => {
+    const { url, stop } = await serve(() => {
+      /* deliberately never respond */
+    });
+    try {
+      await expect(
+        egressFetch(`${url}/hang`, {}, { ...loopbackCarveOut, timeoutMs: 300 }),
+      ).rejects.toThrow("timed out");
+    } finally {
+      await stop();
+    }
   });
 });

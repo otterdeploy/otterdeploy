@@ -10,6 +10,7 @@ export type PreviewRowStatus =
   | "building"
   | "ready"
   | "failed"
+  | "cancelled"
   | "superseded"
   | "removed";
 
@@ -37,6 +38,8 @@ const STATUS_LABEL: Record<PreviewRowStatus, string> = {
   building: "🟠 Building",
   ready: "🟢 Ready",
   failed: "🔴 Failed",
+  // Grey, not red — a preview someone stopped on purpose isn't a broken PR.
+  cancelled: "⚪ Cancelled",
   superseded: "⚪ Superseded",
   removed: "⚪ Removed",
 };
@@ -127,6 +130,8 @@ export function rowStatusFromDeployment(status: string | null | undefined): Prev
       return "ready";
     case "failed":
       return "failed";
+    case "cancelled":
+      return "cancelled";
     case "superseded":
       return "superseded";
     case "removed":

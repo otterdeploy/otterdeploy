@@ -138,7 +138,7 @@ function paint(status: MarkStatus, elapsedMs: number): string | null {
   return canvas.toDataURL("image/png");
 }
 
-/** The link element we repaint. Created once, ahead of the static ones. */
+/** The link element we repaint. Created once, appended to the head. */
 function managedLink(): HTMLLinkElement {
   const existing = document.getElementById(MANAGED_ID);
   if (existing instanceof HTMLLinkElement) return existing;
@@ -154,6 +154,41 @@ function removeManagedLink(): void {
   document.getElementById(MANAGED_ID)?.remove();
 }
 
+/** Static icon declarations pulled out of the way, kept so we can put them back. */
+let suppressed: HTMLLinkElement[] = [];
+
+/**
+ * Removes the competing static `<link rel="icon">` declarations from index.html.
+ *
+ * This is load-bearing, not tidying. index.html ships an SVG icon, and a browser
+ * elects ONE icon from everything declared: Chrome takes the scalable SVG and
+ * scales it itself (index.html says as much), so it never looks at the canvas
+ * PNG we append and the tab stays frozen on the static mark no matter what we
+ * paint. Adding our link "first" wouldn't fix it either — election is by type
+ * and size, not document order. The only deterministic answer is to leave
+ * exactly one icon link in the document, so there is nothing to elect.
+ *
+ * `rel~="icon"` matches `icon` and `shortcut icon` but not `apple-touch-icon`
+ * (a single different token), so the homescreen icon and the manifest are left
+ * alone — neither participates in tab-strip election.
+ *
+ * Called only after a frame has actually painted, so a blocked or headless
+ * canvas leaves the static icons up rather than stripping the tab bare.
+ */
+function suppressStaticIcons(): void {
+  if (suppressed.length > 0) return;
+  for (const link of document.head.querySelectorAll<HTMLLinkElement>('link[rel~="icon"]')) {
+    if (link.id === MANAGED_ID) continue;
+    suppressed.push(link);
+    link.remove();
+  }
+}
+
+function restoreStaticIcons(): void {
+  for (const link of suppressed) document.head.append(link);
+  suppressed = [];
+}
+
 function stopLoop(): void {
   if (timer !== null) clearInterval(timer);
   timer = null;
@@ -161,7 +196,12 @@ function stopLoop(): void {
 
 function render(): void {
   const href = paint(current, performance.now() - startedAt);
-  if (href) managedLink().href = href;
+  // No canvas (headless, blocked) — leave the static icons in place untouched.
+  if (!href) return;
+  // Point ours at the frame BEFORE removing the others, so there is never a
+  // moment where the document declares no icon at all.
+  managedLink().href = href;
+  suppressStaticIcons();
 }
 
 /**
@@ -210,5 +250,8 @@ export function setFaviconStatus(status: MarkStatus): void {
 export function resetFavicon(): void {
   stopLoop();
   removeManagedLink();
+  // Put index.html's declarations back, or teardown would leave the tab with no
+  // icon at all — worse than the static one we replaced.
+  restoreStaticIcons();
   current = "idle";
 }

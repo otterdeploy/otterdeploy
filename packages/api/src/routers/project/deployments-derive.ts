@@ -14,11 +14,7 @@ import type { DeploymentRow } from "./deployments";
  * the DB row stays at its lifecycle status, so they live here at the derivation
  * boundary rather than in the `deployment_status` DB enum.
  */
-export type DerivedDeploymentStatus =
-  | DeploymentRow["status"]
-  | "crashed"
-  | "starting"
-  | "paused";
+export type DerivedDeploymentStatus = DeploymentRow["status"] | "crashed" | "starting" | "paused";
 
 /** The slice of a live container/task the derivation needs. Swarm tasks carry
  *  exitCode on failed tasks; plain-docker fills exitCode/restartCount/oomKilled
@@ -120,12 +116,18 @@ function diedAbnormally(i: InstanceGlimpse): boolean {
  * live/in-flight when a newer deploy took over" — never a swallowed failure,
  * which would erase the one thing you want to know about an old deployment (did
  * it succeed or fail?). A failed deploy stays failed forever.
+ *
+ * `cancelled` is an outcome by the same argument and is preserved ahead of
+ * everything else: someone stopped this build on purpose, and rewriting that to
+ * `superseded` (or to `failed`, if docker left failed tasks behind from the
+ * container we killed) would erase the answer to "why did this stop?".
  */
 function deriveReplacedStatus(
   stored: DeploymentRow["status"],
   failedCount: number,
   crashLooping: boolean,
 ): DerivedDeploymentStatus {
+  if (stored === "cancelled") return "cancelled";
   return stored === "failed" || failedCount > 0 || crashLooping ? "failed" : "superseded";
 }
 
@@ -228,6 +230,14 @@ export function deriveDeploymentStatus(
   buildActive: boolean,
   paused: boolean,
 ): DerivedDeploymentStatus {
+  // Cancelled is terminal by operator intent and outranks every live signal,
+  // including `paused`. Cancelling kills the helper container mid-build, which
+  // routinely leaves failed tasks behind — deriving from those would relabel a
+  // deliberate stop as `failed` (or, on a paused service, as `paused`, implying
+  // it might still come back). Nothing observed after the fact can change the
+  // fact that a human stopped this deployment.
+  if (stored === "cancelled") return "cancelled";
+
   // A paused service is scaled to zero on purpose. That overrides the runtime
   // status of its current deployment — otherwise the last-known "running"
   // sticks (0 tasks derives back to the stored status) and the card shows a

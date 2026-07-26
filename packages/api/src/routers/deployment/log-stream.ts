@@ -53,6 +53,7 @@ interface StreamInput {
 const TERMINAL_STATUSES: ReadonlySet<string> = new Set([
   "running",
   "failed",
+  "cancelled",
   "superseded",
   "removed",
 ]);

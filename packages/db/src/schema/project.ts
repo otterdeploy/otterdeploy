@@ -643,11 +643,18 @@ export const composeResource = pgTable(
 // spec with `otterdeploy.deployment.id=<id>` so the tasks docker schedules
 // inherit the link via Spec.ContainerSpec.Labels. The Deployments tab in
 // the UI lists these rows and expands each to show its underlying tasks.
+// `cancelled` is deliberately its own terminal rather than a flavour of
+// `failed`: an operator stopping a build and a build breaking are different
+// events, and collapsing them makes deployment history unreadable (every
+// abandoned build reads as a red failure you have to open to understand). It
+// also gives the builder a way to tell "the helper died" from "a human stopped
+// this", which is what suppresses the retry in apps/builder/src/handler.ts.
 export const deploymentStatusEnum = pgEnum("deployment_status", [
   "pending",
   "building",
   "running",
   "failed",
+  "cancelled",
   "superseded",
   "removed",
 ]);

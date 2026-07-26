@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vite-plus/test";
 
+import { bellLabel } from "./bell-badge";
 import {
   channelTargetHint,
   eventLabel,
   eventSeverityOf,
   inboxDetailRows,
   inboxEventId,
+  worstSeverity,
 } from "./shared";
 
 describe("channelTargetHint", () => {
@@ -133,5 +135,62 @@ describe("inboxDetailRows", () => {
   it("returns an empty array for null / undefined data", () => {
     expect(inboxDetailRows(null)).toEqual([]);
     expect(inboxDetailRows(undefined)).toEqual([]);
+  });
+});
+
+describe("worstSeverity", () => {
+  const item = (eventId: string) => ({ data: { eventId } });
+
+  it("returns null for an empty list, so the badge stays off", () => {
+    expect(worstSeverity([])).toBeNull();
+  });
+
+  it("picks the most concerning, not the first or the newest", () => {
+    // The ordering matters: a failure listed last must still win, or a burst of
+    // routine chatter would bury the one row worth acting on.
+    expect(worstSeverity([item("deploy.started"), item("build.failed")])).toBe("err");
+    expect(worstSeverity([item("build.failed"), item("deploy.started")])).toBe("err");
+    expect(worstSeverity([item("deploy.succeeded"), item("health.degraded")])).toBe("warn");
+  });
+
+  it("ranks err > warn > info > ok", () => {
+    expect(worstSeverity([item("cert.expiring"), item("cert.renewed")])).toBe("warn");
+    expect(worstSeverity([item("deploy.started"), item("deploy.succeeded")])).toBe("info");
+    expect(worstSeverity([item("deploy.succeeded")])).toBe("ok");
+  });
+
+  it("treats a payload with no usable eventId as info rather than dropping it", () => {
+    // Dropping it would silently hide a notification the user can see listed.
+    expect(worstSeverity([{ data: null }])).toBe("info");
+    expect(worstSeverity([{ data: { eventId: "" } }])).toBe("info");
+    expect(worstSeverity([{ data: { nope: 1 } }])).toBe("info");
+  });
+
+  it("maps an unknown future event id to info, matching eventSeverityOf", () => {
+    expect(worstSeverity([item("future.event")])).toBe("info");
+  });
+});
+
+describe("bellLabel", () => {
+  it("announces the bare unread state on its own", () => {
+    expect(bellLabel({ unread: "Notifications", failure: null })).toBe("Notifications");
+  });
+
+  it("appends the failure hint only when one applies", () => {
+    expect(bellLabel({ unread: "Notifications — 2 unread", failure: null })).toBe(
+      "Notifications — 2 unread",
+    );
+    expect(bellLabel({ unread: "Notifications — 1 unread", failure: "has a failure" })).toBe(
+      "Notifications — 1 unread — has a failure",
+    );
+  });
+
+  it("says nothing about builds — those belong to the activity indicator", () => {
+    // The bell answers "anything unread?" and only that. In-flight work is the
+    // activity indicator's job, and duplicating it here is what made the old
+    // pulsing ring both redundant and (being project-scoped) frequently wrong.
+    expect(bellLabel({ unread: "Notifications — 3 unread", failure: "failure" })).toBe(
+      "Notifications — 3 unread — failure",
+    );
   });
 });
