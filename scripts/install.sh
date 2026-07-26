@@ -131,6 +131,26 @@ detect_public_host() {
   printf '%s' "$ip"
 }
 
+# od-5j8.10: the control plane only honors X-Forwarded-For/X-Forwarded-Proto
+# from an immediate peer in TRUSTED_PROXIES (packages/env/src/server.ts) —
+# otherwise a tenant workload or a direct caller could spoof its IP/scheme
+# past rate limits, IP allowlists, and audit-log attribution. The Caddy edge
+# container reaches `server:3000` over the shared "$EDGE_NETWORK" network, so
+# its actual subnet (assigned by Docker, not predictable ahead of time) has
+# to be trusted alongside loopback. Called AFTER ensure_network, once the
+# network exists to inspect; falls back to loopback-only (the app's own safe
+# default) if inspection fails for any reason.
+detect_trusted_proxies() {
+  local subnets
+  subnets="$($SUDO docker network inspect "$EDGE_NETWORK" \
+    --format '{{range .IPAM.Config}}{{.Subnet}},{{end}}' 2>/dev/null | sed 's/,$//')"
+  if [ -n "$subnets" ]; then
+    printf '127.0.0.1/32,::1/128,%s' "$subnets"
+  else
+    printf '127.0.0.1/32,::1/128'
+  fi
+}
+
 restart_docker() {
   if command -v systemctl >/dev/null 2>&1; then run $SUDO systemctl restart docker
   elif command -v service >/dev/null 2>&1; then run $SUDO service docker restart
@@ -539,18 +559,25 @@ prepare_tree() {
 # ── 6. environment file ─────────────────────────────────────────────────────
 write_env() {
   step "Writing $ENV_FILE"
-  local pg_pass auth_secret bootstrap_token pg_user pg_db pool_line public_host public_url cors_origin
+  local pg_pass auth_secret bootstrap_token pg_user pg_db pool_line public_host public_url cors_origin trusted_proxies
   pg_user="$(keep_or POSTGRES_USER otterdeploy)"
   pg_db="$(keep_or POSTGRES_DB otterdeploy)"
   pg_pass="$(keep_or POSTGRES_PASSWORD "$(random_secret)")"
   auth_secret="$(keep_or BETTER_AUTH_SECRET "$(random_secret)")"
   bootstrap_token="$(keep_or OTTERDEPLOY_BOOTSTRAP_TOKEN "$(random_secret)")"
   public_host="$(keep_or PUBLIC_HOST "$(detect_public_host)")"
-  # Auth authority + CORS origin. The server serves the dashboard on the same
-  # origin (the control-plane port), so both default to that URL. keep_or
-  # preserves an operator override across re-runs.
-  public_url="$(keep_or BETTER_AUTH_URL "http://$public_host:$CONTROL_PLANE_PORT")"
+  # od-5j8.10: the control-plane port is published to loopback only (see
+  # docker-compose.prod.yml) — it's never actually reachable at the public
+  # host, so the auth authority/CORS origin default to loopback too (the
+  # SSH-tunnel bootstrap path visits it there). Set a real BETTER_AUTH_URL
+  # (and re-run) once you've configured a control-plane domain in Settings —
+  # or override it here for a LAN-only setup that skips the tunnel.
+  public_url="$(keep_or BETTER_AUTH_URL "http://127.0.0.1:$CONTROL_PLANE_PORT")"
   cors_origin="$(keep_or CORS_ORIGIN "$public_url")"
+  # Trust loopback plus the shared edge network's subnet, so forwarded
+  # headers from the Caddy container are honored while anything else is
+  # ignored (packages/api/src/security/trusted-proxy.ts).
+  trusted_proxies="$(keep_or TRUSTED_PROXIES "$(detect_trusted_proxies)")"
   pool_line="$(env_value BRANCH_ZFS_POOL)"   # set later by provision_branching
 
   if dry; then
@@ -562,6 +589,7 @@ write_env() {
     say "       OTTERDEPLOY_DATA_DIR=$DATA_DIR  OTTERDEPLOY_INSTALL_DIR=$INSTALL_DIR"
     say "       PUBLIC_HOST=$public_host  CONTROL_PLANE_PORT=$CONTROL_PLANE_PORT"
     say "       BETTER_AUTH_URL=$public_url  CORS_ORIGIN=$cors_origin  NODE_ENV=production"
+    say "       TRUSTED_PROXIES=$trusted_proxies"
     return
   fi
 
@@ -576,6 +604,11 @@ OTTERDEPLOY_INSTALL_DIR=$INSTALL_DIR
 DEPLOY_RUNTIME=docker
 CONTROL_PLANE_PORT=$CONTROL_PLANE_PORT
 PUBLIC_HOST=$public_host
+# od-5j8.10: only these peers may set X-Forwarded-For/X-Forwarded-Proto —
+# loopback plus the shared edge network (so the Caddy container is trusted).
+# Detected from '$EDGE_NETWORK's subnet at install time; update if you change
+# the edge network or front the dashboard with your own reverse proxy.
+TRUSTED_PROXIES=$trusted_proxies
 
 POSTGRES_USER=$pg_user
 POSTGRES_PASSWORD=$pg_pass
@@ -857,34 +890,30 @@ print_firewall_hint() {
   fi
 }
 
-# Tell the user exactly where the app is reachable: public IPv4/IPv6, with the
-# host's private/LAN addresses as a fallback.
+# od-5j8.10: the dashboard is published to loopback ONLY (see
+# docker-compose.prod.yml) — it is never reachable at a public or LAN
+# address on $CONTROL_PLANE_PORT, by design (a fresh install must not expose
+# a plaintext dashboard to the internet). Tell the operator how to actually
+# reach it: an SSH tunnel for bootstrap, or a real domain through Caddy for
+# everyday HTTPS access.
 report_access() {
-  local v4 v6 default_ip private_ips
-  v4="$(curl -4fsSL --max-time 5 https://api.ipify.org 2>/dev/null || true)"
-  v6="$(curl -6fsSL --max-time 5 https://api6.ipify.org 2>/dev/null || true)"
+  local ssh_host ssh_user
 
   say ""
   printf '\033[32motterdeploy is up.\033[0m\n'
   report_bootstrap_token
   say ""
-  say "Access the dashboard at:"
-  [ -n "$v4" ] && say "  Public IPv4:  http://$v4:$CONTROL_PLANE_PORT"
-  [ -n "$v6" ] && say "  Public IPv6:  http://[$v6]:$CONTROL_PLANE_PORT"
-
-  default_ip="$(ip route get 1 2>/dev/null | sed -n 's/^.*src \([0-9.]*\).*$/\1/p' || true)"
-  private_ips="$(hostname -I 2>/dev/null || true)"
-  if [ -n "$private_ips" ]; then
-    say "  LAN fallback (if the public IP isn't reachable):"
-    for ip in $private_ips; do
-      [ "$ip" = "$v4" ] && continue
-      say "    http://$ip:$CONTROL_PLANE_PORT"
-    done
-  fi
-  [ -z "$v4$v6$private_ips" ] && say "  http://localhost:$CONTROL_PLANE_PORT"
-  # Don't let the trailing `[ … ] && …` (false in the common case, where we DID
-  # find an IP) make this function exit 1 and trip the `set -e` ERR trap after a
-  # fully successful install.
+  say "The dashboard is bound to 127.0.0.1:$CONTROL_PLANE_PORT on this host only — it is"
+  say "NOT reachable from the internet or your LAN at that port. Bootstrap it over SSH:"
+  ssh_user="$(id -un 2>/dev/null || echo root)"
+  ssh_host="$(hostname -f 2>/dev/null || hostname 2>/dev/null || echo "<this-host>")"
+  say ""
+  say "  ssh -L $CONTROL_PLANE_PORT:localhost:$CONTROL_PLANE_PORT $ssh_user@$ssh_host"
+  say "  then open http://localhost:$CONTROL_PLANE_PORT in your browser."
+  say ""
+  say "For everyday access over real HTTPS (redirect + HSTS + a trusted cert), point a"
+  say "domain at this host and set it as the control-plane domain in Settings →"
+  say "Networking — Caddy (already listening on 80/443) will front the dashboard."
   return 0
 }
 

@@ -11,6 +11,7 @@ import {
   setUploadDeploymentSourceSha,
   triggerUploadBuild,
 } from "@otterdeploy/api/routers/project/upload-source";
+import { MAX_SOURCE_UPLOAD_BYTES } from "@otterdeploy/api/security/body-limit";
 import { Result } from "better-result";
 
 /**
@@ -26,8 +27,10 @@ import { Result } from "better-result";
  */
 
 /** Hard cap on an uploaded tarball. gzip'd source; generous for real projects,
- *  a wall against a runaway/hostile upload filling the disk. */
-const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+ *  a wall against a runaway/hostile upload filling the disk. Shared with the
+ *  request-level body-limit gate (packages/api/src/security/body-limit.ts)
+ *  so the two caps can never drift apart. */
+const MAX_UPLOAD_BYTES = MAX_SOURCE_UPLOAD_BYTES;
 
 /** Stream the request body into `path`, enforcing the byte cap and hashing the
  *  bytes as they pass through. Returns the sha256 (hex) content digest of the

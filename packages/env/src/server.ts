@@ -120,6 +120,23 @@ export const env = createEnv({
     // Set this to the PORT in DEPLOY_AUTHZ_UPSTREAM (e.g. 3000). Unset in
     // production (the Swarm service has stable DNS).
     CONTROL_PLANE_PORT: z.coerce.number().int().positive().optional(),
+
+    // Trusted-proxy allowlist for X-Forwarded-For / X-Forwarded-Proto
+    // (packages/api/src/security/trusted-proxy.ts). A request's forwarding
+    // headers are only honored when its IMMEDIATE TCP peer matches one of
+    // these bare IPs/CIDRs (comma-separated) — otherwise they're ignored
+    // outright and the raw connection is authoritative, so a tenant workload
+    // or a direct internet caller can never spoof its IP/scheme past rate
+    // limits, IP allowlists, the firewall/blocklist, or audit-log
+    // attribution. Default: loopback only — safe with zero configuration
+    // (matches the SSH-tunnel/localhost bootstrap path). The published prod
+    // compose install writes the shared install network's actual subnet
+    // here (scripts/install.sh `ensure_network` + `write_env`) so requests
+    // proxied by the Caddy edge container are trusted too; homelab/manual
+    // Docker operators fronting the dashboard with their own Caddy should
+    // set this to that proxy's reachable address/subnet.
+    TRUSTED_PROXIES: z.string().min(1).default("127.0.0.1/32,::1/128"),
+
     // Port the main HTTP server (Bun's default export) binds. Bun reads PORT
     // itself; mirrored here so the server can detect when CONTROL_PLANE_PORT
     // equals it (docker-compose passes both as 3000) and skip binding a second,

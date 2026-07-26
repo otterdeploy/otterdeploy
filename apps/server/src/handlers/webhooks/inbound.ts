@@ -17,19 +17,17 @@ import {
   SIGNATURE_HEADER,
   handleInboundInvocation,
 } from "@otterdeploy/api/routers/webhooks/inbound";
-import { getConnInfo } from "hono/bun";
+import { resolveClient } from "@otterdeploy/api/security/trusted-proxy";
 
-/** Best-effort caller IP: first X-Forwarded-For hop (Caddy fronts the server
- * in production) falling back to the socket address in dev. */
+/** Caller IP: the X-Forwarded-For first hop when the immediate peer is a
+ * configured trusted proxy (Caddy fronts the server in production), else the
+ * raw socket address — never a header an untrusted direct caller could set.
+ * Feeds the endpoint's IP allowlist, so trusting an unverified header here
+ * would let anyone bypass it. See
+ * packages/api/src/security/trusted-proxy.ts. */
 function callerIp(c: Context<EvlogVariables>): string | null {
-  const xff = c.req.header("x-forwarded-for");
-  const first = xff?.split(",")[0]?.trim();
-  if (first) return first;
-  try {
-    return getConnInfo(c).remote.address ?? null;
-  } catch {
-    return null;
-  }
+  const resolved = resolveClient(c);
+  return resolved.ip === "unknown" ? null : resolved.ip;
 }
 
 export const inboundWebhookHandler = async (c: Context<EvlogVariables>) => {

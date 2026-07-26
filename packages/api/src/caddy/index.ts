@@ -24,6 +24,7 @@ import {
   materializeCustomCerts,
 } from "./certs";
 import { adaptCaddyfile, loadCaddyfile } from "./client";
+import { CONTROL_PLANE_ROUTE_POLICY } from "./control-plane-policy";
 import { maskCaddySecrets, stripGlobalBlock } from "./display";
 import {
   listEnabledProxyRoutes,
@@ -35,6 +36,7 @@ import { reconcileRoutes, type ReconcileResult } from "./reconciler";
 
 export type { ReconcileResult } from "./reconciler";
 export type { ProxyRouteInput } from "./builder";
+export { CONTROL_PLANE_ROUTE_POLICY } from "./control-plane-policy";
 
 /** Map a DB proxy-route row onto the builder's route-input shape. Shared by
  *  the live reconcile pass and the read-only per-project render so both
@@ -125,6 +127,7 @@ function controlPlaneRoute(cp: { domain: string; usesAcme: boolean }): ProxyRout
     protocol: "http",
     layer4Alpn: null,
     usesAcme: cp.usesAcme,
+    routePolicy: CONTROL_PLANE_ROUTE_POLICY,
   };
 }
 

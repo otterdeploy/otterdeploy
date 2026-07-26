@@ -66,10 +66,16 @@ services:
     working_dir: /app/apps/server
     command: ["bun", "run", "dist/index.mjs"]
     restart: unless-stopped
-    # The dashboard/API listens on 3000; publish it straight to the host. Caddy
-    # (80/443) fronts USER-deployed apps, not this dashboard.
+    # od-5j8.10: the dashboard/API listens on 3000, published to the HOST
+    # LOOPBACK ONLY — never 0.0.0.0. A fresh install must not expose a
+    # plaintext dashboard to the internet; bootstrap access is over an SSH
+    # tunnel (`ssh -L 3000:localhost:3000 ...`) or, once a control-plane
+    # domain is configured, verified HTTPS through Caddy (80/443), which
+    # fronts USER-deployed apps AND — when a control-plane domain is set —
+    # this dashboard, reaching it by service DNS (server:3000) over the
+    # internal compose network rather than this published port.
     ports:
-      - "${CONTROL_PLANE_PORT:-3000}:3000"
+      - "127.0.0.1:${CONTROL_PLANE_PORT:-3000}:3000"
     env_file:
       - .env
     environment:

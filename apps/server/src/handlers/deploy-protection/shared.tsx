@@ -9,6 +9,7 @@
 import type { Context, Handler } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
+import { resolveClient } from "@otterdeploy/api/security/trusted-proxy";
 import { resolveCanonicalWebOrigin } from "@otterdeploy/auth/web-origin";
 import { env } from "@otterdeploy/env/server";
 import { Result } from "better-result";
@@ -28,12 +29,14 @@ export const SHARE_COOKIE_MAX_AGE = 7 * 24 * 60 * 60; // bounded; real expiry is
 // cookie is bound to a fingerprint of the hash it was minted against).
 export const PIN_COOKIE_MAX_AGE = 24 * 60 * 60;
 
-/** Best-effort client IP for rate limiting: first X-Forwarded-For hop (Caddy
- *  always sets it on proxied requests); a fixed bucket when absent so direct
- *  hits still share one limiter rather than bypassing it. */
+/** Client IP for rate limiting: the X-Forwarded-For first hop, but ONLY when
+ *  the immediate peer is a configured trusted proxy (env.TRUSTED_PROXIES) —
+ *  otherwise the header is ignored and the raw connection address is used,
+ *  so a direct caller can't spoof its way past the PIN rate limit. "unknown"
+ *  when neither is available so direct hits still share one limiter bucket
+ *  rather than bypassing it. See packages/api/src/security/trusted-proxy.ts. */
 export function clientIpOf(c: Context): string {
-  const xff = c.req.header("x-forwarded-for");
-  return xff?.split(",")[0]?.trim() || "unknown";
+  return resolveClient(c).ip;
 }
 
 /** Web app base, for the login redirect. The auth *authority* (getSession)
