@@ -9,14 +9,13 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
-import { ReferencePicker } from "@/features/projects/components/variables";
 import { Input } from "@/shared/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
 import { cn } from "@/shared/lib/utils";
 
 import type { DraftRow, RowStatus } from "./use-editor-state";
 
-import { hasOpenRefToken, insertRefToken } from "../ref-token";
+import { hasOpenRefToken } from "../ref-token";
+import { ValueCell } from "./value-cell";
 
 const STATUS_TONE: Record<RowStatus, string> = {
   unchanged: "bg-transparent text-transparent",
@@ -61,15 +60,21 @@ export function EditorRow({
 }: EditorRowProps) {
   return (
     <div className="flex flex-col gap-1.5 border-b border-border/30 px-3 py-2 last:border-b-0">
-      <div className="flex items-start gap-2">
-        <StatusPill status={status} />
-        <Input
-          value={row.key}
-          onChange={(e) => onChange({ key: e.target.value })}
-          placeholder="KEY"
-          className="h-7 w-56 font-mono text-[12px]"
-          spellCheck={false}
-        />
+      {/* Side-by-side needs ~380px at minimum — a 14rem key field, the value
+          field, and four icon buttons — so below `sm` the row stacks into
+          key / value / actions. `sm:contents` dissolves the two mobile-only
+          wrappers at `sm`, restoring the original single flex row exactly. */}
+      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:gap-2">
+        <div className="flex min-w-0 items-start gap-2 sm:contents">
+          <StatusPill status={status} />
+          <Input
+            value={row.key}
+            onChange={(e) => onChange({ key: e.target.value })}
+            placeholder="KEY"
+            className="h-7 w-full min-w-0 font-mono text-[12px] sm:w-56 sm:flex-none"
+            spellCheck={false}
+          />
+        </div>
         <ValueCell
           row={row}
           projectId={projectId}
@@ -79,18 +84,20 @@ export function EditorRow({
           onPickerOpenChange={onPickerOpenChange}
           onToggleReveal={onToggleReveal}
         />
-        <SecretToggle row={row} onChange={onChange} />
-        <RevealToggle row={row} revealed={revealed} onToggleReveal={onToggleReveal} />
-        <CopyAction copied={copied} onCopy={onCopy} />
-        <RowAction
-          icon={Delete02Icon}
-          label="Delete row"
-          tone="hover:text-destructive"
-          onClick={onDelete}
-        />
+        <div className="flex items-center justify-end gap-0.5 sm:contents">
+          <SecretToggle row={row} onChange={onChange} />
+          <RevealToggle row={row} revealed={revealed} onToggleReveal={onToggleReveal} />
+          <CopyAction copied={copied} onCopy={onCopy} />
+          <RowAction
+            icon={Delete02Icon}
+            label="Delete row"
+            tone="hover:text-destructive"
+            onClick={onDelete}
+          />
+        </div>
       </div>
       {showPickerHint(row.value, pickerOpen) && (
-        <p className="pl-[5.5rem] text-[10.5px] text-muted-foreground">
+        <p className="text-[10.5px] text-muted-foreground sm:pl-[5.5rem]">
           Tip: press the {"{ }"} button to finish this reference.
         </p>
       )}
@@ -113,83 +120,6 @@ function StatusPill({ status }: { status: RowStatus }) {
     >
       {STATUS_LABEL[status]}
     </span>
-  );
-}
-
-interface ValueCellProps {
-  row: DraftRow;
-  projectId: string;
-  revealed: boolean;
-  pickerOpen: boolean;
-  onChange: EditorRowProps["onChange"];
-  onPickerOpenChange: (open: boolean) => void;
-  onToggleReveal: () => void;
-}
-
-function ValueCell({
-  row,
-  projectId,
-  revealed,
-  pickerOpen,
-  onChange,
-  onPickerOpenChange,
-  onToggleReveal,
-}: ValueCellProps) {
-  const showValue = !row.isSecret || revealed;
-  return (
-    <div className="relative flex-1">
-      <Input
-        value={showValue ? row.value : row.value.replace(/./g, "•")}
-        onChange={(e) => {
-          const next = e.target.value;
-          // Typing the reference opener (`${{`) pops the picker right there —
-          // the advertised trigger, not just the { } button. Only on the
-          // TRANSITION into an open token so backspacing/editing around an
-          // already-open fragment doesn't keep re-opening it.
-          if (!pickerOpen && hasOpenRefToken(next) && !hasOpenRefToken(row.value)) {
-            onPickerOpenChange(true);
-          }
-          onChange({ value: next });
-        }}
-        onFocus={() => {
-          if (row.isSecret && !revealed) onToggleReveal();
-        }}
-        placeholder="value"
-        className="h-7 w-full pr-9 font-mono text-[12px]"
-        spellCheck={false}
-      />
-      {/* Popover, not an inline block: it renders in a portal so the picker
-          floats over the rows below instead of pushing them down, and the
-          refs list is cache-warmed at the editor level so it opens instantly. */}
-      <Popover open={pickerOpen} onOpenChange={onPickerOpenChange}>
-        <PopoverTrigger
-          render={
-            <button
-              type="button"
-              aria-label="Insert reference"
-              title="Insert reference"
-              className={cn(
-                "absolute top-1/2 right-1 grid size-5 -translate-y-1/2 place-items-center rounded transition-colors",
-                pickerOpen
-                  ? "bg-muted text-foreground"
-                  : "text-muted-foreground/70 hover:bg-muted hover:text-foreground",
-              )}
-            >
-              <span className="font-mono text-[10.5px] leading-none">{"{ }"}</span>
-            </button>
-          }
-        />
-        <PopoverContent align="end" side="bottom" className="w-[26rem] p-0">
-          <ReferencePicker
-            projectId={projectId}
-            excludeToken={row.value}
-            onPick={(token) => onChange({ value: insertRefToken(row.value, token) })}
-            onClose={() => onPickerOpenChange(false)}
-            className="border-0 bg-transparent shadow-none"
-          />
-        </PopoverContent>
-      </Popover>
-    </div>
   );
 }
 

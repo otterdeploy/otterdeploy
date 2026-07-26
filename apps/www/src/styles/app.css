@@ -4,8 +4,25 @@
 @import "fumadocs-openapi/css/preset.css";
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
+/* Grid / glow / grain / reveal for @otterdeploy/ui/error-screen, shared with
+   apps/web so a 404 or 500 looks the same in both. */
+@import "@otterdeploy/ui/error-screen.css";
+/* ::selection — this app had none, so selecting text used the browser default
+   blue. Shared so it matches the control panel. */
+@import "@otterdeploy/ui/selection.css";
 
 @custom-variant dark (&:is(.dark *));
+
+/* Smooth scrolling for the landing page's in-page nav (#platform, #deploy, …)
+   and for docs heading anchors. Scoped to `no-preference` rather than disabled
+   under `reduce`, so the default for anyone who has asked for less motion is
+   an instant jump — DESIGN.md requires honouring that. Sections already carry
+   `scroll-mt-14` to clear the sticky h-14 header. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
 
 /* ─────────────────────────────────────────────────────────────────────────
    Fonts — Geist, matching apps/web.

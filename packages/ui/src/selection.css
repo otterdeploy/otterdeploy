@@ -1,0 +1,36 @@
+/**
+ * Text selection highlight — shared by apps/web and apps/www.
+ *
+ * Import from the app's Tailwind entry:
+ *
+ *   @import "@otterdeploy/ui/selection.css";
+ *
+ * It lives here because the marketing site defined no `::selection` at all and
+ * fell back to the browser default, which is an off-brand blue that clashes
+ * with the canvas and can render selected text unreadable in dark mode. One
+ * copy means the two surfaces can't drift again.
+ *
+ * Reads `--primary` / `--primary-foreground`, which both apps define under
+ * `:root` and `.dark`. Solid fill rather than a translucent wash, so contrast
+ * holds over syntax-highlighted code and mono text alike.
+ *
+ * No `::-moz-selection`: Firefox has supported the unprefixed selector since
+ * 62, and Lightning CSS strips the prefixed copy at these targets anyway — so
+ * carrying it would be code the build silently discards.
+ */
+
+/* Light (canvas #fbfbfa) — the system accent blue. */
+::selection {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  text-shadow: none;
+}
+
+/* Dark (canvas #0c0c0b) — a brighter blue than `--primary`, which is dark
+   enough in both apps' dark themes to sink into the canvas and leave the
+   selection nearly invisible. */
+.dark ::selection {
+  background: oklch(0.55 0.2 264.4);
+  color: var(--primary-foreground);
+  text-shadow: none;
+}

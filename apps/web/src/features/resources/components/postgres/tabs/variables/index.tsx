@@ -207,10 +207,12 @@ function PendingVariables({
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-2.5">
         <span className="text-[14px] font-semibold">{resource.engine} variables</span>
-        <p className="text-[12px] text-muted-foreground">
+        {/* The `${{ … }}` token has no spaces to break at, so a long database
+            name makes it wider than the panel. Allow a mid-token wrap. */}
+        <p className="text-[12px] break-words text-muted-foreground">
           {resource.engine} exports these into the container. They&apos;re live now and stay the
           same after deploy — reference them from other services with{" "}
-          <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">
+          <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px] [overflow-wrap:anywhere]">
             ${"{{"}
             {dbName ?? resource.name}.DATABASE_URL{"}}"}
           </code>

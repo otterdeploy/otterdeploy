@@ -4,22 +4,13 @@
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
 @import "@xyflow/react/dist/style.css";
+/* Grid / glow / grain / reveal for @otterdeploy/ui/error-screen, shared with
+   apps/www so both render the same 404 and 500. */
+@import "@otterdeploy/ui/error-screen.css";
+/* ::selection, shared so the two surfaces highlight identically. */
+@import "@otterdeploy/ui/selection.css";
 
 @custom-variant dark (&:is(.dark *));
-
-@theme {
-  --animate-error-rise: error-rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-}
-@keyframes error-rise {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
 
 /* Comet border — a single bright red segment with a fading tail travels
    around a node's rounded border. Used to flag a resource that's pending
@@ -36,6 +27,18 @@
     --comet-angle: 360deg;
   }
 }
+/* Horizontal strips that must stay swipeable on a phone (panel tabs, project
+   tabs, toolbars) without a scrollbar gutter eating into a 40px-tall row.
+   Pair with `overflow-x-auto` — this only hides the chrome, it does not
+   create the scroll container. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @utility comet-border {
   position: absolute;
   inset: 0;
@@ -82,21 +85,6 @@
     animation: none;
     stroke-dashoffset: -6;
   }
-}
-
-@utility error-grid {
-  background-image:
-    linear-gradient(var(--line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--line) 1px, transparent 1px);
-  background-size: 72px 72px;
-  -webkit-mask-image: radial-gradient(ellipse 72% 72% at 50% 50%, #000 32%, transparent 90%);
-  mask-image: radial-gradient(ellipse 72% 72% at 50% 50%, #000 32%, transparent 90%);
-}
-@utility error-glow {
-  background: radial-gradient(36rem 26rem at 50% 48%, var(--glow), transparent 72%);
-}
-@utility error-grain {
-  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='160'%20height='160'%3E%3Cfilter%20id='n'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.82'%20numOctaves='2'%20stitchTiles='stitch'/%3E%3C/filter%3E%3Crect%20width='100%25'%20height='100%25'%20filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 @theme {
@@ -424,37 +412,6 @@
 .wterm::-webkit-scrollbar-thumb:hover {
   background: oklch(1 0 0 / 28%);
   background-clip: padding-box;
-}
-
-/* Text selection — the one blue accent, not an off-brand color. Solid fill
-   guarantees contrast over syntax-highlighted code + mono text alike. Tuned per
-   theme so the highlight reads against its canvas. */
-
-/* Light theme (canvas #fbfbfa) — the system accent blue. */
-::selection {
-  background: var(--primary);
-  color: var(--primary-foreground);
-  text-shadow: none;
-}
-
-::-moz-selection {
-  background: var(--primary);
-  color: var(--primary-foreground);
-  text-shadow: none;
-}
-
-/* Dark theme (canvas #0c0c0b) — a brighter blue so the selection pops on black;
-   the darker button-blue (--primary) would otherwise sink into the canvas. */
-.dark ::selection {
-  background: oklch(0.55 0.2 264.4);
-  color: var(--primary-foreground);
-  text-shadow: none;
-}
-
-.dark ::-moz-selection {
-  background: oklch(0.55 0.2 264.4);
-  color: var(--primary-foreground);
-  text-shadow: none;
 }
 
 /* Toast size cap. Sonner toasts have no intrinsic height limit, so a message

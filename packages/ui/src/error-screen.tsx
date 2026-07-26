@@ -45,10 +45,15 @@ const reveal = "animate-error-rise motion-reduce:animate-none";
 
 /**
  * Full-screen error screen in the Otterdeploy console aesthetic. Presentational
- * only — `NotFound` and `ServerError` wrap it with code-specific content.
+ * only — each app wraps it with code-specific content, because the wrappers
+ * differ in ways this component must not care about: the control panel
+ * translates its copy through react-i18next and retries via the router's
+ * `reset`, while the marketing site has neither.
  *
- * Styling is Tailwind utilities; the grid / glow / grain / reveal-keyframe live
- * as `@utility` + `@theme` definitions in `src/index.css`.
+ * Deliberately free of i18n, router and app-config imports so both can use it.
+ * Styling is Tailwind utilities; the grid / glow / grain / reveal-keyframe are
+ * `@utility` + `@theme` definitions in the adjacent error-screen.css, which the
+ * consuming app must `@import` — see that file.
  */
 export function ErrorScreen({
   code,

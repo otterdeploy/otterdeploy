@@ -143,7 +143,9 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
     // on top of either — the pill used to sit at a fixed `top-20` that fell
     // inside the tab row's band and covered Deployments/Logs/Metrics.
     <div
-      className="pointer-events-none fixed inset-x-0 z-40 flex justify-center"
+      // px-3 so the pill can never touch (or overrun) the screen edges — the
+      // collapsed bar is ~290px of content and a phone is 375px.
+      className="pointer-events-none fixed inset-x-0 z-40 flex justify-center px-3"
       style={{ top: "calc(var(--header-height) + 2.5rem + 0.75rem)" }}
     >
       {/* `layout` morphs the pill↔panel width; the body handles its own height
@@ -152,15 +154,15 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
       <m.div
         layout
         transition={morph}
-        className={`pointer-events-auto flex flex-col items-stretch overflow-hidden rounded-2xl border bg-card/95 shadow-lg ${
+        className={`pointer-events-auto flex max-w-full flex-col items-stretch overflow-hidden rounded-2xl border bg-card/95 shadow-lg ${
           expanded ? "w-[min(640px,calc(100vw-2rem))]" : ""
         }`}
       >
-        <div className="flex items-center gap-3 px-4 py-2">
+        <div className="flex items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4">
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:opacity-80"
+            className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground hover:opacity-80"
             aria-expanded={expanded}
           >
             <span
@@ -169,15 +171,17 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
             >
               ▸
             </span>
-            {applyMut.isPending
-              ? "Applying…"
-              : `Apply ${meaningful.length} change${meaningful.length === 1 ? "" : "s"}`}
+            <span className="truncate">
+              {applyMut.isPending
+                ? "Applying…"
+                : `Apply ${meaningful.length} change${meaningful.length === 1 ? "" : "s"}`}
+            </span>
           </button>
           {/* ml-auto pins the actions to the trailing end once the bar widens. */}
           <Button
             size="sm"
             variant="ghost"
-            className="ml-auto"
+            className="ml-auto shrink-0"
             onClick={() => discardMut.mutate()}
             disabled={busy}
           >
@@ -186,6 +190,7 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
           <Button
             size="sm"
             variant="default"
+            className="shrink-0"
             onClick={() => applyMut.mutate()}
             disabled={busy}
             aria-label={applyMut.isPending ? "Applying" : undefined}

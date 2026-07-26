@@ -233,25 +233,23 @@ export const organizationRouter = {
     },
   ),
 
-  listInvitations: orgScopedProcedure.organization.listInvitations.handler(
-    async ({ context }) => {
-      context.log.set({
-        target: { type: "organization", id: context.activeOrganizationId },
-      });
-      const res = await Result.tryPromise({
-        try: () =>
-          auth.api.listInvitations({
-            query: { organizationId: context.activeOrganizationId },
-            headers: context.headers,
-          }),
-        catch: (e) => (e instanceof Error ? e : new Error(String(e))),
-      });
-      if (res.isErr()) throw res.error;
-      // Surface only still-actionable invites (pending), not accepted/expired.
-      const list = (res.value ?? []) as Parameters<typeof toInvitationView>[0][];
-      return list.filter((i) => i.status === "pending").map(toInvitationView);
-    },
-  ),
+  listInvitations: orgScopedProcedure.organization.listInvitations.handler(async ({ context }) => {
+    context.log.set({
+      target: { type: "organization", id: context.activeOrganizationId },
+    });
+    const res = await Result.tryPromise({
+      try: () =>
+        auth.api.listInvitations({
+          query: { organizationId: context.activeOrganizationId },
+          headers: context.headers,
+        }),
+      catch: (e) => (e instanceof Error ? e : new Error(String(e))),
+    });
+    if (res.isErr()) throw res.error;
+    // Surface only still-actionable invites (pending), not accepted/expired.
+    const list = (res.value ?? []) as Parameters<typeof toInvitationView>[0][];
+    return list.filter((i) => i.status === "pending").map(toInvitationView);
+  }),
 
   cancelInvitation: orgInviteCancel.organization.cancelInvitation.handler(
     async ({ input, context, errors }) => {

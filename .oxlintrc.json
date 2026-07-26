@@ -239,6 +239,22 @@
       }
     },
     {
+      // One better-auth config object. It has to stay a single literal passed
+      // to betterAuth(): the library derives `$Infer.Session` (and so
+      // `activeOrganizationId`, `twoFactorEnabled`, …) from the plugin array's
+      // literal type, and hoisting the plugins into a helper widens it and
+      // silently drops those fields from every consumer's session type.
+      // Splitting the file would cost real type safety to satisfy a line count.
+      "files": ["packages/auth/src/index.ts"],
+      "rules": {
+        "max-lines": ["error", { "max": 400, "skipBlankLines": true, "skipComments": true }],
+        "max-lines-per-function": [
+          "error",
+          { "max": 250, "skipBlankLines": true, "skipComments": true, "IIFEs": true }
+        ]
+      }
+    },
+    {
       "files": ["packages/shared/src/egress-policy.ts"],
       "rules": {
         "max-lines": ["error", { "max": 450, "skipBlankLines": true, "skipComments": true }]

@@ -1,30 +1,52 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "otterdeploy-get",
-  "main": "src/index.ts",
-  // Newest date the pinned wrangler's workerd binary supports. Raising it
-  // above the local runtime's ceiling breaks `wrangler dev` before it breaks
-  // anything in production, so bump wrangler first.
-  "compatibility_date": "2026-05-28",
-  "observability": { "enabled": true },
-
-  // `custom_domain` makes wrangler create/own the proxied DNS record for
-  // get.otterdeploy.com and terminate TLS at the edge. There is no origin, so
-  // the 525 (Cloudflare ⇄ origin handshake) that the bare DNS record produced
-  // can't come back.
-  "routes": [{ "pattern": "get.otterdeploy.com", "custom_domain": true }],
-
-  // Release artifacts. Written only by the `publish-artifacts` job in
-  // .github/workflows/images.yml — the Worker never writes.
-  "r2_buckets": [{ "binding": "ARTIFACTS", "bucket_name": "otterdeploy-get" }],
-
-  // Install/poll counters. See src/index.ts for the schema of a datapoint.
-  "analytics_engine_datasets": [{ "binding": "ANALYTICS", "dataset": "otterdeploy_get" }],
-
-  "vars": {
-    // Fallback source when an object isn't in R2 yet, so the install URL is
-    // never dead — including before the very first release is published.
-    "FALLBACK_REPO": "otterdeploy/otterdeploy",
-    "DOCS_URL": "https://otterdeploy.com/docs/start/install"
-  }
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "otterdeploy-get",
+	"main": "src/index.ts",
+	// Newest date the pinned wrangler's workerd binary supports. Raising it
+	// above the local runtime's ceiling breaks `wrangler dev` before it breaks
+	// anything in production, so bump wrangler first.
+	"compatibility_date": "2026-05-28",
+	"observability": {
+		"enabled": true
+	},
+	// `custom_domain` makes wrangler create/own the proxied DNS record for
+	// get.otterdeploy.com and terminate TLS at the edge. There is no origin, so
+	// the 525 (Cloudflare ⇄ origin handshake) that the bare DNS record produced
+	// can't come back.
+	"routes": [
+		{
+			"pattern": "get.otterdeploy.com",
+			"custom_domain": true
+		}
+	],
+	// Release artifacts. Written only by the `publish-artifacts` job in
+	// .github/workflows/images.yml — the Worker never writes.
+	"r2_buckets": [
+		{
+			"binding": "ARTIFACTS",
+			"bucket_name": "otterdeploy-get"
+		}
+	],
+	// Install/poll counters. See src/index.ts for the schema of a datapoint.
+	//
+	// TEMPORARILY DISABLED: the account returns "You need to enable Analytics
+	// Engine" (API code 10089) even after the dashboard toggle. Analytics Engine
+	// is available on the Workers Free plan (100k datapoints/day), so this is an
+	// account enablement that hasn't taken effect, not a plan limit. Serving is
+	// unaffected — `Env.ANALYTICS` is optional and `record()` returns early when
+	// the binding is absent — but until this is restored there are NO install or
+	// active-instance counts, which is the reason this Worker exists at all.
+	// Re-enable by uncommenting; it is a redeploy with no code change.
+	// "analytics_engine_datasets": [
+	// 	{
+	// 		"binding": "ANALYTICS",
+	// 		"dataset": "otterdeploy_get"
+	// 	}
+	// ],
+	"vars": {
+		// Fallback source when an object isn't in R2 yet, so the install URL is
+		// never dead — including before the very first release is published.
+		"FALLBACK_REPO": "otterdeploy/otterdeploy",
+		"DOCS_URL": "https://otterdeploy.com/docs/start/install"
+	}
 }

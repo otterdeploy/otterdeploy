@@ -10,8 +10,8 @@ import { db } from "@otterdeploy/db";
 import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
 import { env } from "@otterdeploy/env/server";
 import { matchError } from "better-result";
-import { log } from "evlog";
 import { eq } from "drizzle-orm";
+import { log } from "evlog";
 
 import { requireInstallAdmin } from "../..";
 import { reconcile } from "../../caddy";

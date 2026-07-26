@@ -146,7 +146,10 @@ const PROVIDER_COLUMNS = {
     clientId: "gitlabOauthClientId",
     secret: "gitlabOauthClientSecretCiphertext",
   },
-} as const satisfies Record<SocialProviderId, { enabled: string; clientId: string; secret: string }>;
+} as const satisfies Record<
+  SocialProviderId,
+  { enabled: string; clientId: string; secret: string }
+>;
 
 const PROVIDER_ENV: Record<SocialProviderId, { clientId?: string; clientSecret?: string }> = {
   github: { clientId: env.GITHUB_OAUTH_CLIENT_ID, clientSecret: env.GITHUB_OAUTH_CLIENT_SECRET },

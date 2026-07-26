@@ -10,8 +10,16 @@ import { HugeiconsIcon } from "@hugeicons/react";
  * second principle is being honest about system state. So this is a label: it
  * says which version you're reading and stops. Put the chevron back the day
  * there is a second version to switch to.
+ *
+ * The number is injected at build time from the newest release tag (see
+ * `__DOCS_VERSION__` in vite.config.ts) rather than typed in here. It was
+ * hardcoded to `v0.1.0` while releases had reached v0.7.0 — the same dishonesty
+ * the comment above argues against, just harder to notice. When no tag can be
+ * resolved the row renders nothing, because a wrong version is worse than none.
  */
 export function DocsVersion() {
+  if (!__DOCS_VERSION__) return null;
+
   return (
     <div className="-mx-2 flex items-center gap-2.5 border-b border-border px-5 py-3 text-[0.8125rem]">
       <HugeiconsIcon
@@ -19,7 +27,7 @@ export function DocsVersion() {
         strokeWidth={1.8}
         className="size-4 shrink-0 text-muted-foreground"
       />
-      <span className="font-mono text-foreground">v0.1.0</span>
+      <span className="font-mono text-foreground">{__DOCS_VERSION__}</span>
       <span className="text-muted-foreground">latest</span>
     </div>
   );

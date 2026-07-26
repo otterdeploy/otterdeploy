@@ -25,9 +25,8 @@
 import { NotificationEmail, sendEmail, sendViaSmtpServer } from "@otterdeploy/email";
 import { EgressPolicyError, egressFetch } from "@otterdeploy/shared/egress-policy";
 
-import { fcmServerKey } from "./platform-transports";
-
 import { controlPlaneEgressDenylist, egressAllowlist } from "./egress-denylist";
+import { fcmServerKey } from "./platform-transports";
 
 export type ChannelKind =
   | "slack"

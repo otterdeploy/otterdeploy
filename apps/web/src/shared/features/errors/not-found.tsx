@@ -1,6 +1,11 @@
 import { useTranslation } from "react-i18next";
 
-import { ErrorScreen, errorBackClass, errorBtnClass, errorPathClass } from "./error-screen";
+import {
+  ErrorScreen,
+  errorBackClass,
+  errorBtnClass,
+  errorPathClass,
+} from "@otterdeploy/ui/error-screen";
 
 /**
  * 404 screen — wired into the router as `defaultNotFoundComponent` (see main.tsx).

@@ -87,7 +87,7 @@ const SERVICE_PENDING_TABS: readonly ServiceTab[] = ["variables", "settings"];
  *  yet. */
 function ServicePanelTabsList({ pending }: { pending: boolean }) {
   return (
-    <div className="border-b border-border/60 px-6">
+    <div className="border-b border-border/60 px-4 sm:px-6">
       <TabsList variant="line" className="h-auto bg-transparent p-0">
         <TabsTrigger value="overview" className="px-2.5 py-2.5" disabled={pending}>
           Overview

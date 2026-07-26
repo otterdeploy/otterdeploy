@@ -73,7 +73,19 @@ export function ProjectTabs() {
     const update = () => {
       const active = node.querySelector<HTMLElement>("[data-active]");
       if (active) {
-        setIndicator({ left: active.offsetLeft, width: active.offsetWidth });
+        const left = active.offsetLeft;
+        const width = active.offsetWidth;
+        setIndicator({ left, width });
+        // Seven tabs don't fit a phone, so this row scrolls. Keep the active
+        // one visible — landing on Settings from the command palette otherwise
+        // shows a strip scrolled to Graph with no visible selection. Scoped to
+        // this container's scrollLeft on purpose (not `scrollIntoView`, which
+        // would drag every ancestor scroller along with it).
+        if (left < node.scrollLeft) {
+          node.scrollLeft = left;
+        } else if (left + width > node.scrollLeft + node.clientWidth) {
+          node.scrollLeft = left + width - node.clientWidth;
+        }
       }
     };
     update();
@@ -98,7 +110,7 @@ export function ProjectTabs() {
     <nav aria-label="Project" className="sticky top-(--header-height) z-30 border-b bg-background">
       <div
         ref={listRef}
-        className="relative flex h-10 items-center gap-0.5 overflow-x-auto overflow-y-hidden px-3"
+        className="no-scrollbar relative flex h-10 items-center gap-0.5 overflow-x-auto overflow-y-hidden px-3"
       >
         {tabs.map((tab) => (
           <Link

@@ -42,8 +42,10 @@ export function ServicePanelHeader({
   pause?: PauseControl | null;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 px-6 pt-6">
-      <div className="flex items-start gap-3">
+    <div className="flex items-start justify-between gap-2 px-4 pt-4 sm:gap-4 sm:px-6 sm:pt-6">
+      {/* min-w-0 so the name/image below truncate instead of forcing this row
+          wider than the panel and pushing the actions off-screen. */}
+      <div className="flex min-w-0 items-start gap-2 sm:gap-3">
         <PanelIcon
           node={{
             kind: "service",
@@ -52,14 +54,19 @@ export function ServicePanelHeader({
             framework,
           }}
         />
-        <div className="flex flex-col gap-0.5">
-          <span className="text-xl leading-none font-bold tracking-tight">{resource.name}</span>
-          <span className="font-mono text-xs text-muted-foreground" title={resource.image}>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="truncate text-lg leading-tight font-bold tracking-tight sm:text-xl sm:leading-none">
+            {resource.name}
+          </span>
+          <span
+            className="truncate font-mono text-xs text-muted-foreground"
+            title={resource.image}
+          >
             {shortImageRef(resource.image)}
           </span>
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
         {/* Runtime actions need a deployed service — omit them while the
             service is still a staged create (Deploy from the pending bar). */}
         {pending ? null : (
@@ -103,9 +110,11 @@ export function ServiceStatusBar({
 }) {
   const paused = pausedReplicas != null;
   return (
-    <div className="mt-5 flex items-center gap-3 border-t border-border/40 px-6 py-3">
+    // flex-wrap: badge + "3 replicas · public on foo.example.com" overflows a
+    // phone on one line; it wraps under the badge instead of scrolling sideways.
+    <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border/40 px-4 py-3 sm:px-6">
       {paused ? <PausedBadge /> : <StatusBadge status={status} />}
-      <span className="text-[13px] text-muted-foreground">
+      <span className="min-w-0 break-words text-[13px] text-muted-foreground">
         {replicaSummary({ replicas, pausedReplicas: pausedReplicas ?? null })}
         {!paused && publicEnabled && publicDomain ? ` · public on ${publicDomain}` : ""}
       </span>

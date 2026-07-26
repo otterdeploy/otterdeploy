@@ -107,6 +107,9 @@ export function GraphFlow({
           `--xy-minimap-*` off the design tokens, and a `nodeColor` prop lands on
           an SVG presentation attribute, where `color-mix()` doesn't resolve —
           which renders the nodes invisible. */}
+      {/* Hidden below `sm`: the minimap is ~150px wide, which is 40% of a
+          375px canvas — it costs more of the real graph than the overview it
+          buys back. Pinch-zoom and the fit-view control cover the same need. */}
       {nodes.length > 0 ? (
         <MiniMap
           position="bottom-left"
@@ -114,7 +117,7 @@ export function GraphFlow({
           zoomable
           ariaLabel="Project graph overview"
           style={{ bottom: bottomInset + 52 }}
-          className="transition-[bottom]! duration-200!"
+          className="hidden transition-[bottom]! duration-200! sm:block"
           nodeBorderRadius={3}
         />
       ) : null}

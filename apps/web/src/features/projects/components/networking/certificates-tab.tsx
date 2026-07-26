@@ -190,7 +190,7 @@ function CertRow({
       {open ? (
         <TableRow className="bg-muted/30 hover:bg-muted/30">
           <TableCell colSpan={5} className="py-3">
-            <div className="grid grid-cols-2 gap-x-10 gap-y-1 font-mono text-[12px]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-1 font-mono text-[12px]">
               {cert.error ? (
                 <Detail k="error" v={cert.error} wide />
               ) : (

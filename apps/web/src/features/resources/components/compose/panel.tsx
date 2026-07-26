@@ -159,7 +159,7 @@ export function ComposeResourcePanel({
         }}
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
-        <div className="border-b border-border/60 px-6">
+        <div className="border-b border-border/60 px-4 sm:px-6">
           <TabsList variant="line" className="h-auto bg-transparent p-0">
             <TabsTrigger value="deployments" className="px-2.5 py-2.5" disabled={pending}>
               Deployments
@@ -179,7 +179,7 @@ export function ComposeResourcePanel({
         <div className="relative min-h-0 flex-1">
           <div className="h-full overflow-y-auto">
             <div className="relative">
-              <TabsContent value="deployments" className="px-6 pt-5 pb-6">
+              <TabsContent value="deployments" className="px-4 sm:px-6 pt-5 pb-6">
                 <ResourceTasksTab
                   projectId={resource.projectId}
                   resourceId={resource.resourceId}
@@ -188,7 +188,7 @@ export function ComposeResourcePanel({
                 />
               </TabsContent>
 
-              <TabsContent value="services" className="px-6 pt-5 pb-6">
+              <TabsContent value="services" className="px-4 sm:px-6 pt-5 pb-6">
                 <ComposeServicesTab
                   services={resource.services}
                   source={resource.source}
@@ -196,7 +196,7 @@ export function ComposeResourcePanel({
                 />
               </TabsContent>
 
-              <TabsContent value="file" className="px-6 pt-5 pb-6">
+              <TabsContent value="file" className="px-4 sm:px-6 pt-5 pb-6">
                 <ComposeFileTab
                   projectId={resource.projectId}
                   resourceId={resource.resourceId}
@@ -206,7 +206,7 @@ export function ComposeResourcePanel({
                 />
               </TabsContent>
 
-              <TabsContent value="settings" className="px-6 pt-5 pb-8">
+              <TabsContent value="settings" className="px-4 sm:px-6 pt-5 pb-8">
                 <ComposeSettingsTab
                   projectId={resource.projectId}
                   resourceId={resource.resourceId}

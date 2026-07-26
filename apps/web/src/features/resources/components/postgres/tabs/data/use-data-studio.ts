@@ -271,7 +271,13 @@ export function useDataStudio(resource: Resource, shortcuts: boolean) {
   const editor = useSnippetBuffer(String(resource.resourceId));
   const table = useTableData(resource);
 
-  const [showLeft, setShowLeft] = useState(true);
+  // The SQL playground is a three-pane resizable shell. On a phone a 20% rail
+  // is ~75px — too narrow to read a snippet name and it starves the editor, so
+  // the snippets rail starts closed below `md`. The toolbar toggle still opens
+  // it on demand; only the DEFAULT differs.
+  const [showLeft, setShowLeft] = useState(
+    () => typeof window === "undefined" || window.innerWidth >= 768,
+  );
   // The schema explorer is opt-in — closed until toggled from the toolbar.
   const [showRight, setShowRight] = useState(false);
   const [spotlightOpen, setSpotlightOpen] = useState(false);

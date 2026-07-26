@@ -60,7 +60,20 @@ function TabsList({
     const update = () => {
       const active = node.querySelector<HTMLElement>("[data-active]");
       if (active) {
-        setIndicator({ left: active.offsetLeft, width: active.offsetWidth });
+        const left = active.offsetLeft;
+        const width = active.offsetWidth;
+        setIndicator({ left, width });
+        // The strip scrolls horizontally on narrow viewports, so the active tab
+        // can sit off-screen — after a tab change, or on first paint when
+        // deep-linking straight to a late tab like Settings. Nudge THIS
+        // container's scrollLeft directly: `scrollIntoView` would also scroll
+        // every ancestor scroller (and the page) to reveal the tab, which yanks
+        // the panel around while its open animation is still running.
+        if (left < node.scrollLeft) {
+          node.scrollLeft = left;
+        } else if (left + width > node.scrollLeft + node.clientWidth) {
+          node.scrollLeft = left + width - node.clientWidth;
+        }
       }
     };
     update();
@@ -93,11 +106,16 @@ function TabsList({
   if (variant !== "line") return list;
 
   return (
-    <div ref={wrapperRef} className="relative">
+    // Scrolls horizontally rather than overflowing its panel — a service has
+    // seven tabs (Overview…Settings), which is ~460px of labels and cannot fit
+    // a phone. `no-scrollbar` keeps a scrollbar gutter out of the 40px row;
+    // the clipped next tab is the swipe affordance. The indicator is absolute
+    // inside this scroll container, so it travels with the tabs.
+    <div ref={wrapperRef} className="no-scrollbar relative overflow-x-auto overflow-y-hidden">
       {list}
       <span
         aria-hidden
-        className="pointer-events-none absolute bottom-[-1px] h-0.5 rounded-full bg-foreground transition-[left,width] duration-300 ease-out"
+        className="pointer-events-none absolute bottom-0 h-0.5 rounded-full bg-foreground transition-[left,width] duration-300 ease-out"
         style={{ left: indicator.left, width: indicator.width }}
       />
     </div>

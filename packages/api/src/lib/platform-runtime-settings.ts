@@ -119,7 +119,10 @@ const PROVIDER_COLUMNS = {
     clientId: "gitlabOauthClientId",
     secret: "gitlabOauthClientSecretCiphertext",
   },
-} as const satisfies Record<SocialProviderId, { enabled: string; clientId: string; secret: string }>;
+} as const satisfies Record<
+  SocialProviderId,
+  { enabled: string; clientId: string; secret: string }
+>;
 
 /** Per-provider env seed, so "what does env give us" is answerable in one
  *  place (the settings UI shows it as the fallback). */
@@ -186,7 +189,8 @@ export async function twilioConfig(): Promise<TwilioConfig | null> {
   const row = await loadRow();
   const accountSid = row?.twilioAccountSid ?? env.TWILIO_ACCOUNT_SID ?? null;
   const fromNumber = row?.twilioFromNumber ?? env.TWILIO_FROM_NUMBER ?? null;
-  const authToken = (await decryptOrNull(row?.twilioAuthTokenCiphertext)) ?? env.TWILIO_AUTH_TOKEN ?? null;
+  const authToken =
+    (await decryptOrNull(row?.twilioAuthTokenCiphertext)) ?? env.TWILIO_AUTH_TOKEN ?? null;
   if (!accountSid || !authToken || !fromNumber) return null;
   return { accountSid, authToken, fromNumber };
 }
@@ -215,7 +219,8 @@ export async function crowdsecConfig(): Promise<CrowdsecConfig | null> {
   const row = await loadRow();
   if (row?.crowdsecEnabled === false) return null;
   const apiUrl = row?.crowdsecLapiUrl ?? env.CROWDSEC_LAPI_URL ?? null;
-  const apiKey = (await decryptOrNull(row?.crowdsecBouncerKeyCiphertext)) ?? env.CROWDSEC_BOUNCER_KEY ?? null;
+  const apiKey =
+    (await decryptOrNull(row?.crowdsecBouncerKeyCiphertext)) ?? env.CROWDSEC_BOUNCER_KEY ?? null;
   if (!apiUrl || !apiKey) return null;
   return { apiUrl, apiKey };
 }

@@ -39,7 +39,7 @@ export function KindPicker({
   return (
     <div className="flex flex-col gap-1.5">
       <Label>Registry</Label>
-      <div role="radiogroup" aria-label="Registry kind" className="grid grid-cols-4 gap-1.5">
+      <div role="radiogroup" aria-label="Registry kind" className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
         {REGISTRY_KINDS.map((meta) => {
           const selected = value === meta.kind;
           return (

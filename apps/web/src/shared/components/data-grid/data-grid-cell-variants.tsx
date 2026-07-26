@@ -392,7 +392,7 @@ export function LongTextCell<TData>({
         align="start"
         side="bottom"
         sideOffset={sideOffset}
-        className="w-[400px] rounded-none p-0"
+        className="w-[min(400px,calc(100vw-2rem))] rounded-none p-0"
       >
         <Textarea
           placeholder="Enter text..."
@@ -1865,7 +1865,7 @@ export function FileCell<TData>({
             data-grid-cell-editor=""
             align="start"
             sideOffset={sideOffset}
-            className="w-[400px] rounded-none p-0"
+            className="w-[min(400px,calc(100vw-2rem))] rounded-none p-0"
           >
             <div className="flex flex-col gap-2 p-3">
               <span id={labelId} className="sr-only">

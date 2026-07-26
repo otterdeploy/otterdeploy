@@ -70,11 +70,16 @@ function RouteComponent() {
   const panel = useStackPanelState(project.id, hasResources);
 
   return (
-    <div className="relative flex flex-1 overflow-hidden p-3">
-      <div className="relative flex-1 overflow-hidden rounded-2xl border">
+    // No inset padding / rounded frame on a phone — at 375px the 12px gutter
+    // and the border are pure loss, and the canvas wants every pixel.
+    <div className="relative flex flex-1 overflow-hidden p-0 sm:p-3">
+      <div className="relative flex-1 overflow-hidden border-0 sm:rounded-2xl sm:border">
         <ReactFlowProvider>
           <GraphCanvas panel={panel} />
-          <div className="pointer-events-none absolute inset-0 top-10 z-10 flex size-full items-end justify-end">
+          {/* The `top-10` gap exists to clear the floating canvas toolbar; on a
+              phone the drawer covers the whole canvas instead, so it starts at
+              the top edge. */}
+          <div className="pointer-events-none absolute inset-0 top-0 z-10 flex size-full items-end justify-end sm:top-10">
             <AnimatePresence mode="wait">
               {childKey ? (
                 // The drawer itself is OURS, not the child route's — see

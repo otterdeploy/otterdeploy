@@ -167,7 +167,10 @@ function MiniMetric({
   loading: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-1.5 px-3 py-2.5">
+    // min-w-0: grid tracks default to `min-width: auto`, so a long formatted
+    // value would widen its column and push the card past the viewport rather
+    // than staying inside its third.
+    <div className="flex min-w-0 flex-col gap-1.5 px-3 py-2.5">
       <span className="text-[10px] font-medium tracking-[0.1em] text-muted-foreground uppercase">
         {label}
       </span>

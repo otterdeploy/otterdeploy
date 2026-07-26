@@ -94,7 +94,11 @@ export function GraphPanelShell({
         // off-screen, so the route unmount is invisible.
         if (closing) void navigate({ to: "/$orgSlug/$projectSlug/graph", params: { orgSlug, projectSlug } });
       }}
-      className="pointer-events-auto relative h-full w-full rounded-lg rounded-tr-none border border-r-0 border-border bg-card lg:w-4/5 xl:w-3/5"
+      // Below `sm` the drawer IS the screen: no rounding, no border, so the
+      // panel's own content gets the full 375px rather than losing 2px to a
+      // frame it can't afford. The rounded/bordered right-hand sheet returns
+      // at `sm`, where the canvas is still visible beside it.
+      className="pointer-events-auto relative h-full w-full border-border bg-card sm:rounded-lg sm:rounded-tr-none sm:border sm:border-r-0 lg:w-4/5 xl:w-3/5"
     >
       <GraphPanelCloseContext.Provider value={close}>{children}</GraphPanelCloseContext.Provider>
     </m.div>

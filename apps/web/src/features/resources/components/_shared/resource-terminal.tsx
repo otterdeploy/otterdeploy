@@ -97,11 +97,14 @@ export function ResourceTerminal({ match, fallbackLabel, projectSlug }: Resource
 
       {/* Fullscreen — a portal overlay, same mechanism the Data tab uses. */}
       <Dialog open={expanded} onOpenChange={setExpanded}>
-        <DialogContent className="top-0 left-0 flex h-screen w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:max-w-none">
+        {/* 100svh, not 100vh: on mobile browsers vh includes the collapsible URL
+            bar, so a vh-sized fullscreen terminal runs off the bottom of the
+            visible viewport and its input row becomes unreachable. */}
+        <DialogContent className="top-0 left-0 flex h-[100svh] w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:max-w-none">
           <DialogHeader className="sr-only">
             <DialogTitle>{headerLabel}</DialogTitle>
           </DialogHeader>
-          <div className="flex min-h-0 flex-1 p-4">
+          <div className="flex min-h-0 flex-1 p-2 sm:p-4">
             <TerminalShell
               headerLabel={headerLabel}
               session={session}
@@ -151,9 +154,13 @@ function TerminalShell({
         boxClassName,
       )}
     >
-      <div className="flex items-center justify-between gap-3 border-b border-border/40 bg-muted/10 px-3 py-2">
-        <span className="font-mono text-[11px] text-muted-foreground">{headerLabel}</span>
-        <div className="flex items-center gap-1.5">
+      <div className="flex items-center justify-between gap-2 border-b border-border/40 bg-muted/10 px-3 py-2 sm:gap-3">
+        {/* The label is a container id / service path — long enough to push the
+            controls off a phone, so it truncates and they stay pinned. */}
+        <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
+          {headerLabel}
+        </span>
+        <div className="flex shrink-0 items-center gap-1.5">
           <Button
             variant="outline"
             size="sm"

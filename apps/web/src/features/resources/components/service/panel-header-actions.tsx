@@ -47,9 +47,13 @@ function PauseResumeButton({ name, control }: { name: string; control: PauseCont
         size="sm"
         onClick={control.onResume}
         disabled={control.busy}
+        aria-label={control.busy ? "Resuming" : "Resume"}
       >
         <HugeiconsIcon icon={PlayIcon} strokeWidth={2} className="size-3.5" />
-        {control.busy ? "Resuming…" : "Resume"}
+        {/* Labels drop below `sm` throughout this cluster: up to three actions
+            plus Close share the header row with the service name, and their
+            labels alone are wider than a phone. aria-label carries the meaning. */}
+        <span className="hidden sm:inline">{control.busy ? "Resuming…" : "Resume"}</span>
       </Button>
     );
   }
@@ -61,9 +65,10 @@ function PauseResumeButton({ name, control }: { name: string; control: PauseCont
         size="sm"
         onClick={() => setConfirmOpen(true)}
         disabled={control.busy}
+        aria-label={control.busy ? "Pausing" : "Pause"}
       >
         <HugeiconsIcon icon={PauseIcon} strokeWidth={2} className="size-3.5" />
-        {control.busy ? "Pausing…" : "Pause"}
+        <span className="hidden sm:inline">{control.busy ? "Pausing…" : "Pause"}</span>
       </Button>
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
@@ -122,6 +127,9 @@ export function HeaderActions({
   const neverDeployed = resource.image.startsWith("pending:");
   const isGit = resource.source === "git";
   const paused = pause?.paused ?? false;
+  // Hoisted so each label is computed once rather than inline in both the
+  // visible text and the aria-label (which the icon-only mobile form needs).
+  const restartLabel = restarting ? "Restarting…" : "Restart";
 
   return (
     <>
@@ -132,9 +140,16 @@ export function HeaderActions({
           nothing to restart on a never-deployed or paused service
           (restarting a paused one would re-roll zero replicas). */}
       {!neverDeployed && !paused && (
-        <Button type="button" variant="outline" size="sm" onClick={onRestart} disabled={restarting}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onRestart}
+          disabled={restarting}
+          aria-label={restartLabel}
+        >
           <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
-          {restarting ? "Restarting…" : "Restart"}
+          <span className="hidden sm:inline">{restartLabel}</span>
         </Button>
       )}
       {/* Primary deploy action. Git services build a fresh image from

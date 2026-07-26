@@ -3,9 +3,33 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import react from "@vitejs/plugin-react";
 import mdx from "fumadocs-mdx/vite";
 import { nitro } from "nitro/vite";
+import { execSync } from "node:child_process";
 import { defineConfig } from "vite-plus";
 
+/**
+ * The version shown in the docs sidebar, resolved once at build time.
+ *
+ * Order: an explicit `OTTERDEPLOY_DOCS_VERSION` (what CI sets from the tag it
+ * is building), then the newest local git tag. Empty string when neither is
+ * available — the sidebar row hides itself rather than print a number that
+ * might be wrong, which is exactly how it drifted to a hardcoded `v0.1.0` while
+ * releases had reached v0.7.0.
+ */
+function docsVersion(): string {
+  // oxlint-disable-next-line node/no-process-env
+  const pinned = process.env.OTTERDEPLOY_DOCS_VERSION;
+  if (pinned) return pinned;
+  try {
+    return execSync("git describe --tags --abbrev=0", { stdio: ["ignore", "pipe", "ignore"] })
+      .toString()
+      .trim();
+  } catch {
+    return "";
+  }
+}
+
 export default defineConfig({
+  define: { __DOCS_VERSION__: JSON.stringify(docsVersion()) },
   server: {
     allowedHosts: ["*"],
     // oxlint-disable-next-line node/no-process-env
@@ -21,6 +45,12 @@ export default defineConfig({
       // wired. Revisit once those are addressed.
       prerender: { enabled: false },
     }),
+    // The `build` script pins NODE_ENV=production, and must keep doing so.
+    // With it unset, this plugin emits the automatic DEV JSX transform
+    // (`jsxDEV` calls) into the SSR bundle while React resolves its PRODUCTION
+    // exports — where `jsxDEV` is deliberately `void 0`. Result: every SSR
+    // route 500s with "(0 , import_jsx_dev_runtime.jsxDEV) is not a function",
+    // landing page included. `vite build` alone does not imply it here.
     react(),
     // Pinned to `cloudflare-module` rather than left to auto-detection: the
     // site deploys to Workers on every path (CI, `bun run deploy`, a local
