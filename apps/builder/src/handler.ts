@@ -20,15 +20,15 @@
 
 import type { DeploymentId, ProjectId } from "@otterdeploy/shared/id";
 
+import { recordSystemAudit } from "@otterdeploy/api/audit/system";
 import { reportPreviewBuildOutcome } from "@otterdeploy/api/git/preview-report";
 import { env } from "@otterdeploy/env/server";
 import { defineJob } from "@otterdeploy/jobs";
 import { DeployTriggeredPayload, deployTriggeredJob } from "@otterdeploy/jobs/jobs/deploy";
-import { DATA_ROOT, sourceTarballPath } from "@otterdeploy/shared/paths";
+import { sourceTarballPath } from "@otterdeploy/shared/paths";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
-import { join } from "node:path";
 
 import {
   buildHelperEnvFlags,
@@ -37,11 +37,6 @@ import {
   helperHardeningFromEnv,
 } from "./helper-args";
 import { getDeploymentStatus, markFailed } from "./state";
-
-/** Host dir holding the persistent BuildKit layer cache + buildx instance state
- *  (see buildx.ts). Bind-mounted into each helper at the same path so the cache
- *  survives the `--rm`, and shared by every build on this host. */
-const CACHE_ROOT = join(DATA_ROOT, "buildx-cache");
 
 interface HelperResult {
   exitCode: number;
@@ -96,7 +91,12 @@ function runHelperContainer(
   // the HOST for local dev (`bun dev`), rewrite the loopback host to
   // `host.docker.internal` (resolvable via `--add-host` below) so the helper
   // reaches the host's Postgres/Redis. Only connection URLs are rewritten;
-  // everything else forwards its raw value unchanged.
+  // everything else forwards its raw value unchanged. This ALSO forwards
+  // BUILDKIT_ADDR (see buildx.ts) so the helper can reach the standalone
+  // buildkitd — the one thing that used to require a host bind mount
+  // (BUILDX_CONFIG under DATA_ROOT/buildx-cache) now needs none: buildkitd
+  // owns its own persistent cache in its own volume, nothing shared with this
+  // container beyond that one network address.
   // eslint-disable-next-line node/no-process-env
   const envFlags = buildHelperEnvFlags(process.env);
 
@@ -109,28 +109,12 @@ function runHelperContainer(
       ? ["-v", `${opts.sourceTarball}:${opts.sourceTarball}:ro`]
       : [];
 
-  // Persist the BuildKit layer cache + the buildx instance registration across
-  // these throwaway containers, but only when the data folder is actually
-  // present (prod / data-folder hosts). The bind source resolves on the HOST
-  // daemon (docker-out-of-docker), so the path must exist on the host — which,
-  // for the compose builder service, means DATA_ROOT is mounted into it too.
-  // Absent (dev) → no flags → builds run with no persistent cache, unchanged.
-  const cacheFlags = existsSync(DATA_ROOT)
-    ? [
-        "-v",
-        `${CACHE_ROOT}:${CACHE_ROOT}`,
-        "-e",
-        `BUILDX_CONFIG=${join(CACHE_ROOT, ".buildx-state")}`,
-      ]
-    : [];
-
   const args = buildHelperRunArgs({
     deploymentId,
     network: env.BUILDER_HELPER_NETWORK,
     image: env.BUILDER_HELPER_IMAGE,
     envFlags,
     sourceFlags,
-    cacheFlags,
     // eslint-disable-next-line node/no-process-env
     hardeningFlags: helperHardeningFlags(helperHardeningFromEnv(process.env)),
   });
@@ -247,6 +231,20 @@ export function makeBuildJob() {
         if (sourceTarball) await rm(sourceTarball, { force: true }).catch(() => undefined);
 
         results.push({ deploymentId: id, ...outcome });
+        // od-5j8.21: the builder is a separate process from apps/server, so
+        // this is the pg-drain's twin for a job-triggered completion — same
+        // tamper-evident chain (see @otterdeploy/api/audit/system), carrying
+        // forward whatever correlationId the triggering oRPC call minted (the
+        // UI "Deploy" path — webhook/other non-oRPC triggers have none, and
+        // the row still gets written, just uncorrelated). Best-effort: a
+        // logging failure must never fail the deploy it's reporting on.
+        await recordSystemAudit({
+          action: "deployment.complete",
+          outcome: outcome.ok ? "success" : "failure",
+          target: { type: "deployment", id: deploymentId, projectId: payload.projectId },
+          reason: outcome.error,
+          correlationId: payload.correlationId,
+        }).catch(() => undefined);
         // Preview deploys converge their PR comment + commit status here, the
         // one place that sees every terminal outcome (pipeline success, build
         // failure, container that never started). No-op for non-preview

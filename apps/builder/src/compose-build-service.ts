@@ -17,7 +17,6 @@ import type { LogSink } from "./log-stream";
 
 import { readFileSync } from "node:fs";
 
-import { cachePathFor } from "./buildx";
 import { dockerPush } from "./docker-push";
 import { dockerfileBuild, resolveDockerfileBuild } from "./dockerfile";
 import { assertDockerfileValid } from "./dockerfile-validate";
@@ -41,7 +40,6 @@ export function buildComposeService(args: {
       args;
     const subdir = build.context.replace(/^\.\//, "").replace(/\/$/, "");
     const repoBase = `${imageRepository}-${serviceName}`.toLowerCase();
-    const cachePath = cacheBuilder ? cachePathFor(repoBase) : null;
 
     const image = yield* await Result.tryPromise({
       try: () => {
@@ -66,7 +64,6 @@ export function buildComposeService(args: {
             imageRepository: repoBase,
             sha: gitSha,
             builderName: cacheBuilder,
-            cachePath,
             sink,
           });
         }
@@ -77,7 +74,6 @@ export function buildComposeService(args: {
           sha: gitSha,
           config: null,
           builderName: cacheBuilder,
-          cachePath,
           sink,
         });
       },

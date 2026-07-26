@@ -9,22 +9,22 @@ import { DATA_ROOT } from "@otterdeploy/shared/paths";
  * No-op when the data folder isn't in use (dev / tmpdir fallback): the builds
  * dir won't exist, so there's nothing to sweep — and ephemeral tmpdir work dirs
  * are cleaned on failure anyway (only `persistent` dirs are kept).
+ *
+ * od-48w removed this module's other export, `pruneStaleBuildCache`: the
+ * per-repo local-dir BuildKit cache it swept (`DATA_ROOT/buildx-cache`,
+ * bind-mounted into every throwaway helper container) no longer exists —
+ * builds now route through a standalone buildkitd (see `buildx.ts`), which
+ * owns its own persistent cache, in its own volume, with its own size/age GC
+ * policy. Nothing under `DATA_ROOT` needs sweeping for it anymore.
  */
 import { readdir, rm, rmdir, stat } from "node:fs/promises";
-import { join, resolve, sep } from "node:path";
+import { join } from "node:path";
 
 const BUILDS_DIR = join(DATA_ROOT, "builds");
-/** Persistent BuildKit layer cache (see buildx.ts), one subdir per image repo. */
-const CACHE_DIR = join(DATA_ROOT, "buildx-cache");
 
 /** How long a failed build's clone lingers for inspection before the sweep
  *  reclaims it. */
 const BUILD_TTL_MS = 24 * 60 * 60 * 1000; // 24h
-/** How long an unused layer-cache dir lingers before it's reclaimed. The cache
- *  is touched on every build that uses it (`--cache-to`), so its mtime tracks
- *  last use — a repo not built in this window sheds its cache. Generous because
- *  the cache is pure speedup: dropping a live one only costs one slow rebuild. */
-const CACHE_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14d
 
 /**
  * Remove build dirs whose mtime is older than {@link BUILD_TTL_MS}. Build clones
@@ -64,38 +64,6 @@ export async function pruneStaleBuilds(now = Date.now()): Promise<void> {
       );
       // Reclaim the project bucket if pruning emptied it.
       await rmdir(bucket).catch(() => undefined);
-    }),
-  );
-}
-
-/**
- * Reclaim BuildKit layer-cache dirs (`buildx-cache/<repo>`) unused for longer
- * than {@link CACHE_TTL_MS}. Without this the cache grows unbounded (BuildKit's
- * local cache has no GC) and eventually fills the disk. Best-effort + guarded:
- * each removal stays inside `CACHE_DIR`, and a vanished/locked entry is skipped,
- * never thrown. No-op when the cache dir doesn't exist (dev / no data folder).
- */
-export async function pruneStaleBuildCache(now = Date.now(), cacheDir = CACHE_DIR): Promise<void> {
-  let entries: string[];
-  try {
-    entries = await readdir(cacheDir);
-  } catch {
-    return; // cache dir absent → nothing to prune
-  }
-  const cacheRoot = resolve(cacheDir);
-  await Promise.all(
-    entries.map(async (name) => {
-      const dir = join(cacheDir, name);
-      // Guard: never rm outside the cache root (e.g. a stray symlink/`..`).
-      if (!resolve(dir).startsWith(cacheRoot + sep)) return;
-      try {
-        const info = await stat(dir);
-        if (now - info.mtimeMs > CACHE_TTL_MS) {
-          await rm(dir, { recursive: true, force: true });
-        }
-      } catch {
-        // entry vanished or is mid-use — leave it for the next sweep
-      }
     }),
   );
 }

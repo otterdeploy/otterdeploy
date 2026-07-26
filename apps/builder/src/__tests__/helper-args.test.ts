@@ -73,6 +73,12 @@ describe("buildHelperEnvFlags", () => {
     const flags = buildHelperEnvFlags({ CORS_ORIGIN: "http://localhost:3000" });
     expect(flags).toEqual(["-e", "CORS_ORIGIN"]);
   });
+
+  test("forwards BUILDKIT_ADDR (od-48w — how the helper reaches the standalone buildkitd)", () => {
+    const flags = buildHelperEnvFlags({ BUILDKIT_ADDR: "tcp://buildkitd:1234" });
+    expect(flags).toEqual(["-e", "BUILDKIT_ADDR"]);
+    expect(FORWARDED_ENV).toContain("BUILDKIT_ADDR");
+  });
 });
 
 describe("helperHardeningFlags", () => {
@@ -138,7 +144,6 @@ describe("buildHelperRunArgs", () => {
     image: "otterdeploy-builder:latest",
     envFlags: ["-e", "DATABASE_URL"],
     sourceFlags: [],
-    cacheFlags: [],
     hardeningFlags: helperHardeningFlags(),
   };
 
@@ -160,7 +165,7 @@ describe("buildHelperRunArgs", () => {
     );
   });
 
-  test("still mounts the raw docker.sock (documented, unclosed gap — see od-5j8.15 notes)", () => {
+  test("still mounts the raw docker.sock (narrowed by od-48w, not eliminated — see buildx.ts)", () => {
     const args = buildHelperRunArgs(baseArgs);
     const idx = args.indexOf("/var/run/docker.sock:/var/run/docker.sock");
     expect(idx).toBeGreaterThan(-1);

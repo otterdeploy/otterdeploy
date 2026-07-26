@@ -32,8 +32,8 @@ import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 import { rm } from "node:fs/promises";
 
-import { pruneStaleBuildCache, pruneStaleBuilds } from "./build-workdir";
-import { ensureBuildxBuilder, cachePathFor } from "./buildx";
+import { pruneStaleBuilds } from "./build-workdir";
+import { ensureBuildxBuilder } from "./buildx";
 import { cloneRepoAtSha } from "./clone";
 import { isComposeDeployment, runComposeBuild } from "./compose-build";
 import { detectServiceFramework } from "./detect-framework";
@@ -47,13 +47,12 @@ import { extractTarballToWorkDir } from "./extract";
 import { loadPipelineContext, PipelineLoadError } from "./load";
 import { createLogSink, type LogSink } from "./log-stream";
 import {
+  buildAndPublishImage,
   type BuildPipelineError,
   handleFailure,
   mintInstallationToken,
-  pushImageIfRegistry,
   resolveBindingKind,
   resolveBuilder,
-  runImageBuild,
   runPostDeploy,
   runPreDeploy,
   step,
@@ -80,11 +79,11 @@ export async function runBuildPipeline(opts: {
   const sink = createLogSink({ deploymentId: opts.deploymentId, publisher: opts.publisher });
   const work: WorkDirRef = { path: null, persistent: false };
 
-  // Reclaim disk before we start (no-op unless the data folder is in use): old
-  // kept-on-failure clones, and BuildKit layer-cache dirs unused past their TTL
-  // (the cache has no GC of its own).
+  // Reclaim disk before we start (no-op unless the data folder is in use):
+  // old kept-on-failure clones past their TTL. BuildKit's own layer cache
+  // (od-48w: now owned by the standalone buildkitd, see buildx.ts) has its
+  // own GC policy and needs no sweep here anymore.
   await pruneStaleBuilds().catch(() => undefined);
-  await pruneStaleBuildCache().catch(() => undefined);
 
   const built = await runBuildSteps(opts, sink, work);
 
@@ -206,43 +205,35 @@ function runBuildSteps(
       work.persistent = cloned.persistent;
     }
 
-    // Pick the builder, then build. Both the dockerfile and railpack paths
-    // produce the same `{ shaTag, latestTag, buildDir }` shape so everything
-    // below stays builder-agnostic.
+    // Pick the builder, then build + publish it. Both the dockerfile and
+    // railpack paths produce the same `{ shaTag, latestTag, buildDir,
+    // imageDigest }` shape so everything below stays builder-agnostic.
     const builder = resolveBuilder(ctx.service.buildConfig, sink);
 
-    // Best-effort persistent layer cache: when a docker-container buildx builder
-    // can be set up, route the build through it with a local cache keyed by the
-    // image repo. Returns null (→ no cache, default-driver `--load`) on any
-    // failure, so a build never depends on the cache being available.
+    // Best-effort remote buildkitd (see buildx.ts — closes od-48w's shared
+    // privileged builder): when it's reachable, the build routes through it
+    // for both a shared content-addressed layer cache AND (when a registry is
+    // also bound) a direct `--push` that never touches the local daemon.
+    // Returns null (→ default driver, `--load`, no shared cache) on any
+    // failure, so a build never depends on it being available.
     const cacheBuilder = await ensureBuildxBuilder(sink);
-    const cachePath = cacheBuilder ? cachePathFor(ctx.imageRepository) : null;
 
-    // Resolve inside the build step so any HARD throw (bad/missing Dockerfile
-    // path when pinned to dockerfile) becomes a tagged BuildStepError.
-    const image = yield* await step("build", () =>
-      runImageBuild({
-        buildConfig: ctx.service.buildConfig,
-        builder,
-        workDir: sourceDir,
-        sourceSubdir: ctx.service.sourceSubdir,
-        imageRepository: ctx.imageRepository,
-        gitSha: buildTag,
-        cacheBuilder,
-        cachePath,
-        sink,
-      }),
-    );
-
-    // Push only when the project binds an external registry (remote/multi-node
-    // swarm needs to pull it); the local path keeps the image `--load`ed into
-    // the swarm node's daemon. `imageDigest` is the content digest captured from
-    // the push (`repo@sha256:…`), or null for the local path (no registry).
-    const imageDigest = yield* await pushImageIfRegistry({
+    // Resolve+build+publish inside one step so any HARD throw (bad/missing
+    // Dockerfile path when pinned to dockerfile, a failed login/push) becomes
+    // a tagged BuildPipelineError; `buildAndPublishImage` decides push-direct
+    // vs load+push based on `cacheBuilder` + whether a registry is bound.
+    const image = yield* await buildAndPublishImage({
+      buildConfig: ctx.service.buildConfig,
+      builder,
+      workDir: sourceDir,
+      sourceSubdir: ctx.service.sourceSubdir,
+      imageRepository: ctx.imageRepository,
+      gitSha: buildTag,
+      cacheBuilder,
       registry: ctx.registry,
-      image,
       sink,
     });
+    const imageDigest = image.imageDigest;
 
     yield* await step("image-ready", () => markImageReady(opts.deploymentId, image.shaTag));
     // Image build is done; everything from here (rollout + health watch) is the

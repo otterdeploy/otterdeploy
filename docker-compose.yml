@@ -52,6 +52,62 @@ services:
       timeout: 3s
       retries: 20
 
+  # Standalone ROOTLESS BuildKit daemon — closes od-48w (the shared PRIVILEGED
+  # buildx docker-container builder every tenant's Dockerfile/Railpack `RUN`
+  # step used to execute in). `docker inspect` on that old builder showed
+  # `"Privileged": true`; buildx's `docker-container` driver hardcodes that
+  # flag on the container IT creates, regardless of the image inside — so
+  # `--driver-opt image=...-rootless` did NOT close it. This container is
+  # never managed by buildx at all: it's a plain long-lived service the
+  # builder reaches over the network via buildx's `remote` driver (`docker
+  # buildx create --driver remote <addr>`), which only opens a connection —
+  # it never spawns, owns, or elevates a container.
+  #
+  # Verify locally: `docker inspect otterdeploy-buildkitd --format
+  # '{{.HostConfig.Privileged}}'` → false. No `--cap-add`; `security_opt`
+  # below only relaxes the seccomp/apparmor DEFAULT profiles (which otherwise
+  # block the user-namespace + mount syscalls rootless BuildKit's own
+  # unprivileged sandboxing needs) — a materially smaller grant than
+  # `--privileged` (full device access + every capability + all of
+  # seccomp/apparmor/AppArmor disabled at once).
+  buildkitd:
+    image: moby/buildkit:buildx-stable-1-rootless
+    container_name: otterdeploy-buildkitd
+    command:
+      - --addr
+      - tcp://0.0.0.0:1234
+      # Verified locally: WITHOUT this flag, every build's first RUN step
+      # fails ("error mounting \"proc\" ... operation not permitted") — nested
+      # rootless process isolation conflicts with the sandboxing Docker
+      # Desktop / the host kernel already applies to this unprivileged
+      # container. Upstream's own guidance is to disable it "only when
+      # BuildKit is running in a container as an unprivileged user" — exactly
+      # this setup. It does NOT weaken the container boundary itself (still
+      # unprivileged, still no added capabilities) — only BuildKit's own
+      # redundant internal process sandbox.
+      - --oci-worker-no-process-sandbox
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
+    # Opt-in for local dev, same as `builder` below (which depends on it) —
+    # `docker compose --profile build up -d builder` brings both up.
+    profiles: ["build"]
+    restart: unless-stopped
+    volumes:
+      # buildkitd's OWN persistent layer cache + snapshotter state, in a named
+      # volume nothing else mounts. This is the ONE piece of state every
+      # tenant's build shares — intentionally: it's BuildKit's own
+      # content-addressed cache (same trust model as any shared build cache),
+      # not a host directory bind-mounted into throwaway per-tenant
+      # containers (the old `buildx-cache` mechanism this replaces).
+      - otterdeploy-buildkit-data:/home/user/.local/share/buildkit
+    healthcheck:
+      test: ["CMD", "buildctl", "--addr", "tcp://localhost:1234", "debug", "workers"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
   builder:
     # Unified image (same Dockerfile as the server); the build worker is just a
     # different command on top of the docker/buildx/railpack toolchain it carries.
@@ -87,20 +143,24 @@ services:
       # (this compose project's default network, so they resolve postgres/redis).
       BUILDER_HELPER_IMAGE: otterdeploy-builder:latest
       BUILDER_HELPER_NETWORK: otterdeploy_default
-      # Host data folder. Must match the bind-mount path below AND be a real host
-      # path, since the worker bind-mounts <dir>/buildx-cache into helper
-      # containers via the HOST daemon for the persistent BuildKit cache.
+      # Standalone rootless buildkitd (od-48w) — service DNS on this same
+      # compose network. Forwarded into each per-build helper (see
+      # apps/builder/src/helper-args.ts); see apps/builder/src/buildx.ts for
+      # how it's used (buildx `remote` driver, no privileged builder created).
+      BUILDKIT_ADDR: tcp://buildkitd:1234
+      # Host data folder. Must match the bind-mount path below.
       OTTERDEPLOY_DATA_DIR: ${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}
     volumes:
-      # Docker-out-of-Docker: drive the HOST daemon so railpack's
-      # `buildx --load` (and the optional `docker push`) land images in the same
-      # daemon the swarm runs from. DinD would isolate them where swarm can't
-      # pull. `Docker.fromEnv()` in the swarm client picks up this socket too.
+      # Docker-out-of-Docker: drive the HOST daemon. Still needed for the
+      # local/no-registry `--load` fallback and the post-build swarm rollout
+      # (see od-48w notes in apps/builder/src/helper-args.ts) — a build that
+      # has both a registry AND buildkitd available skips this entirely via
+      # `buildx build --push`. `Docker.fromEnv()` in the swarm client picks up
+      # this socket too.
       - /var/run/docker.sock:/var/run/docker.sock
       # Data folder, same path inside + on host so the worker can see it
-      # (existsSync gate) and the buildx-cache bind mounts it gives helper
-      # containers resolve to the same host dir. Holds the persistent BuildKit
-      # layer cache (see apps/builder/src/buildx.ts).
+      # (existsSync gate). NOT bind-mounted into the per-build helper anymore
+      # — buildkitd owns the persistent build cache in its own volume now.
       - ${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}:${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -108,6 +168,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      buildkitd:
         condition: service_healthy
 
   # CrowdSec agent + Local API (LAPI) — the IP-reputation layer the Firewall
@@ -229,6 +291,7 @@ services:
 volumes:
   otterdeploy-postgres-data:
   otterdeploy-redis-data:
+  otterdeploy-buildkit-data:
   otterdeploy-caddy-data:
   otterdeploy-caddy-state:
   otterdeploy-caddy-logs:

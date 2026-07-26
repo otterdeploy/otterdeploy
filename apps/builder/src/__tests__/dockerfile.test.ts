@@ -246,39 +246,52 @@ describe("dockerfileBuildArgs", () => {
     expect(dockerfileBuildArgs({ ...base, buildArgs: {} })).not.toContain("--build-arg");
   });
 
-  const cacheBase = {
+  const builderBase = {
     dockerfilePath: "/work/Dockerfile",
     contextDir: "/work",
     shaTag: "repo:sha",
     latestTag: "repo:latest",
   };
 
-  test("adds --builder + local cache flags when a cache builder is set", () => {
+  test("adds --builder when the remote buildkitd builder is set, still --load without push", () => {
     const args = dockerfileBuildArgs({
-      ...cacheBase,
-      builderName: "otterdeploy-cache",
-      cachePath: "/data/otterdeploy/buildx-cache/repo",
+      ...builderBase,
+      builderName: "otterdeploy-remote",
     });
     // --builder comes right after `buildx build`
-    expect(args.slice(0, 4)).toEqual(["buildx", "build", "--builder", "otterdeploy-cache"]);
-    expect(args).toContain("--cache-from");
-    expect(args).toContain("type=local,src=/data/otterdeploy/buildx-cache/repo");
-    expect(args).toContain("--cache-to");
-    expect(args).toContain("type=local,dest=/data/otterdeploy/buildx-cache/repo,mode=max");
+    expect(args.slice(0, 4)).toEqual(["buildx", "build", "--builder", "otterdeploy-remote"]);
+    expect(args).toContain("--load");
+    expect(args).not.toContain("--push");
     // context dir stays last
     expect(args[args.length - 1]).toBe("/work");
   });
 
-  test("emits NO cache/builder flags without a builder (default driver)", () => {
-    // The default docker driver rejects cache export — flags must be absent.
-    const noBuilder = dockerfileBuildArgs({
-      ...cacheBase,
-      cachePath: "/data/otterdeploy/buildx-cache/repo",
-    });
+  test("emits NO --builder flag without a remote builder (default driver)", () => {
+    const noBuilder = dockerfileBuildArgs(builderBase);
     expect(noBuilder).not.toContain("--builder");
-    expect(noBuilder).not.toContain("--cache-from");
-    expect(noBuilder).not.toContain("--cache-to");
-    // byte-identical to the no-cache-args form
-    expect(noBuilder).toEqual(dockerfileBuildArgs(cacheBase));
+    expect(noBuilder).toContain("--load");
+  });
+
+  // od-48w / socket reduction: a build with a remote builder AND push=true
+  // goes straight to the registry — no --load, no local docker daemon
+  // involved for this step.
+  test("push=true + a builder swaps --load for --push and adds --metadata-file", () => {
+    const args = dockerfileBuildArgs({
+      ...builderBase,
+      builderName: "otterdeploy-remote",
+      push: true,
+      metadataFile: "/tmp/meta.json",
+    });
+    expect(args).toContain("--push");
+    expect(args).not.toContain("--load");
+    expect(args).toContain("--metadata-file");
+    expect(args).toContain("/tmp/meta.json");
+  });
+
+  test("push=true WITHOUT a builder is ignored — the default driver can only --load", () => {
+    const args = dockerfileBuildArgs({ ...builderBase, push: true });
+    expect(args).toContain("--load");
+    expect(args).not.toContain("--push");
+    expect(args).not.toContain("--metadata-file");
   });
 });

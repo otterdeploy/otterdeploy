@@ -1,104 +1,127 @@
 /**
- * Persistent BuildKit layer cache via a `docker-container` buildx builder.
+ * BuildKit builder resolution for tenant Dockerfile/Railpack builds.
  *
- * The default docker driver (host-daemon `buildx --load`) can't EXPORT a
- * BuildKit cache — `--cache-to type=local` is rejected with "Cache export is
- * not supported for the docker driver". A `docker-container` driver builder
- * can, and still `--load`s the result into the host daemon, so we run builds
- * through a shared named one and export/import a local cache under the data
- * folder. The cache (and the builder's instance registration, via
- * `BUILDX_CONFIG` — set in handler.ts) live on the mounted data folder, so they
- * survive the throwaway per-build helper containers and warm later builds.
+ * SECURITY (closes od-48w — the dominant host-escape vector): builds used to
+ * run inside a shared, buildx-MANAGED `docker-container` driver builder.
+ * `docker inspect` on that builder's `buildkitd` companion showed
+ * `"Privileged": true` — buildx's `docker-container` driver hardcodes
+ * `--privileged` on the container IT creates, REGARDLESS of the image it
+ * boots (`--driver-opt image=moby/buildkit:buildx-stable-1-rootless` does not
+ * change this: the rootless image only changes what USER runs inside that
+ * still-privileged container). So every tenant's Dockerfile `RUN` step
+ * effectively ran as host root, and — because the builder was one shared,
+ * long-lived instance — any tenant's build could reach every other tenant's
+ * build (and the host).
  *
- * Everything here is BEST-EFFORT: if the builder can't be set up (no docker, no
- * permission, an old docker without buildx), `ensureBuildxBuilder` returns null
- * and the caller builds the original way — default driver, `--load`, no cache.
- * A build NEVER fails because the cache is unavailable.
+ * The fix here is to stop letting buildx create/manage the builder container
+ * at all. A standalone, rootless `buildkitd` runs as its OWN long-lived
+ * service (the `buildkitd` compose service in docker-compose.yml /
+ * docker-compose.prod.yml) — no `--privileged`, no added Linux capabilities.
+ * Verified locally via `docker inspect buildkitd --format '{{.HostConfig.
+ * Privileged}}'` → `false`. Every build reaches it through buildx's `remote`
+ * driver, which does nothing but open a gRPC connection to an address — it
+ * never spawns or manages a container, so there's no privileged bootstrap
+ * step to intercept, override, or fall back into.
+ *
+ * The remote buildkitd's build/cache execution is intentionally shared and
+ * content-addressed across tenants (that's the entire point of a persistent
+ * builder — warm layer caches survive across builds with zero extra
+ * plumbing, replacing the old per-repo local-dir `--cache-from/--cache-to`
+ * mechanism entirely: BuildKit already does this internally once the builder
+ * is long-lived, complete with its own size/age-based GC policy instead of
+ * the unbounded local cache dir this replaces). What's NOT shared: each
+ * build's `RUN` steps execute in their own unprivileged, single-use OCI
+ * container sandbox inside buildkitd — one tenant's build cannot see another
+ * tenant's build context, environment, or process tree.
+ *
+ * Everything here is BEST-EFFORT: if no buildkitd address is configured, or
+ * it can't be reached, `ensureBuildxBuilder` returns null and the caller
+ * builds the original way — the default docker driver, `--load`, no shared
+ * cache. That fallback NEVER creates a `docker-container` builder (which
+ * would silently reintroduce the privileged-container vector this module
+ * exists to close) — it is the host daemon's own built-in BuildKit, same
+ * trust boundary as any plain `docker build`. A build NEVER fails because the
+ * remote builder is unavailable.
  */
-
-import { DATA_ROOT } from "@otterdeploy/shared/paths";
-import { join } from "node:path";
 
 import type { LogSink } from "./log-stream";
 
 import { runProcess } from "./run-process";
 
-/** Stable name for the shared cache builder. Its instance metadata is persisted
- *  across helper containers via BUILDX_CONFIG on the mounted data folder, so
- *  after the first build this resolves on the fast `inspect` path. */
-const BUILDER_NAME = "otterdeploy-cache";
+/** Stable name for the remote-driver builder pointed at the standalone
+ *  buildkitd. Re-registering under this name is idempotent (buildx just
+ *  reuses the existing entry), so repeated calls across helper containers
+ *  converge on the same builder without any shared local state. */
+const BUILDER_NAME = "otterdeploy-remote";
 
-/** Root for exported BuildKit caches — one subdir per image repo. */
-const CACHE_ROOT = join(DATA_ROOT, "buildx-cache");
+/** `docker buildx inspect <name> --bootstrap` argv. PURE — exists so the
+ *  exact command is directly assertable without invoking docker. */
+export function buildxInspectArgs(builderName: string): string[] {
+  return ["buildx", "inspect", builderName, "--bootstrap"];
+}
 
 /**
- * Ensure the shared docker-container buildx builder exists and is booted.
- * Returns its name (to pass as `--builder`), or null if it can't be made ready —
- * in which case the caller falls back to the default-driver `--load` build with
- * no cache. Never throws.
+ * `docker buildx create --driver remote <addr>` argv. PURE. Deliberately
+ * NEVER `--driver docker-container` and NEVER `--privileged` — this is the
+ * one function that decides how the builder gets created, so a regression
+ * back to the privileged path would show up here first (see
+ * `__tests__/buildx.test.ts`).
  */
-export async function ensureBuildxBuilder(sink: LogSink): Promise<string | null> {
-  // Already registered (BUILDX_CONFIG persisted it across helpers) — `--bootstrap`
-  // restarts the buildkitd container if it was stopped.
+export function buildxCreateArgs(builderName: string, addr: string): string[] {
+  return ["buildx", "create", "--name", builderName, "--driver", "remote", addr];
+}
+
+/** Reads the standalone buildkitd's address (e.g. `tcp://buildkitd:1234`)
+ *  from the environment. A plain env read (not the shared `@otterdeploy/env`
+ *  schema) — same rationale as `helper-args.ts`: this module must stay
+ *  importable (and unit-testable) without a full validated env. Unset ⇒ no
+ *  remote builder is attempted at all (dev / a host with no buildkitd
+ *  service running), so nothing here ever blocks on a connection nobody
+ *  configured. */
+export function readBuildkitAddr(
+  // eslint-disable-next-line node/no-process-env
+  sourceEnv: Record<string, string | undefined> = process.env,
+): string | undefined {
+  return sourceEnv.BUILDKIT_ADDR || undefined;
+}
+
+/**
+ * Ensure a buildx builder pointed at the standalone remote buildkitd exists
+ * and is reachable. Returns its name (pass as `--builder`), or null when no
+ * address is configured or it can't be reached — the caller then builds via
+ * the default driver with no `--builder` flag at all. Never throws.
+ */
+export async function ensureBuildxBuilder(sink: LogSink, addr?: string): Promise<string | null> {
+  const buildkitAddr = addr ?? readBuildkitAddr();
+  if (!buildkitAddr) return null;
+
+  // Already registered (buildx's own local state persists it across helper
+  // containers via the CLI's config dir) — `--bootstrap` confirms it's live.
   const inspect = await runProcess({
     cmd: "docker",
-    args: ["buildx", "inspect", BUILDER_NAME, "--bootstrap"],
+    args: buildxInspectArgs(BUILDER_NAME),
     sink,
     echo: false,
   }).catch(() => null);
   if (inspect && inspect.exitCode === 0) return BUILDER_NAME;
 
-  // Not registered for this client yet — create it. If a prior build already
-  // created the underlying buildkitd container and it isn't visible here (no
-  // persisted BUILDX_CONFIG, e.g. dev), create can conflict; we just fall back
-  // to no-cache rather than tear down a possibly-live builder.
+  // Not registered for this client yet — create it. The `remote` driver only
+  // records the endpoint; it does not start, own, or need to reach a docker
+  // daemon to do so (confirmed locally with `DOCKER_HOST` pointed at a
+  // nonexistent socket during `create` + a real `buildx build --push`).
   const create = await runProcess({
     cmd: "docker",
-    args: [
-      "buildx",
-      "create",
-      "--name",
-      BUILDER_NAME,
-      "--driver",
-      "docker-container",
-      "--bootstrap",
-    ],
+    args: buildxCreateArgs(BUILDER_NAME, buildkitAddr),
     sink,
     echo: false,
   }).catch(() => null);
   if (create && create.exitCode === 0) return BUILDER_NAME;
 
-  sink.system("buildx cache builder unavailable — building without a persistent layer cache");
+  sink.system("remote buildkitd unavailable — building without it (no shared layer cache)");
   return null;
 }
 
-/** Local cache dir for an image repo, e.g.
- *  `<DATA_ROOT>/buildx-cache/ghcr.io_acme_web`. Path-unsafe chars in the repo
- *  (`/`, `:`) collapse to `_` so each repo maps to exactly one dir. */
-export function cachePathFor(imageRepository: string): string {
-  const safe = imageRepository.replace(/[^A-Za-z0-9_.-]+/g, "_");
-  return join(CACHE_ROOT, safe);
-}
-
-/** `--builder <name>` when a cache builder is in use, else nothing. PURE. */
+/** `--builder <name>` when a remote builder is in use, else nothing. PURE. */
 export function builderFlags(builderName: string | null | undefined): string[] {
   return builderName ? ["--builder", builderName] : [];
-}
-
-/**
- * `--cache-from`/`--cache-to type=local` flags — emitted ONLY when both a
- * docker-container builder and a cache path are present (the default driver
- * rejects cache export, so we must not emit these without the builder). PURE.
- */
-export function cacheFlags(
-  builderName: string | null | undefined,
-  cachePath: string | null | undefined,
-): string[] {
-  if (!builderName || !cachePath) return [];
-  return [
-    "--cache-from",
-    `type=local,src=${cachePath}`,
-    "--cache-to",
-    `type=local,dest=${cachePath},mode=max`,
-  ];
 }

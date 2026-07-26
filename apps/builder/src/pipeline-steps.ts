@@ -26,7 +26,7 @@ import type { LogSink } from "./log-stream";
 import { readFileSync } from "node:fs";
 
 import { runDeployHooks } from "./deploy-hook";
-import { dockerPush } from "./docker-push";
+import { dockerLogin, dockerLogout, dockerPushTags, type PushCredentials } from "./docker-push";
 import { dockerfileBuild, resolveDockerfileBuild } from "./dockerfile";
 import { assertDockerfileValid } from "./dockerfile-validate";
 import {
@@ -108,12 +108,16 @@ export async function mintInstallationToken(
 
 /**
  * Build the service image. Two paths produce the same `{ shaTag, latestTag,
- * buildDir }` shape so the pipeline stays builder-agnostic: a repo Dockerfile
- * via `docker buildx build --load`, or railpack's BuildKit frontend. `auto`/
- * null resolves to dockerfile when one is present, else railpack. `compose`
- * resolves as railpack so the unsupported-builder fallback takes effect.
+ * buildDir, digest }` shape so the pipeline stays builder-agnostic: a repo
+ * Dockerfile via `docker buildx build`, or railpack's BuildKit frontend.
+ * `auto`/null resolves to dockerfile when one is present, else railpack.
+ * `compose` resolves as railpack so the unsupported-builder fallback takes
+ * effect. `push` (only takes effect alongside `cacheBuilder`) is threaded
+ * through so the build can `--push` straight from the remote buildkitd
+ * instead of `--load`ing locally — see `buildAndPublishImage`, the only
+ * caller, which resolves whether pushing directly is possible.
  */
-export function runImageBuild(args: {
+function runImageBuild(args: {
   buildConfig: BuildConfig | null;
   builder: Builder;
   workDir: string;
@@ -121,11 +125,11 @@ export function runImageBuild(args: {
   imageRepository: string;
   gitSha: string;
   cacheBuilder: string | null;
-  cachePath: string | null;
+  push: boolean;
   sink: LogSink;
-}): Promise<{ shaTag: string; latestTag: string; buildDir: string }> {
+}): Promise<{ shaTag: string; latestTag: string; buildDir: string; digest: string | null }> {
   const { buildConfig, builder, workDir, sourceSubdir, imageRepository, gitSha } = args;
-  const { cacheBuilder, cachePath, sink } = args;
+  const { cacheBuilder, push, sink } = args;
   // `compose` has no dockerfile config; resolve it as railpack.
   const resolveBuilderKind = builder === "compose" ? "railpack" : builder;
   const resolution = resolveDockerfileBuild({
@@ -153,7 +157,7 @@ export function runImageBuild(args: {
       buildArgs:
         buildConfig?.builder === "dockerfile" ? (buildConfig.buildArgs ?? undefined) : undefined,
       builderName: cacheBuilder,
-      cachePath,
+      push,
       sink,
     });
   }
@@ -164,43 +168,111 @@ export function runImageBuild(args: {
     sha: gitSha,
     config: buildConfig?.builder === "railpack" ? buildConfig : null,
     builderName: cacheBuilder,
-    cachePath,
+    push,
     sink,
   });
 }
 
+export interface BuiltImage {
+  shaTag: string;
+  latestTag: string;
+  buildDir: string;
+  /** Content digest of the pushed image, or null for a local (no-registry)
+   *  build — nothing was pushed. */
+  imageDigest: string | null;
+}
+
 /**
- * Push the built image when the project binds an external registry (remote or
- * multi-node swarm needs to pull it); the default path keeps the image local.
- * Returns the pushed content digest (`repo@sha256:…`) — or null when there's no
- * registry (the local path has none).
+ * Build the service image AND publish it, as one step — so a registry
+ * `docker login` (needed either way, once a registry is bound) happens
+ * exactly once, BEFORE the build, which is what lets a build that has both a
+ * registry AND the remote buildkitd builder (see `buildx.ts`) skip the local
+ * daemon entirely:
+ *
+ *   - registry + remote builder available → build with `--push`: the image
+ *     goes straight from buildkitd to the registry. No `--load`, no separate
+ *     `docker push`, no `docker inspect` — this build touches NO docker.sock
+ *     at all (verified locally: the equivalent `buildx build --push` against
+ *     a real registry succeeds with `DOCKER_HOST` pointed at a nonexistent
+ *     socket). The digest comes back from buildx's `--metadata-file`.
+ *   - registry, no remote builder → unchanged from before od-48w: `--load`
+ *     into the local daemon, then `docker push` + `docker inspect` for the
+ *     digest. This is the one remaining place a registry-bound build still
+ *     needs docker.sock, and only when the remote builder itself is down.
+ *   - no registry (the default local/single-node path) → `--load` only; the
+ *     image must be present in the local daemon for the docker/swarm runtime
+ *     to run it directly. No login, no push, no digest.
+ *
+ * `docker logout` always runs (in a `finally`, so it fires on a build
+ * failure too) whenever a login happened, on either path.
  */
-export function pushImageIfRegistry(args: {
+export function buildAndPublishImage(args: {
+  buildConfig: BuildConfig | null;
+  builder: Builder;
+  workDir: string;
+  sourceSubdir: string | null;
+  imageRepository: string;
+  gitSha: string;
+  cacheBuilder: string | null;
   registry: typeof containerRegistry.$inferSelect | null;
-  image: { shaTag: string; latestTag: string };
   sink: LogSink;
-}): Promise<Result<string | null, BuildStepError>> {
+}): Promise<Result<BuiltImage, BuildStepError>> {
   return Result.gen(async function* () {
-    const { registry, image, sink } = args;
-    if (!registry) {
-      sink.system(`local build — skipping registry push for ${image.shaTag}`);
-      return Result.ok(null);
+    const { registry, sink } = args;
+    let credentials: PushCredentials | null = null;
+    if (registry) {
+      const password = yield* await step("decrypt-registry", () =>
+        decryptSecret(registry.encryptedPassword),
+      );
+      credentials = { host: registry.host, username: registry.username, password };
     }
-    const password = yield* await step("decrypt-registry", () =>
-      decryptSecret(registry.encryptedPassword),
-    );
-    const pushed = yield* await step("push", () =>
-      dockerPush({
-        tags: [image.shaTag, image.latestTag],
-        credentials: {
-          host: registry.host,
-          username: registry.username,
-          password,
-        },
-        sink,
-      }),
-    );
-    return Result.ok(pushed.digest);
+
+    // Only skip `--load` when there's somewhere to push straight TO — no
+    // registry still means the local docker/swarm runtime needs the image in
+    // its own daemon, regardless of whether the remote builder is up.
+    const pushDirect = args.cacheBuilder !== null && credentials !== null;
+
+    if (credentials) {
+      yield* await step("registry-login", () =>
+        dockerLogin(credentials as PushCredentials, sink),
+      );
+    }
+
+    try {
+      const built = yield* await step("build", () =>
+        runImageBuild({
+          buildConfig: args.buildConfig,
+          builder: args.builder,
+          workDir: args.workDir,
+          sourceSubdir: args.sourceSubdir,
+          imageRepository: args.imageRepository,
+          gitSha: args.gitSha,
+          cacheBuilder: args.cacheBuilder,
+          push: pushDirect,
+          sink,
+        }),
+      );
+
+      if (pushDirect) {
+        sink.system(`pushed ${built.shaTag} directly from the remote buildkitd (no --load)`);
+        return Result.ok({ ...built, imageDigest: built.digest });
+      }
+      if (credentials) {
+        const creds = credentials;
+        const pushed = yield* await step("push", () =>
+          dockerPushTags({
+            tags: [built.shaTag, built.latestTag],
+            sink,
+            secrets: [creds.password],
+          }),
+        );
+        return Result.ok({ ...built, imageDigest: pushed.digest });
+      }
+      sink.system(`local build — skipping registry push for ${built.shaTag}`);
+      return Result.ok({ ...built, imageDigest: null });
+    } finally {
+      if (credentials) await dockerLogout(credentials, sink).catch(() => undefined);
+    }
   });
 }
 

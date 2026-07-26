@@ -34,7 +34,8 @@ import { join } from "node:path";
 
 import type { LogSink } from "./log-stream";
 
-import { builderFlags, cacheFlags } from "./buildx";
+import { cleanupMetadataFile, readImageDigest, tmpMetadataFile } from "./buildkit-metadata";
+import { builderFlags } from "./buildx";
 import {
   detectPackageManagerRun,
   readJson,
@@ -67,13 +68,17 @@ export async function railpackBuild(opts: {
   imageRepository: string;
   sha: string;
   config: BuildRailpackConfig | null;
-  /** Cache builder name + local cache dir (best-effort; both or neither). */
+  /** Remote buildkitd builder name, or null for the default driver. */
   builderName?: string | null;
-  cachePath?: string | null;
+  /** Push straight to the registry (needs `builderName` + a `docker login`
+   *  the caller has already run) instead of `--load`ing locally. */
+  push?: boolean;
   sink: LogSink;
-}): Promise<{ shaTag: string; latestTag: string; buildDir: string }> {
+}): Promise<{ shaTag: string; latestTag: string; buildDir: string; digest: string | null }> {
   const shaTag = `${opts.imageRepository}:${opts.sha}`;
   const latestTag = `${opts.imageRepository}:latest`;
+  const pushMode = !!(opts.push && opts.builderName);
+  const metadataFile = pushMode ? await tmpMetadataFile() : null;
 
   const layout = await resolveBuildLayout(opts);
   const { buildDir, planPath, spaOutputDir } = layout;
@@ -112,31 +117,41 @@ export async function railpackBuild(opts: {
     throw new Error(`railpack prepare failed (exit ${prepared.exitCode})`);
   }
 
-  opts.sink.system(`building image ${shaTag} with railpack`);
-  const built = await runProcess({
-    cmd: "docker",
-    args: buildBuildxArgs({
-      planPath,
-      shaTag,
-      latestTag,
-      buildDir,
-      spaOutputDir,
-      builderName: opts.builderName,
-      cachePath: opts.cachePath,
-    }),
-    env: {
-      // Must match the value `prepare` baked into the plan (see
-      // buildPrepareArgs) — the secret mount reads it from this process env.
-      NODE_OPTIONS: `--max-old-space-size=${nodeBuildMaxOldSpaceMb()}`,
-      ...(spaOutputDir ? { RAILPACK_SPA_OUTPUT_DIR: spaOutputDir } : {}),
-    },
-    sink: opts.sink,
-  });
-  if (built.exitCode !== 0) {
-    throw new Error(buildFailureMessage(built.exitCode, built.tail));
-  }
+  opts.sink.system(
+    pushMode
+      ? `building + pushing image ${shaTag} with railpack (no local docker daemon involved)`
+      : `building image ${shaTag} with railpack`,
+  );
+  try {
+    const built = await runProcess({
+      cmd: "docker",
+      args: buildBuildxArgs({
+        planPath,
+        shaTag,
+        latestTag,
+        buildDir,
+        spaOutputDir,
+        builderName: opts.builderName,
+        push: pushMode,
+        metadataFile,
+      }),
+      env: {
+        // Must match the value `prepare` baked into the plan (see
+        // buildPrepareArgs) — the secret mount reads it from this process env.
+        NODE_OPTIONS: `--max-old-space-size=${nodeBuildMaxOldSpaceMb()}`,
+        ...(spaOutputDir ? { RAILPACK_SPA_OUTPUT_DIR: spaOutputDir } : {}),
+      },
+      sink: opts.sink,
+    });
+    if (built.exitCode !== 0) {
+      throw new Error(buildFailureMessage(built.exitCode, built.tail));
+    }
 
-  return { shaTag, latestTag, buildDir };
+    const digest = metadataFile ? await readImageDigest(metadataFile) : null;
+    return { shaTag, latestTag, buildDir, digest };
+  } finally {
+    if (metadataFile) await cleanupMetadataFile(metadataFile);
+  }
 }
 
 const OOM_SIGNATURE =
@@ -333,10 +348,12 @@ function buildPrepareArgs(opts: {
 }
 
 /**
- * Assemble the `docker buildx build` args: execute the railpack plan through the
- * pinned BuildKit frontend, `--load` the result into the local daemon, and tag
- * both `:<sha>` and `:latest`. A static SPA additionally forwards the output dir
- * as a build secret so the plan can resolve `RAILPACK_SPA_OUTPUT_DIR`.
+ * Assemble the `docker buildx build` args: execute the railpack plan through
+ * the pinned BuildKit frontend, then either `--push` straight to a registry
+ * through the remote buildkitd or `--load` the result into the local daemon
+ * (mirrors `dockerfileBuildArgs`'s push/load split), and tag both `:<sha>`
+ * and `:latest`. A static SPA additionally forwards the output dir as a build
+ * secret so the plan can resolve `RAILPACK_SPA_OUTPUT_DIR`.
  */
 function buildBuildxArgs(opts: {
   planPath: string;
@@ -345,8 +362,10 @@ function buildBuildxArgs(opts: {
   buildDir: string;
   spaOutputDir: string | null;
   builderName?: string | null;
-  cachePath?: string | null;
+  push?: boolean;
+  metadataFile?: string | null;
 }): string[] {
+  const pushMode = !!(opts.push && opts.builderName);
   return [
     "buildx",
     "build",
@@ -364,12 +383,12 @@ function buildBuildxArgs(opts: {
     "id=NODE_OPTIONS,env=NODE_OPTIONS",
     "-f",
     opts.planPath,
-    "--load",
+    pushMode ? "--push" : "--load",
     "-t",
     opts.shaTag,
     "-t",
     opts.latestTag,
-    ...cacheFlags(opts.builderName, opts.cachePath),
+    ...(pushMode && opts.metadataFile ? ["--metadata-file", opts.metadataFile] : []),
     opts.buildDir,
   ];
 }

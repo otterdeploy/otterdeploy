@@ -16,7 +16,10 @@ import type { DeploymentId } from "@otterdeploy/shared/id";
  * passes the worker's current value). Only those actually set are forwarded —
  * the rest fall back to the env schema's defaults inside the helper.
  * OTTERDEPLOY_DATA_DIR rides along so the helper resolves the SAME DATA_ROOT as
- * the host — the buildx cache path + bind mount below must agree.
+ * the host. BUILDKIT_ADDR (see `buildx.ts`) is how the helper reaches the
+ * standalone rootless buildkitd (od-48w) — a plain network address, not a
+ * secret; forwarding it is what lets the helper skip the docker.sock-backed
+ * `docker-container` builder entirely.
  *
  * Deliberately NOT forwarded, even though the worker itself has them:
  * `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `PUBLIC_WEB_URL` — all optional (or
@@ -45,6 +48,7 @@ export const FORWARDED_ENV = [
   "CORS_ORIGIN",
   "NODE_ENV",
   "OTTERDEPLOY_DATA_DIR",
+  "BUILDKIT_ADDR",
 ] as const;
 
 /** A DATABASE_URL/REDIS_URL of `localhost` in the worker's env points at the
@@ -75,14 +79,17 @@ export function buildHelperEnvFlags(sourceEnv: Record<string, string | undefined
 }
 
 /**
- * Container-level hardening for the per-build helper. Doesn't touch the
- * dominant escape vector (see od-5j8.15 notes: the shared `buildx`
- * `docker-container` builder runs its `buildkitd` companion `--privileged`,
- * confirmed via `docker inspect` — that's where a tenant Dockerfile's `RUN`
- * steps actually execute, in a container this helper doesn't control the
- * flags of), but does shrink what a compromise of the helper's OWN process
- * (the long-lived `bun`/`railpack`/`docker` CLI code — a supply-chain bug in
- * a builder dependency, not tenant Dockerfile content) can do with the
+ * Container-level hardening for the per-build helper. od-5j8.15 landed this
+ * as a mitigation while the DOMINANT escape vector — a shared, buildx-
+ * managed `docker-container` builder that ran `buildkitd` `--privileged`
+ * (confirmed via `docker inspect`) — was still open; that vector is now
+ * closed by od-48w (see `buildx.ts`: a standalone, non-privileged, buildx-
+ * UNMANAGED buildkitd, reached over buildx's `remote` driver, which never
+ * spawns a container). These flags still matter on their own terms: they
+ * shrink what a compromise of the helper's OWN process (the long-lived
+ * `bun`/`railpack`/`docker` CLI code — a supply-chain bug in a builder
+ * dependency, not tenant Dockerfile content, since tenant `RUN` steps now
+ * execute inside buildkitd, not this container) can do with the
  * `docker.sock` and DB/Redis credentials it necessarily holds:
  *   - `no-new-privileges` + `--cap-drop ALL`: the helper's own process needs
  *     no Linux capabilities beyond what an unprivileged `bun` process has by
@@ -161,7 +168,6 @@ export function buildHelperRunArgs(opts: {
   image: string;
   envFlags: string[];
   sourceFlags: string[];
-  cacheFlags: string[];
   hardeningFlags: string[];
 }): string[] {
   return [
@@ -178,14 +184,20 @@ export function buildHelperRunArgs(opts: {
     // rewrite above when the worker runs on the host for local dev.
     "--add-host",
     "host.docker.internal:host-gateway",
-    // Docker-out-of-Docker: the build's `buildx --load` and swarm calls speak
-    // to the host daemon through this socket — same one the worker uses. See
-    // od-5j8.15 notes: this raw socket mount is the one hardening flag CANNOT
-    // narrow — closing it needs either a filtering proxy in front of the
-    // socket or moving off docker-out-of-docker entirely, neither landed yet.
+    // Docker-out-of-Docker: still mounted, but od-48w narrowed what actually
+    // NEEDS it. A build that has both a registry AND the remote buildkitd
+    // builder (see buildx.ts / pipeline-steps.ts's buildAndPublishImage)
+    // never touches this socket — `docker buildx build --push` goes straight
+    // from buildkitd to the registry. What still legitimately reaches for it
+    // from inside this same process: the local/no-registry `--load` fallback
+    // (the image has to land in this daemon for the docker/swarm runtime to
+    // run it), and the swarm/docker-driver rollout step that runs after a
+    // successful build (`redeployOne` in pipeline.ts) — narrowing THAT out of
+    // this container (into the long-lived worker instead of the throwaway
+    // per-tenant helper) is a further split not made in this pass; see
+    // docs/designs/build-pipeline-gaps.md.
     "-v",
     "/var/run/docker.sock:/var/run/docker.sock",
-    ...opts.cacheFlags,
     ...opts.sourceFlags,
     ...opts.envFlags,
     opts.image,

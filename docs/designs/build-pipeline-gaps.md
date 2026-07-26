@@ -3,6 +3,136 @@
 _Status: scoping doc. The build pipeline is **built and wired end-to-end**; this
 catalogues the remaining gaps to make it production-complete._
 
+## od-48w — closing the shared privileged buildx builder (host-escape vector)
+
+**Problem** (empirically confirmed during od-5j8.15, re-confirmed here): every
+tenant's Dockerfile/Railpack `RUN` step used to execute inside ONE long-lived,
+SHARED buildx `docker-container` driver builder. `docker inspect` on that
+builder's `buildkitd` companion showed `"Privileged": true`. This is NOT a
+config mistake fixable with `--driver-opt image=...-rootless` — buildx's
+`docker-container` driver hardcodes `--privileged` on the container it
+creates, independent of the image inside. Any tenant build could therefore
+escape to host root and reach every other tenant's build.
+
+**Fix landed this pass**: a standalone, rootless `buildkitd` runs as its own
+compose service (`buildkitd` in `docker-compose.yml` / `docker-compose.prod.yml`,
+image `moby/buildkit:buildx-stable-1-rootless`, `--oci-worker-no-process-sandbox`,
+`security_opt: seccomp=unconfined,apparmor=unconfined`, **no** `--privileged`,
+**no** added capabilities). The builder (and its per-build helper containers)
+reach it via buildx's `remote` driver (`docker buildx create --driver remote
+<addr>` — see `apps/builder/src/buildx.ts`), which only opens a gRPC
+connection; it never spawns, owns, or elevates a container, so there is no
+privileged bootstrap step to fall back into. `apps/builder/src/pipeline-steps.ts`'s
+`buildAndPublishImage` additionally routes registry-bound builds through a
+direct `buildx build --push` (skips `--load` and the local docker daemon
+entirely for that case — see "What still holds `docker.sock`" below).
+
+**Verified locally (macOS, Docker Desktop)**:
+
+- `docker inspect otterdeploy-buildkitd --format '{{.HostConfig.Privileged}}'`
+  → `false`, `CapAdd=[]`, via the actual compose service (not a hand-rolled
+  approximation).
+- `docker buildx create --name otterdeploy-remote --driver remote <addr>`
+  never creates a container; `docker buildx inspect` shows
+  `Driver: remote`, `Status: running`.
+- A real build through `apps/builder/src/buildx.ts` + `dockerfile.ts` (the
+  actual edited source, run inside a throwaway container on the compose
+  network) with a `RUN` step succeeds against the rootless buildkitd.
+- **Push mode** (registry configured + remote builder available): `docker
+  buildx build --push` against a real (local, for the test) registry
+  succeeds with **no docker.sock mounted at all** in the invoking container,
+  and with `DOCKER_HOST` pointed at a nonexistent socket — the build, the
+  registry `docker login`, and the push are all daemon-independent. Digest
+  recovered from `--metadata-file` (`containerimage.digest`), no `docker
+  inspect` needed.
+- **Load mode** (no registry — the default local/single-node path):
+  `docker buildx build --builder <remote> --load` (docker.sock mounted)
+  correctly imports the image into the local daemon and it runs.
+- Cache: a second build of the same Dockerfile against the same buildkitd
+  shows BuildKit's own `CACHED` steps with zero extra flags — no
+  `--cache-from`/`--cache-to` plumbing needed anymore. The old per-repo
+  local-dir cache mechanism (`DATA_ROOT/buildx-cache`, bind-mounted into every
+  helper) is removed entirely (`apps/builder/src/build-workdir.ts`'s
+  `pruneStaleBuildCache` deleted along with it) — buildkitd owns its own
+  cache, in its own named volume, with its own size/age GC policy (visible in
+  `docker buildx inspect`'s "GC Policy" rules), which nothing bind-mounts into
+  a tenant-facing container.
+- `docker compose -f docker-compose.yml config` / `-f docker-compose.prod.yml
+  config` both validate.
+
+**What still holds `docker.sock`, and why** (`apps/builder/src/helper-args.ts`):
+the per-build helper still mounts the raw socket, narrowed to two remaining
+uses, both inside the SAME helper process (not the build step itself):
+
+1. The **local/no-registry `--load` fallback** — the default single-node
+   experience with no registry configured. The image must land in the local
+   daemon for the docker/swarm runtime to run it directly. Closing this
+   fully needs a bundled internal registry so even the "local" path pushes
+   somewhere and the runtime pulls from it (ties into gap #2 below —
+   deliberately NOT built in this pass: it's swarm/runtime-driver territory,
+   actively being worked on by another agent concurrently).
+2. The **post-build swarm rollout** (`redeployOne` in `pipeline.ts`, which
+   the SAME helper container runs after a successful build) — this
+   legitimately needs to talk to the daemon to update services. Moving this
+   out of the throwaway per-tenant helper and into the long-lived worker
+   (which already holds the socket for other reasons) is a further container-
+   boundary split not made in this pass.
+
+Also: registry-bound builds when the remote builder is unavailable (buildkitd
+down) fall back to the pre-od-48w `--load` + `docker push` + `docker inspect`
+flow, unchanged — still needs the socket in that degraded case.
+
+**Per-build isolation**: each build's `RUN` steps execute in their own
+unprivileged, single-use OCI sandbox inside buildkitd. The only state shared
+across tenants' builds is buildkitd's own content-addressed layer cache
+(intentional — that's the entire value of a persistent builder) and the
+per-build helper's ephemeral overlay filesystem is never shared (`--rm`'d
+immediately). No host directory is bind-mounted into more than one tenant's
+build anymore (the old `buildx-cache` bind mount is gone).
+
+**Unverified — Linux-only, needs a real VPS/production host**:
+
+- Rootless BuildKit's snapshotter choice: this environment auto-selected
+  `overlayfs` (Docker Desktop's Linux VM supports overlayfs-on-overlayfs). A
+  production host without that support may fall back to `fuse-overlayfs`,
+  which needs `--device /dev/fuse` — not added here since it wasn't needed
+  locally; if a real install's buildkitd logs show a fuse fallback failure,
+  add `devices: ["/dev/fuse"]` to the `buildkitd` service.
+- The `--oci-worker-no-process-sandbox` requirement (confirmed necessary
+  here — without it every `RUN` step fails mounting `/proc`) was only
+  exercised on Docker Desktop's Linux VM kernel. It's a well-documented
+  upstream BuildKit rootless requirement, not something Docker-Desktop-
+  specific, but a real distro's default seccomp/AppArmor/user-namespace
+  configuration hasn't exercised it under this pass.
+- Multi-node behavior: `BUILDER_HELPER_NETWORK`/`BUILDKIT_ADDR` resolve via
+  compose service DNS, which assumes the builder and buildkitd run on the
+  SAME docker/swarm host. A builder host separate from buildkitd (or from
+  the swarm manager) is untested.
+- Load on a long-running production buildkitd (memory/disk growth under
+  sustained multi-tenant traffic, GC policy tuning) — the GC policy shown by
+  `buildx inspect` is BuildKit's stock default, not tuned for this workload.
+- `docker.sock`-holding steps (load fallback, swarm rollout) were not
+  re-audited for capability/network isolation beyond what od-5j8.15 already
+  landed (cap-drop, no-new-privileges, resource limits) — those hold.
+
+**New finding, tracked separately (od-5j8.36, P1, NOT fixed in this pass)**:
+BuildKit's OCI worker defaults to **host network mode** — a `RUN` step shares
+buildkitd's own network namespace rather than an isolated one (visible in
+`docker buildx inspect`'s worker labels:
+`org.mobyproject.buildkit.worker.network:host`). Because `buildkitd` sits on
+the same compose network as `postgres`/`redis`/`server` (no network
+segmentation in either compose file), a malicious tenant `RUN` step can open
+outbound connections to those services today — it has no credentials and no
+host-root/privileged access (od-48w closed that), but this is still real
+internal-network reachability a fully isolated build shouldn't have. Fixing
+it needs `buildkitd` on its own network (internet egress only) and the
+per-build helper multi-homed across that network and the default one (it
+also needs direct postgres/redis reachability for its own DB/Redis clients);
+the helper's `docker run` currently attaches a single `--network` at spawn
+time (`apps/builder/src/helper-args.ts`), so this needs either a
+`docker network connect` follow-up call or a different spawn strategy —
+untested, so not attempted blind in this pass.
+
 ## TL;DR
 
 The "Phase 1: handler logs the payload only" comment in
@@ -54,7 +184,7 @@ path tags `otterdeploy-local/<svc>` and runs straight from the host daemon.
 | # | Gap | Evidence | Impact |
 |---|-----|----------|--------|
 | 1 | ~~**Git-sourced compose deploy throws** when `composeContent` is empty~~ ✅ **DONE** | `compose/redeploy` now routes git stacks through the build worker via `enqueueComposeBuild` (`compose/build-trigger.ts`); inline stacks keep the direct path; `deployCompose`'s empty-content guard is now an honest invariant message. | Resolved. |
-| 2 | **Local-only images don't work multi-node** | Local path keeps the image in the build host's daemon (`load.ts:109-127`); other swarm nodes can't pull it. | Any git service on a >1-node cluster without a configured registry silently can't schedule on other nodes. Either require a registry for multi-node, auto-provision an in-cluster registry, or honestly gate it (ties to the runtime-driver / multi-server honesty work). **Still open** — needs a registry-strategy decision. |
+| 2 | **Local-only images don't work multi-node** | Local path keeps the image in the build host's daemon (`load.ts:109-127`); other swarm nodes can't pull it. | Any git service on a >1-node cluster without a configured registry silently can't schedule on other nodes. Either require a registry for multi-node, auto-provision an in-cluster registry, or honestly gate it (ties to the runtime-driver / multi-server honesty work). **Still open** — needs a registry-strategy decision. Also now the last thing keeping `docker.sock` in the per-build helper's build step (see od-48w above): an in-cluster registry would let the "local" path push too, closing that socket use as a side effect. |
 
 ### P2 — expected features, currently absent
 
@@ -62,7 +192,7 @@ path tags `otterdeploy-local/<svc>` and runs straight from the host daemon.
 |---|-----|----------|--------|
 | 3 | ~~**`watchPatterns` defined but never enforced**~~ ✅ **DONE** | Enforced in `git/handle-push.ts` via `git/watch-match.ts` (`Bun.Glob` match of pushed paths against each service's `buildConfig.watchPatterns`). Unset patterns or an unknown/truncated change set fail open → rebuild. Tests: `git/watch-match.test.ts`. | Resolved. |
 | 4 | ~~**Dockerfile build-args not plumbed**~~ ✅ **DONE** | `BuildDockerfileConfig.buildArgs` (manifest zod with key-name validation) → `pipeline.ts` → `dockerfileBuild` → `--build-arg`; key/value editor in the service build card. Plain build-args (not secrets); applies to the explicit Dockerfile builder only. | Resolved. |
-| 5 | ~~**No build layer cache across builds**~~ ✅ **DONE** (needs real-host smoke test) | `buildx.ts`: a shared persistent `docker-container` builder + `--cache-from/--cache-to type=local,mode=max` under the data folder; best-effort with exact fallback to the default-driver `--load` path. Cache-dir growth is unbounded — a prune is a follow-up. | Resolved pending live verification. |
+| 5 | ~~**No build layer cache across builds**~~ ✅ **DONE**, superseded by od-48w | ~~`buildx.ts`: a shared persistent `docker-container` builder + `--cache-from/--cache-to type=local,mode=max`~~ — that mechanism (and its privileged builder) is GONE. Replaced by the standalone rootless buildkitd (see od-48w above): its own internal content-addressed cache, live-verified (`CACHED` steps with zero extra flags), with a real GC policy instead of the old unbounded local-dir cache. | Resolved, verified locally against the real buildkitd. |
 | 6 | ~~**`imageDigest` never populated**~~ ✅ **DONE** | `dockerPush` captures the pushed digest (`docker inspect` RepoDigests); pipeline persists it on set-image. Local (no-registry) builds stay null. | Resolved (capture only; runtime pin-to-digest is a separate change). |
 
 ### P3 — robustness / polish
