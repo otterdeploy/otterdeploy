@@ -21,7 +21,7 @@ const DEFINITIVE_MISS = new Set(["ENODATA", "ENOTFOUND", "NXDOMAIN"]);
 
 // The lookups we use, satisfied by both a configured `dns.Resolver` and the
 // `dns` promises namespace (the system-resolver fallback).
-type ResolverLike = Pick<dns.Resolver, "resolveTxt" | "resolve4" | "resolve6">;
+type ResolverLike = Pick<dns.Resolver, "resolveTxt" | "resolve4" | "resolve6" | "resolveNs">;
 
 /** Run `query` against a public-resolver-backed resolver, falling back to
  *  the system resolver only on transport-level failure. */
@@ -44,6 +44,18 @@ async function withPublicResolver<T>(query: (resolver: ResolverLike) => Promise<
 export async function resolveTxtRobust(name: string): Promise<string[]> {
   const raw = await withPublicResolver((r) => r.resolveTxt(name));
   return raw.map((chunks) => chunks.join(""));
+}
+
+/**
+ * NS lookup, lowercased and trailing-dot-stripped.
+ *
+ * Only a zone apex answers NS, so callers asking about `waves.acme.com` have
+ * to walk up to `acme.com` — see `detectDnsProvider` in ./dns-detect.ts, which
+ * owns that walk.
+ */
+export async function resolveNsRobust(name: string): Promise<string[]> {
+  const raw = await withPublicResolver((r) => r.resolveNs(name));
+  return raw.map((ns) => ns.toLowerCase().replace(/\.$/, ""));
 }
 
 /** A + AAAA lookup, merged. Each family's NODATA collapses to "no address

@@ -18,6 +18,7 @@ import { certificatesContract } from "./routers/certificates/contract";
 import { composeContract } from "./routers/compose/contract";
 import { databaseContract } from "./routers/database/contract";
 import { deploymentContract } from "./routers/deployment/contract";
+import { dnsContract } from "./routers/dns/contract";
 import { dockerContract } from "./routers/docker/contract";
 import { edgeLogsContract } from "./routers/edge-logs/contract";
 import { envContract } from "./routers/env/contract";
@@ -109,6 +110,7 @@ export const publicProcedure = implement({
   database: databaseContract,
   deployment: deploymentContract,
   sso: ssoContract,
+  dns: dnsContract,
   docker: dockerContract,
   edgeLogs: edgeLogsContract,
   env: envContract,
