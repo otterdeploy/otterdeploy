@@ -22,7 +22,7 @@ import { gitInstallation, gitRepo } from "@otterdeploy/db/schema";
 import { TaggedError } from "better-result";
 import { eq } from "drizzle-orm";
 
-export class RepoBindingError extends TaggedError("RepoBindingError")<{
+class RepoBindingError extends TaggedError("RepoBindingError")<{
   message: string;
 }>() {
   constructor(message: string) {

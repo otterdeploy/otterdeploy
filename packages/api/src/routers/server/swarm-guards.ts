@@ -15,7 +15,7 @@ export function quorumRequired(managerCount: number): number {
   return Math.floor(Math.max(0, managerCount) / 2) + 1;
 }
 
-export function isManagerNode(node: Node): boolean {
+function isManagerNode(node: Node): boolean {
   return node.Spec?.Role === "manager";
 }
 

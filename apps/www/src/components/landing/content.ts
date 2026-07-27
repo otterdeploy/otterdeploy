@@ -13,9 +13,6 @@ export const GITHUB_URL = "https://github.com/otterdeploy/otterdeploy";
 /** scripts/install.sh — the host installer, published at get.otterdeploy.com. */
 export const INSTALL_CMD = "curl -fsSL https://get.otterdeploy.com/install.sh | bash";
 
-/** apps/cli — published separately from the control plane. */
-export const CLI_INSTALL_CMD = "npm install -g @otterdeploy/cli";
-
 // ── Nav ────────────────────────────────────────────────────────────────────
 
 export const NAV_SECTIONS: { id: string; label: string }[] = [

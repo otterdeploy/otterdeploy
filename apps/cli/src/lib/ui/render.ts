@@ -98,30 +98,6 @@ export interface TreeNode {
   children?: TreeNode[];
 }
 
-function renderChildren(nodes: TreeNode[], prefix: string): void {
-  nodes.forEach((node, i) => {
-    const isLast = i === nodes.length - 1;
-    out(`${prefix}${isLast ? G.lastBranch : G.branch} ${node.label}`);
-    if (node.children?.length) {
-      // Continuation bar under a non-last child keeps the spine unbroken;
-      // three spaces under the last one lets the branch die off.
-      const continuation = isLast ? "    " : `${G.vertical}   `;
-      renderChildren(node.children, prefix + continuation);
-    }
-  });
-}
-
-/**
- * A nested tree, used wherever the domain is genuinely hierarchical — a compose
- * stack and its services, a project and its resources.
- */
-export function tree(nodes: TreeNode[]): void {
-  for (const node of nodes) {
-    out(node.label);
-    if (node.children?.length) renderChildren(node.children, "");
-  }
-}
-
 /**
  * One scannable line about one thing, in bd's row grammar:
  * `<glyph> <subject> <badge> <title> ← <context>`.
@@ -136,14 +112,6 @@ export function row(parts: Array<string | undefined>): void {
 /** A plain indented line, for prose that belongs under a section. */
 export function line(text = ""): void {
   out(text === "" ? "" : INDENT + text);
-}
-
-/**
- * Trailing context for a row, dim and led by `←` — bd's device for showing what
- * a row was derived from without letting it compete with the row's subject.
- */
-export function derivedFrom(context: string): string {
-  return dim(`${G.derived} ${context}`);
 }
 
 /**

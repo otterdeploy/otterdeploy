@@ -15,7 +15,6 @@
  * that, and it's cheap enough to run before touching Redis: reject a
  * forged/foreign origin before even looking at the ticket.
  */
-import type { Context } from "hono";
 
 /** Compare origins after stripping a trailing slash — `env.CORS_ORIGIN`
  *  entries are `z.url()`-validated absolute origins, but defend against a
@@ -40,8 +39,4 @@ export function isTrustedOrigin(
   if (!origin) return false;
   const normalizedOrigin = normalize(origin);
   return allowed.some((candidate) => normalize(candidate) === normalizedOrigin);
-}
-
-export function checkPtyOrigin(c: Context, allowed: readonly string[]): boolean {
-  return isTrustedOrigin(c.req.header("origin"), allowed);
 }

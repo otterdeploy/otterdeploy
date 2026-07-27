@@ -10,9 +10,7 @@ import { SubmitButton } from "./form-fields/submit-button";
 import { SwitchField } from "./form-fields/switch-field";
 import { TextField } from "./form-fields/text-field";
 import { VariablesField } from "./form-fields/variables-field";
-import { fieldContext, formContext, useFieldContext } from "./form-hook-contexts";
-
-export { useFieldContext };
+import { fieldContext, formContext } from "./form-hook-contexts";
 
 const formHook = createFormHook({
   fieldContext,

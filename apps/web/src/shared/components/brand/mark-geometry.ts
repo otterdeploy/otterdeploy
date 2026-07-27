@@ -9,8 +9,6 @@
 /** What the counter inside the ring is saying. The ring itself never changes. */
 export type MarkStatus = "idle" | "deploying" | "success" | "warning" | "error";
 
-export const MARK_STATUSES = ["idle", "deploying", "success", "warning", "error"] as const;
-
 export const MARK_VIEW_BOX = "0 0 32 32";
 export const MARK_GRID = 32;
 export const MARK_STROKE = 2.6;

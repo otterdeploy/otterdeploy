@@ -27,7 +27,7 @@ import { orpc, queryClient } from "@/shared/server/orpc";
  * purpose: by then the image is built and swarm is rolling it out, and there is
  * no build left to stop.
  */
-export function isCancellable(status: string): boolean {
+function isCancellable(status: string): boolean {
   return status === "pending" || status === "building";
 }
 

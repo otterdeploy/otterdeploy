@@ -17,7 +17,7 @@ import { markPreviewClosedById } from "../routers/project/queries";
 import { teardownPreview } from "./preview-teardown";
 
 /** Tear down previews past their idle deadline. Returns how many were reaped. */
-export async function reapIdlePreviews(now: Date = new Date()): Promise<number> {
+async function reapIdlePreviews(now: Date = new Date()): Promise<number> {
   // Idle teardown disabled globally — never reap, even previously-seeded
   // deadlines (matches the documented "0 disables it" contract, whether that
   // 0 comes from the settings row or PREVIEW_IDLE_TEARDOWN_HOURS).

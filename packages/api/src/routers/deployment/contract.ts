@@ -25,7 +25,7 @@ import {
   tag,
 } from "../project/contract/shared";
 
-export const projectDeploymentListItemSchema = deploymentSchema
+const projectDeploymentListItemSchema = deploymentSchema
   .omit({
     taskCount: true,
     failedTaskCount: true,
@@ -59,7 +59,7 @@ const statusFilterField = z.enum([
   "removed",
 ]);
 
-export const listDeploymentsByProjectInput = z.object({
+const listDeploymentsByProjectInput = z.object({
   projectId: projectIdField,
   /** Scope to one resource's deployments. Omitted → whole project. */
   resourceId: resourceIdField.optional(),
@@ -69,7 +69,7 @@ export const listDeploymentsByProjectInput = z.object({
   limit: z.number().int().min(1).max(200).default(50),
 });
 
-export const listDeploymentsByProjectOutput = z.object({
+const listDeploymentsByProjectOutput = z.object({
   items: z.array(projectDeploymentListItemSchema),
   /** Total rows matching the filters (ignores `limit`) — powers "N of M". */
   total: z.number().int().nonnegative(),
@@ -80,7 +80,7 @@ export const listDeploymentsByProjectOutput = z.object({
  * by `limit` — so a header pill can say "23 queued" while the popover lists the
  * first page, rather than under-reporting to whatever fits on screen.
  */
-export const deployActivityOutput = z.object({
+const deployActivityOutput = z.object({
   items: z.array(
     z.object({
       id: deploymentIdField,

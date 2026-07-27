@@ -133,7 +133,6 @@ export async function shutdownTracing(): Promise<void> {
  *   span.end();
  * }
  */
-export { trace, context, SpanStatusCode } from "@opentelemetry/api";
 
 /**
  * Environment Variables:

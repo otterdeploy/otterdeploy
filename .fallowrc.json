@@ -73,6 +73,86 @@
     {
       "file": "packages/api/src/routers/notifications/contract.ts",
       "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/features/backups/shared.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/features/databases/shared.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "packages/api/src/caddy/builder.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "packages/api/src/lib/platform-runtime-settings.ts",
+      "exports": ["*"]
+    },
+    // Vendored shadcn/ui primitives. Each file is the whole upstream component
+    // surface, so parts of it are unused until a screen reaches for them —
+    // deleting those would fork the file from upstream and `shadcn add` would
+    // just put them back. Same reasoning as ui/field.tsx above.
+    {
+      "file": "apps/web/src/shared/components/ui/alert-dialog.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/shared/components/ui/avatar.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/shared/components/ui/card.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/shared/components/ui/chart.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/shared/components/ui/combobox.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/shared/components/ui/dialog.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/shared/components/ui/dropdown-menu.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/shared/components/ui/input-group.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/shared/components/ui/popover.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/shared/components/ui/progress.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/shared/components/ui/select.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/shared/components/ui/sheet.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/shared/components/ui/sidebar.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/shared/components/ui/table.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/shared/components/ui/tabs.tsx",
+      "exports": ["*"]
     }
   ]
 }

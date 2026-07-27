@@ -20,6 +20,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@/shared/components/ui/button";
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/components/ui/tooltip";
+import { copyToClipboard } from "@/shared/lib/clipboard";
 import { cn } from "@/shared/lib/utils";
 
 import { TypeLabel } from "./type-label";
@@ -97,14 +98,15 @@ function FieldValue({
   onEdit?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  // The try/catch here used to swallow the real failure: `navigator.clipboard`
+  // is undefined over plain http://<ip>, so accessing it threw and `setCopied`
+  // never ran — the tick silently never appeared and nothing reached the
+  // clipboard. `copyToClipboard` has the insecure-context fallback and reports
+  // whether the write actually landed. See shared/lib/clipboard.ts.
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(value ?? "");
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
-    } catch {
-      /* clipboard unavailable */
-    }
+    if (!(await copyToClipboard(value ?? ""))) return;
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
   };
 
   return (

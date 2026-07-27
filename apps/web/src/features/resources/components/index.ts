@@ -9,9 +9,9 @@
  */
 
 export { NotFound } from "./_shared/not-found";
-export { StagedResourcePanel, type StagedCreate } from "./_shared/staged-panel";
+export { type StagedCreate } from "./_shared/staged-panel";
 export { RealResourcePanel } from "./postgres/panel";
 export type { PostgresBodyProps } from "./postgres/types";
 export { ServiceResourcePanel } from "./service/panel";
 export { ComposeResourcePanel } from "./compose/panel";
-export { ResourceTerminal, type ResourceTerminalMatch } from "./_shared/resource-terminal";
+export { type ResourceTerminalMatch } from "./_shared/resource-terminal";

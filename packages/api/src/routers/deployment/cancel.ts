@@ -39,7 +39,7 @@ import { publishResourceChanged } from "../project/project-event-bus";
 
 /** Not found, or not in this org — indistinguishable to the caller by design,
  *  so a cancel probe can never confirm a foreign deployment exists. */
-export class DeploymentNotFoundError extends TaggedError("DeploymentNotFoundError")<{
+class DeploymentNotFoundError extends TaggedError("DeploymentNotFoundError")<{
   message: string;
   deploymentId: DeploymentId;
 }>() {
@@ -52,7 +52,7 @@ export class DeploymentNotFoundError extends TaggedError("DeploymentNotFoundErro
 }
 
 /** The deployment already reached a terminal state — nothing to stop. */
-export class DeploymentNotCancellableError extends TaggedError("DeploymentNotCancellableError")<{
+class DeploymentNotCancellableError extends TaggedError("DeploymentNotCancellableError")<{
   message: string;
   deploymentId: DeploymentId;
   status: string;
@@ -73,7 +73,7 @@ const CANCELLABLE: ReadonlySet<string> = new Set(["pending", "building"]);
 /** Mirrors the helper container name in apps/builder/src/handler.ts. Changing
  *  one without the other silently turns cancel into a no-op that still marks
  *  the row — the build would keep running with nothing left watching it. */
-export function helperContainerName(deploymentId: DeploymentId): string {
+function helperContainerName(deploymentId: DeploymentId): string {
   return `otterbuild-${deploymentId}`;
 }
 

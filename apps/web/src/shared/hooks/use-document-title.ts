@@ -50,7 +50,7 @@ function crumbOf(match: CrumbBearing): string | null {
  * storefront". Only one level of context: the full chain is breadcrumb
  * material, not a tab title, and anything longer just gets truncated away.
  */
-export function titleFromCrumbs(crumbs: readonly string[]): string {
+function titleFromCrumbs(crumbs: readonly string[]): string {
   const trail = crumbs.filter((c, i) => c !== crumbs[i - 1]);
   const page = trail.at(-1);
   if (!page) return FALLBACK;

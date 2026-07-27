@@ -9,8 +9,6 @@ import type { PublicFetchResponse, PublicRequest } from "./public-fetch-request"
 import { UnsafeOutboundUrlError } from "./public-fetch-error";
 import { requestPinnedPublicAddress } from "./public-fetch-request";
 
-export { UnsafeOutboundUrlError } from "./public-fetch-error";
-
 const FORBIDDEN = new BlockList();
 
 for (const [network, prefix] of [

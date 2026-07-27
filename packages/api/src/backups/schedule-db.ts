@@ -141,24 +141,6 @@ export async function activeDestinationIdsFor(
   return runnableDestinationIds(ids, rows);
 }
 
-/** Org-agnostic destination read for system-side retention (no org filter). */
-export async function getDestinationByIdWithSecret(id: BackupDestinationId): Promise<{
-  type: "s3" | "local" | "sftp";
-  config: Record<string, unknown>;
-  encryptedSecret: string | null;
-} | null> {
-  const [row] = await db
-    .select({
-      type: backupDestination.type,
-      config: backupDestination.config,
-      encryptedSecret: backupDestination.encryptedSecret,
-    })
-    .from(backupDestination)
-    .where(eq(backupDestination.id, id))
-    .limit(1);
-  return row ?? null;
-}
-
 export async function updateScheduleAfterRun(
   scheduleId: BackupScheduleId,
   fields: {

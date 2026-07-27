@@ -86,43 +86,6 @@ export function Band({
   );
 }
 
-/**
- * Section headings. Deliberately plain: no tracked-uppercase eyebrow above
- * every section — the lead paragraph does that work in a human voice.
- */
-export function SectionHead({
-  title,
-  lead,
-  aside,
-  className,
-}: {
-  title: ReactNode;
-  lead?: ReactNode;
-  aside?: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cx(
-        "flex flex-col gap-5 md:flex-row md:items-end md:justify-between md:gap-10",
-        className,
-      )}
-    >
-      <div className="max-w-[46ch]">
-        <h2 className="text-[1.75rem] leading-[1.15] font-semibold tracking-[-0.025em] text-balance sm:text-[2rem]">
-          {title}
-        </h2>
-        {lead ? (
-          <p className="mt-3 text-[0.95rem] leading-relaxed text-pretty text-muted-foreground">
-            {lead}
-          </p>
-        ) : null}
-      </div>
-      {aside ? <div className="shrink-0 md:pb-1">{aside}</div> : null}
-    </div>
-  );
-}
-
 // ── Machine-readable atoms ─────────────────────────────────────────────────
 
 /** A mono taxonomy label — the dashboard's voice for anything machine-made. */

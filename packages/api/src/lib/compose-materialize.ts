@@ -19,7 +19,7 @@ import { dirname, resolve, sep } from "node:path";
 
 /** Sanitize a stack-relative path to a safe segment under `root`, or null when
  *  it would escape (absolute, `..` traversal, or empty). */
-export function safeJoin(root: string, rel: string): string | null {
+function safeJoin(root: string, rel: string): string | null {
   const dest = resolve(root, rel.replace(/^[/\\]+/, ""));
   if (dest !== root && !dest.startsWith(root + sep)) return null;
   return dest;

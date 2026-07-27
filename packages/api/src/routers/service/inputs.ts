@@ -18,7 +18,7 @@ import type { BuildConfig } from "@otterdeploy/shared/build-config";
 import type { GitRepoId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type * as z from "zod";
 
-import type { createServiceInput, updateServiceInput } from "./contract";
+import type { createServiceInput, updateServiceInput } from "./contract-inputs";
 
 type OrgId = OrganizationId;
 

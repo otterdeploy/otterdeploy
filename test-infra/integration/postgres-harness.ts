@@ -43,7 +43,7 @@ const externalPostgresUrl = (): string | undefined => process.env.INTEGRATION_PO
 /** Cheap, synchronous check so test files can `describe.skipIf` before ever
  *  touching the network — used both for the "is Docker present" gate and to
  *  decide whether we need to spin up a container at all. */
-export function dockerAvailable(): boolean {
+function dockerAvailable(): boolean {
   try {
     const result = Bun.spawnSync(["docker", "info"], { stdout: "ignore", stderr: "ignore" });
     return result.exitCode === 0;

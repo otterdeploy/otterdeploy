@@ -71,7 +71,7 @@ async function emitAnomaly(
 }
 
 /** One scan pass. Never throws. */
-export async function scanAuditAnomalies(now = Date.now()): Promise<void> {
+async function scanAuditAnomalies(now = Date.now()): Promise<void> {
   try {
     const since = new Date(now - WINDOW_MS);
 

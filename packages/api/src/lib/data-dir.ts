@@ -1,13 +1,7 @@
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { DeploymentId } from "@otterdeploy/shared/id";
 
-import {
-  backupDir,
-  DATA_ROOT,
-  projectDir,
-  resourceDir,
-  sourceTarballPath,
-} from "@otterdeploy/shared/paths";
+import { DATA_ROOT, projectDir, resourceDir, sourceTarballPath } from "@otterdeploy/shared/paths";
 /**
  * `fs` operations against the host data folder (`/data/otterdeploy`). The path
  * derivation is pure and lives in `@otterdeploy/shared/paths`; the side effects
@@ -17,8 +11,8 @@ import {
  * without `OTTERDEPLOY_DATA_DIR`), so the folder is a convenience layer, never a
  * dependency: losing it never breaks a deploy. See docs/designs/data-folder.md.
  */
-import { mkdir, rm, writeFile } from "node:fs/promises";
-import { dirname, join, resolve, sep } from "node:path";
+import { mkdir, rm } from "node:fs/promises";
+import { dirname, resolve, sep } from "node:path";
 
 let availability: Promise<boolean> | null = null;
 
@@ -60,40 +54,6 @@ export async function removeProjectDir(id: ProjectId): Promise<void> {
   const root = resolve(DATA_ROOT);
   if (!dir.startsWith(root + sep) || !dir.endsWith(id)) return;
   await rm(dir, { recursive: true, force: true }).catch(() => undefined);
-}
-
-/**
- * Stage a backup archive under `backups/<projectId>/<resourceId>/<backupId>.<ext>`
- * before the (possibly off-cluster) upload — the design's landing zone,
- * inspectable if the upload then fails. Returns the path, or null when the data
- * folder isn't writable (the caller just uploads straight from memory).
- * Best-effort: a staging failure never fails the backup.
- */
-export async function stageBackupArchive(input: {
-  projectId: ProjectId;
-  resourceId: ResourceId;
-  backupId: string;
-  ext: string;
-  body: Buffer;
-}): Promise<string | null> {
-  if (!(await dataRootAvailable())) return null;
-  try {
-    const dir = backupDir(input.projectId, input.resourceId);
-    await mkdir(dir, { recursive: true, mode: 0o700 });
-    const path = join(dir, `${input.backupId}.${input.ext}`);
-    await writeFile(path, input.body, { mode: 0o600 });
-    return path;
-  } catch {
-    return null;
-  }
-}
-
-/** Drop a staged backup archive after its upload lands. Guarded to inside
- *  `DATA_ROOT`; best-effort. */
-export async function removeStagedBackup(path: string): Promise<void> {
-  const p = resolve(path);
-  if (!p.startsWith(resolve(DATA_ROOT) + sep)) return;
-  await rm(p, { force: true }).catch(() => undefined);
 }
 
 /**

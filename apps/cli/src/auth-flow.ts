@@ -184,4 +184,3 @@ function safeOrigin(maybeUrl: string): string | undefined {
 }
 
 // Re-exported for callers that already import it from here.
-export { openInBrowser };

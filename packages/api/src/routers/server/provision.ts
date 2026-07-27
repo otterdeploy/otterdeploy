@@ -174,7 +174,7 @@ export function meshInstallScript(
 
 /** A single lowercase DNS label. Anything else is dropped rather than escaped
  *  — a bad label is a config mistake, not something to smuggle into a shell. */
-export function isSafeDnsLabel(label: string | null | undefined): label is string {
+function isSafeDnsLabel(label: string | null | undefined): label is string {
   return label != null && /^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$/.test(label);
 }
 

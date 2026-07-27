@@ -24,7 +24,7 @@ function previewAction(path: string) {
     .output(z.record(z.string(), z.union([z.number(), z.boolean()])));
 }
 
-export const previewServiceSchema = z.object({
+const previewServiceSchema = z.object({
   resourceId: resourceIdField,
   /** Base resource name — matches the graph node the card attaches to. */
   serviceName: z.string(),
@@ -46,7 +46,7 @@ export const previewServiceSchema = z.object({
   deployedSha: z.string().nullable(),
 });
 
-export const previewSchema = z.object({
+const previewSchema = z.object({
   id: z.string(),
   prNumber: z.number(),
   /** Plain head branch name (`feat/checkout-v2`). */
@@ -64,11 +64,11 @@ export const previewSchema = z.object({
   services: z.array(previewServiceSchema),
 });
 
-export const listPreviewsInput = z.object({
+const listPreviewsInput = z.object({
   projectId: projectIdField,
 });
 
-export const previewEnvVarSchema = z.object({
+const previewEnvVarSchema = z.object({
   key: z.string(),
   value: z.string(),
   updatedAt: z.string(),

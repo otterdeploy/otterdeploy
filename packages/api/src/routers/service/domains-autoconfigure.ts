@@ -24,7 +24,7 @@ import { detectDnsProvider } from "../../lib/dns-detect";
 import { requiredDnsRecords } from "../../lib/dns-records";
 import { getOrganizationById } from "../organization/queries";
 
-export class DomainAutoConfigureError extends TaggedError("DomainAutoConfigureError")<{
+class DomainAutoConfigureError extends TaggedError("DomainAutoConfigureError")<{
   reason: "not-found" | "no-cloudflare" | "no-zone" | "no-server-ip" | "api";
   message: string;
 }>() {}

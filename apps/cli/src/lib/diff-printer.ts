@@ -69,7 +69,7 @@ export function countByKind(changes: Change[]): Record<string, number> {
  * gets the shape of a change set before scanning it. Deletes are always named
  * last and in the destructive colour, because that is the part worth a pause.
  */
-export function summarizeChanges(changes: Change[]): string {
+function summarizeChanges(changes: Change[]): string {
   const counts = countByKind(changes);
   const parts: string[] = [];
   for (const kind of ["create", "update", "delete"]) {

@@ -83,7 +83,7 @@ const DISCONNECTED_STATUS: MeshStatusView = {
  * unreachable on their private host" — the honest framing, since we refuse to
  * silently republish them to the internet.
  */
-export async function countPrivateRoutes(organizationId: OrganizationId): Promise<number> {
+async function countPrivateRoutes(organizationId: OrganizationId): Promise<number> {
   const [row] = await db
     .select({ value: count() })
     .from(proxyRoute)
@@ -97,7 +97,7 @@ function isSelfHosted(managementUrl: string): boolean {
 }
 
 /** Build the wire view from a row, optionally enriched by a live verify. */
-export function toStatusView(
+function toStatusView(
   row: MeshNetworkRecord,
   extras: {
     identity?: MeshIdentity | null;
@@ -148,7 +148,7 @@ export async function getMeshStatus(organizationId: OrganizationId): Promise<Mes
  * Load the row AND a ready provider client, or fail with a reason the UI can
  * render. Used by every call that has to talk to the provider.
  */
-export async function loadMeshClient(
+async function loadMeshClient(
   organizationId: OrganizationId,
 ): Promise<Result<{ row: MeshNetworkRecord; client: MeshProviderClient }, MeshProviderError>> {
   const row = await getMeshNetwork(organizationId);

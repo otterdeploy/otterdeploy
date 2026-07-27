@@ -31,16 +31,6 @@ export function buildSchema(
   return m;
 }
 
-/** The SQL the results pane runs: the table-browse query in table mode, the
- *  last authored statement in SQL mode. */
-export function activeSqlFor(
-  mode: "table" | "sql",
-  tableSql: string,
-  ranSql: string | null,
-): string {
-  return mode === "table" ? tableSql : (ranSql ?? "");
-}
-
 /** Whether table-browse mode has another page (the +1 sentinel row was hit). */
 export function hasNextPage(
   mode: "table" | "sql",

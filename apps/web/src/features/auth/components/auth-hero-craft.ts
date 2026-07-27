@@ -8,7 +8,7 @@
  * renderer lives in `auth-hero-scene.ts`.
  */
 
-import { mulberry32, TAU } from "@/features/auth/components/auth-hero-field";
+import { mulberry32 } from "@/features/auth/components/auth-hero-field";
 
 /** Craft-local space: nose points along +z, +y is down, +x is starboard. */
 const NOSE = { x: 0, y: 0, z: 1.18 };
@@ -20,8 +20,8 @@ const FOLD_L = { x: -0.3, y: 0.42, z: -0.84 };
 const FOLD_R = { x: 0.3, y: 0.42, z: -0.84 };
 
 /** Attitude: nose up and turned out of frame, with a touch of bank. */
-export const CRAFT_YAW = 0.56;
-export const CRAFT_PITCH = 0.42;
+const CRAFT_YAW = 0.56;
+const CRAFT_PITCH = 0.42;
 export const CRAFT_BANK = 0.1;
 /** Perspective for the craft's own projection — shallow, so it foreshortens
  *  without the wide-angle distortion a low focal length would add. */
@@ -186,5 +186,3 @@ export function rotateCraft(b: CraftBasis, x: number, y: number, z: number) {
     z: b.m20 * x + b.m21 * y + b.m22 * z,
   };
 }
-
-export { TAU };

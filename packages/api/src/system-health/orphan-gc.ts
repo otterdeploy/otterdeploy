@@ -72,7 +72,7 @@ const BASE_BACKOFF_MS = 60_000; // 1m after the first failure…
 const MAX_BACKOFF_MS = 60 * 60_000; // …doubling up to 1h.
 /** Attempts past which we escalate the log — the object is stuck (daemon down,
  *  or a bug in the teardown primitive) and wants operator eyes. */
-export const ORPHAN_ATTEMPT_ESCALATION = 8;
+const ORPHAN_ATTEMPT_ESCALATION = 8;
 
 /**
  * Is this orphan due for another teardown attempt? Never-tried rows are always

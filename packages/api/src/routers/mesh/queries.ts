@@ -22,18 +22,6 @@ export async function getMeshNetwork(
   return row ?? null;
 }
 
-/**
- * The row only when it's actually usable. Callers on the data path (private
- * exposure, key minting) must use this rather than `getMeshNetwork` so a
- * disconnected or erroring mesh can never be treated as live.
- */
-export async function getConnectedMeshNetwork(
-  organizationId: OrganizationId,
-): Promise<MeshNetworkRecord | null> {
-  const row = await getMeshNetwork(organizationId);
-  return row?.status === "connected" ? row : null;
-}
-
 export interface UpsertMeshNetworkInput {
   organizationId: OrganizationId;
   provider: "netbird" | "tailscale";

@@ -29,7 +29,7 @@ export async function readJson<T>(path: string): Promise<T | null> {
   }
 }
 
-export async function fileExists(path: string): Promise<boolean> {
+async function fileExists(path: string): Promise<boolean> {
   try {
     await access(path);
     return true;

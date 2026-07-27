@@ -13,7 +13,7 @@ import { NetbirdClient } from "./netbird";
 import { MeshProviderError } from "./types";
 
 export * from "./types";
-export { NETBIRD_HOSTED_URL, NetbirdClient, normalizeManagementUrl } from "./netbird";
+export { NETBIRD_HOSTED_URL, normalizeManagementUrl } from "./netbird";
 
 /** The subset of a `mesh_network` row the provider layer needs. */
 export interface MeshCredentials {

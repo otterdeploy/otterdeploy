@@ -32,7 +32,7 @@ import { and, eq, ne, or } from "drizzle-orm";
 /** Shown in the destinations list and pre-selected in the schedule form. The
  *  name is the one field the operator may edit, so this is only the initial
  *  value — never match on it, match on `managed`. */
-export const MANAGED_LOCAL_DESTINATION_NAME = "Local disk (managed)";
+const MANAGED_LOCAL_DESTINATION_NAME = "Local disk (managed)";
 
 /**
  * The config the platform owns for the managed row. `path` is the repo root and

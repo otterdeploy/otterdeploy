@@ -27,14 +27,14 @@ const envKeyShape = z
       "POSTGRES_DB / POSTGRES_USER / POSTGRES_PASSWORD are reserved — use the rotation flow to change credentials.",
   });
 
-export const setPostgresExtraEnvInput = z.object({
+const setPostgresExtraEnvInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   key: envKeyShape,
   value: z.string().max(8192),
 });
 
-export const unsetPostgresExtraEnvInput = z.object({
+const unsetPostgresExtraEnvInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   key: envKeyShape,
@@ -45,7 +45,7 @@ const restartPostgresInput = z.object({
   resourceId: resourceIdField,
 });
 
-export const createPostgresDatabaseInput = z.object({
+const createPostgresDatabaseInput = z.object({
   projectId: projectIdField,
   name: z.string().min(1),
   /** Database engine to provision. Default is postgres for back-compat
@@ -71,7 +71,7 @@ export const createPostgresDatabaseInput = z.object({
  * instead of hanging on a spinner. The final `done` event carries the
  * fully-mapped resource so the client can route to the detail panel.
  */
-export const createPostgresProgressSchema = z.discriminatedUnion("type", [
+const createPostgresProgressSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("step"),
     /** Step identifier — matches the log.info step names emitted by the
@@ -137,7 +137,7 @@ export const createPostgresProgressSchema = z.discriminatedUnion("type", [
 
 /** Flip the public-exposure flag on an existing postgres resource. The
  *  Caddy reconciler runs after the toggle so the route state catches up. */
-export const setPostgresPublicInput = z.object({
+const setPostgresPublicInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   publicEnabled: z.boolean(),

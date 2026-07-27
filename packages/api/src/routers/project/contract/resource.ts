@@ -16,22 +16,20 @@ import { basePath, projectNotFoundErrors, resourceNotFoundErrors, tag } from "./
 
 export {
   composeResourceSchema,
-  databaseResourceSchema,
   postgresResourceSchema,
-  resourceSchema,
   serviceResourceSchema,
 } from "./resource-schemas";
 
-export const listProjectResourcesInput = z.object({
+const listProjectResourcesInput = z.object({
   projectId: projectIdField,
 });
 
-export const getProjectResourceInput = z.object({
+const getProjectResourceInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
 });
 
-export const deleteProjectResourceInput = z.object({
+const deleteProjectResourceInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
 });
@@ -40,22 +38,22 @@ export const deleteProjectResourceInput = z.object({
  * Generic per-resource endpoints — same shape for postgres databases,
  * services, and any future engine. Handler dispatches on resource kind.
  */
-export const resourceTaskInput = z.object({
+const resourceTaskInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
 });
 
-export const resourceEnvEntrySchema = z.object({
+const resourceEnvEntrySchema = z.object({
   key: z.string(),
   value: z.string(),
 });
 
-export const resourceEnvListInput = z.object({
+const resourceEnvListInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
 });
 
-export const resourceEnvBulkSetInput = z.object({
+const resourceEnvBulkSetInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   env: z.array(resourceEnvEntrySchema),
@@ -77,12 +75,12 @@ export const resourceEnvBulkSetInput = z.object({
  * when the page mounts. `suggestion` is non-null only when `available` is
  * false — derived by suffixing "-2", "-3", … until free.
  */
-export const checkResourceNameInput = z.object({
+const checkResourceNameInput = z.object({
   projectId: projectIdField,
   name: z.string().min(1),
 });
 
-export const checkResourceNameSchema = z.object({
+const checkResourceNameSchema = z.object({
   available: z.boolean(),
   suggestion: z.string().nullable(),
 });
@@ -95,12 +93,12 @@ export const checkResourceNameSchema = z.object({
  * and stage — the real hostname instead of silently dropping the Public
  * toggle. Pure lookup; writes nothing.
  */
-export const publicHostPreviewInput = z.object({
+const publicHostPreviewInput = z.object({
   projectId: projectIdField,
   name: z.string().min(1),
 });
 
-export const publicHostPreviewSchema = z.object({
+const publicHostPreviewSchema = z.object({
   fqdn: z.string(),
   source: z.enum([
     "resource-override",

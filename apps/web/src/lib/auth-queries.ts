@@ -105,11 +105,30 @@ export const organizationsQuery = queryOptions({
 });
 
 /**
- * Drop the cached session + org list. Call after ANY change to identity or the
- * active organization; the next gate read then hits the server again.
+ * Refresh the cached session + org list. Call after ANY change to identity or
+ * the active organization; the gate then reads the new truth.
+ *
+ * `refetchType: "all"` is load-bearing, not a tuning knob. Two defaults compose
+ * into a silent no-op without it:
+ *
+ *   1. `invalidateQueries` only refetches queries with a live observer
+ *      (`type: "active"`). Nothing subscribes to these two — they exist purely
+ *      to be read by `_app`'s `beforeLoad` — so plain invalidation marks them
+ *      stale and refetches nothing.
+ *   2. `ensureQueryData` returns cached data whenever it is defined, stale or
+ *      not; it only fetches when there is no data at all.
+ *
+ * So the gate went on reading the pre-change list. Creating your first
+ * organization in the wizard left `organizations: []` cached, and finishing
+ * onboarding navigated into the app only to be bounced straight back to
+ * `/onboarding/create-organization` by that stale empty list.
+ *
+ * Awaiting matters for the same reason: the returned promise settles once the
+ * refetches land, so callers can navigate immediately after and know the gate
+ * will read fresh data.
  */
 export async function invalidateAuth(): Promise<void> {
-  await queryClient.invalidateQueries({ queryKey: authQueryKeys.all });
+  await queryClient.invalidateQueries({ queryKey: authQueryKeys.all, refetchType: "all" });
 }
 
 /**

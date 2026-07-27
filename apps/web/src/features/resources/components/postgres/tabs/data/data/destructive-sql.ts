@@ -22,7 +22,7 @@ function stripLiteralsAndComments(sql: string): string {
 }
 
 /** Is a single (already stripped) statement destructive? */
-export function isDestructiveStatement(statement: string): boolean {
+function isDestructiveStatement(statement: string): boolean {
   const s = statement.trim().toLowerCase();
   if (s.length === 0) return false;
   if (/^(drop|truncate)\b/.test(s)) return true;

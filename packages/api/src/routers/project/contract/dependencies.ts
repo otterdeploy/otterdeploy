@@ -10,13 +10,13 @@ import * as z from "zod";
 import { basePath, projectNotFoundErrors, tag } from "./shared";
 import { projectIdField, resourceIdField } from "./shared";
 
-export const dependencyEdgeSchema = z.object({
+const dependencyEdgeSchema = z.object({
   projectId: projectIdField,
   source: resourceIdField,
   target: resourceIdField,
 });
 
-export const listDependenciesInput = z.object({
+const listDependenciesInput = z.object({
   projectId: projectIdField,
 });
 

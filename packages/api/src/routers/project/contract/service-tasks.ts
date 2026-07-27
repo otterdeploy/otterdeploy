@@ -48,12 +48,12 @@ export const serviceTaskSchema = z.object({
   restarts: z.number().int().default(0),
 });
 
-export const serviceTasksSchema = z.object({
+const serviceTasksSchema = z.object({
   resourceId: resourceIdField,
   tasks: z.array(serviceTaskSchema),
 });
 
-export const listServiceTasksInput = z.object({
+const listServiceTasksInput = z.object({
   projectId: projectIdField,
 });
 

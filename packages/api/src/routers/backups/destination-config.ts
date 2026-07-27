@@ -10,7 +10,7 @@
 export type DestinationType = "s3" | "local" | "sftp";
 
 /** Required non-secret config keys per destination type. */
-export const REQUIRED_CONFIG: Record<DestinationType, string[]> = {
+const REQUIRED_CONFIG: Record<DestinationType, string[]> = {
   s3: ["bucket"],
   local: ["path"],
   sftp: ["host"],

@@ -39,11 +39,11 @@ import { asStepLogger } from "../lib/logger";
 import { certCoversDomain } from "../lib/x509";
 
 /** Host-side dir the cert files are written to (inside the data folder). */
-export const caddyCertsHostDir = (): string => `${DATA_ROOT}/caddy/certs`;
+const caddyCertsHostDir = (): string => `${DATA_ROOT}/caddy/certs`;
 
 /** Where the same dir appears INSIDE the edge container (`/etc/caddy` mount).
  *  These are the paths the emitted `tls` directives must reference. */
-export const CADDY_CERTS_CONTAINER_DIR = "/etc/caddy/certs";
+const CADDY_CERTS_CONTAINER_DIR = "/etc/caddy/certs";
 
 /** A custom cert that may be emitted into the Caddyfile. Paths are the
  *  container-side paths (what Caddy reads). */

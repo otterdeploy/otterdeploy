@@ -8,7 +8,7 @@ import * as z from "zod";
 import { authClient } from "@/lib/auth-client";
 import { authQueryKeys } from "@/lib/auth-query-keys";
 
-import { AuthInput, AuthSubmitButton } from "./auth-fields";
+import { AuthField, AuthSubmitButton } from "./auth-fields";
 import { SocialSignIn } from "./social-sign-in";
 
 export function SignUpForm({
@@ -94,97 +94,50 @@ export function SignUpForm({
       >
         <form.Field name="name">
           {(field) => (
-            <div className="space-y-2">
-              <AuthInput
-                id={field.name}
-                name={field.name}
-                label={t("auth.signUp.nameLabel")}
-                autoComplete="name"
-                placeholder={t("auth.signUp.namePlaceholder")}
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={field.handleChange}
-              />
-              {field.state.meta.errors.map((error) => (
-                <p key={error?.message} className="text-sm text-destructive">
-                  {error?.message}
-                </p>
-              ))}
-            </div>
+            <AuthField
+              field={field}
+              label={t("auth.signUp.nameLabel")}
+              autoComplete="name"
+              placeholder={t("auth.signUp.namePlaceholder")}
+            />
           )}
         </form.Field>
 
         <form.Field name="email">
           {(field) => (
-            <div className="space-y-2">
-              <AuthInput
-                id={field.name}
-                name={field.name}
-                label={t("auth.signUp.emailLabel")}
-                type="email"
-                autoComplete="email"
-                placeholder={t("auth.signUp.emailPlaceholder")}
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={field.handleChange}
-              />
-              {field.state.meta.errors.map((error) => (
-                <p key={error?.message} className="text-sm text-destructive">
-                  {error?.message}
-                </p>
-              ))}
-            </div>
+            <AuthField
+              field={field}
+              label={t("auth.signUp.emailLabel")}
+              type="email"
+              autoComplete="email"
+              placeholder={t("auth.signUp.emailPlaceholder")}
+            />
           )}
         </form.Field>
 
         <form.Field name="password">
           {(field) => (
-            <div className="space-y-2">
-              <AuthInput
-                id={field.name}
-                name={field.name}
-                label={t("auth.signUp.passwordLabel")}
-                type="password"
-                autoComplete="new-password"
-                placeholder={t("auth.signUp.passwordPlaceholder")}
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={field.handleChange}
-              />
-              {field.state.meta.errors.map((error) => (
-                <p key={error?.message} className="text-sm text-destructive">
-                  {error?.message}
-                </p>
-              ))}
-            </div>
+            <AuthField
+              field={field}
+              label={t("auth.signUp.passwordLabel")}
+              type="password"
+              autoComplete="new-password"
+              placeholder={t("auth.signUp.passwordPlaceholder")}
+            />
           )}
         </form.Field>
 
         {bootstrap && (
           <form.Field name="bootstrapToken">
             {(field) => (
-              <div className="space-y-2">
-                <AuthInput
-                  id={field.name}
-                  name={field.name}
-                  label="Installation bootstrap token"
-                  type="password"
-                  autoComplete="off"
-                  placeholder="Paste the token printed by install.sh"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={field.handleChange}
-                />
-                <p className="text-xs text-muted-foreground">
-                  This one-time token proves you control the VPS and makes this account the
-                  installation owner.
-                </p>
-                {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-sm text-destructive">
-                    {error?.message}
-                  </p>
-                ))}
-              </div>
+              <AuthField
+                field={field}
+                label="Installation bootstrap token"
+                type="password"
+                autoComplete="off"
+                placeholder="Paste the token printed by install.sh"
+                hint="This one-time token proves you control the VPS and makes this account the installation owner."
+              />
             )}
           </form.Field>
         )}

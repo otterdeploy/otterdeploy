@@ -30,6 +30,76 @@ interface ManifestPort {
   name?: string;
 }
 
+/**
+ * One staged port row.
+ *
+ * Extracted from ManifestPortsCard's render, which was 152 lines — over the
+ * cap, and the row's own markup (three conditional affordances) was the bulk
+ * of it. Pulling it out leaves the card reading as "list, then add form".
+ */
+function ManifestPortRow({
+  port,
+  busy,
+  onToggleHttp,
+  onMakePrimary,
+  onRemove,
+}: {
+  port: ManifestPort;
+  busy: boolean;
+  onToggleHttp: () => void;
+  onMakePrimary: () => void;
+  onRemove: () => void;
+}) {
+  const p = port;
+  return (
+    <div
+      key={p.container}
+      className="flex items-center gap-3 border-b border-border/40 px-3 py-2.5 last:border-b-0"
+    >
+      <span className="min-w-0 flex-1 font-mono text-[12.5px] text-foreground">:{p.container}</span>
+      <button
+        type="button"
+        onClick={onToggleHttp}
+        disabled={busy}
+        className={cn(
+          "shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-medium tracking-wide uppercase transition-colors disabled:opacity-50",
+          p.appProtocol === "http"
+            ? "bg-primary/12 text-primary"
+            : "bg-muted text-muted-foreground hover:text-foreground",
+        )}
+        title="Toggle HTTP / TCP"
+      >
+        {p.appProtocol === "http" ? "HTTP" : "TCP"}
+      </button>
+      {p.primary ? (
+        <span className="shrink-0 rounded-full bg-primary/12 px-2 py-0.5 text-[10.5px] font-medium tracking-wide text-primary uppercase">
+          Primary
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={onMakePrimary}
+          disabled={busy}
+          className="shrink-0 text-muted-foreground/70 transition-colors hover:text-foreground disabled:opacity-50"
+          aria-label={`Make :${p.container} primary`}
+          title="Make primary"
+        >
+          <HugeiconsIcon icon={StarIcon} strokeWidth={2} className="size-3.5" />
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={onRemove}
+        disabled={busy}
+        className="shrink-0 text-muted-foreground/70 transition-colors hover:text-destructive disabled:opacity-50"
+        aria-label={`Remove :${p.container}`}
+      >
+        <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
+      </button>
+    </div>
+  );
+}
+
 export function ManifestPortsCard({
   projectId,
   serviceName,
@@ -106,53 +176,14 @@ export function ManifestPortsCard({
           <div className="px-3 py-3 text-[12.5px] text-muted-foreground">No ports staged yet.</div>
         ) : (
           ports.map((p) => (
-            <div
+            <ManifestPortRow
               key={p.container}
-              className="flex items-center gap-3 border-b border-border/40 px-3 py-2.5 last:border-b-0"
-            >
-              <span className="min-w-0 flex-1 font-mono text-[12.5px] text-foreground">
-                :{p.container}
-              </span>
-              <button
-                type="button"
-                onClick={() => toggleHttp(p.container)}
-                disabled={busy}
-                className={cn(
-                  "shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-medium tracking-wide uppercase transition-colors disabled:opacity-50",
-                  p.appProtocol === "http"
-                    ? "bg-primary/12 text-primary"
-                    : "bg-muted text-muted-foreground hover:text-foreground",
-                )}
-                title="Toggle HTTP / TCP"
-              >
-                {p.appProtocol === "http" ? "HTTP" : "TCP"}
-              </button>
-              {p.primary ? (
-                <span className="shrink-0 rounded-full bg-primary/12 px-2 py-0.5 text-[10.5px] font-medium tracking-wide text-primary uppercase">
-                  Primary
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => makePrimary(p.container)}
-                  disabled={busy}
-                  className="shrink-0 text-muted-foreground/70 transition-colors hover:text-foreground disabled:opacity-50"
-                  aria-label={`Make :${p.container} primary`}
-                  title="Make primary"
-                >
-                  <HugeiconsIcon icon={StarIcon} strokeWidth={2} className="size-3.5" />
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => remove(p.container)}
-                disabled={busy}
-                className="shrink-0 text-muted-foreground/70 transition-colors hover:text-destructive disabled:opacity-50"
-                aria-label={`Remove :${p.container}`}
-              >
-                <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
-              </button>
-            </div>
+              port={p}
+              busy={busy}
+              onToggleHttp={() => toggleHttp(p.container)}
+              onMakePrimary={() => makePrimary(p.container)}
+              onRemove={() => remove(p.container)}
+            />
           ))
         )}
 

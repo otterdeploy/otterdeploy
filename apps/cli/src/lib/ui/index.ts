@@ -21,7 +21,7 @@
  *     no information.
  */
 
-export { G, kindBadge, stateGlyph, stateLabel, stateOf } from "./glyphs";
+export { G, kindBadge, stateGlyph, stateLabel } from "./glyphs";
 export {
   abort,
   ask,
@@ -36,17 +36,7 @@ export {
   warn,
 } from "./message";
 export type { Column, TreeNode } from "./render";
-export { derivedFrom, detail, line, panel, row, section, table, tree } from "./render";
+export { detail, line, panel, row, section, table } from "./render";
 export { err, interactive, out } from "./stream";
 export type { Role } from "./theme";
-export {
-  bold,
-  colorEnabled,
-  dim,
-  padEnd,
-  padStart,
-  paint,
-  refreshTheme,
-  strong,
-  width,
-} from "./theme";
+export { bold, dim, padEnd, paint, strong, width } from "./theme";

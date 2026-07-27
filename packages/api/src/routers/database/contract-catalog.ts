@@ -10,7 +10,7 @@
 import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import * as z from "zod";
 
-export const catalogEngineSchema = z.enum([
+const catalogEngineSchema = z.enum([
   "postgres",
   "redis",
   "mariadb",
@@ -30,7 +30,7 @@ export const catalogEngineSchema = z.enum([
  * Engines without a cheap probe (clickhouse, rabbitmq, minio, meilisearch)
  * always report null fields.
  */
-export const catalogStatsSchema = z.object({
+const catalogStatsSchema = z.object({
   /** Data size in bytes (used memory for redis). */
   sizeBytes: z.number().nullable(),
   connections: z.number().nullable(),
@@ -39,7 +39,7 @@ export const catalogStatsSchema = z.object({
   serverVersion: z.string().nullable(),
 });
 
-export const catalogRuntimeStatusSchema = z.enum([
+const catalogRuntimeStatusSchema = z.enum([
   "running",
   "starting",
   "stopped",

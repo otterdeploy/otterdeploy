@@ -6,7 +6,7 @@ import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 
 /** Labeled text input shared by the sign-in / sign-up forms. */
-export function AuthInput({
+function AuthInput({
   id,
   name,
   label,
@@ -77,5 +77,60 @@ export function AuthSubmitButton({
         <>{idleLabel}</>
       )}
     </Button>
+  );
+}
+
+/**
+ * A labelled input plus its validation errors, driven by a TanStack Form field.
+ *
+ * The sign-in and sign-up forms repeated this exact div/AuthInput/errors block
+ * once per field — six times between them — which pushed SignUpForm to 192
+ * lines and SignInForm to 153, both over the 150-line cap, and buried the parts
+ * that actually differ (label, type, autocomplete) in identical scaffolding.
+ */
+export function AuthField({
+  field,
+  label,
+  type,
+  autoComplete,
+  placeholder,
+  hint,
+}: {
+  // Structural rather than TanStack's generic FieldApi: typing it fully would
+  // mean threading each form's whole value shape through for no added safety
+  // at this call site.
+  field: {
+    name: string;
+    state: { value: string; meta: { errors: Array<{ message?: string } | undefined> } };
+    handleBlur: () => void;
+    handleChange: (value: string) => void;
+  };
+  label: string;
+  type?: string;
+  autoComplete: string;
+  placeholder: string;
+  /** Explanatory text under the input, before any validation errors. */
+  hint?: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <AuthInput
+        id={field.name}
+        name={field.name}
+        label={label}
+        type={type}
+        autoComplete={autoComplete}
+        placeholder={placeholder}
+        value={field.state.value}
+        onBlur={field.handleBlur}
+        onChange={field.handleChange}
+      />
+      {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+      {field.state.meta.errors.map((error) => (
+        <p key={error?.message} className="text-sm text-destructive">
+          {error?.message}
+        </p>
+      ))}
+    </div>
   );
 }

@@ -8,15 +8,6 @@ export const PLATFORM = {
     internalPort: 5432,
     localHost: "127.0.0.1",
   },
-  docker: {
-    resourceNetwork: "otterdeploy-resources",
-    // Used only by the legacy single-container dev provisioner in
-    // ./docker/postgres.ts (no current callers — the wizard's create path
-    // goes through the swarm adapter in ./swarm/database-engines/postgres.ts,
-    // which is version-aware). Kept pinned to 17 here since that file's mount
-    // target is hardcoded and hasn't been updated for 18's layout.
-    postgresImage: "postgres:17-alpine",
-  },
   swarm: {
     networkPrefix: "otterdeploy-",
     caddyContainer: "otterdeploy-caddy",

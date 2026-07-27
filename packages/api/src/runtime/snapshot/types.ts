@@ -16,27 +16,27 @@ import * as z from "zod";
 
 // Engine value set, derived from the shared catalog so adding an engine there
 // keeps this validator in sync (no hand-written duplicate).
-export const databaseEngineSchema = z.enum(
+const databaseEngineSchema = z.enum(
   Object.keys(DATABASE_ENGINES) as [DatabaseEngine, ...DatabaseEngine[]],
 );
 
 // Strategy a branch was actually materialized with (matches branchStrategyEnum
 // in @otterdeploy/db schema/project.ts §3.3).
-export const branchStrategySchema = z.enum(["zfs", "copy"]);
+const branchStrategySchema = z.enum(["zfs", "copy"]);
 export type BranchStrategy = z.infer<typeof branchStrategySchema>;
 
 // Operator setting (`auto` = probe zfs, else copy). Used by env config (§9).
 export const dbBranchStrategySettingSchema = z.enum(["auto", "zfs", "copy"]);
 export type DbBranchStrategySetting = z.infer<typeof dbBranchStrategySettingSchema>;
 
-export const branchInputSchema = z.object({
+const branchInputSchema = z.object({
   sourceVolume: z.string(),
   targetVolume: z.string(),
   engine: databaseEngineSchema,
 });
 export type BranchInput = z.infer<typeof branchInputSchema>;
 
-export const branchResultSchema = z.object({ snapshotRef: z.string().nullable() });
+const branchResultSchema = z.object({ snapshotRef: z.string().nullable() });
 export type BranchResult = z.infer<typeof branchResultSchema>;
 
 export interface SnapshotDriver {

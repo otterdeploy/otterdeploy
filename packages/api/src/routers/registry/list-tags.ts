@@ -51,7 +51,7 @@ export {
 /** Max tags returned per call — the wizard browser is a picker, not a mirror. */
 export const TAG_PAGE_LIMIT = 50;
 /** How many tags get the extra manifest round-trip for digest/size. */
-export const TAG_META_LIMIT = 12;
+const TAG_META_LIMIT = 12;
 
 const FETCH_TIMEOUT_MS = 10_000;
 
@@ -62,7 +62,7 @@ const MANIFEST_ACCEPT = [
   "application/vnd.oci.image.index.v1+json",
 ].join(", ");
 
-export class RegistryTagsError extends TaggedError("RegistryTagsError")<{
+class RegistryTagsError extends TaggedError("RegistryTagsError")<{
   message: string;
   status: number | undefined;
 }>() {}

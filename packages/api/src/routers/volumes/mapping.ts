@@ -79,8 +79,8 @@ export interface VolumeMappingIndex {
   stacksByNamespace: Map<string, StackClaim>;
 }
 
-export const RESOURCE_ID_LABEL = "otterdeploy.resource.id";
-export const STACK_NAMESPACE_LABEL = "com.docker.stack.namespace";
+const RESOURCE_ID_LABEL = "otterdeploy.resource.id";
+const STACK_NAMESPACE_LABEL = "com.docker.stack.namespace";
 
 /** Pre-index containers/claims once so per-volume mapping is O(refs). */
 export function buildVolumeMappingIndex(input: {

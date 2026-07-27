@@ -11,7 +11,7 @@ import {
   type HttpHealthcheck,
 } from "./healthcheck-http";
 
-export const HEALTHCHECK_DEFAULTS = { path: "/health", intervalS: 30, timeoutS: 5, retries: 3 };
+const HEALTHCHECK_DEFAULTS = { path: "/health", intervalS: 30, timeoutS: 5, retries: 3 };
 
 export interface HealthCheckFormState {
   enabled: boolean;

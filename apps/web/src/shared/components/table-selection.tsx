@@ -14,7 +14,7 @@
  * "3 removed · 1 skipped" instead of collapsing to one all-or-nothing result.
  */
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 
 import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -298,25 +298,4 @@ export function summarizeBulk<T>(
     message: `Removed ${plural(okCount)} · ${failCount} skipped — ${outcome.failed[0]?.reason ?? "failed"}`,
     tone: "warning",
   };
-}
-
-/** Renders the failed rows as a list, for the confirm dialog's aftermath. */
-export function FailedList<T>({
-  failed,
-  labelOf,
-}: {
-  failed: BulkOutcome<T>["failed"];
-  labelOf: (row: T) => string;
-}): ReactNode {
-  if (failed.length === 0) return null;
-  return (
-    <ul className="mt-2 flex flex-col gap-1">
-      {failed.map(({ row, reason }) => (
-        <li key={labelOf(row)} className="text-[12px] [overflow-wrap:anywhere]">
-          <span className="font-mono">{labelOf(row)}</span>
-          <span className="text-muted-foreground"> — {reason}</span>
-        </li>
-      ))}
-    </ul>
-  );
 }

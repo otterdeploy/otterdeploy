@@ -159,7 +159,7 @@ async function reconcileBackups(
  * the individual child). Never throws; returns the number of paths removed.
  * No-ops when the data folder isn't writable.
  */
-export async function sweepDataFolder(now = Date.now()): Promise<number> {
+async function sweepDataFolder(now = Date.now()): Promise<number> {
   if (!(await dataRootAvailable())) return 0;
   let removed = 0;
   try {

@@ -25,8 +25,6 @@ import { Result } from "better-result";
 
 import { basicAuthHeader, probeFetch, RegistryProbeError } from "./probe-fetch";
 
-export { RegistryProbeError } from "./probe-fetch";
-
 export interface BearerChallenge {
   scheme: "bearer";
   realm: string;

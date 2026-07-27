@@ -49,7 +49,7 @@ function publish(): void {
  * `key` should be stable per source — reporting again under the same key
  * replaces that source's previous value rather than stacking.
  */
-export function reportAppStatus(key: string, status: MarkStatus | null): void {
+function reportAppStatus(key: string, status: MarkStatus | null): void {
   if (status === null || status === "idle") {
     if (!sources.delete(key)) return;
   } else {
@@ -84,10 +84,4 @@ export function useReportAppStatus(key: string, status: MarkStatus | null): void
   // Separate from the report effect so a changing `status` does not churn the
   // cleanup — this one runs only when the key changes or on unmount.
   useEffect(() => () => reportAppStatus(key, null), [key]);
-}
-
-/** Clears every source. Tests only. */
-export function resetAppStatus(): void {
-  sources.clear();
-  publish();
 }
