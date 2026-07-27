@@ -157,14 +157,41 @@ export function DomainRowActions({
   );
 }
 
-/** Ownership TXT proof plus the A record that routes traffic here. */
-export function DnsHint({ domain }: { domain: DomainView }) {
+/**
+ * Ownership TXT proof plus the A record that routes traffic here.
+ *
+ * Keeps the inline records — they are what someone reads at a glance — and adds
+ * the "Configure DNS records" entry point, which is where Cloudflare detection
+ * and one-click setup live (shared/components/domains/dns-records-dialog.tsx).
+ * The same dialog serves the control-plane and workspace domains, so the flow
+ * reads identically wherever a domain is added.
+ */
+export function DnsHint({
+  domain,
+  onConfigure,
+}: {
+  domain: DomainView;
+  /** Opens the shared DNS dialog. Omitted where the surface can't offer it. */
+  onConfigure?: () => void;
+}) {
   return (
     <div className="rounded-md border border-dashed border-border/60 bg-muted/30 px-3 py-2 text-[11.5px]">
-      <p className="mb-2 text-muted-foreground">
-        Add the ownership TXT record and point the host at this server, then Recheck. The route
-        stays disabled until ownership is verified.
-      </p>
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <p className="text-muted-foreground">
+          Add the ownership TXT record and point the host at this server, then Recheck. The route
+          stays disabled until ownership is verified.
+        </p>
+        {onConfigure ? (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-6 shrink-0 px-2 text-[11px]"
+            onClick={onConfigure}
+          >
+            Configure DNS
+          </Button>
+        ) : null}
+      </div>
       <div className="flex flex-col gap-2 font-mono">
         {domain.verifyRecord && domain.verifyToken ? (
           <DnsRecord type="TXT" name={domain.verifyRecord} value={domain.verifyToken} />

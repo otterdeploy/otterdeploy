@@ -23,6 +23,7 @@ import { toast } from "sonner";
 
 import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
 import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
+import { DnsRecordsDialog } from "@/shared/components/domains/dns-records-dialog";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -209,8 +210,37 @@ function DomainRow({
 }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(domain.domain);
+  const [dnsOpen, setDnsOpen] = useState(false);
+  // Read here rather than threaded through props: the row is rendered from a
+  // list and only needs the slug to build the "connect Cloudflare" link.
+  const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
 
   const route = { ...input, routeId: domain.id };
+
+  // Same pair the server derives (packages/api/src/lib/dns-records.ts). Built
+  // from the view's own fields rather than refetched: the row already carries
+  // the token and target, and a second round trip to learn what it already
+  // knows would only add a way for the two to disagree.
+  const dnsRecords = [
+    ...(domain.dnsTarget
+      ? [{ type: "A" as const, name: domain.domain, value: domain.dnsTarget }]
+      : []),
+    ...(domain.verifyRecord && domain.verifyToken
+      ? [{ type: "TXT" as const, name: domain.verifyRecord, value: domain.verifyToken }]
+      : []),
+  ];
+
+  const autoConfigure = useMutation({
+    ...orpc.service.domains.autoConfigureDns.mutationOptions(),
+    onSuccess: () => {
+      toast.success(`DNS records created for ${domain.domain}`);
+      // Records exist now, so the ownership check can actually pass — run it
+      // rather than making the operator find Recheck themselves.
+      recheck.mutate(route);
+    },
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : "Couldn't configure DNS automatically"),
+  });
 
   const recheck = useMutation({
     ...orpc.service.domains.recheck.mutationOptions(),
@@ -306,7 +336,17 @@ function DomainRow({
         />
       </div>
 
-      {needsDns && <DnsHint domain={domain} />}
+      {needsDns && <DnsHint domain={domain} onConfigure={() => setDnsOpen(true)} />}
+
+      <DnsRecordsDialog
+        open={dnsOpen}
+        onOpenChange={setDnsOpen}
+        domain={domain.domain}
+        records={dnsRecords}
+        onAutoConfigure={() => autoConfigure.mutate(route)}
+        autoConfiguring={autoConfigure.isPending}
+        connectHref={`/${organization.slug}/settings/workspace/general`}
+      />
     </div>
   );
 }
