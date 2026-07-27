@@ -21,6 +21,11 @@ export type Backup = z.infer<typeof backupSchema>;
 /** Stable key shared by the collection fetch and the action invalidations. */
 const backupsListKey = orpc.backups.list.queryKey({ input: {} });
 
+/** A run that hasn't reached a terminal state yet, so the row will still change. */
+function isInFlight(b: Backup): boolean {
+  return b.status === "queued" || b.status === "running";
+}
+
 export const backupsCollection = createCollection(
   queryCollectionOptions({
     ...orpc.backups.list.queryOptions({ input: {} }),
@@ -28,6 +33,14 @@ export const backupsCollection = createCollection(
     queryFn: async () => orpc.backups.list.call({}),
     queryClient,
     getKey: (b) => b.id,
+    // `backups.run` returns once the run is ENQUEUED, not once it finishes, so
+    // runBackup's single invalidate below always lands on a still-running row.
+    // Without this the row sat at "Running" forever — with the completed log
+    // visible inside it, since logs are fetched separately — and Restore /
+    // Download stayed disabled because both gate on status === "succeeded".
+    // Poll only while something is in flight; stop dead once it settles.
+    refetchInterval: (query) =>
+      (query.state.data as Backup[] | undefined)?.some(isInFlight) ? 2000 : false,
   }),
 );
 

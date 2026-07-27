@@ -6,6 +6,8 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ServerStack01Icon } from "@hugeicons/core-free-icons";
 
+import type { ProvisionInitialValues } from "@/features/servers/components/server-provision-form";
+
 import { type Server } from "@/features/servers/data/server";
 import { type ServerHealthEntry } from "@/features/servers/data/health";
 import { type SwarmNode } from "@/features/servers/data/swarm";
@@ -35,6 +37,7 @@ export function ServersTable({
   nodesByServer,
   onOpenServer,
   onCreate,
+  onReAdd,
 }: {
   servers: Server[];
   statsByServer: ReadonlyMap<string, ServerRowStats>;
@@ -44,6 +47,8 @@ export function ServersTable({
   nodesByServer: ReadonlyMap<string, SwarmNode>;
   onOpenServer: (serverId: string) => void;
   onCreate: () => void;
+  /** Re-open Add server prefilled, for failed runs that stored no credential. */
+  onReAdd: (initial: ProvisionInitialValues) => void;
 }) {
   if (servers.length === 0) {
     return (
@@ -95,6 +100,7 @@ export function ServersTable({
               health={healthByServer.get(server.id) ?? null}
               node={nodesByServer.get(server.id) ?? null}
               onOpen={() => onOpenServer(server.id)}
+              onReAdd={onReAdd}
             />
           ))}
         </TableBody>

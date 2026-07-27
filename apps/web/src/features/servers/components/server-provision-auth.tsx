@@ -1,5 +1,6 @@
 import type { SshKey } from "@/features/ssh-keys/data/ssh-keys";
 
+import { Button } from "@/shared/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/shared/components/ui/field";
 import { Input } from "@/shared/components/ui/input";
 import {
@@ -54,10 +55,24 @@ export function ProvisionAuthSection({
             >
               {(field) =>
                 usableKeys.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No generated SSH keys yet — create one under Settings → SSH keys, install its
-                    public key on the host, then come back.
-                  </p>
+                  // A dead end otherwise: this branch renders no FieldError slot, so
+                  // the sshKeyId validation failure on submit had nowhere to show.
+                  // Offer the path that works from right here.
+                  <div className="flex flex-col items-start gap-2">
+                    <p className="text-sm text-muted-foreground">
+                      No generated SSH keys yet — create one under Settings → SSH keys and install
+                      its public key on the host, or provision with a one-time password instead.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8"
+                      onClick={() => authField.handleChange("password")}
+                    >
+                      Use a one-time password
+                    </Button>
+                  </div>
                 ) : (
                   <Field>
                     <FieldLabel htmlFor="srv-key">SSH key</FieldLabel>

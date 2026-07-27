@@ -19,6 +19,22 @@ export function formatDuration(ms: number): string {
 }
 
 /**
+ * A clock that re-renders on an interval while `live`, and freezes otherwise.
+ *
+ * Exposed because callers that count *down* (an expiry) need the raw instant,
+ * not the start→end span `useLiveDuration` returns.
+ */
+export function useNowTick(live: boolean, intervalMs = 1000): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!live) return;
+    const id = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(id);
+  }, [live, intervalMs]);
+  return now;
+}
+
+/**
  * Elapsed time from `start` to `end` — or to *now*, re-rendering every second
  * while `end` is null (the build/deploy is still in flight). Returns the
  * formatted string, or null when there's no start (nothing to time yet).
@@ -27,13 +43,7 @@ export function useLiveDuration(
   start: string | null | undefined,
   end: string | null | undefined,
 ): string | null {
-  const live = !end;
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!live) return;
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [live]);
+  const now = useNowTick(!end);
   if (!start) return null;
   const startMs = new Date(start).getTime();
   const endMs = end ? new Date(end).getTime() : now;

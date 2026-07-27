@@ -20,8 +20,11 @@ import {
   TableRow,
 } from "@/shared/components/ui/table";
 
+import type { ProvisionInitialValues } from "@/features/servers/components/server-provision-form";
+
 import { LiveHealthCell } from "./servers-live-cell";
 import { RoleBadge, ServerNameCell, StatusBadge, UsageBars } from "./servers-row-cells";
+import { ProvisionRetryCell } from "./servers-row-retry";
 
 export interface ServerRowStats {
   tasksRunning: number;
@@ -36,6 +39,7 @@ export function ServerRow({
   health,
   node,
   onOpen,
+  onReAdd,
 }: {
   server: Server;
   stats: ServerRowStats | null;
@@ -44,6 +48,8 @@ export function ServerRow({
    *  column prefers swarm truth and marks the Raft leader. */
   node: SwarmNode | null;
   onOpen: () => void;
+  /** Re-open Add server prefilled, for failed runs that stored no credential. */
+  onReAdd: (initial: ProvisionInitialValues) => void;
 }) {
   // When stats haven't arrived yet (first paint, swarm unreachable, …) we
   // render zeros against capacity rather than fake values — honest about
@@ -95,11 +101,14 @@ export function ServerRow({
       </TableCell>
 
       <TableCell className="pr-3">
-        <HugeiconsIcon
-          icon={ArrowRight01Icon}
-          strokeWidth={2}
-          className="size-4 text-muted-foreground/40 transition-colors group-hover:text-muted-foreground"
-        />
+        <div className="flex items-center justify-end gap-2">
+          <ProvisionRetryCell server={server} onReAdd={onReAdd} />
+          <HugeiconsIcon
+            icon={ArrowRight01Icon}
+            strokeWidth={2}
+            className="size-4 text-muted-foreground/40 transition-colors group-hover:text-muted-foreground"
+          />
+        </div>
       </TableCell>
     </TableRow>
   );

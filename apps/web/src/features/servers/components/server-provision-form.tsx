@@ -4,8 +4,6 @@ import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { Button } from "@/shared/components/ui/button";
-import { DialogFooter } from "@/shared/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/shared/components/ui/field";
 import { Input } from "@/shared/components/ui/input";
 import {
@@ -19,20 +17,38 @@ import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { ProvisionAdvancedSection } from "./server-provision-advanced";
 import { type AuthMode, ProvisionAuthSection } from "./server-provision-auth";
+import { ProvisionFooter } from "./server-provision-footer";
 
-function useProvisionForm(onStarted: (id: ServerId) => void) {
+/**
+ * Non-secret fields carried over when re-adding a failed server.
+ *
+ * One-time passwords and mesh auth keys are deliberately never stored, so a
+ * failed run using either can't be retried in place — this lets the operator
+ * re-add it without retyping everything except the secret itself.
+ */
+export interface ProvisionInitialValues {
+  name?: string;
+  host?: string;
+  sshUser?: string;
+  sshPort?: string;
+  role?: "worker" | "manager";
+  buildServer?: boolean;
+  meshProvider?: "none" | "tailscale" | "netbird";
+}
+
+function useProvisionForm(onStarted: (id: ServerId) => void, initial?: ProvisionInitialValues) {
   return useForm({
     defaultValues: {
-      name: "",
-      host: "",
-      sshUser: "root",
-      sshPort: "22",
-      role: "worker" as "worker" | "manager",
+      name: initial?.name ?? "",
+      host: initial?.host ?? "",
+      sshUser: initial?.sshUser ?? "root",
+      sshPort: initial?.sshPort ?? "22",
+      role: (initial?.role ?? "worker") as "worker" | "manager",
       authMode: "key" as AuthMode,
       sshKeyId: "",
       password: "",
-      buildServer: false,
-      meshProvider: "none" as "none" | "tailscale" | "netbird",
+      buildServer: initial?.buildServer ?? false,
+      meshProvider: (initial?.meshProvider ?? "none") as "none" | "tailscale" | "netbird",
       meshAuthKey: "",
       meshManagementUrl: "",
       cloudflareToken: "",
@@ -75,15 +91,17 @@ export type ProvisionFormApi = ReturnType<typeof useProvisionForm>;
 export function ProvisionForm({
   onStarted,
   onCancel,
+  initial,
 }: {
   onStarted: (id: ServerId) => void;
   onCancel: () => void;
+  initial?: ProvisionInitialValues;
 }) {
   // Only generated keys carry the private half we authenticate with; imported
   // (public-only) keys can't be used to connect out.
   const { data: keys } = useQuery(orpc.sshKeys.list.queryOptions());
   const usableKeys = (keys ?? []).filter((k) => !k.imported);
-  const form = useProvisionForm(onStarted);
+  const form = useProvisionForm(onStarted, initial);
 
   return (
     <form
@@ -106,20 +124,7 @@ export function ProvisionForm({
         <ProvisionAdvancedSection form={form} />
       </div>
 
-      <DialogFooter className="mt-5 flex-row items-center sm:justify-end">
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-8" type="button" onClick={onCancel}>
-            Cancel
-          </Button>
-          <form.Subscribe selector={(s) => [s.canSubmit, s.isSubmitting] as const}>
-            {([canSubmit, isSubmitting]) => (
-              <Button size="sm" className="h-8" type="submit" disabled={!canSubmit || isSubmitting}>
-                {isSubmitting ? "Starting…" : "Provision server"}
-              </Button>
-            )}
-          </form.Subscribe>
-        </div>
-      </DialogFooter>
+      <ProvisionFooter form={form} usableKeys={usableKeys} onCancel={onCancel} />
     </form>
   );
 }

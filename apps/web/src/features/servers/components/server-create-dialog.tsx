@@ -4,15 +4,18 @@ import { useState } from "react";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
 
-import { ProvisionForm } from "./server-provision-form";
+import { ProvisionForm, type ProvisionInitialValues } from "./server-provision-form";
 import { ProvisionProgress } from "./server-provision-progress";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Non-secret fields carried over when re-adding a failed server. Keyed on
+   *  in the caller so the form remounts with fresh defaults. */
+  initial?: ProvisionInitialValues;
 }
 
-export function ServerCreateDialog({ open, onOpenChange }: Props) {
+export function ServerCreateDialog({ open, onOpenChange, initial }: Props) {
   const [provisioningId, setProvisioningId] = useState<ServerId | null>(null);
 
   // Reset back to the form whenever the dialog is closed, so re-opening starts
@@ -31,7 +34,11 @@ export function ServerCreateDialog({ open, onOpenChange }: Props) {
         {provisioningId ? (
           <ProvisionProgress serverId={provisioningId} onClose={() => close(false)} />
         ) : (
-          <ProvisionForm onStarted={setProvisioningId} onCancel={() => close(false)} />
+          <ProvisionForm
+            onStarted={setProvisioningId}
+            onCancel={() => close(false)}
+            initial={initial}
+          />
         )}
       </DialogContent>
     </Dialog>

@@ -10,6 +10,7 @@ import { PageHeader } from "@/shared/components/page";
 import { orpc, queryClient } from "@/shared/server/orpc";
 import { JoinTokenDialog } from "@/features/servers/components/join-token-dialog";
 import { ServerCreateDialog } from "@/features/servers/components/server-create-dialog";
+import { useAddServerDialog } from "@/features/servers/components/use-add-server-dialog";
 import { serverCollection } from "@/features/servers/data/server";
 import { serverHealthCollection } from "@/features/servers/data/health";
 import {
@@ -179,7 +180,7 @@ function ServersRoute() {
   const tab = resolveServersTab(requestedTab, isInstallAdmin);
   const navigate = Route.useNavigate();
   const { data: servers } = useLiveQuery((q) => q.from({ s: serverCollection }));
-  const [createOpen, setCreateOpen] = useState(false);
+  const addDialog = useAddServerDialog();
   const [tokenOpen, setTokenOpen] = useState(false);
   const [projectFilter, setProjectFilter] = useState<string>("all");
 
@@ -226,7 +227,7 @@ function ServersRoute() {
             <ServerPageActions
               tab={tab}
               onEnroll={() => setTokenOpen(true)}
-              onCreate={() => setCreateOpen(true)}
+              onCreate={addDialog.openFresh}
             />
           }
         />
@@ -258,7 +259,8 @@ function ServersRoute() {
           healthByServer={healthByServer}
           nodesByServer={nodesByServer}
           onOpenServer={setOpenServerId}
-          onCreate={() => setCreateOpen(true)}
+          onCreate={addDialog.openFresh}
+          onReAdd={addDialog.openWith}
         />
 
         {/* The LOCAL host's action surface (reclaim/grow run on the local
@@ -280,7 +282,14 @@ function ServersRoute() {
           if (!open) setOpenServerId(null);
         }}
       />
-      <ServerCreateDialog open={createOpen} onOpenChange={setCreateOpen} />
+      {/* Keyed so a re-add remounts the form — TanStack Form reads
+          defaultValues on mount only, so a live prop change wouldn't apply. */}
+      <ServerCreateDialog
+        key={addDialog.formKey}
+        open={addDialog.open}
+        onOpenChange={addDialog.onOpenChange}
+        initial={addDialog.initial}
+      />
       <JoinTokenDialog open={tokenOpen} onOpenChange={setTokenOpen} />
     </Tabs>
   );

@@ -8,12 +8,12 @@ import { toast } from "sonner";
 import { sessionQuery } from "@/lib/auth-queries";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/components/ui/toggle-group";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
+import { EnrollmentProgress, type EnrollmentProgressRow } from "./enrollment-progress";
 import { JoinCommandBlock } from "./join-command-block";
-import { StepUpForm } from "./join-token-step-up";
+import { StepUpForm, submitBlocker } from "./join-token-step-up";
 
 export type JoinRole = "worker" | "manager";
 
@@ -22,11 +22,8 @@ interface JoinTokenPanelProps {
   onRoleChange: (role: JoinRole) => void;
 }
 
-interface EnrollmentSummary {
-  id: string;
-  role: JoinRole;
-  status: "active" | "expired" | "redeemed" | "completed" | "revoked";
-}
+/** Mirrors the `server.enrollments` row; the progress view needs its timestamps. */
+type EnrollmentSummary = EnrollmentProgressRow;
 
 function EnrollmentHistory({
   enrollments,
@@ -136,8 +133,25 @@ export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
     managerConfirmation: role === "manager" ? managerConfirmation : undefined,
   };
   const credentialReady = twoFactorEnabled ? /^\d{6}(\d{2})?$/.test(totpCode) : password.length > 0;
-  const canSubmit =
-    credentialReady && (role !== "manager" || managerConfirmation === "ENROLL MANAGER");
+  // Track whatever enrollment is still in flight — preferring the one this
+  // session just created — so progress survives a reload or a reopened dialog
+  // instead of living only in `created`.
+  const rows: EnrollmentSummary[] = enrollments.data ?? [];
+  const tracked =
+    rows.find((row) => row.id === created?.id) ??
+    rows.find((row) => row.status === "redeemed") ??
+    rows.find((row) => row.status === "active");
+
+  // Gate and explanation are one value — see submitBlocker. While the session is
+  // still loading we hold submission rather than guess at twoFactorEnabled, which
+  // would render the wrong credential field and reject on the server.
+  const blockedReason = submitBlocker({
+    sessionPending: sessionQ.isPending,
+    twoFactorEnabled,
+    credentialReady,
+    role,
+    managerConfirmation,
+  });
 
   return (
     <div className="flex flex-col gap-4">
@@ -166,7 +180,7 @@ export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
         totpCode={totpCode}
         password={password}
         managerConfirmation={managerConfirmation}
-        canSubmit={canSubmit}
+        blockedReason={blockedReason}
         creating={create.isPending}
         rotating={rotate.isPending}
         onTotpCodeChange={setTotpCode}
@@ -183,6 +197,13 @@ export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
             one {role}. Completion rotates Docker&apos;s underlying {role} token.
           </p>
           <JoinCommandBlock command={command} />
+        </div>
+      ) : null}
+
+      {tracked ? (
+        <div className="grid gap-2 rounded-md border bg-muted/20 p-3">
+          <span className="text-xs font-medium">Enrollment progress</span>
+          <EnrollmentProgress row={tracked} />
         </div>
       ) : null}
 

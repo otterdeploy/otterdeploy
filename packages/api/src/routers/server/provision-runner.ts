@@ -24,6 +24,7 @@ import { rotateSwarmJoinCredential } from "./enrollment";
 import { resolveFirewallPeers, runFirewallOnlyJob } from "./firewall-remediation";
 import { filterIpv4Peers } from "./host-firewall";
 import { getSwarmJoinTokens } from "./join-tokens";
+import { admitNodeToManager } from "./manager-peers";
 import { type MeshProvider, runRemoteProvision } from "./provision";
 import { installNodeFirewallBouncer, managerHostOf } from "./provision-firewall";
 import { installHostFirewall } from "./provision-host-firewall";
@@ -126,6 +127,12 @@ export async function runProvisionJob(payload: ProvisionServerPayload): Promise<
       privateKey,
       password: password ?? undefined,
     });
+
+    // od-5j8.11's peer set gates the manager's 2377/7946 — the node has to be
+    // admitted BEFORE it joins, or the daemon just times out. Uses the node's
+    // egress address (not necessarily payload.host, which may be a floating IP
+    // the box never sources traffic from), falling back to the SSH address.
+    await admitNodeToManager(session, { managerAddr, sshHost: payload.host }, emit);
 
     let result;
     try {
