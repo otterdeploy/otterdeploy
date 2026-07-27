@@ -49,7 +49,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
 
   // Active CrowdSec bans + block actions (single from a row, bulk from the
   // suspicious filter). CrowdSec-enforced; reversible from the Firewall view.
-  const { bannedIps, block, blockMany } = useEdgeBans();
+  const { bannedIps, block, blockMany, canBlock } = useEdgeBans();
 
   const data = query.data;
   const allRows = data?.rows ?? [];
@@ -109,7 +109,9 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
           ips={suspiciousIps}
           onToggle={() => setSuspiciousOnly((v) => !v)}
           blocking={blockMany.isPending}
-          onBlockAll={() => blockMany.mutate({ ips: suspiciousIps })}
+          // Blocking is install-scoped; without the action the filter toggle
+          // still works, so the control stays and only the button goes.
+          onBlockAll={canBlock ? () => blockMany.mutate({ ips: suspiciousIps }) : undefined}
         />
         <Button
           variant="outline"
@@ -137,7 +139,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
         expanded={expanded}
         setExpanded={setExpanded}
         isLoading={query.isLoading}
-        onBlockIp={(ip) => block.mutate({ ip })}
+        onBlockIp={canBlock ? (ip) => block.mutate({ ip }) : undefined}
         blocking={block.isPending}
         bannedIps={bannedIps}
       />
@@ -162,7 +164,8 @@ function SuspiciousControls({
   ips: string[];
   onToggle: () => void;
   blocking: boolean;
-  onBlockAll: () => void;
+  /** Absent when the viewer can't block — the toggle stays, the action goes. */
+  onBlockAll?: () => void;
 }) {
   return (
     <>
@@ -179,7 +182,7 @@ function SuspiciousControls({
       >
         Suspicious{count > 0 ? ` (${count})` : ""}
       </Button>
-      {active && ips.length > 0 ? (
+      {active && ips.length > 0 && onBlockAll ? (
         <BlockAllButton count={ips.length} blocking={blocking} onConfirm={onBlockAll} />
       ) : null}
     </>

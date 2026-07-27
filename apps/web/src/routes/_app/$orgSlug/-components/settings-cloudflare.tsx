@@ -2,25 +2,16 @@ import type { OrganizationId } from "@otterdeploy/shared/id";
 import { CloudIcon } from "@hugeicons/core-free-icons";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useRouteContext } from "@tanstack/react-router";
 import { toast } from "sonner";
 
-import { SettingsSection } from "@/shared/components/settings-section";
+import { useCanManageWorkspace } from "@/features/team/data/use-team";
+import { SettingsFooter, SettingsSection } from "@/shared/components/settings-section";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@/shared/components/ui/native-select";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-// Cloudflare API-token deep link. `permissionGroups` is the documented
-// query param that pre-selects the scope on the create-token page; the
-// user only has to pick the zone under "Zone Resources" and hit Create.
-// We pass "Zone.DNS:Edit" — the minimum scope auto-configure DNS needs.
-// (Cloudflare doesn't offer OAuth for DNS, so this is as close to
-// one-click as their dashboard allows.)
-const CLOUDFLARE_TOKEN_TEMPLATE_URL =
-  "https://dash.cloudflare.com/profile/api-tokens?permissionGroups=Zone.DNS%3AEdit&name=otterdeploy";
+import { STEP, StepNumber, TokenSetupSteps, ZonePicker } from "./settings-cloudflare-steps";
 
 function invalidateSettings(organizationId: OrganizationId) {
   return queryClient.invalidateQueries({
@@ -37,19 +28,49 @@ export function CloudflareCard({ organizationId }: { organizationId: Organizatio
   const isConfigured = settingsQuery.data?.cloudflareTokenConfigured ?? false;
   const currentZoneId = settingsQuery.data?.cloudflareZoneId ?? null;
 
+  // `setCloudflareConfig` is `organization:update` — owner/admin only. Reading
+  // the settings is not, so a member may SEE whether Cloudflare is wired up;
+  // they just can't change it. Without this they got the whole three-step
+  // connect flow and a raw "The actor does not have the required permission."
+  // at the end of it, having already pasted a live API token.
+  const { user } = useRouteContext({ from: "/_app" });
+  const canManage = useCanManageWorkspace(organizationId, user.id);
+
+  if (!canManage) {
+    return (
+      <SettingsSection
+        icon={CloudIcon}
+        title="Cloudflare"
+        description="Connect Cloudflare and we'll write the DNS records for you whenever you save a domain."
+      >
+        <div className="p-5 text-[13px] text-muted-foreground">
+          {isConfigured
+            ? `Connected to zone ${currentZoneId ?? "(none)"}.`
+            : "Not connected."}{" "}
+          Only workspace owners and admins can change this.
+        </div>
+      </SettingsSection>
+    );
+  }
+
   return (
+    // One sentence in the header: what connecting BUYS you. The mechanics
+    // (why a pasted token and not OAuth, which scope) belong to the step that
+    // needs them, not to a paragraph you must read before the first step.
     <SettingsSection
       icon={CloudIcon}
       title="Cloudflare"
-      description="Connect Cloudflare and we'll write the DNS records for you when you save a domain. Cloudflare doesn't support OAuth for DNS, so the one-click button opens Cloudflare with the right scopes (Zone.DNS:Edit) pre-selected — you click Create on their side and paste the token back here once."
+      description="Connect Cloudflare and we'll write the DNS records for you whenever you save a domain."
     >
-      <div className="p-4">
-        {isConfigured ? (
+      {isConfigured ? (
+        <div className="p-5">
           <CloudflareConnected organizationId={organizationId} zoneId={currentZoneId} />
-        ) : (
-          <CloudflareConnectForm organizationId={organizationId} />
-        )}
-      </div>
+        </div>
+      ) : (
+        // Renders its own padded body + footer as siblings so the card's
+        // `divide-y` puts a hairline between the steps and the action.
+        <CloudflareConnectForm organizationId={organizationId} />
+      )}
     </SettingsSection>
   );
 }
@@ -121,42 +142,13 @@ function CloudflareConnectForm({
 
   return (
     <>
-      <ol className="flex flex-col gap-3 text-[12.5px]">
-        <li className="flex items-start gap-3">
-          <StepNumber n={1} />
-          <div className="flex flex-1 flex-col gap-2">
-            <span>Open Cloudflare with the right scopes pre-filled.</span>
-            <div>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  window.open(
-                    CLOUDFLARE_TOKEN_TEMPLATE_URL,
-                    "_blank",
-                    "noopener,noreferrer",
-                  )
-                }
-              >
-                Open Cloudflare →
-              </Button>
-            </div>
-          </div>
-        </li>
-        <li className="flex items-start gap-3">
-          <StepNumber n={2} />
-          <div className="flex flex-1 flex-col gap-1.5">
-            <span>
-              On the Cloudflare page, pick the zone you want under "Zone
-              Resources", then click <strong>Create Token</strong>. Copy the
-              token Cloudflare shows you.
-            </span>
-          </div>
-        </li>
-        <li className="flex items-start gap-3">
+      {/* gap-6 between steps, not gap-3: at 12.5px/gap-3 the three steps read
+          as one paragraph with numbers in it. One step, one beat. */}
+      <ol className="flex flex-col gap-6 p-5 text-[13px] leading-relaxed">
+        <TokenSetupSteps />
+        <li className={STEP}>
           <StepNumber n={3} />
-          <div className="flex flex-1 flex-col gap-2">
+          <div className="flex flex-1 flex-col gap-3">
             <span>Paste the token here.</span>
             <div className="flex items-center gap-2">
               <form.Field name="token">
@@ -198,42 +190,25 @@ function CloudflareConnectForm({
                 )}
               </form.Subscribe>
             </div>
+            {/* The zone picker is the tail of step 3, not a fourth step: it
+                appears only once the token has resolved, and it belongs to the
+                token that produced it. */}
+            <form.Field name="zoneId">
+              {(field) => (
+                <ZonePicker
+                  zones={zones}
+                  value={field.state.value}
+                  onChange={(id) => field.handleChange(id)}
+                  saving={saveConfig.isPending}
+                />
+              )}
+            </form.Field>
           </div>
         </li>
       </ol>
-      {zones && zones.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="cf-zone" className="text-[12px] font-medium">
-            Zone
-          </label>
-          <form.Field name="zoneId">
-            {(field) => (
-              <NativeSelect
-                id="cf-zone"
-                value={field.state.value}
-                onChange={(e) => field.handleChange(e.target.value)}
-                disabled={saveConfig.isPending}
-              >
-                <NativeSelectOption value="" disabled>
-                  Select a zone…
-                </NativeSelectOption>
-                {zones.map((z) => (
-                  <NativeSelectOption key={z.id} value={z.id}>
-                    {z.name} ({z.status})
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            )}
-          </form.Field>
-        </div>
-      )}
-      {zones && zones.length === 0 && (
-        <div className="text-[11.5px] text-muted-foreground">
-          Token is valid but doesn't have access to any zones. Check that the
-          token's scope includes the zone you want.
-        </div>
-      )}
-      <div className="flex items-center justify-end">
+      {/* Its own bar, hairline-divided by the card: the primary action was
+          sitting flush under the token row, reading as part of step 3. */}
+      <SettingsFooter>
         <form.Subscribe selector={(s) => s.values}>
           {({ token, zoneId }) => (
             <Button
@@ -246,15 +221,7 @@ function CloudflareConnectForm({
             </Button>
           )}
         </form.Subscribe>
-      </div>
+      </SettingsFooter>
     </>
-  );
-}
-
-function StepNumber({ n }: { n: number }) {
-  return (
-    <span className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-border bg-muted/60 font-mono text-[11px] font-semibold text-muted-foreground">
-      {n}
-    </span>
   );
 }

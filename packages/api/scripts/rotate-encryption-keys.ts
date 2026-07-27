@@ -111,156 +111,164 @@ async function rotateColumn<TId>(input: {
   return summary;
 }
 
-async function main(): Promise<void> {
-  console.log(
-    `[rotate-encryption-keys] current key id: "${currentKeyId()}"${DRY_RUN ? " (dry run — no writes)" : ""}`,
-  );
+/**
+ * One walker per covered table, in the order the header comment lists them.
+ * Each owns exactly the read + write-back pair for its own column(s), so
+ * adding a newly-encrypted column is a new function plus one line in
+ * {@link rotateEveryColumn} — never a surgical edit inside a 150-line `main`.
+ */
 
-  const summaries: RotateSummary[] = [];
+// ssh_key.private_key_ciphertext
+async function rotateSshKeys(): Promise<RotateSummary> {
+  const rows = await db.select({ id: sshKey.id, value: sshKey.privateKeyCiphertext }).from(sshKey);
+  return rotateColumn({
+    table: "ssh_key.private_key_ciphertext",
+    domain: "ssh-keys",
+    rows,
+    writeBack: (id, value) =>
+      db.update(sshKey).set({ privateKeyCiphertext: value }).where(eq(sshKey.id, id)).then(),
+  });
+}
 
-  // ssh_key.private_key_ciphertext
-  {
-    const rows = await db
-      .select({ id: sshKey.id, value: sshKey.privateKeyCiphertext })
-      .from(sshKey);
-    summaries.push(
-      await rotateColumn({
-        table: "ssh_key.private_key_ciphertext",
-        domain: "ssh-keys",
-        rows,
-        writeBack: (id, value) =>
-          db.update(sshKey).set({ privateKeyCiphertext: value }).where(eq(sshKey.id, id)).then(),
-      }),
-    );
-  }
+// container_registry.encrypted_password
+async function rotateContainerRegistries(): Promise<RotateSummary> {
+  const rows = await db
+    .select({ id: containerRegistry.id, value: containerRegistry.encryptedPassword })
+    .from(containerRegistry);
+  return rotateColumn({
+    table: "container_registry.encrypted_password",
+    domain: "registry-creds",
+    rows,
+    writeBack: (id, value) =>
+      db
+        .update(containerRegistry)
+        .set({ encryptedPassword: value })
+        .where(eq(containerRegistry.id, id))
+        .then(),
+  });
+}
 
-  // container_registry.encrypted_password
-  {
-    const rows = await db
-      .select({ id: containerRegistry.id, value: containerRegistry.encryptedPassword })
-      .from(containerRegistry);
-    summaries.push(
-      await rotateColumn({
-        table: "container_registry.encrypted_password",
-        domain: "registry-creds",
-        rows,
-        writeBack: (id, value) =>
-          db
-            .update(containerRegistry)
-            .set({ encryptedPassword: value })
-            .where(eq(containerRegistry.id, id))
-            .then(),
-      }),
-    );
-  }
+// custom_certificate.key_ciphertext
+async function rotateCustomCertificates(): Promise<RotateSummary> {
+  const rows = await db
+    .select({ id: customCertificate.id, value: customCertificate.keyCiphertext })
+    .from(customCertificate);
+  return rotateColumn({
+    table: "custom_certificate.key_ciphertext",
+    domain: "certs",
+    rows,
+    writeBack: (id, value) =>
+      db
+        .update(customCertificate)
+        .set({ keyCiphertext: value })
+        .where(eq(customCertificate.id, id))
+        .then(),
+  });
+}
 
-  // custom_certificate.key_ciphertext
-  {
-    const rows = await db
-      .select({ id: customCertificate.id, value: customCertificate.keyCiphertext })
-      .from(customCertificate);
-    summaries.push(
-      await rotateColumn({
-        table: "custom_certificate.key_ciphertext",
-        domain: "certs",
-        rows,
-        writeBack: (id, value) =>
-          db
-            .update(customCertificate)
-            .set({ keyCiphertext: value })
-            .where(eq(customCertificate.id, id))
-            .then(),
-      }),
-    );
-  }
+// git_provider.{client_secret,webhook_secret,private_key_pem}_ciphertext — one
+// read, three column walks, so a provider row is fetched once no matter how
+// many of its secrets are populated.
+async function rotateGitProviders(): Promise<RotateSummary[]> {
+  const rows = await db
+    .select({
+      id: gitProvider.id,
+      clientSecretCiphertext: gitProvider.clientSecretCiphertext,
+      webhookSecretCiphertext: gitProvider.webhookSecretCiphertext,
+      privateKeyPemCiphertext: gitProvider.privateKeyPemCiphertext,
+    })
+    .from(gitProvider);
 
-  // git_provider.{client_secret,webhook_secret,private_key_pem}_ciphertext
-  {
-    const rows = await db
-      .select({
-        id: gitProvider.id,
-        clientSecretCiphertext: gitProvider.clientSecretCiphertext,
-        webhookSecretCiphertext: gitProvider.webhookSecretCiphertext,
-        privateKeyPemCiphertext: gitProvider.privateKeyPemCiphertext,
-      })
-      .from(gitProvider);
+  return [
+    await rotateColumn({
+      table: "git_provider.client_secret_ciphertext",
+      domain: "git-secrets",
+      rows: rows.map((r) => ({ id: r.id, value: r.clientSecretCiphertext })),
+      writeBack: (id, value) =>
+        db
+          .update(gitProvider)
+          .set({ clientSecretCiphertext: value })
+          .where(eq(gitProvider.id, id))
+          .then(),
+    }),
+    await rotateColumn({
+      table: "git_provider.webhook_secret_ciphertext",
+      domain: "git-secrets",
+      rows: rows.map((r) => ({ id: r.id, value: r.webhookSecretCiphertext })),
+      writeBack: (id, value) =>
+        db
+          .update(gitProvider)
+          .set({ webhookSecretCiphertext: value })
+          .where(eq(gitProvider.id, id))
+          .then(),
+    }),
+    await rotateColumn({
+      table: "git_provider.private_key_pem_ciphertext",
+      domain: "git-secrets",
+      rows: rows.map((r) => ({ id: r.id, value: r.privateKeyPemCiphertext })),
+      writeBack: (id, value) =>
+        db
+          .update(gitProvider)
+          .set({ privateKeyPemCiphertext: value })
+          .where(eq(gitProvider.id, id))
+          .then(),
+    }),
+  ];
+}
 
-    summaries.push(
-      await rotateColumn({
-        table: "git_provider.client_secret_ciphertext",
-        domain: "git-secrets",
-        rows: rows.map((r) => ({ id: r.id, value: r.clientSecretCiphertext })),
-        writeBack: (id, value) =>
-          db
-            .update(gitProvider)
-            .set({ clientSecretCiphertext: value })
-            .where(eq(gitProvider.id, id))
-            .then(),
-      }),
-    );
-    summaries.push(
-      await rotateColumn({
-        table: "git_provider.webhook_secret_ciphertext",
-        domain: "git-secrets",
-        rows: rows.map((r) => ({ id: r.id, value: r.webhookSecretCiphertext })),
-        writeBack: (id, value) =>
-          db
-            .update(gitProvider)
-            .set({ webhookSecretCiphertext: value })
-            .where(eq(gitProvider.id, id))
-            .then(),
-      }),
-    );
-    summaries.push(
-      await rotateColumn({
-        table: "git_provider.private_key_pem_ciphertext",
-        domain: "git-secrets",
-        rows: rows.map((r) => ({ id: r.id, value: r.privateKeyPemCiphertext })),
-        writeBack: (id, value) =>
-          db
-            .update(gitProvider)
-            .set({ privateKeyPemCiphertext: value })
-            .where(eq(gitProvider.id, id))
-            .then(),
-      }),
-    );
-  }
+// project_env_var.value — sealed rows only (non-sealed rows are plaintext
+// by design, nothing to rotate).
+async function rotateProjectEnvVars(): Promise<RotateSummary> {
+  const rows = await db
+    .select({ id: projectEnvVar.id, value: projectEnvVar.value })
+    .from(projectEnvVar)
+    .where(eq(projectEnvVar.sealed, true));
+  return rotateColumn({
+    table: "project_env_var.value (sealed)",
+    domain: "env-vars",
+    rows,
+    writeBack: (id, value) =>
+      db.update(projectEnvVar).set({ value }).where(eq(projectEnvVar.id, id)).then(),
+  });
+}
 
-  // project_env_var.value — sealed rows only (non-sealed rows are plaintext
-  // by design, nothing to rotate).
-  {
-    const rows = await db
-      .select({ id: projectEnvVar.id, value: projectEnvVar.value })
-      .from(projectEnvVar)
-      .where(eq(projectEnvVar.sealed, true));
-    summaries.push(
-      await rotateColumn({
-        table: "project_env_var.value (sealed)",
-        domain: "env-vars",
-        rows,
-        writeBack: (id, value) =>
-          db.update(projectEnvVar).set({ value }).where(eq(projectEnvVar.id, id)).then(),
-      }),
-    );
-  }
+// service_env_var.value — sealed rows only.
+async function rotateServiceEnvVars(): Promise<RotateSummary> {
+  const rows = await db
+    .select({ id: serviceEnvVar.id, value: serviceEnvVar.value })
+    .from(serviceEnvVar)
+    .where(eq(serviceEnvVar.sealed, true));
+  return rotateColumn({
+    table: "service_env_var.value (sealed)",
+    domain: "env-vars",
+    rows,
+    writeBack: (id, value) =>
+      db.update(serviceEnvVar).set({ value }).where(eq(serviceEnvVar.id, id)).then(),
+  });
+}
 
-  // service_env_var.value — sealed rows only.
-  {
-    const rows = await db
-      .select({ id: serviceEnvVar.id, value: serviceEnvVar.value })
-      .from(serviceEnvVar)
-      .where(eq(serviceEnvVar.sealed, true));
-    summaries.push(
-      await rotateColumn({
-        table: "service_env_var.value (sealed)",
-        domain: "env-vars",
-        rows,
-        writeBack: (id, value) =>
-          db.update(serviceEnvVar).set({ value }).where(eq(serviceEnvVar.id, id)).then(),
-      }),
-    );
-  }
+/**
+ * Walk every covered column, in order. Sequential on purpose: a rotation run
+ * is an operator-supervised maintenance task, and one table at a time keeps
+ * the per-row error lines on stderr readable and the DB load predictable.
+ */
+async function rotateEveryColumn(): Promise<RotateSummary[]> {
+  return [
+    await rotateSshKeys(),
+    await rotateContainerRegistries(),
+    await rotateCustomCertificates(),
+    ...(await rotateGitProviders()),
+    await rotateProjectEnvVars(),
+    await rotateServiceEnvVars(),
+  ];
+}
 
+/**
+ * Print the per-table table plus the run total, and set a non-zero exit code
+ * when any row failed to rotate — the only thing that makes this script's exit
+ * status meaningful to a CI/cron caller.
+ */
+function reportRotations(summaries: RotateSummary[]): void {
   console.log("");
   console.log(
     "table".padEnd(42),
@@ -288,6 +296,13 @@ async function main(): Promise<void> {
     console.log("[rotate-encryption-keys] re-run WITHOUT --dry-run to apply.");
   }
   if (totalErrors > 0) process.exitCode = 1;
+}
+
+async function main(): Promise<void> {
+  console.log(
+    `[rotate-encryption-keys] current key id: "${currentKeyId()}"${DRY_RUN ? " (dry run — no writes)" : ""}`,
+  );
+  reportRotations(await rotateEveryColumn());
 }
 
 main()

@@ -125,6 +125,7 @@ export const serviceRuntimeRouter = {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
           ServiceNotFoundError: () => errors.NOT_FOUND(),
           NoHttpPortError: () => errors.NO_HTTP_PORT(),
+          DomainConflictError: () => errors.DOMAIN_CONFLICT(),
           NoPublicDomainError: (e) =>
             errors.NO_PUBLIC_DOMAIN({ data: { generatedDomain: e.generatedDomain } }),
         });

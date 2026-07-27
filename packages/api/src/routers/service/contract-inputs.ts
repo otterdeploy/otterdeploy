@@ -202,16 +202,31 @@ export const removeMountInput = z.object({
   mountPath: mountPathField,
 });
 
+/** Container port this host routes to. Optional — omitted means "the
+ *  service's primary HTTP port", which is what a single-port service wants.
+ *  An explicit value must be one of the service's declared ports. */
+const targetPortField = z.number().int().min(1).max(65535);
+
 export const addDomainInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   domain: domainField,
+  port: targetPortField.optional(),
 });
 
 export const updateDomainInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   routeId: z.string(),
+  domain: domainField,
+  port: targetPortField.optional(),
+});
+
+/** Pre-flight for the add form — answers "can I have this host?" without
+ *  writing anything, so the field can say Available/Taken as you type. */
+export const checkDomainInput = z.object({
+  projectId: projectIdField,
+  resourceId: resourceIdField,
   domain: domainField,
 });
 

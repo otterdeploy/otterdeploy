@@ -2,9 +2,19 @@
  * Read-only per-node placement readout for the scaling card. Swarm: this
  * service's running tasks grouped by node hostname. Plain docker: a single
  * implicit node, said honestly.
+ *
+ * Install-admin only, and it says so by disappearing. Both reads below are
+ * `docker.*`, which is install-admin in its entirety — the service Settings
+ * tab is a project-level surface any member can open, so without the gate
+ * this row fired two guaranteed 403s on mount and then rendered "Couldn't
+ * read cluster placement." at a viewer who could do nothing about it. There
+ * is no org-scoped answer to "which node is each replica on", so the honest
+ * degradation is to omit the row rather than show an empty node box, which
+ * would read as "nothing is running".
  */
 
 import { useQuery } from "@tanstack/react-query";
+import { useRouteContext } from "@tanstack/react-router";
 
 import { orpc } from "@/shared/server/orpc";
 
@@ -14,17 +24,23 @@ import { rowClass } from "./scaling-parts";
 type ServiceView = Awaited<ReturnType<typeof orpc.service.get.call>>;
 
 export function PlacementReadout({ service }: { service: ServiceView }) {
+  const isInstallAdmin = useRouteContext({ from: "/_app", select: (c) => c.isInstallAdmin });
   const nodesQuery = useQuery({
     ...orpc.docker.nodes.list.queryOptions({ input: {} }),
+    enabled: isInstallAdmin,
     refetchInterval: 10_000,
   });
   const swarm = nodesQuery.data?.swarm ?? false;
   const swarmServiceId = service.runtime.serviceId;
   const tasksQuery = useQuery({
     ...orpc.docker.tasks.list.queryOptions({ input: {} }),
-    enabled: swarm && !!swarmServiceId,
+    enabled: isInstallAdmin && swarm && !!swarmServiceId,
     refetchInterval: 10_000,
   });
+
+  // After the hooks so the hook order is stable; before any render work so a
+  // member never sees a placement box at all.
+  if (!isInstallAdmin) return null;
 
   let body: React.ReactNode;
   if (!nodesQuery.data) {

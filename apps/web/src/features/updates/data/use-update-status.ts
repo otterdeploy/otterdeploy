@@ -3,12 +3,29 @@
  * button, the dialog, and the Platform card so they all agree. Backed by the
  * cached `system.updateSettings` row (populated by a check) + `system.version`.
  *
- * `retry: false`: these need `platform:read`, so a plain member gets a 403 — we
- * let it fail once and treat the whole feature as hidden rather than hammering.
+ * Every procedure here is `requireInstallAdmin()` server-side (see
+ * packages/api/src/routers/system/index.ts), and the banner is ambient — it
+ * mounts on every shell page. So for anyone else these reads aren't merely
+ * useless, they're a guaranteed 403 on every single page load. Gate them on
+ * the server-owned flag the `/_app` context already carries: `enabled: false`
+ * means the request is never made, rather than made-and-then-hidden.
+ *
+ * `retry: false` stays for the install admin themselves — a transient failure
+ * shouldn't be hammered.
  */
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useRouteContext } from "@tanstack/react-router";
 
 import { orpc, queryClient } from "@/shared/server/orpc";
+
+/**
+ * Server-owned installation-administrator identity, returned with every
+ * session and resolved once in the `/_app` route context. Presentation only —
+ * the same flag is re-checked server-side on every one of these procedures.
+ */
+function useIsInstallAdmin(): boolean {
+  return useRouteContext({ from: "/_app" }).isInstallAdmin;
+}
 
 export interface UpdateStatus {
   current: string;
@@ -48,8 +65,13 @@ function fromSettings(s: SettingsData | undefined): SettingsParts {
 }
 
 export function useUpdateStatus(): UpdateStatus {
-  const version = useQuery({ ...orpc.system.version.queryOptions(), retry: false });
-  const settings = useQuery({ ...orpc.system.updateSettings.get.queryOptions(), retry: false });
+  const enabled = useIsInstallAdmin();
+  const version = useQuery({ ...orpc.system.version.queryOptions(), retry: false, enabled });
+  const settings = useQuery({
+    ...orpc.system.updateSettings.get.queryOptions(),
+    retry: false,
+    enabled,
+  });
 
   const parts = fromSettings(settings.data);
   const dryRun = version.data?.dryRun ?? true;
@@ -75,7 +97,9 @@ export function useUpdateStatus(): UpdateStatus {
     dismissed: parts.dismissed,
     bannerVisible: available && parts.latest !== parts.dismissed,
     lastCheckedAt: parts.lastCheckedAt,
-    isLoading: version.isLoading || settings.isLoading,
+    // Never "loading" when we deliberately never asked — a disabled query
+    // would otherwise leave the Updates card spinning on an ellipsis forever.
+    isLoading: enabled && (version.isLoading || settings.isLoading),
   };
 }
 
@@ -104,9 +128,11 @@ function invalidateRunState() {
  * Polls only while a run is in flight; otherwise a single fetch on mount.
  */
 export function useUpdateState() {
+  const enabled = useIsInstallAdmin();
   return useQuery({
     ...orpc.system.updateState.queryOptions(),
     retry: false,
+    enabled,
     refetchInterval: (q) => (q.state.data?.status === "running" ? 2000 : false),
   });
 }

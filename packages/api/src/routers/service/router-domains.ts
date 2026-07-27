@@ -10,13 +10,14 @@ import { projectScopedProcedure, requirePermission } from "../..";
 import { serverIpFor } from "./domain-rules";
 import {
   addServiceDomain,
-  listServiceDomains,
   recheckServiceDomain,
   removeServiceDomain,
   setPrimaryServiceDomain,
   updateServiceDomain,
 } from "./domains";
 import { autoConfigureServiceDomainDns } from "./domains-autoconfigure";
+import { checkServiceDomain, listServiceDomains } from "./domains-check";
+import { generateServiceDomain } from "./expose";
 
 export const serviceDomainsRouter = {
   list: projectScopedProcedure.service.domains.list.handler(async ({ input, context, errors }) => {
@@ -37,6 +38,49 @@ export const serviceDomainsRouter = {
     return result.value;
   }),
 
+  check: projectScopedProcedure.service.domains.check.handler(
+    async ({ input, context, errors }) => {
+      const result = await checkServiceDomain({
+        projectId: input.projectId,
+        resourceId: input.resourceId,
+        organizationId: context.activeOrganizationId,
+        domain: input.domain,
+      });
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
+          ServiceNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
+      return result.value;
+    },
+  ),
+
+  generate: requirePermission({ service: ["update"] }).service.domains.generate.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({
+        target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+      });
+      const result = await generateServiceDomain(
+        {
+          projectId: input.projectId,
+          resourceId: input.resourceId,
+          organizationId: context.activeOrganizationId,
+        },
+        context.log,
+      );
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
+          ServiceNotFoundError: () => errors.NOT_FOUND(),
+          NoHttpPortError: () => errors.NO_HTTP_PORT(),
+          DomainConflictError: () => errors.DOMAIN_CONFLICT(),
+        });
+      }
+      return result.value;
+    },
+  ),
+
   add: requirePermission({ service: ["update"] }).service.domains.add.handler(
     async ({ input, context, errors }) => {
       context.log.set({
@@ -48,6 +92,7 @@ export const serviceDomainsRouter = {
           resourceId: input.resourceId,
           organizationId: context.activeOrganizationId,
           domain: input.domain,
+          port: input.port,
         },
         context.log,
       );
@@ -56,6 +101,7 @@ export const serviceDomainsRouter = {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
           ServiceNotFoundError: () => errors.NOT_FOUND(),
           NoHttpPortError: () => errors.NO_HTTP_PORT(),
+          UnknownPortError: (e) => errors.UNKNOWN_PORT({ message: e.message }),
           DomainConflictError: () => errors.DOMAIN_CONFLICT(),
         });
       }
@@ -75,6 +121,7 @@ export const serviceDomainsRouter = {
           organizationId: context.activeOrganizationId,
           routeId: input.routeId as ProxyRouteId,
           domain: input.domain,
+          port: input.port,
         },
         context.log,
       );
@@ -84,6 +131,7 @@ export const serviceDomainsRouter = {
           ServiceNotFoundError: () => errors.NOT_FOUND(),
           DomainNotFoundError: () => errors.DOMAIN_NOT_FOUND(),
           DomainConflictError: () => errors.DOMAIN_CONFLICT(),
+          UnknownPortError: (e) => errors.UNKNOWN_PORT({ message: e.message }),
         });
       }
       return result.value;

@@ -199,6 +199,25 @@ export function useMembers(organizationId: string) {
   );
 }
 
+/**
+ * Can this viewer administer the workspace itself — settings, members, keys?
+ *
+ * `owner`/`admin` is exactly the role set that carries `organization:update`
+ * server-side (packages/auth/src/permissions.ts), which is what every
+ * workspace-settings mutation gates on. Surfaces that mutate workspace config
+ * must ask BEFORE rendering their controls: a member who fills in a form and
+ * only learns at the submit that they were never allowed got a raw
+ * "The actor does not have the required permission." for their trouble.
+ *
+ * Presentation only — `requirePermission({ organization: ["update"] })` on the
+ * procedure is the boundary.
+ */
+export function useCanManageWorkspace(organizationId: string, userId: string): boolean {
+  const members = useMembers(organizationId);
+  const role = members.data?.find((m) => m.userId === userId)?.role;
+  return role === "owner" || role === "admin";
+}
+
 /** Thin live-query wrapper so existing consumers keep `{ data, isLoading }`. */
 export function useInvitations(organizationId: string) {
   return useLiveQuery(

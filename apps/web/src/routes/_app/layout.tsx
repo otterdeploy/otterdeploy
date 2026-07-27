@@ -90,6 +90,15 @@ export const Route = createFileRoute("/_app")({
       user,
       organizations: orgs,
       activeOrgSlug: activeOrg.slug,
+      // Server-owned installation authority, already returned with every
+      // session (packages/auth/src/index.ts marks it `returned: true`). Read
+      // here so navigation can OMIT the surfaces it gates rather than render
+      // them and let each one 403 on its own: `system.*`, `docker.*`,
+      // `volumes.*`, server enrollment and the platform-settings router are
+      // install-admin in their entirety, and their pages fire queries on mount.
+      // This is presentation only — every one of those procedures still checks
+      // the same flag server-side in authz/capability.ts, which is the boundary.
+      isInstallAdmin: u.isInstallAdmin === true,
     };
   },
   component: RouteComponent,

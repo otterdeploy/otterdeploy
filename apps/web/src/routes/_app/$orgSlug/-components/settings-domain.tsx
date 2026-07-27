@@ -4,8 +4,10 @@ import { useState } from "react";
 
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useRouteContext } from "@tanstack/react-router";
 import { toast } from "sonner";
 
+import { useCanManageWorkspace } from "@/features/team/data/use-team";
 import { DnsRecordsDialog } from "@/shared/components/domains/dns-records-dialog";
 import { SettingsSection } from "@/shared/components/settings-section";
 import { Button } from "@/shared/components/ui/button";
@@ -53,6 +55,12 @@ export function DomainCard({ organizationId }: { organizationId: OrganizationId 
   const verifyToken = settingsQuery.data?.baseDomainVerifyToken ?? null;
   const status = domainStatus(current, verifiedAt);
 
+  // Every mutation here — save, verify, auto-configure — is
+  // `organization:update`. Members may read the domain and its status; the
+  // controls that would only 403 are omitted rather than offered.
+  const { user } = useRouteContext({ from: "/_app" });
+  const canManage = useCanManageWorkspace(organizationId, user.id);
+
   return (
     <SettingsSection
       icon={EarthIcon}
@@ -84,27 +92,35 @@ export function DomainCard({ organizationId }: { organizationId: OrganizationId 
                 placeholder="acme.com"
                 value={field.state.value}
                 onChange={(e) => field.handleChange(e.target.value)}
-                disabled={setBaseDomain.isPending || settingsQuery.isLoading}
+                disabled={!canManage || setBaseDomain.isPending || settingsQuery.isLoading}
+                readOnly={!canManage}
                 className="font-mono text-[13px]"
               />
             )}
           </form.Field>
-          <form.Subscribe
-            selector={(s) => s.values.baseDomain.trim().toLowerCase() !== current.toLowerCase()}
-          >
-            {(dirty) => (
-              <Button
-                type="button"
-                size="sm"
-                disabled={!dirty || setBaseDomain.isPending}
-                onClick={() => void form.handleSubmit()}
-              >
-                {setBaseDomain.isPending ? "Saving…" : "Save"}
-              </Button>
-            )}
-          </form.Subscribe>
+          {canManage && (
+            <form.Subscribe
+              selector={(s) => s.values.baseDomain.trim().toLowerCase() !== current.toLowerCase()}
+            >
+              {(dirty) => (
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={!dirty || setBaseDomain.isPending}
+                  onClick={() => void form.handleSubmit()}
+                >
+                  {setBaseDomain.isPending ? "Saving…" : "Save"}
+                </Button>
+              )}
+            </form.Subscribe>
+          )}
         </div>
-        {status === "pending" && verifyToken && (
+        {!canManage && (
+          <p className="text-[12px] text-muted-foreground">
+            Only workspace owners and admins can change the domain.
+          </p>
+        )}
+        {canManage && status === "pending" && verifyToken && (
           <PendingVerification
             organizationId={organizationId}
             current={current}

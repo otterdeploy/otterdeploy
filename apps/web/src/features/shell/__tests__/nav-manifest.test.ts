@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { ORG_NAV_GROUPS } from "@/features/command-palette/components/nav-items";
 import { OPERATIONAL_NAV, SETTINGS_NAV } from "@/features/shell/nav-manifest";
+import { visibleNav } from "@/features/shell/nav-visibility";
 
 /**
  * The manifest promises that editing it alone keeps three surfaces in sync
@@ -53,5 +54,30 @@ describe("nav manifest", () => {
     // is configuration, not something a deployment reaches for.
     const settings = SETTINGS_NAV.flatMap((g) => g.items.map((i) => i.to));
     expect(settings).toContain("/$orgSlug/settings/workspace/api-keys");
+  });
+
+  // All three chromes filter through `visibleNav`, so an install admin must
+  // still see the manifest verbatim — the gate may only ever subtract.
+  it("an install admin sees the manifest unchanged", () => {
+    expect(visibleNav(SETTINGS_NAV, true)).toEqual(SETTINGS_NAV);
+    expect(visibleNav(OPERATIONAL_NAV, true)).toEqual(OPERATIONAL_NAV);
+  });
+
+  it("install-admin-only destinations are absent for everyone else", () => {
+    const visible = visibleNav(SETTINGS_NAV, false);
+    expect(visible.flatMap((g) => g.items.map((i) => i.to))).not.toContain(
+      "/$orgSlug/settings/instance/general",
+    );
+    // Instance is that one item, so the heading goes with it — a group label
+    // with nothing under it is worse than no label.
+    expect(visible.map((g) => g.label)).not.toContain("Instance");
+  });
+
+  // The palette used to project manifest items into its own `NavEntry` shape,
+  // which silently dropped `installAdminOnly` — a gated destination stayed
+  // searchable and 403'd on arrival. Guard the flag's survival end to end.
+  it("the palette carries the gate flag through to its groups", () => {
+    const gated = ORG_NAV_GROUPS.flatMap((g) => g.items).filter((i) => i.installAdminOnly === true);
+    expect(gated.map((i) => i.to)).toContain("/$orgSlug/settings/instance/general");
   });
 });

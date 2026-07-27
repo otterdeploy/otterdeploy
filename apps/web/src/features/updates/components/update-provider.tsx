@@ -7,6 +7,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
  * trigger just calls `openUpdate()`.
  */
 import { useQuery } from "@tanstack/react-query";
+import { useRouteContext } from "@tanstack/react-router";
 
 import { orpc } from "@/shared/server/orpc";
 
@@ -21,7 +22,26 @@ interface UpdateContextValue {
 
 const UpdateContext = createContext<UpdateContextValue | null>(null);
 
+/** No modal to open, so opening is a no-op — consumers keep a context and
+ *  don't have to branch on who's looking. */
+const NOOP_UPDATE: UpdateContextValue = { openUpdate: () => undefined };
+
+/**
+ * The entire updater (`system.*`) is install-admin-only server-side, so for
+ * anyone else we mount NONE of it — not the settings read, not the ambient
+ * check mutation, not the re-attach poll, not the dialog. Splitting the real
+ * provider into its own component is what makes that true: rendering it and
+ * hiding the output would still fire every query.
+ */
 export function UpdateProvider({ children }: { children: ReactNode }) {
+  const { isInstallAdmin } = useRouteContext({ from: "/_app" });
+  if (!isInstallAdmin) {
+    return <UpdateContext.Provider value={NOOP_UPDATE}>{children}</UpdateContext.Provider>;
+  }
+  return <InstallAdminUpdateProvider>{children}</InstallAdminUpdateProvider>;
+}
+
+function InstallAdminUpdateProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const settings = useQuery({ ...orpc.system.updateSettings.get.queryOptions(), retry: false });
   const check = useCheckForUpdate();

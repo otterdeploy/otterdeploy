@@ -1,15 +1,12 @@
 /**
- * Presentational pieces for the service Domains card — the connection-status
- * badge, the inline edit row, the per-domain action buttons, and the DNS
- * hint. Pulled into a sibling module so {@link ServiceDomainsCard} and its
- * {@link DomainRow} stay small. All pieces are stateless — handlers and busy
- * flags come in as props.
+ * The read-only pieces of the service Public Networking card — the domain
+ * view types, the connection-status chip, and the DNS-records hint. The
+ * interactive row controls live in ./domain-row-parts. All stateless —
+ * handlers and busy flags come in as props.
  */
 
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
-import { Spinner } from "@/shared/components/ui/spinner";
 
 export type DnsState = "pointed" | "proxied" | "unpointed" | "unknown";
 
@@ -23,6 +20,9 @@ export type BaseDomainStatus = "unset" | "pending" | "verified";
 export interface DomainView {
   id: string;
   domain: string;
+  /** Container port this host proxies to — shown on the row so a
+   *  multi-port service reads at a glance as "which door is this". */
+  port: number;
   source: "generated" | "custom";
   isPrimary: boolean;
   status: "live" | "disabled";
@@ -36,6 +36,14 @@ export interface DomainView {
   dnsTarget: string | null;
 }
 
+/** Just the fields the connection chip reads. Surfaces that only summarize
+ *  reachability (the stack's read-only "Exposed services" card) synthesize
+ *  this instead of a whole {@link DomainView}. */
+export type DomainStatusView = Pick<
+  DomainView,
+  "domain" | "source" | "status" | "dnsState" | "usesAcme" | "ownershipVerified"
+>;
+
 /** Connection chip. Generated hosts route under the org's base domain, so
  *  they only read Live once that domain is provably owned (verified, or the
  *  no-verification-needed sslip.io fallback) — otherwise the route exists
@@ -46,7 +54,7 @@ export function StatusBadge({
   domain,
   baseDomainStatus,
 }: {
-  domain: DomainView;
+  domain: DomainStatusView;
   baseDomainStatus?: BaseDomainStatus;
 }) {
   if (domain.status === "disabled") {
@@ -71,90 +79,6 @@ export function StatusBadge({
     default:
       return <Badge variant="secondary">Checking…</Badge>;
   }
-}
-
-export function DomainEditRow({
-  value,
-  onChange,
-  onSave,
-  saving,
-  onCancel,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  onSave: () => void;
-  saving: boolean;
-  onCancel: () => void;
-}) {
-  return (
-    <div className="flex items-center gap-2 px-3 py-2.5">
-      <Input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-7 min-w-0 flex-1 font-mono text-[12.5px]"
-        spellCheck={false}
-        autoCapitalize="off"
-      />
-      <Button size="sm" onClick={onSave} disabled={saving || value.trim().length === 0}>
-        {saving ? <Spinner className="size-3.5" /> : "Save"}
-      </Button>
-      <Button size="sm" variant="ghost" onClick={onCancel}>
-        Cancel
-      </Button>
-    </div>
-  );
-}
-
-export function DomainRowActions({
-  domain,
-  busy,
-  recheckPending,
-  needsDns,
-  onRecheck,
-  onSetPrimary,
-  onEdit,
-  onRemove,
-}: {
-  domain: DomainView;
-  busy: boolean;
-  recheckPending: boolean;
-  needsDns: boolean;
-  onRecheck: () => void;
-  onSetPrimary: () => void;
-  onEdit: () => void;
-  onRemove: () => void;
-}) {
-  return (
-    <div className="flex shrink-0 flex-wrap items-center gap-1">
-      {domain.source === "custom" && (
-        <Button
-          size="xs"
-          variant={needsDns ? "secondary" : "ghost"}
-          onClick={onRecheck}
-          disabled={busy}
-        >
-          {recheckPending ? <Spinner className="size-3" /> : "Recheck DNS"}
-        </Button>
-      )}
-      {!domain.isPrimary && domain.status === "live" && (
-        <Button size="xs" variant="ghost" onClick={onSetPrimary} disabled={busy}>
-          Set primary
-        </Button>
-      )}
-      <Button size="xs" variant="ghost" onClick={onEdit} disabled={busy}>
-        Edit
-      </Button>
-      <Button
-        size="xs"
-        variant="ghost"
-        className="text-destructive hover:text-destructive"
-        onClick={onRemove}
-        disabled={busy}
-      >
-        Remove
-      </Button>
-    </div>
-  );
 }
 
 /**

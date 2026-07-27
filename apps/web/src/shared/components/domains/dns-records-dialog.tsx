@@ -78,6 +78,101 @@ function CopyCell({ text, mono = true }: { text: string; mono?: boolean }) {
   );
 }
 
+/** The Cloudflare-detected header row: either "we can do this for you" or
+ *  "connect a token and we can". Only ever rendered when the zone is on
+ *  Cloudflare, so it states that as fact. */
+function OneClickRow({
+  canAuto,
+  autoConfiguring,
+  onAutoConfigure,
+  connectHref,
+}: {
+  canAuto: boolean;
+  autoConfiguring: boolean;
+  onAutoConfigure?: () => void;
+  connectHref?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-md border p-3">
+      <div className="flex min-w-0 items-center gap-3">
+        <Cloudflare aria-hidden className="size-5 shrink-0 text-muted-foreground" />
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="text-[13px] font-medium">One-click DNS setup</span>
+          <span className="text-[11px] text-muted-foreground">
+            {canAuto
+              ? "This domain is on Cloudflare. We can create both records for you."
+              : "This domain is on Cloudflare. Connect an API token to configure it automatically."}
+          </span>
+        </div>
+      </div>
+      {canAuto ? (
+        <Button size="sm" disabled={autoConfiguring} onClick={onAutoConfigure}>
+          {autoConfiguring ? "Configuring…" : "Configure"}
+        </Button>
+      ) : connectHref ? (
+        <Button size="sm" variant="outline" render={<a href={connectHref} />}>
+          Connect Cloudflare
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+/** The records themselves, click-to-copy. Empty only before the domain is
+ *  saved — there is no "this provider needs no records" case. */
+function RecordsTable({ records }: { records: DnsRecordRow[] }) {
+  return (
+    <div className="overflow-x-auto rounded-md border">
+      <table className="w-full text-[12px]">
+        <thead className="bg-muted/40 text-muted-foreground">
+          <tr>
+            <th className="px-2 py-1.5 text-left font-medium">Type</th>
+            <th className="px-2 py-1.5 text-left font-medium">Name</th>
+            <th className="px-2 py-1.5 text-left font-medium">Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          {records.map((r) => (
+            <tr key={`${r.type}:${r.name}`} className="border-t">
+              <td className="px-2 py-1.5 font-mono">{r.type}</td>
+              <td className="max-w-[16rem] px-1 py-1">
+                <CopyCell text={r.relativeName ?? r.name} />
+              </td>
+              <td className="max-w-[20rem] px-1 py-1">
+                <CopyCell text={r.value} />
+              </td>
+            </tr>
+          ))}
+          {records.length === 0 ? (
+            <tr className="border-t">
+              <td colSpan={3} className="px-2 py-3 text-center text-muted-foreground">
+                Nothing to add yet — save the domain first.
+              </td>
+            </tr>
+          ) : null}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Shown only once `proxied` is definitely true. `address` is the first
+ *  resolved address when we have one — it makes the warning checkable rather
+ *  than something the operator has to take on faith. */
+function ProxiedWarning({ address }: { address: string | undefined }) {
+  return (
+    <p className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-[11px] text-warning-foreground">
+      <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="mt-px size-3.5 shrink-0" />
+      <span>
+        This name currently resolves somewhere other than this install
+        {address ? ` (${address})` : ""}. If that's a Cloudflare proxy, turn the orange cloud off —
+        proxied records terminate TLS at the proxy and the certificate here can never finish
+        issuing.
+      </span>
+    </p>
+  );
+}
+
 export function DnsRecordsDialog({
   open,
   onOpenChange,
@@ -125,78 +220,22 @@ export function DnsRecordsDialog({
         {inspect.isLoading ? (
           <Skeleton className="h-16 rounded-md" />
         ) : isCloudflare ? (
-          <div className="flex items-center justify-between gap-3 rounded-md border p-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <Cloudflare aria-hidden className="size-5 shrink-0 text-muted-foreground" />
-              <div className="flex min-w-0 flex-col gap-0.5">
-                <span className="text-[13px] font-medium">One-click DNS setup</span>
-                <span className="text-[11px] text-muted-foreground">
-                  {canAuto
-                    ? "This domain is on Cloudflare. We can create both records for you."
-                    : "This domain is on Cloudflare. Connect an API token to configure it automatically."}
-                </span>
-              </div>
-            </div>
-            {canAuto ? (
-              <Button size="sm" disabled={autoConfiguring} onClick={onAutoConfigure}>
-                {autoConfiguring ? "Configuring…" : "Configure"}
-              </Button>
-            ) : connectHref ? (
-              <Button size="sm" variant="outline" render={<a href={connectHref} />}>
-                Connect Cloudflare
-              </Button>
-            ) : null}
-          </div>
+          <OneClickRow
+            canAuto={canAuto}
+            autoConfiguring={autoConfiguring}
+            onAutoConfigure={onAutoConfigure}
+            connectHref={connectHref}
+          />
         ) : null}
 
         {/* Deliberately shown even when one-click is available: an automated
             path that hides what it wrote leaves nothing to verify against. */}
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-[12px]">
-            <thead className="bg-muted/40 text-muted-foreground">
-              <tr>
-                <th className="px-2 py-1.5 text-left font-medium">Type</th>
-                <th className="px-2 py-1.5 text-left font-medium">Name</th>
-                <th className="px-2 py-1.5 text-left font-medium">Value</th>
-              </tr>
-            </thead>
-            <tbody>
-              {records.map((r) => (
-                <tr key={`${r.type}:${r.name}`} className="border-t">
-                  <td className="px-2 py-1.5 font-mono">{r.type}</td>
-                  <td className="max-w-[16rem] px-1 py-1">
-                    <CopyCell text={r.relativeName ?? r.name} />
-                  </td>
-                  <td className="max-w-[20rem] px-1 py-1">
-                    <CopyCell text={r.value} />
-                  </td>
-                </tr>
-              ))}
-              {records.length === 0 ? (
-                <tr className="border-t">
-                  <td colSpan={3} className="px-2 py-3 text-center text-muted-foreground">
-                    Nothing to add yet — save the domain first.
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
+        <RecordsTable records={records} />
 
         {/* The orange-cloud warning. Only when we KNOW it's proxied — `proxied`
             is nullable precisely so "we couldn't tell" never renders as a
             claim either way. */}
-        {info?.proxied === true ? (
-          <p className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-[11px] text-warning-foreground">
-            <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="mt-px size-3.5 shrink-0" />
-            <span>
-              This name currently resolves somewhere other than this install
-              {info.resolvedAddresses.length > 0 ? ` (${info.resolvedAddresses[0]})` : ""}. If
-              that's a Cloudflare proxy, turn the orange cloud off — proxied records terminate TLS
-              at the proxy and the certificate here can never finish issuing.
-            </span>
-          </p>
-        ) : null}
+        {info?.proxied === true ? <ProxiedWarning address={info.resolvedAddresses[0]} /> : null}
 
         {info?.lookupFailed ? (
           <p className="text-[11px] text-muted-foreground">

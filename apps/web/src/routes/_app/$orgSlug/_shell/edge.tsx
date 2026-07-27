@@ -8,33 +8,27 @@
  * doing right now. Content is unchanged from those pages; only the chrome
  * that wraps it moved.
  *
- * Gated on `platform:read` for the Caddyfile/Certificates planes, so plain
- * members get an honest permission notice instead of install-wide config.
+ * The Caddyfile and Firewall planes are backed by routers that are
+ * install-admin in their entirety (`system.caddyfile`, `firewall.status` /
+ * `firewall.decisions`), so those two tabs are OMITTED for anyone else rather
+ * than rendered-and-403'd — see `EDGE_TABS_INSTALL_ADMIN` below. Certificates
+ * is role-gated instead (`certificate:read`) and keeps its own in-plane
+ * notice; Access logs and Events are org-scoped and always shown.
  */
 import { useState } from "react";
 
-import {
-  ArrowRight01Icon,
-  EarthIcon,
-  RefreshIcon,
-  UploadCircle01Icon,
-} from "@hugeicons/core-free-icons";
+import { ArrowRight01Icon, EarthIcon, RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import * as z from "zod";
 
-import { TrustedCasTable } from "@/features/certificates/cas-table";
-import { CustomCertsTable } from "@/features/certificates/custom-table";
-import { ManagedCertsTable } from "@/features/certificates/managed-table";
-import { CertificateStats } from "@/features/certificates/stats";
 import { UploadCaDialog } from "@/features/certificates/upload-ca-dialog";
 import { UploadCertDialog } from "@/features/certificates/upload-cert-dialog";
 import { EdgeEventsView } from "@/features/edge-logs/components/edge-events-view";
 import { EdgeLogsView } from "@/features/edge-logs/components/edge-logs-view";
 import { FirewallView } from "@/features/firewall/components/firewall-view";
 import { CaddyfileViewer } from "@/features/projects/components/networking/caddyfile-viewer";
-import { useMembers } from "@/features/team/data/use-team";
 import { Button } from "@/shared/components/ui/button";
 import {
   Empty,
@@ -43,13 +37,27 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/shared/components/ui/empty";
-import { ErrorState } from "@/shared/components/ui/error-state";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
-import { cn } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
+
+import { CertificatesActions, CertificatesTab } from "./-edge-certificates";
 
 const EDGE_TABS = ["caddyfile", "certificates", "logs", "caddy", "firewall"] as const;
 type EdgeTab = (typeof EDGE_TABS)[number];
+
+/** Planes whose every query needs the installation-administrator identity. */
+const EDGE_TABS_INSTALL_ADMIN: ReadonlySet<string> = new Set<EdgeTab>(["caddyfile", "firewall"]);
+
+/** The leftmost plane a non-install-admin can see — their default AND the
+ *  landing spot when a `?tab=` deep link names one they can't have. Hiding a
+ *  trigger while the URL could still select the plane would leave the same
+ *  403 one URL away. */
+const EDGE_TAB_FALLBACK: EdgeTab = "certificates";
+
+function resolveEdgeTab(tab: EdgeTab, isInstallAdmin: boolean): EdgeTab {
+  if (isInstallAdmin || !EDGE_TABS_INSTALL_ADMIN.has(tab)) return tab;
+  return EDGE_TAB_FALLBACK;
+}
 
 // `.catch` covers both a missing param and a bad value → default to the
 // Caddyfile plane, so the page always has a valid controlled tab.
@@ -65,10 +73,14 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/edge")({
   // and certificates planes render from cache instead of spinning.
   // Non-blocking + best-effort: a permission-gated or failed prefetch just
   // falls back to fetch-on-mount.
-  loader: () => {
-    void queryClient
-      .prefetchQuery(orpc.system.caddyfile.queryOptions())
-      .catch(() => undefined);
+  loader: ({ context }) => {
+    // Install-admin only, and this runs on plain NAVIGATION — an unconditional
+    // prefetch is a 403 for every member who so much as hovers the Edge link,
+    // whether or not they can ever open the plane. `enabled: false` on the
+    // tab's own query would not cover this.
+    if (context.isInstallAdmin) {
+      void queryClient.prefetchQuery(orpc.system.caddyfile.queryOptions()).catch(() => undefined);
+    }
     void queryClient.prefetchQuery(orpc.certificates.inventory.queryOptions()).catch(() => undefined);
     void queryClient.prefetchQuery(orpc.certificates.listCustom.queryOptions()).catch(() => undefined);
     void queryClient.prefetchQuery(orpc.certificates.listCas.queryOptions()).catch(() => undefined);
@@ -77,7 +89,9 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/edge")({
 
 function RouteComponent() {
   const { orgSlug } = Route.useParams();
-  const { tab } = Route.useSearch();
+  const { isInstallAdmin } = Route.useRouteContext();
+  const { tab: requestedTab } = Route.useSearch();
+  const tab = resolveEdgeTab(requestedTab, isInstallAdmin);
   const navigate = Route.useNavigate();
   const setTab = (next: EdgeTab) => navigate({ search: { tab: next }, replace: true });
 
@@ -95,9 +109,11 @@ function RouteComponent() {
     >
       <div className="flex items-center justify-between gap-3 border-b px-4 pt-2 pb-2">
         <TabsList variant="line" className="h-auto bg-transparent p-0">
-          <TabsTrigger value="caddyfile" className="px-3 py-2">
-            Caddyfile
-          </TabsTrigger>
+          {isInstallAdmin ? (
+            <TabsTrigger value="caddyfile" className="px-3 py-2">
+              Caddyfile
+            </TabsTrigger>
+          ) : null}
           <TabsTrigger value="certificates" className="px-3 py-2">
             Certificates
           </TabsTrigger>
@@ -107,9 +123,11 @@ function RouteComponent() {
           <TabsTrigger value="caddy" className="px-3 py-2">
             Events
           </TabsTrigger>
-          <TabsTrigger value="firewall" className="px-3 py-2">
-            Firewall
-          </TabsTrigger>
+          {isInstallAdmin ? (
+            <TabsTrigger value="firewall" className="px-3 py-2">
+              Firewall
+            </TabsTrigger>
+          ) : null}
         </TabsList>
         {tab === "caddyfile" ? <CaddyfileActions /> : null}
         {tab === "certificates" ? (
@@ -117,9 +135,13 @@ function RouteComponent() {
         ) : null}
       </div>
 
-      <TabsContent value="caddyfile" className="min-h-0 flex-1 overflow-y-auto p-4">
-        <CaddyfileTab orgSlug={orgSlug} />
-      </TabsContent>
+      {/* Not just hidden — unmounted, so `useCaddyfileQuery` never runs for a
+          viewer who would only get a 403 out of it. */}
+      {isInstallAdmin ? (
+        <TabsContent value="caddyfile" className="min-h-0 flex-1 overflow-y-auto p-4">
+          <CaddyfileTab orgSlug={orgSlug} />
+        </TabsContent>
+      ) : null}
 
       <TabsContent value="certificates" className="min-h-0 flex-1 overflow-y-auto p-4">
         <CertificatesTab
@@ -135,9 +157,11 @@ function RouteComponent() {
       <TabsContent value="caddy" className="min-h-0 flex-1">
         <EdgeEventsView />
       </TabsContent>
-      <TabsContent value="firewall" className="min-h-0 flex-1">
-        <FirewallView />
-      </TabsContent>
+      {isInstallAdmin ? (
+        <TabsContent value="firewall" className="min-h-0 flex-1">
+          <FirewallView />
+        </TabsContent>
+      ) : null}
 
       <UploadCertDialog open={uploadCertOpen} onOpenChange={setUploadCertOpen} />
       <UploadCaDialog open={uploadCaOpen} onOpenChange={setUploadCaOpen} />
@@ -209,146 +233,6 @@ function CaddyfileTab({ orgSlug }: { orgSlug: string }) {
           <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3" />
         </Link>
       </div>
-    </div>
-  );
-}
-
-// ─── Certificates plane (formerly Settings → Workspace → Certificates) ──
-//
-//   - Managed  — every enabled public domain across the org's projects with
-//     the cert the Caddy edge ACTUALLY serves (live TLS probe — ground
-//     truth, never cached). "Recheck all" re-probes.
-//   - Custom   — uploaded PEM chain + key, validated server-side, installed
-//     through the same reconcile pass routes use.
-//   - Trusted CAs — PEM inventory (view/download/remove).
-//
-// No "Renew" button: Caddy auto-renews ACME certs and exposes no
-// force-renew via its admin API — a renew action would be fake.
-
-function recheckCertificates() {
-  void queryClient.invalidateQueries({ queryKey: orpc.certificates.inventory.queryKey() });
-  void queryClient.invalidateQueries({ queryKey: orpc.certificates.listCustom.queryKey() });
-}
-
-function useCanManageCertificates() {
-  const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
-  const { user } = Route.useRouteContext();
-  const members = useMembers(organization.id);
-  const myRole = members.data?.find((m) => m.userId === user.id)?.role;
-  return myRole === "owner" || myRole === "admin";
-}
-
-function CertificatesActions({ onUploadCert }: { onUploadCert: () => void }) {
-  const inventory = useQuery(orpc.certificates.inventory.queryOptions());
-  const canManage = useCanManageCertificates();
-
-  return (
-    <div className="flex items-center gap-2">
-      {inventory.data ? (
-        <span className="hidden font-mono text-[11px] text-muted-foreground/70 sm:inline">
-          via {inventory.data.edgeHost} · {new Date(inventory.data.probedAt).toLocaleTimeString()}
-        </span>
-      ) : null}
-      <Button size="sm" variant="outline" disabled={inventory.isFetching} onClick={recheckCertificates}>
-        <HugeiconsIcon
-          icon={RefreshIcon}
-          strokeWidth={2}
-          className={cn(inventory.isFetching && "animate-spin")}
-        />
-        Recheck all
-      </Button>
-      {canManage ? (
-        <Button size="sm" onClick={onUploadCert}>
-          <HugeiconsIcon icon={UploadCircle01Icon} strokeWidth={2} />
-          Upload custom
-        </Button>
-      ) : null}
-    </div>
-  );
-}
-
-function CertificatesTab({
-  orgSlug,
-  onUploadCert,
-  onUploadCa,
-}: {
-  orgSlug: string;
-  onUploadCert: () => void;
-  onUploadCa: () => void;
-}) {
-  const canManage = useCanManageCertificates();
-
-  const inventory = useQuery(orpc.certificates.inventory.queryOptions());
-  const customs = useQuery(orpc.certificates.listCustom.queryOptions());
-  const cas = useQuery(orpc.certificates.listCas.queryOptions());
-
-  return (
-    <div className="flex flex-col gap-4">
-      <p className="text-xs text-muted-foreground">
-        TLS at the Caddy edge — what each public domain actually serves, probed live. ACME
-        certificates renew automatically; custom uploads are rotated by you.
-      </p>
-
-      <CertificateStats inventory={inventory.data} customs={customs.data} />
-
-      {inventory.isError ? (
-        <ErrorState
-          title="Couldn't probe the edge"
-          message={inventory.error.message}
-          onRetry={() => void inventory.refetch()}
-        />
-      ) : (
-        <Tabs defaultValue="managed">
-          <TabsList>
-            <TabsTrigger value="managed">
-              Managed{inventory.data ? ` · ${inventory.data.certificates.length}` : ""}
-            </TabsTrigger>
-            <TabsTrigger value="custom">
-              Custom{customs.data ? ` · ${customs.data.length}` : ""}
-            </TabsTrigger>
-            <TabsTrigger value="cas">
-              Trusted CAs{cas.data ? ` · ${cas.data.length}` : ""}
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="managed" className="mt-3">
-            <ManagedCertsTable
-              inventory={inventory.data}
-              isLoading={inventory.isLoading}
-              orgSlug={orgSlug}
-            />
-          </TabsContent>
-
-          <TabsContent value="custom" className="mt-3">
-            <CustomCertsTable
-              customs={customs.data}
-              inventory={inventory.data}
-              isLoading={customs.isLoading}
-              canManage={canManage}
-              onUpload={onUploadCert}
-            />
-          </TabsContent>
-
-          <TabsContent value="cas" className="mt-3">
-            <div className="flex flex-col gap-3">
-              {canManage && cas.data && cas.data.length > 0 ? (
-                <div className="flex justify-end">
-                  <Button size="sm" variant="outline" onClick={onUploadCa}>
-                    <HugeiconsIcon icon={UploadCircle01Icon} strokeWidth={2} />
-                    Upload CA
-                  </Button>
-                </div>
-              ) : null}
-              <TrustedCasTable
-                cas={cas.data}
-                isLoading={cas.isLoading}
-                canManage={canManage}
-                onUpload={onUploadCa}
-              />
-            </div>
-          </TabsContent>
-        </Tabs>
-      )}
     </div>
   );
 }

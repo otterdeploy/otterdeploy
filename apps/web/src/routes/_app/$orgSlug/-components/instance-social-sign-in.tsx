@@ -18,10 +18,9 @@ import { Login03Icon } from "@hugeicons/core-free-icons";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { SettingsFooter, SettingsRow, SettingsSection } from "@/shared/components/settings-section";
+import { SettingsRow, SettingsSection } from "@/shared/components/settings-section";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
 import { Switch } from "@/shared/components/ui/switch";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -83,6 +82,52 @@ function providerStatus(input: {
   return "Configured but not currently registered — check the server logs for a credential that failed to load.";
 }
 
+/** What a provider looks like before the server has said anything about it —
+ *  same shape as a stored one so the view below has a single code path. */
+const UNCONFIGURED: Omit<ProviderState, "id"> = {
+  enabled: null,
+  clientId: null,
+  secretConfigured: false,
+  issuer: null,
+  envConfigured: false,
+  live: false,
+};
+
+/** Normalize once so the markup reads plain fields rather than chaining
+ *  through `state?.` on every line. */
+function providerView(state: ProviderState | undefined) {
+  const s = state ?? UNCONFIGURED;
+  return {
+    enabled: s.enabled ?? true,
+    clientId: s.clientId ?? "",
+    secretConfigured: s.secretConfigured,
+    issuer: s.issuer ?? "",
+    envConfigured: s.envConfigured,
+    live: s.live,
+    hasStoredCredentials: Boolean(s.clientId) && Boolean(s.secretConfigured),
+  };
+}
+
+/** The pills that sit left of the row's actions: what the server actually
+ *  registered, and whether the credentials came from env rather than this
+ *  form. Their own component so the branching leaves the row body. */
+function ProviderBadges({ live, fromEnv }: { live: boolean; fromEnv: boolean }) {
+  return (
+    <>
+      {live && (
+        <Badge variant="outline" className="font-mono text-[10px]">
+          Live
+        </Badge>
+      )}
+      {fromEnv && (
+        <Badge variant="outline" className="font-mono text-[10px]">
+          From env
+        </Badge>
+      )}
+    </>
+  );
+}
+
 function ProviderRow({
   organizationId,
   id,
@@ -120,17 +165,7 @@ function ProviderRow({
     onError: (err) => toast.error(err.message ?? `Failed to save ${label} sign-in`),
   });
 
-  // Normalize once so the markup reads plain fields rather than chaining
-  // through `state?.` on every line.
-  const view = {
-    enabled: state?.enabled ?? true,
-    clientId: state?.clientId ?? "",
-    secretConfigured: state?.secretConfigured ?? false,
-    issuer: state?.issuer ?? "",
-    envConfigured: state?.envConfigured ?? false,
-    live: state?.live ?? false,
-    hasStoredCredentials: Boolean(state?.clientId) && Boolean(state?.secretConfigured),
-  };
+  const view = providerView(state);
   const effectiveClientId = clientId ?? view.clientId;
   const effectiveIssuer = issuer ?? view.issuer;
   const enabled = view.enabled;
@@ -158,16 +193,7 @@ function ProviderRow({
         description={providerStatus({ live: view.live, configured, enabled })}
         control={
           <div className="flex items-center gap-2.5">
-            {view.live && (
-              <Badge variant="outline" className="font-mono text-[10px]">
-                Live
-              </Badge>
-            )}
-            {view.envConfigured && !view.clientId && (
-              <Badge variant="outline" className="font-mono text-[10px]">
-                From env
-              </Badge>
-            )}
+            <ProviderBadges live={view.live} fromEnv={view.envConfigured && !view.clientId} />
             <Button
               size="sm"
               variant="ghost"

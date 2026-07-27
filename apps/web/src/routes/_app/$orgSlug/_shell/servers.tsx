@@ -22,12 +22,14 @@ import {
   type SwarmNodesView,
 } from "@/features/servers/data/swarm";
 import { Button } from "@/shared/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
+import { Tabs, TabsContent } from "@/shared/components/ui/tabs";
 
-import { InstallHealthSection } from "../-components/install-health";
-import { RawDockerPanel } from "../-components/raw-docker-panel";
-import { ServerHealthCard } from "../-components/servers-health";
 import { ServerHealthSheet } from "../-components/servers-health-sheet";
+import {
+  InstallAdminPlanes,
+  LocalHostHealth,
+  ServersTabList,
+} from "../-components/servers-install-admin";
 import { ManagersQuorumCard } from "../-components/servers-managers-card";
 import { ClusterStatTiles, FilterPill, ServersPending } from "../-components/servers-parts";
 import { ServersTable } from "../-components/servers-table";
@@ -125,6 +127,26 @@ function ProjectFilters({
 // the redirect shim.
 const SERVERS_TABS = ["overview", "docker", "install-health"] as const;
 type ServersTab = (typeof SERVERS_TABS)[number];
+
+/**
+ * Raw Docker (`docker.*` + `volumes.*`) and Install health (`metrics.platform`)
+ * are install-admin in their entirety, so both tabs are omitted for anyone
+ * else. Overview is org-scoped (`server.list` / `stats` / `health` /
+ * `swarmNodes`) and stays — except the local-host health card, which is
+ * `system.hostHealth`; see `LocalHostHealth` in -components/servers-install-admin.
+ */
+const SERVERS_TABS_INSTALL_ADMIN: ReadonlySet<string> = new Set<ServersTab>([
+  "docker",
+  "install-health",
+]);
+
+/** A `?tab=docker` deep link must not reach the plane a hidden trigger just
+ *  removed — otherwise the tab is "hidden" but the 403 is one URL away. */
+function resolveServersTab(tab: ServersTab, isInstallAdmin: boolean): ServersTab {
+  if (isInstallAdmin || !SERVERS_TABS_INSTALL_ADMIN.has(tab)) return tab;
+  return "overview";
+}
+
 const serversSearch = z.object({
   tab: z.enum(SERVERS_TABS).catch("overview"),
   dockerTab: z.enum(["containers", "images", "volumes", "networks", "tasks"]).optional(),
@@ -133,14 +155,18 @@ const serversSearch = z.object({
 export const Route = createFileRoute("/_app/$orgSlug/_shell/servers")({
   staticData: { crumb: "Servers" },
   validateSearch: serversSearch,
-  loader: async () => {
+  loader: async ({ context }) => {
     await serverCollection.preload();
     // Warm the Install health tab's platform-metrics query on hover
     // (intent-preload), same as the standalone Platform page used to.
-    // Non-blocking + best-effort.
-    void queryClient
-      .prefetchQuery(orpc.metrics.platform.queryOptions({ input: { windowMinutes: 60 } }))
-      .catch(() => undefined);
+    // Non-blocking + best-effort — and skipped entirely for viewers who can't
+    // open that tab, since a loader prefetch fires on navigation regardless of
+    // which tab is rendered.
+    if (context.isInstallAdmin) {
+      void queryClient
+        .prefetchQuery(orpc.metrics.platform.queryOptions({ input: { windowMinutes: 60 } }))
+        .catch(() => undefined);
+    }
   },
   component: ServersRoute,
   pendingComponent: ServersPending,
@@ -148,7 +174,9 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/servers")({
 
 function ServersRoute() {
   const { orgSlug } = Route.useParams();
-  const { tab, dockerTab } = Route.useSearch();
+  const { isInstallAdmin } = Route.useRouteContext();
+  const { tab: requestedTab, dockerTab } = Route.useSearch();
+  const tab = resolveServersTab(requestedTab, isInstallAdmin);
   const navigate = Route.useNavigate();
   const { data: servers } = useLiveQuery((q) => q.from({ s: serverCollection }));
   const [createOpen, setCreateOpen] = useState(false);
@@ -203,11 +231,7 @@ function ServersRoute() {
           }
         />
 
-        <TabsList variant="line" className="mt-3.5 h-9 justify-start gap-1">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="docker">Raw Docker</TabsTrigger>
-          <TabsTrigger value="install-health">Install health</TabsTrigger>
-        </TabsList>
+        <ServersTabList isInstallAdmin={isInstallAdmin} />
       </div>
 
       <TabsContent value="overview" className="flex min-w-0 flex-1 flex-col gap-6 p-4 sm:p-6">
@@ -239,16 +263,14 @@ function ServersRoute() {
 
         {/* The LOCAL host's action surface (reclaim/grow run on the local
             docker socket). Per-server snapshots live in the rows + sheet. */}
-        <ServerHealthCard />
+        <LocalHostHealth isInstallAdmin={isInstallAdmin} />
       </TabsContent>
 
-      <TabsContent value="docker" className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <RawDockerPanel orgSlug={orgSlug} initialTab={dockerTab} />
-      </TabsContent>
-
-      <TabsContent value="install-health" className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <InstallHealthSection />
-      </TabsContent>
+      <InstallAdminPlanes
+        isInstallAdmin={isInstallAdmin}
+        orgSlug={orgSlug}
+        dockerTab={dockerTab}
+      />
 
       <ServerHealthSheet
         server={servers.find((s) => s.id === openServerId) ?? null}

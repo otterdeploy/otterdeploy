@@ -23,7 +23,8 @@
  * rotation procedure and `packages/api/scripts/rotate-encryption-keys.ts`
  * for the rotate command.
  *
- * Ciphertext layouts (both base64url, no padding):
+ * Ciphertext layouts (both base64url, no padding) live in ./crypto-envelope,
+ * which builds and parses them:
  *
  *     v1.<nonce>.<ciphertext_with_tag>
  *     v2:<domain>:<keyId>:<nonce>:<ciphertext_with_tag>
@@ -43,8 +44,15 @@
 
 import { env } from "@otterdeploy/env/server";
 
-const V1_FORMAT = "v1";
-const V2_FORMAT = "v2";
+import {
+  formatV1Envelope,
+  formatV2Envelope,
+  isV1Format,
+  isV2Format,
+  parseV1Envelope,
+  parseV2Envelope,
+} from "./crypto-envelope";
+
 const NONCE_BYTES = 12;
 const LEGACY_HKDF_INFO = "otterdeploy/secret-encryption/v1";
 const LEGACY_HKDF_SALT = "otterdeploy-secret-salt";
@@ -258,20 +266,11 @@ export async function encryptSecret(plaintext: string): Promise<string> {
     key,
     new TextEncoder().encode(plaintext),
   );
-  return [V1_FORMAT, base64UrlEncode(nonce), base64UrlEncode(new Uint8Array(ciphertext))].join(".");
+  return formatV1Envelope(nonce, new Uint8Array(ciphertext));
 }
 
 export async function decryptSecret(blob: string): Promise<string> {
-  const parts = blob.split(".");
-  if (parts.length !== 3) {
-    throw new Error("encryptSecret: malformed ciphertext (expected v.n.c)");
-  }
-  const [version, nonceB64, cipherB64] = parts as [string, string, string];
-  if (version !== V1_FORMAT) {
-    throw new Error(`encryptSecret: unsupported version ${version}`);
-  }
-  const nonce = base64UrlDecode(nonceB64);
-  const ciphertext = base64UrlDecode(cipherB64);
+  const { nonce, ciphertext } = parseV1Envelope(blob);
   const key = await getLegacyKey();
   const plaintext = await crypto.subtle.decrypt(
     { name: "AES-GCM", iv: nonce.buffer as ArrayBuffer },
@@ -292,42 +291,7 @@ export async function encryptForDomain(plaintext: string, domain: SecretDomain):
     key,
     new TextEncoder().encode(plaintext),
   );
-  return [
-    V2_FORMAT,
-    domain,
-    CURRENT_KEY_ID,
-    base64UrlEncode(nonce),
-    base64UrlEncode(new Uint8Array(ciphertext)),
-  ].join(":");
-}
-
-interface ParsedV2Envelope {
-  domain: string;
-  keyId: string;
-  nonce: Uint8Array;
-  ciphertext: Uint8Array;
-}
-
-function parseV2Envelope(blob: string): ParsedV2Envelope {
-  const parts = blob.split(":");
-  if (parts.length !== 5 || parts[0] !== V2_FORMAT) {
-    throw new Error("decryptForDomain: malformed ciphertext (expected v2:domain:keyId:nonce:ct)");
-  }
-  const [, domain, keyId, nonceB64, cipherB64] = parts as [string, string, string, string, string];
-  return {
-    domain,
-    keyId,
-    nonce: base64UrlDecode(nonceB64),
-    ciphertext: base64UrlDecode(cipherB64),
-  };
-}
-
-function isV1Format(blob: string): boolean {
-  return blob.startsWith(`${V1_FORMAT}.`);
-}
-
-function isV2Format(blob: string): boolean {
-  return blob.startsWith(`${V2_FORMAT}:`);
+  return formatV2Envelope(domain, CURRENT_KEY_ID, nonce, new Uint8Array(ciphertext));
 }
 
 /**
@@ -401,21 +365,4 @@ export async function rotateForDomain(
     }
   }
   return { value: await encryptForDomain(plaintext, domain), rotated: true };
-}
-
-// ── base64url helpers ────────────────────────────────────────────────────
-
-function base64UrlEncode(bytes: Uint8Array): string {
-  let bin = "";
-  for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
-}
-
-function base64UrlDecode(s: string): Uint8Array {
-  const padded = s.replace(/-/g, "+").replace(/_/g, "/");
-  const fill = padded.length % 4 ? 4 - (padded.length % 4) : 0;
-  const bin = atob(padded + "=".repeat(fill));
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
 }

@@ -29,6 +29,7 @@ import { useGraphContextMenu } from "./-components/graph-context-menu-actions";
 import { useBoundedGraph } from "./-components/graph-extent";
 import { GraphFlow } from "./-components/graph-flow";
 import { useGraphModel } from "./-components/graph-model";
+import { GraphNodeDeleteDialog } from "./-components/graph-node-delete";
 import {
   commitNodeDrop,
   computeLaidOutNodes,
@@ -260,18 +261,6 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
     });
   };
 
-  // Right-click "Delete" — no new delete logic here, it just routes to the
-  // Settings tab of the resource's own panel, where the existing danger-zone
-  // confirm already lives (service/postgres/compose Settings tab).
-  const openNodeSettings = (node: ResourceFlowNode) => {
-    const resourceId = nodeTargetId(node);
-    void navigate({
-      to: "/$orgSlug/$projectSlug/graph/$resourceId",
-      params: { resourceId, orgSlug, projectSlug },
-      search: { tab: "settings" },
-    });
-  };
-
   // Right-click menus (node + empty canvas) — state/mutations live in a
   // sibling hook so this component stays under the line/complexity caps.
   const contextMenu = useGraphContextMenu({
@@ -281,7 +270,6 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
     fitView,
     overlay,
     openNode,
-    openNodeSettings,
   });
 
   // Re-run layout: forget every operator-dragged position (local caches +
@@ -354,6 +342,13 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
         target={contextMenu.target}
         onOpenChange={contextMenu.onOpenChange}
         actions={contextMenu.actions}
+      />
+      {/* Sibling of the menu, not a child: the menu unmounts as soon as
+          Delete is clicked, and a dialog inside it would go with it. */}
+      <GraphNodeDeleteDialog
+        target={contextMenu.deleteTarget}
+        projectId={project.id}
+        onClose={contextMenu.closeDelete}
       />
     </>
   );

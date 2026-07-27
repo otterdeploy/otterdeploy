@@ -26,21 +26,11 @@ import type { ResultView } from "./components/results-panel";
 import { loadHiddenColumns, saveHiddenColumns } from "./data/column-prefs";
 import { buildWhere, type Filter, newFilter } from "./data/filters";
 import { browseRowsSql, type TableRef } from "./data/queries";
-import { useQueryHistory } from "./data/query-history";
-import {
-  useDataCapabilities,
-  useDatabaseTables,
-  useQueryRows,
-  useTableColumnMeta,
-  useTablePrimaryKey,
-} from "./data/use-database";
-import {
-  buildSchema,
-  hasNextPage,
-  useRowMutations,
-  useSnippetBuffer,
-} from "./use-data-studio-helpers";
-import { errMessage, useSqlRuns, useWriteConfirm } from "./use-data-studio-sql";
+import { useQueryRows } from "./data/use-database";
+import { resolveStudioResults, useSqlConsole } from "./use-data-studio-console";
+import { buildSchema, useRowMutations, useSnippetBuffer } from "./use-data-studio-helpers";
+import { errMessage } from "./use-data-studio-sql";
+import { useOpenTableAccess, useTableList } from "./use-data-studio-tables";
 
 type Resource = PostgresBodyProps["resource"];
 
@@ -67,12 +57,7 @@ function useTableData(resource: Resource) {
   const [hiddenColumns, setHiddenColumnsState] = useState<string[]>([]);
   const autoOpenedRef = useRef(false);
 
-  const tablesQuery = useDatabaseTables(resourceIdStr);
-  const tables = tablesQuery.data?.tables ?? [];
-  const tableFilter = tableSearch.trim().toLowerCase();
-  const filteredTables = tableFilter
-    ? tables.filter((t) => `${t.schema}.${t.name}`.toLowerCase().includes(tableFilter))
-    : tables;
+  const { tablesQuery, tables, filteredTables } = useTableList(resourceIdStr, tableSearch);
 
   const where = buildWhere(filters);
   const tableSql = selected ? browseRowsSql(selected, where, pageSize + 1, page * pageSize) : "";
@@ -88,47 +73,34 @@ function useTableData(resource: Resource) {
     keepPrevious: true,
   });
 
-  // Cell variants + FK targets + display types for the open table (table-browse
-  // mode only).
-  const { columnVariants, columnFks, columnTypes } = useTableColumnMeta({
-    resourceId: resourceIdStr,
-    table: selected,
-    enabled: mode === "table",
-  });
+  // Column metadata + write access for the open table — see
+  // ./use-data-studio-tables.
+  const { columnVariants, columnFks, columnTypes, canWrite, primaryKey, editable } =
+    useOpenTableAccess({ resourceId: resourceIdStr, table: selected, mode });
 
-  // Inline edit / delete are offered only in table-browse mode, when the actor
-  // has the write capability and the open table has a primary key to target.
-  const canWrite = useDataCapabilities(resourceIdStr).data?.canWrite ?? false;
-  const primaryKey = useTablePrimaryKey({
-    resourceId: resourceIdStr,
-    table: selected,
-    enabled: mode === "table" && canWrite,
-  });
-  const editable = mode === "table" && canWrite && Boolean(selected);
   const { onUpdateRow, onDeleteRow } = useRowMutations(resourceIdStr, selected, tableRowsQuery);
 
-  // SQL-console execution log (browser-local ring, successes and failures).
-  const history = useQueryHistory(resourceIdStr);
-  const recordHistory = history.record;
-
-  // Authored-SQL run model (read-only `database.query` / audited
-  // `database.execute`, both run-scoped — see ./use-data-studio-sql). A
+  // Authored-SQL console: history + run model + write confirm + `runSql`. A
   // successful write refreshes the table list + open rows so DDL/DML shows up.
-  const { run, startRead, startWrite, writeRunning } = useSqlRuns({
+  // See ./use-data-studio-console.
+  const {
+    history,
+    run,
+    startRead,
+    writeRunning,
+    pendingWrite,
+    confirmPendingWrite,
+    cancelPendingWrite,
+    runSql,
+  } = useSqlConsole({
     resourceId: resourceIdStr,
-    recordHistory,
+    canWrite,
+    writeMode,
+    setMode,
     onWriteSuccess: () => {
       void tablesQuery.refetch();
       void tableRowsQuery.refetch();
     },
-  });
-
-  // Write mode → audited `database.execute` behind a confirm (typed-phrase
-  // gate for destructive statements). Stages the exact statement text and runs
-  // that same text on confirm — never re-reads the editor. See
-  // ./use-data-studio-sql.
-  const { pendingWrite, stageWrite, cancelPendingWrite, confirmPendingWrite } = useWriteConfirm({
-    runWrite: startWrite,
   });
 
   // Shared table-switch plumbing: reset paging/view state and pull the
@@ -170,23 +142,6 @@ function useTableData(resource: Resource) {
     setPage(0);
   };
 
-  // Run authored SQL: write mode stages the statement behind the confirm
-  // dialog; the read-only query path runs immediately as a fresh run (Run
-  // again on the same text starts a new run rather than reusing a cache entry
-  // — see ./use-data-studio-sql).
-  const runSql = (sqlText: string) => {
-    const trimmed = sqlText.trim();
-    if (!trimmed) return;
-    setMode("sql");
-
-    if (writeMode && canWrite) {
-      stageWrite(trimmed);
-      return;
-    }
-
-    startRead(trimmed);
-  };
-
   // Land on the first table's rows once the list loads (browse, not authored
   // SQL). Fires once so it never fights a manual SQL/snippet switch afterward.
   useEffect(() => {
@@ -196,25 +151,8 @@ function useTableData(resource: Resource) {
     }
   }, [selected, tables, openTable]);
 
-  // Results pane source: the table-browse query in table mode, the current
-  // run's outcome in SQL mode. Each is keyed to its own source (react-query
-  // cache vs. the latest run id), so a stale error from an earlier statement
-  // can never render under a newer one — see ./use-data-studio-sql.
-  const result = mode === "table" ? (tableRowsQuery.data ?? null) : (run?.result ?? null);
-  const hasNext = hasNextPage(mode, result);
-  const rowsQuery =
-    mode === "table"
-      ? tableRowsQuery
-      : {
-          isLoading: run?.status === "running",
-          isFetching: run?.status === "running",
-          isError: run?.status === "error",
-          error: run?.error ?? null,
-          data: run?.result ?? undefined,
-          refetch: () => {
-            if (run) startRead(run.sql);
-          },
-        };
+  // Results pane source — see ./use-data-studio-console.
+  const { result, hasNext, rowsQuery } = resolveStudioResults(mode, tableRowsQuery, run, startRead);
 
   return {
     resourceId,

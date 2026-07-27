@@ -5,7 +5,7 @@
  * components under the line caps.
  */
 
-import type { CSSProperties } from "react";
+import type { CSSProperties, KeyboardEvent, MouseEvent } from "react";
 
 import { ArrowReloadHorizontalIcon, HardDriveIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -126,6 +126,95 @@ export function ReplicaRow({ replica }: { replica: ReplicaInfo }) {
   );
 }
 
+/** Handlers that turn a stack service card into a button when — and only when
+ *  — the service is actually deployed. Split out of StackServiceCard so the
+ *  card body only ever spreads one object instead of branching on `clickable`
+ *  four times over (role/tabIndex/onClick/onKeyDown). */
+function stackCardActivation(
+  resourceId: string | null | undefined,
+  onOpen?: (resourceId: string) => void,
+): {
+  clickable: boolean;
+  props: {
+    role?: "button";
+    tabIndex?: number;
+    onClick?: (e: MouseEvent<HTMLDivElement>) => void;
+    onKeyDown?: (e: KeyboardEvent<HTMLDivElement>) => void;
+  };
+} {
+  if (!resourceId || !onOpen) return { clickable: false, props: {} };
+  const open = () => onOpen(resourceId);
+  return {
+    clickable: true,
+    props: {
+      role: "button",
+      tabIndex: 0,
+      onClick: (e) => {
+        // Don't let the click bubble to the stack node (which would
+        // navigate to the stack instead of this service).
+        e.stopPropagation();
+        open();
+      },
+      onKeyDown: (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          e.stopPropagation();
+          open();
+        }
+      },
+    },
+  };
+}
+
+/** The status line of a stack service card — dot, state label, and the restart
+ *  counter. Split out of StackServiceCard: the honest-status wording and the
+ *  restart pluralisation are their own branchy concern. */
+function StackServiceStatusLine({ service }: { service: ComposeServiceInfo }) {
+  // `error` reads as "Build failed" only for from-source services; a pulled
+  // image that won't run is a runtime error, not a build one.
+  const status = stackStatusMeta[service.status ?? "offline"];
+  const label = service.status === "error" && service.hasBuild ? "Build failed" : status.label;
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      <span className={cn("size-1.5 shrink-0 rounded-full", status.dotClass)} aria-hidden />
+      <span className={cn("truncate text-[12.5px] leading-none", status.textClass)}>{label}</span>
+      {service.restarts != null && service.restarts > 0 && (
+        <span
+          className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full bg-warning/12 px-1.5 py-0.5 text-[10px] font-medium text-warning tabular-nums"
+          title={`Restarted ${service.restarts} time${service.restarts === 1 ? "" : "s"}`}
+        >
+          <HugeiconsIcon icon={ArrowReloadHorizontalIcon} strokeWidth={2} className="size-3" />
+          {service.restarts}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** Named-volume chips under a stack service card. Split out of
+ *  StackServiceCard so the card body doesn't carry the empty-list branch. */
+function StackVolumeChips({ volumes }: { volumes: string[] }) {
+  if (volumes.length === 0) return null;
+  return (
+    <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t pt-2.5">
+      {volumes.map((v) => (
+        <span
+          key={v}
+          className="inline-flex items-center gap-1.5 rounded-md bg-muted/60 px-1.5 py-1 font-mono text-[11px] leading-none text-muted-foreground"
+          title={`Volume · ${v}`}
+        >
+          <HugeiconsIcon
+            icon={HardDriveIcon}
+            strokeWidth={1.6}
+            className="size-3 text-muted-foreground/60"
+          />
+          {v}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 /** One service card inside a compose stack group — brand icon + name, an
  *  independent status line, and any named-volume chips. Each card answers for
  *  itself so a half-up stack reads honestly (one failed, one running). When the
@@ -137,11 +226,7 @@ export function StackServiceCard({
   service: ComposeServiceInfo;
   onOpen?: (resourceId: string) => void;
 }) {
-  // `error` reads as "Build failed" only for from-source services; a pulled
-  // image that won't run is a runtime error, not a build one.
-  const status = stackStatusMeta[service.status ?? "offline"];
-  const label = service.status === "error" && service.hasBuild ? "Build failed" : status.label;
-  const clickable = Boolean(service.resourceId && onOpen);
+  const { clickable, props: activation } = stackCardActivation(service.resourceId, onOpen);
   return (
     <div
       // `nodrag` so interacting with the card doesn't drag the whole stack node.
@@ -149,29 +234,7 @@ export function StackServiceCard({
         "nodrag rounded-xl border bg-card px-3.5 py-3 shadow-sm transition-colors",
         clickable && "cursor-pointer hover:border-ring/40 hover:bg-muted/30",
       )}
-      role={clickable ? "button" : undefined}
-      tabIndex={clickable ? 0 : undefined}
-      onClick={
-        clickable
-          ? (e) => {
-              // Don't let the click bubble to the stack node (which would
-              // navigate to the stack instead of this service).
-              e.stopPropagation();
-              onOpen?.(service.resourceId as string);
-            }
-          : undefined
-      }
-      onKeyDown={
-        clickable
-          ? (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                e.stopPropagation();
-                onOpen?.(service.resourceId as string);
-              }
-            }
-          : undefined
-      }
+      {...activation}
     >
       <div className="flex items-center gap-2.5">
         <span className="grid size-7 shrink-0 place-items-center rounded-lg border bg-background">
@@ -186,37 +249,8 @@ export function StackServiceCard({
           </span>
         ) : null}
       </div>
-      <div className="mt-2 flex items-center gap-2">
-        <span className={cn("size-1.5 shrink-0 rounded-full", status.dotClass)} aria-hidden />
-        <span className={cn("truncate text-[12.5px] leading-none", status.textClass)}>{label}</span>
-        {service.restarts != null && service.restarts > 0 && (
-          <span
-            className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full bg-warning/12 px-1.5 py-0.5 text-[10px] font-medium text-warning tabular-nums"
-            title={`Restarted ${service.restarts} time${service.restarts === 1 ? "" : "s"}`}
-          >
-            <HugeiconsIcon icon={ArrowReloadHorizontalIcon} strokeWidth={2} className="size-3" />
-            {service.restarts}
-          </span>
-        )}
-      </div>
-      {service.volumes.length > 0 && (
-        <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t pt-2.5">
-          {service.volumes.map((v) => (
-            <span
-              key={v}
-              className="inline-flex items-center gap-1.5 rounded-md bg-muted/60 px-1.5 py-1 font-mono text-[11px] leading-none text-muted-foreground"
-              title={`Volume · ${v}`}
-            >
-              <HugeiconsIcon
-                icon={HardDriveIcon}
-                strokeWidth={1.6}
-                className="size-3 text-muted-foreground/60"
-              />
-              {v}
-            </span>
-          ))}
-        </div>
-      )}
+      <StackServiceStatusLine service={service} />
+      <StackVolumeChips volumes={service.volumes} />
     </div>
   );
 }

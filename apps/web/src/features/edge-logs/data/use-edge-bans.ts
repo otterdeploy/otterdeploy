@@ -5,14 +5,23 @@
  * single/bulk block mutations, refreshing the set after every successful block.
  */
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useRouteContext } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { orpc } from "@/shared/server/orpc";
 
 export function useEdgeBans(onBlocked?: () => void) {
+  // The whole CrowdSec surface is install-scoped — `firewall.decisions` is
+  // `requireInstallAdmin()` and block/blockMany are `requireInstallAdminPermission`.
+  // The edge-log planes that use this are NOT admin-only, so without this the
+  // ban poll 403s every 30s for an ordinary member while the block buttons it
+  // feeds would 403 on click. Callers read `canBlock` and omit the affordance.
+  const canBlock = useRouteContext({ from: "/_app", select: (c) => c.isInstallAdmin });
+
   const decisions = useQuery({
     ...orpc.firewall.decisions.queryOptions(),
     refetchInterval: 30_000,
+    enabled: canBlock,
   });
   const bannedIps = new Set(
     (decisions.data ?? []).flatMap((d) => (d.scope.toLowerCase() === "ip" ? [d.value] : [])),
@@ -49,5 +58,5 @@ export function useEdgeBans(onBlocked?: () => void) {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Block failed"),
   });
 
-  return { bannedIps, block, blockMany };
+  return { bannedIps, block, blockMany, canBlock };
 }
