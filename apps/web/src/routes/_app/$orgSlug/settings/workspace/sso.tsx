@@ -43,6 +43,7 @@ import {
 } from "@/shared/components/ui/empty";
 import { ErrorState } from "@/shared/components/ui/error-state";
 import { Skeleton } from "@/shared/components/ui/skeleton";
+import { copyToClipboard } from "@/shared/lib/clipboard";
 
 export const Route = createFileRoute("/_app/$orgSlug/settings/workspace/sso")({
   staticData: { crumb: "SSO" },
@@ -101,9 +102,12 @@ function ProviderRow({
             size="icon"
             className="size-6 shrink-0"
             aria-label="Copy redirect URI"
+            // Insecure-context safe — `navigator.clipboard` is absent over
+            // plain http://<ip>. See shared/lib/clipboard.ts.
             onClick={() => {
-              void navigator.clipboard.writeText(uri);
-              toast.success("Redirect URI copied");
+              void copyToClipboard(uri).then((ok) =>
+                ok ? toast.success("Redirect URI copied") : toast.error("Couldn't copy"),
+              );
             }}
           >
             <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} className="size-3.5" />

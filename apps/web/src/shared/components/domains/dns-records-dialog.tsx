@@ -34,6 +34,8 @@ import {
   DialogTitle,
 } from "@/shared/components/ui/dialog";
 import { Skeleton } from "@/shared/components/ui/skeleton";
+import { Cloudflare } from "@/shared/components/ui/svgs/cloudflare";
+import { copyToClipboard } from "@/shared/lib/clipboard";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
@@ -51,9 +53,14 @@ function CopyCell({ text, mono = true }: { text: string; mono?: boolean }) {
   return (
     <button
       type="button"
+      // `copyToClipboard`, not `navigator.clipboard`: this dialog is reached
+      // over plain http://<ip> on most self-hosted installs, where the async
+      // Clipboard API doesn't exist at all — the bare call threw before the
+      // toast ran, so the row just did nothing. See shared/lib/clipboard.ts.
       onClick={() => {
-        void navigator.clipboard.writeText(text);
-        toast.success("Copied");
+        void copyToClipboard(text).then((ok) =>
+          ok ? toast.success("Copied") : toast.error("Couldn't copy"),
+        );
       }}
       className={cn(
         "group flex w-full min-w-0 items-center gap-1.5 rounded px-1 py-0.5 text-left transition-colors hover:bg-accent",
@@ -119,13 +126,16 @@ export function DnsRecordsDialog({
           <Skeleton className="h-16 rounded-md" />
         ) : isCloudflare ? (
           <div className="flex items-center justify-between gap-3 rounded-md border p-3">
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <span className="text-[13px] font-medium">One-click DNS setup</span>
-              <span className="text-[11px] text-muted-foreground">
-                {canAuto
-                  ? "This domain is on Cloudflare. We can create both records for you."
-                  : "This domain is on Cloudflare. Connect an API token to configure it automatically."}
-              </span>
+            <div className="flex min-w-0 items-center gap-3">
+              <Cloudflare aria-hidden className="size-5 shrink-0 text-muted-foreground" />
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-[13px] font-medium">One-click DNS setup</span>
+                <span className="text-[11px] text-muted-foreground">
+                  {canAuto
+                    ? "This domain is on Cloudflare. We can create both records for you."
+                    : "This domain is on Cloudflare. Connect an API token to configure it automatically."}
+                </span>
+              </div>
             </div>
             {canAuto ? (
               <Button size="sm" disabled={autoConfiguring} onClick={onAutoConfigure}>

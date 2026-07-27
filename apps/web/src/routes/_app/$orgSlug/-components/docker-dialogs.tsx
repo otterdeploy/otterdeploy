@@ -29,16 +29,17 @@ import {
 import { ErrorState } from "@/shared/components/ui/error-state";
 import { JsonView } from "@/shared/components/ui/json-view";
 import { Skeleton } from "@/shared/components/ui/skeleton";
+import { copyToClipboard } from "@/shared/lib/clipboard";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
 async function copyText(text: string, what: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    toast.success(`${what} copied to clipboard`);
-  } catch {
-    toast.error("Couldn't access the clipboard");
-  }
+  // `copyToClipboard` rather than `navigator.clipboard`: the latter is absent
+  // over plain http://<ip>, so this always took the catch branch on a
+  // self-hosted install. See shared/lib/clipboard.ts.
+  const ok = await copyToClipboard(text);
+  if (ok) toast.success(`${what} copied to clipboard`);
+  else toast.error("Couldn't access the clipboard");
 }
 
 // ─── Inspect (typed, server-redacted JSON) ───────────────────────────────────

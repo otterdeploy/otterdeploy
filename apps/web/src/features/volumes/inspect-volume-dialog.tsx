@@ -20,6 +20,7 @@ import {
 import { ErrorState } from "@/shared/components/ui/error-state";
 import { JsonView } from "@/shared/components/ui/json-view";
 import { Skeleton } from "@/shared/components/ui/skeleton";
+import { copyToClipboard } from "@/shared/lib/clipboard";
 import { orpc } from "@/shared/server/orpc";
 
 export function InspectVolumeDialog({
@@ -41,12 +42,12 @@ function InspectBody({ name }: { name: string }) {
   const inspect = useQuery(orpc.volumes.inspect.queryOptions({ input: { name } }));
 
   const copyJson = async () => {
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(inspect.data?.details, null, 2));
-      toast.success("JSON copied to clipboard");
-    } catch {
-      toast.error("Couldn't access the clipboard");
-    }
+    // `copyToClipboard` rather than `navigator.clipboard`: the latter is absent
+    // over plain http://<ip>, so this always took the catch branch on a
+    // self-hosted install. See shared/lib/clipboard.ts.
+    const ok = await copyToClipboard(JSON.stringify(inspect.data?.details, null, 2));
+    if (ok) toast.success("JSON copied to clipboard");
+    else toast.error("Couldn't access the clipboard");
   };
 
   return (

@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/components/ui/dialog";
+import { copyToClipboard } from "@/shared/lib/clipboard";
 
 import type { TrustedCa } from "./data/certificates";
 
@@ -45,9 +46,13 @@ export function ViewPemDialog({
               <Button
                 size="sm"
                 variant="outline"
+                // Insecure-context safe: `navigator.clipboard` doesn't exist on
+                // a self-hosted install reached over plain http://<ip>, so the
+                // bare call threw before the toast. See shared/lib/clipboard.ts.
                 onClick={() => {
-                  void navigator.clipboard.writeText(ca.pem);
-                  toast.success("PEM copied");
+                  void copyToClipboard(ca.pem).then((ok) =>
+                    ok ? toast.success("PEM copied") : toast.error("Couldn't copy"),
+                  );
                 }}
               >
                 <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
