@@ -1,17 +1,15 @@
+import { Key01Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+
 import type { SshKey } from "@/features/ssh-keys/data/ssh-keys";
 
 import { Button } from "@/shared/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/shared/components/ui/field";
 import { Input } from "@/shared/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/components/ui/select";
 
 import type { ProvisionFormApi } from "./server-provision-form";
+
+import { PickerGroup } from "./provision-picker";
 
 export type AuthMode = "key" | "password";
 
@@ -75,26 +73,31 @@ export function ProvisionAuthSection({
                   </div>
                 ) : (
                   <Field>
-                    <FieldLabel htmlFor="srv-key">SSH key</FieldLabel>
-                    <Select
+                    <FieldLabel>SSH key</FieldLabel>
+                    {/* A Select showed nothing when the value was "" — no
+                        placeholder, no cue that a pick was required — so the
+                        form submitted with no credential and the run died
+                        before it ever opened a connection. */}
+                    <PickerGroup
+                      label="SSH key"
                       value={field.state.value}
-                      onValueChange={(v) => field.handleChange(v ?? "")}
-                      items={usableKeys.map((k) => ({ label: k.name, value: k.id }))}
-                    >
-                      <SelectTrigger id="srv-key" className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {usableKeys.map((k) => (
-                          <SelectItem key={k.id} value={k.id}>
-                            {k.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-[12px] text-muted-foreground">
-                      Install this key's public half on the host first (authorized_keys).
-                    </p>
+                      onChange={(v) => field.handleChange(v)}
+                      options={usableKeys.map((k) => ({
+                        value: k.id,
+                        label: k.name,
+                        icon: <HugeiconsIcon icon={Key01Icon} strokeWidth={2} className="size-4" />,
+                      }))}
+                    />
+                    {field.state.value === "" ? (
+                      <p className="text-[12px] text-muted-foreground">
+                        Pick the key to connect with. Its public half must already be in the host's
+                        authorized_keys.
+                      </p>
+                    ) : (
+                      <p className="text-[12px] text-muted-foreground">
+                        Install this key&apos;s public half on the host first (authorized_keys).
+                      </p>
+                    )}
                   </Field>
                 )
               }

@@ -1,20 +1,38 @@
+import { Globe02Icon, ShareKnowledgeIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+
 import { Field, FieldLabel } from "@/shared/components/ui/field";
 import { Input } from "@/shared/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/components/ui/select";
+import { Cloudflare } from "@/shared/components/ui/svgs/cloudflare";
+import { Tailscale } from "@/shared/components/ui/svgs/tailscale";
 import { Switch } from "@/shared/components/ui/switch";
 
 import type { ProvisionFormApi } from "./server-provision-form";
 
-const MESH_ITEMS = [
-  { label: "Public (routable IP)", value: "none" },
-  { label: "Tailscale mesh", value: "tailscale" },
-  { label: "NetBird mesh", value: "netbird" },
+import { PickerGroup, type PickerOption } from "./provision-picker";
+
+// Tailscale is the Simple Icons mark; NetBird publishes no mark to Simple Icons
+// and none was reachable from its own repos, so it carries a neutral network
+// glyph rather than an invented logo — swap in the real asset when you have it.
+const MESH_ITEMS: PickerOption<string>[] = [
+  {
+    value: "none",
+    label: "Public",
+    hint: "Routable IP",
+    icon: <HugeiconsIcon icon={Globe02Icon} strokeWidth={2} className="size-4" />,
+  },
+  {
+    value: "tailscale",
+    label: "Tailscale",
+    hint: "WireGuard mesh",
+    icon: <Tailscale className="size-4" />,
+  },
+  {
+    value: "netbird",
+    label: "NetBird",
+    hint: "WireGuard mesh",
+    icon: <HugeiconsIcon icon={ShareKnowledgeIcon} strokeWidth={2} className="size-4" />,
+  },
 ];
 
 /** Connectivity (mesh/tunnel) + build-node designation. Mesh joins the node to a
@@ -26,25 +44,16 @@ export function ProvisionAdvancedSection({ form }: { form: ProvisionFormApi }) {
       <form.Field name="meshProvider">
         {(field) => (
           <Field>
-            <FieldLabel htmlFor="srv-mesh">Connectivity</FieldLabel>
-            <Select
+            <FieldLabel>Connectivity</FieldLabel>
+            <PickerGroup
+              label="Connectivity"
+              columns={3}
               value={field.state.value}
-              onValueChange={(v) => {
+              onChange={(v) => {
                 if (v === "none" || v === "tailscale" || v === "netbird") field.handleChange(v);
               }}
-              items={MESH_ITEMS}
-            >
-              <SelectTrigger id="srv-mesh" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {MESH_ITEMS.map((it) => (
-                  <SelectItem key={it.value} value={it.value}>
-                    {it.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              options={MESH_ITEMS}
+            />
             <p className="text-[12px] text-muted-foreground">
               Mesh installs a WireGuard agent and joins the swarm over the private network — the
               robust path when the manager has no routable public IP.
@@ -118,10 +127,18 @@ export function ProvisionAdvancedSection({ form }: { form: ProvisionFormApi }) {
         )}
       </form.Field>
 
+      {/* Orthogonal to the mesh choice above — a tunnel is for ingress, not for
+          the swarm join — so it stays its own opt-in rather than a fourth
+          connectivity card that would imply they're alternatives. */}
       <form.Field name="cloudflareToken">
         {(field) => (
           <Field>
-            <FieldLabel htmlFor="srv-cf">Cloudflare Tunnel token (optional)</FieldLabel>
+            <FieldLabel htmlFor="srv-cf">
+              <span className="flex items-center gap-2">
+                <Cloudflare className="size-4 text-muted-foreground" />
+                Cloudflare Tunnel token (optional)
+              </span>
+            </FieldLabel>
             <Input
               id="srv-cf"
               type="password"

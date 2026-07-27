@@ -72,15 +72,13 @@ export function conflictMessage(constraint: string | null): string {
   return "That value is already taken. Choose a different one.";
 }
 
-export const uniqueViolationProcedure = orpc
-  .$context<Context>()
-  .middleware(async ({ next }) => {
-    try {
-      return await next();
-    } catch (error) {
-      const hit = findUniqueViolation(error);
-      // Not a collision — leave it exactly as it was, including its stack.
-      if (!hit) throw error;
-      throw new ORPCError("CONFLICT", { message: conflictMessage(hit.constraint) });
-    }
-  });
+export const uniqueViolationProcedure = orpc.$context<Context>().middleware(async ({ next }) => {
+  try {
+    return await next();
+  } catch (error) {
+    const hit = findUniqueViolation(error);
+    // Not a collision — leave it exactly as it was, including its stack.
+    if (!hit) throw error;
+    throw new ORPCError("CONFLICT", { message: conflictMessage(hit.constraint) });
+  }
+});

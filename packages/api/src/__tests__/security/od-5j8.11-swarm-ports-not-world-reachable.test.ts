@@ -100,6 +100,20 @@ describe("[od-5j8.11] DOCKER-USER guard — Docker-published ports cannot bypass
     expect(guard).toContain("drop");
   });
 
+  test("scopes the drop to DNAT'd (inbound published) traffic, never container egress", () => {
+    // DOCKER-USER is on the forward hook, so it also carries container EGRESS.
+    // Without this qualifier the guard dropped every outbound connection a
+    // container opened to a port outside the allowlist — including the control
+    // plane's own ssh to a host it was provisioning, which surfaced as
+    // "SSH connection timed out" against a box whose port 22 was open.
+    expect(guard).toContain("ct status dnat");
+    const insert = guard
+      .split("\n")
+      .find((l) => l.includes("nft insert rule ip filter DOCKER-USER"));
+    expect(insert).toBeDefined();
+    expect(insert?.indexOf("ct status dnat")).toBeLessThan(insert?.indexOf("tcp dport !=") ?? -1);
+  });
+
   test("is idempotent: deletes any prior otterdeploy-tagged rule (by comment) before inserting", () => {
     expect(guard).toContain(DOCKER_USER_GUARD_COMMENT);
     expect(guard).toContain("nft delete rule ip filter DOCKER-USER handle");

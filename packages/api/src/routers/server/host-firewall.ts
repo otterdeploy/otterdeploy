@@ -127,17 +127,26 @@ export const DOCKER_USER_GUARD_COMMENT = "otterdeploy-guard";
  * permissive ACCEPT. Scoped to `ip filter` (Docker only ever creates
  * DOCKER-USER in the IPv4 `filter` table), so it does NOT reference the
  * `inet otterdeploy` peer set (cross-table set references aren't valid
- * nftables) — deliberately unconditional: this platform never expects a
- * legitimate published port outside 80/443, so there's no peer exception to
- * carve out here (swarm control-plane ports are host listeners, not
- * published/forwarded ports, and never touch this chain).
+ * nftables).
+ *
+ * `ct status dnat` is load-bearing. DOCKER-USER hangs off the *forward* hook,
+ * which carries container EGRESS as well as inbound published-port traffic, so
+ * an unqualified match dropped every outbound connection a container made to
+ * anything but 80/443/3000 — including the control plane's own `ssh` to a host
+ * it was provisioning. That surfaced as "SSH connection timed out" on a box
+ * whose port 22 was wide open, because the drop happened on the way out, not
+ * on the way in. Inbound published-port traffic is DNAT'd and matches; egress
+ * is SNAT'd and does not.
+ *
+ * Note the port compared here is the POST-DNAT one — the container's own port,
+ * not the published host port — since DNAT runs in prerouting, before forward.
  */
 export function dockerUserGuardScript(sudo = ""): string {
   const S = sudo ? `${sudo} ` : "";
   return [
     `if ${S}nft list chain ip filter DOCKER-USER >/dev/null 2>&1; then`,
     `  ${S}nft -a list chain ip filter DOCKER-USER 2>/dev/null | awk '/${DOCKER_USER_GUARD_COMMENT}/{print $NF}' | while read -r h; do ${S}nft delete rule ip filter DOCKER-USER handle "$h"; done`,
-    `  ${S}nft insert rule ip filter DOCKER-USER tcp dport != { ${dedupe(EDGE_TCP_PORTS).join(", ")} } ct state new counter drop comment "${DOCKER_USER_GUARD_COMMENT}"`,
+    `  ${S}nft insert rule ip filter DOCKER-USER ct status dnat tcp dport != { ${dedupe(EDGE_TCP_PORTS).join(", ")} } ct state new counter drop comment "${DOCKER_USER_GUARD_COMMENT}"`,
     '  echo "DOCKER-USER guard installed"',
     "else",
     '  echo "DOCKER-USER chain not present yet (Docker not started?) — guard skipped, re-run after Docker is up"',
