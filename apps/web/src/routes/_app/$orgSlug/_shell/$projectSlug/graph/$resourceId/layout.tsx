@@ -30,9 +30,10 @@ import { GraphPanelPending, useGraphPanelClose } from "../-components/panel-shel
 import { ResourcePanel } from "./-components/resource-panel";
 
 // Which panel tab is open. The URL owns this, so a tab is reloadable,
-// shareable and reachable by back/forward — and the graph node context menu's
-// "Delete" can route straight to `tab: "settings"` to land on the danger-zone
-// confirm. Untyped against each panel's own tab union (they differ per kind);
+// shareable and reachable by back/forward. (The graph's context-menu Delete
+// used to lean on that to land on the danger zone; it now confirms and deletes
+// in place — see graph/-components/graph-node-delete.tsx.)
+// Untyped against each panel's own tab union (they differ per kind);
 // an unrecognized value falls back to that panel's default — see
 // _shared/panel-tab.ts. The nested deployment overlay deliberately uses a
 // separate `deploymentTab` key so the two can never overwrite each other.

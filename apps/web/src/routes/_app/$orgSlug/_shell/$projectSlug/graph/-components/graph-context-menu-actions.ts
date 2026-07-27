@@ -4,9 +4,11 @@
  * line/complexity caps. Restart/redeploy reuse the exact same oRPC surfaces
  * + toasts as the node's own hover toolbar (resource-card-node.tsx) and
  * compose's own Redeploy button (compose/panel.tsx) — same action, just
- * reachable without hovering/opening the panel first. Delete does NOT
- * implement any new delete logic — it just routes to the resource panel's
- * Settings tab, where the existing danger-zone/staged-delete confirm lives.
+ * reachable without hovering/opening the panel first. Delete acts in place
+ * too: it raises the confirm dialog over the graph rather than routing to a
+ * Settings tab. It still implements no new delete logic — this hook only
+ * holds the pending-delete target, and graph-node-delete.tsx runs each kind's
+ * existing danger-zone path behind the same type-the-name confirm.
  */
 import { useState } from "react";
 
@@ -35,8 +37,6 @@ export interface UseGraphContextMenuArgs {
   overlay: ReturnType<typeof useResourceOverlay>;
   /** Same navigation a left-click uses — reused so "Open" behaves identically. */
   openNode: (node: ResourceFlowNode) => void;
-  /** Navigates to the resource's Settings tab (danger-zone delete lives there). */
-  openNodeSettings: (node: ResourceFlowNode) => void;
 }
 
 export function useGraphContextMenu({
@@ -46,9 +46,12 @@ export function useGraphContextMenu({
   fitView,
   overlay,
   openNode,
-  openNodeSettings,
 }: UseGraphContextMenuArgs) {
   const [target, setTarget] = useState<GraphContextMenuTarget | null>(null);
+  // The node whose delete confirm is open. Held here (not in the menu) because
+  // the menu unmounts the moment Delete is clicked — GraphCanvas renders
+  // GraphNodeDeleteDialog with this as a sibling of the menu.
+  const [deleteTarget, setDeleteTarget] = useState<ResourceFlowNode | null>(null);
   const close = () => setTarget(null);
 
   const dbRestart = useMutation({
@@ -106,7 +109,7 @@ export function useGraphContextMenu({
     },
     onDelete: (node) => {
       close();
-      openNodeSettings(node);
+      setDeleteTarget(node);
     },
     onNewService: () => {
       close();
@@ -144,5 +147,7 @@ export function useGraphContextMenu({
     actions,
     onNodeContextMenu,
     onPaneContextMenu,
+    deleteTarget,
+    closeDelete: () => setDeleteTarget(null),
   };
 }
