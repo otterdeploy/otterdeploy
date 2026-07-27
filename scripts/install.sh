@@ -175,8 +175,13 @@ primary_ip() { ip route get 1 2>/dev/null | sed -n 's/^.*src \([0-9.]*\).*$/\1/p
 
 # Advisory recovery hint on any uncaught failure (set -e). No auto-undo.
 on_error() {
-  trap - ERR; set +e   # never let the handler re-trigger itself
   local code="$1"
+  # `set -E` propagates this trap into command substitutions and subshells, so a
+  # failure inside `x="$(f)"` fires it once per nesting level — each one printing
+  # "Install failed" for a run that is still going. Only the top-level shell may
+  # report; a subshell just lets errexit unwind and the status propagate.
+  [ "${BASHPID:-$$}" = "$$" ] || return 0
+  trap - ERR; set +e   # never let the handler re-trigger itself
   printf '\n\033[31mInstall failed at step %s (exit %s).\033[0m\n' "${STEP:-?}" "$code" >&2
   [ "$DRY_RUN" != "true" ] && [ -f "$LOG_FILE" ] && say "  Full log:           $LOG_FILE" >&2
   [ -f "/etc/docker/daemon.json.bak-$DATE" ] && say "  daemon.json backup: /etc/docker/daemon.json.bak-$DATE" >&2
@@ -488,7 +493,9 @@ JSON
 ensure_swarm() {
   step "Ensuring Docker Swarm is initialized"
   if dry; then say "   + would run docker swarm init --advertise-addr <primary-ip> if not already active"; return; fi
-  if $SUDO docker info 2>/dev/null | grep -q 'Swarm: active'; then
+  # Read the field directly rather than `docker info | grep -q` — see
+  # detect_swarm_peer_ips for why that pipeline lies under pipefail.
+  if [ "$($SUDO docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null || true)" = "active" ]; then
     say " - Swarm already active"; return
   fi
   # Prefer the primary outbound source IP (correct on multi-NIC/cloud hosts);
@@ -673,8 +680,8 @@ BRANCH_ZFS_POOL=$pool_line
 
 # od-5j8.11: CrowdSec IP-reputation bouncer — bundled + wired automatically
 # when the firewall is enabled (the default). packages/env/src/server.ts
-# treats both as required together; the Caddyfile gains the `crowdsec` gate
-# and the `firewall` compose profile starts as soon as these are set.
+# treats both as required together; the Caddyfile gains the "crowdsec" gate
+# and the "firewall" compose profile starts as soon as these are set.
 $crowdsec_env_lines
 EOF
   say " - Secrets generated (and preserved across re-runs)"
@@ -820,13 +827,37 @@ provision_branching() {
 # choice — or when nftables can't be installed.
 OTTERDEPLOY_NFT_RULESET=/etc/nftables-otterdeploy.conf
 
+# "Is another firewall manager already in charge here?" Capture-then-match
+# rather than `cmd | grep -q`: under pipefail a match makes grep close the pipe
+# early, the producer dies of SIGPIPE, and the pipeline reports 141 — so a host
+# that IS running ufw would read as "no ufw" and get nftables installed
+# alongside it. Exactly the fight this check exists to avoid.
+ufw_active() {
+  command -v ufw >/dev/null 2>&1 || return 1
+  case "$($SUDO ufw status 2>/dev/null || true)" in
+    *[Ss]tatus:*[Aa]ctive*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+firewalld_active() {
+  command -v firewall-cmd >/dev/null 2>&1 || return 1
+  [ "$($SUDO firewall-cmd --state 2>/dev/null || true)" = "running" ]
+}
+
 # The CURRENT sshd port — never assumed to be 22, so a customized install
 # can't get locked out. `ct state established,related accept` (in the
 # ruleset below) means even a WRONG detection can't kill the session this
 # installer is already running over; only a NEW connection would be refused.
 detect_ssh_port() {
   local p
-  p="$($SUDO sshd -T 2>/dev/null | awk '/^port /{print $2; exit}')"
+  # Two pipefail hazards, both of which used to abort the whole install here:
+  #   * `sshd -T` exits non-zero when it can't read the config (not root, no
+  #     sshd installed) — swallow it, the fallback below is the answer.
+  #   * an awk that `exit`s on the first match closes the pipe while sshd is
+  #     still writing, so sshd dies of SIGPIPE and pipefail reports 141.
+  # Read the whole stream and keep the first match instead.
+  p="$({ $SUDO sshd -T 2>/dev/null || true; } | awk '/^port /{ if (!seen++) port = $2 } END { print port }')"
   case "$p" in ''|*[!0-9]*) printf '22' ;; *) printf '%s' "$p" ;; esac
 }
 
@@ -842,10 +873,16 @@ detect_ssh_port() {
 # plane — always has host-level access to) and re-renders the peer set.
 # Space-separated IPv4 addresses; empty on a fresh single-node install.
 detect_swarm_peer_ips() {
-  $SUDO docker info 2>/dev/null | grep -q 'Swarm: active' || return 0
-  $SUDO docker node ls -q 2>/dev/null | while read -r id; do
-    $SUDO docker node inspect "$id" --format '{{.Status.Addr}}' 2>/dev/null
-  done | grep -E '^[0-9]+(\.[0-9]+){3}$' | sort -u | tr '\n' ' '
+  # `docker info | grep -q` reads wrong under pipefail: grep closes the pipe on
+  # the match, docker dies of SIGPIPE, and the pipeline reports 141 — i.e. a
+  # SUCCESSFUL match looked like "swarm is not active" and silently emptied the
+  # peer set. Ask docker for the single field instead. Same reason the grep
+  # below is guarded: no matching node is a normal single-host install, not an
+  # error worth aborting the install over.
+  [ "$($SUDO docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null || true)" = "active" ] || return 0
+  { $SUDO docker node ls -q 2>/dev/null || true; } | while read -r id; do
+    $SUDO docker node inspect "$id" --format '{{.Status.Addr}}' 2>/dev/null || true
+  done | { grep -E '^[0-9]+(\.[0-9]+){3}$' || true; } | sort -u | tr '\n' ' '
 }
 
 provision_host_firewall() {
@@ -863,11 +900,11 @@ provision_host_firewall() {
     say "   + would skip entirely if ufw/firewalld is already active"
     return
   fi
-  if command -v ufw >/dev/null 2>&1 && $SUDO ufw status 2>/dev/null | grep -qi 'Status: active'; then
+  if ufw_active; then
     say " - ufw is active — leaving it in place (otterdeploy will not install nftables alongside it)"
     return
   fi
-  if command -v firewall-cmd >/dev/null 2>&1 && $SUDO firewall-cmd --state 2>/dev/null | grep -q running; then
+  if firewalld_active; then
     say " - firewalld is active — leaving it in place"
     return
   fi
@@ -1169,7 +1206,7 @@ update_stack() {
 }
 
 print_firewall_hint() {
-  if command -v ufw >/dev/null 2>&1 && $SUDO ufw status 2>/dev/null | grep -qi 'Status: active'; then
+  if ufw_active; then
     say ""
     say "UFW is active, so otterdeploy left it in place instead of installing nftables alongside it."
     say "Allow the ports the platform needs:"
