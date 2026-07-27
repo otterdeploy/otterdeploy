@@ -5,7 +5,7 @@
  */
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-export const volumesListKey = orpc.volumes.list.queryKey({ input: {} });
+const volumesListKey = orpc.volumes.list.queryKey({ input: {} });
 
 export const volumesListQuery = () => ({
   ...orpc.volumes.list.queryOptions({ input: {} }),

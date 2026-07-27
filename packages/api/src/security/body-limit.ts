@@ -42,7 +42,7 @@ export const MAX_SOURCE_UPLOAD_BYTES = 100 * 1024 * 1024; // 100 MiB
 /** GitHub webhook payloads are capped at 25MB upstream; inbound trigger
  *  webhooks are operator-configured and expected to be small, but share the
  *  prefix so neither needs its own rule. */
-export const MAX_WEBHOOK_BYTES = 25 * 1024 * 1024; // 25 MiB
+const MAX_WEBHOOK_BYTES = 25 * 1024 * 1024; // 25 MiB
 
 export const CONTROL_PLANE_BODY_LIMIT_RULES: BodyLimitRule[] = [
   { prefix: "/api/services/", maxBytes: MAX_SOURCE_UPLOAD_BYTES }, // POST /:resourceId/source

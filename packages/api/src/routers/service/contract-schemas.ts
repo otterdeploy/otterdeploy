@@ -16,7 +16,7 @@ import { projectIdField, resourceIdField } from "../project/contract/shared";
 // Shared schemas
 // ---------------------------------------------------------------------------
 
-export const servicePortSchema = z.object({
+const servicePortSchema = z.object({
   id: z.string(),
   containerPort: z.number().int().positive(),
   protocol: z.enum(["tcp", "udp"]),
@@ -31,13 +31,13 @@ export const servicePortInputSchema = z.object({
   isPrimary: z.boolean().optional(),
 });
 
-export const serviceRestartSchema = z.object({
+const serviceRestartSchema = z.object({
   condition: z.enum(["none", "on-failure", "any"]),
   maxAttempts: z.number().int().nonnegative().nullable(),
   delayMs: z.number().int().nonnegative(),
 });
 
-export const serviceHealthcheckSchema = z
+const serviceHealthcheckSchema = z
   .object({
     cmd: z.array(z.string()).nullable(),
     intervalMs: z.number().int().positive().nullable(),
@@ -47,14 +47,14 @@ export const serviceHealthcheckSchema = z
   })
   .nullable();
 
-export const serviceResourcesSchema = z.object({
+const serviceResourcesSchema = z.object({
   cpuLimit: z.number().nonnegative().nullable(),
   memoryLimitMb: z.number().int().positive().nullable(),
   cpuReservation: z.number().nonnegative().nullable(),
   memoryReservationMb: z.number().int().positive().nullable(),
 });
 
-export const serviceRuntimeSchema = z.object({
+const serviceRuntimeSchema = z.object({
   serviceId: z.string().nullable(),
   serviceName: z.string(),
   networkName: z.string(),

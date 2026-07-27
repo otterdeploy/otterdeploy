@@ -19,7 +19,7 @@
 
 import { useState } from "react";
 
-import { Alert02Icon, CheckmarkCircle02Icon, Copy01Icon } from "@hugeicons/core-free-icons";
+import { Alert02Icon, Copy01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -202,36 +202,5 @@ export function DnsRecordsDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-/** Small status pill for a domain row — shared so "pointed / proxied /
- *  unpointed" reads identically wherever a domain is listed. */
-export function DnsStateBadge({
-  state,
-}: {
-  state: "pointed" | "proxied" | "unpointed" | "unknown";
-}) {
-  const label = {
-    pointed: "DNS ok",
-    proxied: "Proxied",
-    unpointed: "DNS pending",
-    unknown: "Checking",
-  }[state];
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px]",
-        state === "pointed" && "bg-success/10 text-success-foreground",
-        state === "proxied" && "bg-warning/10 text-warning-foreground",
-        state === "unpointed" && "bg-muted text-muted-foreground",
-        state === "unknown" && "bg-muted text-muted-foreground",
-      )}
-    >
-      {state === "pointed" ? (
-        <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={2} className="size-3" />
-      ) : null}
-      {label}
-    </span>
   );
 }

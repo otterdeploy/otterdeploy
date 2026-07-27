@@ -16,7 +16,7 @@ import { servicePortInputSchema } from "./contract-schemas";
 // Input schemas
 // ---------------------------------------------------------------------------
 
-export const envKeyRegex = /^[A-Z_][A-Z0-9_]*$/;
+const envKeyRegex = /^[A-Z_][A-Z0-9_]*$/;
 
 export const createServiceInput = z.object({
   projectId: projectIdField,
@@ -167,7 +167,7 @@ export const bulkEnvInput = z.object({
 
 // --- Custom domains ---
 
-export const domainField = z
+const domainField = z
   .string()
   .min(1)
   .max(253)
@@ -181,10 +181,7 @@ export const listDomainsInput = z.object({
 // Persistent volume mounts. A container path (absolute) backed by a docker
 // named volume that survives redeploys — first-class storage for a plain
 // service, the thing the compose detour used to be required for.
-export const mountPathField = z
-  .string()
-  .min(1)
-  .regex(/^\//, "mount path must be absolute (start with /)");
+const mountPathField = z.string().min(1).regex(/^\//, "mount path must be absolute (start with /)");
 
 export const serviceMountSchema = z.object({
   mountPath: z.string(),

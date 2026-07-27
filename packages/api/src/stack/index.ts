@@ -6,11 +6,7 @@
  */
 
 export {
-  STACK_FILE_SCHEMA_VERSION,
-  STACK_DEFAULT_HEALTHCHECK,
   stackFileSchema,
-  stackServiceSchema,
-  stackOtterdeployExtensionSchema,
   type StackConfig,
   type StackDeploy,
   type StackFile,

@@ -15,7 +15,7 @@
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 
-export const dnsInspectOutput = z.object({
+const dnsInspectOutput = z.object({
   /** The DNS provider we could identify from the zone's nameservers. */
   provider: z.enum(["cloudflare", "unknown"]),
   /** Zone apex that answered NS — what a Cloudflare zone is keyed on, and the

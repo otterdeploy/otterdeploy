@@ -32,7 +32,7 @@ interface Diagram {
   height: number;
 }
 
-export function buildDiagram(parsed: ParsedCompose): Diagram {
+function buildDiagram(parsed: ParsedCompose): Diagram {
   const exposed = parsed.services.filter((s) => s.ports.length > 0);
   const internal = parsed.services.filter((s) => s.ports.length === 0);
 

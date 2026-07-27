@@ -22,7 +22,7 @@
 const env = process.env;
 
 const ESC = "\u001b[";
-export const RESET = `${ESC}0m`;
+const RESET = `${ESC}0m`;
 
 /** Semantic roles. Commands name a role, never a colour. */
 export type Role =

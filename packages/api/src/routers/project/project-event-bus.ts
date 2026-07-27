@@ -38,10 +38,7 @@ function getPublisher(): RedisClient {
 }
 
 /** Publish a raw event to a project's channel. Fire-and-forget. */
-export function publishProjectEvent(
-  projectId: ProjectId | string,
-  event: ProjectStreamEvent,
-): void {
+function publishProjectEvent(projectId: ProjectId | string, event: ProjectStreamEvent): void {
   void Promise.resolve()
     .then(() => getPublisher().publish(channel(projectId), JSON.stringify(event)))
     .catch(() => undefined);

@@ -174,7 +174,7 @@ export async function* streamProgress(
 
 /** Read the persisted snapshot from disk — used after a restart to recover the
  *  final outcome of a real cutover. Null if absent/unreadable. */
-export async function readPersistedSnapshot(): Promise<UpdateRunSnapshot | null> {
+async function readPersistedSnapshot(): Promise<UpdateRunSnapshot | null> {
   const res = await Result.tryPromise({
     try: async () => JSON.parse(await readFile(STATUS_FILE, "utf8")) as UpdateRunSnapshot,
     catch: (cause) => cause,

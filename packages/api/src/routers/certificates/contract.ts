@@ -73,7 +73,7 @@ const inventorySchema = z.object({
 
 // ─── custom certificates (uploaded PEM) ─────────────────────────────
 
-export const customCertificateInstallStateSchema = z.enum(["pending", "installed", "error"]);
+const customCertificateInstallStateSchema = z.enum(["pending", "installed", "error"]);
 
 /** Public row — extracted leaf metadata only, never key material. */
 export const customCertificateSchema = z.object({

@@ -13,7 +13,7 @@ import { cn } from "@/shared/lib/utils";
 
 type IconType = Parameters<typeof HugeiconsIcon>[0]["icon"];
 
-export function StatTile({
+function StatTile({
   icon,
   label,
   value,

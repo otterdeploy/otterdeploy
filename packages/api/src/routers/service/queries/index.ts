@@ -55,7 +55,6 @@ export {
   bulkReplaceServiceEnvVars,
   deleteServiceEnvVar,
   findServiceDependentsByName,
-  getResourceByProjectAndName,
   listServiceEnvVars,
   listServiceEnvVarsForResources,
   resolveResourceForPreview,
@@ -68,9 +67,4 @@ export {
   upsertPreviewServiceEnvVar,
 } from "./env-preview";
 
-export {
-  bulkReplaceServiceMounts,
-  deleteServiceMount,
-  listServiceMounts,
-  upsertServiceMount,
-} from "./mounts";
+export { bulkReplaceServiceMounts } from "./mounts";

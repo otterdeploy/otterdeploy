@@ -26,7 +26,7 @@ import { createRedis } from "../lib/redis";
  *  WebSocket can reconnect without re-prompting; short enough that a stolen
  *  session (without the password/authenticator) can't ride a stale grant
  *  indefinitely. */
-export const STEP_UP_TTL_SECONDS = 5 * 60;
+const STEP_UP_TTL_SECONDS = 5 * 60;
 
 let client: RedisClient | null = null;
 function redis(): RedisClient {
@@ -54,7 +54,7 @@ export async function clearStepUp(userId: string): Promise<void> {
   await redis().del(grantKey(userId));
 }
 
-export class StepUpVerificationError extends TaggedError("StepUpVerificationError")<{
+class StepUpVerificationError extends TaggedError("StepUpVerificationError")<{
   reason: "two_factor_code_required" | "password_required" | "invalid";
   message: string;
 }>() {}
@@ -88,7 +88,7 @@ export async function verifyTotpCode(
  *  against the signed-in user, no new session/cookie side effect at all
  *  (unlike sign-in), which is exactly the "confirm it's still you" primitive
  *  step-up needs. */
-export async function verifyPassword(
+async function verifyPassword(
   context: { headers: Headers },
   password: string,
 ): Promise<Result<void, StepUpVerificationError>> {

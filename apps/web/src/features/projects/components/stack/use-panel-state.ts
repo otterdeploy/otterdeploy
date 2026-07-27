@@ -10,9 +10,9 @@ import { useEffect, useRef, useState } from "react";
 
 import type { StackTab } from "./panel-header";
 
-export const PANEL_MIN_HEIGHT = 160;
-export const PANEL_MAX_VH = 0.7;
-export const PANEL_DEFAULT_HEIGHT = 360;
+const PANEL_MIN_HEIGHT = 160;
+const PANEL_MAX_VH = 0.7;
+const PANEL_DEFAULT_HEIGHT = 360;
 /** Header strip height (h-10) — the drawer's footprint while collapsed. */
 export const PANEL_COLLAPSED_HEIGHT = 40;
 

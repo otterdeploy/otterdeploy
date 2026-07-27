@@ -133,7 +133,7 @@ export type StackDeploy = z.infer<typeof stackDeploySchema>;
 
 // ── otterdeploy extension block ─────────────────────────────────────────
 
-export const stackOtterdeployExtensionSchema = z.object({
+const stackOtterdeployExtensionSchema = z.object({
   kind: z.enum(["database", "service"]),
   engine: z.enum(["postgres", "redis", "mariadb", "mongodb", "clickhouse"]).optional(),
   resourceId: z.string(),
@@ -167,7 +167,7 @@ export type StackOtterdeployExtension = z.infer<typeof stackOtterdeployExtension
 
 // ── Service ────────────────────────────────────────────────────────────
 
-export const stackServiceSchema = z.object({
+const stackServiceSchema = z.object({
   image: z.string().optional(),
   command: z.union([z.string(), z.array(z.string())]).optional(),
   entrypoint: z.union([z.string(), z.array(z.string())]).optional(),

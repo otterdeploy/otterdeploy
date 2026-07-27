@@ -9,10 +9,10 @@ import { QueryError } from "./query";
 /** Sentinel a script returns when a value/key can't be cjson-encoded (binary
  *  bytes that aren't valid UTF-8). Surfaced to the caller as a clear error
  *  rather than a parse failure. */
-export const ENC_ERR = "__OTTER_ENCERR__";
+const ENC_ERR = "__OTTER_ENCERR__";
 
 /** Cap on string-value bytes pulled back to the UI (large blobs stay capped). */
-export const STRING_CAP = 100_000;
+const STRING_CAP = 100_000;
 
 // SCAN one page, then TYPE + TTL for each key. Pure reads, so SCAN-then-read is
 // allowed in a script. KEYS=[], ARGV=[cursor, match, count].

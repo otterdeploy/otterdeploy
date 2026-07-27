@@ -16,12 +16,12 @@ export const TILT = 0.3;
 /** The lattice is perspective-aware: each row is only as wide as it needs to be
  *  to reach the panel edges at its own depth, and rows open up as they recede,
  *  so node count tracks what is visible instead of the world box. */
-export const X_CENTER = 0;
+const X_CENTER = 0;
 /** Only the depths that actually land on the canvas are generated — nearer rows
  *  project below the bottom edge and would be pure cull cost. */
-export const Z_NEAR = -0.9;
+const Z_NEAR = -0.9;
 export const Z_FAR = 11;
-export const rowStep = (z: number) => 0.06 + (z + 1.6) * 0.016;
+const rowStep = (z: number) => 0.06 + (z + 1.6) * 0.016;
 
 /** Resting swell — barely there, so the field reads as calm, not as water. */
 export const SWELL = 0.05;
@@ -33,13 +33,13 @@ export const RIPPLE_Z = 3.4;
 
 /** One deploy: the ripple travels out across the horizon, then the field rests. */
 export const WAVE_TRAVEL = 6.5;
-export const WAVE_REST = 3.2;
-export const WAVE_CYCLE = WAVE_TRAVEL + WAVE_REST;
+const WAVE_REST = 3.2;
+const WAVE_CYCLE = WAVE_TRAVEL + WAVE_REST;
 /** Crest height and half-width, world units, and how far the ring travels. */
-export const WAVE_HEIGHT = 0.22;
+const WAVE_HEIGHT = 0.22;
 export const WAVE_WIDTH = 0.62;
-export const WAVE_FROM = 0.5;
-export const WAVE_TO = 9;
+const WAVE_FROM = 0.5;
+const WAVE_TO = 9;
 
 /** The craft's trail. Blue lands here and on the ripple crest only — DESIGN.md
  *  caps the accent near 10% of a surface. */

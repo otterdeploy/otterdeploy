@@ -21,10 +21,10 @@ import { DockerNotFoundError, followProgress } from "@otterdeploy/docker";
 import { PassThrough, Readable, Writable } from "node:stream";
 
 /** Helper image for tar/clear runs — small, ships GNU-compatible busybox tar. */
-export const VOLUME_HELPER_IMAGE = "alpine:3.20";
+const VOLUME_HELPER_IMAGE = "alpine:3.20";
 
 /** Where the volume is mounted inside helper containers. */
-export const VOLUME_MOUNT_TARGET = "/v";
+const VOLUME_MOUNT_TARGET = "/v";
 
 // ─── Pure helpers (unit-tested) ────────────────────────────────────────────
 

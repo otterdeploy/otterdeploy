@@ -83,20 +83,20 @@ export const deploymentSchema = z.object({
   updatedAt: z.string(),
 });
 
-export const deploymentListInput = z.object({
+const deploymentListInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   /** Scope to one PR preview's deployments. Omitted → base rows only. */
   previewId: zId(ID_PREFIX.preview).optional(),
 });
 
-export const deploymentTasksInput = z.object({
+const deploymentTasksInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   deploymentId: deploymentIdField,
 });
 
-export const deploymentLogsTailInput = z.object({
+const deploymentLogsTailInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   deploymentId: deploymentIdField,

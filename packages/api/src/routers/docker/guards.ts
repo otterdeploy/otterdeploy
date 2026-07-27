@@ -41,7 +41,7 @@ export function guardVolumeRemoval(opts: { attachedTo: string[] }): GuardResult 
 }
 
 /** Docker's own plumbing networks — deleting these breaks the daemon/swarm. */
-export const BUILTIN_NETWORKS = new Set(["bridge", "host", "none", "ingress", "docker_gwbridge"]);
+const BUILTIN_NETWORKS = new Set(["bridge", "host", "none", "ingress", "docker_gwbridge"]);
 
 /**
  * Network removal: refuse the daemon's builtin networks (bridge/host/none),

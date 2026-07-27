@@ -7,7 +7,7 @@
  * Adding a new engine = one new adapter file + one line of registration.
  */
 
-import { DATABASE_ENGINES, type DatabaseEngine } from "@otterdeploy/shared/database-engines";
+import { type DatabaseEngine } from "@otterdeploy/shared/database-engines";
 
 export interface ConnectionStringInput {
   username: string;
@@ -106,10 +106,4 @@ export function resolveDatabaseMount(
  *  that haven't yet plumbed an explicit version through the request. */
 export function defaultImageFor(engine: DatabaseEngine): string {
   return ADAPTERS[engine].defaultImage;
-}
-
-/** Re-export catalog metadata for callers that want both engine config
- *  (this adapter) and presentation metadata (label/category) in one go. */
-export function catalogFor(engine: DatabaseEngine) {
-  return DATABASE_ENGINES[engine];
 }

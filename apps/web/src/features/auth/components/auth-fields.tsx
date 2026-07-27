@@ -6,7 +6,7 @@ import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 
 /** Labeled text input shared by the sign-in / sign-up forms. */
-export function AuthInput({
+function AuthInput({
   id,
   name,
   label,

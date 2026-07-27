@@ -27,7 +27,7 @@ import { organizationIdField } from "../project/contract/shared";
  * characters are exposed). The raw `sso_provider.oidc_config` column is never
  * read into this shape — see packages/db/src/schema/auth.ts.
  */
-export const ssoProviderViewSchema = z.object({
+const ssoProviderViewSchema = z.object({
   providerId: z.string(),
   issuer: z.string(),
   domain: z.string(),

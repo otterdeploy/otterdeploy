@@ -3,7 +3,7 @@ import { isIP } from "node:net";
 const MAX_ENTRIES = 250_000;
 const MAX_LINE_LENGTH = 256;
 
-export class InvalidBlocklistContentError extends Error {
+class InvalidBlocklistContentError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "InvalidBlocklistContentError";

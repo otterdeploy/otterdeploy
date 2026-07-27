@@ -14,7 +14,7 @@ import * as z from "zod";
 
 import { basePath, environmentIdField, projectIdField, projectNotFoundErrors, tag } from "./shared";
 
-export const projectEnvVarSchema = z.object({
+const projectEnvVarSchema = z.object({
   id: z.string(),
   projectId: projectIdField,
   environmentId: environmentIdField,
@@ -28,12 +28,12 @@ export const projectEnvVarSchema = z.object({
   updatedAt: z.date(),
 });
 
-export const listProjectEnvVarsInput = z.object({
+const listProjectEnvVarsInput = z.object({
   projectId: projectIdField,
   environmentId: environmentIdField,
 });
 
-export const upsertProjectEnvVarInput = z.object({
+const upsertProjectEnvVarInput = z.object({
   projectId: projectIdField,
   environmentId: environmentIdField,
   key: z.string().min(1).max(255),
@@ -45,13 +45,13 @@ export const upsertProjectEnvVarInput = z.object({
   sealed: z.boolean().optional(),
 });
 
-export const deleteProjectEnvVarInput = z.object({
+const deleteProjectEnvVarInput = z.object({
   projectId: projectIdField,
   environmentId: environmentIdField,
   key: z.string().min(1).max(255),
 });
 
-export const bulkReplaceProjectEnvVarsInput = z.object({
+const bulkReplaceProjectEnvVarsInput = z.object({
   projectId: projectIdField,
   environmentId: environmentIdField,
   vars: z.array(

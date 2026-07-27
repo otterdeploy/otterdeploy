@@ -26,7 +26,6 @@ import { mapDatabaseResource, type PostgresResource } from "../views";
 
 export {
   applyPostgresExtraEnv,
-  rollbackPostgresToSnapshot,
   setPostgresExtraEnvKey,
   unsetPostgresExtraEnvKey,
 } from "./env-extra";

@@ -76,7 +76,7 @@ export interface TerminalTicketClaims {
   clientIp: string | null;
 }
 
-export class TerminalTicketError extends TaggedError("TerminalTicketError")<{
+class TerminalTicketError extends TaggedError("TerminalTicketError")<{
   status: 401 | 403;
   reason: "invalid_or_replayed" | "ip_mismatch";
   message: string;

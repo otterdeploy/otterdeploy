@@ -281,36 +281,6 @@ export async function decryptSecret(blob: string): Promise<string> {
   return new TextDecoder().decode(plaintext);
 }
 
-/**
- * Binary AES-GCM for backup archives — same v1 legacy key as `encryptSecret`,
- * operating on raw bytes (no base64 round-trip) so large dumps don't bloat.
- * Framing: 12-byte nonce prefix, then AES-GCM ciphertext+tag. NOT part of the
- * v2 domain-separation rework in this pass — backup archive encryption keeps
- * using the shared legacy key (see od-5j8.12's closing notes for why).
- */
-export async function encryptBytes(plaintext: Uint8Array): Promise<Buffer> {
-  const key = await getLegacyKey();
-  const nonce = crypto.getRandomValues(new Uint8Array(NONCE_BYTES));
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv: nonce },
-    key,
-    plaintext as unknown as ArrayBuffer,
-  );
-  return Buffer.concat([Buffer.from(nonce), Buffer.from(ciphertext)]);
-}
-
-export async function decryptBytes(blob: Uint8Array): Promise<Buffer> {
-  const nonce = blob.subarray(0, NONCE_BYTES);
-  const ciphertext = blob.subarray(NONCE_BYTES);
-  const key = await getLegacyKey();
-  const plaintext = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: nonce as unknown as ArrayBuffer },
-    key,
-    ciphertext as unknown as ArrayBuffer,
-  );
-  return Buffer.from(plaintext);
-}
-
 // ── v2 (domain-separated + versioned) ───────────────────────────────────
 
 /** Encrypt `plaintext` for `domain` under the current key id. */

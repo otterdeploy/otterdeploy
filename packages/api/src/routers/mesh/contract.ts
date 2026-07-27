@@ -14,8 +14,8 @@ import * as z from "zod";
 const tag = "mesh";
 const basePath = "/mesh";
 
-export const meshProviderSchema = z.enum(["netbird", "tailscale"]);
-export const meshStatusSchema = z.enum(["connected", "error", "disconnected"]);
+const meshProviderSchema = z.enum(["netbird", "tailscale"]);
+const meshStatusSchema = z.enum(["connected", "error", "disconnected"]);
 
 const meshGroupSchema = z.object({
   id: z.string(),
@@ -42,7 +42,7 @@ const meshPeerSchema = z.object({
  * is the normal, fully-supported state — the whole feature is optional — so
  * this is an absence, not an error.
  */
-export const meshStatusOutput = z.object({
+const meshStatusOutput = z.object({
   connected: z.boolean(),
   provider: meshProviderSchema.nullable(),
   status: meshStatusSchema.nullable(),

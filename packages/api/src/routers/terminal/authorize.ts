@@ -17,7 +17,7 @@ import { listTerminalTargets } from "./handlers";
 
 export type TerminalTarget = { kind: "container"; id: string } | { kind: "host" };
 
-export class TerminalAuthzError extends TaggedError("TerminalAuthzError")<{
+class TerminalAuthzError extends TaggedError("TerminalAuthzError")<{
   status: 401 | 403 | 404;
   message: string;
 }>() {}

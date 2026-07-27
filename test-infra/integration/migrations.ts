@@ -14,14 +14,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const REAL_MIGRATIONS_DIR = fileURLToPath(
+const REAL_MIGRATIONS_DIR = fileURLToPath(
   new URL("../../packages/db/src/migrations", import.meta.url),
 );
 
 /** The two migrations added by od-5j8.1 (fix(auth): secure installation
  *  bootstrap, commit 6b6bf9cd): the `is_install_admin` column + backfill,
  *  then the `bootstrap_completed_at` marker + upgrade backfill. */
-export const BOOTSTRAP_MIGRATION_NAMES = [
+const BOOTSTRAP_MIGRATION_NAMES = [
   "20260725213604_material_talkback",
   "20260725214306_fearless_valkyrie",
 ] as const;

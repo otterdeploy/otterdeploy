@@ -37,7 +37,7 @@ export const volumeNameField = z
   );
 
 /** One platform resource a volume is attached to / claimed by. */
-export const volumeAttachmentSchema = z.object({
+const volumeAttachmentSchema = z.object({
   resourceId: z.string(),
   resourceName: z.string(),
   resourceType: z.enum(["database", "service", "compose"]),

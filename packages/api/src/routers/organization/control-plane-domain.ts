@@ -53,7 +53,7 @@ async function readRow(): Promise<PlatformRow | undefined> {
   return row;
 }
 
-export class ControlPlaneDomainError extends TaggedError("ControlPlaneDomainError")<{
+class ControlPlaneDomainError extends TaggedError("ControlPlaneDomainError")<{
   reason: "domain" | "cloudflare" | "server-ip" | "api";
   message: string;
 }>() {

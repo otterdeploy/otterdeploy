@@ -206,22 +206,6 @@ export async function bulkReplaceServiceEnvVars(
   });
 }
 
-// ---------------------------------------------------------------------------
-// Cross-resource lookups for the variable resolver
-// ---------------------------------------------------------------------------
-
-export async function getResourceByProjectAndName(
-  projectId: ProjectId,
-  name: string,
-): Promise<ResourceRow | undefined> {
-  const [row] = await db
-    .select()
-    .from(resource)
-    .where(and(eq(resource.projectId, projectId), eq(resource.name, name)))
-    .limit(1);
-  return row;
-}
-
 /**
  * Preview-aware resource lookup for the variable resolver: a preview-scoped
  * row (an opt-in DB branch, `previewId = <preview>`) wins over the base row

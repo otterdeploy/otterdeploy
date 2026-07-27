@@ -10,7 +10,7 @@ import * as z from "zod";
 
 const resourceIdField = zId(ID_PREFIX.resource);
 
-export const ephemeralScopeSchema = z.enum(["read-only", "read-write"]);
+const ephemeralScopeSchema = z.enum(["read-only", "read-write"]);
 
 export const ephemeralCreateInput = z.object({
   resourceId: resourceIdField,

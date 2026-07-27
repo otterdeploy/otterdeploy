@@ -58,72 +58,8 @@ export const projectContract = {
 // Callers across the codebase still import named schemas from the contract
 // module — keep that surface stable here so the split is transparent.
 
-export {
-  createProjectInput,
-  deleteProjectInput,
-  getProjectBySlugInput,
-  getProjectInput,
-  projectListItemSchema,
-  projectSchema,
-  updateProjectInput,
-} from "./project";
+export { projectListItemSchema, projectSchema } from "./project";
 
-export {
-  checkResourceNameInput,
-  checkResourceNameSchema,
-  composeResourceSchema,
-  databaseResourceSchema,
-  deleteProjectResourceInput,
-  getProjectResourceInput,
-  listProjectResourcesInput,
-  postgresResourceSchema,
-  resourceEnvBulkSetInput,
-  resourceEnvEntrySchema,
-  resourceEnvListInput,
-  resourceSchema,
-  resourceTaskInput,
-  serviceResourceSchema,
-} from "./resource";
+export { composeResourceSchema, postgresResourceSchema, serviceResourceSchema } from "./resource";
 
-export { resourceLogEventSchema, resourceLogsTailInput, resourceTaskLogsTailInput } from "./logs";
-
-export { projectLogEventSchema, projectLogsTailInput } from "./project-logs";
-
-export {
-  deploymentListInput,
-  deploymentLogsTailInput,
-  deploymentSchema,
-  deploymentTasksInput,
-} from "./deployments";
-
-export {
-  createPostgresDatabaseInput,
-  createPostgresProgressSchema,
-  setPostgresExtraEnvInput,
-  setPostgresPublicInput,
-  unsetPostgresExtraEnvInput,
-} from "./postgres";
-
-export { listProxyRoutesInput, proxyRouteSchema } from "./proxy";
-
-export { dependencyEdgeSchema, listDependenciesInput } from "./dependencies";
-
-export { listServiceTasksInput, serviceTaskSchema, serviceTasksSchema } from "./service-tasks";
-
-export {
-  manifestApplyInput,
-  manifestApplyOutput,
-  manifestDiffInput,
-  manifestDiffOutput,
-  manifestGetOutput,
-  manifestSaveInput,
-  manifestSaveOutput,
-} from "./manifest";
-
-export {
-  bulkReplaceProjectEnvVarsInput,
-  deleteProjectEnvVarInput,
-  listProjectEnvVarsInput,
-  projectEnvVarSchema,
-  upsertProjectEnvVarInput,
-} from "./env-var";
+export { proxyRouteSchema } from "./proxy";

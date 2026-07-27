@@ -24,7 +24,6 @@ import {
 } from "../queries";
 import { mapDatabaseResource, type PostgresResource } from "../views";
 import { rollDatabaseContainer } from "./roll";
-import { type PostgresSnapshotV1 } from "./snapshot";
 
 /**
  * Shared write path for editor mutations on `extraEnv`. Persists the new map,
@@ -145,34 +144,6 @@ export async function unsetPostgresExtraEnvKey(
       organizationId: input.organizationId,
       resourceId: input.resourceId,
       nextExtraEnv: current,
-    },
-    log,
-  );
-}
-
-/**
- * Apply a postgres snapshot to its resource — the rollback primitive.
- * Today's postgres snapshot only records env-shaped data (the rest of
- * the postgres state — credentials, hostnames — is immutable across the
- * resource's lifetime), so rollback is "set extraEnv to the snapshot's
- * value." The result is ONE new deployment row (reason: "redeploy")
- * whose snapshot equals the snapshot we just replayed. If we later let
- * users edit publicEnabled etc., this function fans out the additional
- * setPostgres* calls in the same flow.
- */
-export async function rollbackPostgresToSnapshot(
-  input: ProjectRef & {
-    resourceId: ResourceId;
-    snapshot: PostgresSnapshotV1;
-  },
-  log: RequestLogger,
-) {
-  return applyPostgresExtraEnv(
-    {
-      projectId: input.projectId,
-      organizationId: input.organizationId,
-      resourceId: input.resourceId,
-      nextExtraEnv: input.snapshot.extraEnv,
     },
     log,
   );

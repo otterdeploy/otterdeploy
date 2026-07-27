@@ -34,7 +34,7 @@ import { defineJob } from "../define";
 import { controlPlaneEgressDenylist, egressAllowlist } from "../delivery/egress-denylist";
 import { decryptSecret } from "../delivery/secret-crypto";
 
-export const SIGNATURE_HEADER = "X-Otterdeploy-Signature";
+const SIGNATURE_HEADER = "X-Otterdeploy-Signature";
 const DELIVERY_TIMEOUT_MS = 10_000;
 const DELIVERY_MAX_RESPONSE_BYTES = 1024 * 1024;
 

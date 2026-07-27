@@ -28,7 +28,7 @@ export interface InstanceGlimpse {
 
 // Swarm task lifecycle states bucketed by what they mean for a deployment.
 // Reference: https://docs.docker.com/reference/cli/docker/service/ps/
-export const BUILDING_STATES = new Set([
+const BUILDING_STATES = new Set([
   // Swarm task states.
   "new",
   "allocated",
@@ -42,7 +42,7 @@ export const BUILDING_STATES = new Set([
   "created",
   "restarting",
 ]);
-export const FAILED_STATES = new Set([
+const FAILED_STATES = new Set([
   "failed",
   "rejected",
   "orphaned",
@@ -89,7 +89,7 @@ export const ZERO_TASK_STALE_MS = 3 * 60_000;
 // deployment that already reached "running" is the signal to surface it as
 // `crashed` rather than a calm `running`. Below the threshold we treat a lone
 // failure as a transient restart and leave it `running`.
-export const CRASH_LOOP_FAILURE_THRESHOLD = 3;
+const CRASH_LOOP_FAILURE_THRESHOLD = 3;
 
 // A git-source deployment legitimately has ZERO tasks for its whole image
 // build — nothing is scheduled until build+push finishes — so age alone

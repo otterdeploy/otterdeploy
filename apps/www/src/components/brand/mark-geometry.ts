@@ -9,10 +9,7 @@
 /** What the counter inside the ring is saying. The ring itself never changes. */
 export type MarkStatus = "idle" | "deploying" | "success" | "warning" | "error";
 
-export const MARK_STATUSES = ["idle", "deploying", "success", "warning", "error"] as const;
-
 export const MARK_VIEW_BOX = "0 0 32 32";
-export const MARK_GRID = 32;
 export const MARK_STROKE = 2.6;
 export const MARK_RING = { x: 4.6, y: 4.6, width: 22.8, height: 22.8, rx: 7.1 } as const;
 
@@ -36,14 +33,3 @@ export const MARK_GLYPHS: Record<MarkStatus, readonly string[]> = {
   warning: ["M16 10.2 16 17", "M16 21.1 16 21.1"],
   error: ["M11.8 11.8 20.2 20.2", "M20.2 11.8 11.8 20.2"],
 };
-
-export const MARK_STATUS_COLORS: Record<MarkStatus, { light: string; dark: string }> = {
-  idle: { light: "#1d4ed8", dark: "#3b82f6" },
-  deploying: { light: "#1d4ed8", dark: "#3b82f6" },
-  success: { light: "#1f7a3f", dark: "#4ade80" },
-  warning: { light: "#8a6a00", dark: "#fbbf24" },
-  error: { light: "#b42318", dark: "#f87171" },
-};
-
-/** The ring, in both themes. Warm ink — never pure black or white. */
-export const MARK_INK = { light: "#141412", dark: "#f5f5f0" } as const;

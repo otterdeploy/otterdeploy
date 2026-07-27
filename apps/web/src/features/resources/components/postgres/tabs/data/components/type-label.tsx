@@ -6,7 +6,7 @@
 
 import { cn } from "@/shared/lib/utils";
 
-export function typeToneClass(type: string): string {
+function typeToneClass(type: string): string {
   if (/bool/.test(type)) return "text-amber-600 dark:text-amber-500";
   if (/int|numeric|real|double|decimal|money|serial/.test(type)) {
     return "text-emerald-600 dark:text-emerald-500";

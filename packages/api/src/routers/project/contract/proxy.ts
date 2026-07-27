@@ -25,7 +25,7 @@ export const proxyRouteSchema = createSelectSchema(proxyRoute)
     routePolicy: routePolicySchema,
   });
 
-export const listProxyRoutesInput = z.object({
+const listProxyRoutesInput = z.object({
   projectId: projectIdField,
 });
 

@@ -5,7 +5,7 @@
  * service under `od-…` (databases under `otterdeploy-…`), but that prefix is
  * noise in the UI: the operator named the service, so show that.
  */
-export const PLATFORM_SVC_PREFIX = "od-";
+const PLATFORM_SVC_PREFIX = "od-";
 // Pre-rename services persisted their name with the old prefix; keep stripping
 // it so they still display cleanly until they're next redeployed.
 const LEGACY_SVC_PREFIX = "otterdeploy-svc-";

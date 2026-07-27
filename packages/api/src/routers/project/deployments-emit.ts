@@ -13,7 +13,7 @@ import { emitPlatformEvent } from "../../notifications/emit";
 
 /** Resolve org + project/resource display names from a resource id, for the
  *  deploy.* notification emitters. Returns null if the resource is gone. */
-export async function resolveDeployContext(resourceId: ResourceId): Promise<{
+async function resolveDeployContext(resourceId: ResourceId): Promise<{
   organizationId: OrganizationId;
   resourceName: string;
   projectName: string;

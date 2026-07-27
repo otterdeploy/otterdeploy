@@ -38,11 +38,6 @@ export function invokedName(): string {
   return cached;
 }
 
-/** Reset the cache. Tests only, which rewrite `process.argv`. */
-export function resetInvokedName(): void {
-  cached = null;
-}
-
 /**
  * A runnable command string for hints: `cmd("login <url>")` → "otd login <url>".
  * Always prefer this over interpolating the name yourself.

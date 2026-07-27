@@ -44,8 +44,7 @@ export type { DerivedDeploymentStatus } from "./deployments-derive";
 // call sites keep importing from the list module.
 export {
   isBuildStillLogging,
-  reconcileDeployFailure,
-  reconcileDeploySuccess,
+    reconcileDeploySuccess,
 } from "./deployments-reconcile";
 
 export interface DeploymentWithStats {

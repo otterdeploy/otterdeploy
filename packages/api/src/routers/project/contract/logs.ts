@@ -19,7 +19,7 @@ export const resourceLogEventSchema = z.object({
   ts: z.string().nullable(),
 });
 
-export const resourceLogsTailInput = z.object({
+const resourceLogsTailInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   /** Number of historical lines to replay before live-tailing. */
@@ -30,7 +30,7 @@ export const resourceLogsTailInput = z.object({
   since: z.iso.datetime().optional(),
 });
 
-export const resourceTaskLogsTailInput = z.object({
+const resourceTaskLogsTailInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   /** Swarm task id. Returned by `project.resource.tasks`. */

@@ -59,9 +59,7 @@ async function probeStats(conn: DbConnInfo): Promise<CatalogStats | null> {
   }
 }
 
-export async function buildOrgDatabaseCatalog(
-  organizationId: OrganizationId,
-): Promise<OrgCatalogItem[]> {
+async function buildOrgDatabaseCatalog(organizationId: OrganizationId): Promise<OrgCatalogItem[]> {
   // Base databases only — preview-scoped branches belong to their PR, not the
   // org catalog (same rule as the project graph's resource list).
   const rows = await db

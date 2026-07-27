@@ -19,7 +19,7 @@ import { projectIdField, resourceIdField } from "./shared";
 // + a set of connection strings), the engine field just enumerates which
 // engine produced those strings. The export alias below keeps the
 // `postgresResourceSchema` import name compiling.
-export const databaseResourceSchema = z.object({
+const databaseResourceSchema = z.object({
   resourceId: resourceIdField,
   projectId: projectIdField,
   name: z.string(),

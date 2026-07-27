@@ -101,7 +101,7 @@ export interface HelperHardeningConfig {
   cpus: string;
 }
 
-export const HELPER_HARDENING_DEFAULTS: HelperHardeningConfig = {
+const HELPER_HARDENING_DEFAULTS: HelperHardeningConfig = {
   pidsLimit: "512",
   memory: "4g",
   cpus: "2",

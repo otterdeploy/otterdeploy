@@ -34,7 +34,7 @@ export interface NavLists {
   onCreateEnv: () => void;
 }
 
-export function ActiveCheck({ active }: { active: boolean }) {
+function ActiveCheck({ active }: { active: boolean }) {
   return (
     <HugeiconsIcon
       icon={Tick02Icon}

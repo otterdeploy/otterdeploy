@@ -15,16 +15,8 @@ import { getSwarmJoinTokens } from "./join-tokens";
 const TOKEN_BYTES = 32;
 const UNKNOWN = "—";
 
-export {
-  buildSwarmRotationOptions,
-  hashEnrollmentCredential,
-  parseEnrollmentCredential,
-} from "./enrollment-credential";
-export {
-  reapNodeEnrollments,
-  rotateSwarmJoinCredential,
-  startNodeEnrollmentReaper,
-} from "./enrollment-rotation";
+export { parseEnrollmentCredential } from "./enrollment-credential";
+export { rotateSwarmJoinCredential, startNodeEnrollmentReaper } from "./enrollment-rotation";
 export type { EnrollmentRole } from "./enrollment-credential";
 
 export async function createNodeEnrollment(input: {

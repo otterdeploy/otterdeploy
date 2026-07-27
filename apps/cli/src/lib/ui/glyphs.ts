@@ -165,7 +165,7 @@ const STATES: Record<string, State> = {
 };
 
 /** Presentation for a state string; unknown values degrade to a neutral dot. */
-export function stateOf(status: string): State {
+function stateOf(status: string): State {
   return STATES[status] ?? { glyph: G.retired, role: "muted" };
 }
 

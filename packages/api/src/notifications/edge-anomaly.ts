@@ -85,7 +85,7 @@ function foldByOrgIp(
 }
 
 /** One scan pass. Never throws. */
-export async function scanEdgeThreats(now = Date.now()): Promise<void> {
+async function scanEdgeThreats(now = Date.now()): Promise<void> {
   try {
     const groups = await scanSuspiciousGroups(now - WINDOW_MS, REQUEST_THRESHOLD);
     if (groups.length === 0) return;

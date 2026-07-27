@@ -97,7 +97,7 @@ export async function recordHealthSample(
 }
 
 /** Match a claimed hostname to server rows (hostname OR name, all orgs). */
-export async function matchServersByHostname(hostname: string) {
+async function matchServersByHostname(hostname: string) {
   return db
     .select({
       id: server.id,

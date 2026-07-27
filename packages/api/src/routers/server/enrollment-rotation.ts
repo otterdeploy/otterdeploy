@@ -113,7 +113,7 @@ let reaperRunning = false;
 
 /** Retry durable rotation requests and rotate credentials exposed by a
  * redeemed enrollment that expired before its completion callback arrived. */
-export async function reapNodeEnrollments(now = new Date()): Promise<void> {
+async function reapNodeEnrollments(now = new Date()): Promise<void> {
   if (reaperRunning) return;
   reaperRunning = true;
   try {
