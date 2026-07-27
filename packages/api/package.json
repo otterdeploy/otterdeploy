@@ -40,6 +40,7 @@
   },
   "scripts": {
     "test": "bun --bun vitest run",
+    "test:integration": "bun --bun vitest run --config vitest.redis.config.ts",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json"
   },
   "dependencies": {

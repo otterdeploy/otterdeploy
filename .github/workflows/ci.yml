@@ -63,14 +63,24 @@ jobs:
         if: matrix.task == 'test'
         run: bun run test --cache-dir=.turbo
 
-  # Separate from the `check` matrix: this is the only job that needs a real
-  # database, so it's the only one carrying the postgres:17 service
-  # container. Proves the od-5j8.1 installation-bootstrap migrations + the
-  # real better-auth signup hook end-to-end (od-5j8.1.1) — see
-  # test-infra/integration/. Ordinary unit tests (the `test` matrix leg
-  # above) never need Docker/Postgres; only this job does.
+  # Separate from the `check` matrix: this is the only job carrying service
+  # containers, so it owns every test that needs real infrastructure.
+  #
+  #   postgres — the od-5j8.1 installation-bootstrap migrations + the real
+  #              better-auth signup hook end-to-end (od-5j8.1.1), see
+  #              test-infra/integration/.
+  #   redis    — the terminal-ticket + step-up security suite
+  #              (packages/api/src/**/*.redis.test.ts).
+  #
+  # The `test` matrix leg above stays infra-free, and that is enforced by
+  # config rather than convention: vitest.config.ts EXCLUDES `*.redis.test.ts`
+  # so a file needing Redis cannot drift back into the fast leg. It used to be
+  # convention alone, and the terminal-ticket suite had quietly depended on a
+  # Redis that leg never had — three tests spent 5s each timing out on a
+  # connection that could not succeed, passing locally only because developers
+  # run compose.
   integration:
-    name: integration (postgres 17)
+    name: integration (postgres 17 + redis)
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -83,6 +93,21 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      # Backs the terminal-ticket and step-up suites
+      # (packages/api/src/__tests__/security/*.redis.test.ts). Those assert
+      # behaviour Redis itself provides — TTL eviction, GETDEL atomicity under a
+      # race, SET NX refusing to clobber — so they need the real thing: a double
+      # that imitates those semantics would only be testing the double, and the
+      # guarantee under test is that a replayed terminal credential fails.
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -99,7 +124,11 @@ jobs:
       # Every test file creates + drops its own uniquely named database on
       # this instance (see test-infra/integration/postgres-harness.ts), so
       # the suite is hermetic even though the service container is shared.
-      - name: Integration tests (real Postgres 17 bootstrap + upgrade)
+      # `turbo test:integration` fans out to every package declaring the task:
+      # test-infra (Postgres bootstrap + upgrade) and @otterdeploy/api (the
+      # Redis-backed terminal-ticket / step-up security suite).
+      - name: Integration tests (real Postgres 17 + Redis)
         run: bun run test:integration
         env:
           INTEGRATION_POSTGRES_URL: postgres://postgres:postgres@localhost:5432/postgres
+          REDIS_URL: redis://localhost:6379
