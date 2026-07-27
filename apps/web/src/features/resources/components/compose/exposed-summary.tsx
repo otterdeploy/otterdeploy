@@ -19,7 +19,7 @@ import { SettingsCard } from "@/features/resources/components/_shared/settings-c
 import {
   StatusBadge,
   type BaseDomainStatus,
-  type DomainView,
+  type DomainStatusView,
 } from "@/features/resources/components/service/tabs/settings/domains-card-parts";
 import { resourceCollection } from "@/features/resources/data/resource";
 import { buttonVariants } from "@/shared/components/ui/button";
@@ -30,21 +30,14 @@ import { orpc } from "@/shared/server/orpc";
  *  child's own Domains card would show a Live/Pending DNS chip for. Custom
  *  domains, verification, and DNS detail all still live on the child's own
  *  Domains card; this summary only needs enough to say "reachable" honestly. */
-function toDomainView(publicDomain: string): DomainView {
+function toDomainView(publicDomain: string): DomainStatusView {
   return {
-    id: publicDomain,
     domain: publicDomain,
     source: "generated",
-    isPrimary: true,
     status: "live",
     dnsState: "pointed",
-    dnsCheckedAt: null,
     usesAcme: false,
-    protected: false,
     ownershipVerified: true,
-    verifyRecord: null,
-    verifyToken: null,
-    dnsTarget: null,
   };
 }
 

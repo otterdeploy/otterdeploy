@@ -142,19 +142,34 @@ const serverStatsSchema = z.object({
 const serverStatsInput = z.object({}).optional();
 
 const enrollmentRoleField = z.enum(["worker", "manager"]);
+// Step-up re-authentication, same shape as the terminal's (routers/terminal
+// /contract.ts): whichever credential the account actually has. Enrollment
+// used to demand TOTP unconditionally, so an operator without an authenticator
+// was shown a code field, told nothing, and could never enroll a node —
+// `verifyStepUpCredential` picks the right one instead.
 const stepUpFields = {
   role: enrollmentRoleField,
-  totpCode: z.string().regex(/^\d{6}(\d{2})?$/, "Enter the current authenticator code."),
+  /** Required when the account has an authenticator app enabled. */
+  totpCode: z
+    .string()
+    .regex(/^\d{6}(\d{2})?$/, "Enter the current authenticator code.")
+    .optional(),
+  /** Required otherwise. */
+  password: z.string().min(1, "Enter your password.").optional(),
   managerConfirmation: z.string().optional(),
 };
 const enrollmentErrors = {
-  TWO_FACTOR_REQUIRED: {
-    status: 412,
-    message: "Enable two-factor authentication before creating node enrollment." as const,
+  TWO_FACTOR_CODE_REQUIRED: {
+    status: 400,
+    message: "Enter the current authenticator code." as const,
+  },
+  PASSWORD_REQUIRED: {
+    status: 400,
+    message: "Enter your password." as const,
   },
   INVALID_STEP_UP: {
     status: 403,
-    message: "The authenticator code is invalid." as const,
+    message: "That code or password is incorrect." as const,
   },
   MANAGER_CONFIRMATION_REQUIRED: {
     status: 400,

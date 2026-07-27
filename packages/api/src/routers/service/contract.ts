@@ -9,6 +9,7 @@ import {
   addMountInput,
   buildServiceOutput,
   bulkEnvInput,
+  checkDomainInput,
   createServiceInput,
   domainRouteInput,
   getServiceInput,
@@ -36,6 +37,10 @@ const sharedErrors = {
   REF_MISSING: { status: 400, message: "Referenced resource does not exist" as const },
   REF_CYCLE: { status: 400, message: "Variable reference cycle" as const },
   NO_HTTP_PORT: { status: 400, message: "Service has no HTTP port to expose" as const },
+  UNKNOWN_PORT: {
+    status: 400,
+    message: "That port isn't one this service publishes" as const,
+  },
   DOMAIN_CONFLICT: { status: 409, message: "Domain is already in use or invalid" as const },
   DOMAIN_NOT_FOUND: { status: 404, message: "Domain not found" as const },
   MISSING_BUILD_BINDING: {
@@ -170,6 +175,9 @@ export const serviceContract = {
     .errors({
       NOT_FOUND: sharedErrors.NOT_FOUND,
       NO_HTTP_PORT: sharedErrors.NO_HTTP_PORT,
+      // The host we'd publish on is already routed elsewhere in this install.
+      // Surfaced instead of the 500 an unguarded unique-violation used to give.
+      DOMAIN_CONFLICT: sharedErrors.DOMAIN_CONFLICT,
       // The service has no real domain, so the only host we can publish it on
       // is a throwaway `<slug>.<ip>.sslip.io`. Expose refuses rather than doing
       // that silently; `data.generatedDomain` is the host the caller can opt
@@ -249,10 +257,45 @@ export const serviceContract = {
       .input(listDomainsInput)
       .output(z.array(serviceDomainSchema)),
 
+    /**
+     * Pre-flight availability for the add-domain field. Read-only: it never
+     * reserves the name, so a `true` here can still lose a race with another
+     * operator — `add` remains the authority and still answers 409.
+     */
+    check: oc
+      .errors({ NOT_FOUND: sharedErrors.NOT_FOUND })
+      .meta({ path: `${basePath}/{resourceId}/domains/check`, tag, method: "GET" })
+      .input(checkDomainInput)
+      .output(
+        z.object({
+          domain: z.string(),
+          available: z.boolean(),
+          reason: z.enum(["ok", "invalid", "reserved", "taken"]),
+        }),
+      ),
+
+    /**
+     * Mint the platform-generated host for this service (org base domain, or
+     * the sslip.io fallback) and publish on it. Unlike `expose`, this always
+     * produces a generated host — it is the "Generate Domain" button, not a
+     * toggle — and needs no sslip opt-in prompt because asking for it IS the
+     * opt-in.
+     */
+    generate: oc
+      .errors({
+        NOT_FOUND: sharedErrors.NOT_FOUND,
+        NO_HTTP_PORT: sharedErrors.NO_HTTP_PORT,
+        DOMAIN_CONFLICT: sharedErrors.DOMAIN_CONFLICT,
+      })
+      .meta({ path: `${basePath}/{resourceId}/domains/generate`, tag, method: "POST" })
+      .input(listDomainsInput)
+      .output(serviceDomainSchema),
+
     add: oc
       .errors({
         NOT_FOUND: sharedErrors.NOT_FOUND,
         NO_HTTP_PORT: sharedErrors.NO_HTTP_PORT,
+        UNKNOWN_PORT: sharedErrors.UNKNOWN_PORT,
         DOMAIN_CONFLICT: sharedErrors.DOMAIN_CONFLICT,
       })
       .meta({ path: `${basePath}/{resourceId}/domains`, tag, method: "POST" })
@@ -263,6 +306,7 @@ export const serviceContract = {
       .errors({
         NOT_FOUND: sharedErrors.NOT_FOUND,
         DOMAIN_NOT_FOUND: sharedErrors.DOMAIN_NOT_FOUND,
+        UNKNOWN_PORT: sharedErrors.UNKNOWN_PORT,
         DOMAIN_CONFLICT: sharedErrors.DOMAIN_CONFLICT,
       })
       .meta({ path: `${basePath}/{resourceId}/domains/{routeId}`, tag, method: "PATCH" })

@@ -12,12 +12,11 @@ import {
 import { ServiceBuildCard } from "./build-card";
 import { ServiceDangerZone } from "./danger-zone";
 import { ServiceDeployHooksCard } from "./deploy-hooks-card";
-import { ServiceDomainsCard } from "./domains-card";
 import { ServiceHealthCheckCard } from "./health-check-card";
 import { ManifestDomainsCard } from "./manifest-domains-card";
 import { ManifestPortsCard } from "./manifest-ports-card";
+import { ServiceNetworkingCard } from "./networking-card";
 import { ServiceProtectionCard } from "./protection-card";
-import { ServicePublicAccessCard } from "./public-access-card";
 import { ServiceScalingCard } from "./scaling-card";
 import { ServiceSourceCard } from "./source-card";
 
@@ -85,8 +84,7 @@ export function ServiceSettingsBody({
               service.get/update, so they're omitted for a staged create. */}
           <ServiceScalingCard resource={resource} />
           <ServiceHealthCheckCard resource={resource} />
-          <ServicePublicAccessCard resource={resource} />
-          <ServiceDomainsCard resource={resource} />
+          <ServiceNetworkingCard resource={resource} />
           <ServiceProtectionCard resource={resource} />
         </>
       )}

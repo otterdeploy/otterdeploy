@@ -13,6 +13,7 @@ import type { ProjectNotFoundError } from "../project/errors";
 import { reconcile } from "../../caddy";
 import {
   clearPrimaryForResource,
+  getProxyRouteByDomain,
   insertProxyRoute,
   listProxyRoutesByResourceId,
   setRoutesEnabledForResource,
@@ -21,11 +22,17 @@ import {
 import { loadDomainSourcesForProject } from "../../lib/domain-sources";
 import { resolvePublicDomain, type ResolvedDomain } from "../../lib/domains";
 import { loadResource } from "./context";
-import { NoHttpPortError, NoPublicDomainError, ServiceNotFoundError } from "./errors";
+import { serverIpFor, type ServiceDomainView, toDomainView } from "./domain-rules";
+import {
+  DomainConflictError,
+  NoHttpPortError,
+  NoPublicDomainError,
+  ServiceNotFoundError,
+} from "./errors";
 import { getService } from "./handlers";
 import { type ResourceRef } from "./inputs";
 import { getPrimaryHttpPort, setPublicExposure, type ServiceRecord } from "./queries";
-import { sanitizeSlug, type ServiceView } from "./views";
+import { isUniqueViolation, sanitizeSlug, type ServiceView } from "./views";
 
 type NotFound = ProjectNotFoundError | ServiceNotFoundError;
 type ProxyRoutes = Awaited<ReturnType<typeof listProxyRoutesByResourceId>>;
@@ -75,32 +82,55 @@ async function resolveGeneratedDomain(
 
 /** Nothing live — either a first expose or every host is still a pending
  *  custom. Mint the already-resolved host so expose actually exposes
- *  something. */
+ *  something.
+ *
+ *  `proxy_route.domain` is unique install-wide, so this insert can lose to a
+ *  row we can't see from the resource (a leftover from a recreated resource,
+ *  a preview route, another project whose slugs collide). That used to
+ *  surface as a bare 500 on the confirm step; now the row is adopted when it
+ *  is ours to adopt, and reported as a conflict when it isn't. */
 async function insertGeneratedRoute(
   input: ResourceRef,
   record: ServiceRecord,
   resolved: ResolvedDomain,
   upstreamPort: number,
   routes: ProxyRoutes,
-): Promise<void> {
-  await insertProxyRoute({
-    projectId: input.projectId,
-    resourceId: input.resourceId,
-    type: "http",
-    domain: resolved.fqdn,
+): Promise<Result<void, DomainConflictError>> {
+  const fields = {
     upstreamHost: record.service.serviceName,
     upstreamPort,
-    protocol: "http",
     // ACME only when the resolver decided the domain is verified and not
     // a sslip fallback — same gate as the DB path.
     usesAcme: resolved.verified && resolved.source !== "sslip-fallback",
     enabled: true,
-    source: "generated",
-    // Becomes primary only if no other route already claims it.
-    isPrimary: !routes.some((r) => r.isPrimary),
-    // Generated hosts resolve to us by construction (sslip/local/org apex).
-    dnsState: "pointed",
-  });
+  };
+  try {
+    await insertProxyRoute({
+      projectId: input.projectId,
+      resourceId: input.resourceId,
+      type: "http",
+      domain: resolved.fqdn,
+      protocol: "http",
+      source: "generated",
+      // Becomes primary only if no other route already claims it.
+      isPrimary: !routes.some((r) => r.isPrimary),
+      // Generated hosts resolve to us by construction (sslip/local/org apex).
+      dnsState: "pointed",
+      ...fields,
+    });
+    return Result.ok();
+  } catch (error) {
+    if (!isUniqueViolation(error)) throw error;
+    const existing = await getProxyRouteByDomain(resolved.fqdn);
+    // Only a base route already attached to THIS resource is safe to take
+    // over; anything else belongs to another resource or preview and would
+    // be hijacked by re-pointing it here.
+    if (!existing || existing.resourceId !== input.resourceId || existing.previewId !== null) {
+      return Result.err(new DomainConflictError({ domain: resolved.fqdn }));
+    }
+    await updateProxyRoute(existing.id, fields);
+    return Result.ok();
+  }
 }
 
 /** Settle the primary on a live host: keep the flagged one if it's live, else
@@ -124,7 +154,9 @@ export async function exposeService(
   input: ResourceRef,
   allowGeneratedDomain: boolean,
   log: RequestLogger,
-): Promise<Result<ServiceView, NotFound | NoHttpPortError | NoPublicDomainError>> {
+): Promise<
+  Result<ServiceView, NotFound | NoHttpPortError | NoPublicDomainError | DomainConflictError>
+> {
   const ctx = await loadResource(input);
   if (ctx.isErr()) return Result.err(ctx.error);
   const { project, record } = ctx.value;
@@ -157,7 +189,14 @@ export async function exposeService(
         }),
       );
     }
-    await insertGeneratedRoute(input, record, resolved, primary.containerPort, routes);
+    const inserted = await insertGeneratedRoute(
+      input,
+      record,
+      resolved,
+      primary.containerPort,
+      routes,
+    );
+    if (inserted.isErr()) return Result.err(inserted.error);
     routes = await listProxyRoutesByResourceId(input.resourceId);
   }
 
@@ -178,6 +217,67 @@ export async function exposeService(
   });
 
   return getService(input);
+}
+
+/**
+ * Mint the platform-generated host for this service and publish on it.
+ *
+ * This is the "Generate Domain" button, not a toggle: it always yields a
+ * generated host, where `exposeService` only mints one when nothing else is
+ * already serving. Asking for the host IS the opt-in, so there is no sslip
+ * confirmation prompt in the way — the returned view says plainly which kind
+ * of host was minted and the card explains what that means.
+ *
+ * Idempotent: a service that already has its generated host gets that row
+ * back (re-enabled), not a duplicate.
+ */
+export async function generateServiceDomain(
+  input: ResourceRef,
+  log: RequestLogger,
+): Promise<Result<ServiceDomainView, NotFound | NoHttpPortError | DomainConflictError>> {
+  const ctx = await loadResource(input);
+  if (ctx.isErr()) return Result.err(ctx.error);
+  const { project, record } = ctx.value;
+
+  const primary = getPrimaryHttpPort(record.ports);
+  if (!primary) return Result.err(new NoHttpPortError({ resourceId: input.resourceId }));
+
+  const resolved = await resolveGeneratedDomain(input, record, sanitizeSlug(project.slug));
+  const routes = await listProxyRoutesByResourceId(input.resourceId);
+  const existing = routes.find((r) => r.domain === resolved.fqdn);
+
+  if (existing) {
+    await updateProxyRoute(existing.id, {
+      enabled: true,
+      upstreamHost: record.service.serviceName,
+      upstreamPort: primary.containerPort,
+    });
+  } else {
+    const inserted = await insertGeneratedRoute(
+      input,
+      record,
+      resolved,
+      primary.containerPort,
+      routes,
+    );
+    if (inserted.isErr()) return Result.err(inserted.error);
+  }
+
+  const after = await listProxyRoutesByResourceId(input.resourceId);
+  const route = after.find((r) => r.domain === resolved.fqdn);
+  if (!route) return Result.err(new DomainConflictError({ domain: resolved.fqdn }));
+
+  await setPublicExposure({
+    resourceId: input.resourceId,
+    // The generated host becomes the advertised one only when nothing else
+    // has claimed primary — an operator's custom domain outranks it.
+    enabled: true,
+    publicDomain: (await settlePrimaryRoute(input.resourceId, after)) ?? resolved.fqdn,
+  });
+  await reconcile(log);
+
+  log.set({ domain: { action: "generate", domain: resolved.fqdn, source: resolved.source } });
+  return Result.ok(toDomainView(route, await serverIpFor(input)));
 }
 
 export async function unexposeService(

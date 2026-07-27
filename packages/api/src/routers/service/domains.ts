@@ -3,20 +3,21 @@
  *
  * A service publishes on several hosts, each one a `proxy_route` row tied
  * to the service resource (so per-route deployment protection + guests
- * apply per domain). A custom host goes live the moment it's added — no
- * ownership gate. A DNS reachability check classifies where the host
- * currently resolves and drives the cert decision:
+ * apply per domain), each routed at a container port of its own. A DNS
+ * reachability check on add classifies where the host currently resolves,
+ * which drives both the cert decision and whether it serves immediately:
  *
- *   pointed   — resolves to our server IP ⇒ real Let's Encrypt cert
- *   proxied   — resolves into a Cloudflare edge range ⇒ Cloudflare
- *               terminates TLS; origin serves `tls internal`
- *   unpointed — not pointed here yet ⇒ self-signed until DNS lands
- *               (non-blocking; the UI shows the A record to add)
+ *   pointed   — resolves to our server IP ⇒ live now, real Let's Encrypt
+ *               cert. Publishing that record is itself proof of control.
+ *   proxied   — resolves into a Cloudflare edge range ⇒ that address is
+ *               shared, so it proves nothing: the TXT gate still applies.
+ *               Once verified, Cloudflare terminates TLS and the origin
+ *               serves `tls internal`.
+ *   unpointed — not pointed here yet ⇒ inert until the TXT proof or the A
+ *               record lands (the UI shows both records to publish).
  *
- * Verification is implicit: Let's Encrypt's HTTP-01 challenge only succeeds
- * for a name that actually points here, so a working A record + issued cert
- * is the proof of control. The check is a pre-flight convenience.
- *
+ * Domains ARE the exposure — there is no separate public-access switch.
+ * Adding the first host turns exposure on; removing the last turns it off.
  * Exactly one route per resource is flagged `isPrimary`; its domain is
  * mirrored into serviceResource.publicDomain so panel/graph/views keep
  * reading a single string.
@@ -53,43 +54,26 @@ import {
   type ServiceDomainView,
   toDomainView,
 } from "./domain-rules";
+import { provenByDns, resolveUpstreamPort } from "./domains-check";
 import {
   DomainConflictError,
   DomainNotFoundError,
   NoHttpPortError,
   type ServiceNotFoundError,
+  UnknownPortError,
 } from "./errors";
 import { type ResourceRef } from "./inputs";
-import { getPrimaryHttpPort, setServicePublicDomain, type ServiceRecord } from "./queries";
+import { setPublicExposure, setServicePublicDomain, type ServiceRecord } from "./queries";
 import { isUniqueViolation } from "./views";
 
 type NotFound = ProjectNotFoundError | ServiceNotFoundError;
 
-// ---------------------------------------------------------------------------
-// Reads
-// ---------------------------------------------------------------------------
-
-export async function listServiceDomains(
-  input: ResourceRef,
-): Promise<Result<ServiceDomainView[], NotFound>> {
-  const ctx = await loadResource(input);
-  if (ctx.isErr()) return Result.err(ctx.error);
-
-  const [routes, dnsTarget] = await Promise.all([
-    listProxyRoutesByResourceId(input.resourceId),
-    serverIpFor(input),
-  ]);
-  return Result.ok(routes.map((r) => toDomainView(r, dnsTarget)));
-}
-
-// ---------------------------------------------------------------------------
-// Mutations
-// ---------------------------------------------------------------------------
-
 export async function addServiceDomain(
-  input: ResourceRef & { domain: string },
+  input: ResourceRef & { domain: string; port?: number },
   log: RequestLogger,
-): Promise<Result<ServiceDomainView, NotFound | NoHttpPortError | DomainConflictError>> {
+): Promise<
+  Result<ServiceDomainView, NotFound | NoHttpPortError | UnknownPortError | DomainConflictError>
+> {
   const ctx = await loadResource(input);
   if (ctx.isErr()) return Result.err(ctx.error);
   const { record } = ctx.value;
@@ -99,43 +83,60 @@ export async function addServiceDomain(
     return Result.err(new DomainConflictError({ domain: input.domain }));
   }
 
-  const primaryPort = getPrimaryHttpPort(record.ports);
-  if (!primaryPort) {
-    return Result.err(new NoHttpPortError({ resourceId: input.resourceId }));
-  }
+  const upstreamPort = resolveUpstreamPort(record, input.resourceId, input.port);
+  if (upstreamPort.isErr()) return Result.err(upstreamPort.error);
 
   const clash = await getProxyRouteByDomain(domain);
   if (clash) return Result.err(new DomainConflictError({ domain }));
 
   const serverIp = await serverIpFor(input);
   const reachability = await checkDomainReachability({ domain, serverIp });
+  // DNS that already resolves to this server is proof of control (see
+  // `provenByDns`) — those hosts serve immediately. Anything else stays inert
+  // behind the per-route TXT challenge until Recheck observes it.
+  const live = provenByDns(reachability.state);
+  const existing = await listProxyRoutesByResourceId(input.resourceId);
+
   let route: ProxyRouteRecord;
   try {
-    // Ownership first: a route is inert until its per-route TXT challenge is
-    // observed. Pointing an A record at this server is not proof that this
-    // organization controls the name.
     route = await insertProxyRoute({
       projectId: input.projectId,
       resourceId: input.resourceId,
       type: "http",
       domain,
       upstreamHost: record.service.serviceName,
-      upstreamPort: primaryPort.containerPort,
+      upstreamPort: upstreamPort.value,
       protocol: "http",
-      usesAcme: false,
-      enabled: false,
+      usesAcme: live && acmeFor(domain, reachability.state),
+      enabled: live,
       source: "custom",
-      isPrimary: false,
+      // First host on the service is the one everything else mirrors.
+      isPrimary: existing.length === 0,
       dnsState: reachability.state,
       dnsCheckedAt: new Date(),
       domainVerifyToken: randomBytes(24).toString("base64url"),
+      domainVerifiedAt: live ? new Date() : null,
     });
   } catch (error) {
     if (isUniqueViolation(error)) return Result.err(new DomainConflictError({ domain }));
     throw error;
   }
 
-  log.set({ domain: { action: "add", domain, dnsState: reachability.state } });
+  // A service with a domain IS a public service — there is no second switch
+  // to find. Adding the first host turns exposure on; the route itself still
+  // waits on its own DNS/ownership before it serves anything.
+  if (route.isPrimary || !record.service.publicEnabled) {
+    await setPublicExposure({
+      resourceId: input.resourceId,
+      enabled: true,
+      publicDomain: route.isPrimary ? domain : (record.service.publicDomain ?? domain),
+    });
+  }
+  if (route.enabled) await reconcile(log);
+
+  log.set({
+    domain: { action: "add", domain, dnsState: reachability.state, port: upstreamPort.value, live },
+  });
   return Result.ok(toDomainView(route, serverIp));
 }
 
@@ -166,8 +167,11 @@ export async function recheckServiceDomain(
 
   const serverIp = await serverIpFor(input);
   const reachability = await checkDomainReachability({ domain: route.domain, serverIp });
+  // Generated hosts are ours by construction, and a host that now resolves to
+  // this server has proven itself the same way ACME would — either way there
+  // is nothing left for the TXT challenge to establish.
   const ownership =
-    route.source === "generated"
+    route.source === "generated" || provenByDns(reachability.state)
       ? { ok: true }
       : await verifyDomainTxt({
           domain: route.domain,
@@ -202,9 +206,11 @@ export async function recheckServiceDomain(
 }
 
 export async function updateServiceDomain(
-  input: ResourceRef & { routeId: ProxyRouteId; domain: string },
+  input: ResourceRef & { routeId: ProxyRouteId; domain: string; port?: number },
   log: RequestLogger,
-): Promise<Result<ServiceDomainView, NotFound | DomainNotFoundError | DomainConflictError>> {
+): Promise<
+  Result<ServiceDomainView, NotFound | DomainNotFoundError | DomainConflictError | UnknownPortError>
+> {
   const owned = await loadOwnedRoute(input);
   if (owned.isErr()) return Result.err(owned.error);
   const { route, record } = owned.value;
@@ -212,6 +218,19 @@ export async function updateServiceDomain(
   const domain = normalizeDomain(input.domain);
   if (!domain || (await isReservedControlPlaneDomain(domain))) {
     return Result.err(new DomainConflictError({ domain: input.domain }));
+  }
+
+  // An omitted port keeps the one this host already routes to — editing the
+  // hostname alone must not silently re-point the route at the primary. (So
+  // this path can't hit "service has no HTTP port": there's always the port
+  // the route is already using to fall back on.)
+  let upstreamPort = route.upstreamPort;
+  if (input.port != null) {
+    const match = record.ports.find((p) => p.containerPort === input.port);
+    if (!match) {
+      return Result.err(new UnknownPortError({ resourceId: input.resourceId, port: input.port }));
+    }
+    upstreamPort = match.containerPort;
   }
 
   if (domain !== route.domain) {
@@ -226,16 +245,16 @@ export async function updateServiceDomain(
 
   let updated: ProxyRouteRecord | undefined;
   try {
-    updated = await updateProxyRoute(
-      input.routeId,
-      domainUpdatePatch({
+    updated = await updateProxyRoute(input.routeId, {
+      ...domainUpdatePatch({
         domain,
         route,
         serviceName: record.service.serviceName,
         dnsState: reachability.state,
         requiresVerification,
       }),
-    );
+      upstreamPort,
+    });
   } catch (error) {
     if (isUniqueViolation(error)) return Result.err(new DomainConflictError({ domain }));
     throw error;
@@ -281,18 +300,20 @@ export async function removeServiceDomain(
 
   const all = await listProxyRoutesByResourceId(input.resourceId);
   await deleteProxyRoute(input.routeId);
+  const survivors = all.filter((r) => r.id !== input.routeId);
 
-  if (route.isPrimary) {
+  if (survivors.length === 0) {
+    // Domains ARE the exposure: removing the last host puts the service back
+    // on the project network only, rather than leaving `publicEnabled` true
+    // with nothing to reach it by.
+    await setPublicExposure({ resourceId: input.resourceId, enabled: false, publicDomain: null });
+  } else if (route.isPrimary) {
     // Promote a survivor: prefer a live host, fall back to any remaining
-    // route, and mirror it. If none remain the service has no public host —
-    // clear the mirror.
-    const survivors = all.filter((r) => r.id !== input.routeId);
-    const next = survivors.find((r) => r.enabled) ?? survivors[0] ?? null;
+    // route, and mirror it.
+    const next = survivors.find((r) => r.enabled) ?? survivors[0];
     if (next) {
       await updateProxyRoute(next.id, { isPrimary: true });
       await setServicePublicDomain(input.resourceId, next.domain);
-    } else {
-      await setServicePublicDomain(input.resourceId, null);
     }
   }
 

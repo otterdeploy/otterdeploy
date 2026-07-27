@@ -3,7 +3,7 @@ import type { NodeEnrollmentId, UserId } from "@otterdeploy/shared/id";
 import type { Context } from "../../context";
 
 import { requireInstallAdmin } from "../..";
-import { verifyTotpCode } from "../../authz/step-up";
+import { verifyStepUpCredential } from "../../authz/step-up";
 import {
   createNodeEnrollment,
   isSwarmEnrollmentReady,
@@ -14,7 +14,8 @@ import {
 } from "./enrollment";
 
 interface StepUpErrors {
-  TWO_FACTOR_REQUIRED: () => Error;
+  TWO_FACTOR_CODE_REQUIRED: () => Error;
+  PASSWORD_REQUIRED: () => Error;
   INVALID_STEP_UP: () => Error;
   MANAGER_CONFIRMATION_REQUIRED: () => Error;
 }
@@ -23,21 +24,34 @@ async function requireEnrollmentStepUp(
   context: Context,
   input: {
     role: EnrollmentRole;
-    totpCode: string;
+    totpCode?: string;
+    password?: string;
     managerConfirmation?: string;
   },
   errors: StepUpErrors,
 ): Promise<void> {
-  if (!context.session?.user.twoFactorEnabled) {
-    throw errors.TWO_FACTOR_REQUIRED();
-  }
+  const user = context.session?.user;
+  if (!user) throw errors.INVALID_STEP_UP();
+
   if (input.role === "manager" && input.managerConfirmation !== "ENROLL MANAGER") {
     throw errors.MANAGER_CONFIRMATION_REQUIRED();
   }
-  // Shared with terminal step-up (od-5j8.9) — same verifyTOTP call, not a
-  // hand-rolled parallel check.
-  const verified = await verifyTotpCode(context, input.totpCode);
-  if (verified.isErr()) throw errors.INVALID_STEP_UP();
+
+  // `verifyStepUpCredential`, not a bare `verifyTotpCode`: this used to reject
+  // anyone without 2FA outright, which made node enrollment impossible for an
+  // operator who had never set up an authenticator — while still showing them
+  // a code field. The shared primitive asks for whichever credential the
+  // account actually has, exactly as terminal step-up does.
+  const verified = await verifyStepUpCredential(context, user, {
+    totpCode: input.totpCode,
+    password: input.password,
+  });
+  if (verified.isErr()) {
+    const { reason } = verified.error;
+    if (reason === "two_factor_code_required") throw errors.TWO_FACTOR_CODE_REQUIRED();
+    if (reason === "password_required") throw errors.PASSWORD_REQUIRED();
+    throw errors.INVALID_STEP_UP();
+  }
 }
 
 function enrollmentStatus(row: {

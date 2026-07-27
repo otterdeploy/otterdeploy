@@ -109,6 +109,9 @@ export const serviceDomainSchema = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
   domain: z.string(),
+  /** Container port this host proxies to. Each host picks its own, so one
+   *  service can publish an API on :8000 and a dashboard on :3000. */
+  port: z.number().int(),
   source: z.enum(["generated", "custom"]),
   isPrimary: z.boolean(),
   status: z.enum(["live", "disabled"]),

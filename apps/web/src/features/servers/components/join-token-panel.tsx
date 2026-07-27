@@ -5,6 +5,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { sessionQuery } from "@/lib/auth-queries";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -12,6 +13,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/shared/components/ui/toggle-grou
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { JoinCommandBlock } from "./join-command-block";
+import { StepUpForm } from "./join-token-step-up";
 
 export type JoinRole = "worker" | "manager";
 
@@ -24,67 +26,6 @@ interface EnrollmentSummary {
   id: string;
   role: JoinRole;
   status: "active" | "expired" | "redeemed" | "completed" | "revoked";
-}
-
-interface StepUpFormProps {
-  role: JoinRole;
-  totpCode: string;
-  managerConfirmation: string;
-  canSubmit: boolean;
-  creating: boolean;
-  rotating: boolean;
-  onTotpCodeChange: (value: string) => void;
-  onManagerConfirmationChange: (value: string) => void;
-  onCreate: () => void;
-  onRotate: () => void;
-}
-
-function StepUpForm(props: StepUpFormProps) {
-  return (
-    <div className="grid gap-3 rounded-md border bg-muted/20 p-3">
-      <label htmlFor="node-enrollment-totp" className="grid gap-1.5">
-        <span className="text-xs font-medium">Authenticator code</span>
-        <Input
-          id="node-enrollment-totp"
-          value={props.totpCode}
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          maxLength={8}
-          placeholder="000000"
-          className="max-w-40 font-mono"
-          onChange={(event) => props.onTotpCodeChange(event.target.value.replace(/\D/g, ""))}
-        />
-      </label>
-      {props.role === "manager" ? (
-        <label htmlFor="node-enrollment-manager-confirmation" className="grid gap-1.5">
-          <span className="text-xs font-medium">Confirm manager authority</span>
-          <Input
-            id="node-enrollment-manager-confirmation"
-            value={props.managerConfirmation}
-            placeholder="ENROLL MANAGER"
-            className="font-mono"
-            onChange={(event) => props.onManagerConfirmationChange(event.target.value)}
-          />
-          <span className="text-[11px] text-muted-foreground">
-            Managers participate in cluster quorum and can control every workload.
-          </span>
-        </label>
-      ) : null}
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" disabled={!props.canSubmit || props.creating} onClick={props.onCreate}>
-          {props.creating ? "Creating…" : "Create 10-minute enrollment"}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!props.canSubmit || props.rotating}
-          onClick={props.onRotate}
-        >
-          {props.rotating ? "Rotating…" : `Rotate ${props.role} credential`}
-        </Button>
-      </div>
-    </div>
-  );
 }
 
 function EnrollmentHistory({
@@ -129,6 +70,14 @@ function EnrollmentHistory({
 
 export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
   const [totpCode, setTotpCode] = useState("");
+  const [password, setPassword] = useState("");
+  // Which credential this account can present. The server accepts either
+  // (verifyStepUpCredential) — asking for a code from someone who never set up
+  // an authenticator is a form that can't be filled in.
+  const sessionQ = useQuery(sessionQuery);
+  const twoFactorEnabled = Boolean(
+    (sessionQ.data?.user as { twoFactorEnabled?: boolean } | undefined)?.twoFactorEnabled,
+  );
   const [managerConfirmation, setManagerConfirmation] = useState("");
   const [created, setCreated] = useState<{
     id: string;
@@ -145,6 +94,7 @@ export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
       onSuccess: (value) => {
         setCreated(value);
         setTotpCode("");
+        setPassword("");
         void queryClient.invalidateQueries({ queryKey: orpc.server.enrollments.queryKey() });
       },
       onError: (error) => toast.error(error.message),
@@ -165,6 +115,7 @@ export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
       onSuccess: () => {
         toast.success(`${role === "manager" ? "Manager" : "Worker"} join credential rotated`);
         setTotpCode("");
+        setPassword("");
         setCreated(null);
         void queryClient.invalidateQueries({ queryKey: orpc.server.enrollments.queryKey() });
       },
@@ -180,12 +131,13 @@ export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
 
   const stepUpInput = {
     role,
-    totpCode,
+    totpCode: twoFactorEnabled ? totpCode : undefined,
+    password: twoFactorEnabled ? undefined : password,
     managerConfirmation: role === "manager" ? managerConfirmation : undefined,
   };
+  const credentialReady = twoFactorEnabled ? /^\d{6}(\d{2})?$/.test(totpCode) : password.length > 0;
   const canSubmit =
-    /^\d{6}(\d{2})?$/.test(totpCode) &&
-    (role !== "manager" || managerConfirmation === "ENROLL MANAGER");
+    credentialReady && (role !== "manager" || managerConfirmation === "ENROLL MANAGER");
 
   return (
     <div className="flex flex-col gap-4">
@@ -210,12 +162,15 @@ export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
 
       <StepUpForm
         role={role}
+        twoFactorEnabled={twoFactorEnabled}
         totpCode={totpCode}
+        password={password}
         managerConfirmation={managerConfirmation}
         canSubmit={canSubmit}
         creating={create.isPending}
         rotating={rotate.isPending}
         onTotpCodeChange={setTotpCode}
+        onPasswordChange={setPassword}
         onManagerConfirmationChange={setManagerConfirmation}
         onCreate={() => create.mutate({ ...stepUpInput, ttlMinutes: 10 })}
         onRotate={() => rotate.mutate(stepUpInput)}

@@ -1,53 +1,35 @@
 /**
- * One row of {@link ServiceDomainsCard}: a single published host, with its
- * inline rename, its DNS-records dialog, and the verify / recheck /
- * auto-configure actions that act on that host alone.
- *
- * Split out of ./domains-card so the card stays about the list and the add
- * form — this owns everything scoped to a single domain.
+ * One row of {@link ServiceNetworkingCard}: a single published host, its
+ * inline edit (hostname + target port), its DNS-records dialog, and the
+ * per-host actions. The mutations behind those actions live in
+ * ./use-domain-row so this file stays about what the row looks like.
  */
 
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { useState } from "react";
 
-import { useMutation } from "@tanstack/react-query";
+import { GlobalIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { useLoaderData } from "@tanstack/react-router";
-import { toast } from "sonner";
 
 import { DnsRecordsDialog } from "@/shared/components/domains/dns-records-dialog";
 import { Badge } from "@/shared/components/ui/badge";
-import { orpc } from "@/shared/server/orpc";
+import { copyToClipboard } from "@/shared/lib/clipboard";
 
+import type { PortChoice } from "./domain-row-parts";
 import type { BaseDomainStatus, DomainView } from "./domains-card-parts";
 
-import { DnsHint, DomainEditRow, DomainRowActions, StatusBadge } from "./domains-card-parts";
+import { DomainEditRow, DomainRowActions } from "./domain-row-parts";
+import { DnsHint, StatusBadge } from "./domains-card-parts";
+import { useDomainRow } from "./use-domain-row";
 
-export function DomainRow({
-  domain,
-  input,
-  onSettled,
-  baseDomainStatus,
-}: {
-  domain: DomainView;
-  input: { projectId: ProjectId; resourceId: ResourceId };
-  onSettled: () => Promise<void>;
-  baseDomainStatus: BaseDomainStatus | undefined;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(domain.domain);
-  const [dnsOpen, setDnsOpen] = useState(false);
-  // Read here rather than threaded through props: the row is rendered from a
-  // list and only needs the slug to build the "connect Cloudflare" link.
-  const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
-
-  const route = { ...input, routeId: domain.id };
-
-  // Same pair the server derives (packages/api/src/lib/dns-records.ts). Built
-  // from the view's own fields rather than refetched: the row already carries
-  // the token and target, and a second round trip to learn what it already
-  // knows would only add a way for the two to disagree.
-  const dnsRecords = [
+/** Same pair the server derives (packages/api/src/lib/dns-records.ts). Built
+ *  from the view's own fields rather than refetched: the row already carries
+ *  the token and target, and a second round trip to learn what it already
+ *  knows would only add a way for the two to disagree. */
+function dnsRecordsFor(domain: DomainView) {
+  return [
     ...(domain.dnsTarget
       ? [{ type: "A" as const, name: domain.domain, value: domain.dnsTarget }]
       : []),
@@ -55,72 +37,66 @@ export function DomainRow({
       ? [{ type: "TXT" as const, name: domain.verifyRecord, value: domain.verifyToken }]
       : []),
   ];
+}
 
-  const autoConfigure = useMutation({
-    ...orpc.service.domains.autoConfigureDns.mutationOptions(),
-    onSuccess: () => {
-      toast.success(`DNS records created for ${domain.domain}`);
-      // Records exist now, so the ownership check can actually pass — run it
-      // rather than making the operator find Recheck themselves.
-      recheck.mutate(route);
-    },
-    onError: (err) =>
-      toast.error(err instanceof Error ? err.message : "Couldn't configure DNS automatically"),
-  });
+export function DomainRow({
+  domain,
+  input,
+  onSettled,
+  baseDomainStatus,
+  ports,
+}: {
+  domain: DomainView;
+  input: { projectId: ProjectId; resourceId: ResourceId };
+  onSettled: () => Promise<void>;
+  baseDomainStatus: BaseDomainStatus | undefined;
+  /** Container ports this service publishes — the edit row's port options. */
+  ports: PortChoice[];
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(domain.domain);
+  const [port, setPort] = useState(domain.port);
+  const [dnsOpen, setDnsOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  // Read here rather than threaded through props: the row is rendered from a
+  // list and only needs the slug to build the "connect Cloudflare" link.
+  const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
 
-  const recheck = useMutation({
-    ...orpc.service.domains.recheck.mutationOptions(),
-    onSuccess: (res) => {
-      if (!res.ownershipVerified) {
-        toast.warning(`TXT ownership proof for ${res.domain} was not found yet`);
-      } else if (res.dnsState === "pointed")
-        toast.success(`${res.domain} points here — certificate will issue`);
-      else if (res.dnsState === "proxied") toast.success(`${res.domain} is proxied via Cloudflare`);
-      else toast.warning(`${res.domain} isn't pointed here yet`);
-    },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "DNS check failed"),
+  const url = `https://${domain.domain}`;
+  const actions = useDomainRow({
+    input,
+    routeId: domain.id,
+    domain: domain.domain,
     onSettled,
+    onUpdated: () => setEditing(false),
   });
 
-  const setPrimary = useMutation({
-    ...orpc.service.domains.setPrimary.mutationOptions(),
-    onSuccess: () => toast.success(`${domain.domain} is now the primary domain`),
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to set primary"),
-    onSettled,
-  });
-
-  const remove = useMutation({
-    ...orpc.service.domains.remove.mutationOptions(),
-    onSuccess: () => toast.success(`Removed ${domain.domain}`),
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to remove domain"),
-    onSettled,
-  });
-
-  const update = useMutation({
-    ...orpc.service.domains.update.mutationOptions(),
-    onSuccess: () => {
-      setEditing(false);
-      toast.success("Domain updated");
-    },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to update domain"),
-    onSettled,
-  });
-
-  const busy = recheck.isPending || setPrimary.isPending || remove.isPending || update.isPending;
-  // Custom hosts that aren't confirmed pointed here still need a DNS record.
+  // A custom host that isn't confirmed pointed here still needs a DNS record.
   const needsDns =
     domain.source === "custom" &&
     (!domain.ownershipVerified || (domain.dnsState !== "pointed" && domain.dnsState !== "proxied"));
+
+  const onCopy = () => {
+    void copyToClipboard(url).then((ok) => {
+      if (!ok) return;
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1400);
+    });
+  };
 
   if (editing) {
     return (
       <DomainEditRow
         value={value}
         onChange={setValue}
-        onSave={() => update.mutate({ ...route, domain: value.trim().toLowerCase() })}
-        saving={update.isPending}
+        port={port}
+        ports={ports}
+        onPortChange={setPort}
+        onSave={() => actions.update.run({ domain: value.trim().toLowerCase(), port })}
+        saving={actions.update.pending}
         onCancel={() => {
           setValue(domain.domain);
+          setPort(domain.port);
           setEditing(false);
         }}
       />
@@ -130,10 +106,16 @@ export function DomainRow({
   return (
     <div className="flex flex-col gap-2 px-3 py-2.5">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <div className="flex min-w-0 basis-full items-center gap-2 sm:flex-1 sm:basis-auto">
+        <HugeiconsIcon
+          icon={GlobalIcon}
+          strokeWidth={2}
+          className="size-4 shrink-0 text-muted-foreground/70"
+          aria-hidden="true"
+        />
+        <div className="flex min-w-0 basis-[calc(100%-1.75rem)] items-center gap-2 sm:flex-1 sm:basis-auto">
           {domain.status === "live" ? (
             <a
-              href={`https://${domain.domain}`}
+              href={url}
               target="_blank"
               rel="noreferrer"
               className="min-w-0 truncate font-mono text-[12.5px] text-foreground underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-foreground"
@@ -146,21 +128,39 @@ export function DomainRow({
             </span>
           )}
 
+          {/* Only worth the pixels when there was a choice to get wrong. */}
+          {ports.length > 1 && (
+            <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+              :{domain.port}
+            </span>
+          )}
           {domain.isPrimary && <Badge variant="default">Primary</Badge>}
           <StatusBadge domain={domain} baseDomainStatus={baseDomainStatus} />
         </div>
 
         <DomainRowActions
           domain={domain}
-          busy={busy}
-          recheckPending={recheck.isPending}
+          busy={actions.busy}
+          recheckPending={actions.recheck.pending}
           needsDns={needsDns}
-          onRecheck={() => recheck.mutate(route)}
-          onSetPrimary={() => setPrimary.mutate(route)}
+          copied={copied}
+          onCopy={onCopy}
+          onRecheck={actions.recheck.run}
+          onSetPrimary={actions.setPrimary.run}
           onEdit={() => setEditing(true)}
-          onRemove={() => remove.mutate(route)}
+          onRemove={actions.remove.run}
         />
       </div>
+
+      {/* The generated host is honest about what it is instead of a modal
+          asking permission to be it: sslip.io resolves without any DNS setup
+          but can't hold a public certificate, so browsers will warn. */}
+      {domain.source === "generated" && domain.domain.endsWith(".sslip.io") && (
+        <p className="text-[11.5px] text-muted-foreground">
+          Temporary address with a self-signed certificate — browsers will warn. Add a domain of
+          your own for a trusted URL.
+        </p>
+      )}
 
       {needsDns && <DnsHint domain={domain} onConfigure={() => setDnsOpen(true)} />}
 
@@ -168,9 +168,9 @@ export function DomainRow({
         open={dnsOpen}
         onOpenChange={setDnsOpen}
         domain={domain.domain}
-        records={dnsRecords}
-        onAutoConfigure={() => autoConfigure.mutate(route)}
-        autoConfiguring={autoConfigure.isPending}
+        records={dnsRecordsFor(domain)}
+        onAutoConfigure={actions.autoConfigure.run}
+        autoConfiguring={actions.autoConfigure.pending}
         connectHref={`/${organization.slug}/settings/workspace/general`}
       />
     </div>

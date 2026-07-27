@@ -26,6 +26,8 @@ export interface ServiceDomainView {
   projectId: string;
   resourceId: string;
   domain: string;
+  /** Container port this host proxies to (proxy_route.upstreamPort). */
+  port: number;
   source: "generated" | "custom";
   isPrimary: boolean;
   /** live = rendered into Caddy now; disabled = service currently unexposed. */
@@ -54,6 +56,7 @@ export function toDomainView(route: ProxyRouteRecord, dnsTarget: string | null):
     // is nullable in general but never null for these), so it's safe to assert.
     resourceId: route.resourceId as string,
     domain: route.domain,
+    port: route.upstreamPort,
     source: route.source,
     isPrimary: route.isPrimary,
     status: route.enabled ? "live" : "disabled",

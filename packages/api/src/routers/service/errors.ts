@@ -133,6 +133,23 @@ export class DomainConflictError extends TaggedError("DomainConflictError")<{
   }
 }
 
+/** A domain was pointed at a container port the service doesn't publish.
+ *  Routing to a port nothing listens on is a 502 with extra steps, so the
+ *  choice is rejected rather than silently rewritten to the primary. */
+export class UnknownPortError extends TaggedError("UnknownPortError")<{
+  message: string;
+  resourceId: ResourceId;
+  port: number;
+}>() {
+  constructor(args: { resourceId: ResourceId; port: number }) {
+    super({
+      resourceId: args.resourceId,
+      port: args.port,
+      message: `service ${args.resourceId} does not publish port ${args.port}`,
+    });
+  }
+}
+
 /** The route the caller named doesn't exist (or belongs to another
  *  resource/org). Surfaced as 404 — never leaks cross-tenant existence. */
 export class DomainNotFoundError extends TaggedError("DomainNotFoundError")<{

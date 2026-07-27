@@ -2,8 +2,10 @@ import type { OrganizationId } from "@otterdeploy/shared/id";
 import { CloudIcon } from "@hugeicons/core-free-icons";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useRouteContext } from "@tanstack/react-router";
 import { toast } from "sonner";
 
+import { useCanManageWorkspace } from "@/features/team/data/use-team";
 import { SettingsFooter, SettingsSection } from "@/shared/components/settings-section";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -25,6 +27,31 @@ export function CloudflareCard({ organizationId }: { organizationId: Organizatio
   );
   const isConfigured = settingsQuery.data?.cloudflareTokenConfigured ?? false;
   const currentZoneId = settingsQuery.data?.cloudflareZoneId ?? null;
+
+  // `setCloudflareConfig` is `organization:update` — owner/admin only. Reading
+  // the settings is not, so a member may SEE whether Cloudflare is wired up;
+  // they just can't change it. Without this they got the whole three-step
+  // connect flow and a raw "The actor does not have the required permission."
+  // at the end of it, having already pasted a live API token.
+  const { user } = useRouteContext({ from: "/_app" });
+  const canManage = useCanManageWorkspace(organizationId, user.id);
+
+  if (!canManage) {
+    return (
+      <SettingsSection
+        icon={CloudIcon}
+        title="Cloudflare"
+        description="Connect Cloudflare and we'll write the DNS records for you whenever you save a domain."
+      >
+        <div className="p-5 text-[13px] text-muted-foreground">
+          {isConfigured
+            ? `Connected to zone ${currentZoneId ?? "(none)"}.`
+            : "Not connected."}{" "}
+          Only workspace owners and admins can change this.
+        </div>
+      </SettingsSection>
+    );
+  }
 
   return (
     // One sentence in the header: what connecting BUYS you. The mechanics
