@@ -58,6 +58,16 @@ export interface NavManifestItem {
   keywords?: readonly string[];
   /** Highlight only on an exact path match (e.g. the org index). */
   exact?: boolean;
+  /**
+   * Omit this destination unless the viewer is an installation administrator.
+   *
+   * Set it when EVERY procedure the page calls on mount is install-scoped —
+   * otherwise the page renders for someone who cannot use it and each of its
+   * queries 403s on its own, which reads as a broken app rather than a
+   * permission boundary. This only omits the link; the route guards itself and
+   * the server re-checks the same flag (authz/capability.ts).
+   */
+  installAdminOnly?: boolean;
 }
 
 export interface NavManifestGroup {
@@ -311,6 +321,9 @@ export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
         title: "Instance",
         to: "/$orgSlug/settings/instance/general",
         icon: ServerStack01Icon,
+        // Every card on this page is backed by the platform-settings router,
+        // which is install-admin in its entirety (16 of 16 procedures).
+        installAdminOnly: true,
         keywords: [
           "instance",
           "platform",

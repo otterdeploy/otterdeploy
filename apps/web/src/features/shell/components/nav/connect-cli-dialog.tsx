@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
  * deviceAuthorization plugin). This dialog just gets the user there: the exact
  * login command for this control plane + a shortcut to the approval page.
  */
-import { useLoaderData, useNavigate } from "@tanstack/react-router";
+import { useLoaderData, useNavigate, useRouteContext } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -30,15 +30,24 @@ export function ConnectCliDialog({
   const navigate = useNavigate();
   const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
 
+  const isInstallAdmin = useRouteContext({ from: "/_app", select: (c) => c.isInstallAdmin });
+
   // Prefer the verified control-plane FQDN over the browser's current origin.
   // Operators often reach the dashboard by public IP (or <ip>.sslip.io) before
   // DNS is fully wired up; handing the CLI that origin pins it to an address
   // that can rotate. The configured FQDN is the stable, correct endpoint.
-  const domainQuery = useQuery(
-    orpc.organization.controlPlaneDomain.queryOptions({
+  //
+  // Admins only: `organization.controlPlaneDomain` is install-scoped, so asking
+  // as an ordinary member 403s on every open of this dialog. Everyone else
+  // falls through to `origin` below — which is the same answer they got before
+  // the query resolved, and the same one an admin gets when no FQDN is
+  // configured, so nothing is lost but the noise.
+  const domainQuery = useQuery({
+    ...orpc.organization.controlPlaneDomain.queryOptions({
       input: { organizationId: organization.id },
     }),
-  );
+    enabled: isInstallAdmin,
+  });
   const fqdn = domainQuery.data;
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const baseUrl = fqdn?.domain && fqdn.verifiedAt ? `https://${fqdn.domain}` : origin;

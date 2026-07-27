@@ -3,7 +3,7 @@ import * as React from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "@tanstack/react-router";
+import { Link, useParams, useRouteContext } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
 import type { Project } from "@/routes/_app/layout";
@@ -15,6 +15,7 @@ import {
   SETTINGS_ENTRY,
   type NavManifestItem,
 } from "@/features/shell/nav-manifest";
+import { visibleNav } from "@/features/shell/nav-visibility";
 import {
   Sidebar,
   SidebarContent,
@@ -53,6 +54,11 @@ export function ProjectSidebar({
   // Org-scoped links use `useParams({ strict: false })` so they resolve
   // their `{ orgSlug }` regardless of which route is currently matched.
   const params = useParams({ strict: false }) as { orgSlug?: string };
+  // Server-owned installation authority, resolved once in the `_app`
+  // beforeLoad. Install-admin-only destinations are OMITTED for everyone else
+  // rather than rendered into a 403 — see the manifest's `installAdminOnly`.
+  const { isInstallAdmin } = useRouteContext({ from: "/_app" });
+  const navGroups = visibleNav(OPERATIONAL_NAV, isInstallAdmin);
 
   // Live counts shown as menu badges next to Projects / Servers. Both
   // collections are already loaded by the outer `_app` layout's loader,
@@ -65,9 +71,15 @@ export function ProjectSidebar({
   };
 
   // Running platform version (the compose image tag the server booted with).
-  // Needs `platform:read` — a plain member gets a 403, so `retry: false` and
-  // the footer simply omits the version instead of showing a fake one.
-  const version = useQuery({ ...orpc.system.version.queryOptions(), retry: false });
+  // `system.version` is install-admin-only, so it isn't even asked for by
+  // anyone else — otherwise every page in the shell fired a request that could
+  // only 403. `retry: false` covers the admin case where it still fails; the
+  // footer simply omits the version instead of showing a fake one.
+  const version = useQuery({
+    ...orpc.system.version.queryOptions(),
+    enabled: isInstallAdmin,
+    retry: false,
+  });
   const currentVersion = version.data?.current;
 
   const renderItem = (item: NavManifestItem) => {
@@ -107,7 +119,7 @@ export function ProjectSidebar({
   return (
     <Sidebar className="top-(--header-height) h-[calc(100svh-var(--header-height))]!" {...props}>
       <SidebarContent>
-        {OPERATIONAL_NAV.map((group) => (
+        {navGroups.map((group) => (
           <SidebarGroup key={group.label ?? group.items[0]?.title ?? "top"}>
             {group.label ? (
               <SidebarGroupLabel className="text-[11px] tracking-wider text-sidebar-foreground/50 uppercase">

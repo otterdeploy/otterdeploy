@@ -8,8 +8,12 @@
  * doing right now. Content is unchanged from those pages; only the chrome
  * that wraps it moved.
  *
- * Gated on `platform:read` for the Caddyfile/Certificates planes, so plain
- * members get an honest permission notice instead of install-wide config.
+ * The Caddyfile and Firewall planes are backed by routers that are
+ * install-admin in their entirety (`system.caddyfile`, `firewall.status` /
+ * `firewall.decisions`), so those two tabs are OMITTED for anyone else rather
+ * than rendered-and-403'd — see `EDGE_TABS_INSTALL_ADMIN` below. Certificates
+ * is role-gated instead (`certificate:read`) and keeps its own in-plane
+ * notice; Access logs and Events are org-scoped and always shown.
  */
 import { useState } from "react";
 
@@ -41,6 +45,20 @@ import { CertificatesActions, CertificatesTab } from "./-edge-certificates";
 const EDGE_TABS = ["caddyfile", "certificates", "logs", "caddy", "firewall"] as const;
 type EdgeTab = (typeof EDGE_TABS)[number];
 
+/** Planes whose every query needs the installation-administrator identity. */
+const EDGE_TABS_INSTALL_ADMIN: ReadonlySet<string> = new Set<EdgeTab>(["caddyfile", "firewall"]);
+
+/** The leftmost plane a non-install-admin can see — their default AND the
+ *  landing spot when a `?tab=` deep link names one they can't have. Hiding a
+ *  trigger while the URL could still select the plane would leave the same
+ *  403 one URL away. */
+const EDGE_TAB_FALLBACK: EdgeTab = "certificates";
+
+function resolveEdgeTab(tab: EdgeTab, isInstallAdmin: boolean): EdgeTab {
+  if (isInstallAdmin || !EDGE_TABS_INSTALL_ADMIN.has(tab)) return tab;
+  return EDGE_TAB_FALLBACK;
+}
+
 // `.catch` covers both a missing param and a bad value → default to the
 // Caddyfile plane, so the page always has a valid controlled tab.
 const zEdgeSearch = z.object({
@@ -55,10 +73,14 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/edge")({
   // and certificates planes render from cache instead of spinning.
   // Non-blocking + best-effort: a permission-gated or failed prefetch just
   // falls back to fetch-on-mount.
-  loader: () => {
-    void queryClient
-      .prefetchQuery(orpc.system.caddyfile.queryOptions())
-      .catch(() => undefined);
+  loader: ({ context }) => {
+    // Install-admin only, and this runs on plain NAVIGATION — an unconditional
+    // prefetch is a 403 for every member who so much as hovers the Edge link,
+    // whether or not they can ever open the plane. `enabled: false` on the
+    // tab's own query would not cover this.
+    if (context.isInstallAdmin) {
+      void queryClient.prefetchQuery(orpc.system.caddyfile.queryOptions()).catch(() => undefined);
+    }
     void queryClient.prefetchQuery(orpc.certificates.inventory.queryOptions()).catch(() => undefined);
     void queryClient.prefetchQuery(orpc.certificates.listCustom.queryOptions()).catch(() => undefined);
     void queryClient.prefetchQuery(orpc.certificates.listCas.queryOptions()).catch(() => undefined);
@@ -67,7 +89,9 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/edge")({
 
 function RouteComponent() {
   const { orgSlug } = Route.useParams();
-  const { tab } = Route.useSearch();
+  const { isInstallAdmin } = Route.useRouteContext();
+  const { tab: requestedTab } = Route.useSearch();
+  const tab = resolveEdgeTab(requestedTab, isInstallAdmin);
   const navigate = Route.useNavigate();
   const setTab = (next: EdgeTab) => navigate({ search: { tab: next }, replace: true });
 
@@ -85,9 +109,11 @@ function RouteComponent() {
     >
       <div className="flex items-center justify-between gap-3 border-b px-4 pt-2 pb-2">
         <TabsList variant="line" className="h-auto bg-transparent p-0">
-          <TabsTrigger value="caddyfile" className="px-3 py-2">
-            Caddyfile
-          </TabsTrigger>
+          {isInstallAdmin ? (
+            <TabsTrigger value="caddyfile" className="px-3 py-2">
+              Caddyfile
+            </TabsTrigger>
+          ) : null}
           <TabsTrigger value="certificates" className="px-3 py-2">
             Certificates
           </TabsTrigger>
@@ -97,9 +123,11 @@ function RouteComponent() {
           <TabsTrigger value="caddy" className="px-3 py-2">
             Events
           </TabsTrigger>
-          <TabsTrigger value="firewall" className="px-3 py-2">
-            Firewall
-          </TabsTrigger>
+          {isInstallAdmin ? (
+            <TabsTrigger value="firewall" className="px-3 py-2">
+              Firewall
+            </TabsTrigger>
+          ) : null}
         </TabsList>
         {tab === "caddyfile" ? <CaddyfileActions /> : null}
         {tab === "certificates" ? (
@@ -107,9 +135,13 @@ function RouteComponent() {
         ) : null}
       </div>
 
-      <TabsContent value="caddyfile" className="min-h-0 flex-1 overflow-y-auto p-4">
-        <CaddyfileTab orgSlug={orgSlug} />
-      </TabsContent>
+      {/* Not just hidden — unmounted, so `useCaddyfileQuery` never runs for a
+          viewer who would only get a 403 out of it. */}
+      {isInstallAdmin ? (
+        <TabsContent value="caddyfile" className="min-h-0 flex-1 overflow-y-auto p-4">
+          <CaddyfileTab orgSlug={orgSlug} />
+        </TabsContent>
+      ) : null}
 
       <TabsContent value="certificates" className="min-h-0 flex-1 overflow-y-auto p-4">
         <CertificatesTab
@@ -125,9 +157,11 @@ function RouteComponent() {
       <TabsContent value="caddy" className="min-h-0 flex-1">
         <EdgeEventsView />
       </TabsContent>
-      <TabsContent value="firewall" className="min-h-0 flex-1">
-        <FirewallView />
-      </TabsContent>
+      {isInstallAdmin ? (
+        <TabsContent value="firewall" className="min-h-0 flex-1">
+          <FirewallView />
+        </TabsContent>
+      ) : null}
 
       <UploadCertDialog open={uploadCertOpen} onOpenChange={setUploadCertOpen} />
       <UploadCaDialog open={uploadCaOpen} onOpenChange={setUploadCaOpen} />

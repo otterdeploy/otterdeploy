@@ -77,7 +77,8 @@ export function LogTable({
   expanded: string | null;
   setExpanded: (id: string | null) => void;
   isLoading: boolean;
-  onBlockIp: (ip: string) => void;
+  /** Omitted when the viewer can't block — CrowdSec is install-scoped. */
+  onBlockIp?: (ip: string) => void;
   blocking: boolean;
   /** Client IPs with an active CrowdSec ban — their rows get a blocked marker. */
   bannedIps: Set<string>;

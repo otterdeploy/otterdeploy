@@ -36,7 +36,7 @@ import {
   boundRepoId,
   readGitSource,
   repoOptions,
-  seedSource,
+  useSeededSource,
   sourceDirty,
   useActiveInstallation,
   useSourceFormState,
@@ -131,7 +131,9 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
   );
 
   // Local edit state (seeded from the manifest source block) + dirty flag.
-  const seeded = seedSource(gitSvc);
+  // Stable reference — see useSeededSource; seeding inline here is what caused
+  // the render loop.
+  const seeded = useSeededSource(gitSvc);
 
   const saveMut = useMutation({
     mutationFn: (value: typeof seeded) =>

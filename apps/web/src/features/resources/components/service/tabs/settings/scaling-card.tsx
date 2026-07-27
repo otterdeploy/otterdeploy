@@ -13,6 +13,7 @@
 
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useRouteContext } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { SettingsCard } from "@/features/resources/components/_shared/settings-card";
@@ -78,8 +79,25 @@ function ScalingForm({ resource, service }: { resource: ScalingResource; service
 
   // Plain docker runs exactly one container per service — the runtime driver
   // ignores replicas>1 — so the stepper won't offer counts it can't honor.
-  const nodesQuery = useQuery(orpc.docker.nodes.list.queryOptions({ input: {} }));
-  const plainDocker = nodesQuery.data ? !nodesQuery.data.swarm : false;
+  //
+  // Two sources for the same one bit. `docker.nodes.list` is install-admin in
+  // its entirety, and this Settings tab is a project-level surface any member
+  // can open, so for a member it only ever returned 403 and the caveat below
+  // silently vanished. `server.swarmNodes` is org-scoped and derives `swarm`
+  // from the same `isSwarmRuntime()` check, so it is the same answer a member
+  // is allowed to have — the caveat survives instead of being lost with the
+  // gate. Install admins keep reading exactly what they read before.
+  const isInstallAdmin = useRouteContext({ from: "/_app", select: (c) => c.isInstallAdmin });
+  const nodesQuery = useQuery({
+    ...orpc.docker.nodes.list.queryOptions({ input: {} }),
+    enabled: isInstallAdmin,
+  });
+  const swarmNodesQuery = useQuery({
+    ...orpc.server.swarmNodes.queryOptions(),
+    enabled: !isInstallAdmin,
+  });
+  const runtime = isInstallAdmin ? nodesQuery.data : swarmNodesQuery.data;
+  const plainDocker = runtime ? !runtime.swarm : false;
 
   const serversQuery = useQuery(orpc.server.list.queryOptions());
   const fit = computeClusterFit({

@@ -6,6 +6,7 @@ import { createFileRoute, Link, Outlet, useNavigate } from "@tanstack/react-rout
 import { useTranslation } from "react-i18next";
 
 import { SETTINGS_NAV } from "@/features/shell/nav-manifest";
+import { visibleNav } from "@/features/shell/nav-visibility";
 
 /**
  * Settings zone — a Linear-style takeover for everything that is
@@ -44,7 +45,12 @@ function escBelongsElsewhere(event: KeyboardEvent): boolean {
 function SettingsZoneLayout() {
   const { t } = useTranslation();
   const { orgSlug } = Route.useParams();
+  // Inherited from the `_app` beforeLoad. Install-admin-only entries (and any
+  // group left empty by dropping them — "Instance" is one item) are omitted
+  // rather than rendered into a page that can only 403.
+  const { isInstallAdmin } = Route.useRouteContext();
   const navigate = useNavigate();
+  const navGroups = visibleNav(SETTINGS_NAV, isInstallAdmin);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -82,7 +88,7 @@ function SettingsZoneLayout() {
           aria-label={t("nav.settings", "Settings")}
           className="sticky top-12 hidden h-[calc(100svh-3rem)] w-52 shrink-0 flex-col gap-5 overflow-y-auto border-r px-3 py-4 md:flex"
         >
-          {SETTINGS_NAV.map((group) => (
+          {navGroups.map((group) => (
             <div key={group.label} className="flex flex-col gap-1">
               <span className="px-2 text-[11px] tracking-wider text-muted-foreground/70 uppercase">
                 {group.label}

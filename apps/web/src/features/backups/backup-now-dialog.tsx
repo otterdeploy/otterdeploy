@@ -93,7 +93,7 @@ function BackupNowBody({
 
   // Only hit the daemon inventory once the Volume source is selected.
   const sourceKind = useStore(form.store, (s) => s.values.sourceKind);
-  const { volumes, isLoading: volumesLoading } = useVolumesList(sourceKind === "volume");
+  const volumeList = useVolumesList(sourceKind === "volume");
 
   const destOptions = toDestOptions(destinations);
 
@@ -115,20 +115,24 @@ function BackupNowBody({
         noValidate
       >
         <div className="flex flex-col gap-4 p-5">
-          <form.Field name="sourceKind">
-            {(field) => (
-              <Field label="Source">
-                <Segmented
-                  value={field.state.value}
-                  onChange={field.handleChange}
-                  options={[
-                    { id: "database", label: "Database" },
-                    { id: "volume", label: "Volume" },
-                  ]}
-                />
-              </Field>
-            )}
-          </form.Field>
+          {/* Omitted, not disabled, when `volumes.list` is out of reach — see
+              useVolumesList. The form stays on its "database" default. */}
+          {volumeList.available ? (
+            <form.Field name="sourceKind">
+              {(field) => (
+                <Field label="Source">
+                  <Segmented
+                    value={field.state.value}
+                    onChange={field.handleChange}
+                    options={[
+                      { id: "database", label: "Database" },
+                      { id: "volume", label: "Volume" },
+                    ]}
+                  />
+                </Field>
+              )}
+            </form.Field>
+          ) : null}
 
           {sourceKind === "database" ? (
             <form.Field name="resourceId">
@@ -147,8 +151,8 @@ function BackupNowBody({
               {(field) => (
                 <Field label="Volume">
                   <VolumeCombobox
-                    volumes={volumes}
-                    loading={volumesLoading}
+                    volumes={volumeList.volumes}
+                    loading={volumeList.isLoading}
                     value={field.state.value}
                     onChange={field.handleChange}
                   />

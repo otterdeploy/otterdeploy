@@ -21,6 +21,7 @@ import {
   WorkflowSquare01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useRouteContext } from "@tanstack/react-router";
 
 import type { RoutePath } from "@/features/shell/components/sidebar";
 
@@ -30,6 +31,7 @@ import {
   SETTINGS_NAV,
   type NavManifestItem,
 } from "@/features/shell/nav-manifest";
+import { visibleNav } from "@/features/shell/nav-visibility";
 import { CommandGroup, CommandItem } from "@/shared/components/ui/command";
 import { Kbd, KbdGroup } from "@/shared/components/ui/kbd";
 
@@ -95,13 +97,6 @@ export const PROJECT_NAV: readonly NavEntry[] = [
   { to: "/$orgSlug/$projectSlug/settings", label: "Settings", icon: Settings01Icon, chord: "S" },
 ];
 
-const toEntry = (item: NavManifestItem): NavEntry => ({
-  to: item.to,
-  label: item.title,
-  icon: item.icon,
-  keywords: item.keywords,
-});
-
 // Org-scoped destinations, grouped + ordered to match the operational
 // sidebar. The unlabeled top group renders under "General" and also picks
 // up PALETTE_EXTRA_NAV — creation paths (Templates, od-u63.2) that aren't
@@ -114,16 +109,20 @@ const toEntry = (item: NavManifestItem): NavEntry => ({
 // resolving to the same heading is a duplicate React key AND two identical
 // headings in the palette, so the fallback must not collide with any real
 // group label — keep it a name no manifest group uses.
-export const ORG_NAV_GROUPS: readonly { heading: string; items: readonly NavEntry[] }[] = [
+//
+// Manifest items are carried through verbatim rather than projected into
+// `NavEntry`: the projection dropped `installAdminOnly`, and the palette needs
+// it to gate the same destinations the sidebar and the settings rail gate.
+export const ORG_NAV_GROUPS: readonly { heading: string; items: readonly NavManifestItem[] }[] = [
   ...OPERATIONAL_NAV.map((group, i) => ({
     heading: group.label ?? "General",
-    items: [...group.items.map(toEntry), ...(i === 0 ? PALETTE_EXTRA_NAV.map(toEntry) : [])],
+    items: [...group.items, ...(i === 0 ? PALETTE_EXTRA_NAV : [])],
   })),
   // Settings-zone destinations, one palette group per rail group, so
   // "Settings · Workspace › Git providers" stays searchable from anywhere.
   ...SETTINGS_NAV.map((group) => ({
     heading: `Settings · ${group.label}`,
-    items: group.items.map(toEntry),
+    items: group.items,
   })),
 ];
 
@@ -133,22 +132,32 @@ export function NavGroup({
   onGo,
 }: {
   heading: string;
-  items: readonly NavEntry[];
+  items: readonly NavManifestItem[];
   onGo: (to: RoutePath) => void;
 }) {
+  // A search result that 403s on arrival is worse than no search result, so
+  // the palette applies the manifest's own filter — `isInstallAdmin` comes
+  // from the `_app` beforeLoad, which is where the whole app reads it.
+  const isInstallAdmin = useRouteContext({ from: "/_app", select: (c) => c.isInstallAdmin });
+  // `visibleNav` drops the gated items and then the group itself if nothing
+  // survives — "Settings · Instance" is a single item, so it disappears whole
+  // rather than leaving an empty heading behind.
+  const [group] = visibleNav([{ heading, items }], isInstallAdmin);
+  if (!group) return null;
+
   return (
     <CommandGroup heading={heading}>
-      {items.map((item) => (
+      {group.items.map((item) => (
         <CommandItem
-          key={item.label}
+          key={item.title}
           // Heading prefix keeps values unique across groups (e.g. workspace
           // vs project "Networking") while staying searchable by label.
-          value={`${heading} ${item.label} ${(item.keywords ?? []).join(" ")}`}
+          value={`${heading} ${item.title} ${(item.keywords ?? []).join(" ")}`}
           keywords={item.keywords ? [...item.keywords] : undefined}
           onSelect={() => onGo(item.to)}
         >
           <HugeiconsIcon icon={item.icon} strokeWidth={2} />
-          {item.label}
+          {item.title}
         </CommandItem>
       ))}
     </CommandGroup>

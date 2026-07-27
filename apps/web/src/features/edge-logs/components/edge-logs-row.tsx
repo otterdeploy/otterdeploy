@@ -29,7 +29,7 @@ export function EdgeRow({
   wrap: boolean;
   open: boolean;
   onToggle: () => void;
-  onBlockIp: (ip: string) => void;
+  onBlockIp?: (ip: string) => void;
   blocking: boolean;
   /** This client IP currently has an active CrowdSec ban. */
   banned: boolean;
@@ -155,7 +155,7 @@ function EdgeRowDetail({
 }: {
   row: EdgeLog;
   wrap: boolean;
-  onBlockIp: (ip: string) => void;
+  onBlockIp?: (ip: string) => void;
   blocking: boolean;
   banned: boolean;
 }) {
@@ -183,9 +183,9 @@ function EdgeRowDetail({
               <span className="rounded-md border px-2.5 py-1 text-[11px] text-muted-foreground">
                 Blocked at the edge
               </span>
-            ) : (
+            ) : onBlockIp ? (
               <BlockIpButton ip={row.clientIp} onBlockIp={onBlockIp} blocking={blocking} />
-            )}
+            ) : null}
           </div>
           <div className="grid grid-cols-1 gap-x-10 gap-y-1 font-mono text-[12px] sm:grid-cols-2">
             <Detail k="request_id" v={row.requestId ?? "—"} wrap={wrap} />

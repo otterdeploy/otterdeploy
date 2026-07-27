@@ -9,7 +9,7 @@
  * Nothing here renders; source-card.tsx stays presentational + wiring.
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { useForm } from "@tanstack/react-form";
 
@@ -34,7 +34,7 @@ export function readGitSource(data: ManifestGet | undefined, name: string): GitS
 }
 
 /** Form values seeded from the saved source block (empty until it loads). */
-export const seedSource = (svc: GitSourceBlock | null) => ({
+export const seedSource = (svc: Partial<GitSourceBlock> | null) => ({
   repo: svc?.repo ?? "",
   branch: svc?.branch ?? "",
   root: svc?.sourceSubdir ?? "",
@@ -43,6 +43,29 @@ export const seedSource = (svc: GitSourceBlock | null) => ({
 });
 
 export type SourceFormValues = ReturnType<typeof seedSource>;
+
+/**
+ * The seeded values, with a reference that only changes when the SAVED source
+ * changes.
+ *
+ * `readGitSource` rebuilds its object on every render, so seeding inline gave
+ * the re-seed effect in the card a new `seeded` identity each time: the effect
+ * called `form.reset`, that store write re-rendered the component, and the
+ * cycle repeated until React killed it with "Maximum update depth exceeded" —
+ * taking the whole service settings tab down with it.
+ *
+ * Depends on the five PRIMITIVES rather than the block. Passing the object
+ * would satisfy `exhaustive-deps` while reintroducing exactly the unstable
+ * identity that caused the loop, so this destructure is load-bearing, not
+ * style.
+ */
+export function useSeededSource(svc: Partial<GitSourceBlock> | null): SourceFormValues {
+  const { repo, branch, sourceSubdir, imageRepository, previews } = svc ?? {};
+  return useMemo(
+    () => seedSource({ repo, branch, sourceSubdir, imageRepository, previews }),
+    [repo, branch, sourceSubdir, imageRepository, previews],
+  );
+}
 
 export const sourceDirty = (values: SourceFormValues, seeded: SourceFormValues) =>
   values.repo !== seeded.repo ||
