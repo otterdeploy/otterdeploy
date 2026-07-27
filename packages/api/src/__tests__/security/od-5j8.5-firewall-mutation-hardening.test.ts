@@ -42,11 +42,17 @@ describe("[od-5j8.5] every firewall mutation requires install-admin AND firewall
 
   test("every blocklists.* write handler (addCustom/enableCatalog/toggle/remove/syncNow) uses the write gate", () => {
     const router = source("packages/api/src/routers/firewall/index.ts");
-    const blocklistsBlock = router.slice(router.indexOf("blocklists: {"), router.indexOf("\n  console: {"));
+    const blocklistsBlock = router.slice(
+      router.indexOf("blocklists: {"),
+      router.indexOf("\n  console: {"),
+    );
     for (const handler of ["addCustom:", "enableCatalog:", "toggle:", "remove:", "syncNow:"]) {
       const idx = blocklistsBlock.indexOf(handler);
       expect(idx).toBeGreaterThan(-1);
-      const line = blocklistsBlock.slice(idx, blocklistsBlock.indexOf("\n", idx + handler.length + 40));
+      const line = blocklistsBlock.slice(
+        idx,
+        blocklistsBlock.indexOf("\n", idx + handler.length + 40),
+      );
       expect(line).toContain("globalFirewallWrite");
     }
   });

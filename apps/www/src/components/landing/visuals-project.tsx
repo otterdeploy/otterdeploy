@@ -32,12 +32,7 @@ export function ProjectVisual() {
         <Mono className="ml-auto text-muted-foreground">4 resources</Mono>
       </div>
 
-      <div
-        className={cx(
-          FIT,
-          "relative h-[20rem] overflow-hidden sm:h-[25.5rem] lg:h-[28.5rem]",
-        )}
-      >
+      <div className={cx(FIT, "relative h-[20rem] overflow-hidden sm:h-[25.5rem] lg:h-[28.5rem]")}>
         {/* The canvas grid, as React Flow draws it in the product. */}
         <div
           aria-hidden
@@ -64,7 +59,7 @@ export function ProjectVisual() {
         </div>
 
         <div
-          className="absolute origin-top-left top-[10.5rem] sm:top-[13rem] lg:top-[14.5rem]"
+          className="absolute top-[10.5rem] origin-top-left sm:top-[13rem] lg:top-[14.5rem]"
           style={{ width: CARD_W, left: "var(--x)", transform: "scale(var(--s))" }}
         >
           <ResourceCard

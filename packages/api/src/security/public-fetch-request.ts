@@ -30,12 +30,7 @@ function fixedLookup(address: LookupAddress): LookupFunction {
   }) as LookupFunction;
 }
 
-export const requestPinnedPublicAddress: PublicRequest = (
-  url,
-  address,
-  timeoutMs,
-  maxBytes,
-) =>
+export const requestPinnedPublicAddress: PublicRequest = (url, address, timeoutMs, maxBytes) =>
   new Promise((resolve, reject) => {
     const request = url.protocol === "https:" ? httpsRequest : httpRequest;
     const req = request(

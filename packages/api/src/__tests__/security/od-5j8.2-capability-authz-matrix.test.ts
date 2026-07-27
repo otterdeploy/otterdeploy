@@ -123,7 +123,10 @@ describe("[od-5j8.2] unauthenticated callers are rejected for every capability s
 
 describe("[od-5j8.2] under-privileged callers are rejected", () => {
   test("a key from a different organization is denied before any permission check", async () => {
-    const decision = await authorizeCapability(apiKey({ organizationId: "org_evil" }), writeCapability);
+    const decision = await authorizeCapability(
+      apiKey({ organizationId: "org_evil" }),
+      writeCapability,
+    );
     expect(decision.allowed).toBe(false);
   });
 
@@ -145,7 +148,10 @@ describe("[od-5j8.2] under-privileged callers are rejected", () => {
       apiKey({ projectScope: "selected", projectIds: ["project_other"] }),
       writeCapability,
     );
-    expect(decision).toMatchObject({ allowed: false, reason: "This API key is not scoped to that project." });
+    expect(decision).toMatchObject({
+      allowed: false,
+      reason: "This API key is not scoped to that project.",
+    });
   });
 
   test("a session whose live permission check fails is denied even for a read", async () => {

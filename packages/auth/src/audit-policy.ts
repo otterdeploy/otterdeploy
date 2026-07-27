@@ -199,7 +199,10 @@ export function clip(value: unknown, max: number): string | null {
 }
 
 /** Pull the allowlisted identifier fields out of a request body. */
-export function detailFrom(body: unknown, fields: readonly string[] | undefined): Record<string, string> {
+export function detailFrom(
+  body: unknown,
+  fields: readonly string[] | undefined,
+): Record<string, string> {
   if (!fields || typeof body !== "object" || body === null) return {};
   const source = body as Record<string, unknown>;
   const out: Record<string, string> = {};
@@ -209,4 +212,3 @@ export function detailFrom(body: unknown, fields: readonly string[] | undefined)
   }
   return out;
 }
-

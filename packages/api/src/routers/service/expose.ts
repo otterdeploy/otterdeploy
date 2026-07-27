@@ -140,11 +140,7 @@ export async function exposeService(
   // hosts back live, and guarantees at least one live host by minting the
   // generated one whenever nothing else is serving.
   await setRoutesEnabledForResource(input.resourceId, true);
-  await refreshRouteUpstreams(
-    input.resourceId,
-    primary.containerPort,
-    record.service.serviceName,
-  );
+  await refreshRouteUpstreams(input.resourceId, primary.containerPort, record.service.serviceName);
 
   let routes = await listProxyRoutesByResourceId(input.resourceId);
   if (!routes.some((r) => r.enabled)) {

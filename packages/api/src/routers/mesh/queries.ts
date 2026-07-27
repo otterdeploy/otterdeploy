@@ -47,9 +47,7 @@ export interface UpsertMeshNetworkInput {
 }
 
 /** Connect (or re-connect) — one mesh per org, so this upserts on the org. */
-export async function upsertMeshNetwork(
-  input: UpsertMeshNetworkInput,
-): Promise<MeshNetworkRecord> {
+export async function upsertMeshNetwork(input: UpsertMeshNetworkInput): Promise<MeshNetworkRecord> {
   const values = {
     organizationId: input.organizationId,
     provider: input.provider,
@@ -69,7 +67,12 @@ export async function upsertMeshNetwork(
     .values(values)
     .onConflictDoUpdate({ target: meshNetwork.organizationId, set: values })
     .returning();
-  return row!;
+  // An upsert with `returning()` always yields exactly one row, so this is
+  // unreachable — but it throws rather than asserting non-null, so if the
+  // invariant ever breaks the failure names itself here instead of surfacing
+  // as a `undefined is not an object` somewhere downstream.
+  if (!row) throw new Error("mesh network upsert returned no row");
+  return row;
 }
 
 /** Record the outcome of a re-verify without touching the credential. */

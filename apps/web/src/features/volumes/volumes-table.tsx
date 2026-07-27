@@ -16,6 +16,11 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { Link } from "@tanstack/react-router";
 
+import {
+  SelectAllHead,
+  SelectRowCell,
+  type TableSelection,
+} from "@/shared/components/table-selection";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
@@ -34,11 +39,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/shared/components/ui/table";
-import {
-  SelectAllHead,
-  SelectRowCell,
-  type TableSelection,
-} from "@/shared/components/table-selection";
 import { cn } from "@/shared/lib/utils";
 
 import type { VolumeAttachment, VolumeRow } from "./shared";

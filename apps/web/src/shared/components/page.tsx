@@ -69,7 +69,7 @@ export function PageHeader({
       <div className="min-w-0 flex-1">
         <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{title}</h1>
         {description ? (
-          <p className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">
+          <p className="mt-1 text-sm [overflow-wrap:anywhere] text-muted-foreground">
             {description}
           </p>
         ) : null}

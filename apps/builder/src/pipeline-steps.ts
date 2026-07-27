@@ -19,11 +19,10 @@ import { containerRegistry, deployment, project, resource } from "@otterdeploy/d
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 import { log as globalLog } from "evlog";
+import { readFileSync } from "node:fs";
 
 import type { PipelineContext } from "./load";
 import type { LogSink } from "./log-stream";
-
-import { readFileSync } from "node:fs";
 
 import { runDeployHooks } from "./deploy-hook";
 import { dockerPush } from "./docker-push";

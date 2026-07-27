@@ -18,17 +18,7 @@
  */
 
 /** The nine cells of the slab's top face. Empty strings are negative space. */
-const TILES: string[] = [
-  "build",
-  "",
-  "edge",
-  "data",
-  "deploy",
-  "logs",
-  "",
-  "previews",
-  "backups",
-];
+const TILES: string[] = ["build", "", "edge", "data", "deploy", "logs", "", "previews", "backups"];
 
 const SOURCES = ["git repo", "image", "compose"];
 const OUTPUTS = ["https://", "tcp://"];

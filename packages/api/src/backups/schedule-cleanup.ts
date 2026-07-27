@@ -18,13 +18,12 @@ import type { OrganizationId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { backupSchedule, databaseResource, project, resource } from "@otterdeploy/db/schema";
-
-import { listStackDatabaseResources } from "./stack";
 import { and, eq, sql } from "drizzle-orm";
 import { log } from "evlog";
 
 import { emitPlatformEvent } from "../notifications/emit";
 import { partitionSources } from "./schedule-db";
+import { listStackDatabaseResources } from "./stack";
 
 /**
  * Pure decision for one schedule: given its current `sources` and the set of

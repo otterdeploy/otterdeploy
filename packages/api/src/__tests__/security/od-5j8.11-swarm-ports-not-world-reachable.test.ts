@@ -122,7 +122,9 @@ describe("[od-5j8.11] hostFirewallInstallScript — end-to-end script compositio
 
   test("validates the ruleset with 'nft -c -f' before ever applying it live", () => {
     expect(script).toContain("nft -c -f /etc/nftables-otterdeploy.conf");
-    expect(script.indexOf("nft -c -f")).toBeLessThan(script.lastIndexOf("nft -f /etc/nftables-otterdeploy.conf"));
+    expect(script.indexOf("nft -c -f")).toBeLessThan(
+      script.lastIndexOf("nft -f /etc/nftables-otterdeploy.conf"),
+    );
   });
 
   test("persists across reboots via an nftables.conf include, without clobbering existing content", () => {
@@ -159,9 +161,9 @@ describe("[od-5j8.11] filterIpv4Peers — fail-closed-on-typo peer resolution", 
   });
 
   test("drops hostnames, IPv6, and garbage rather than guessing", () => {
-    expect(filterIpv4Peers(["node.example.com", "fd00::1", "not-an-ip", null, undefined, ""])).toEqual(
-      [],
-    );
+    expect(
+      filterIpv4Peers(["node.example.com", "fd00::1", "not-an-ip", null, undefined, ""]),
+    ).toEqual([]);
   });
 
   test("deduplicates", () => {
@@ -171,19 +173,27 @@ describe("[od-5j8.11] filterIpv4Peers — fail-closed-on-typo peer resolution", 
 
 describe("[od-5j8.11] isFirewallDrifted — DB-tracked classifier", () => {
   test("a node that never ran the firewall step ('unknown') is drifted", () => {
-    expect(isFirewallDrifted({ firewallStatus: "unknown", firewallBouncerActive: false })).toBe(true);
+    expect(isFirewallDrifted({ firewallStatus: "unknown", firewallBouncerActive: false })).toBe(
+      true,
+    );
   });
 
   test("a node whose firewall install failed is drifted", () => {
-    expect(isFirewallDrifted({ firewallStatus: "failed", firewallBouncerActive: false })).toBe(true);
+    expect(isFirewallDrifted({ firewallStatus: "failed", firewallBouncerActive: false })).toBe(
+      true,
+    );
   });
 
   test("applied + bouncer active is NOT drifted", () => {
-    expect(isFirewallDrifted({ firewallStatus: "applied", firewallBouncerActive: true })).toBe(false);
+    expect(isFirewallDrifted({ firewallStatus: "applied", firewallBouncerActive: true })).toBe(
+      false,
+    );
   });
 
   test("'applied' status but an inactive bouncer IS still drifted — half the layering isn't protected", () => {
-    expect(isFirewallDrifted({ firewallStatus: "applied", firewallBouncerActive: false })).toBe(true);
+    expect(isFirewallDrifted({ firewallStatus: "applied", firewallBouncerActive: false })).toBe(
+      true,
+    );
   });
 
   test("'unsupported' (operator's own ufw/firewalld took precedence) is not drift by itself, as long as the bouncer covers it", () => {

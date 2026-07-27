@@ -1,7 +1,6 @@
 import type { DeploymentId } from "@otterdeploy/shared/id";
 
 import { useState } from "react";
-import { cn } from "@/shared/lib/utils";
 
 import { StopIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -19,6 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/shared/components/ui/alert-dialog";
 import { Button } from "@/shared/components/ui/button";
+import { cn } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 /**
@@ -78,7 +78,7 @@ export function CancelDeploymentButton({
       <Button
         variant="outline"
         size={compact ? "icon" : "sm"}
-        className={cn("px-0.5",className)}
+        className={cn("px-0.5", className)}
         disabled={cancel.isPending}
         aria-label={compact ? "Stop build" : undefined}
         title={compact ? "Stop build" : undefined}

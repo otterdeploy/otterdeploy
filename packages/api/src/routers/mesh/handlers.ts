@@ -88,9 +88,7 @@ export async function countPrivateRoutes(organizationId: OrganizationId): Promis
     .select({ value: count() })
     .from(proxyRoute)
     .innerJoin(project, eq(project.id, proxyRoute.projectId))
-    .where(
-      and(eq(project.organizationId, organizationId), ne(proxyRoute.exposureScope, "public")),
-    );
+    .where(and(eq(project.organizationId, organizationId), ne(proxyRoute.exposureScope, "public")));
   return row?.value ?? 0;
 }
 
@@ -141,7 +139,8 @@ export async function getMeshStatus(organizationId: OrganizationId): Promise<Mes
   // A live status read stays cheap and offline — we don't call the provider on
   // every page load. `verify` is the explicit round-trip.
   return toStatusView(row, {
-    strandedPrivateRoutes: row.status === "connected" ? 0 : await countPrivateRoutes(organizationId),
+    strandedPrivateRoutes:
+      row.status === "connected" ? 0 : await countPrivateRoutes(organizationId),
   });
 }
 
@@ -197,9 +196,7 @@ export interface ConnectMeshInput {
 export async function connectMesh(
   input: ConnectMeshInput,
 ): Promise<Result<MeshStatusView, MeshProviderError>> {
-  const managementUrl = normalizeManagementUrl(
-    input.managementUrl?.trim() || NETBIRD_HOSTED_URL,
-  );
+  const managementUrl = normalizeManagementUrl(input.managementUrl?.trim() || NETBIRD_HOSTED_URL);
   const apiTokenCiphertext = await encryptForDomain(input.apiToken, "mesh-creds");
 
   let identity: MeshIdentity;
@@ -362,10 +359,7 @@ export async function listMeshPeers(
         .select({ id: server.id, meshAddress: server.meshAddress })
         .from(server)
         .where(
-          and(
-            eq(server.organizationId, organizationId),
-            inArray(server.meshAddress, addresses),
-          ),
+          and(eq(server.organizationId, organizationId), inArray(server.meshAddress, addresses)),
         )
     : [];
   const byAddress = new Map(servers.map((s) => [s.meshAddress, s.id]));

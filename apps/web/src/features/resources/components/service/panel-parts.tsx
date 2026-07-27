@@ -58,10 +58,7 @@ export function ServicePanelHeader({
           <span className="truncate text-lg leading-tight font-bold tracking-tight sm:text-xl sm:leading-none">
             {resource.name}
           </span>
-          <span
-            className="truncate font-mono text-xs text-muted-foreground"
-            title={resource.image}
-          >
+          <span className="truncate font-mono text-xs text-muted-foreground" title={resource.image}>
             {shortImageRef(resource.image)}
           </span>
         </div>
@@ -114,7 +111,7 @@ export function ServiceStatusBar({
     // phone on one line; it wraps under the badge instead of scrolling sideways.
     <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border/40 px-4 py-3 sm:px-6">
       {paused ? <PausedBadge /> : <StatusBadge status={status} />}
-      <span className="min-w-0 break-words text-[13px] text-muted-foreground">
+      <span className="min-w-0 text-[13px] break-words text-muted-foreground">
         {replicaSummary({ replicas, pausedReplicas: pausedReplicas ?? null })}
         {!paused && publicEnabled && publicDomain ? ` · public on ${publicDomain}` : ""}
       </span>

@@ -187,7 +187,7 @@ function EdgeRowDetail({
               <BlockIpButton ip={row.clientIp} onBlockIp={onBlockIp} blocking={blocking} />
             )}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-1 font-mono text-[12px]">
+          <div className="grid grid-cols-1 gap-x-10 gap-y-1 font-mono text-[12px] sm:grid-cols-2">
             <Detail k="request_id" v={row.requestId ?? "—"} wrap={wrap} />
             <Detail k="cache" v={row.cache ?? "—"} wrap={wrap} vClass={cacheTextClass(row.cache)} />
             {/* The demo also showed the upstream's own latency "(Xms)" here,

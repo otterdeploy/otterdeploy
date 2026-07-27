@@ -3,6 +3,8 @@ import type { CommandDef, SubCommandsDef } from "citty";
 
 import { defineCommand, runMain } from "citty";
 
+import type { CommandGroup } from "./lib/help";
+
 import { addCommand } from "./commands/add";
 import { auditCommand } from "./commands/audit";
 import { backupsCommand } from "./commands/backups";
@@ -39,8 +41,6 @@ import { volumeCommand } from "./commands/volume";
 import { whoamiCommand } from "./commands/whoami";
 import { applyColorPreference } from "./lib/color";
 import { wrapCommand } from "./lib/errors";
-import type { CommandGroup } from "./lib/help";
-
 import { setCommandGroups, showUsage } from "./lib/help";
 import { invokedName } from "./lib/name";
 import { suggestions } from "./lib/suggest";
@@ -125,10 +125,7 @@ const GROUPS: CommandGroup[] = [
   },
 ];
 
-const subCommands: SubCommandsDef = Object.assign(
-  {},
-  ...GROUPS.map((group) => group.commands),
-);
+const subCommands: SubCommandsDef = Object.assign({}, ...GROUPS.map((group) => group.commands));
 
 const main = defineCommand({
   meta: {

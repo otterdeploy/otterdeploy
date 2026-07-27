@@ -53,10 +53,7 @@ export class DestinationManagedError extends TaggedError("DestinationManagedErro
   destinationId: BackupDestinationId;
   operation: "delete" | "reconfigure";
 }>() {
-  constructor(args: {
-    destinationId: BackupDestinationId;
-    operation: "delete" | "reconfigure";
-  }) {
+  constructor(args: { destinationId: BackupDestinationId; operation: "delete" | "reconfigure" }) {
     super({
       destinationId: args.destinationId,
       operation: args.operation,

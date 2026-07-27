@@ -102,7 +102,13 @@ export const publicHostPreviewInput = z.object({
 
 export const publicHostPreviewSchema = z.object({
   fqdn: z.string(),
-  source: z.enum(["resource-override", "project-custom", "org-base", "local-base", "sslip-fallback"]),
+  source: z.enum([
+    "resource-override",
+    "project-custom",
+    "org-base",
+    "local-base",
+    "sslip-fallback",
+  ]),
 });
 
 // Imported by the slice below — see ./service-tasks for the schema definition.

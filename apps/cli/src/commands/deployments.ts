@@ -76,7 +76,9 @@ export const deploymentsCommand = defineCommand({
     // Say so when the list was cut, rather than letting it look complete.
     if (rows.length > shown.length) {
       out();
-      note(dim(`Showing ${shown.length} of ${rows.length}. Use \`--limit ${rows.length}\` for all.`));
+      note(
+        dim(`Showing ${shown.length} of ${rows.length}. Use \`--limit ${rows.length}\` for all.`),
+      );
     }
 
     const newest = shown[0];

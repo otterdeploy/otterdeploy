@@ -8,10 +8,11 @@
  * never even reached once the tenant guard rejects the id.
  */
 import type { GitRepoId, OrganizationId } from "@otterdeploy/shared/id";
-import type { Context } from "../../../context";
 
 import { createProcedureClient, ORPCError } from "@orpc/server";
 import { describe, expect, test, vi } from "vite-plus/test";
+
+import type { Context } from "../../../context";
 
 // oxlint-disable-next-line node/no-process-env -- test env setup boundary: satisfy required vars so the module graph (db/auth/env) loads.
 process.env.DATABASE_URL ??= "postgres://test/test";

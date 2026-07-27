@@ -34,7 +34,11 @@ const STATUS_META: Record<CardStatus, { label: string; pill: string; dot: string
     dot: "bg-warning shadow-[0_0_0_3px] shadow-warning/20",
   },
   queued: { label: "queued", pill: "bg-warning/12 text-warning", dot: "bg-warning/70" },
-  paused: { label: "paused", pill: "bg-muted text-muted-foreground", dot: "bg-muted-foreground/50" },
+  paused: {
+    label: "paused",
+    pill: "bg-muted text-muted-foreground",
+    dot: "bg-muted-foreground/50",
+  },
   error: {
     label: "error",
     pill: "bg-destructive/12 text-destructive",

@@ -89,7 +89,10 @@ export interface NetbirdClientOptions {
 /** Strip a trailing slash and any trailing `/api` so callers may paste either
  *  `https://netbird.example.com` or `https://netbird.example.com/api`. */
 export function normalizeManagementUrl(raw: string): string {
-  return raw.trim().replace(/\/+$/, "").replace(/\/api$/i, "");
+  return raw
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/api$/i, "");
 }
 
 export class NetbirdClient implements MeshProviderClient {
@@ -105,10 +108,7 @@ export class NetbirdClient implements MeshProviderClient {
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
-  private async request<T>(
-    path: string,
-    init?: { method?: string; body?: unknown },
-  ): Promise<T> {
+  private async request<T>(path: string, init?: { method?: string; body?: unknown }): Promise<T> {
     const url = `${this.base}/api${path}`;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);

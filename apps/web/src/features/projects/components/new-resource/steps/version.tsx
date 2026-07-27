@@ -50,7 +50,7 @@ export function StepVersion({ kind, projectId }: StepVersionProps) {
         title={`${kind.name} version`}
         sub="Pick a major version — minor versions are auto-upgraded during maintenance windows"
       />
-      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         {(kind.versions ?? []).map((v, i) => (
           <button
             key={v}

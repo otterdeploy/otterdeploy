@@ -66,7 +66,11 @@ export function Showcase() {
         eyebrow="deploy"
         title="Connect a repo. Push. That's the deploy."
         body="The repo is inspected, the framework is detected, and Railpack builds it — no Dockerfile to write and keep current, though it'll use yours if there is one. The image rolls out as a Swarm service, the old one drains, and the whole thing is one log you can watch."
-        points={["Next.js, Astro, Go, Rust, static", "Dockerfile when you want it", "Rollback to any build"]}
+        points={[
+          "Next.js, Astro, Go, Rust, static",
+          "Dockerfile when you want it",
+          "Rollback to any build",
+        ]}
         visual={<BuildVisual />}
       />
 
@@ -75,7 +79,11 @@ export function Showcase() {
         eyebrow="projects"
         title="Your services, drawn the way you think about them"
         body="A project is a canvas: services, databases and compose stacks, with the wiring between them visible. Click a node for its logs, metrics, variables and domains — no hunting through tabs to find out what's actually running."
-        points={["Live status per node", "Compose stacks as one resource", "Templates to start from"]}
+        points={[
+          "Live status per node",
+          "Compose stacks as one resource",
+          "Templates to start from",
+        ]}
         visual={<ProjectVisual />}
         flip
       />

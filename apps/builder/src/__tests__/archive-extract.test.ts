@@ -14,11 +14,7 @@ import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 import tarStreamModule from "tar-stream";
 
-import {
-  DEFAULT_ARCHIVE_LIMITS,
-  extractArchiveSafely,
-  resolveEntryPath,
-} from "../archive-extract";
+import { DEFAULT_ARCHIVE_LIMITS, extractArchiveSafely, resolveEntryPath } from "../archive-extract";
 
 const { pack: createPack } = tarStreamModule;
 
@@ -116,9 +112,7 @@ describe("extractArchiveSafely — hostile archives are rejected", () => {
     ]);
     const dest = freshDest();
 
-    await expect(extractArchiveSafely({ archivePath, destDir: dest })).rejects.toThrow(
-      /symlink/i,
-    );
+    await expect(extractArchiveSafely({ archivePath, destDir: dest })).rejects.toThrow(/symlink/i);
     expect(existsSync(join(dest, "evil-link"))).toBe(false);
   });
 
@@ -134,9 +128,7 @@ describe("extractArchiveSafely — hostile archives are rejected", () => {
     ]);
     const dest = freshDest();
 
-    await expect(extractArchiveSafely({ archivePath, destDir: dest })).rejects.toThrow(
-      /symlink/i,
-    );
+    await expect(extractArchiveSafely({ archivePath, destDir: dest })).rejects.toThrow(/symlink/i);
     expect(existsSync(join(dest, "..", "pwned.txt"))).toBe(false);
   });
 
@@ -197,7 +189,9 @@ describe("extractArchiveSafely — hostile archives are rejected", () => {
 
   test("rejects a single entry over the per-file byte cap", async () => {
     const content = Buffer.alloc(200 * 1024, 1); // 200KB
-    const archivePath = await writeArchive([{ header: { name: "big.bin", type: "file" }, content }]);
+    const archivePath = await writeArchive([
+      { header: { name: "big.bin", type: "file" }, content },
+    ]);
     const dest = freshDest();
 
     await expect(
@@ -237,7 +231,9 @@ describe("extractArchiveSafely — hostile archives are rejected", () => {
     // long before it would ever hit an absolute size cap sized for real
     // source trees.
     const zeros = Buffer.alloc(4 * 1024 * 1024, 0);
-    const archivePath = await writeArchive([{ header: { name: "zeros.bin", type: "file" }, content: zeros }]);
+    const archivePath = await writeArchive([
+      { header: { name: "zeros.bin", type: "file" }, content: zeros },
+    ]);
     const dest = freshDest();
 
     await expect(
@@ -255,7 +251,9 @@ describe("extractArchiveSafely — hostile archives are rejected", () => {
 
   test("rejects a path longer than the configured cap", async () => {
     const longName = `${"a".repeat(200)}.txt`;
-    const archivePath = await writeArchive([{ header: { name: longName, type: "file" }, content: "x" }]);
+    const archivePath = await writeArchive([
+      { header: { name: longName, type: "file" }, content: "x" },
+    ]);
     const dest = freshDest();
 
     await expect(
@@ -265,7 +263,9 @@ describe("extractArchiveSafely — hostile archives are rejected", () => {
 
   test("rejects a path nested deeper than the configured segment cap", async () => {
     const deepName = Array.from({ length: 8 }, (_, i) => `d${i}`).join("/") + "/leaf.txt";
-    const archivePath = await writeArchive([{ header: { name: deepName, type: "file" }, content: "x" }]);
+    const archivePath = await writeArchive([
+      { header: { name: deepName, type: "file" }, content: "x" },
+    ]);
     const dest = freshDest();
 
     await expect(

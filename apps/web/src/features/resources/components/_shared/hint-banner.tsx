@@ -54,7 +54,11 @@ export function VariableRefHint({
                 </button>
               }
             />
-            <PopoverContent align="start" side="bottom" className="w-[min(26rem,calc(100vw-2rem))] p-0">
+            <PopoverContent
+              align="start"
+              side="bottom"
+              className="w-[min(26rem,calc(100vw-2rem))] p-0"
+            >
               <ReferencePicker
                 projectId={projectId}
                 onPick={onPick}

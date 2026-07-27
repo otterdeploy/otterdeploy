@@ -10,7 +10,7 @@ import { describe, expect, test } from "vite-plus/test";
 import { mapEnvVar } from "../views";
 
 describe("mapEnvVar masks sealed rows", () => {
-  test("sealed row: value is always masked to \"\", regardless of what's stored", () => {
+  test('sealed row: value is always masked to "", regardless of what\'s stored', () => {
     const view = mapEnvVar({
       id: "sev_1",
       serviceResourceId: "resource_1",

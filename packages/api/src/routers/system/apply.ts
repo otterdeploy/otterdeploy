@@ -1,3 +1,5 @@
+import type { Readable } from "node:stream";
+
 /**
  * Apply orchestrator — the self-replacement crux.
  *
@@ -16,7 +18,6 @@
 import { Docker, demuxStream } from "@otterdeploy/docker";
 import { env } from "@otterdeploy/env/server";
 import { log } from "evlog";
-import type { Readable } from "node:stream";
 
 import { pullImage } from "../../runtime/docker-driver-helpers";
 import { checkForUpdate, currentVersion, resolveDryRun } from "./check";
@@ -243,7 +244,11 @@ async function watchCutover(docker: Docker, helperId: string, target: string): P
       const reachedTarget = currentVersion() === target || isNewer(currentVersion(), target);
       const logs = await readHelperLogs(container);
       if (exitCode === 0 && reachedTarget) {
-        state.emit("done", `Update to ${target} complete — control plane is running ${currentVersion()}.`, "success");
+        state.emit(
+          "done",
+          `Update to ${target} complete — control plane is running ${currentVersion()}.`,
+          "success",
+        );
         state.finish(true);
       } else {
         const why =
@@ -268,7 +273,9 @@ async function watchCutover(docker: Docker, helperId: string, target: string): P
 
 /** Tail the helper's combined output for the failure message. Best-effort — an
  *  empty string when logs can't be read. */
-async function readHelperLogs(container: ReturnType<Docker["containers"]["getContainer"]>): Promise<string> {
+async function readHelperLogs(
+  container: ReturnType<Docker["containers"]["getContainer"]>,
+): Promise<string> {
   const res = await container.logs({ follow: false, stdout: true, stderr: true, tail: "40" });
   if (res.isErr()) return "";
   const { stdout, stderr } = demuxStream(res.value as Readable);

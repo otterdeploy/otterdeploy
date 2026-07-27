@@ -67,9 +67,7 @@ export async function reconcileRoutes(options: ReconcileOptions): Promise<Reconc
       unsafeProjects.set(route.projectId, error);
     }
   }
-  const byProject = groupByProject(
-    routes.filter((route) => !unsafeProjects.has(route.projectId)),
-  );
+  const byProject = groupByProject(routes.filter((route) => !unsafeProjects.has(route.projectId)));
 
   const applied: string[] = [];
   const skipped: { projectId: string; error: string }[] = [...unsafeProjects].map(

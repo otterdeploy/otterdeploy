@@ -16,7 +16,6 @@ import type { FrameworkKind } from "@/features/projects/components/framework-log
 import { Tabs, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 
 import { resolvePanelTab } from "../_shared/panel-tab";
-
 import { ServicePanelBody } from "./panel-body";
 import { ServicePanelHeader, ServiceStatusBar } from "./panel-parts";
 import { useLiveService, usePauseControl } from "./use-live-service";

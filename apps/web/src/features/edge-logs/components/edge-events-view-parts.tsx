@@ -139,7 +139,7 @@ function EventRow({
         <TableRow className="bg-muted/30 hover:bg-muted/30">
           <TableCell colSpan={6} className="py-3">
             <div className="w-0 min-w-full overflow-hidden">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-1 font-mono text-[12px]">
+              <div className="grid grid-cols-1 gap-x-10 gap-y-1 font-mono text-[12px] sm:grid-cols-2">
                 <Detail k="logger" v={row.logger} wrap={wrap} />
                 {row.upstream ? <Detail k="upstream" v={row.upstream} wrap={wrap} /> : null}
                 {row.error ? <Detail k="error" v={row.error} wrap={wrap} wide /> : null}

@@ -92,9 +92,7 @@ const createToken = defineCommand({
       // rather than as an ordinary value.
       [
         "expires",
-        created.expiresAt
-          ? relativeTime(created.expiresAt.toISOString())
-          : paint("warn", "never"),
+        created.expiresAt ? relativeTime(created.expiresAt.toISOString()) : paint("warn", "never"),
       ],
     ]);
 

@@ -107,7 +107,7 @@ export function StepImage() {
         title="Container registry"
         sub="Used to browse tags below. At deploy time the pull credential is matched by the image's host automatically."
       />
-      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         {options.map((r) => (
           <button
             key={r.id || "anon"}

@@ -13,9 +13,10 @@ vi.mock("../queries", () => ({
   setBlocklistSyncResult: vi.fn(),
 }));
 
+import type { BlocklistRow } from "../queries";
+
 import { fetchPublicText } from "../../../security/public-fetch";
 import { cscliRun } from "../cscli";
-import type { BlocklistRow } from "../queries";
 import { setBlocklistSyncResult } from "../queries";
 import { clearBlocklist, syncBlocklist } from "../sync";
 

@@ -91,7 +91,10 @@ export const EXAMPLES: Record<string, Example[]> = {
   ],
   "add database": [
     { note: "add a managed database", run: "add database db --engine postgres" },
-    { note: "engines: postgres, redis, mariadb, mongodb, clickhouse", run: "add database cache --engine redis" },
+    {
+      note: "engines: postgres, redis, mariadb, mongodb, clickhouse",
+      run: "add database cache --engine redis",
+    },
   ],
   "add compose": [
     { note: "adopt a local compose file", run: "add compose stack --file docker-compose.yml" },
@@ -101,15 +104,23 @@ export const EXAMPLES: Record<string, Example[]> = {
     },
   ],
 
-  "domains list": [{ note: "domains, DNS and cert state for a service", run: "domains list --service web" }],
+  "domains list": [
+    { note: "domains, DNS and cert state for a service", run: "domains list --service web" },
+  ],
   "domains add": [
     { note: "attach a custom domain", run: "domains add app.example.com --service web" },
   ],
   "domains recheck": [
-    { note: "re-run the DNS check after updating records", run: "domains recheck app.example.com --service web" },
+    {
+      note: "re-run the DNS check after updating records",
+      run: "domains recheck app.example.com --service web",
+    },
   ],
   "domains remove": [
-    { note: "detach a domain, skipping the prompt", run: "domains remove app.example.com --service web --yes" },
+    {
+      note: "detach a domain, skipping the prompt",
+      run: "domains remove app.example.com --service web --yes",
+    },
   ],
 
   "env list": [
@@ -117,7 +128,10 @@ export const EXAMPLES: Record<string, Example[]> = {
     { note: "variables shared across the project", run: "env list --shared" },
   ],
   "env set": [
-    { note: "set one variable on a service", run: "env set --service web DATABASE_URL=postgres://…" },
+    {
+      note: "set one variable on a service",
+      run: "env set --service web DATABASE_URL=postgres://…",
+    },
     { note: "set a project-wide variable", run: "env set --shared LOG_LEVEL=debug" },
   ],
   "env import": [
@@ -128,7 +142,10 @@ export const EXAMPLES: Record<string, Example[]> = {
 
   "volume list": [{ note: "persistent volumes on a service", run: "volume list --service web" }],
   "volume add": [
-    { note: "mount a persistent volume", run: "volume add --service web --mount-path /var/lib/data" },
+    {
+      note: "mount a persistent volume",
+      run: "volume add --service web --mount-path /var/lib/data",
+    },
   ],
 
   "db url": [
@@ -139,11 +156,19 @@ export const EXAMPLES: Record<string, Example[]> = {
 
   "backups run": [
     { note: "back up a database now", run: "backups run postgres" },
-    { note: "send it to a named destination", run: "backups run postgres --destination s3-primary" },
+    {
+      note: "send it to a named destination",
+      run: "backups run postgres --destination s3-primary",
+    },
   ],
-  "backups list": [{ note: "recent backups for a database", run: "backups list --database postgres" }],
+  "backups list": [
+    { note: "recent backups for a database", run: "backups list --database postgres" },
+  ],
   "backups restore": [
-    { note: "restore a backup — requires the database name to confirm", run: "backups restore bkp_01hxk2 --confirm postgres" },
+    {
+      note: "restore a backup — requires the database name to confirm",
+      run: "backups restore bkp_01hxk2 --confirm postgres",
+    },
   ],
 
   "project list": [{ note: "projects in the active organization", run: "project list" }],
@@ -170,7 +195,10 @@ export const EXAMPLES: Record<string, Example[]> = {
   ],
 
   completions: [
-    { note: "enable tab completion in zsh", run: "completions zsh > ~/.otterdeploy-completion.zsh" },
+    {
+      note: "enable tab completion in zsh",
+      run: "completions zsh > ~/.otterdeploy-completion.zsh",
+    },
     { note: "print the bash script", run: "completions bash" },
   ],
 };

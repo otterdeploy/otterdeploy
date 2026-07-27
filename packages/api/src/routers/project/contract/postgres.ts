@@ -52,13 +52,7 @@ export const createPostgresDatabaseInput = z.object({
    *  with the original postgres-only contract; the wizard sends the
    *  user's selection explicitly. */
   engine: z
-    .enum([
-      "postgres",
-      "redis",
-      "mariadb",
-      "mongodb",
-      "clickhouse",
-    ])
+    .enum(["postgres", "redis", "mariadb", "mongodb", "clickhouse"])
     .optional()
     .default("postgres"),
   /** Whether the DB should be reachable from the public internet via the
@@ -170,13 +164,7 @@ const draftCredentialsInput = z.object({
   /** Manifest resource name (the `databases[name]` key). */
   name: z.string().min(1),
   engine: z
-    .enum([
-      "postgres",
-      "redis",
-      "mariadb",
-      "mongodb",
-      "clickhouse",
-    ])
+    .enum(["postgres", "redis", "mariadb", "mongodb", "clickhouse"])
     .optional()
     .default("postgres"),
 });

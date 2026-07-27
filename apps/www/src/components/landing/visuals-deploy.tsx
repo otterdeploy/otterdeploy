@@ -29,7 +29,12 @@ function Tick() {
       viewBox="0 0 16 16"
       className="mt-[3px] shrink-0 fill-none stroke-success"
     >
-      <path d="M3 8.5l3.2 3.2L13 4.8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M3 8.5l3.2 3.2L13 4.8"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }

@@ -38,7 +38,7 @@ export function Hero() {
         {/* `min-w-0` is load-bearing: the install command below sets
             `whitespace-nowrap`, and a grid item's default `min-width: auto`
             would let that one line widen the whole column past the viewport. */}
-        <div className="min-w-0 max-w-[34rem]">
+        <div className="max-w-[34rem] min-w-0">
           <StateChip tone="warning">pre-1.0 · under active development</StateChip>
 
           <h1
@@ -55,9 +55,9 @@ export function Hero() {
           </h1>
 
           <p className="mt-6 max-w-[44ch] text-[1.0625rem] leading-relaxed text-pretty text-muted-foreground">
-            A deployment platform that runs on your hardware. Builds from a repo, managed
-            databases, automatic HTTPS, previews on every pull request — self-hosted, open source,
-            no usage bill.
+            A deployment platform that runs on your hardware. Builds from a repo, managed databases,
+            automatic HTTPS, previews on every pull request — self-hosted, open source, no usage
+            bill.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">

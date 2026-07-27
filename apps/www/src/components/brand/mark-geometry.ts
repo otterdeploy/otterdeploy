@@ -37,8 +37,7 @@ export const MARK_GLYPHS: Record<MarkStatus, readonly string[]> = {
   error: ["M11.8 11.8 20.2 20.2", "M20.2 11.8 11.8 20.2"],
 };
 
-export const MARK_STATUS_COLORS: Record<MarkStatus, { light: string; dark: string }> =
-  {
+export const MARK_STATUS_COLORS: Record<MarkStatus, { light: string; dark: string }> = {
   idle: { light: "#1d4ed8", dark: "#3b82f6" },
   deploying: { light: "#1d4ed8", dark: "#3b82f6" },
   success: { light: "#1f7a3f", dark: "#4ade80" },

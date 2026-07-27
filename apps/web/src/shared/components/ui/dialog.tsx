@@ -114,7 +114,7 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
       // push the dialog past its max-width. `leading-none` is dropped to
       // `leading-tight` so a title that now wraps doesn't collide with itself.
       className={cn(
-        "font-heading min-w-0 text-base leading-tight font-medium [overflow-wrap:anywhere]",
+        "min-w-0 font-heading text-base leading-tight font-medium [overflow-wrap:anywhere]",
         className,
       )}
       {...props}
@@ -127,7 +127,7 @@ function DialogDescription({ className, ...props }: DialogPrimitive.Description.
     <DialogPrimitive.Description
       data-slot="dialog-description"
       className={cn(
-        "min-w-0 text-sm text-muted-foreground [overflow-wrap:anywhere] *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground",
+        "min-w-0 text-sm [overflow-wrap:anywhere] text-muted-foreground *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground",
         className,
       )}
       {...props}

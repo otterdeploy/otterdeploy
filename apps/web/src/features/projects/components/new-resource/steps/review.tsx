@@ -202,7 +202,7 @@ export function StepReview({ kind, projectId }: StepReviewProps) {
               sub="Add this resource, then apply it from the pending-changes bar — you can change all of this later"
             />
 
-            <div className="mt-3.5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="mt-3.5 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <SectionLabel>summary</SectionLabel>
                 <Card className="gap-0 overflow-hidden rounded-md p-0">

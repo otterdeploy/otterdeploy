@@ -1,8 +1,7 @@
 import type { ErrorComponentProps } from "@tanstack/react-router";
 
-import { useTranslation } from "react-i18next";
-
 import { ErrorScreen, errorBackClass, errorBtnClass } from "@otterdeploy/ui/error-screen";
+import { useTranslation } from "react-i18next";
 
 /**
  * 500 screen — wired into the router as `defaultErrorComponent` (see main.tsx).

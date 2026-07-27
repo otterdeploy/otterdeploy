@@ -111,7 +111,7 @@ function TabsList({
     // a phone. `no-scrollbar` keeps a scrollbar gutter out of the 40px row;
     // the clipped next tab is the swipe affordance. The indicator is absolute
     // inside this scroll container, so it travels with the tabs.
-    <div ref={wrapperRef} className="no-scrollbar relative overflow-x-auto overflow-y-hidden">
+    <div ref={wrapperRef} className="relative no-scrollbar overflow-x-auto overflow-y-hidden">
       {list}
       <span
         aria-hidden

@@ -50,6 +50,56 @@ function normalizeDomain(raw: string): string {
  *  need escaping there. */
 const providerIdPattern = /^[a-z0-9][a-z0-9-]*$/;
 
+/**
+ * One labelled text field, rendered from a TanStack Form field API.
+ *
+ * The six fields below differ only by label, placeholder, type and hint, so
+ * inlining each one's Field/Label/Input/errors block six times made the dialog
+ * 208 lines of near-identical JSX — over the 150-line function cap, and hard to
+ * scan for the parts that actually differ.
+ */
+function ProviderField({
+  field,
+  label,
+  placeholder,
+  hint,
+  type,
+}: {
+  // The TanStack field API for a string-valued field. Kept structural rather
+  // than importing the generic FieldApi type, which would need the whole form
+  // shape threaded through for no added safety at this call site.
+  field: {
+    name: string;
+    state: { value: string; meta: { errors: Array<{ message?: string } | undefined> } };
+    handleBlur: () => void;
+    handleChange: (value: string) => void;
+  };
+  label: string;
+  placeholder?: string;
+  hint?: string;
+  type?: string;
+}) {
+  return (
+    <Field>
+      <FieldLabel htmlFor={field.name}>{label}</FieldLabel>
+      <Input
+        id={field.name}
+        name={field.name}
+        type={type}
+        autoComplete={type === "password" ? "off" : undefined}
+        placeholder={placeholder}
+        value={field.state.value}
+        onBlur={field.handleBlur}
+        onChange={(e) => field.handleChange(e.target.value)}
+      />
+      {hint ? <p className="text-[11px] text-muted-foreground">{hint}</p> : null}
+      {field.state.meta.errors.map((error) => (
+        <FieldError key={error?.message}>{error?.message}</FieldError>
+      ))}
+    </Field>
+  );
+}
+
 export function RegisterProviderDialog({
   organizationId,
   open,
@@ -127,126 +177,48 @@ export function RegisterProviderDialog({
         >
           <form.Field name="providerId">
             {(field) => (
-              <Field>
-                <FieldLabel htmlFor={field.name}>Provider ID</FieldLabel>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  placeholder="okta"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Appears in the redirect URI you give your IdP. Cannot be changed later.
-                </p>
-                {field.state.meta.errors.map((error) => (
-                  <FieldError key={error?.message}>{error?.message}</FieldError>
-                ))}
-              </Field>
+              <ProviderField
+                field={field}
+                label="Provider ID"
+                placeholder="okta"
+                hint="Appears in the redirect URI you give your IdP. Cannot be changed later."
+              />
             )}
           </form.Field>
 
           <form.Field name="domain">
-            {(field) => (
-              <Field>
-                <FieldLabel htmlFor={field.name}>Email domain</FieldLabel>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  placeholder="acme.com"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-                {field.state.meta.errors.map((error) => (
-                  <FieldError key={error?.message}>{error?.message}</FieldError>
-                ))}
-              </Field>
-            )}
+            {(field) => <ProviderField field={field} label="Email domain" placeholder="acme.com" />}
           </form.Field>
 
           <form.Field name="issuer">
             {(field) => (
-              <Field>
-                <FieldLabel htmlFor={field.name}>Issuer URL</FieldLabel>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  placeholder="https://acme.okta.com"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-                {field.state.meta.errors.map((error) => (
-                  <FieldError key={error?.message}>{error?.message}</FieldError>
-                ))}
-              </Field>
+              <ProviderField field={field} label="Issuer URL" placeholder="https://acme.okta.com" />
             )}
           </form.Field>
 
           <form.Field name="clientId">
-            {(field) => (
-              <Field>
-                <FieldLabel htmlFor={field.name}>Client ID</FieldLabel>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  autoComplete="off"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-                {field.state.meta.errors.map((error) => (
-                  <FieldError key={error?.message}>{error?.message}</FieldError>
-                ))}
-              </Field>
-            )}
+            {(field) => <ProviderField field={field} label="Client ID" />}
           </form.Field>
 
           <form.Field name="clientSecret">
             {(field) => (
-              <Field>
-                <FieldLabel htmlFor={field.name}>Client secret</FieldLabel>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  type="password"
-                  autoComplete="off"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Stored encrypted and never shown again. To rotate it, remove the provider and add
-                  it back.
-                </p>
-                {field.state.meta.errors.map((error) => (
-                  <FieldError key={error?.message}>{error?.message}</FieldError>
-                ))}
-              </Field>
+              <ProviderField
+                field={field}
+                label="Client secret"
+                type="password"
+                hint="Stored encrypted and never shown again. To rotate it, remove the provider and add it back."
+              />
             )}
           </form.Field>
 
           <form.Field name="discoveryEndpoint">
             {(field) => (
-              <Field>
-                <FieldLabel htmlFor={field.name}>Discovery endpoint (optional)</FieldLabel>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  placeholder="https://acme.okta.com/.well-known/openid-configuration"
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Leave blank to derive it from the issuer.
-                </p>
-                {field.state.meta.errors.map((error) => (
-                  <FieldError key={error?.message}>{error?.message}</FieldError>
-                ))}
-              </Field>
+              <ProviderField
+                field={field}
+                label="Discovery endpoint (optional)"
+                placeholder="https://acme.okta.com/.well-known/openid-configuration"
+                hint="Leave blank to derive it from the issuer."
+              />
             )}
           </form.Field>
 

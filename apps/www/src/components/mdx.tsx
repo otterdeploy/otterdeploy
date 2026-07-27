@@ -124,10 +124,7 @@ function Callout({
 
   return (
     <div
-      className={cx(
-        "my-5 flex gap-3 rounded-lg border border-border bg-card p-4",
-        className,
-      )}
+      className={cx("my-5 flex gap-3 rounded-lg border border-border bg-card p-4", className)}
       {...props}
     >
       <span
@@ -137,9 +134,7 @@ function Callout({
         <HugeiconsIcon icon={meta.icon} strokeWidth={1.8} className={cx("size-4", meta.tone)} />
       </span>
       <div className="min-w-0 flex-1">
-        {title ? (
-          <p className="text-[0.875rem] font-medium text-foreground">{title}</p>
-        ) : null}
+        {title ? <p className="text-[0.875rem] font-medium text-foreground">{title}</p> : null}
         <div
           className={cx(
             "text-[0.9rem] leading-relaxed text-foreground/80 [&>p]:my-0 [&>p+p]:mt-2",

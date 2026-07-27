@@ -71,7 +71,8 @@ export const terminalRouter = {
       target,
     );
     if (authorized.isErr()) {
-      if (authorized.error.status === 404) throw errors.NOT_FOUND({ message: authorized.error.message });
+      if (authorized.error.status === 404)
+        throw errors.NOT_FOUND({ message: authorized.error.message });
       throw errors.FORBIDDEN({ message: authorized.error.message });
     }
 

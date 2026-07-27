@@ -1,3 +1,5 @@
+import type { ProjectSlug } from "@otterdeploy/shared/id";
+
 import { useState, type ReactElement } from "react";
 
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
@@ -6,8 +8,6 @@ import { useForm, useStore } from "@tanstack/react-form";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
 import * as z from "zod";
-
-import type { ProjectSlug } from "@otterdeploy/shared/id";
 
 import { Button } from "@/shared/components/ui/button";
 import {

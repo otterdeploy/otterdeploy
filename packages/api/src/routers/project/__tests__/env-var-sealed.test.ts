@@ -22,13 +22,14 @@ vi.mock("../queries", () => ({
   upsertProjectEnvVar: vi.fn(),
 }));
 
-import * as queries from "../queries";
+import type { ProjectEnvVarRow } from "../queries";
+
 import {
   bulkReplaceProjectEnvVarsForOrg,
   listProjectEnvVarsForOrg,
   upsertProjectEnvVarForOrg,
 } from "../env-var";
-import type { ProjectEnvVarRow } from "../queries";
+import * as queries from "../queries";
 
 const projectId = "project_test" as ProjectId;
 const environmentId = "env_test" as EnvironmentId;

@@ -76,10 +76,7 @@ async function resolveEnvironment(
       row([paint("id", m.id), dim(`project: ${m.projectId ?? "standalone"}`)]);
     }
     err();
-    abort(
-      `\`${nameOrId}\` matches ${rest.length + 1} environments.`,
-      "pass the env_… id instead",
-    );
+    abort(`\`${nameOrId}\` matches ${rest.length + 1} environments.`, "pass the env_… id instead");
   }
   return match;
 }
@@ -184,9 +181,7 @@ const deleteCommand = defineCommand({
     const env = await resolveEnvironment(client, args.environment, projectId);
     if (!args.yes) {
       // Name the collateral damage in the prompt — shared env vars go with it.
-      const proceed = await confirm(
-        `Delete environment ${env.name} and its shared env vars?`,
-      );
+      const proceed = await confirm(`Delete environment ${env.name} and its shared env vars?`);
       if (!proceed) abort("Aborted — nothing was deleted.");
     }
     await client.env.delete({ id: env.id });

@@ -65,7 +65,9 @@ describe("[od-5j8.11] the control plane's own request path resolves the caller I
 
   test("resolveClientAddress only trusts X-Forwarded-For from a peer matching TRUSTED_PROXIES — never unconditionally", () => {
     const trustedProxy = source("packages/api/src/security/trusted-proxy.ts");
-    expect(trustedProxy).toContain("isTrustedProxyPeer(input.peerAddress, input.trustedProxiesRaw)");
+    expect(trustedProxy).toContain(
+      "isTrustedProxyPeer(input.peerAddress, input.trustedProxiesRaw)",
+    );
     // The untrusted branch must return BEFORE the header is even read.
     const fn = trustedProxy.slice(
       trustedProxy.indexOf("export function resolveClientAddress"),

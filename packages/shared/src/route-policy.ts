@@ -5,7 +5,10 @@ const headerValue = z
   .trim()
   .min(1)
   .max(4_096)
-  .refine((value) => !/[\u0000-\u001f\u007f]/.test(value), "Header values cannot contain controls.");
+  .refine(
+    (value) => !/[\u0000-\u001f\u007f]/.test(value),
+    "Header values cannot contain controls.",
+  );
 
 /**
  * Safe, declarative subset of per-route edge behavior. Every value is rendered

@@ -55,9 +55,7 @@ export const pullCommand = defineCommand({
     const slug = args.slug ?? localManifest?.project ?? null;
     if (!slug) {
       abort(
-        localError
-          ? `Local config is unreadable: ${localError.message}`
-          : "No project to pull.",
+        localError ? `Local config is unreadable: ${localError.message}` : "No project to pull.",
         "pass `--slug <slug>` to pull anyway",
       );
     }

@@ -126,7 +126,7 @@ export function ProvisionForm({
 
 function IdentityFields({ form }: { form: ProvisionFormApi }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <form.Field
         name="name"
         validators={{
@@ -181,7 +181,7 @@ function IdentityFields({ form }: { form: ProvisionFormApi }) {
 
 function ConnectionFields({ form }: { form: ProvisionFormApi }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 sm:grid-cols-3 gap-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:grid-cols-3">
       <form.Field name="sshUser">
         {(field) => (
           <Field>

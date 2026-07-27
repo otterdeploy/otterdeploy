@@ -82,7 +82,10 @@ export const whoamiCommand = defineCommand({
       ["url", url],
       // An absent org is a real state that blocks most commands, so it reads as
       // a warning rather than an empty value.
-      ["org", activeOrg ? `${activeOrg.slug} ${dim(`(${activeOrg.name})`)}` : paint("warn", "none")],
+      [
+        "org",
+        activeOrg ? `${activeOrg.slug} ${dim(`(${activeOrg.name})`)}` : paint("warn", "none"),
+      ],
     ]);
     if (!activeOrg) hint(`run \`${cmd("org use <slug>")}\` to pick one`);
   },

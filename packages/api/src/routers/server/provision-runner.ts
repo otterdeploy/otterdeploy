@@ -161,7 +161,11 @@ export async function runProvisionJob(payload: ProvisionServerPayload): Promise<
       peers.push(managerHostOf(managerAddr));
       const firewallOutcome = await installHostFirewall(
         session,
-        { sshPort: payload.sshPort, peerIpsV4: filterIpv4Peers(peers), privilege: result.probe.privilege },
+        {
+          sshPort: payload.sshPort,
+          peerIpsV4: filterIpv4Peers(peers),
+          privilege: result.probe.privilege,
+        },
         emit,
       );
       await patchServerFirewall({
@@ -169,7 +173,8 @@ export async function runProvisionJob(payload: ProvisionServerPayload): Promise<
         organizationId,
         firewallStatus: firewallOutcome.status,
         firewallError: firewallOutcome.status === "applied" ? null : firewallOutcome.reason,
-        firewallBouncerActive: firewallOutcome.status === "applied" && firewallOutcome.probe.bouncerActive,
+        firewallBouncerActive:
+          firewallOutcome.status === "applied" && firewallOutcome.probe.bouncerActive,
       }).catch(() => undefined);
     } finally {
       session.dispose();
@@ -272,4 +277,3 @@ async function resolvePrivateKey(
   }
   return undefined;
 }
-

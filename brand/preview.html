@@ -34,7 +34,11 @@
         --success: #1f7a3f;
       }
 
-      * { box-sizing: border-box; margin: 0; padding: 0; }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
       body {
         font-family: "Geist", ui-sans-serif, system-ui, sans-serif;
@@ -46,116 +50,274 @@
         -webkit-font-smoothing: antialiased;
       }
 
-      code, .mono {
+      code,
+      .mono {
         font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
         font-feature-settings: "zero", "ss03";
         font-size: 0.8125rem;
       }
 
-      .wrap { max-width: 1180px; margin: 0 auto; padding: 0 32px; }
+      .wrap {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 0 32px;
+      }
 
-      header { padding: 72px 0 8px; }
-      h1 { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; }
+      header {
+        padding: 72px 0 8px;
+      }
+      h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+      }
       header p {
-        margin-top: 10px; max-width: 70ch; font-size: 0.875rem;
-        line-height: 1.5; color: var(--muted);
+        margin-top: 10px;
+        max-width: 70ch;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        color: var(--muted);
       }
       header .built {
-        margin-top: 18px; display: inline-flex; align-items: center; gap: 8px;
-        border-radius: 9999px; padding: 4px 12px 4px 10px;
+        margin-top: 18px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 9999px;
+        padding: 4px 12px 4px 10px;
         box-shadow: inset 0 0 0 1px var(--hairline);
-        font-size: 0.75rem; color: var(--muted);
+        font-size: 0.75rem;
+        color: var(--muted);
       }
-      header .built b { color: var(--ink); font-weight: 500; }
+      header .built b {
+        color: var(--ink);
+        font-weight: 500;
+      }
 
-      section { padding: 40px 0; border-top: 1px solid var(--hairline); margin-top: 40px; }
-      section:first-of-type { border-top: none; margin-top: 0; }
-      h2 { font-size: 1.125rem; font-weight: 600; letter-spacing: -0.015em; }
-      h2 + p { margin-top: 8px; max-width: 74ch; font-size: 0.875rem; line-height: 1.5; color: var(--muted); }
+      section {
+        padding: 40px 0;
+        border-top: 1px solid var(--hairline);
+        margin-top: 40px;
+      }
+      section:first-of-type {
+        border-top: none;
+        margin-top: 0;
+      }
+      h2 {
+        font-size: 1.125rem;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+      }
+      h2 + p {
+        margin-top: 8px;
+        max-width: 74ch;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        color: var(--muted);
+      }
 
       h3 {
         font-family: "Geist Mono", ui-monospace, monospace;
         font-feature-settings: "zero", "ss03";
-        font-size: 0.6875rem; opacity: 0.45; font-weight: 400;
+        font-size: 0.6875rem;
+        opacity: 0.45;
+        font-weight: 400;
         margin-bottom: 12px;
       }
 
-      .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 24px; }
-      .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 24px; }
+      .grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-top: 24px;
+      }
+      .grid3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        margin-top: 24px;
+      }
 
       .panel {
         border-radius: 0.625rem;
         box-shadow: inset 0 0 0 1px var(--hairline);
-        background: var(--surface); padding: 24px;
+        background: var(--surface);
+        padding: 24px;
       }
       .panel.dark {
-        background: var(--surface-dark); color: var(--ink-inverse);
+        background: var(--surface-dark);
+        color: var(--ink-inverse);
         box-shadow: inset 0 0 0 1px var(--hairline-dark);
       }
-      .panel.canvas { background: var(--canvas); }
-      .panel.canvas-dark { background: var(--canvas-dark); color: var(--ink-inverse);
-        box-shadow: inset 0 0 0 1px var(--hairline-dark); }
+      .panel.canvas {
+        background: var(--canvas);
+      }
+      .panel.canvas-dark {
+        background: var(--canvas-dark);
+        color: var(--ink-inverse);
+        box-shadow: inset 0 0 0 1px var(--hairline-dark);
+      }
 
-      .row { display: flex; align-items: center; flex-wrap: wrap; gap: 28px; }
-      .col { display: flex; flex-direction: column; gap: 20px; }
+      .row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 28px;
+      }
+      .col {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
 
-      img { display: block; max-width: 100%; }
-      .pixel { image-rendering: pixelated; }
+      img {
+        display: block;
+        max-width: 100%;
+      }
+      .pixel {
+        image-rendering: pixelated;
+      }
 
-      .rung { display: flex; flex-direction: column; align-items: center; gap: 10px; }
-      .rung .slot { display: grid; place-items: center; height: 64px; }
+      .rung {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      }
+      .rung .slot {
+        display: grid;
+        place-items: center;
+        height: 64px;
+      }
       .rung span {
         font-family: "Geist Mono", ui-monospace, monospace;
-        font-feature-settings: "zero", "ss03"; font-size: 0.6875rem; opacity: 0.45;
+        font-feature-settings: "zero", "ss03";
+        font-size: 0.6875rem;
+        opacity: 0.45;
       }
 
-      table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.875rem; }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        font-size: 0.875rem;
+      }
       th {
-        text-align: left; font-weight: 500; font-size: 0.8rem; color: var(--muted);
-        padding: 0 12px 10px 0; border-bottom: 1px solid var(--hairline);
+        text-align: left;
+        font-weight: 500;
+        font-size: 0.8rem;
+        color: var(--muted);
+        padding: 0 12px 10px 0;
+        border-bottom: 1px solid var(--hairline);
       }
-      td { padding: 11px 12px 11px 0; border-bottom: 1px solid var(--hairline); vertical-align: middle; }
-      td.mono { font-size: 0.8125rem; }
+      td {
+        padding: 11px 12px 11px 0;
+        border-bottom: 1px solid var(--hairline);
+        vertical-align: middle;
+      }
+      td.mono {
+        font-size: 0.8125rem;
+      }
       .swatch {
-        display: inline-block; width: 22px; height: 22px; border-radius: 6px;
-        box-shadow: inset 0 0 0 1px var(--hairline); vertical-align: -6px; margin-right: 10px;
+        display: inline-block;
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        box-shadow: inset 0 0 0 1px var(--hairline);
+        vertical-align: -6px;
+        margin-right: 10px;
       }
-      .pass { color: var(--success); font-weight: 500; }
+      .pass {
+        color: var(--success);
+        font-weight: 500;
+      }
 
-      ul { margin-top: 14px; padding-left: 0; list-style: none; }
-      li { font-size: 0.875rem; line-height: 1.6; padding-left: 22px; position: relative; max-width: 76ch; }
-      li::before { position: absolute; left: 0; opacity: 0.5; }
-      .do li::before { content: "✓"; color: var(--success); opacity: 1; }
-      .dont li::before { content: "✕"; color: var(--destructive); opacity: 1; }
+      ul {
+        margin-top: 14px;
+        padding-left: 0;
+        list-style: none;
+      }
+      li {
+        font-size: 0.875rem;
+        line-height: 1.6;
+        padding-left: 22px;
+        position: relative;
+        max-width: 76ch;
+      }
+      li::before {
+        position: absolute;
+        left: 0;
+        opacity: 0.5;
+      }
+      .do li::before {
+        content: "✓";
+        color: var(--success);
+        opacity: 1;
+      }
+      .dont li::before {
+        content: "✕";
+        color: var(--destructive);
+        opacity: 1;
+      }
 
       pre {
-        margin-top: 16px; padding: 16px; border-radius: 0.5rem;
-        background: #0c0c0b; color: #f5f5f0; overflow-x: auto;
+        margin-top: 16px;
+        padding: 16px;
+        border-radius: 0.5rem;
+        background: #0c0c0b;
+        color: #f5f5f0;
+        overflow-x: auto;
         font-family: "Geist Mono", ui-monospace, monospace;
-        font-feature-settings: "zero", "ss03"; font-size: 0.8125rem; line-height: 1.6;
+        font-feature-settings: "zero", "ss03";
+        font-size: 0.8125rem;
+        line-height: 1.6;
       }
-      pre .accent { color: #3b82f6; }
-      pre .dim { opacity: 0.55; }
+      pre .accent {
+        color: #3b82f6;
+      }
+      pre .dim {
+        opacity: 0.55;
+      }
 
       /* Clear-space diagram: the mark with its exclusion zone drawn around it. */
       /* Padding is ¼ of the 64px mark below — the exclusion zone equals one
          ring corner radius, so the rule scales with the mark at any size. */
-      .clearspace { position: relative; display: inline-block; padding: 16px; }
+      .clearspace {
+        position: relative;
+        display: inline-block;
+        padding: 16px;
+      }
       .clearspace::before {
-        content: ""; position: absolute; inset: 0;
+        content: "";
+        position: absolute;
+        inset: 0;
         border: 1px dashed color-mix(in oklab, var(--accent) 45%, transparent);
         border-radius: 4px;
       }
       .clearspace .unit {
-        position: absolute; top: 50%; left: 0; width: 16px;
+        position: absolute;
+        top: 50%;
+        left: 0;
+        width: 16px;
         border-top: 1px solid color-mix(in oklab, var(--accent) 45%, transparent);
       }
 
-      footer { padding: 48px 0 96px; font-size: 0.875rem; color: var(--muted); line-height: 1.6; }
-      footer a { color: var(--accent); }
+      footer {
+        padding: 48px 0 96px;
+        font-size: 0.875rem;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+      footer a {
+        color: var(--accent);
+      }
 
       @media (max-width: 900px) {
-        .grid2, .grid3 { grid-template-columns: 1fr; }
+        .grid2,
+        .grid3 {
+          grid-template-columns: 1fr;
+        }
       }
     </style>
   </head>
@@ -189,10 +351,30 @@
             <div class="row">
               <img src="./logo/mark-light.svg" width="120" height="120" alt="otterdeploy mark" />
               <div class="row" style="gap: 20px">
-                <div class="rung"><div class="slot"><img src="./logo/mark-light.svg" width="48" height="48" alt="" /></div><span>48</span></div>
-                <div class="rung"><div class="slot"><img src="./logo/mark-light.svg" width="32" height="32" alt="" /></div><span>32</span></div>
-                <div class="rung"><div class="slot"><img src="./logo/mark-light.svg" width="24" height="24" alt="" /></div><span>24</span></div>
-                <div class="rung"><div class="slot"><img src="./logo/mark-light.svg" width="16" height="16" alt="" /></div><span>16</span></div>
+                <div class="rung">
+                  <div class="slot">
+                    <img src="./logo/mark-light.svg" width="48" height="48" alt="" />
+                  </div>
+                  <span>48</span>
+                </div>
+                <div class="rung">
+                  <div class="slot">
+                    <img src="./logo/mark-light.svg" width="32" height="32" alt="" />
+                  </div>
+                  <span>32</span>
+                </div>
+                <div class="rung">
+                  <div class="slot">
+                    <img src="./logo/mark-light.svg" width="24" height="24" alt="" />
+                  </div>
+                  <span>24</span>
+                </div>
+                <div class="rung">
+                  <div class="slot">
+                    <img src="./logo/mark-light.svg" width="16" height="16" alt="" />
+                  </div>
+                  <span>16</span>
+                </div>
               </div>
             </div>
           </div>
@@ -201,10 +383,30 @@
             <div class="row">
               <img src="./logo/mark-dark.svg" width="120" height="120" alt="otterdeploy mark" />
               <div class="row" style="gap: 20px">
-                <div class="rung"><div class="slot"><img src="./logo/mark-dark.svg" width="48" height="48" alt="" /></div><span>48</span></div>
-                <div class="rung"><div class="slot"><img src="./logo/mark-dark.svg" width="32" height="32" alt="" /></div><span>32</span></div>
-                <div class="rung"><div class="slot"><img src="./logo/mark-dark.svg" width="24" height="24" alt="" /></div><span>24</span></div>
-                <div class="rung"><div class="slot"><img src="./logo/mark-dark.svg" width="16" height="16" alt="" /></div><span>16</span></div>
+                <div class="rung">
+                  <div class="slot">
+                    <img src="./logo/mark-dark.svg" width="48" height="48" alt="" />
+                  </div>
+                  <span>48</span>
+                </div>
+                <div class="rung">
+                  <div class="slot">
+                    <img src="./logo/mark-dark.svg" width="32" height="32" alt="" />
+                  </div>
+                  <span>32</span>
+                </div>
+                <div class="rung">
+                  <div class="slot">
+                    <img src="./logo/mark-dark.svg" width="24" height="24" alt="" />
+                  </div>
+                  <span>24</span>
+                </div>
+                <div class="rung">
+                  <div class="slot">
+                    <img src="./logo/mark-dark.svg" width="16" height="16" alt="" />
+                  </div>
+                  <span>16</span>
+                </div>
               </div>
             </div>
           </div>
@@ -222,7 +424,9 @@
             <h3>minimum size — 16px</h3>
             <div class="row" style="gap: 16px; height: 96px; align-items: center">
               <img src="./logo/mark-light.svg" width="16" height="16" alt="" />
-              <span style="font-size: 0.8rem; color: var(--muted); max-width: 24ch; line-height: 1.5">
+              <span
+                style="font-size: 0.8rem; color: var(--muted); max-width: 24ch; line-height: 1.5"
+              >
                 Below 16px the ring and slash merge. Use the wordmark alone instead.
               </span>
             </div>
@@ -230,8 +434,17 @@
           <div class="panel">
             <h3>mono — one colour, inherits</h3>
             <div class="row" style="height: 96px; gap: 20px">
-              <span style="color: var(--ink)"><img src="./logo/mark-mono.svg" width="48" height="48" style="color: inherit" alt="" /></span>
-              <span style="font-size: 0.8rem; color: var(--muted); max-width: 22ch; line-height: 1.5">
+              <span style="color: var(--ink)"
+                ><img
+                  src="./logo/mark-mono.svg"
+                  width="48"
+                  height="48"
+                  style="color: inherit"
+                  alt=""
+              /></span>
+              <span
+                style="font-size: 0.8rem; color: var(--muted); max-width: 22ch; line-height: 1.5"
+              >
                 For print, watermarks, and single-ink contexts.
               </span>
             </div>
@@ -307,20 +520,50 @@
           <div class="panel">
             <h3>favicon 16 · 32 · 48 (4×)</h3>
             <div class="row" style="gap: 20px; align-items: flex-end">
-              <img class="pixel" src="../apps/web/public/favicon-16x16.png" width="64" height="64" alt="" />
-              <img class="pixel" src="../apps/web/public/favicon-32x32.png" width="128" height="128" alt="" />
-              <img class="pixel" src="../apps/web/public/favicon-48x48.png" width="192" height="192" alt="" />
+              <img
+                class="pixel"
+                src="../apps/web/public/favicon-16x16.png"
+                width="64"
+                height="64"
+                alt=""
+              />
+              <img
+                class="pixel"
+                src="../apps/web/public/favicon-32x32.png"
+                width="128"
+                height="128"
+                alt=""
+              />
+              <img
+                class="pixel"
+                src="../apps/web/public/favicon-48x48.png"
+                width="192"
+                height="192"
+                alt=""
+              />
             </div>
           </div>
           <div class="panel">
             <h3>apple-touch-icon 180</h3>
-            <img src="../apps/web/public/apple-touch-icon.png" width="120" height="120" style="border-radius: 26px" alt="" />
+            <img
+              src="../apps/web/public/apple-touch-icon.png"
+              width="120"
+              height="120"
+              style="border-radius: 26px"
+              alt=""
+            />
           </div>
           <div class="panel">
             <h3>maskable 512 — safe zone</h3>
             <div class="row" style="gap: 20px">
               <img src="../apps/web/public/icon-maskable-512.png" width="120" height="120" alt="" />
-              <img src="../apps/web/public/icon-maskable-512.png" width="120" height="120" style="border-radius: 9999px" alt="" />
+              <img
+                src="../apps/web/public/icon-maskable-512.png"
+                width="120"
+                height="120"
+                style="border-radius: 9999px"
+                alt=""
+              />
             </div>
           </div>
         </div>
@@ -341,11 +584,11 @@
       <section>
         <h2>Terminal mark</h2>
         <p>
-          The same silhouette in box-drawing characters, printed on a bare <code>otterdeploy</code>
-          or a top-level <code>--help</code>. Suppressed for <code>NO_COLOR</code> and when stdout
-          is not a TTY, so nothing piped grows escape codes.
+          The same silhouette in box-drawing characters, printed on a bare
+          <code>otterdeploy</code> or a top-level <code>--help</code>. Suppressed for
+          <code>NO_COLOR</code> and when stdout is not a TTY, so nothing piped grows escape codes.
         </p>
-<pre><span class="dim">$</span> otterdeploy
+        <pre><span class="dim">$</span> otterdeploy
   <span class="dim">╭──────╮</span>
   <span class="dim">│    </span><span class="accent">╱</span><span class="dim"> │</span>   otterdeploy
   <span class="dim">│  </span><span class="accent">╱</span><span class="dim">   │</span>   <span class="dim">v0.1.3</span>
@@ -362,25 +605,30 @@
         </p>
         <table>
           <thead>
-            <tr><th>Role</th><th>Light</th><th>Dark</th><th>Contrast on canvas</th></tr>
+            <tr>
+              <th>Role</th>
+              <th>Light</th>
+              <th>Dark</th>
+              <th>Contrast on canvas</th>
+            </tr>
           </thead>
           <tbody>
             <tr>
               <td>Ring / wordmark</td>
-              <td class="mono"><span class="swatch" style="background:#141412"></span>#141412</td>
-              <td class="mono"><span class="swatch" style="background:#f5f5f0"></span>#f5f5f0</td>
+              <td class="mono"><span class="swatch" style="background: #141412"></span>#141412</td>
+              <td class="mono"><span class="swatch" style="background: #f5f5f0"></span>#f5f5f0</td>
               <td>18.6:1 · 17.4:1 <span class="pass">AAA</span></td>
             </tr>
             <tr>
               <td>Slash (Signal Blue)</td>
-              <td class="mono"><span class="swatch" style="background:#1d4ed8"></span>#1d4ed8</td>
-              <td class="mono"><span class="swatch" style="background:#3b82f6"></span>#3b82f6</td>
+              <td class="mono"><span class="swatch" style="background: #1d4ed8"></span>#1d4ed8</td>
+              <td class="mono"><span class="swatch" style="background: #3b82f6"></span>#3b82f6</td>
               <td>7.3:1 · 5.8:1 <span class="pass">AA</span></td>
             </tr>
             <tr>
               <td>Canvas</td>
-              <td class="mono"><span class="swatch" style="background:#fbfbfa"></span>#fbfbfa</td>
-              <td class="mono"><span class="swatch" style="background:#0c0c0b"></span>#0c0c0b</td>
+              <td class="mono"><span class="swatch" style="background: #fbfbfa"></span>#fbfbfa</td>
+              <td class="mono"><span class="swatch" style="background: #0c0c0b"></span>#0c0c0b</td>
               <td>—</td>
             </tr>
           </tbody>
@@ -394,11 +642,17 @@
           <div>
             <h3>do</h3>
             <ul class="do">
-              <li>Use <code>&lt;OtterdeployMark /&gt;</code> and <code>&lt;OtterdeployLogo /&gt;</code> in the app — they track theme tokens automatically.</li>
+              <li>
+                Use <code>&lt;OtterdeployMark /&gt;</code> and
+                <code>&lt;OtterdeployLogo /&gt;</code> in the app — they track theme tokens
+                automatically.
+              </li>
               <li>Keep the ring on <code>currentColor</code> so the mark inherits its surface.</li>
               <li>Give it one ring-corner of clear space on every side.</li>
               <li>Drop to the mark alone below ~120px of available width.</li>
-              <li>Regenerate with <code>brand/scripts/build.sh</code> after any geometry change.</li>
+              <li>
+                Regenerate with <code>brand/scripts/build.sh</code> after any geometry change.
+              </li>
             </ul>
           </div>
           <div>
@@ -407,8 +661,14 @@
               <li>Recolour the slash to anything but the accent, or add a second hue.</li>
               <li>Fill the ring, add a drop shadow, or seat it on a coloured tile in-product.</li>
               <li>Set the wordmark in anything but Geist Semibold at −0.025em.</li>
-              <li>Rotate, skew, outline, or reverse the slash direction — it is a <code>/</code>, never a <code>\</code>.</li>
-              <li>Hand-edit anything in <code>brand/logo/</code> or <code>apps/web/public/</code> — both are build output.</li>
+              <li>
+                Rotate, skew, outline, or reverse the slash direction — it is a <code>/</code>,
+                never a <code>\</code>.
+              </li>
+              <li>
+                Hand-edit anything in <code>brand/logo/</code> or <code>apps/web/public/</code> —
+                both are build output.
+              </li>
             </ul>
           </div>
         </div>
@@ -418,13 +678,15 @@
         // Status specimens are built from the generated files rather than typed
         // out, so a new status appears here the moment the build emits it.
         const STATES = ["idle", "deploying", "success", "warning", "error"];
-        const src = (s, theme) => (s === "idle" ? `./logo/mark-${theme}.svg` : `./logo/mark-${s}-${theme}.svg`);
+        const src = (s, theme) =>
+          s === "idle" ? `./logo/mark-${theme}.svg` : `./logo/mark-${s}-${theme}.svg`;
         const rung = (s, theme, size) =>
           `<div class="rung"><div class="slot"><img src="${src(s, theme)}" width="${size}" height="${size}" alt="${s}"></div><span>${s}</span></div>`;
 
         for (const theme of ["light", "dark"]) {
-          document.getElementById(`states-${theme}`).innerHTML =
-            STATES.map((s) => rung(s, theme, 44)).join("");
+          document.getElementById(`states-${theme}`).innerHTML = STATES.map((s) =>
+            rung(s, theme, 44),
+          ).join("");
         }
         document.getElementById("states-tabs").innerHTML = STATES.map(
           (s) =>

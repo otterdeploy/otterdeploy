@@ -26,7 +26,7 @@ export function SizePresets() {
 
   return (
     <>
-      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 sm:grid-cols-3 gap-2.5">
+      <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:grid-cols-3">
         {RESOURCE_PRESETS.map((p) => {
           const isActive = presetId === p.id;
           return (
@@ -54,7 +54,7 @@ export function SizePresets() {
 
       {presetId === "custom" && (
         <Card className="mt-3 p-4">
-          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-0">
+          <CardContent className="grid grid-cols-1 gap-3 p-0 sm:grid-cols-2">
             <form.AppField name="customCpu">
               {(f) => <f.NumberField label="vCPU" min={0.1} step={0.1} className="font-mono" />}
             </form.AppField>

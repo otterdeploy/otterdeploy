@@ -31,8 +31,8 @@ import { and, arrayContains, eq } from "drizzle-orm";
 import * as z from "zod";
 
 import { defineJob } from "../define";
-import { decryptSecret } from "../delivery/secret-crypto";
 import { controlPlaneEgressDenylist, egressAllowlist } from "../delivery/egress-denylist";
+import { decryptSecret } from "../delivery/secret-crypto";
 
 export const SIGNATURE_HEADER = "X-Otterdeploy-Signature";
 const DELIVERY_TIMEOUT_MS = 10_000;

@@ -51,7 +51,9 @@ export function OutlineButton({
 /** The page's one horizontal rhythm. Every band shares it, so the hairline
  *  rules that separate bands line up with the content inside them. */
 export function Container({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cx("mx-auto w-full max-w-[76rem] px-6 lg:px-10", className)}>{children}</div>;
+  return (
+    <div className={cx("mx-auto w-full max-w-[76rem] px-6 lg:px-10", className)}>{children}</div>
+  );
 }
 
 /**
@@ -163,13 +165,7 @@ export function StateChip({
  * knowledge of where it landed — it keeps using `bg-card` and `text-foreground`
  * and comes out as dark glass on blue.
  */
-export function Field({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+export function Field({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
       className={cx(
@@ -260,7 +256,7 @@ export function CommandLine({
         </span>
       ) : null}
       <code className="od-noscroll min-w-0 flex-1 overflow-x-auto font-mono text-[0.8125rem] whitespace-nowrap text-foreground">
-        <span aria-hidden className="mr-2 select-none text-muted-foreground">
+        <span aria-hidden className="mr-2 text-muted-foreground select-none">
           $
         </span>
         {command}

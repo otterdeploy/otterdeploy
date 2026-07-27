@@ -150,7 +150,10 @@ export function resolveClient(
  * IS trusted (the edge's own headers pass through unmodified) or when the
  * request already has no such headers.
  */
-export function sanitizeForwardingHeaders(c: Context, trustedProxiesRaw: string = env.TRUSTED_PROXIES): void {
+export function sanitizeForwardingHeaders(
+  c: Context,
+  trustedProxiesRaw: string = env.TRUSTED_PROXIES,
+): void {
   const trusted = isTrustedProxyPeer(rawPeerAddress(c), trustedProxiesRaw);
   if (trusted) return;
   const headers = c.req.raw.headers;

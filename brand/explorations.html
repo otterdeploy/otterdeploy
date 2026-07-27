@@ -33,7 +33,11 @@
         --accent-dark: #3b82f6;
       }
 
-      * { box-sizing: border-box; margin: 0; padding: 0; }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
       body {
         font-family: "Geist", ui-sans-serif, system-ui, sans-serif;
@@ -53,10 +57,26 @@
 
       /* Two surface contexts. `.on-light` / `.on-dark` set the ink the marks
          inherit via currentColor plus the accent cut appropriate to the theme. */
-      .on-light { background: var(--surface); color: var(--ink); --brand-accent: var(--accent); }
-      .on-dark  { background: var(--surface-dark); color: var(--ink-inverse); --brand-accent: var(--accent-dark); }
-      .on-ink   { background: var(--ink); color: var(--ink-inverse); --brand-accent: var(--accent-dark); }
-      .on-accent{ background: var(--accent); color: var(--ink-inverse); --brand-accent: var(--ink-inverse); }
+      .on-light {
+        background: var(--surface);
+        color: var(--ink);
+        --brand-accent: var(--accent);
+      }
+      .on-dark {
+        background: var(--surface-dark);
+        color: var(--ink-inverse);
+        --brand-accent: var(--accent-dark);
+      }
+      .on-ink {
+        background: var(--ink);
+        color: var(--ink-inverse);
+        --brand-accent: var(--accent-dark);
+      }
+      .on-accent {
+        background: var(--accent);
+        color: var(--ink-inverse);
+        --brand-accent: var(--ink-inverse);
+      }
 
       header {
         max-width: 1180px;
@@ -77,7 +97,11 @@
         color: var(--muted);
       }
 
-      main { max-width: 1180px; margin: 0 auto; padding: 0 32px 96px; }
+      main {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 0 32px 96px;
+      }
 
       .concept {
         border-radius: 0.625rem;
@@ -93,8 +117,15 @@
         gap: 12px;
         padding: 16px 16px 12px;
       }
-      .concept-head h2 { font-size: 1.125rem; font-weight: 600; letter-spacing: -0.015em; }
-      .concept-head .tagline { font-size: 0.8rem; color: var(--muted); }
+      .concept-head h2 {
+        font-size: 1.125rem;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+      }
+      .concept-head .tagline {
+        font-size: 0.8rem;
+        color: var(--muted);
+      }
       .concept-head .id {
         margin-left: auto;
         font-family: "Geist Mono", ui-monospace, monospace;
@@ -111,32 +142,82 @@
       }
 
       /* Side-by-side light and dark specimen panes. */
-      .panes { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--hairline); }
-      .pane { padding: 24px 20px; }
-      .pane + .pane { border-left: 1px solid var(--hairline); }
-      .on-dark.pane + .pane, .pane + .on-dark.pane { border-left-color: var(--hairline-dark); }
+      .panes {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        border-top: 1px solid var(--hairline);
+      }
+      .pane {
+        padding: 24px 20px;
+      }
+      .pane + .pane {
+        border-left: 1px solid var(--hairline);
+      }
+      .on-dark.pane + .pane,
+      .pane + .on-dark.pane {
+        border-left-color: var(--hairline-dark);
+      }
 
-      .hero { display: flex; align-items: center; gap: 24px; }
+      .hero {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+      }
 
       /* Size ladder — the real test. If it dies at 16px it is not a favicon. */
-      .ladder { display: flex; align-items: flex-end; gap: 18px; margin-top: 24px; }
-      .rung { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+      .ladder {
+        display: flex;
+        align-items: flex-end;
+        gap: 18px;
+        margin-top: 24px;
+      }
+      .rung {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+      }
       .rung span {
         font-family: "Geist Mono", ui-monospace, monospace;
         font-feature-settings: "zero", "ss03";
         font-size: 0.6875rem;
         opacity: 0.45;
       }
-      .rung .slot { display: grid; place-items: center; height: 48px; }
+      .rung .slot {
+        display: grid;
+        place-items: center;
+        height: 48px;
+      }
 
-      .lockup { display: flex; align-items: center; gap: 10px; }
-      .lockup .word { font-size: 1.0625rem; font-weight: 600; letter-spacing: -0.025em; }
-      .lockup.small .word { font-size: 0.875rem; letter-spacing: -0.02em; }
+      .lockup {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .lockup .word {
+        font-size: 1.0625rem;
+        font-weight: 600;
+        letter-spacing: -0.025em;
+      }
+      .lockup.small .word {
+        font-size: 0.875rem;
+        letter-spacing: -0.02em;
+      }
 
-      .divider { height: 1px; background: currentColor; opacity: 0.09; margin: 24px 0; }
+      .divider {
+        height: 1px;
+        background: currentColor;
+        opacity: 0.09;
+        margin: 24px 0;
+      }
 
       /* Mock chrome: how the mark actually shows up in the product. */
-      .mocks { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+      .mocks {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: flex-start;
+      }
 
       .tab {
         display: flex;
@@ -149,7 +230,11 @@
         font-size: 0.75rem;
         max-width: 190px;
       }
-      .tab .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .tab .label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
 
       .sidebar {
         width: 200px;
@@ -158,19 +243,42 @@
         --tw-ring-opacity: 0.1;
         padding: 10px;
       }
-      .sidebar { box-shadow: inset 0 0 0 1px rgb(from currentColor r g b / 0.1); }
-      .sidebar .row {
-        display: flex; align-items: center; gap: 8px;
-        height: 28px; padding: 0 8px; border-radius: 0.5rem;
-        font-size: 0.8rem; font-weight: 500; opacity: 0.55;
+      .sidebar {
+        box-shadow: inset 0 0 0 1px rgb(from currentColor r g b / 0.1);
       }
-      .sidebar .row.active { opacity: 1; color: var(--brand-accent); background: rgb(from currentColor r g b / 0.06); }
-      .sidebar .brand { display: flex; align-items: center; gap: 8px; padding: 4px 8px 12px; }
-      .sidebar .brand .word { font-size: 0.8125rem; font-weight: 600; letter-spacing: -0.02em; }
+      .sidebar .row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 28px;
+        padding: 0 8px;
+        border-radius: 0.5rem;
+        font-size: 0.8rem;
+        font-weight: 500;
+        opacity: 0.55;
+      }
+      .sidebar .row.active {
+        opacity: 1;
+        color: var(--brand-accent);
+        background: rgb(from currentColor r g b / 0.06);
+      }
+      .sidebar .brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 8px 12px;
+      }
+      .sidebar .brand .word {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
 
       .appicon {
-        display: grid; place-items: center;
-        width: 64px; height: 64px;
+        display: grid;
+        place-items: center;
+        width: 64px;
+        height: 64px;
         border-radius: 14px;
         box-shadow: inset 0 0 0 1px rgb(from currentColor r g b / 0.1);
       }
@@ -192,11 +300,19 @@
         line-height: 1.6;
         color: var(--muted);
       }
-      footer strong { color: var(--ink); font-weight: 500; }
+      footer strong {
+        color: var(--ink);
+        font-weight: 500;
+      }
 
       @media (max-width: 900px) {
-        .panes { grid-template-columns: 1fr; }
-        .pane + .pane { border-left: none; border-top: 1px solid var(--hairline); }
+        .panes {
+          grid-template-columns: 1fr;
+        }
+        .pane + .pane {
+          border-left: none;
+          border-top: 1px solid var(--hairline);
+        }
       }
     </style>
   </head>
@@ -205,10 +321,11 @@
     <header>
       <h1>otterdeploy — logo concepts</h1>
       <p>
-        Five directions, each held to DESIGN.md: warm-neutral ink (never pure black), one Signal Blue and
-        nothing else chromatic, the same <code class="mono">rounded-lg</code> geometry the product's cards and
-        nodes already use. Every mark is drawn on a 32×32 grid, so what you see at 16px is exactly what the
-        favicon will be. Judge them at 16px first — that is where marks die.
+        Five directions, each held to DESIGN.md: warm-neutral ink (never pure black), one Signal
+        Blue and nothing else chromatic, the same <code class="mono">rounded-lg</code> geometry the
+        product's cards and nodes already use. Every mark is drawn on a 32×32 grid, so what you see
+        at 16px is exactly what the favicon will be. Judge them at 16px first — that is where marks
+        die.
       </p>
     </header>
 
@@ -219,8 +336,9 @@
         Pick one (or one to refine) and the full kit gets generated from it:
         <strong>favicon.svg + .ico + PNG set</strong>, <strong>apple-touch-icon</strong>,
         <strong>maskable PWA icons</strong>, <strong>OG/social card</strong>, a
-        <strong>&lt;Logo /&gt; React component</strong> to replace the placeholder <code class="mono">os</code>
-        tile in <code class="mono">auth-layout.tsx</code>, and monochrome + horizontal-lockup variants.
+        <strong>&lt;Logo /&gt; React component</strong> to replace the placeholder
+        <code class="mono">os</code> tile in <code class="mono">auth-layout.tsx</code>, and
+        monochrome + horizontal-lockup variants.
       </p>
     </footer>
 
@@ -246,7 +364,8 @@
 
             <div class="ladder">
               ${SIZES.map(
-                (s) => `<div class="rung"><div class="slot">${renderMark(id, s)}</div><span>${s}</span></div>`,
+                (s) =>
+                  `<div class="rung"><div class="slot">${renderMark(id, s)}</div><span>${s}</span></div>`,
               ).join("")}
             </div>
 

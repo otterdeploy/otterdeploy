@@ -68,12 +68,16 @@ export async function verifyTotpCode(
   code: string,
 ): Promise<Result<void, StepUpVerificationError>> {
   const verified = await Result.tryPromise({
-    try: () => auth.api.verifyTOTP({ headers: context.headers, body: { code, trustDevice: false } }),
+    try: () =>
+      auth.api.verifyTOTP({ headers: context.headers, body: { code, trustDevice: false } }),
     catch: (cause) => cause,
   });
   if (verified.isErr()) {
     return Result.err(
-      new StepUpVerificationError({ reason: "invalid", message: "The authenticator code is invalid." }),
+      new StepUpVerificationError({
+        reason: "invalid",
+        message: "The authenticator code is invalid.",
+      }),
     );
   }
   return Result.ok(undefined);

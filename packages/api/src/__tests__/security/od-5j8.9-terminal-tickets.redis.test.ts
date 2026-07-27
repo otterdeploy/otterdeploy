@@ -41,7 +41,8 @@ process.env.CORS_ORIGIN ??= "http://localhost:3000";
 // oxlint-disable-next-line node/no-process-env -- test module graph setup
 process.env.RESEND_API_KEY ??= "test-resend-key";
 
-const { mintTerminalTicket, consumeTerminalTicket } = await import("../../routers/terminal/tickets");
+const { mintTerminalTicket, consumeTerminalTicket } =
+  await import("../../routers/terminal/tickets");
 const { authorizeTerminalTarget } = await import("../../routers/terminal/authorize");
 const { grantStepUp, hasRecentStepUp, clearStepUp } = await import("../../authz/step-up");
 
@@ -124,8 +125,10 @@ describe("[od-5j8.9] a ticket is target-bound — no cross-target substitution",
 
     expect(claimsA.isOk()).toBe(true);
     expect(claimsB.isOk()).toBe(true);
-    if (claimsA.isOk()) expect(claimsA.value.target).toEqual({ kind: "container", id: "container-A" });
-    if (claimsB.isOk()) expect(claimsB.value.target).toEqual({ kind: "container", id: "container-B" });
+    if (claimsA.isOk())
+      expect(claimsA.value.target).toEqual({ kind: "container", id: "container-A" });
+    if (claimsB.isOk())
+      expect(claimsB.value.target).toEqual({ kind: "container", id: "container-B" });
   });
 
   test("structurally: the WS upgrade accepts no client-supplied target — nothing to substitute", () => {
@@ -182,7 +185,12 @@ describe("[od-5j8.9] the host terminal is install-admin only", () => {
   const orgMember: SessionActor = {
     kind: "session",
     headers: new Headers(),
-    user: { id: "user_member", email: "member@example.test", isInstallAdmin: false, twoFactorEnabled: true },
+    user: {
+      id: "user_member",
+      email: "member@example.test",
+      isInstallAdmin: false,
+      twoFactorEnabled: true,
+    },
     session: { activeOrganizationId: "org_1" },
   };
   const installAdmin: SessionActor = {

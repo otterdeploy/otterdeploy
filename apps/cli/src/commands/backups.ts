@@ -116,10 +116,7 @@ const runCmd = defineCommand({
           row([paint("id", d.id), d.name, dim(`(${d.type})`)]);
         }
         err();
-        abort(
-          `${destinations.length} destinations exist — pick one.`,
-          "pass `--destination <id>`",
-        );
+        abort(`${destinations.length} destinations exist — pick one.`, "pass `--destination <id>`");
       }
       destinationId = only.id;
       note(`Using the only destination: ${only.name} ${dim(`(${only.id})`)}.`);
@@ -188,7 +185,10 @@ const restoreCmd = defineCommand({
     section("In-place restore");
     detail([
       ["database", paint("danger", expected)],
-      ["backup", `${paint("id", shortId(backup.id))} ${dim(relativeTime(String(backup.createdAt)))}`],
+      [
+        "backup",
+        `${paint("id", shortId(backup.id))} ${dim(relativeTime(String(backup.createdAt)))}`,
+      ],
       ["size", dim(formatBytes(backup.compressedSizeBytes ?? backup.sourceSizeBytes))],
     ]);
     out();

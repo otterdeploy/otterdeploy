@@ -70,7 +70,10 @@ const useOrg = defineCommand({
       const orgs = await auth.organization.list({
         fetchOptions: { headers: { Authorization: `Bearer ${token}` } },
       });
-      const near = suggestions(args.slug, (orgs.data ?? []).map((o) => o.slug));
+      const near = suggestions(
+        args.slug,
+        (orgs.data ?? []).map((o) => o.slug),
+      );
       abort(
         error?.message ?? `Could not switch to organization ${args.slug}.`,
         ...near.map((s) => `did you mean \`${s}\`?`),

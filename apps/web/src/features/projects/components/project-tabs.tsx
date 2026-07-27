@@ -110,7 +110,7 @@ export function ProjectTabs() {
     <nav aria-label="Project" className="sticky top-(--header-height) z-30 border-b bg-background">
       <div
         ref={listRef}
-        className="no-scrollbar relative flex h-10 items-center gap-0.5 overflow-x-auto overflow-y-hidden px-3"
+        className="relative no-scrollbar flex h-10 items-center gap-0.5 overflow-x-auto overflow-y-hidden px-3"
       >
         {tabs.map((tab) => (
           <Link

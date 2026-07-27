@@ -1,8 +1,6 @@
 import { env } from "@otterdeploy/env/server";
 import { asnDbPath, geoDbPath } from "@otterdeploy/shared/paths";
 import { log } from "evlog";
-
-import { edgeLogGeoipUrls } from "../lib/platform-runtime-settings";
 /**
  * GeoIP country lookup (edge-logs Phase 2).
  *
@@ -20,6 +18,8 @@ import { edgeLogGeoipUrls } from "../lib/platform-runtime-settings";
  */
 import { mkdir, rename, stat, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+
+import { edgeLogGeoipUrls } from "../lib/platform-runtime-settings";
 
 /** Minimal shape of the maxmind reader we use — avoids a hard type dep. Two
  *  record layouts exist in the wild: MaxMind GeoLite2 / DB-IP official nest the

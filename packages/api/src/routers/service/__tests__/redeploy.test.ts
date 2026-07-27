@@ -25,8 +25,8 @@ vi.mock("../../../runtime", () => ({
 }));
 
 import * as environment from "../../../lib/environment/load";
-import { runtime } from "../../../runtime";
 import * as variables from "../../../lib/variables";
+import { runtime } from "../../../runtime";
 import * as queries from "../queries";
 import { redeployOne } from "../redeploy";
 import * as spec from "../spec";
@@ -87,6 +87,9 @@ describe("redeployOne", () => {
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) expect(result.value.status).toBe("running");
-    expect(vi.mocked(queries.updateServiceResourceStatus)).toHaveBeenCalledWith(resourceId, "valid");
+    expect(vi.mocked(queries.updateServiceResourceStatus)).toHaveBeenCalledWith(
+      resourceId,
+      "valid",
+    );
   });
 });
