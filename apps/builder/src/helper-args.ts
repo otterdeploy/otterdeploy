@@ -107,8 +107,50 @@ export const HELPER_HARDENING_DEFAULTS: HelperHardeningConfig = {
   cpus: "2",
 };
 
-export function helperHardeningFlags(overrides: Partial<HelperHardeningConfig> = {}): string[] {
-  const cfg = { ...HELPER_HARDENING_DEFAULTS, ...overrides };
+/**
+ * Hold `--cpus` to what the host actually has.
+ *
+ * Docker REJECTS a request above the host's CPU count outright — it does not
+ * clamp or warn:
+ *
+ *   docker: Error response from daemon: range of CPUs is from 0.01 to 1.00,
+ *   as there are only 1 CPUs available
+ *
+ * and the helper exits 125 before the build starts, surfacing as "Deployment
+ * failed during build process" with nothing in the log to explain it. The
+ * default of 2 therefore made every build fail on a single-vCPU box — the
+ * cheapest Hetzner/DO/Vultr tier, and a very common self-hosted target.
+ *
+ * Clamping rather than lowering the default: a 2-CPU floor is the right ask on
+ * hosts that have the cores, and the limit exists to stop a runaway build
+ * starving the host — a value the host cannot satisfy protects nothing.
+ *
+ * An explicit `BUILDER_HELPER_CPUS` is clamped too. It is a tuning knob, and
+ * being told "your override was reduced to what exists" is better than a build
+ * that cannot start.
+ */
+export function clampCpus(requested: string, hostCpus: number | null): string {
+  const wanted = Number.parseFloat(requested);
+  // Unparseable or nonsensical: hand it to docker unchanged rather than
+  // inventing a value — docker's own error names the problem better than a
+  // silent substitution would.
+  if (!Number.isFinite(wanted) || wanted <= 0) return requested;
+  if (hostCpus === null || !Number.isFinite(hostCpus) || hostCpus <= 0) return requested;
+  if (wanted <= hostCpus) return requested;
+  // Docker's floor is 0.01; a host reporting fractional cores still needs a
+  // value it will accept.
+  return String(Math.max(0.01, Math.floor(hostCpus * 100) / 100));
+}
+
+export function helperHardeningFlags(
+  overrides: Partial<HelperHardeningConfig> = {},
+  /** Logical CPUs on the DOCKER HOST. Null skips clamping (caller couldn't
+   *  determine it), which preserves the previous behaviour rather than
+   *  guessing a limit. */
+  hostCpus: number | null = null,
+): string[] {
+  const merged = { ...HELPER_HARDENING_DEFAULTS, ...overrides };
+  const cfg = { ...merged, cpus: clampCpus(merged.cpus, hostCpus) };
   return [
     "--security-opt",
     "no-new-privileges",

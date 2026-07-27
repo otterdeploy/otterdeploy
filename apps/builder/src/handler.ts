@@ -28,6 +28,7 @@ import { DATA_ROOT, sourceTarballPath } from "@otterdeploy/shared/paths";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
+import { cpus } from "node:os";
 import { join } from "node:path";
 
 import {
@@ -75,6 +76,23 @@ function classifyHelperExit(exitCode: number): string {
  *  the worker slot forever and the deployment sits "building" with no
  *  terminal write. Generous: real builds finish way inside this; anything
  *  past it is stuck, not slow. */
+/**
+ * Logical CPUs on the docker HOST, for clamping the helper's `--cpus`.
+ *
+ * `os.cpus()` deliberately, not `availableParallelism()`: the latter honours
+ * this process's own cgroup quota, so a CPU-limited builder would under-report
+ * and clamp the helper further than necessary. Docker validates `--cpus`
+ * against the host's raw CPU count, which is what /proc/cpuinfo reports even
+ * from inside a container — so that is the number to compare against.
+ *
+ * Returns null when the platform reports nothing, which leaves `--cpus`
+ * untouched rather than inventing a limit.
+ */
+function hostCpuCount(): number | null {
+  const count = cpus().length;
+  return count > 0 ? count : null;
+}
+
 const HELPER_TIMEOUT_MS = 45 * 60_000;
 
 /** Sentinel exitCode for a build we killed at the timeout wall. */
@@ -132,7 +150,7 @@ function runHelperContainer(
     sourceFlags,
     cacheFlags,
     // eslint-disable-next-line node/no-process-env
-    hardeningFlags: helperHardeningFlags(helperHardeningFromEnv(process.env)),
+    hardeningFlags: helperHardeningFlags(helperHardeningFromEnv(process.env), hostCpuCount()),
   });
 
   return new Promise<HelperResult>((resolve, reject) => {
