@@ -7,6 +7,7 @@ import type { ProxyRouteId } from "@otterdeploy/shared/id";
 import { matchError } from "better-result";
 
 import { projectScopedProcedure, requirePermission } from "../..";
+import { serverIpFor } from "./domain-rules";
 import {
   addServiceDomain,
   listServiceDomains,
@@ -15,6 +16,7 @@ import {
   setPrimaryServiceDomain,
   updateServiceDomain,
 } from "./domains";
+import { autoConfigureServiceDomainDns } from "./domains-autoconfigure";
 
 export const serviceDomainsRouter = {
   list: projectScopedProcedure.service.domains.list.handler(async ({ input, context, errors }) => {
@@ -112,6 +114,32 @@ export const serviceDomainsRouter = {
       return result.value;
     },
   ),
+
+  autoConfigureDns: requirePermission({
+    service: ["update"],
+  }).service.domains.autoConfigureDns.handler(async ({ input, context, errors }) => {
+    context.log.set({
+      target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+    });
+    const result = await autoConfigureServiceDomainDns({
+      organizationId: context.activeOrganizationId,
+      resourceId: input.resourceId,
+      routeId: input.routeId as ProxyRouteId,
+      serverIp: await serverIpFor({
+        projectId: input.projectId,
+        resourceId: input.resourceId,
+        organizationId: context.activeOrganizationId,
+      }),
+    });
+    if (result.isErr()) {
+      // "not-found" is the only one that is genuinely a missing row; every
+      // other reason is a configuration gap the operator can act on, so it
+      // keeps its own message rather than collapsing to a bare 400.
+      if (result.error.reason === "not-found") throw errors.DOMAIN_NOT_FOUND();
+      throw errors.DNS_NOT_CONFIGURABLE({ message: result.error.message });
+    }
+    return { ok: true, recordIds: result.value.recordIds };
+  }),
 
   setPrimary: requirePermission({ service: ["update"] }).service.domains.setPrimary.handler(
     async ({ input, context, errors }) => {

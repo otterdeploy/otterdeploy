@@ -7,6 +7,7 @@ import { certificatesRouter } from "./certificates";
 import { composeRouter } from "./compose";
 import { databaseRouter } from "./database";
 import { deploymentRouter } from "./deployment";
+import { dnsRouter } from "./dns";
 import { dockerRouter } from "./docker";
 import { edgeLogsRouter } from "./edge-logs";
 import { envRouter } from "./env";
@@ -36,6 +37,7 @@ export const appRouter = {
   database: databaseRouter,
   deployment: deploymentRouter,
   sso: ssoRouter,
+  dns: dnsRouter,
   docker: dockerRouter,
   edgeLogs: edgeLogsRouter,
   env: envRouter,

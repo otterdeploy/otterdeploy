@@ -291,10 +291,7 @@ const listDomainsInput = z.object({
 // Persistent volume mounts. A container path (absolute) backed by a docker
 // named volume that survives redeploys — first-class storage for a plain
 // service, the thing the compose detour used to be required for.
-const mountPathField = z
-  .string()
-  .min(1)
-  .regex(/^\//, "mount path must be absolute (start with /)");
+const mountPathField = z.string().min(1).regex(/^\//, "mount path must be absolute (start with /)");
 
 const serviceMountSchema = z.object({
   mountPath: z.string(),
@@ -587,6 +584,29 @@ export const serviceContract = {
       .meta({ path: `${basePath}/{resourceId}/domains/{routeId}/recheck`, tag, method: "POST" })
       .input(domainRouteInput)
       .output(serviceDomainSchema),
+
+    /**
+     * Write this domain's required DNS through the workspace's Cloudflare
+     * token. The record set is derived server-side from the route — there is no
+     * caller-supplied record input, so a connected token cannot be used to
+     * write arbitrary records into the operator's zone.
+     */
+    autoConfigureDns: oc
+      .errors({
+        NOT_FOUND: sharedErrors.NOT_FOUND,
+        DOMAIN_NOT_FOUND: sharedErrors.DOMAIN_NOT_FOUND,
+        DNS_NOT_CONFIGURABLE: {
+          status: 400 as const,
+          message: "This domain's DNS can't be configured automatically" as const,
+        },
+      })
+      .meta({
+        path: `${basePath}/{resourceId}/domains/{routeId}/auto-configure-dns`,
+        tag,
+        method: "POST",
+      })
+      .input(domainRouteInput)
+      .output(z.object({ ok: z.boolean(), recordIds: z.array(z.string()) })),
 
     setPrimary: oc
       .errors({

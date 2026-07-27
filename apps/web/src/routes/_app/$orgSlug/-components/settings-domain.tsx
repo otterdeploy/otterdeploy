@@ -1,9 +1,12 @@
 import type { OrganizationId } from "@otterdeploy/shared/id";
 import { EarthIcon } from "@hugeicons/core-free-icons";
+import { useState } from "react";
+
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { DnsRecordsDialog } from "@/shared/components/domains/dns-records-dialog";
 import { SettingsSection } from "@/shared/components/settings-section";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -125,6 +128,19 @@ function PendingVerification({
   verifyToken: string;
   cloudflareConfigured: boolean;
 }) {
+  const [dnsOpen, setDnsOpen] = useState(false);
+
+  // Hoisted from the old CloudflareAutoConfigureButton so the shared dialog
+  // drives it — detection decides whether one-click is offered at all.
+  const auto = useMutation({
+    ...orpc.organization.autoConfigureBaseDomain.mutationOptions(),
+    onSuccess: async () => {
+      await invalidateSettings(organizationId);
+      toast.success("DNS configured");
+    },
+    onError: (err) => toast.error(err.message ?? "Auto-configure failed"),
+  });
+
   const verifyBaseDomain = useMutation({
     ...orpc.organization.verifyBaseDomain.mutationOptions(),
     onSuccess: async (result) => {
@@ -144,13 +160,13 @@ function PendingVerification({
         Add a TXT record to your DNS so we can prove you own this domain. Once
         the record propagates, hit Verify.
       </div>
-      <pre className="overflow-x-auto rounded bg-warning/10 px-2 py-1.5 font-mono text-[11px] text-warning/90">
-        {`Name:  _otterdeploy-verify.${current}\nType:  TXT\nValue: ${verifyToken}`}
-      </pre>
       <div className="flex items-center justify-end gap-2">
-        {cloudflareConfigured && (
-          <CloudflareAutoConfigureButton organizationId={organizationId} />
-        )}
+        {/* Records, Cloudflare detection, one-click setup and the proxy
+            warning live in the shared dialog — the same one the service and
+            control-plane surfaces open. */}
+        <Button type="button" size="sm" variant="outline" onClick={() => setDnsOpen(true)}>
+          Configure DNS
+        </Button>
         <Button
           type="button"
           size="sm"
@@ -161,41 +177,23 @@ function PendingVerification({
           {verifyBaseDomain.isPending ? "Verifying…" : "Verify"}
         </Button>
       </div>
-    </div>
-  );
-}
 
-function CloudflareAutoConfigureButton({
-  organizationId,
-}: {
-  organizationId: OrganizationId;
-}) {
-  const auto = useMutation({
-    ...orpc.organization.autoConfigureBaseDomain.mutationOptions(),
-    onSuccess: async (result) => {
-      await invalidateSettings(organizationId);
-      if (result.ok) {
-        toast.success("DNS configured and domain verified");
-      } else if (result.verify.reason === "no-record") {
-        toast.message(
-          "Records created. DNS is still propagating — try Verify in a moment.",
-        );
-      } else {
-        toast.error("Records created but verification didn't pass.");
-      }
-    },
-    onError: (err) => toast.error(err.message ?? "Auto-configure failed"),
-  });
-  return (
-    <Button
-      type="button"
-      size="sm"
-      variant="outline"
-      disabled={auto.isPending}
-      onClick={() => auto.mutate({ organizationId })}
-    >
-      {auto.isPending ? "Configuring…" : "Auto-configure DNS"}
-    </Button>
+      <DnsRecordsDialog
+        open={dnsOpen}
+        onOpenChange={setDnsOpen}
+        domain={current}
+        records={[
+          {
+            type: "TXT" as const,
+            name: `_otterdeploy-verify.${current}`,
+            value: verifyToken,
+          },
+        ]}
+        onAutoConfigure={cloudflareConfigured ? () => auto.mutate({ organizationId }) : undefined}
+        autoConfiguring={auto.isPending}
+        connectHref="./workspace/general"
+      />
+    </div>
   );
 }
 
