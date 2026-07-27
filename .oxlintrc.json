@@ -354,5 +354,10 @@
     "typeCheck": true
   },
   "globals": {},
-  "ignorePatterns": ["**/route-tree.gen.ts", "routeTree.gen.ts", ".agents/", ".claude/"]
+  // `brand/` is deliberately outside the bun workspaces (see brand/package.json:
+  // Playwright is build-time-only and must not enter the app dependency graph),
+  // so CI's root `bun install` never installs its deps and every type-aware rule
+  // there fails on an unresolvable `playwright` import. Same exclusion, same
+  // reason, as .fallowrc.json.
+  "ignorePatterns": ["**/route-tree.gen.ts", "routeTree.gen.ts", ".agents/", ".claude/", "brand/"]
 }

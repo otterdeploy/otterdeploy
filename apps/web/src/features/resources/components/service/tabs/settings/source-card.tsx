@@ -11,10 +11,10 @@
  * host-match is transparent, not magic.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 import { useLiveQuery } from "@tanstack/react-db";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useStore } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -32,42 +32,15 @@ import {
   stageSource,
 } from "./build-card-shared";
 import { InstallationField, PreviewsField, RepositoryField } from "./source-card-fields";
-
-/** The saved manifest source block this card edits (subset we read). */
-interface GitSourceBlock {
-  repo?: string | null;
-  branch?: string | null;
-  sourceSubdir?: string | null;
-  imageRepository?: string | null;
-  previews?: boolean;
-}
-
-/** Form values seeded from the saved source block (empty until it loads). */
-const seedSource = (svc: GitSourceBlock | null) => ({
-  repo: svc?.repo ?? "",
-  branch: svc?.branch ?? "",
-  root: svc?.sourceSubdir ?? "",
-  image: svc?.imageRepository ?? "",
-  previews: svc?.previews ?? false,
-});
-
-type SourceFormValues = ReturnType<typeof seedSource>;
-
-const sourceDirty = (values: SourceFormValues, seeded: SourceFormValues) =>
-  values.repo !== seeded.repo ||
-  values.branch !== seeded.branch ||
-  values.root !== seeded.root ||
-  values.image !== seeded.image ||
-  values.previews !== seeded.previews;
-
-/** Form state seeded from the saved source block; submit hands the values to
- *  the caller's stage mutation. */
-function useSourceFormState(seeded: SourceFormValues, save: (value: SourceFormValues) => void) {
-  return useForm({
-    defaultValues: seeded,
-    onSubmit: ({ value }) => save(value),
-  });
-}
+import {
+  boundRepoId,
+  readGitSource,
+  repoOptions,
+  seedSource,
+  sourceDirty,
+  useActiveInstallation,
+  useSourceFormState,
+} from "./source-card-model";
 
 /** One arrow-linked chip in the repo → build → image strip. */
 function PipeChip({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
@@ -141,21 +114,14 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
   const manifest = useQuery(
     orpc.project.manifest.get.queryOptions({ input: { id: resource.projectId } }),
   );
-  const svc = manifest.data?.manifest?.services?.[resource.name];
-  const gitSvc = svc && svc.source === "git" ? svc : null;
+  const gitSvc = readGitSource(manifest.data, resource.name);
 
   // Installations + repos for the pickers (same endpoints the wizard uses).
   const providersQuery = useQuery(orpc.git.list.queryOptions({ input: undefined }));
   const installations = (providersQuery.data ?? []).flatMap((p) =>
     p.installations.map((inst) => ({ id: inst.id, label: `${p.kind}: ${inst.accountLogin}` })),
   );
-  const [activeInstallationId, setActiveInstallationId] = useState<string | null>(null);
-  // Default to the first installation once the list loads and none is picked.
-  // Adjust in render — React bails out when the value is unchanged, so this
-  // self-limits instead of chaining an extra render through an effect.
-  if (!activeInstallationId && installations.length > 0) {
-    setActiveInstallationId(installations[0]?.id ?? null);
-  }
+  const [activeInstallationId, setActiveInstallationId] = useActiveInstallation(installations);
 
   const reposQuery = useQuery(
     orpc.git.listRepos.queryOptions({
@@ -200,16 +166,8 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
   const builder =
     (resource.buildConfig as { builder?: string } | null | undefined)?.builder ?? "auto";
 
-  // Ensure the currently-bound repo is always selectable even when it lives in a
-  // different installation than the active one (or is a public-URL repo).
-  const repoBaseOptions = (reposQuery.data ?? []).map((r) => r.fullName);
-  const repoOptions =
-    repo && !repoBaseOptions.includes(repo) ? [repo, ...repoBaseOptions] : repoBaseOptions;
-
-  // Resolve the bound repo's gitRepoId for the folder picker (it walks the repo
-  // via git.inspectRepo). Unresolvable (repo in another installation) → the
-  // picker shows its own disabled "(no repo bound)" state.
-  const selectedRepoId = reposQuery.data?.find((r) => r.fullName === repo)?.id ?? null;
+  const options = repoOptions(reposQuery.data, repo);
+  const selectedRepoId = boundRepoId(reposQuery.data, repo);
 
   return (
     <SettingsCard
@@ -233,7 +191,7 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
               <RepositoryField
                 activeInstallationId={activeInstallationId}
                 isLoading={reposQuery.isLoading}
-                options={repoOptions}
+                options={options}
                 value={field.state.value}
                 onChange={field.handleChange}
               />

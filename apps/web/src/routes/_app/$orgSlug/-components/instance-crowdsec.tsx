@@ -26,6 +26,62 @@ import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { SecretRow } from "@/shared/components/secret-row";
 
+interface CrowdsecSettings {
+  enabled: boolean;
+  lapiUrl: string | null;
+  bouncerKeyConfigured: boolean;
+  envConfigured: boolean;
+  effective: boolean;
+}
+
+/** Normalize the query result once so the markup reads plain fields rather
+ *  than chaining through `query.data?.` on every line. `enabled` defaults to
+ *  true: a never-touched install with env credentials was already enforcing. */
+function crowdsecView(raw: CrowdsecSettings | undefined) {
+  return {
+    enabled: raw?.enabled ?? true,
+    lapiUrl: raw?.lapiUrl ?? "",
+    bouncerKeyConfigured: raw?.bouncerKeyConfigured ?? false,
+    envConfigured: raw?.envConfigured ?? false,
+    effective: raw?.effective ?? false,
+  };
+}
+
+/** The three states the gate can be in, said plainly. Kept out of the JSX so
+ *  the card stays readable and the wording lives in one place. */
+function enforcementDescription(input: { effective: boolean; enabled: boolean }): string {
+  if (input.effective) return "On — the crowdsec gate is rendered into every site block.";
+  if (input.enabled) {
+    return "Credentials incomplete, so no gate is rendered. Add the LAPI URL and bouncer key below.";
+  }
+  return "Off — credentials are kept, but no gate is rendered.";
+}
+
+/** The switch, plus the badge that admits the credentials came from env rather
+ *  than this form. Its own component so the branching leaves the card body. */
+function EnforcementControl({
+  enabled,
+  busy,
+  fromEnv,
+  onToggle,
+}: {
+  enabled: boolean;
+  busy: boolean;
+  fromEnv: boolean;
+  onToggle: (checked: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2.5">
+      {fromEnv && (
+        <Badge variant="outline" className="font-mono text-[10px]">
+          From env
+        </Badge>
+      )}
+      <Switch checked={enabled} disabled={busy} onCheckedChange={(checked) => onToggle(checked)} />
+    </div>
+  );
+}
+
 export function CrowdsecCard({ organizationId }: { organizationId: OrganizationId }) {
   const query = useQuery(
     orpc.organization.getCrowdsecSettings.queryOptions({ input: { organizationId } }),
@@ -50,16 +106,7 @@ export function CrowdsecCard({ organizationId }: { organizationId: OrganizationI
     onError: (err) => toast.error(err.message ?? "Failed to save CrowdSec settings"),
   });
 
-  // Normalize once so the JSX reads plain fields. `enabled` defaults to true:
-  // a never-touched install with env credentials was already enforcing.
-  const raw = query.data;
-  const data = {
-    enabled: raw?.enabled ?? true,
-    lapiUrl: raw?.lapiUrl ?? "",
-    bouncerKeyConfigured: raw?.bouncerKeyConfigured ?? false,
-    envConfigured: raw?.envConfigured ?? false,
-    effective: raw?.effective ?? false,
-  };
+  const data = crowdsecView(query.data);
   const urlValue = lapiUrl ?? data.lapiUrl;
   const enabled = data.enabled;
   const busy = save.isPending || query.isLoading;
@@ -81,26 +128,14 @@ export function CrowdsecCard({ organizationId }: { organizationId: OrganizationI
     >
       <SettingsRow
         title="Edge enforcement"
-        description={
-          data.effective
-            ? "On — the crowdsec gate is rendered into every site block."
-            : enabled
-              ? "Credentials incomplete, so no gate is rendered. Add the LAPI URL and bouncer key below."
-              : "Off — credentials are kept, but no gate is rendered."
-        }
+        description={enforcementDescription({ effective: data.effective, enabled })}
         control={
-          <div className="flex items-center gap-2.5">
-            {data.envConfigured && !data.bouncerKeyConfigured && (
-              <Badge variant="outline" className="font-mono text-[10px]">
-                From env
-              </Badge>
-            )}
-            <Switch
-              checked={enabled}
-              disabled={busy}
-              onCheckedChange={(checked) => submit(checked)}
-            />
-          </div>
+          <EnforcementControl
+            enabled={enabled}
+            busy={busy}
+            fromEnv={data.envConfigured && !data.bouncerKeyConfigured}
+            onToggle={submit}
+          />
         }
       />
       <SettingsRow

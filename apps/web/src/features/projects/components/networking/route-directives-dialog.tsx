@@ -56,6 +56,107 @@ function SelectField<T extends string>({
   );
 }
 
+/** Every editable field of the route policy, in one grid. Split out of
+ *  RoutePolicyButton so that component stays a dialog + save shell instead of
+ *  a 160-line form: the field list grows every time the control plane learns a
+ *  new safe directive, and it has no state of its own beyond the draft. */
+function RoutePolicyFields({
+  draft,
+  update,
+}: {
+  draft: RoutePolicy;
+  update: <K extends keyof RoutePolicy>(key: K, value: RoutePolicy[K]) => void;
+}) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <SelectField
+        label="Compression"
+        value={draft.compression}
+        options={[
+          { value: "off", label: "Off" },
+          { value: "gzip", label: "Gzip" },
+          { value: "zstd", label: "Zstandard" },
+          { value: "gzip-zstd", label: "Zstandard + gzip" },
+        ]}
+        onChange={(value) => update("compression", value)}
+      />
+      <div className="grid gap-1.5">
+        <Label htmlFor="route-body-limit">Request body limit (MiB)</Label>
+        <Input
+          id="route-body-limit"
+          type="number"
+          min={1}
+          max={100}
+          placeholder="No additional limit"
+          value={draft.maxRequestBodyMb ?? ""}
+          onChange={(event) => {
+            const value = event.target.value;
+            update("maxRequestBodyMb", value === "" ? null : Number(value));
+          }}
+        />
+      </div>
+      <SelectField
+        label="HSTS"
+        value={draft.hsts}
+        options={[
+          { value: "off", label: "Off" },
+          { value: "one-year", label: "One year" },
+          { value: "one-year-subdomains", label: "One year + subdomains" },
+          { value: "preload", label: "Preload eligible" },
+        ]}
+        onChange={(value) => update("hsts", value)}
+      />
+      <SelectField
+        label="Frame policy"
+        value={draft.frameOptions}
+        options={[
+          { value: "off", label: "Off" },
+          { value: "deny", label: "Deny" },
+          { value: "sameorigin", label: "Same origin" },
+        ]}
+        onChange={(value) => update("frameOptions", value)}
+      />
+      <SelectField
+        label="Referrer policy"
+        value={draft.referrerPolicy}
+        options={[
+          { value: "off", label: "Off" },
+          { value: "no-referrer", label: "No referrer" },
+          { value: "same-origin", label: "Same origin" },
+          { value: "strict-origin", label: "Strict origin" },
+          {
+            value: "strict-origin-when-cross-origin",
+            label: "Strict origin when cross-origin",
+          },
+        ]}
+        onChange={(value) => update("referrerPolicy", value)}
+      />
+      <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+        <div>
+          <Label htmlFor="route-nosniff">Content type nosniff</Label>
+          <p className="text-xs text-muted-foreground">Emit X-Content-Type-Options.</p>
+        </div>
+        <Switch
+          id="route-nosniff"
+          checked={draft.contentTypeNosniff}
+          onCheckedChange={(checked) => update("contentTypeNosniff", checked)}
+        />
+      </div>
+      <div className="grid gap-1.5 sm:col-span-2">
+        <Label htmlFor="route-csp">Content-Security-Policy</Label>
+        <Textarea
+          id="route-csp"
+          value={draft.contentSecurityPolicy ?? ""}
+          maxLength={4_096}
+          placeholder="Leave empty to omit the header"
+          className="min-h-20 font-mono text-xs"
+          onChange={(event) => update("contentSecurityPolicy", event.target.value.trim() || null)}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function RoutePolicyButton({
   routeId,
   domain,
@@ -123,94 +224,7 @@ export function RoutePolicyButton({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <SelectField
-            label="Compression"
-            value={draft.compression}
-            options={[
-              { value: "off", label: "Off" },
-              { value: "gzip", label: "Gzip" },
-              { value: "zstd", label: "Zstandard" },
-              { value: "gzip-zstd", label: "Zstandard + gzip" },
-            ]}
-            onChange={(value) => update("compression", value)}
-          />
-          <div className="grid gap-1.5">
-            <Label htmlFor="route-body-limit">Request body limit (MiB)</Label>
-            <Input
-              id="route-body-limit"
-              type="number"
-              min={1}
-              max={100}
-              placeholder="No additional limit"
-              value={draft.maxRequestBodyMb ?? ""}
-              onChange={(event) => {
-                const value = event.target.value;
-                update("maxRequestBodyMb", value === "" ? null : Number(value));
-              }}
-            />
-          </div>
-          <SelectField
-            label="HSTS"
-            value={draft.hsts}
-            options={[
-              { value: "off", label: "Off" },
-              { value: "one-year", label: "One year" },
-              { value: "one-year-subdomains", label: "One year + subdomains" },
-              { value: "preload", label: "Preload eligible" },
-            ]}
-            onChange={(value) => update("hsts", value)}
-          />
-          <SelectField
-            label="Frame policy"
-            value={draft.frameOptions}
-            options={[
-              { value: "off", label: "Off" },
-              { value: "deny", label: "Deny" },
-              { value: "sameorigin", label: "Same origin" },
-            ]}
-            onChange={(value) => update("frameOptions", value)}
-          />
-          <SelectField
-            label="Referrer policy"
-            value={draft.referrerPolicy}
-            options={[
-              { value: "off", label: "Off" },
-              { value: "no-referrer", label: "No referrer" },
-              { value: "same-origin", label: "Same origin" },
-              { value: "strict-origin", label: "Strict origin" },
-              {
-                value: "strict-origin-when-cross-origin",
-                label: "Strict origin when cross-origin",
-              },
-            ]}
-            onChange={(value) => update("referrerPolicy", value)}
-          />
-          <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
-            <div>
-              <Label htmlFor="route-nosniff">Content type nosniff</Label>
-              <p className="text-xs text-muted-foreground">Emit X-Content-Type-Options.</p>
-            </div>
-            <Switch
-              id="route-nosniff"
-              checked={draft.contentTypeNosniff}
-              onCheckedChange={(checked) => update("contentTypeNosniff", checked)}
-            />
-          </div>
-          <div className="grid gap-1.5 sm:col-span-2">
-            <Label htmlFor="route-csp">Content-Security-Policy</Label>
-            <Textarea
-              id="route-csp"
-              value={draft.contentSecurityPolicy ?? ""}
-              maxLength={4_096}
-              placeholder="Leave empty to omit the header"
-              className="min-h-20 font-mono text-xs"
-              onChange={(event) =>
-                update("contentSecurityPolicy", event.target.value.trim() || null)
-              }
-            />
-          </div>
-        </div>
+        <RoutePolicyFields draft={draft} update={update} />
 
         <DialogFooter>
           <Button variant="outline" size="sm" disabled={saving} onClick={() => setOpen(false)}>

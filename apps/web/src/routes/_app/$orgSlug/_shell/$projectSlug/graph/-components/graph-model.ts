@@ -66,6 +66,69 @@ function composeGhostServices(
   });
 }
 
+/** One ghost-create entry, and the resource kinds that get a node at all
+ *  (`env` changes never do). */
+type PendingCreate = PendingByName["creates"][number];
+type NodeResourceKind = PendingCreate["resource"];
+
+/**
+ * Build the ghost card for one staged `create`. Split out of
+ * {@link computePendingByName} so the per-kind enrichment — compose member
+ * cards + template brand, service framework hint — is branching that belongs to
+ * the card it decorates rather than to the change loop.
+ */
+function ghostCreate(
+  resource: NodeResourceKind,
+  name: string,
+  details: Record<string, unknown> | undefined,
+  frameworks: ReadonlyMap<string, Framework>,
+): PendingCreate {
+  // Compose creates carry a parsed service summary (enrichComposeCreates on the
+  // server) so the ghost group renders its member cards, plus the template brand
+  // so the ghost shows its logo before the first deploy.
+  if (resource === "compose") {
+    return {
+      resource,
+      name,
+      services: composeGhostServices(details),
+      ...(typeof details?.logoBrand === "string" ? { logoBrand: details.logoBrand } : {}),
+    };
+  }
+  // A staged service ghost shows the wizard-detected framework logo immediately
+  // (client hint — no build/persist round-trip).
+  if (resource === "service") {
+    return { resource, name, framework: frameworks.get(`${resource}:${name}`) };
+  }
+  return { resource, name };
+}
+
+/**
+ * Bridge the apply gap: a create that was just Deployed but whose resource
+ * hasn't streamed into the collection yet keeps its ghost so the node stays put.
+ * Split out of {@link computePendingByName} — it's a second, independent pass
+ * over a different input, and folding it inline pushed that function past its
+ * branch budget.
+ */
+function bridgeAppliedCreates(
+  appliedCreates: ReadonlySet<string>,
+  createKeys: ReadonlySet<string>,
+  idByName: ReadonlyMap<string, string>,
+  frameworks: ReadonlyMap<string, Framework>,
+): PendingCreate[] {
+  const bridged: PendingCreate[] = [];
+  for (const key of appliedCreates) {
+    if (createKeys.has(key) || idByName.has(key)) continue;
+    const sep = key.indexOf(":");
+    const resource = key.slice(0, sep) as NodeResourceKind;
+    bridged.push({
+      resource,
+      name: key.slice(sep + 1),
+      ...(resource === "service" ? { framework: frameworks.get(key) } : {}),
+    });
+  }
+  return bridged;
+}
+
 /** Lookup of `${resource}:${name}` → resourceId for the project's applied
  *  service / database / compose resources (the only kinds that get a node). */
 function resourceIdByName(
@@ -97,25 +160,7 @@ function computePendingByName(
     const key = `${c.resource}:${c.name}`;
     const id = idByName.get(key);
     if (c.kind === "create" && !id) {
-      creates.push({
-        resource: c.resource,
-        name: c.name,
-        // Compose creates carry a parsed service summary (enrichComposeCreates
-        // on the server) so the ghost group renders its member cards, plus the
-        // template brand so the ghost shows its logo before the first deploy.
-        ...(c.resource === "compose"
-          ? {
-              services: composeGhostServices(c.details),
-              ...(typeof c.details?.logoBrand === "string"
-                ? { logoBrand: c.details.logoBrand }
-                : {}),
-            }
-          : // A staged service ghost shows the wizard-detected framework logo
-            // immediately (client hint — no build/persist round-trip).
-            c.resource === "service"
-            ? { framework: frameworks.get(key) }
-            : {}),
-      });
+      creates.push(ghostCreate(c.resource, c.name, c.details, frameworks));
       createKeys.add(key);
     } else if (id && (c.kind === "update" || c.kind === "delete")) {
       // Key by the node id (`${resource}:${name}`), which is what the node
@@ -123,18 +168,7 @@ function computePendingByName(
       marker.set(key, c.kind);
     }
   }
-  // Bridge the apply gap: a create that was just Deployed but whose resource
-  // hasn't streamed in yet keeps its ghost so the node stays put.
-  for (const key of appliedCreates) {
-    if (createKeys.has(key) || idByName.has(key)) continue;
-    const sep = key.indexOf(":");
-    const resource = key.slice(0, sep) as "service" | "database" | "compose";
-    creates.push({
-      resource,
-      name: key.slice(sep + 1),
-      ...(resource === "service" ? { framework: frameworks.get(key) } : {}),
-    });
-  }
+  creates.push(...bridgeAppliedCreates(appliedCreates, createKeys, idByName, frameworks));
   return { creates, marker };
 }
 

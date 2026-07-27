@@ -51,6 +51,59 @@ export type TimelineInput = Pick<
   "status" | "errorMessage" | "taskCount" | "completedAt" | "createdAt"
 >;
 
+/** What the phase stepper needs to render one deployment. */
+export interface Timeline {
+  title: string;
+  tone: Tone;
+  phases: Phase[];
+  totalMs: number | null;
+}
+
+/** Phase constructor. Module-level so the per-status builders below share it
+ *  with {@link buildTimeline} instead of each re-declaring the shape. */
+const p = (key: string, label: string, state: PhaseState, detail?: string): Phase => ({
+  key,
+  label,
+  state,
+  detail,
+});
+
+/**
+ * The two shapes a `failed` deployment takes. Split out of {@link buildTimeline}
+ * so its status switch stays inside the complexity budget — this one branch
+ * carries a nested ternary plus two error-message fallbacks, which is a third of
+ * the whole function's branching.
+ *
+ * Tasks scheduled ⇒ the image built and containers were placed, so the failure
+ * is on the deploy side. No tasks ⇒ it never got past the build.
+ */
+function failedTimeline(taskCount: number, err: string | null, totalMs: number | null): Timeline {
+  if (taskCount > 0) {
+    return {
+      title: "Deployment failed during rollout",
+      tone: "failed",
+      totalMs,
+      phases: [
+        p("init", "Initialization", "done"),
+        p("build", "Build", "done"),
+        p("deploy", "Deploy", "failed", err ?? "Containers failed to start"),
+        p("run", "Post-deploy", "pending"),
+      ],
+    };
+  }
+  return {
+    title: "Deployment failed during build process",
+    tone: "failed",
+    totalMs,
+    phases: [
+      p("init", "Initialization", "done"),
+      p("build", "Build › Build image", "failed", err ?? "Build did not complete"),
+      p("deploy", "Deploy", "pending"),
+      p("run", "Post-deploy", "pending"),
+    ],
+  };
+}
+
 /**
  * Map our coarse deployment lifecycle (pending → building → running/failed,
  * plus swarm task rollup) onto a Railway-style phase stepper. We only track
@@ -58,22 +111,11 @@ export type TimelineInput = Pick<
  * fabricate per-phase timings, so each phase shows state only; the header
  * carries the one real duration we have (created → completed).
  */
-export function buildTimeline(d: TimelineInput): {
-  title: string;
-  tone: Tone;
-  phases: Phase[];
-  totalMs: number | null;
-} {
+export function buildTimeline(d: TimelineInput): Timeline {
   const totalMs = d.completedAt
     ? new Date(d.completedAt).getTime() - new Date(d.createdAt).getTime()
     : null;
   const err = d.errorMessage?.trim() || null;
-  const p = (key: string, label: string, state: PhaseState, detail?: string): Phase => ({
-    key,
-    label,
-    state,
-    detail,
-  });
   const allDone = [
     p("init", "Initialization", "done"),
     p("build", "Build", "done"),
@@ -123,31 +165,7 @@ export function buildTimeline(d: TimelineInput): {
         ],
       };
     case "failed":
-      // Tasks scheduled ⇒ the image built and containers were placed, so the
-      // failure is on the deploy side. No tasks ⇒ it never got past the build.
-      return d.taskCount > 0
-        ? {
-            title: "Deployment failed during rollout",
-            tone: "failed",
-            totalMs,
-            phases: [
-              p("init", "Initialization", "done"),
-              p("build", "Build", "done"),
-              p("deploy", "Deploy", "failed", err ?? "Containers failed to start"),
-              p("run", "Post-deploy", "pending"),
-            ],
-          }
-        : {
-            title: "Deployment failed during build process",
-            tone: "failed",
-            totalMs,
-            phases: [
-              p("init", "Initialization", "done"),
-              p("build", "Build › Build image", "failed", err ?? "Build did not complete"),
-              p("deploy", "Deploy", "pending"),
-              p("run", "Post-deploy", "pending"),
-            ],
-          };
+      return failedTimeline(d.taskCount, err, totalMs);
     case "crashed":
       // Built + deployed fine, but the container keeps exiting and restarting
       // (e.g. a bad env var) — the run phase is the one that's failing.

@@ -13,28 +13,18 @@
  */
 import { useState } from "react";
 
-import {
-  ArrowRight01Icon,
-  EarthIcon,
-  RefreshIcon,
-  UploadCircle01Icon,
-} from "@hugeicons/core-free-icons";
+import { ArrowRight01Icon, EarthIcon, RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import * as z from "zod";
 
-import { TrustedCasTable } from "@/features/certificates/cas-table";
-import { CustomCertsTable } from "@/features/certificates/custom-table";
-import { ManagedCertsTable } from "@/features/certificates/managed-table";
-import { CertificateStats } from "@/features/certificates/stats";
 import { UploadCaDialog } from "@/features/certificates/upload-ca-dialog";
 import { UploadCertDialog } from "@/features/certificates/upload-cert-dialog";
 import { EdgeEventsView } from "@/features/edge-logs/components/edge-events-view";
 import { EdgeLogsView } from "@/features/edge-logs/components/edge-logs-view";
 import { FirewallView } from "@/features/firewall/components/firewall-view";
 import { CaddyfileViewer } from "@/features/projects/components/networking/caddyfile-viewer";
-import { useMembers } from "@/features/team/data/use-team";
 import { Button } from "@/shared/components/ui/button";
 import {
   Empty,
@@ -43,10 +33,10 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/shared/components/ui/empty";
-import { ErrorState } from "@/shared/components/ui/error-state";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
-import { cn } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
+
+import { CertificatesActions, CertificatesTab } from "./-edge-certificates";
 
 const EDGE_TABS = ["caddyfile", "certificates", "logs", "caddy", "firewall"] as const;
 type EdgeTab = (typeof EDGE_TABS)[number];
@@ -209,146 +199,6 @@ function CaddyfileTab({ orgSlug }: { orgSlug: string }) {
           <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="size-3" />
         </Link>
       </div>
-    </div>
-  );
-}
-
-// ─── Certificates plane (formerly Settings → Workspace → Certificates) ──
-//
-//   - Managed  — every enabled public domain across the org's projects with
-//     the cert the Caddy edge ACTUALLY serves (live TLS probe — ground
-//     truth, never cached). "Recheck all" re-probes.
-//   - Custom   — uploaded PEM chain + key, validated server-side, installed
-//     through the same reconcile pass routes use.
-//   - Trusted CAs — PEM inventory (view/download/remove).
-//
-// No "Renew" button: Caddy auto-renews ACME certs and exposes no
-// force-renew via its admin API — a renew action would be fake.
-
-function recheckCertificates() {
-  void queryClient.invalidateQueries({ queryKey: orpc.certificates.inventory.queryKey() });
-  void queryClient.invalidateQueries({ queryKey: orpc.certificates.listCustom.queryKey() });
-}
-
-function useCanManageCertificates() {
-  const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
-  const { user } = Route.useRouteContext();
-  const members = useMembers(organization.id);
-  const myRole = members.data?.find((m) => m.userId === user.id)?.role;
-  return myRole === "owner" || myRole === "admin";
-}
-
-function CertificatesActions({ onUploadCert }: { onUploadCert: () => void }) {
-  const inventory = useQuery(orpc.certificates.inventory.queryOptions());
-  const canManage = useCanManageCertificates();
-
-  return (
-    <div className="flex items-center gap-2">
-      {inventory.data ? (
-        <span className="hidden font-mono text-[11px] text-muted-foreground/70 sm:inline">
-          via {inventory.data.edgeHost} · {new Date(inventory.data.probedAt).toLocaleTimeString()}
-        </span>
-      ) : null}
-      <Button size="sm" variant="outline" disabled={inventory.isFetching} onClick={recheckCertificates}>
-        <HugeiconsIcon
-          icon={RefreshIcon}
-          strokeWidth={2}
-          className={cn(inventory.isFetching && "animate-spin")}
-        />
-        Recheck all
-      </Button>
-      {canManage ? (
-        <Button size="sm" onClick={onUploadCert}>
-          <HugeiconsIcon icon={UploadCircle01Icon} strokeWidth={2} />
-          Upload custom
-        </Button>
-      ) : null}
-    </div>
-  );
-}
-
-function CertificatesTab({
-  orgSlug,
-  onUploadCert,
-  onUploadCa,
-}: {
-  orgSlug: string;
-  onUploadCert: () => void;
-  onUploadCa: () => void;
-}) {
-  const canManage = useCanManageCertificates();
-
-  const inventory = useQuery(orpc.certificates.inventory.queryOptions());
-  const customs = useQuery(orpc.certificates.listCustom.queryOptions());
-  const cas = useQuery(orpc.certificates.listCas.queryOptions());
-
-  return (
-    <div className="flex flex-col gap-4">
-      <p className="text-xs text-muted-foreground">
-        TLS at the Caddy edge — what each public domain actually serves, probed live. ACME
-        certificates renew automatically; custom uploads are rotated by you.
-      </p>
-
-      <CertificateStats inventory={inventory.data} customs={customs.data} />
-
-      {inventory.isError ? (
-        <ErrorState
-          title="Couldn't probe the edge"
-          message={inventory.error.message}
-          onRetry={() => void inventory.refetch()}
-        />
-      ) : (
-        <Tabs defaultValue="managed">
-          <TabsList>
-            <TabsTrigger value="managed">
-              Managed{inventory.data ? ` · ${inventory.data.certificates.length}` : ""}
-            </TabsTrigger>
-            <TabsTrigger value="custom">
-              Custom{customs.data ? ` · ${customs.data.length}` : ""}
-            </TabsTrigger>
-            <TabsTrigger value="cas">
-              Trusted CAs{cas.data ? ` · ${cas.data.length}` : ""}
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="managed" className="mt-3">
-            <ManagedCertsTable
-              inventory={inventory.data}
-              isLoading={inventory.isLoading}
-              orgSlug={orgSlug}
-            />
-          </TabsContent>
-
-          <TabsContent value="custom" className="mt-3">
-            <CustomCertsTable
-              customs={customs.data}
-              inventory={inventory.data}
-              isLoading={customs.isLoading}
-              canManage={canManage}
-              onUpload={onUploadCert}
-            />
-          </TabsContent>
-
-          <TabsContent value="cas" className="mt-3">
-            <div className="flex flex-col gap-3">
-              {canManage && cas.data && cas.data.length > 0 ? (
-                <div className="flex justify-end">
-                  <Button size="sm" variant="outline" onClick={onUploadCa}>
-                    <HugeiconsIcon icon={UploadCircle01Icon} strokeWidth={2} />
-                    Upload CA
-                  </Button>
-                </div>
-              ) : null}
-              <TrustedCasTable
-                cas={cas.data}
-                isLoading={cas.isLoading}
-                canManage={canManage}
-                onUpload={onUploadCa}
-              />
-            </div>
-          </TabsContent>
-        </Tabs>
-      )}
     </div>
   );
 }

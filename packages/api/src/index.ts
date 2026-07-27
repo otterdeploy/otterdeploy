@@ -4,13 +4,12 @@ import type { Id } from "@otterdeploy/shared/id";
 import { implement, os as orpc } from "@orpc/server";
 import { ID_PREFIX } from "@otterdeploy/shared/id";
 
-import type { AuditDraft } from "./audit/changes";
 import type { Context } from "./context";
 
 import { requireProjectScope } from "./authz/api-key-scope";
 import { authorizeCapability } from "./authz/capability";
-import { classifyTraceError, traceActor } from "./authz/procedure-audit";
 import { isReadAction, isReadMethod } from "./authz/procedure-mode";
+import { traceProcedure } from "./authz/procedure-trace";
 import { apiKeysContract } from "./routers/apiKeys/contract";
 import { auditContract } from "./routers/audit/contract";
 import { backupsContract } from "./routers/backups/contract";
@@ -38,68 +37,6 @@ import { systemContract } from "./routers/system/contract";
 import { terminalContract } from "./routers/terminal/contract";
 import { volumesContract } from "./routers/volumes/contract";
 import { webhooksContract } from "./routers/webhooks/contract";
-// Per-procedure evlog compliance trail. Handlers add target/domain fields.
-const traceProcedure = orpc
-  .$context<Context>()
-  .middleware(async ({ context, path, procedure, next }) => {
-    const action = path.join(".");
-    const actor = traceActor(context);
-    // Prefer the procedure's own REST method (GET ⇒ read) — exact, and
-    // immune to naming drift. Only endpoints with no method at all (neither
-    // `.route()` nor `.meta({method})`) fall back to the verb-prefix guess.
-    const orpcDef = procedure["~orpc"];
-    const meta = orpcDef.meta as Record<string, unknown> | undefined;
-    const route = orpcDef.route as { method?: string } | undefined;
-    const isRead = isReadMethod(meta, route) ?? isReadAction(action);
-    // Top-level fields keep the console/observability wide event informative.
-    context.log.set({
-      action,
-      actor,
-      context: { tenantId: context.activeOrganizationId },
-    });
-    // Fresh per invocation, and passed by reference so a handler's write is
-    // visible here even if an inner middleware rebuilt the context object.
-    // See audit/changes.ts for why it is a draft and not a plain field.
-    const auditDraft: AuditDraft = {};
-    const start = performance.now();
-    try {
-      const result = await next({ context: { auditDraft } });
-      context.log.set({
-        outcome: "success",
-        durationMs: performance.now() - start,
-      });
-      // Persist mutations; skip read successes. Tenant id rides on the
-      // top-level `context.tenantId` set above (the pg drain reads it); request
-      // meta (ip/ua/requestId) is filled into `audit.context` by auditEnricher.
-      if (!isRead) {
-        context.log.audit?.({
-          action,
-          actor,
-          outcome: "success",
-          // Present only for handlers that recorded one; the rest keep the
-          // column null rather than claiming an empty diff.
-          ...(auditDraft.changes ? { changes: auditDraft.changes } : {}),
-        });
-      }
-      return result;
-    } catch (error) {
-      const { reason, denied, detail } = classifyTraceError(error);
-      context.log.set({
-        outcome: denied ? "denied" : "failure",
-        reason,
-        error: detail,
-        durationMs: performance.now() - start,
-      });
-      // Always audit denials (even of a read — a blocked read is exactly
-      // what auditors want); audit failures only for mutating actions.
-      if (denied) {
-        context.log.audit?.deny(reason, { action, actor });
-      } else if (!isRead) {
-        context.log.audit?.({ action, actor, outcome: "failure", reason });
-      }
-      throw error;
-    }
-  });
 
 export const publicProcedure = implement({
   apiKeys: apiKeysContract,

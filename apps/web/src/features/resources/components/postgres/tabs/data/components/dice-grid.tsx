@@ -19,9 +19,8 @@
  */
 
 import type { ResourceId } from "@otterdeploy/shared/id";
-import type { RowSelectionState, Updater } from "@tanstack/react-table";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 
 import { toast } from "sonner";
 
@@ -34,8 +33,8 @@ import { useElementHeight } from "@/shared/components/data-grid/hooks/use-elemen
 import type { ColumnVariant } from "../data/queries";
 
 import { useDiceColumnDefs, type Row } from "./dice-grid-columns";
+import { errText, RowDetailSlot, useGridRows, useSelectionMirror } from "./dice-grid-parts";
 import { FkRefPopover } from "./fk-ref-popover";
-import { RowDetailPanel } from "./row-detail-panel";
 
 export type { ColumnVariant };
 
@@ -43,60 +42,6 @@ export type { ColumnVariant };
 export interface ColumnValue {
   column: string;
   value: string | null;
-}
-
-/** psql --csv emits booleans as t/f; show the words instead. */
-function boolWord(v: string): string {
-  if (v === "t" || v === "true" || v === "TRUE") return "true";
-  if (v === "f" || v === "false" || v === "FALSE") return "false";
-  return v;
-}
-
-/** Pull a human-readable reason out of an oRPC error (QUERY_FAILED carries
- *  `data.reason`), falling back to a default. */
-function errText(error: unknown, fallback: string): string {
-  if (error && typeof error === "object") {
-    const data = (error as { data?: { reason?: unknown } }).data;
-    if (data && typeof data.reason === "string") return data.reason;
-    const message = (error as { message?: unknown }).message;
-    if (typeof message === "string") return message;
-  }
-  return fallback;
-}
-
-function toRows(
-  columns: string[],
-  rows: (string | null)[][],
-  variants?: Record<string, ColumnVariant>,
-): Row[] {
-  return rows.map((r) => {
-    const obj: Row = {};
-    columns.forEach((c, i) => {
-      let v = r[i] ?? null;
-      if (v !== null && variants?.[c] === "boolean") v = boolWord(v);
-      obj[c] = v;
-    });
-    return obj;
-  });
-}
-
-/** Mirror the grid store's row selection out as row indices (row id = index). */
-function useSelectionMirror(onSelectionChange?: (indices: number[]) => void) {
-  const selectionRef = useRef<RowSelectionState>({});
-  return (updater: Updater<RowSelectionState>) => {
-    const next = typeof updater === "function" ? updater(selectionRef.current) : updater;
-    selectionRef.current = next;
-    onSelectionChange?.(
-      Object.keys(next)
-        .filter((k) => next[k])
-        .reduce<number[]>((acc, k) => {
-          const n = Number(k);
-          if (Number.isInteger(n)) acc.push(n);
-          return acc;
-        }, [])
-        .sort((a, b) => a - b),
-    );
-  };
 }
 
 export function DiceResultGrid({
@@ -145,19 +90,7 @@ export function DiceResultGrid({
     anchor: HTMLElement;
   } | null>(null);
   const [detailIndex, setDetailIndex] = useState<number | null>(null);
-  const [data, setData] = useState<Row[]>(() => toRows(columns, rows, columnVariants));
-  // Re-sync the in-memory grid data when a fresh page of server rows arrives.
-  // Done during render (not in an effect) so new columns never paint against
-  // the previous page's rows for a frame.
-  const [source, setSource] = useState({ columns, rows, columnVariants });
-  if (
-    source.columns !== columns ||
-    source.rows !== rows ||
-    source.columnVariants !== columnVariants
-  ) {
-    setSource({ columns, rows, columnVariants });
-    setData(toRows(columns, rows, columnVariants));
-  }
+  const [data, setData] = useGridRows(columns, rows, columnVariants);
 
   // A row can only be mutated if we can target it by primary key.
   const canEdit = editable && (primaryKey?.length ?? 0) > 0;
@@ -237,8 +170,6 @@ export function DiceResultGrid({
 
   const [wrapRef, height] = useElementHeight<HTMLDivElement>();
 
-  const detailRow = detailIndex !== null ? data[detailIndex] : undefined;
-
   return (
     <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
       <div ref={wrapRef} className="min-h-0 min-w-0 flex-1 overflow-hidden">
@@ -248,23 +179,22 @@ export function DiceResultGrid({
         <DataGrid {...grid} height={height} />
       </div>
 
-      {detailRow !== undefined && detailIndex !== null ? (
-        <RowDetailPanel
-          columns={columns}
-          row={detailRow}
-          columnTypes={columnTypes}
-          primaryKey={primaryKey}
-          editable={canEdit}
-          onEditField={(column) => {
-            // Jump to the inline editor for this cell (hidden columns aren't in
-            // the grid — unhide first to edit them there).
-            if (!canEdit || (hiddenColumns ?? []).includes(column)) return;
-            grid.tableMeta.scrollToCell?.(detailIndex, column);
-            grid.tableMeta.onCellEditingStart?.(detailIndex, column);
-          }}
-          onClose={() => setDetailIndex(null)}
-        />
-      ) : null}
+      <RowDetailSlot
+        index={detailIndex}
+        data={data}
+        columns={columns}
+        columnTypes={columnTypes}
+        primaryKey={primaryKey}
+        editable={canEdit}
+        onEditField={(column) => {
+          // Jump to the inline editor for this cell (hidden columns aren't in
+          // the grid — unhide first to edit them there).
+          if (detailIndex === null || !canEdit || (hiddenColumns ?? []).includes(column)) return;
+          grid.tableMeta.scrollToCell?.(detailIndex, column);
+          grid.tableMeta.onCellEditingStart?.(detailIndex, column);
+        }}
+        onClose={() => setDetailIndex(null)}
+      />
 
       {fk ? (
         <FkRefPopover

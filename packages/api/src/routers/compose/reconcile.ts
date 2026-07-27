@@ -1,4 +1,4 @@
-import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
@@ -20,6 +20,8 @@ import { Result } from "better-result";
  */
 import { eq } from "drizzle-orm";
 import { createLogger } from "evlog";
+
+import type { SwarmServiceRuntime } from "../../swarm";
 
 import { deleteProxyRoutesByResource } from "../../caddy/queries";
 import { runtime } from "../../runtime";
@@ -129,6 +131,99 @@ async function seedServiceExposure(
 }
 
 /**
+ * Bring ONE compose service's `service_resource` row in line with the file:
+ * update the existing row's structure, or create it (plus its one-time seeds)
+ * the first time the service is materialized.
+ *
+ * Split out of {@link reconcileStackServices} because the create/update fork
+ * and the two "seeded once on create, user-owned from then on" rules that hang
+ * off it (env, bind mounts) are a self-contained decision — the reconcile loop
+ * only needs the resulting `(resourceId, isCreate)` pair, and every branch kept
+ * inline there competes for attention with the per-service crash tolerance the
+ * loop itself exists to provide.
+ */
+async function materializeServiceRow(input: {
+  ctx: StackReconcileContext;
+  composeServiceName: string;
+  mapped: ReturnType<typeof toServiceFields>;
+  existingResourceId: ResourceId | undefined;
+}): Promise<{ resourceId: ResourceId; isCreate: boolean }> {
+  const { ctx, mapped } = input;
+  if (input.existingResourceId) {
+    // Structure (image/command/replicas/healthcheck/resources) tracks the
+    // file. Env + ports + name are left alone — the user owns env post-create.
+    await updateServiceRecord(input.existingResourceId, mapped.fields);
+    return { resourceId: input.existingResourceId, isCreate: false };
+  }
+
+  const name = await pickResourceName(ctx.projectId, input.composeServiceName);
+  const created = await createServiceRecord({
+    projectId: ctx.projectId,
+    name,
+    status: "draft",
+    source: "image",
+    internalHostname: mapped.internalHostname,
+    serviceName: mapped.serviceName,
+    networkName: mapped.networkName,
+    stackId: ctx.stackResourceId,
+    ports: mapped.ports,
+    env: mapped.env,
+    ...mapped.fields,
+  });
+  const resourceId = created.resource.id;
+  // Seed bind mounts (multi-file inline stacks) ONCE, on create — mirroring
+  // the env "user owns it post-create" convention, so a later compose edit
+  // never clobbers user-managed mounts and existing stacks are untouched.
+  if (mapped.mounts.length > 0) {
+    await bulkReplaceServiceMounts(resourceId, mapped.mounts);
+  }
+  return { resourceId, isCreate: true };
+}
+
+/**
+ * Settle one service's deployment row from its rollout outcome and report
+ * whether it came up. Returns `true` only for a service that actually reached
+ * a running state; every failure path marks the deployment failed and writes
+ * one operator-readable progress line first.
+ *
+ * Split out so the reconcile loop reads as "roll out, settle, continue on
+ * failure" — the three-way outcome (threw / swarm reported error / running) is
+ * the same shape for every service and doesn't need re-deciding per iteration.
+ */
+async function settleServiceRollout<E>(input: {
+  deploymentId: DeploymentId;
+  /** Generic in the error arm: the caller's rollout is `provisionFresh`,
+   *  `redeployOne`, or a bare `Error` for a vanished row — all three settle
+   *  identically, and only `toErrorMessage` ever touches the payload. */
+  rolled: Result<SwarmServiceRuntime, E>;
+  composeServiceName: string;
+  progress: (line: string) => void;
+}): Promise<boolean> {
+  const { rolled, composeServiceName: svcName, progress } = input;
+  if (rolled.isErr()) {
+    const message = toErrorMessage(rolled.error);
+    await markDeploymentFailed(input.deploymentId, message);
+    progress(`Service ${svcName}: failed — ${message}`);
+    return false;
+  }
+  if (rolled.value.status === "error") {
+    // Prefer the swarm task's own failure reason (e.g. an image that can't
+    // be pulled) over a generic "errored" — that message is all the user
+    // sees on a stack that never came up.
+    const detail = rolled.value.errorMessage ?? "swarm reported an error state";
+    await markDeploymentFailed(input.deploymentId, `${svcName}: ${detail}`);
+    progress(`Service ${svcName}: failed — ${detail}`);
+    return false;
+  }
+  await db
+    .update(deployment)
+    .set({ status: "running", completedAt: new Date() })
+    .where(eq(deployment.id, input.deploymentId));
+  progress(`Service ${svcName}: rolled out.`);
+  return true;
+}
+
+/**
  * Reconcile the stack's service rows + deploy each. Returns how many deployed
  * and which compose services failed to roll out.
  */
@@ -185,39 +280,12 @@ export async function reconcileStackServices(
       const mapped = toServiceFields(svc, ctx, image);
       desired.add(mapped.serviceName);
 
-      const existing = existingByName.get(mapped.serviceName);
-      let resourceId: ResourceId;
-      let isCreate = false;
-
-      if (existing) {
-        resourceId = existing.resource.id;
-        // Structure (image/command/replicas/healthcheck/resources) tracks the
-        // file. Env + ports + name are left alone — the user owns env post-create.
-        await updateServiceRecord(resourceId, mapped.fields);
-      } else {
-        isCreate = true;
-        const name = await pickResourceName(ctx.projectId, svc.name);
-        const created = await createServiceRecord({
-          projectId: ctx.projectId,
-          name,
-          status: "draft",
-          source: "image",
-          internalHostname: mapped.internalHostname,
-          serviceName: mapped.serviceName,
-          networkName: mapped.networkName,
-          stackId: ctx.stackResourceId,
-          ports: mapped.ports,
-          env: mapped.env,
-          ...mapped.fields,
-        });
-        resourceId = created.resource.id;
-        // Seed bind mounts (multi-file inline stacks) ONCE, on create — mirroring
-        // the env "user owns it post-create" convention, so a later compose edit
-        // never clobbers user-managed mounts and existing stacks are untouched.
-        if (mapped.mounts.length > 0) {
-          await bulkReplaceServiceMounts(resourceId, mapped.mounts);
-        }
-      }
+      const { resourceId, isCreate } = await materializeServiceRow({
+        ctx,
+        composeServiceName: svc.name,
+        mapped,
+        existingResourceId: existingByName.get(mapped.serviceName)?.resource.id,
+      });
 
       // One deployment row per service per reconcile → its own build/deploy
       // history + logs. buildSwarmSpec stamps this (latest) deployment's id onto
@@ -246,28 +314,16 @@ export async function reconcileStackServices(
           })()
         : await redeployOne(ctx.projectId, resourceId, ctx.projectSlug, log);
 
-      if (rolled.isErr()) {
-        const message = toErrorMessage(rolled.error);
-        await markDeploymentFailed(dep.id, message);
-        progress(`Service ${svc.name}: failed — ${message}`);
+      const rolledOut = await settleServiceRollout({
+        deploymentId: dep.id,
+        rolled,
+        composeServiceName: svc.name,
+        progress,
+      });
+      if (!rolledOut) {
         failed.push(svc.name);
         continue;
       }
-      if (rolled.value.status === "error") {
-        // Prefer the swarm task's own failure reason (e.g. an image that can't
-        // be pulled) over a generic "errored" — that message is all the user
-        // sees on a stack that never came up.
-        const detail = rolled.value.errorMessage ?? "swarm reported an error state";
-        await markDeploymentFailed(dep.id, `${svc.name}: ${detail}`);
-        progress(`Service ${svc.name}: failed — ${detail}`);
-        failed.push(svc.name);
-        continue;
-      }
-      await db
-        .update(deployment)
-        .set({ status: "running", completedAt: new Date() })
-        .where(eq(deployment.id, dep.id));
-      progress(`Service ${svc.name}: rolled out.`);
       deployed++;
 
       await seedServiceExposure(ctx, isCreate, svc.name, resourceId, log, progress);

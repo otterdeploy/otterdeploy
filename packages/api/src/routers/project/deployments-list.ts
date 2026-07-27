@@ -42,10 +42,7 @@ export { deriveDeploymentStatus } from "./deployments-derive";
 export type { DerivedDeploymentStatus } from "./deployments-derive";
 // Settlement writers moved to a sibling under the file cap; re-exported so
 // call sites keep importing from the list module.
-export {
-  isBuildStillLogging,
-    reconcileDeploySuccess,
-} from "./deployments-reconcile";
+export { isBuildStillLogging, reconcileDeploySuccess } from "./deployments-reconcile";
 
 export interface DeploymentWithStats {
   id: DeploymentId;

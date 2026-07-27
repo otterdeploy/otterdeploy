@@ -1,36 +1,29 @@
 /**
- * Generic resource read/delete orchestration. Engine-specific create lives in
- * postgres.ts (and future siblings). Read/delete dispatch through the
- * DatabaseProvisioner factory so each engine plugs its own destroy semantics.
+ * Generic resource READ orchestration + the new-resource wizard's live probes
+ * (name availability, public-host preview). Engine-specific create lives in
+ * postgres.ts (and future siblings); the destructive `deleteProjectResource`
+ * saga lives in ./resource-delete.ts and is re-exported below so call sites
+ * keep importing it from here.
  */
 
 import type { ResourceId } from "@otterdeploy/shared/id";
-import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
 
 import type { ProjectRef, ResourceRef } from "../scopes";
 
-import { reconcile } from "../../caddy";
-import { deleteProxyRoutesByResource } from "../../caddy/queries";
 import { loadDomainSourcesForProject } from "../../lib/domain-sources";
 import { resolvePublicDomain, type ResolvedDomain } from "../../lib/domains";
 import { listServiceEnvVarsForResources } from "../service/queries";
-import { reclaimDatabaseVolume, reclaimServiceHostArtifacts } from "../service/teardown";
 import { sanitizeSlug } from "../service/views";
 import { getLatestDeploymentsForResources } from "./deployments";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
-import { removeDatabaseFromManifest, removeServiceFromManifest } from "./manifest";
-import { getDatabaseProvisioner } from "./provisioners";
 import {
-  deleteResourceById,
   getProjectInOrg,
   getResourceById,
   listProjectResources as listProjectResourcesQuery,
 } from "./queries";
 import {
-  buildContainerName,
-  buildVolumeName,
   mapComposeResource,
   mapDatabaseResource,
   mapServiceResource,
@@ -39,6 +32,7 @@ import {
 } from "./views";
 
 export type { ProjectResource };
+export { deleteProjectResource } from "./resource-delete";
 
 /**
  * Live name-availability check for the new-resource wizard. Returns
@@ -196,182 +190,4 @@ export async function getProjectResource(
       // bare case list reads as "lacks ending return statement".
       return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
-}
-
-/**
- * Tear down everything a deleted SERVICE leaves behind on the host. Delete used
- * to remove only DB rows + Caddy routes, which orphaned the running container
- * and leaked the built images (~2GB per commit sha), the buildx layer cache,
- * and the resource's volumes on disk. Every step is BEST-EFFORT: the DB rows are
- * the source of truth and are removed regardless, so a cleanup hiccup (a stopped
- * daemon, a missing dir) must never block the delete.
- */
-async function teardownServiceRuntime(
-  serviceName: string,
-  ref: ResourceRef,
-  log: RequestLogger,
-): Promise<void> {
-  // Lazy-imported: transitively loads @otterdeploy/env/server (validated at
-  // module load) — keep it out of resources.ts's import graph.
-  const { runtime } = await import("../../runtime");
-  // 1. Stop + remove the running container / swarm service. If the daemon is
-  //    unreachable this best-effort destroy would silently leak the container;
-  //    record it as an orphan so the GC sweep retries the teardown later
-  //    instead of abandoning it (system-health/orphan-gc.ts).
-  await runtime()
-    .destroy({ serviceName }, log)
-    .catch(async (cause) => {
-      const { recordOrphanedResource } = await import("../../system-health/orphan-gc");
-      await recordOrphanedResource({
-        organizationId: ref.organizationId,
-        resourceType: "service",
-        ref: serviceName,
-        projectId: ref.projectId,
-        label: `service teardown failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-        payload: { projectId: ref.projectId, resourceId: ref.resourceId },
-      });
-    });
-  // 2-4. Reclaim host artifacts (images, buildx cache, volumes) — shared with
-  //      the manifest-apply delete path (service/handlers.ts deleteService).
-  await reclaimServiceHostArtifacts(serviceName, ref.projectId, ref.resourceId, log);
-}
-
-export async function deleteProjectResource(
-  input: ResourceRef,
-  log: RequestLogger,
-): Promise<Result<{ ok: true }, PostgresResourceNotFoundError>> {
-  const project = await getProjectInOrg({
-    projectId: input.projectId,
-    organizationId: input.organizationId,
-  });
-  if (!project) {
-    log.set({ resource: { outcome: "project_not_found" } });
-    return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
-  }
-
-  const found = await getResourceById(input.projectId, input.resourceId);
-  if (!found) {
-    log.set({ resource: { outcome: "resource_not_found" } });
-    return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
-  }
-
-  switch (found.kind) {
-    case "database": {
-      const provisioner = getDatabaseProvisioner(found.record.database.engine);
-      const projectSlug = sanitizeProjectSlug(project.slug);
-      const serviceName = buildContainerName({
-        engine: found.record.database.engine,
-        projectSlug,
-        resourceName: found.record.resource.name,
-      });
-      const volumeName = buildVolumeName({
-        engine: found.record.database.engine,
-        projectSlug,
-        resourceName: found.record.resource.name,
-      });
-
-      log.set({
-        resource: {
-          kind: found.record.database.engine,
-          projectId: input.projectId,
-          name: found.record.resource.name,
-        },
-      });
-
-      // Strip it from the manifest FIRST, before any teardown — once a delete
-      // starts the resource is no longer "desired", so a partial-teardown
-      // failure can only ever diff as a (recoverable) delete, never a phantom
-      // `create` ghost. A deployed resource must never revert to pending.
-      await removeDatabaseFromManifest(
-        { projectId: input.projectId, organizationId: input.organizationId },
-        found.record.resource.name,
-      );
-      await deleteProxyRoutesByResource(input.resourceId);
-      // Container teardown must never abort the delete — a crash-looped or
-      // already-exited container (od-aww's postgres:18 repro) is exactly the
-      // case that must still get cleaned up, and the DB row is the source of
-      // truth regardless of daemon hiccups. On failure, hand it to the
-      // orphan-GC sweep (same "service" resourceType it already retries
-      // stuck service teardowns with) instead of leaking it silently.
-      let containerDestroyed = true;
-      try {
-        await provisioner.destroy({ serviceName }, log);
-      } catch (cause) {
-        containerDestroyed = false;
-        const { recordOrphanedResource } = await import("../../system-health/orphan-gc");
-        await recordOrphanedResource({
-          organizationId: input.organizationId,
-          resourceType: "service",
-          ref: serviceName,
-          projectId: input.projectId,
-          label: `database teardown failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-        });
-      }
-      // The volume only detaches once the container is actually gone, so a
-      // failed container teardown makes this attempt a no-op "in use" error —
-      // expected, not a bug. Either way, fall back to orphan-GC on failure
-      // (it retries with the org-scoped guarded remover once the container
-      // teardown above has had a chance to land).
-      const { removed: volumeReclaimed } = await reclaimDatabaseVolume(volumeName, log);
-      if (!volumeReclaimed) {
-        const { recordOrphanedResource } = await import("../../system-health/orphan-gc");
-        await recordOrphanedResource({
-          organizationId: input.organizationId,
-          resourceType: "volume",
-          ref: volumeName,
-          projectId: input.projectId,
-          label: containerDestroyed
-            ? "database volume teardown failed"
-            : "database volume teardown failed (container teardown also failed)",
-        });
-      }
-      await deleteResourceById(input.resourceId);
-      await reconcile(log);
-
-      log.set({
-        teardown: {
-          proxyRoutesRemoved: true,
-          swarmDestroyed: containerDestroyed,
-          volumeReclaimed,
-          dbDeleted: true,
-        },
-      });
-      break;
-    }
-    case "service": {
-      // The row delete cascades to service_resource + ports + env vars via the
-      // schema's onDelete: cascade; teardownServiceRuntime reclaims the host
-      // side (container, built images, buildx cache, volumes).
-      log.set({
-        resource: {
-          kind: "service",
-          projectId: input.projectId,
-          name: found.record.resource.name,
-        },
-      });
-      // Strip it from the manifest FIRST (see the database branch) so a partial
-      // teardown can never leave the service declared-but-absent → phantom
-      // `create`. A deployed service must never revert to pending.
-      await removeServiceFromManifest(
-        { projectId: input.projectId, organizationId: input.organizationId },
-        found.record.resource.name,
-      );
-      await deleteProxyRoutesByResource(input.resourceId);
-      await teardownServiceRuntime(found.record.service.serviceName, input, log);
-      await deleteResourceById(input.resourceId);
-      log.set({
-        teardown: { proxyRoutesRemoved: true, runtimeDestroyed: true, dbDeleted: true },
-      });
-      break;
-    }
-    case "compose": {
-      // Stack deletion is compose.delete's job — it tears down every child
-      // service, the swarm stack, routes, and seeded vars. Falling through
-      // here would report success without removing anything.
-      log.set({ resource: { outcome: "compose_not_deletable_here" } });
-      return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
-    }
-  }
-
-  return Result.ok({ ok: true });
 }

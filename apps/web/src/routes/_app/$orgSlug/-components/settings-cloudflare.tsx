@@ -92,6 +92,50 @@ function CloudflareConnected({
   );
 }
 
+/** Steps 1 and 2 of the connect flow — open Cloudflare with the scopes
+ *  pre-filled, then create and copy the token there. Static markup with no
+ *  form state of its own, split out of CloudflareConnectForm so that function
+ *  stays about the token the operator pastes back. Renders the bare <li>s so
+ *  they stay children of the parent's <ol> and keep their numbering. */
+function TokenSetupSteps() {
+  return (
+    <>
+      <li className="flex items-start gap-3">
+        <StepNumber n={1} />
+        <div className="flex flex-1 flex-col gap-2">
+          <span>Open Cloudflare with the right scopes pre-filled.</span>
+          <div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                window.open(
+                  CLOUDFLARE_TOKEN_TEMPLATE_URL,
+                  "_blank",
+                  "noopener,noreferrer",
+                )
+              }
+            >
+              Open Cloudflare →
+            </Button>
+          </div>
+        </div>
+      </li>
+      <li className="flex items-start gap-3">
+        <StepNumber n={2} />
+        <div className="flex flex-1 flex-col gap-1.5">
+          <span>
+            On the Cloudflare page, pick the zone you want under "Zone
+            Resources", then click <strong>Create Token</strong>. Copy the
+            token Cloudflare shows you.
+          </span>
+        </div>
+      </li>
+    </>
+  );
+}
+
 function CloudflareConnectForm({
   organizationId,
 }: {
@@ -122,38 +166,7 @@ function CloudflareConnectForm({
   return (
     <>
       <ol className="flex flex-col gap-3 text-[12.5px]">
-        <li className="flex items-start gap-3">
-          <StepNumber n={1} />
-          <div className="flex flex-1 flex-col gap-2">
-            <span>Open Cloudflare with the right scopes pre-filled.</span>
-            <div>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  window.open(
-                    CLOUDFLARE_TOKEN_TEMPLATE_URL,
-                    "_blank",
-                    "noopener,noreferrer",
-                  )
-                }
-              >
-                Open Cloudflare →
-              </Button>
-            </div>
-          </div>
-        </li>
-        <li className="flex items-start gap-3">
-          <StepNumber n={2} />
-          <div className="flex flex-1 flex-col gap-1.5">
-            <span>
-              On the Cloudflare page, pick the zone you want under "Zone
-              Resources", then click <strong>Create Token</strong>. Copy the
-              token Cloudflare shows you.
-            </span>
-          </div>
-        </li>
+        <TokenSetupSteps />
         <li className="flex items-start gap-3">
           <StepNumber n={3} />
           <div className="flex flex-1 flex-col gap-2">

@@ -1,15 +1,12 @@
 export {
-      type RefToken,
+  type RefToken,
   type LiteralToken,
   type Token,
   type ParseError,
   type ParseResult,
 } from "./parser";
 
-export {
-      type PostgresExportInput,
-  type ServiceExportInput,
-} from "./exporters";
+export { type PostgresExportInput, type ServiceExportInput } from "./exporters";
 
 export { resolveServiceEnv } from "./resolver";
 

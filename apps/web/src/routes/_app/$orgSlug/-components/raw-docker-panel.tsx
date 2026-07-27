@@ -24,6 +24,50 @@ import { ImagesTable } from "./docker-table-images";
 import { NetworksTable } from "./docker-table-networks";
 import { TasksTable } from "./docker-tables";
 
+/** Narrow swarm tasks to one node. Pulled out of the panel so the "all nodes"
+ *  branch doesn't sit in the component body — see the note at the call site
+ *  for why only this tab can honestly filter by node. */
+function tasksOnNode<T extends { nodeId: string | null }>(
+  tasks: T[] | undefined,
+  nodeFilter: string,
+): T[] | undefined {
+  if (nodeFilter === "all") return tasks;
+  return tasks?.filter((t) => t.nodeId === nodeFilter);
+}
+
+/** The Images tab's prune affordance: the button, its pending label, and the
+ *  count of dangling images it would reclaim. Presentational — the mutation
+ *  and the confirm dialog stay with the panel, which owns the refetch. */
+function PruneDanglingButton({
+  pending,
+  disabled,
+  count,
+  onClick,
+}: {
+  pending: boolean;
+  disabled: boolean;
+  count: number;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="h-7 gap-1.5 text-xs"
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {pending ? "Pruning…" : "Prune dangling"}
+      {count > 0 && (
+        <Badge variant="secondary" className="h-4 rounded-sm px-1.5 font-mono text-[10px]">
+          {count}
+        </Badge>
+      )}
+    </Button>
+  );
+}
+
 export function RawDockerPanel({
   orgSlug,
   initialTab,
@@ -78,7 +122,7 @@ export function RawDockerPanel({
   // render. Destructure the exact fields so the memo tracks only real changes.
   const { data: tasksData, isLoading, isError, error, refetch } = tasks;
   const filteredTasks = {
-    data: nodeFilter === "all" ? tasksData : tasksData?.filter((t) => t.nodeId === nodeFilter),
+    data: tasksOnNode(tasksData, nodeFilter),
     isLoading,
     isError,
     error,
@@ -144,21 +188,12 @@ export function RawDockerPanel({
         <TabsContent value="images">
           <ManagerScopeCaption swarm={swarm} tab={tab} />
           <div className="mb-3 flex items-center justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 gap-1.5 text-xs"
+            <PruneDanglingButton
+              pending={prune.isPending}
               disabled={prune.isPending || images.isLoading}
+              count={danglingCount}
               onClick={() => setPruneOpen(true)}
-            >
-              {prune.isPending ? "Pruning…" : "Prune dangling"}
-              {danglingCount > 0 && (
-                <Badge variant="secondary" className="h-4 rounded-sm px-1.5 font-mono text-[10px]">
-                  {danglingCount}
-                </Badge>
-              )}
-            </Button>
+            />
           </div>
           <ImagesTable query={images} />
         </TabsContent>
