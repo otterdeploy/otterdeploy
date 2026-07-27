@@ -11,7 +11,7 @@
  * host-match is transparent, not magic.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useLiveQuery } from "@tanstack/react-db";
 import { useForm, useStore } from "@tanstack/react-form";
@@ -43,7 +43,7 @@ interface GitSourceBlock {
 }
 
 /** Form values seeded from the saved source block (empty until it loads). */
-const seedSource = (svc: GitSourceBlock | null) => ({
+const seedSource = (svc: Partial<GitSourceBlock> | null) => ({
   repo: svc?.repo ?? "",
   branch: svc?.branch ?? "",
   root: svc?.sourceSubdir ?? "",
@@ -52,6 +52,29 @@ const seedSource = (svc: GitSourceBlock | null) => ({
 });
 
 type SourceFormValues = ReturnType<typeof seedSource>;
+
+/**
+ * The seeded values, with a reference that only changes when the SAVED source
+ * changes.
+ *
+ * `readGitSource` rebuilds its object on every render, so seeding inline gave
+ * the re-seed effect below a new `seeded` identity each time: the effect called
+ * `form.reset`, that store write re-rendered the component, and the cycle
+ * repeated until React killed it with "Maximum update depth exceeded" — taking
+ * the whole service settings tab down with it.
+ *
+ * Depends on the five PRIMITIVES rather than the block. Passing the object
+ * would satisfy `exhaustive-deps` while reintroducing exactly the unstable
+ * identity that caused the loop, so this destructure is load-bearing, not
+ * style.
+ */
+function useSeededSource(svc: Partial<GitSourceBlock> | null): SourceFormValues {
+  const { repo, branch, sourceSubdir, imageRepository, previews } = svc ?? {};
+  return useMemo(
+    () => seedSource({ repo, branch, sourceSubdir, imageRepository, previews }),
+    [repo, branch, sourceSubdir, imageRepository, previews],
+  );
+}
 
 const sourceDirty = (values: SourceFormValues, seeded: SourceFormValues) =>
   values.repo !== seeded.repo ||
@@ -165,7 +188,9 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
   );
 
   // Local edit state (seeded from the manifest source block) + dirty flag.
-  const seeded = seedSource(gitSvc);
+  // Stable reference — see useSeededSource; seeding inline here is what caused
+  // the render loop.
+  const seeded = useSeededSource(gitSvc);
 
   const saveMut = useMutation({
     mutationFn: (value: typeof seeded) =>
