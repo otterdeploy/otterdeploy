@@ -19,7 +19,11 @@ import { cn } from "@/shared/lib/utils";
 
 import type { Destination } from "./data/destinations";
 
-import { destinationsCollection, setDestinationEnabled, testDestination } from "./data/destinations";
+import {
+  destinationsCollection,
+  setDestinationEnabled,
+  testDestination,
+} from "./data/destinations";
 import { StatusBadge, destIcon, destSub, destUri } from "./shared";
 
 /** Name, connection summary, and the managed marker + its honesty note. */

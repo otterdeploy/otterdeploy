@@ -95,7 +95,9 @@ export const statusCommand = defineCommand({
     printChangeSummary(meaningful);
     out();
     note(dim("Drift usually means a change was made in the dashboard or another session."));
-    hint(`run \`${cmd("deploy")}\` to reconcile, or \`${cmd("pull")}\` to adopt the server's state`);
+    hint(
+      `run \`${cmd("deploy")}\` to reconcile, or \`${cmd("pull")}\` to adopt the server's state`,
+    );
 
     const counts = countByKind(meaningful);
     // Non-zero exit so CI can gate on "did anyone change anything?".
@@ -103,7 +105,9 @@ export const statusCommand = defineCommand({
     // Deletes are the one drift kind worth calling out by name before exit.
     if (counts.delete) {
       out();
-      note(paint("danger", `${counts.delete} resource(s) exist in the manifest but not in reality.`));
+      note(
+        paint("danger", `${counts.delete} resource(s) exist in the manifest but not in reality.`),
+      );
     }
   },
 });

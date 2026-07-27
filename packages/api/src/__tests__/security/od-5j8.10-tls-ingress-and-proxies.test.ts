@@ -1,3 +1,4 @@
+import { Hono } from "hono";
 /**
  * od-5j8.10 — TLS-only control-plane ingress, trusted proxies, body limits.
  *
@@ -21,7 +22,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Hono } from "hono";
 import { describe, expect, test } from "vite-plus/test";
 
 import { buildCaddyfile, buildHttpBlock, type ProxyRouteInput } from "../../caddy/builder";
@@ -33,10 +33,7 @@ import {
   MAX_SOURCE_UPLOAD_BYTES,
   resolveBodyLimitBytes,
 } from "../../security/body-limit";
-import {
-  isTrustedProxyPeer,
-  resolveClientAddress,
-} from "../../security/trusted-proxy";
+import { isTrustedProxyPeer, resolveClientAddress } from "../../security/trusted-proxy";
 
 const repositoryRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), "../../../../..");
 
@@ -311,7 +308,9 @@ describe("[od-cse] the dashboard's publish address is an operator choice, and th
   // that one of them is compiled in.
   test("the bind is parameterized, with the loopback posture still selectable", () => {
     const compose = source("docker-compose.prod.yml");
-    expect(compose).toMatch(/\$\{CONTROL_PLANE_BIND:-0\.0\.0\.0\}:\$\{CONTROL_PLANE_PORT:-3000\}:3000/);
+    expect(compose).toMatch(
+      /\$\{CONTROL_PLANE_BIND:-0\.0\.0\.0\}:\$\{CONTROL_PLANE_PORT:-3000\}:3000/,
+    );
     // A bare "${CONTROL_PLANE_PORT:-3000}:3000" would publish on every
     // interface with no way to pin it back — that's what must not return.
     expect(compose).not.toMatch(/[^.\d}]"\$\{CONTROL_PLANE_PORT:-3000\}:3000"/);
@@ -335,7 +334,7 @@ describe("[od-cse] the dashboard's publish address is an operator choice, and th
     expect(install).toMatch(/127\.0\.0\.1\|localhost\) printf '80, 443' ;;/);
     expect(install).toMatch(/\*\) printf '80, 443, %s' "\$CONTROL_PLANE_PORT" ;;/);
     expect(install).toContain(
-      'nft insert rule ip filter DOCKER-USER tcp dport != { $(edge_tcp_ports) }',
+      "nft insert rule ip filter DOCKER-USER tcp dport != { $(edge_tcp_ports) }",
     );
     expect(install).toMatch(/tcp dport \{ %s \} accept\\n' "\$\(edge_tcp_ports\)"/);
   });

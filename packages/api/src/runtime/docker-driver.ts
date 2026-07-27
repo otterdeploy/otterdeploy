@@ -16,9 +16,9 @@
  * See docs/designs/runtime.md.
  */
 
-import { Docker } from "@otterdeploy/docker";
-
 import type { DeploymentId } from "@otterdeploy/shared/id";
+
+import { Docker } from "@otterdeploy/docker";
 
 import type { Summary } from "./docker-driver-helpers";
 import type { ContainerSpec, RuntimeDriver, RuntimeStatus } from "./types";

@@ -46,11 +46,7 @@ describe("nav manifest", () => {
 
   it("moved workspace destinations live in the sidebar, not settings", () => {
     const sidebar = OPERATIONAL_NAV.flatMap((g) => g.items.map((i) => i.to));
-    for (const path of [
-      "/$orgSlug/git-providers",
-      "/$orgSlug/registries",
-      "/$orgSlug/ssh-keys",
-    ]) {
+    for (const path of ["/$orgSlug/git-providers", "/$orgSlug/registries", "/$orgSlug/ssh-keys"]) {
       expect(sidebar, path).toContain(path);
     }
     // API keys deliberately stayed: programmatic access to otterdeploy itself

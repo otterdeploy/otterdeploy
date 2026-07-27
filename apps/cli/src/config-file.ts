@@ -38,10 +38,7 @@ const canImportTs =
 // out from under the user. Renaming is theirs to do.
 const CURRENT_CONFIG_BASENAMES = ["otterdeploy.json", "otterdeploy.ts"] as const;
 const LEGACY_CONFIG_BASENAMES = ["otterdeploy.config.json", "otterdeploy.config.ts"] as const;
-const DEFAULT_CONFIG_BASENAMES = [
-  ...CURRENT_CONFIG_BASENAMES,
-  ...LEGACY_CONFIG_BASENAMES,
-] as const;
+const DEFAULT_CONFIG_BASENAMES = [...CURRENT_CONFIG_BASENAMES, ...LEGACY_CONFIG_BASENAMES] as const;
 const DEFAULT_CONFIG_FILENAME = CURRENT_CONFIG_BASENAMES[0];
 
 /** The names `init` scaffolds. Exported so there is one spelling of each. */

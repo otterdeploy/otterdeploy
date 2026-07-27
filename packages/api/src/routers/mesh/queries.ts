@@ -47,9 +47,7 @@ export interface UpsertMeshNetworkInput {
 }
 
 /** Connect (or re-connect) — one mesh per org, so this upserts on the org. */
-export async function upsertMeshNetwork(
-  input: UpsertMeshNetworkInput,
-): Promise<MeshNetworkRecord> {
+export async function upsertMeshNetwork(input: UpsertMeshNetworkInput): Promise<MeshNetworkRecord> {
   const values = {
     organizationId: input.organizationId,
     provider: input.provider,

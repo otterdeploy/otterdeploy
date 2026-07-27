@@ -14,9 +14,9 @@
 //   so they reference browser globals. The repo's base tsconfig is lib:["ESNext"]
 //   (this is a Node script), which leaves `document` unresolved without this.
 
-import { chromium, type Browser } from "playwright";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import { chromium, type Browser } from "playwright";
 
 const ROOT = resolve(import.meta.dirname, "../..");
 const LOGO = `${ROOT}/brand/logo`;
@@ -50,7 +50,13 @@ async function svg(name: string): Promise<string> {
   return loaded;
 }
 
-interface Shot { path: string; html: string; width: number; height: number; transparent?: boolean }
+interface Shot {
+  path: string;
+  html: string;
+  width: number;
+  height: number;
+  transparent?: boolean;
+}
 
 /** A bare mark or lockup on nothing — transparent PNG at an exact pixel size. */
 async function bare(file: string, source: string, width: number, height = width): Promise<Shot> {

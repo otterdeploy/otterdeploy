@@ -52,9 +52,7 @@
           "category": "Security",
           "id": "dist/assets/certificates--l7hZQWq.js::3:32::react-doctor/artifact-secret-leak",
           "normalizedFilePath": "dist/assets/certificates--l7hZQWq.js",
-          "tags": [
-            "security-scan"
-          ]
+          "tags": ["security-scan"]
         },
         {
           "filePath": "package.json",
@@ -147,9 +145,7 @@
           "category": "Maintainability",
           "id": "src/features/auth/components/social-sign-in.tsx::33:17::react-doctor/prefer-module-scope-pure-function",
           "normalizedFilePath": "src/features/auth/components/social-sign-in.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/backups/backup-now-parts.tsx",
@@ -523,9 +519,7 @@
           "category": "Bugs",
           "id": "src/features/edge-logs/components/edge-logs-view.tsx::60:6::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/features/edge-logs/components/edge-logs-view.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/edge-logs/components/edge-logs-view.tsx",
@@ -587,9 +581,7 @@
           "category": "Bugs",
           "id": "src/features/edge-logs/components/edge-logs-view.tsx::70:6::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/features/edge-logs/components/edge-logs-view.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/edge-logs/components/edge-logs-view.tsx",
@@ -685,9 +677,7 @@
           "category": "Bugs",
           "id": "src/features/firewall/components/flagged-panel.tsx::46:6::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/features/firewall/components/flagged-panel.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/firewall/components/flagged-panel.tsx",
@@ -936,9 +926,7 @@
           "category": "Bugs",
           "id": "src/features/logs/components/logs-histogram.tsx::78:38::react-doctor/prefer-use-effect-event",
           "normalizedFilePath": "src/features/logs/components/logs-histogram.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/logs/components/logs-histogram.tsx",
@@ -1006,9 +994,7 @@
           "category": "Bugs",
           "id": "src/features/logs/components/use-logs-table.ts::108:25::react-doctor/no-chain-state-updates",
           "normalizedFilePath": "src/features/logs/components/use-logs-table.ts",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/logs/data/use-log-stream.ts",
@@ -1145,9 +1131,7 @@
           "category": "Bugs",
           "id": "src/features/projects/components/networking/caddyfile-viewer.tsx::47:5::react-doctor/no-chain-state-updates",
           "normalizedFilePath": "src/features/projects/components/networking/caddyfile-viewer.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/projects/components/networking/caddyfile-viewer.tsx",
@@ -1181,9 +1165,7 @@
           "category": "Bugs",
           "id": "src/features/projects/components/networking/caddyfile-viewer.tsx::51:3::react-doctor/no-effect-chain",
           "normalizedFilePath": "src/features/projects/components/networking/caddyfile-viewer.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/projects/components/networking/caddyfile-viewer.tsx",
@@ -1234,9 +1216,7 @@
           "category": "Maintainability",
           "id": "src/features/projects/components/networking/route-access-guests.tsx::100:20::react-doctor/prefer-module-scope-pure-function",
           "normalizedFilePath": "src/features/projects/components/networking/route-access-guests.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/projects/components/networking/route-access-shared.tsx",
@@ -1372,10 +1352,7 @@
           "category": "Maintainability",
           "id": "src/features/projects/components/new-resource/compose-wizard-body.tsx::124:17::react-doctor/no-many-boolean-props",
           "normalizedFilePath": "src/features/projects/components/new-resource/compose-wizard-body.tsx",
-          "tags": [
-            "react-jsx-only",
-            "test-noise"
-          ]
+          "tags": ["react-jsx-only", "test-noise"]
         },
         {
           "filePath": "src/features/projects/components/new-resource/compose-wizard-editor.ts",
@@ -1392,9 +1369,7 @@
           "category": "Performance",
           "id": "src/features/projects/components/new-resource/compose-wizard-editor.ts::10:1::react-doctor/prefer-dynamic-import",
           "normalizedFilePath": "src/features/projects/components/new-resource/compose-wizard-editor.ts",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/projects/components/new-resource/compose-wizard-shared.ts",
@@ -1581,9 +1556,7 @@
           "category": "Bugs",
           "id": "src/features/projects/components/new-resource/overlay-provider.tsx::52:6::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/features/projects/components/new-resource/overlay-provider.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/projects/components/new-resource/overlay-provider.tsx",
@@ -1617,9 +1590,7 @@
           "category": "Bugs",
           "id": "src/features/projects/components/new-resource/overlay-provider.tsx::75:6::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/features/projects/components/new-resource/overlay-provider.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/projects/components/new-resource/steps/resources-placement.tsx",
@@ -1687,9 +1658,7 @@
           "category": "Bugs",
           "id": "src/features/projects/components/new-resource/steps/source-pickers.tsx::113:6::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/features/projects/components/new-resource/steps/source-pickers.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/projects/components/new-resource/steps/variables.tsx",
@@ -1706,9 +1675,7 @@
           "category": "Bugs",
           "id": "src/features/projects/components/new-resource/steps/variables.tsx::52:6::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/features/projects/components/new-resource/steps/variables.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/projects/components/new-resource/wizard-chrome.tsx",
@@ -1742,10 +1709,7 @@
           "category": "Maintainability",
           "id": "src/features/projects/components/new-resource/wizard-chrome.tsx::136:17::react-doctor/no-many-boolean-props",
           "normalizedFilePath": "src/features/projects/components/new-resource/wizard-chrome.tsx",
-          "tags": [
-            "react-jsx-only",
-            "test-noise"
-          ]
+          "tags": ["react-jsx-only", "test-noise"]
         },
         {
           "filePath": "src/features/projects/components/new-resource/wizard-form.ts",
@@ -2102,9 +2066,7 @@
           "category": "Performance",
           "id": "src/features/resources/components/_shared/metrics/metric-area-chart.tsx::11:1::react-doctor/prefer-dynamic-import",
           "normalizedFilePath": "src/features/resources/components/_shared/metrics/metric-area-chart.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/resources/components/_shared/metrics/use-project-metrics.ts",
@@ -2138,9 +2100,7 @@
           "category": "Bugs",
           "id": "src/features/resources/components/_shared/metrics/use-project-metrics.ts::128:6::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/features/resources/components/_shared/metrics/use-project-metrics.ts",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/resources/components/_shared/metrics/use-project-metrics.ts",
@@ -2191,9 +2151,7 @@
           "category": "Bugs",
           "id": "src/features/resources/components/_shared/metrics/use-resource-metrics.ts::143:6::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/features/resources/components/_shared/metrics/use-resource-metrics.ts",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/resources/components/_shared/resource-terminal.tsx",
@@ -2326,9 +2284,7 @@
           "category": "Performance",
           "id": "src/features/resources/components/compose/exposed-editor.tsx::157:29::react-doctor/js-set-map-lookups",
           "normalizedFilePath": "src/features/resources/components/compose/exposed-editor.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/resources/components/compose/panel-parts.tsx",
@@ -2379,9 +2335,7 @@
           "category": "Performance",
           "id": "src/features/resources/components/compose/panel-tabs.tsx::11:1::react-doctor/prefer-dynamic-import",
           "normalizedFilePath": "src/features/resources/components/compose/panel-tabs.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/resources/components/compose/panel-tabs.tsx",
@@ -2500,10 +2454,7 @@
           "category": "Maintainability",
           "id": "src/features/resources/components/mariadb/tabs/data/table-browser.tsx::96:17::react-doctor/no-many-boolean-props",
           "normalizedFilePath": "src/features/resources/components/mariadb/tabs/data/table-browser.tsx",
-          "tags": [
-            "react-jsx-only",
-            "test-noise"
-          ]
+          "tags": ["react-jsx-only", "test-noise"]
         },
         {
           "filePath": "src/features/resources/components/mariadb/tabs/data/table-browser.tsx",
@@ -2537,10 +2488,7 @@
           "category": "Maintainability",
           "id": "src/features/resources/components/mongo/tabs/data/index.tsx::138:10::react-doctor/no-many-boolean-props",
           "normalizedFilePath": "src/features/resources/components/mongo/tabs/data/index.tsx",
-          "tags": [
-            "react-jsx-only",
-            "test-noise"
-          ]
+          "tags": ["react-jsx-only", "test-noise"]
         },
         {
           "filePath": "src/features/resources/components/mongo/tabs/data/index.tsx",
@@ -2608,9 +2556,7 @@
           "category": "Performance",
           "id": "src/features/resources/components/postgres/tabs/data/components/dice-grid.tsx::191:9::react-doctor/async-await-in-loop",
           "normalizedFilePath": "src/features/resources/components/postgres/tabs/data/components/dice-grid.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/resources/components/postgres/tabs/data/components/filter-popover.tsx",
@@ -2627,9 +2573,7 @@
           "category": "Bugs",
           "id": "src/features/resources/components/postgres/tabs/data/components/filter-popover.tsx::37:3::react-doctor/no-event-handler",
           "normalizedFilePath": "src/features/resources/components/postgres/tabs/data/components/filter-popover.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/resources/components/postgres/tabs/data/components/filter-popover.tsx",
@@ -2646,9 +2590,7 @@
           "category": "Bugs",
           "id": "src/features/resources/components/postgres/tabs/data/components/filter-popover.tsx::39:7::react-doctor/no-chain-state-updates",
           "normalizedFilePath": "src/features/resources/components/postgres/tabs/data/components/filter-popover.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/resources/components/postgres/tabs/data/components/filter-popover.tsx",
@@ -2682,10 +2624,7 @@
           "category": "Maintainability",
           "id": "src/features/resources/components/postgres/tabs/data/components/results-panel.tsx::69:17::react-doctor/no-many-boolean-props",
           "normalizedFilePath": "src/features/resources/components/postgres/tabs/data/components/results-panel.tsx",
-          "tags": [
-            "react-jsx-only",
-            "test-noise"
-          ]
+          "tags": ["react-jsx-only", "test-noise"]
         },
         {
           "filePath": "src/features/resources/components/postgres/tabs/data/components/results-panel.tsx",
@@ -2719,9 +2658,7 @@
           "category": "Performance",
           "id": "src/features/resources/components/postgres/tabs/data/components/sql-editor.tsx::15:1::react-doctor/prefer-dynamic-import",
           "normalizedFilePath": "src/features/resources/components/postgres/tabs/data/components/sql-editor.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/resources/components/postgres/tabs/data/components/sql-editor.tsx",
@@ -2738,9 +2675,7 @@
           "category": "Performance",
           "id": "src/features/resources/components/postgres/tabs/data/components/sql-editor.tsx::16:1::react-doctor/prefer-dynamic-import",
           "normalizedFilePath": "src/features/resources/components/postgres/tabs/data/components/sql-editor.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/resources/components/postgres/tabs/data/components/sql-editor.tsx",
@@ -3132,9 +3067,7 @@
           "matchByOccurrence": true,
           "id": "src/features/resources/components/postgres/tabs/data/studio-sql-toolbar.tsx::112:25::react-doctor/label-has-associated-control",
           "normalizedFilePath": "src/features/resources/components/postgres/tabs/data/studio-sql-toolbar.tsx",
-          "tags": [
-            "react-jsx-only"
-          ]
+          "tags": ["react-jsx-only"]
         },
         {
           "filePath": "src/features/resources/components/postgres/tabs/data/use-data-studio-helpers.ts",
@@ -3185,9 +3118,7 @@
           "category": "Performance",
           "id": "src/features/resources/components/postgres/tabs/data/use-data-studio-helpers.ts::163:13::react-doctor/async-await-in-loop",
           "normalizedFilePath": "src/features/resources/components/postgres/tabs/data/use-data-studio-helpers.ts",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/resources/components/postgres/tabs/data/use-data-studio-helpers.ts",
@@ -3238,9 +3169,7 @@
           "category": "Bugs",
           "id": "src/features/resources/components/postgres/tabs/data/use-data-studio-sql.ts::63:5::react-doctor/no-pass-data-to-parent",
           "normalizedFilePath": "src/features/resources/components/postgres/tabs/data/use-data-studio-sql.ts",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/resources/components/postgres/tabs/data/use-data-studio.ts",
@@ -3319,9 +3248,7 @@
           "category": "Bugs",
           "id": "src/features/resources/components/postgres/tabs/data/use-data-studio.ts::149:5::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/features/resources/components/postgres/tabs/data/use-data-studio.ts",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/resources/components/postgres/tabs/data/use-data-studio.ts",
@@ -3374,9 +3301,7 @@
           "category": "Bugs",
           "id": "src/features/resources/components/postgres/tabs/data/use-data-studio.ts::187:7::react-doctor/no-chain-state-updates",
           "normalizedFilePath": "src/features/resources/components/postgres/tabs/data/use-data-studio.ts",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/resources/components/postgres/tabs/data/use-data-studio.ts",
@@ -3393,9 +3318,7 @@
           "category": "Bugs",
           "id": "src/features/resources/components/postgres/tabs/data/use-data-studio.ts::189:6::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/features/resources/components/postgres/tabs/data/use-data-studio.ts",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/resources/components/postgres/tabs/settings/danger-zone.tsx",
@@ -3800,9 +3723,7 @@
           "category": "Maintainability",
           "id": "src/features/ssh-keys/key-card.tsx::50:22::react-doctor/prefer-module-scope-pure-function",
           "normalizedFilePath": "src/features/ssh-keys/key-card.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/ssh-keys/key-card.tsx",
@@ -3989,9 +3910,7 @@
           "category": "Bugs",
           "id": "src/features/terminal/components/terminal-session.tsx::120:5::react-doctor/effect-needs-cleanup",
           "normalizedFilePath": "src/features/terminal/components/terminal-session.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/terminal/components/terminal-session.tsx",
@@ -4008,9 +3927,7 @@
           "category": "Bugs",
           "id": "src/features/terminal/components/terminal-session.tsx::125:3::react-doctor/effect-needs-cleanup",
           "normalizedFilePath": "src/features/terminal/components/terminal-session.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/features/updates/components/update-progress.tsx",
@@ -4214,9 +4131,7 @@
           "category": "Maintainability",
           "id": "src/routes/_app/$orgSlug/-components/docker-table-containers.tsx::40:3::react-doctor/prefer-module-scope-pure-function",
           "normalizedFilePath": "src/routes/_app/$orgSlug/-components/docker-table-containers.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/routes/_app/$orgSlug/-components/servers-health-pool.tsx",
@@ -4250,9 +4165,7 @@
           "category": "Maintainability",
           "id": "src/routes/_app/$orgSlug/-components/servers-live-cell.tsx::15:16::react-doctor/prefer-module-scope-pure-function",
           "normalizedFilePath": "src/routes/_app/$orgSlug/-components/servers-live-cell.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/routes/_app/$orgSlug/-components/servers-swarm-actions.tsx",
@@ -4388,9 +4301,7 @@
           "category": "Bugs",
           "id": "src/routes/_app/$orgSlug/_shell/$projectSlug/deployments.tsx::75:55::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/routes/_app/$orgSlug/_shell/$projectSlug/deployments.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/routes/_app/$orgSlug/_shell/$projectSlug/graph/$resourceId/deployment/-components/deployment-detail.tsx",
@@ -4730,9 +4641,7 @@
           "category": "Bugs",
           "id": "src/routes/_app/$orgSlug/_shell/$projectSlug/logs.tsx::98:14::react-doctor/prefer-use-effect-event",
           "normalizedFilePath": "src/routes/_app/$orgSlug/_shell/$projectSlug/logs.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/routes/_app/$orgSlug/_shell/$projectSlug/logs.tsx",
@@ -4766,9 +4675,7 @@
           "category": "Maintainability",
           "id": "src/routes/_app/$orgSlug/_shell/$projectSlug/logs.tsx::129:21::react-doctor/prefer-module-scope-pure-function",
           "normalizedFilePath": "src/routes/_app/$orgSlug/_shell/$projectSlug/logs.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/routes/_app/$orgSlug/_shell/$projectSlug/networking.tsx",
@@ -4881,9 +4788,7 @@
           "category": "Bugs",
           "id": "src/routes/_app/$orgSlug/_shell/audit.tsx::58:5::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/routes/_app/$orgSlug/_shell/audit.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/routes/_app/$orgSlug/_shell/audit.tsx",
@@ -5281,9 +5186,7 @@
           "category": "Maintainability",
           "id": "src/routes/_app/$orgSlug/_shell/platform.tsx::76:16::react-doctor/prefer-module-scope-pure-function",
           "normalizedFilePath": "src/routes/_app/$orgSlug/_shell/platform.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/routes/_app/$orgSlug/_shell/platform.tsx",
@@ -5385,9 +5288,7 @@
           "category": "Performance",
           "id": "src/routes/_app/$orgSlug/_shell/servers.tsx::85:14::react-doctor/js-set-map-lookups",
           "normalizedFilePath": "src/routes/_app/$orgSlug/_shell/servers.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/routes/_app/$orgSlug/_shell/terminal.tsx",
@@ -5438,9 +5339,7 @@
           "category": "Maintainability",
           "id": "src/routes/_app/$orgSlug/settings/workspace/certificates.tsx::59:19::react-doctor/prefer-module-scope-pure-function",
           "normalizedFilePath": "src/routes/_app/$orgSlug/settings/workspace/certificates.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/routes/_app/$orgSlug/settings/workspace/notifications.tsx",
@@ -5474,9 +5373,7 @@
           "category": "Maintainability",
           "id": "src/routes/_app/$orgSlug/settings/workspace/notifications.tsx::119:21::react-doctor/prefer-module-scope-pure-function",
           "normalizedFilePath": "src/routes/_app/$orgSlug/settings/workspace/notifications.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/routes/terminal.tsx",
@@ -5544,10 +5441,7 @@
           "category": "Maintainability",
           "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::49:17::react-doctor/no-many-boolean-props",
           "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-          "tags": [
-            "react-jsx-only",
-            "test-noise"
-          ]
+          "tags": ["react-jsx-only", "test-noise"]
         },
         {
           "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -5700,10 +5594,7 @@
           "category": "Maintainability",
           "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::225:17::react-doctor/no-many-boolean-props",
           "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-          "tags": [
-            "react-jsx-only",
-            "test-noise"
-          ]
+          "tags": ["react-jsx-only", "test-noise"]
         },
         {
           "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -5805,10 +5696,7 @@
           "category": "Maintainability",
           "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::411:17::react-doctor/no-many-boolean-props",
           "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-          "tags": [
-            "react-jsx-only",
-            "test-noise"
-          ]
+          "tags": ["react-jsx-only", "test-noise"]
         },
         {
           "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -5927,10 +5815,7 @@
           "category": "Maintainability",
           "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::538:17::react-doctor/no-many-boolean-props",
           "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-          "tags": [
-            "react-jsx-only",
-            "test-noise"
-          ]
+          "tags": ["react-jsx-only", "test-noise"]
         },
         {
           "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -6066,10 +5951,7 @@
           "category": "Maintainability",
           "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::743:17::react-doctor/no-many-boolean-props",
           "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-          "tags": [
-            "react-jsx-only",
-            "test-noise"
-          ]
+          "tags": ["react-jsx-only", "test-noise"]
         },
         {
           "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -6137,10 +6019,7 @@
           "category": "Maintainability",
           "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::848:17::react-doctor/no-many-boolean-props",
           "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-          "tags": [
-            "react-jsx-only",
-            "test-noise"
-          ]
+          "tags": ["react-jsx-only", "test-noise"]
         },
         {
           "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -6225,10 +6104,7 @@
           "category": "Maintainability",
           "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::980:17::react-doctor/no-many-boolean-props",
           "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-          "tags": [
-            "react-jsx-only",
-            "test-noise"
-          ]
+          "tags": ["react-jsx-only", "test-noise"]
         },
         {
           "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -6415,10 +6291,7 @@
           "category": "Maintainability",
           "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::1264:17::react-doctor/no-many-boolean-props",
           "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-          "tags": [
-            "react-jsx-only",
-            "test-noise"
-          ]
+          "tags": ["react-jsx-only", "test-noise"]
         },
         {
           "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -6520,10 +6393,7 @@
           "category": "Maintainability",
           "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::1371:17::react-doctor/no-giant-component",
           "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-          "tags": [
-            "react-jsx-only",
-            "test-noise"
-          ]
+          "tags": ["react-jsx-only", "test-noise"]
         },
         {
           "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -6540,10 +6410,7 @@
           "category": "Maintainability",
           "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::1371:17::react-doctor/no-many-boolean-props",
           "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-          "tags": [
-            "react-jsx-only",
-            "test-noise"
-          ]
+          "tags": ["react-jsx-only", "test-noise"]
         },
         {
           "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -6577,9 +6444,7 @@
           "category": "Bugs",
           "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::1416:5::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -6715,9 +6580,7 @@
           "category": "Bugs",
           "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::1587:5::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -6734,9 +6597,7 @@
           "category": "Bugs",
           "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::1633:5::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -6753,9 +6614,7 @@
           "category": "Bugs",
           "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::1665:6::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -6840,10 +6699,7 @@
           "category": "Maintainability",
           "id": "src/shared/components/data-grid/data-grid-cell-wrapper.tsx::15:17::react-doctor/no-many-boolean-props",
           "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-wrapper.tsx",
-          "tags": [
-            "react-jsx-only",
-            "test-noise"
-          ]
+          "tags": ["react-jsx-only", "test-noise"]
         },
         {
           "filePath": "src/shared/components/data-grid/data-grid-cell-wrapper.tsx",
@@ -6877,9 +6733,7 @@
           "category": "Bugs",
           "id": "src/shared/components/data-grid/data-grid-cell-wrapper.tsx::47:5::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-wrapper.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/shared/components/data-grid/data-grid-cell-wrapper.tsx",
@@ -7033,9 +6887,7 @@
           "matchByOccurrence": true,
           "id": "src/shared/components/data-grid/data-grid-cell-wrapper.tsx::154:7::react-doctor/prefer-tag-over-role",
           "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-wrapper.tsx",
-          "tags": [
-            "react-jsx-only"
-          ]
+          "tags": ["react-jsx-only"]
         },
         {
           "filePath": "src/shared/components/data-grid/data-grid-cell.tsx",
@@ -7052,10 +6904,7 @@
           "category": "Maintainability",
           "id": "src/shared/components/data-grid/data-grid-cell.tsx::45:10::react-doctor/no-many-boolean-props",
           "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell.tsx",
-          "tags": [
-            "react-jsx-only",
-            "test-noise"
-          ]
+          "tags": ["react-jsx-only", "test-noise"]
         },
         {
           "filePath": "src/shared/components/data-grid/data-grid-column-header.tsx",
@@ -7395,9 +7244,7 @@
           "category": "Bugs",
           "id": "src/shared/components/data-grid/data-grid-row.tsx::181:5::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/shared/components/data-grid/data-grid-row.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/shared/components/data-grid/data-grid-row.tsx",
@@ -7886,9 +7733,7 @@
           "category": "Bugs",
           "id": "src/shared/components/data-grid/hooks/use-data-grid.ts::2079:16::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/shared/components/data-grid/hooks/use-data-grid.ts",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/shared/components/data-grid/hooks/use-data-grid.ts",
@@ -7923,9 +7768,7 @@
           "category": "Bugs",
           "id": "src/shared/components/data-grid/hooks/use-data-grid.ts::2079:51::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/shared/components/data-grid/hooks/use-data-grid.ts",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/shared/components/data-grid/hooks/use-data-grid.ts",
@@ -7960,9 +7803,7 @@
           "category": "Bugs",
           "id": "src/shared/components/data-grid/hooks/use-data-grid.ts::2098:18::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/shared/components/data-grid/hooks/use-data-grid.ts",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/shared/components/data-grid/hooks/use-data-grid.ts",
@@ -8082,9 +7923,7 @@
           "category": "Bugs",
           "id": "src/shared/components/data-grid/hooks/use-data-grid.ts::2993:3::react-doctor/effect-needs-cleanup",
           "normalizedFilePath": "src/shared/components/data-grid/hooks/use-data-grid.ts",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/shared/components/data-grid/hooks/use-data-grid.ts",
@@ -8135,9 +7974,7 @@
           "category": "Bugs",
           "id": "src/shared/components/data-grid/hooks/use-data-grid.ts::3281:5::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/shared/components/data-grid/hooks/use-data-grid.ts",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/shared/components/data-grid/hooks/use-data-grid.ts",
@@ -8223,9 +8060,7 @@
           "category": "Bugs",
           "id": "src/shared/components/data-grid/lib/compose-refs.ts::63:28::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/shared/components/data-grid/lib/compose-refs.ts",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/shared/components/data-grid/lib/compose-refs.ts",
@@ -8412,9 +8247,7 @@
           "category": "Performance",
           "id": "src/shared/components/ui/chart.tsx::5:1::react-doctor/prefer-dynamic-import",
           "normalizedFilePath": "src/shared/components/ui/chart.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/shared/components/ui/chart.tsx",
@@ -8431,9 +8264,7 @@
           "category": "Performance",
           "id": "src/shared/components/ui/chart.tsx::138:9::react-doctor/rerender-memo-before-early-return",
           "normalizedFilePath": "src/shared/components/ui/chart.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/shared/components/ui/chart.tsx",
@@ -8637,9 +8468,7 @@
           "category": "Bugs",
           "id": "src/shared/components/ui/sidebar.tsx::86:5::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/shared/components/ui/sidebar.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/shared/components/ui/sidebar.tsx",
@@ -8690,9 +8519,7 @@
           "category": "Bugs",
           "id": "src/shared/components/ui/sidebar.tsx::121:5::react-doctor/exhaustive-deps",
           "normalizedFilePath": "src/shared/components/ui/sidebar.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/shared/components/ui/sidebar.tsx",
@@ -8726,9 +8553,7 @@
           "category": "Performance",
           "id": "src/shared/components/ui/svgs/nocodb.tsx::13:7::react-doctor/rendering-svg-precision",
           "normalizedFilePath": "src/shared/components/ui/svgs/nocodb.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/shared/components/ui/svgs/postgresql.tsx",
@@ -8745,10 +8570,7 @@
           "category": "Maintainability",
           "id": "src/shared/components/ui/svgs/postgresql.tsx::6:14::react-doctor/no-inline-exhaustive-style",
           "normalizedFilePath": "src/shared/components/ui/svgs/postgresql.tsx",
-          "tags": [
-            "react-jsx-only",
-            "test-noise"
-          ]
+          "tags": ["react-jsx-only", "test-noise"]
         },
         {
           "filePath": "src/shared/components/ui/tabs.tsx",
@@ -8765,9 +8587,7 @@
           "category": "Performance",
           "id": "src/shared/components/ui/tabs.tsx::6:1::react-doctor/use-lazy-motion",
           "normalizedFilePath": "src/shared/components/ui/tabs.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/shared/components/ui/tabs.tsx",
@@ -8784,9 +8604,7 @@
           "category": "Bugs",
           "id": "src/shared/components/ui/tabs.tsx::175:3::react-doctor/effect-needs-cleanup",
           "normalizedFilePath": "src/shared/components/ui/tabs.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/shared/components/ui/tabs.tsx",
@@ -8803,9 +8621,7 @@
           "category": "Performance",
           "id": "src/shared/components/ui/tabs.tsx::239:18::react-doctor/no-layout-property-animation",
           "normalizedFilePath": "src/shared/components/ui/tabs.tsx",
-          "tags": [
-            "test-noise"
-          ]
+          "tags": ["test-noise"]
         },
         {
           "filePath": "src/shared/components/ui/tabs.tsx",
@@ -9873,9 +9689,7 @@
       "category": "Security",
       "id": "dist/assets/certificates--l7hZQWq.js::3:32::react-doctor/artifact-secret-leak",
       "normalizedFilePath": "dist/assets/certificates--l7hZQWq.js",
-      "tags": [
-        "security-scan"
-      ]
+      "tags": ["security-scan"]
     },
     {
       "filePath": "package.json",
@@ -9968,9 +9782,7 @@
       "category": "Maintainability",
       "id": "src/features/auth/components/social-sign-in.tsx::33:17::react-doctor/prefer-module-scope-pure-function",
       "normalizedFilePath": "src/features/auth/components/social-sign-in.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/backups/backup-now-parts.tsx",
@@ -10344,9 +10156,7 @@
       "category": "Bugs",
       "id": "src/features/edge-logs/components/edge-logs-view.tsx::60:6::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/features/edge-logs/components/edge-logs-view.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/edge-logs/components/edge-logs-view.tsx",
@@ -10408,9 +10218,7 @@
       "category": "Bugs",
       "id": "src/features/edge-logs/components/edge-logs-view.tsx::70:6::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/features/edge-logs/components/edge-logs-view.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/edge-logs/components/edge-logs-view.tsx",
@@ -10506,9 +10314,7 @@
       "category": "Bugs",
       "id": "src/features/firewall/components/flagged-panel.tsx::46:6::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/features/firewall/components/flagged-panel.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/firewall/components/flagged-panel.tsx",
@@ -10757,9 +10563,7 @@
       "category": "Bugs",
       "id": "src/features/logs/components/logs-histogram.tsx::78:38::react-doctor/prefer-use-effect-event",
       "normalizedFilePath": "src/features/logs/components/logs-histogram.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/logs/components/logs-histogram.tsx",
@@ -10827,9 +10631,7 @@
       "category": "Bugs",
       "id": "src/features/logs/components/use-logs-table.ts::108:25::react-doctor/no-chain-state-updates",
       "normalizedFilePath": "src/features/logs/components/use-logs-table.ts",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/logs/data/use-log-stream.ts",
@@ -10966,9 +10768,7 @@
       "category": "Bugs",
       "id": "src/features/projects/components/networking/caddyfile-viewer.tsx::47:5::react-doctor/no-chain-state-updates",
       "normalizedFilePath": "src/features/projects/components/networking/caddyfile-viewer.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/projects/components/networking/caddyfile-viewer.tsx",
@@ -11002,9 +10802,7 @@
       "category": "Bugs",
       "id": "src/features/projects/components/networking/caddyfile-viewer.tsx::51:3::react-doctor/no-effect-chain",
       "normalizedFilePath": "src/features/projects/components/networking/caddyfile-viewer.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/projects/components/networking/caddyfile-viewer.tsx",
@@ -11055,9 +10853,7 @@
       "category": "Maintainability",
       "id": "src/features/projects/components/networking/route-access-guests.tsx::100:20::react-doctor/prefer-module-scope-pure-function",
       "normalizedFilePath": "src/features/projects/components/networking/route-access-guests.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/projects/components/networking/route-access-shared.tsx",
@@ -11193,10 +10989,7 @@
       "category": "Maintainability",
       "id": "src/features/projects/components/new-resource/compose-wizard-body.tsx::124:17::react-doctor/no-many-boolean-props",
       "normalizedFilePath": "src/features/projects/components/new-resource/compose-wizard-body.tsx",
-      "tags": [
-        "react-jsx-only",
-        "test-noise"
-      ]
+      "tags": ["react-jsx-only", "test-noise"]
     },
     {
       "filePath": "src/features/projects/components/new-resource/compose-wizard-editor.ts",
@@ -11213,9 +11006,7 @@
       "category": "Performance",
       "id": "src/features/projects/components/new-resource/compose-wizard-editor.ts::10:1::react-doctor/prefer-dynamic-import",
       "normalizedFilePath": "src/features/projects/components/new-resource/compose-wizard-editor.ts",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/projects/components/new-resource/compose-wizard-shared.ts",
@@ -11402,9 +11193,7 @@
       "category": "Bugs",
       "id": "src/features/projects/components/new-resource/overlay-provider.tsx::52:6::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/features/projects/components/new-resource/overlay-provider.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/projects/components/new-resource/overlay-provider.tsx",
@@ -11438,9 +11227,7 @@
       "category": "Bugs",
       "id": "src/features/projects/components/new-resource/overlay-provider.tsx::75:6::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/features/projects/components/new-resource/overlay-provider.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/projects/components/new-resource/steps/resources-placement.tsx",
@@ -11508,9 +11295,7 @@
       "category": "Bugs",
       "id": "src/features/projects/components/new-resource/steps/source-pickers.tsx::113:6::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/features/projects/components/new-resource/steps/source-pickers.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/projects/components/new-resource/steps/variables.tsx",
@@ -11527,9 +11312,7 @@
       "category": "Bugs",
       "id": "src/features/projects/components/new-resource/steps/variables.tsx::52:6::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/features/projects/components/new-resource/steps/variables.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/projects/components/new-resource/wizard-chrome.tsx",
@@ -11563,10 +11346,7 @@
       "category": "Maintainability",
       "id": "src/features/projects/components/new-resource/wizard-chrome.tsx::136:17::react-doctor/no-many-boolean-props",
       "normalizedFilePath": "src/features/projects/components/new-resource/wizard-chrome.tsx",
-      "tags": [
-        "react-jsx-only",
-        "test-noise"
-      ]
+      "tags": ["react-jsx-only", "test-noise"]
     },
     {
       "filePath": "src/features/projects/components/new-resource/wizard-form.ts",
@@ -11923,9 +11703,7 @@
       "category": "Performance",
       "id": "src/features/resources/components/_shared/metrics/metric-area-chart.tsx::11:1::react-doctor/prefer-dynamic-import",
       "normalizedFilePath": "src/features/resources/components/_shared/metrics/metric-area-chart.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/resources/components/_shared/metrics/use-project-metrics.ts",
@@ -11959,9 +11737,7 @@
       "category": "Bugs",
       "id": "src/features/resources/components/_shared/metrics/use-project-metrics.ts::128:6::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/features/resources/components/_shared/metrics/use-project-metrics.ts",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/resources/components/_shared/metrics/use-project-metrics.ts",
@@ -12012,9 +11788,7 @@
       "category": "Bugs",
       "id": "src/features/resources/components/_shared/metrics/use-resource-metrics.ts::143:6::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/features/resources/components/_shared/metrics/use-resource-metrics.ts",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/resources/components/_shared/resource-terminal.tsx",
@@ -12147,9 +11921,7 @@
       "category": "Performance",
       "id": "src/features/resources/components/compose/exposed-editor.tsx::157:29::react-doctor/js-set-map-lookups",
       "normalizedFilePath": "src/features/resources/components/compose/exposed-editor.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/resources/components/compose/panel-parts.tsx",
@@ -12200,9 +11972,7 @@
       "category": "Performance",
       "id": "src/features/resources/components/compose/panel-tabs.tsx::11:1::react-doctor/prefer-dynamic-import",
       "normalizedFilePath": "src/features/resources/components/compose/panel-tabs.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/resources/components/compose/panel-tabs.tsx",
@@ -12321,10 +12091,7 @@
       "category": "Maintainability",
       "id": "src/features/resources/components/mariadb/tabs/data/table-browser.tsx::96:17::react-doctor/no-many-boolean-props",
       "normalizedFilePath": "src/features/resources/components/mariadb/tabs/data/table-browser.tsx",
-      "tags": [
-        "react-jsx-only",
-        "test-noise"
-      ]
+      "tags": ["react-jsx-only", "test-noise"]
     },
     {
       "filePath": "src/features/resources/components/mariadb/tabs/data/table-browser.tsx",
@@ -12358,10 +12125,7 @@
       "category": "Maintainability",
       "id": "src/features/resources/components/mongo/tabs/data/index.tsx::138:10::react-doctor/no-many-boolean-props",
       "normalizedFilePath": "src/features/resources/components/mongo/tabs/data/index.tsx",
-      "tags": [
-        "react-jsx-only",
-        "test-noise"
-      ]
+      "tags": ["react-jsx-only", "test-noise"]
     },
     {
       "filePath": "src/features/resources/components/mongo/tabs/data/index.tsx",
@@ -12429,9 +12193,7 @@
       "category": "Performance",
       "id": "src/features/resources/components/postgres/tabs/data/components/dice-grid.tsx::191:9::react-doctor/async-await-in-loop",
       "normalizedFilePath": "src/features/resources/components/postgres/tabs/data/components/dice-grid.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/resources/components/postgres/tabs/data/components/filter-popover.tsx",
@@ -12448,9 +12210,7 @@
       "category": "Bugs",
       "id": "src/features/resources/components/postgres/tabs/data/components/filter-popover.tsx::37:3::react-doctor/no-event-handler",
       "normalizedFilePath": "src/features/resources/components/postgres/tabs/data/components/filter-popover.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/resources/components/postgres/tabs/data/components/filter-popover.tsx",
@@ -12467,9 +12227,7 @@
       "category": "Bugs",
       "id": "src/features/resources/components/postgres/tabs/data/components/filter-popover.tsx::39:7::react-doctor/no-chain-state-updates",
       "normalizedFilePath": "src/features/resources/components/postgres/tabs/data/components/filter-popover.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/resources/components/postgres/tabs/data/components/filter-popover.tsx",
@@ -12503,10 +12261,7 @@
       "category": "Maintainability",
       "id": "src/features/resources/components/postgres/tabs/data/components/results-panel.tsx::69:17::react-doctor/no-many-boolean-props",
       "normalizedFilePath": "src/features/resources/components/postgres/tabs/data/components/results-panel.tsx",
-      "tags": [
-        "react-jsx-only",
-        "test-noise"
-      ]
+      "tags": ["react-jsx-only", "test-noise"]
     },
     {
       "filePath": "src/features/resources/components/postgres/tabs/data/components/results-panel.tsx",
@@ -12540,9 +12295,7 @@
       "category": "Performance",
       "id": "src/features/resources/components/postgres/tabs/data/components/sql-editor.tsx::15:1::react-doctor/prefer-dynamic-import",
       "normalizedFilePath": "src/features/resources/components/postgres/tabs/data/components/sql-editor.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/resources/components/postgres/tabs/data/components/sql-editor.tsx",
@@ -12559,9 +12312,7 @@
       "category": "Performance",
       "id": "src/features/resources/components/postgres/tabs/data/components/sql-editor.tsx::16:1::react-doctor/prefer-dynamic-import",
       "normalizedFilePath": "src/features/resources/components/postgres/tabs/data/components/sql-editor.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/resources/components/postgres/tabs/data/components/sql-editor.tsx",
@@ -12953,9 +12704,7 @@
       "matchByOccurrence": true,
       "id": "src/features/resources/components/postgres/tabs/data/studio-sql-toolbar.tsx::112:25::react-doctor/label-has-associated-control",
       "normalizedFilePath": "src/features/resources/components/postgres/tabs/data/studio-sql-toolbar.tsx",
-      "tags": [
-        "react-jsx-only"
-      ]
+      "tags": ["react-jsx-only"]
     },
     {
       "filePath": "src/features/resources/components/postgres/tabs/data/use-data-studio-helpers.ts",
@@ -13006,9 +12755,7 @@
       "category": "Performance",
       "id": "src/features/resources/components/postgres/tabs/data/use-data-studio-helpers.ts::163:13::react-doctor/async-await-in-loop",
       "normalizedFilePath": "src/features/resources/components/postgres/tabs/data/use-data-studio-helpers.ts",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/resources/components/postgres/tabs/data/use-data-studio-helpers.ts",
@@ -13059,9 +12806,7 @@
       "category": "Bugs",
       "id": "src/features/resources/components/postgres/tabs/data/use-data-studio-sql.ts::63:5::react-doctor/no-pass-data-to-parent",
       "normalizedFilePath": "src/features/resources/components/postgres/tabs/data/use-data-studio-sql.ts",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/resources/components/postgres/tabs/data/use-data-studio.ts",
@@ -13140,9 +12885,7 @@
       "category": "Bugs",
       "id": "src/features/resources/components/postgres/tabs/data/use-data-studio.ts::149:5::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/features/resources/components/postgres/tabs/data/use-data-studio.ts",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/resources/components/postgres/tabs/data/use-data-studio.ts",
@@ -13195,9 +12938,7 @@
       "category": "Bugs",
       "id": "src/features/resources/components/postgres/tabs/data/use-data-studio.ts::187:7::react-doctor/no-chain-state-updates",
       "normalizedFilePath": "src/features/resources/components/postgres/tabs/data/use-data-studio.ts",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/resources/components/postgres/tabs/data/use-data-studio.ts",
@@ -13214,9 +12955,7 @@
       "category": "Bugs",
       "id": "src/features/resources/components/postgres/tabs/data/use-data-studio.ts::189:6::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/features/resources/components/postgres/tabs/data/use-data-studio.ts",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/resources/components/postgres/tabs/settings/danger-zone.tsx",
@@ -13621,9 +13360,7 @@
       "category": "Maintainability",
       "id": "src/features/ssh-keys/key-card.tsx::50:22::react-doctor/prefer-module-scope-pure-function",
       "normalizedFilePath": "src/features/ssh-keys/key-card.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/ssh-keys/key-card.tsx",
@@ -13810,9 +13547,7 @@
       "category": "Bugs",
       "id": "src/features/terminal/components/terminal-session.tsx::120:5::react-doctor/effect-needs-cleanup",
       "normalizedFilePath": "src/features/terminal/components/terminal-session.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/terminal/components/terminal-session.tsx",
@@ -13829,9 +13564,7 @@
       "category": "Bugs",
       "id": "src/features/terminal/components/terminal-session.tsx::125:3::react-doctor/effect-needs-cleanup",
       "normalizedFilePath": "src/features/terminal/components/terminal-session.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/features/updates/components/update-progress.tsx",
@@ -14035,9 +13768,7 @@
       "category": "Maintainability",
       "id": "src/routes/_app/$orgSlug/-components/docker-table-containers.tsx::40:3::react-doctor/prefer-module-scope-pure-function",
       "normalizedFilePath": "src/routes/_app/$orgSlug/-components/docker-table-containers.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/routes/_app/$orgSlug/-components/servers-health-pool.tsx",
@@ -14071,9 +13802,7 @@
       "category": "Maintainability",
       "id": "src/routes/_app/$orgSlug/-components/servers-live-cell.tsx::15:16::react-doctor/prefer-module-scope-pure-function",
       "normalizedFilePath": "src/routes/_app/$orgSlug/-components/servers-live-cell.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/routes/_app/$orgSlug/-components/servers-swarm-actions.tsx",
@@ -14209,9 +13938,7 @@
       "category": "Bugs",
       "id": "src/routes/_app/$orgSlug/_shell/$projectSlug/deployments.tsx::75:55::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/routes/_app/$orgSlug/_shell/$projectSlug/deployments.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/routes/_app/$orgSlug/_shell/$projectSlug/graph/$resourceId/deployment/-components/deployment-detail.tsx",
@@ -14551,9 +14278,7 @@
       "category": "Bugs",
       "id": "src/routes/_app/$orgSlug/_shell/$projectSlug/logs.tsx::98:14::react-doctor/prefer-use-effect-event",
       "normalizedFilePath": "src/routes/_app/$orgSlug/_shell/$projectSlug/logs.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/routes/_app/$orgSlug/_shell/$projectSlug/logs.tsx",
@@ -14587,9 +14312,7 @@
       "category": "Maintainability",
       "id": "src/routes/_app/$orgSlug/_shell/$projectSlug/logs.tsx::129:21::react-doctor/prefer-module-scope-pure-function",
       "normalizedFilePath": "src/routes/_app/$orgSlug/_shell/$projectSlug/logs.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/routes/_app/$orgSlug/_shell/$projectSlug/networking.tsx",
@@ -14702,9 +14425,7 @@
       "category": "Bugs",
       "id": "src/routes/_app/$orgSlug/_shell/audit.tsx::58:5::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/routes/_app/$orgSlug/_shell/audit.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/routes/_app/$orgSlug/_shell/audit.tsx",
@@ -15102,9 +14823,7 @@
       "category": "Maintainability",
       "id": "src/routes/_app/$orgSlug/_shell/platform.tsx::76:16::react-doctor/prefer-module-scope-pure-function",
       "normalizedFilePath": "src/routes/_app/$orgSlug/_shell/platform.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/routes/_app/$orgSlug/_shell/platform.tsx",
@@ -15206,9 +14925,7 @@
       "category": "Performance",
       "id": "src/routes/_app/$orgSlug/_shell/servers.tsx::85:14::react-doctor/js-set-map-lookups",
       "normalizedFilePath": "src/routes/_app/$orgSlug/_shell/servers.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/routes/_app/$orgSlug/_shell/terminal.tsx",
@@ -15259,9 +14976,7 @@
       "category": "Maintainability",
       "id": "src/routes/_app/$orgSlug/settings/workspace/certificates.tsx::59:19::react-doctor/prefer-module-scope-pure-function",
       "normalizedFilePath": "src/routes/_app/$orgSlug/settings/workspace/certificates.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/routes/_app/$orgSlug/settings/workspace/notifications.tsx",
@@ -15295,9 +15010,7 @@
       "category": "Maintainability",
       "id": "src/routes/_app/$orgSlug/settings/workspace/notifications.tsx::119:21::react-doctor/prefer-module-scope-pure-function",
       "normalizedFilePath": "src/routes/_app/$orgSlug/settings/workspace/notifications.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/routes/terminal.tsx",
@@ -15365,10 +15078,7 @@
       "category": "Maintainability",
       "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::49:17::react-doctor/no-many-boolean-props",
       "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-      "tags": [
-        "react-jsx-only",
-        "test-noise"
-      ]
+      "tags": ["react-jsx-only", "test-noise"]
     },
     {
       "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -15521,10 +15231,7 @@
       "category": "Maintainability",
       "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::225:17::react-doctor/no-many-boolean-props",
       "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-      "tags": [
-        "react-jsx-only",
-        "test-noise"
-      ]
+      "tags": ["react-jsx-only", "test-noise"]
     },
     {
       "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -15626,10 +15333,7 @@
       "category": "Maintainability",
       "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::411:17::react-doctor/no-many-boolean-props",
       "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-      "tags": [
-        "react-jsx-only",
-        "test-noise"
-      ]
+      "tags": ["react-jsx-only", "test-noise"]
     },
     {
       "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -15748,10 +15452,7 @@
       "category": "Maintainability",
       "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::538:17::react-doctor/no-many-boolean-props",
       "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-      "tags": [
-        "react-jsx-only",
-        "test-noise"
-      ]
+      "tags": ["react-jsx-only", "test-noise"]
     },
     {
       "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -15887,10 +15588,7 @@
       "category": "Maintainability",
       "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::743:17::react-doctor/no-many-boolean-props",
       "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-      "tags": [
-        "react-jsx-only",
-        "test-noise"
-      ]
+      "tags": ["react-jsx-only", "test-noise"]
     },
     {
       "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -15958,10 +15656,7 @@
       "category": "Maintainability",
       "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::848:17::react-doctor/no-many-boolean-props",
       "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-      "tags": [
-        "react-jsx-only",
-        "test-noise"
-      ]
+      "tags": ["react-jsx-only", "test-noise"]
     },
     {
       "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -16046,10 +15741,7 @@
       "category": "Maintainability",
       "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::980:17::react-doctor/no-many-boolean-props",
       "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-      "tags": [
-        "react-jsx-only",
-        "test-noise"
-      ]
+      "tags": ["react-jsx-only", "test-noise"]
     },
     {
       "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -16236,10 +15928,7 @@
       "category": "Maintainability",
       "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::1264:17::react-doctor/no-many-boolean-props",
       "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-      "tags": [
-        "react-jsx-only",
-        "test-noise"
-      ]
+      "tags": ["react-jsx-only", "test-noise"]
     },
     {
       "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -16341,10 +16030,7 @@
       "category": "Maintainability",
       "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::1371:17::react-doctor/no-giant-component",
       "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-      "tags": [
-        "react-jsx-only",
-        "test-noise"
-      ]
+      "tags": ["react-jsx-only", "test-noise"]
     },
     {
       "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -16361,10 +16047,7 @@
       "category": "Maintainability",
       "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::1371:17::react-doctor/no-many-boolean-props",
       "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-      "tags": [
-        "react-jsx-only",
-        "test-noise"
-      ]
+      "tags": ["react-jsx-only", "test-noise"]
     },
     {
       "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -16398,9 +16081,7 @@
       "category": "Bugs",
       "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::1416:5::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -16536,9 +16217,7 @@
       "category": "Bugs",
       "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::1587:5::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -16555,9 +16234,7 @@
       "category": "Bugs",
       "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::1633:5::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -16574,9 +16251,7 @@
       "category": "Bugs",
       "id": "src/shared/components/data-grid/data-grid-cell-variants.tsx::1665:6::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/shared/components/data-grid/data-grid-cell-variants.tsx",
@@ -16661,10 +16336,7 @@
       "category": "Maintainability",
       "id": "src/shared/components/data-grid/data-grid-cell-wrapper.tsx::15:17::react-doctor/no-many-boolean-props",
       "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-wrapper.tsx",
-      "tags": [
-        "react-jsx-only",
-        "test-noise"
-      ]
+      "tags": ["react-jsx-only", "test-noise"]
     },
     {
       "filePath": "src/shared/components/data-grid/data-grid-cell-wrapper.tsx",
@@ -16698,9 +16370,7 @@
       "category": "Bugs",
       "id": "src/shared/components/data-grid/data-grid-cell-wrapper.tsx::47:5::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-wrapper.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/shared/components/data-grid/data-grid-cell-wrapper.tsx",
@@ -16854,9 +16524,7 @@
       "matchByOccurrence": true,
       "id": "src/shared/components/data-grid/data-grid-cell-wrapper.tsx::154:7::react-doctor/prefer-tag-over-role",
       "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell-wrapper.tsx",
-      "tags": [
-        "react-jsx-only"
-      ]
+      "tags": ["react-jsx-only"]
     },
     {
       "filePath": "src/shared/components/data-grid/data-grid-cell.tsx",
@@ -16873,10 +16541,7 @@
       "category": "Maintainability",
       "id": "src/shared/components/data-grid/data-grid-cell.tsx::45:10::react-doctor/no-many-boolean-props",
       "normalizedFilePath": "src/shared/components/data-grid/data-grid-cell.tsx",
-      "tags": [
-        "react-jsx-only",
-        "test-noise"
-      ]
+      "tags": ["react-jsx-only", "test-noise"]
     },
     {
       "filePath": "src/shared/components/data-grid/data-grid-column-header.tsx",
@@ -17216,9 +16881,7 @@
       "category": "Bugs",
       "id": "src/shared/components/data-grid/data-grid-row.tsx::181:5::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/shared/components/data-grid/data-grid-row.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/shared/components/data-grid/data-grid-row.tsx",
@@ -17707,9 +17370,7 @@
       "category": "Bugs",
       "id": "src/shared/components/data-grid/hooks/use-data-grid.ts::2079:16::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/shared/components/data-grid/hooks/use-data-grid.ts",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/shared/components/data-grid/hooks/use-data-grid.ts",
@@ -17744,9 +17405,7 @@
       "category": "Bugs",
       "id": "src/shared/components/data-grid/hooks/use-data-grid.ts::2079:51::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/shared/components/data-grid/hooks/use-data-grid.ts",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/shared/components/data-grid/hooks/use-data-grid.ts",
@@ -17781,9 +17440,7 @@
       "category": "Bugs",
       "id": "src/shared/components/data-grid/hooks/use-data-grid.ts::2098:18::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/shared/components/data-grid/hooks/use-data-grid.ts",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/shared/components/data-grid/hooks/use-data-grid.ts",
@@ -17903,9 +17560,7 @@
       "category": "Bugs",
       "id": "src/shared/components/data-grid/hooks/use-data-grid.ts::2993:3::react-doctor/effect-needs-cleanup",
       "normalizedFilePath": "src/shared/components/data-grid/hooks/use-data-grid.ts",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/shared/components/data-grid/hooks/use-data-grid.ts",
@@ -17956,9 +17611,7 @@
       "category": "Bugs",
       "id": "src/shared/components/data-grid/hooks/use-data-grid.ts::3281:5::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/shared/components/data-grid/hooks/use-data-grid.ts",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/shared/components/data-grid/hooks/use-data-grid.ts",
@@ -18044,9 +17697,7 @@
       "category": "Bugs",
       "id": "src/shared/components/data-grid/lib/compose-refs.ts::63:28::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/shared/components/data-grid/lib/compose-refs.ts",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/shared/components/data-grid/lib/compose-refs.ts",
@@ -18233,9 +17884,7 @@
       "category": "Performance",
       "id": "src/shared/components/ui/chart.tsx::5:1::react-doctor/prefer-dynamic-import",
       "normalizedFilePath": "src/shared/components/ui/chart.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/shared/components/ui/chart.tsx",
@@ -18252,9 +17901,7 @@
       "category": "Performance",
       "id": "src/shared/components/ui/chart.tsx::138:9::react-doctor/rerender-memo-before-early-return",
       "normalizedFilePath": "src/shared/components/ui/chart.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/shared/components/ui/chart.tsx",
@@ -18458,9 +18105,7 @@
       "category": "Bugs",
       "id": "src/shared/components/ui/sidebar.tsx::86:5::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/shared/components/ui/sidebar.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/shared/components/ui/sidebar.tsx",
@@ -18511,9 +18156,7 @@
       "category": "Bugs",
       "id": "src/shared/components/ui/sidebar.tsx::121:5::react-doctor/exhaustive-deps",
       "normalizedFilePath": "src/shared/components/ui/sidebar.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/shared/components/ui/sidebar.tsx",
@@ -18547,9 +18190,7 @@
       "category": "Performance",
       "id": "src/shared/components/ui/svgs/nocodb.tsx::13:7::react-doctor/rendering-svg-precision",
       "normalizedFilePath": "src/shared/components/ui/svgs/nocodb.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/shared/components/ui/svgs/postgresql.tsx",
@@ -18566,10 +18207,7 @@
       "category": "Maintainability",
       "id": "src/shared/components/ui/svgs/postgresql.tsx::6:14::react-doctor/no-inline-exhaustive-style",
       "normalizedFilePath": "src/shared/components/ui/svgs/postgresql.tsx",
-      "tags": [
-        "react-jsx-only",
-        "test-noise"
-      ]
+      "tags": ["react-jsx-only", "test-noise"]
     },
     {
       "filePath": "src/shared/components/ui/tabs.tsx",
@@ -18586,9 +18224,7 @@
       "category": "Performance",
       "id": "src/shared/components/ui/tabs.tsx::6:1::react-doctor/use-lazy-motion",
       "normalizedFilePath": "src/shared/components/ui/tabs.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/shared/components/ui/tabs.tsx",
@@ -18605,9 +18241,7 @@
       "category": "Bugs",
       "id": "src/shared/components/ui/tabs.tsx::175:3::react-doctor/effect-needs-cleanup",
       "normalizedFilePath": "src/shared/components/ui/tabs.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/shared/components/ui/tabs.tsx",
@@ -18624,9 +18258,7 @@
       "category": "Performance",
       "id": "src/shared/components/ui/tabs.tsx::239:18::react-doctor/no-layout-property-animation",
       "normalizedFilePath": "src/shared/components/ui/tabs.tsx",
-      "tags": [
-        "test-noise"
-      ]
+      "tags": ["test-noise"]
     },
     {
       "filePath": "src/shared/components/ui/tabs.tsx",

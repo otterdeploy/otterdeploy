@@ -49,10 +49,11 @@ function parseArgs(argv) {
 
 /** @returns {Promise<VitestReport>} */
 async function runSuite() {
-  const proc = Bun.spawn(
-    ["bun", "--bun", "vitest", "run", securitySuiteDir, "--reporter=json"],
-    { cwd: apiDir, stdout: "pipe", stderr: "pipe" },
-  );
+  const proc = Bun.spawn(["bun", "--bun", "vitest", "run", securitySuiteDir, "--reporter=json"], {
+    cwd: apiDir,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
   const [stdout, stderr, exitCode] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
@@ -133,7 +134,9 @@ async function main() {
 
   const { invariants, unattributed } = buildInvariantReport(vitestReport);
   const overallStatus =
-    vitestReport.success && invariants.every((i) => i.status === "pass") && unattributed.length === 0
+    vitestReport.success &&
+    invariants.every((i) => i.status === "pass") &&
+    unattributed.length === 0
       ? "pass"
       : "fail";
 

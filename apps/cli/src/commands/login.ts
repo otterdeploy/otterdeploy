@@ -34,7 +34,10 @@ export const loginCommand = defineCommand({
     if (explicit) {
       url = normalizeUrl(explicit);
       if (!url) {
-        abort(`"${explicit}" is not a valid control plane URL.`, "include the scheme, e.g. https://");
+        abort(
+          `"${explicit}" is not a valid control plane URL.`,
+          "include the scheme, e.g. https://",
+        );
       }
     } else {
       url = await promptForUrl();

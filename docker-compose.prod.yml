@@ -212,7 +212,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
-      test: ["CMD-SHELL", "test -S \"$${CADDY_ADMIN_SOCKET_PATH}\""]
+      test: ["CMD-SHELL", 'test -S "$${CADDY_ADMIN_SOCKET_PATH}"']
       interval: 10s
       timeout: 3s
       retries: 5

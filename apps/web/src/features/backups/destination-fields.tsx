@@ -111,7 +111,7 @@ export function DestinationTypeFields({
   const fields = DEST_TYPE_FIELDS[type];
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {fields.config.map((f) => (
           <Field key={f.key} label={f.label} className={f.half ? undefined : "col-span-2"}>
             <Input

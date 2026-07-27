@@ -73,10 +73,7 @@ export const env = createEnv({
     // shared /run volume; native development may point both values at the
     // bind-mounted data directory.
     CADDY_ADMIN_URL: z.url().default(`unix://${defaultCaddySocketPath}`),
-    CADDY_ADMIN_BIND: z
-      .string()
-      .min(1)
-      .default(`unix/${defaultCaddySocketPath}|0600`),
+    CADDY_ADMIN_BIND: z.string().min(1).default(`unix/${defaultCaddySocketPath}|0600`),
 
     // Public IP the swarm manager exposes — embedded in sslip.io fallback
     // domains (`<ip>.sslip.io`) so a fresh install resolves without the

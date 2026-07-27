@@ -7,9 +7,10 @@
  * consumes the single-use ticket this function's caller minted (od-5j8.9).
  */
 import type { OrganizationId } from "@otterdeploy/shared/id";
-import type { ResolvedActor } from "../../authz/actor";
 
 import { Result, TaggedError } from "better-result";
+
+import type { ResolvedActor } from "../../authz/actor";
 
 import { authorizeCapability } from "../../authz/capability";
 import { listTerminalTargets } from "./handlers";
@@ -58,7 +59,9 @@ export async function authorizeTerminalTarget(
       permission: { terminal: ["open"] },
     });
     if (!decision.allowed) {
-      return Result.err(new TerminalAuthzError({ status: decision.status, message: decision.reason }));
+      return Result.err(
+        new TerminalAuthzError({ status: decision.status, message: decision.reason }),
+      );
     }
     return Result.ok({ projectId: owned.projectId });
   }
@@ -68,7 +71,9 @@ export async function authorizeTerminalTarget(
   // enforces this for the "install" scope regardless of actor kind).
   const decision = await authorizeCapability(actor, { scope: "install", mode: "write" });
   if (!decision.allowed) {
-    return Result.err(new TerminalAuthzError({ status: decision.status, message: decision.reason }));
+    return Result.err(
+      new TerminalAuthzError({ status: decision.status, message: decision.reason }),
+    );
   }
   return Result.ok({ projectId: null });
 }

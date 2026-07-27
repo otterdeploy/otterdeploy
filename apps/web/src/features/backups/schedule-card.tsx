@@ -94,7 +94,7 @@ export function ScheduleCard({ schedule: s, onEdit }: { schedule: Schedule; onEd
         <div className="mt-0.5 text-[11px] text-muted-foreground">{cronHuman(s.cron)}</div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         <div className="flex flex-col gap-0.5">
           <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
             Retention

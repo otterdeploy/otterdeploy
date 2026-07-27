@@ -141,7 +141,7 @@ export function buildKeyringFrom(vars: {
     const fallback = vars.BETTER_AUTH_SECRET;
     if (!fallback || fallback.length < MIN_KEY_MATERIAL_BYTES) {
       throw new Error(
-        "crypto: no DATA_ENCRYPTION_KEYS key id \"1\" configured and BETTER_AUTH_SECRET is missing or " +
+        'crypto: no DATA_ENCRYPTION_KEYS key id "1" configured and BETTER_AUTH_SECRET is missing or ' +
           `shorter than ${MIN_KEY_MATERIAL_BYTES} chars — refusing to boot with weak encryption key material`,
       );
     }

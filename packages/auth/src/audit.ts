@@ -1,8 +1,6 @@
 import type { AuthMiddleware } from "better-auth/api";
 import type { BetterAuthOptions } from "better-auth/types";
 
-import type { AuditedPath } from "./audit-policy";
-
 /**
  * Writes the auth audit trail.
  *
@@ -27,6 +25,8 @@ import { user as userTbl } from "@otterdeploy/db/schema/auth";
 import { createAuthMiddleware, getIp } from "better-auth/api";
 import { eq, sql } from "drizzle-orm";
 import { log } from "evlog";
+
+import type { AuditedPath } from "./audit-policy";
 
 import {
   auditEntryForPath,

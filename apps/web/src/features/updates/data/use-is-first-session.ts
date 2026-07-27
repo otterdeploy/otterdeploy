@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 /**
  * "First session" heuristic for gating first-run interruptions (currently
  * just the update banner — see `UpdateBanner`). An update nag as literally
@@ -18,7 +20,6 @@
  */
 import { useLiveQuery } from "@tanstack/react-db";
 import { useLoaderData } from "@tanstack/react-router";
-import { useState } from "react";
 
 import { projectCollection } from "@/features/projects/data/project";
 

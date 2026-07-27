@@ -50,7 +50,9 @@ function clientIpOf(c: Context): string | null {
 }
 
 function targetLabel(target: Target): { kind: "container" | "host"; id: string } {
-  return target.kind === "container" ? { kind: "container", id: target.id } : { kind: "host", id: "host" };
+  return target.kind === "container"
+    ? { kind: "container", id: target.id }
+    : { kind: "host", id: "host" };
 }
 
 function ptyEvents(claims: TerminalTicketClaims, target: Target): WSEvents {
@@ -243,7 +245,9 @@ export const terminalWebSocketHandler: MiddlewareHandler = async (c, next) => {
 
   const claims = consumed.value;
   const target: Target =
-    claims.target.kind === "container" ? { kind: "container", id: claims.target.id } : { kind: "host" };
+    claims.target.kind === "container"
+      ? { kind: "container", id: claims.target.id }
+      : { kind: "host" };
 
   return upgradeWebSocket(c, ptyEvents(claims, target));
 };

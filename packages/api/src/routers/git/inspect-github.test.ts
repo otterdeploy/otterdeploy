@@ -16,9 +16,7 @@ vi.mock("@otterdeploy/shared/egress-policy", () => ({
   EgressPolicyError: class EgressPolicyError extends Error {},
 }));
 vi.mock("../../lib/egress-denylist", () => ({
-  controlPlaneEgressDenylist: vi
-    .fn()
-    .mockResolvedValue({ blockedHosts: [], blockedAddresses: [] }),
+  controlPlaneEgressDenylist: vi.fn().mockResolvedValue({ blockedHosts: [], blockedAddresses: [] }),
 }));
 vi.mock("../../lib/egress-options", () => ({
   egressAllowlist: () => [],
@@ -26,7 +24,12 @@ vi.mock("../../lib/egress-options", () => ({
 
 import { EgressPolicyError, egressFetch } from "@otterdeploy/shared/egress-policy";
 
-import { fetchPackageJson, fetchTextFile, getTreeSnapshot, type RepoBinding } from "./inspect-github";
+import {
+  fetchPackageJson,
+  fetchTextFile,
+  getTreeSnapshot,
+  type RepoBinding,
+} from "./inspect-github";
 
 type FetchMock = ReturnType<typeof vi.fn>;
 
@@ -86,7 +89,9 @@ describe("inspect-github fetch helpers → routed through the shared egress poli
   });
 
   it("fetchPackageJson calls egressFetch for a legitimate host and parses the result", async () => {
-    fetchMock.mockResolvedValueOnce(textResponse(JSON.stringify({ dependencies: { react: "^18" } })));
+    fetchMock.mockResolvedValueOnce(
+      textResponse(JSON.stringify({ dependencies: { react: "^18" } })),
+    );
 
     const result = await fetchPackageJson(binding, "package.json", "repo-pkg-1");
 

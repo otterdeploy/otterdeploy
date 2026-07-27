@@ -21,11 +21,12 @@
  * never a leak/500 in between.
  */
 import type { OrganizationId } from "@otterdeploy/shared/id";
-import type { Context } from "../../../context";
 
 import { createProcedureClient } from "@orpc/server";
 import { Result } from "better-result";
 import { describe, expect, test, vi } from "vite-plus/test";
+
+import type { Context } from "../../../context";
 
 // oxlint-disable-next-line node/no-process-env -- test env setup boundary: satisfy required vars so the module graph (db/auth/env) loads.
 process.env.DATABASE_URL ??= "postgres://test/test";
@@ -57,7 +58,15 @@ const settingsByOrg: Record<string, { id: string; baseDomain: string | null }> =
 const getOrganizationSettings = vi.fn(async (organizationId: string) => {
   const row = settingsByOrg[organizationId];
   return row
-    ? Result.ok({ ...row, name: "n", slug: "s", baseDomainVerifiedAt: null, baseDomainVerifyToken: null, cloudflareZoneId: null, cloudflareTokenConfigured: false })
+    ? Result.ok({
+        ...row,
+        name: "n",
+        slug: "s",
+        baseDomainVerifiedAt: null,
+        baseDomainVerifyToken: null,
+        cloudflareZoneId: null,
+        cloudflareTokenConfigured: false,
+      })
     : Result.err(new Error("not found"));
 });
 
@@ -66,7 +75,15 @@ const updateOrganizationBaseDomain = vi.fn(
     const row = settingsByOrg[input.organizationId];
     if (!row) return Result.err(new Error("not found"));
     row.baseDomain = input.baseDomain;
-    return Result.ok({ ...row, name: "n", slug: "s", baseDomainVerifiedAt: null, baseDomainVerifyToken: null, cloudflareZoneId: null, cloudflareTokenConfigured: false });
+    return Result.ok({
+      ...row,
+      name: "n",
+      slug: "s",
+      baseDomainVerifiedAt: null,
+      baseDomainVerifyToken: null,
+      cloudflareZoneId: null,
+      cloudflareTokenConfigured: false,
+    });
   },
 );
 
@@ -92,7 +109,12 @@ function sessionContext(activeOrganizationId: string) {
     actor: {
       kind: "session" as const,
       headers: new Headers(),
-      user: { id: "user_1", email: "attacker@org-a.test", isInstallAdmin: false, twoFactorEnabled: true },
+      user: {
+        id: "user_1",
+        email: "attacker@org-a.test",
+        isInstallAdmin: false,
+        twoFactorEnabled: true,
+      },
       session: { activeOrganizationId },
     },
     session: null,

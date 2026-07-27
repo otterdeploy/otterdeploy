@@ -11,9 +11,9 @@ import { Result } from "better-result";
 import type { SwarmServiceRuntime } from "../../swarm";
 
 import { loadPreviewScope } from "../../lib/environment/load";
-import { markDeploymentFailed, reconcileDeploySuccess } from "../project/deployments";
 import { findTransitiveDependents, resolveServiceEnv } from "../../lib/variables";
 import { runtime } from "../../runtime";
+import { markDeploymentFailed, reconcileDeploySuccess } from "../project/deployments";
 import { ServiceNotFoundError, type ResolveError } from "./errors";
 import {
   bumpForceUpdateCounter,
@@ -234,4 +234,3 @@ export async function settleCreateDeployment(
   }
   await reconcileDeploySuccess([deploymentId], resourceId);
 }
-

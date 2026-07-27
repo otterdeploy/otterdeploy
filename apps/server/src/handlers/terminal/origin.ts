@@ -33,7 +33,10 @@ function normalize(origin: string): string {
  * forging the upgrade or a browser stripping it for privacy reasons neither
  * of which should ever reach a shell.
  */
-export function isTrustedOrigin(origin: string | null | undefined, allowed: readonly string[]): boolean {
+export function isTrustedOrigin(
+  origin: string | null | undefined,
+  allowed: readonly string[],
+): boolean {
   if (!origin) return false;
   const normalizedOrigin = normalize(origin);
   return allowed.some((candidate) => normalize(candidate) === normalizedOrigin);

@@ -276,7 +276,10 @@ function reasonOf(err: unknown): string {
  * One-line summary of a bulk run, for a toast. Names the first failure's reason
  * so "1 skipped" is never a dead end the operator has to go re-derive.
  */
-export function summarizeBulk<T>(outcome: BulkOutcome<T>, noun: string): {
+export function summarizeBulk<T>(
+  outcome: BulkOutcome<T>,
+  noun: string,
+): {
   message: string;
   tone: "success" | "warning" | "error";
 } {

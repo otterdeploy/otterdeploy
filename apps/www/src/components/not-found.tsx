@@ -29,8 +29,8 @@ export function NotFound() {
       statusTag="NO_MATCH"
       message={
         <>
-          Nothing is published at <span className={errorPathClass}>{shown}</span>. It may have
-          moved — the docs are the best place to look.
+          Nothing is published at <span className={errorPathClass}>{shown}</span>. It may have moved
+          — the docs are the best place to look.
         </>
       }
       actions={

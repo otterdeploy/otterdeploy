@@ -12,10 +12,9 @@ import { decryptSecret } from "@otterdeploy/api/lib/crypto";
 import { type ParsedBuild } from "@otterdeploy/api/stack/compose/types";
 import { containerRegistry } from "@otterdeploy/db/schema";
 import { Result } from "better-result";
+import { readFileSync } from "node:fs";
 
 import type { LogSink } from "./log-stream";
-
-import { readFileSync } from "node:fs";
 
 import { cachePathFor } from "./buildx";
 import { dockerPush } from "./docker-push";

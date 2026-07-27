@@ -11,8 +11,16 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { partitionSources } from "../schedule-db";
 
-const db = (id: string, name: string) => ({ id: id as ResourceId, name, kind: "database" as const });
-const stack = (id: string, name: string) => ({ id: id as ResourceId, name, kind: "stack" as const });
+const db = (id: string, name: string) => ({
+  id: id as ResourceId,
+  name,
+  kind: "database" as const,
+});
+const stack = (id: string, name: string) => ({
+  id: id as ResourceId,
+  name,
+  kind: "stack" as const,
+});
 
 const ids = (r: ReturnType<typeof partitionSources>) => r.resolved.map((x) => x.id).sort();
 

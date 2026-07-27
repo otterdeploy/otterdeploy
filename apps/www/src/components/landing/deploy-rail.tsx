@@ -142,7 +142,9 @@ export function DeployRail() {
             done ? "bg-success" : "bg-border",
           )}
         />
-        <Mono className={cx("min-w-0 truncate", done ? "text-foreground" : "text-muted-foreground")}>
+        <Mono
+          className={cx("min-w-0 truncate", done ? "text-foreground" : "text-muted-foreground")}
+        >
           https://storefront.example.com
         </Mono>
         <Mono className="ml-auto shrink-0 text-muted-foreground">

@@ -35,7 +35,7 @@ export async function inFlightDeploys(): Promise<InFlightDeploys> {
   ]);
   const ownedIds = new Set<string>();
   for (const job of jobs) {
-    const ids = (job?.data)?.deploymentIds;
+    const ids = job?.data?.deploymentIds;
     if (Array.isArray(ids)) for (const id of ids) ownedIds.add(id);
   }
   return { ownedIds, anyActive: (counts.active ?? 0) > 0 };

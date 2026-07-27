@@ -37,7 +37,7 @@ export function BackupDetail({ backup }: { backup: Backup }) {
           />
         )}
       </div>
-      <div className="mb-3 grid grid-cols-2 sm:grid-cols-3 gap-3.5">
+      <div className="mb-3 grid grid-cols-2 gap-3.5 sm:grid-cols-3">
         <DetailField label="Source size" value={fmtBytes(sourceBytes)} mono />
         <DetailField label="Compressed" value={fmtBytes(compressedBytes)} mono />
         <DetailField label="Compression ratio" value={ratio} mono />

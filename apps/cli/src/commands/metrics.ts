@@ -74,10 +74,7 @@ export const metricsCommand = defineCommand({
     detail([
       ["window", dim(`${window}m · ${points.length} samples`)],
       ["latest", dim(relativeTime(latest.ts.toISOString()))],
-      [
-        "limit",
-        latest.memLimitBytes > 0 ? formatBytes(latest.memLimitBytes) : dim("unlimited"),
-      ],
+      ["limit", latest.memLimitBytes > 0 ? formatBytes(latest.memLimitBytes) : dim("unlimited")],
     ]);
 
     // now/min/avg/max as columns rather than one long line: the point of these

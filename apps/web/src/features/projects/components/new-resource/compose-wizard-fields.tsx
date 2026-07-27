@@ -100,7 +100,7 @@ export function ComposeGitFields({
         </form.Field>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <form.Field name="gitRef">
           {(field) => (
             <label className="flex flex-col gap-1.5">

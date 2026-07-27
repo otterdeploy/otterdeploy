@@ -1,4 +1,9 @@
-import type { OrganizationId, OrphanedResourceId, ProjectId, ServerId } from "@otterdeploy/shared/id";
+import type {
+  OrganizationId,
+  OrphanedResourceId,
+  ProjectId,
+  ServerId,
+} from "@otterdeploy/shared/id";
 
 /**
  * Orphaned runtime resources awaiting garbage collection.

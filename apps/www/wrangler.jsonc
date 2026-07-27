@@ -17,6 +17,6 @@
   // www → apex, so the docs aren't indexed twice.
   "routes": [
     { "pattern": "otterdeploy.com", "custom_domain": true },
-    { "pattern": "www.otterdeploy.com", "custom_domain": true }
-  ]
+    { "pattern": "www.otterdeploy.com", "custom_domain": true },
+  ],
 }

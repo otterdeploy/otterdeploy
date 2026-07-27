@@ -20,9 +20,9 @@ vi.mock("../lib/egress-options", () => ({
   egressAllowlist: () => [],
 }));
 
-import type { GithubAppConfig, InstallationRepo } from "./github-app";
-
 import { egressFetch } from "@otterdeploy/shared/egress-policy";
+
+import type { GithubAppConfig, InstallationRepo } from "./github-app";
 
 import { listInstallationRepos } from "./github-app";
 

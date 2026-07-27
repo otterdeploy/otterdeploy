@@ -89,7 +89,7 @@ describe("[od-5j8.11] every join path records the firewall outcome (so drift is 
     expect(fn).toContain("patchServerFirewall({");
   });
 
-  test("a thrown error in the firewall-only path still records firewallStatus: \"failed\" (never silently drops the attempt)", () => {
+  test('a thrown error in the firewall-only path still records firewallStatus: "failed" (never silently drops the attempt)', () => {
     const remediation = source("packages/api/src/routers/server/firewall-remediation.ts");
     const fn = remediation.slice(remediation.indexOf("export async function runFirewallOnlyJob"));
     const catchBlock = fn.slice(fn.indexOf("} catch (err) {"));

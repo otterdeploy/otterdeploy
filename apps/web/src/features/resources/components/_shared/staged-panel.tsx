@@ -124,7 +124,7 @@ export function StagedResourcePanel({
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex items-start justify-between gap-4 px-4 sm:px-6 pt-4 sm:pt-6">
+      <div className="flex items-start justify-between gap-4 px-4 pt-4 sm:px-6 sm:pt-6">
         <div className="flex items-start gap-3">
           <Button
             type="button"
@@ -150,7 +150,7 @@ export function StagedResourcePanel({
         </span>
       </div>
 
-      <div className="flex flex-col gap-5 overflow-auto px-4 sm:px-6 pt-4 sm:pt-6 pb-8">
+      <div className="flex flex-col gap-5 overflow-auto px-4 pt-4 pb-8 sm:px-6 sm:pt-6">
         <p className="text-sm text-foreground/70">
           This {change.resource} is staged and hasn&apos;t been applied yet. Deploy the pending
           changes to create it.

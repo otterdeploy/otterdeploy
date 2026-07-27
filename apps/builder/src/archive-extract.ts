@@ -37,7 +37,6 @@ import { mkdir, open, stat as fsStat } from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { createGunzip } from "node:zlib";
-
 import tarStreamModule from "tar-stream";
 
 import type { LogSink } from "./log-stream";

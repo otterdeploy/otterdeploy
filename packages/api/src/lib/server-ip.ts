@@ -22,12 +22,11 @@
  * operator-provided value for when detection is wrong (NAT, multi-homed).
  */
 
-import { networkInterfaces } from "node:os";
-
 import { db } from "@otterdeploy/db";
 import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
+import { networkInterfaces } from "node:os";
 
 export type ServerIpSource = "override" | "existing" | "detected" | "local" | "none";
 

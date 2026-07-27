@@ -16,11 +16,28 @@ const ROUTES: { domain: string; upstream: string; cert: "valid" | "obtaining"; d
 
 function CertMark({ state }: { state: "valid" | "obtaining" }) {
   return state === "valid" ? (
-    <svg aria-hidden width="12" height="12" viewBox="0 0 16 16" className="fill-none stroke-success">
-      <path d="M3 8.5l3.2 3.2L13 4.8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <svg
+      aria-hidden
+      width="12"
+      height="12"
+      viewBox="0 0 16 16"
+      className="fill-none stroke-success"
+    >
+      <path
+        d="M3 8.5l3.2 3.2L13 4.8"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   ) : (
-    <svg aria-hidden width="12" height="12" viewBox="0 0 16 16" className="fill-none stroke-warning">
+    <svg
+      aria-hidden
+      width="12"
+      height="12"
+      viewBox="0 0 16 16"
+      className="fill-none stroke-warning"
+    >
       <circle cx="8" cy="8" r="5.5" strokeWidth="2" strokeDasharray="2.6 2.4" />
     </svg>
   );
@@ -42,9 +59,7 @@ export function RoutesVisual() {
               <Mono className="shrink-0 text-muted-foreground">→ {route.upstream}</Mono>
             </div>
             <div className="mt-1.5 flex items-center gap-4 pl-[1.375rem]">
-              <Mono
-                className={cx(route.cert === "valid" ? "text-success" : "text-warning")}
-              >
+              <Mono className={cx(route.cert === "valid" ? "text-success" : "text-warning")}>
                 tls {route.cert}
               </Mono>
               <Mono className="text-muted-foreground">dns {route.dns}</Mono>
@@ -122,9 +137,7 @@ export function PreviewVisual() {
     >
       <div className="px-4 py-3.5">
         <p className="text-[0.875rem] font-medium">feat: checkout redesign</p>
-        <Mono className="mt-1.5 block truncate text-foreground">
-          storefront-pr-482.example.com
-        </Mono>
+        <Mono className="mt-1.5 block truncate text-foreground">storefront-pr-482.example.com</Mono>
       </div>
 
       <dl className="divide-y divide-border border-t border-border">

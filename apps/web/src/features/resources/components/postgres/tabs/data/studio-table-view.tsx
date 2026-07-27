@@ -79,13 +79,7 @@ export function TableBrowserView({
 
 /** Rail body — shared verbatim by the persistent `sm`+ column and the mobile
  *  sheet, so the two can't drift. */
-function RailContent({
-  studio,
-  onPick,
-}: {
-  studio: DataStudioController;
-  onPick?: () => void;
-}) {
+function RailContent({ studio, onPick }: { studio: DataStudioController; onPick?: () => void }) {
   const t = studio.table;
   return (
     <>

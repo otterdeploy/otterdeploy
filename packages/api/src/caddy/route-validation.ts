@@ -1,6 +1,6 @@
-import type { ProxyRouteInput } from "./builder";
-
 import { routePolicySchema } from "@otterdeploy/shared/route-policy";
+
+import type { ProxyRouteInput } from "./builder";
 
 import { PLATFORM } from "../constants";
 
@@ -69,7 +69,11 @@ export function routeValidationError(route: ProxyRouteInput): string | null {
   if (!FQDN.test(route.domain) || route.domain !== route.domain.toLowerCase()) {
     return "route domain is not a canonical DNS name";
   }
-  if (!Number.isInteger(route.upstreamPort) || route.upstreamPort < 1 || route.upstreamPort > 65_535) {
+  if (
+    !Number.isInteger(route.upstreamPort) ||
+    route.upstreamPort < 1 ||
+    route.upstreamPort > 65_535
+  ) {
     return "route upstream port is outside 1-65535";
   }
 

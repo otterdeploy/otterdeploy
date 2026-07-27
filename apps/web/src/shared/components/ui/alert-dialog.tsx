@@ -113,7 +113,7 @@ function AlertDialogTitle({
         // track's minimum and the whole dialog outgrows its max-width.
         // `anywhere` (not `break-word`) is required: only `anywhere` also
         // shrinks the min-content contribution the track is measured from.
-        "font-heading min-w-0 text-base font-medium [overflow-wrap:anywhere] sm:group-data-[size=default]/alert-dialog-content:group-has-data-[slot=alert-dialog-media]/alert-dialog-content:col-start-2",
+        "min-w-0 font-heading text-base font-medium [overflow-wrap:anywhere] sm:group-data-[size=default]/alert-dialog-content:group-has-data-[slot=alert-dialog-media]/alert-dialog-content:col-start-2",
         className,
       )}
       {...props}
@@ -129,7 +129,7 @@ function AlertDialogDescription({
     <AlertDialogPrimitive.Description
       data-slot="alert-dialog-description"
       className={cn(
-        "min-w-0 text-sm text-balance text-muted-foreground [overflow-wrap:anywhere] md:text-pretty *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground",
+        "min-w-0 text-sm text-balance [overflow-wrap:anywhere] text-muted-foreground md:text-pretty *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground",
         className,
       )}
       {...props}

@@ -19,7 +19,9 @@ interface Entry {
 
 function xml(entries: Entry[]): string {
   const urls = entries
-    .map((e) => `  <url>\n    <loc>${e.loc}</loc>\n    <priority>${e.priority}</priority>\n  </url>`)
+    .map(
+      (e) => `  <url>\n    <loc>${e.loc}</loc>\n    <priority>${e.priority}</priority>\n  </url>`,
+    )
     .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
 }

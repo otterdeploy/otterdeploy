@@ -135,15 +135,7 @@ export type StackDeploy = z.infer<typeof stackDeploySchema>;
 
 export const stackOtterdeployExtensionSchema = z.object({
   kind: z.enum(["database", "service"]),
-  engine: z
-    .enum([
-      "postgres",
-      "redis",
-      "mariadb",
-      "mongodb",
-      "clickhouse",
-    ])
-    .optional(),
+  engine: z.enum(["postgres", "redis", "mariadb", "mongodb", "clickhouse"]).optional(),
   resourceId: z.string(),
   projectId: z.string(),
   publicEnabled: z.boolean().optional(),

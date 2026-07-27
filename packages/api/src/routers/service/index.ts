@@ -2,8 +2,8 @@ import type { DeploymentId } from "@otterdeploy/shared/id";
 
 import { matchError } from "better-result";
 
-import { recordAuditChanges } from "../../audit/changes";
 import { projectScopedProcedure, requirePermission } from "../..";
+import { recordAuditChanges } from "../../audit/changes";
 import {
   createService,
   deleteService,

@@ -115,9 +115,7 @@ export async function mapServiceResource(
     // graph node instead of the stale last-known "running" the deployment row
     // still carries (0 tasks can't be corrected by the live-task rollup, so the
     // base status is what shows). Only services carry a pause marker.
-    ...(record.service.pausedReplicas != null
-      ? { latestDeploymentStatus: "paused" as const }
-      : {}),
+    ...(record.service.pausedReplicas != null ? { latestDeploymentStatus: "paused" as const } : {}),
     image: record.service.image,
     imageDigest: record.service.imageDigest,
     source: record.service.source,

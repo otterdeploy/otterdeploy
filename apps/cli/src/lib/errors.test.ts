@@ -17,9 +17,7 @@ describe("formatCliError", () => {
   });
 
   it("names every invalid config field, not just the first", () => {
-    const parsed = z
-      .object({ project: z.string(), region: z.string() })
-      .safeParse({ project: 1 });
+    const parsed = z.object({ project: z.string(), region: z.string() }).safeParse({ project: 1 });
     expect(parsed.success).toBe(false);
     if (parsed.success) return;
     const { message, details } = formatCliError(parsed.error);

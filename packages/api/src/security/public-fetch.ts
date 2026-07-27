@@ -162,7 +162,9 @@ async function resolvePublicAddresses(
   if (addresses.length === 0) {
     throw new UnsafeOutboundUrlError("The hostname resolved to no addresses.");
   }
-  if (addresses.some((resolved) => isForbiddenOutboundAddress(resolved.address, blockedAddresses))) {
+  if (
+    addresses.some((resolved) => isForbiddenOutboundAddress(resolved.address, blockedAddresses))
+  ) {
     throw new UnsafeOutboundUrlError("The hostname resolves to a non-public address.");
   }
   return addresses as [LookupAddress, ...LookupAddress[]];

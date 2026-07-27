@@ -136,10 +136,7 @@ function policyHeaderLines(policy: RoutePolicy): string[] {
   const headers: Array<[string, string | null]> = [
     ["Strict-Transport-Security", hstsValue(policy)],
     ["X-Content-Type-Options", policy.contentTypeNosniff ? "nosniff" : null],
-    [
-      "X-Frame-Options",
-      policy.frameOptions === "off" ? null : policy.frameOptions.toUpperCase(),
-    ],
+    ["X-Frame-Options", policy.frameOptions === "off" ? null : policy.frameOptions.toUpperCase()],
     ["Referrer-Policy", policy.referrerPolicy === "off" ? null : policy.referrerPolicy],
     ["Content-Security-Policy", policy.contentSecurityPolicy],
   ];

@@ -7,18 +7,17 @@
  * update, recheck, remove) rather than the predicates they all lean on.
  */
 
-import { randomBytes } from "node:crypto";
-
 import { db } from "@otterdeploy/db";
 import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
 import { eq } from "drizzle-orm";
+import { randomBytes } from "node:crypto";
 
 import type { ProxyRouteRecord } from "../../caddy/queries";
 import type { DnsState } from "../../lib/domain-reachability";
 import type { ResourceRef } from "./inputs";
 
-import { loadDomainSourcesForProject } from "../../lib/domain-sources";
 import { VERIFY_TXT_PREFIX } from "../../lib/dns-verify";
+import { loadDomainSourcesForProject } from "../../lib/domain-sources";
 
 export interface ServiceDomainView {
   id: string;
@@ -47,10 +46,7 @@ export interface ServiceDomainView {
   dnsTarget: string | null;
 }
 
-export function toDomainView(
-  route: ProxyRouteRecord,
-  dnsTarget: string | null,
-): ServiceDomainView {
+export function toDomainView(route: ProxyRouteRecord, dnsTarget: string | null): ServiceDomainView {
   return {
     id: route.id,
     projectId: route.projectId,
@@ -151,4 +147,3 @@ export function domainUpdatePatch(args: {
     enabled: requiresVerification ? false : route.enabled,
   };
 }
-

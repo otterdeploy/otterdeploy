@@ -53,9 +53,7 @@ vi.mock("@otterdeploy/shared/egress-policy", () => ({
   EgressPolicyError: class EgressPolicyError extends Error {},
 }));
 vi.mock("../../lib/egress-denylist", () => ({
-  controlPlaneEgressDenylist: vi
-    .fn()
-    .mockResolvedValue({ blockedHosts: [], blockedAddresses: [] }),
+  controlPlaneEgressDenylist: vi.fn().mockResolvedValue({ blockedHosts: [], blockedAddresses: [] }),
 }));
 vi.mock("../../lib/egress-options", () => ({
   egressAllowlist: () => [],
@@ -92,9 +90,7 @@ describe("listRepoBranches → routed through the shared egress policy", () => {
   });
 
   it("calls egressFetch (not raw fetch) for a legitimate host and returns the branch list", async () => {
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse([{ name: "main" }, { name: "feat/x" }]),
-    );
+    fetchMock.mockResolvedValueOnce(jsonResponse([{ name: "main" }, { name: "feat/x" }]));
 
     const result = await listRepoBranches("repo-1");
 

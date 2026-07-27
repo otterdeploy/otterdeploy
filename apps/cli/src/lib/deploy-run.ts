@@ -19,20 +19,8 @@ import { createCliClient } from "../client";
 import { configPath, loadConfig } from "../config-file";
 import { countByKind, printChangeSummary, printDiff } from "./diff-printer";
 import { createSourceTarball } from "./tar-source";
+import { abort, confirm, detail, dim, hint, note, ok, out, section, table, warn } from "./ui";
 import { uploadSource } from "./upload-source";
-import {
-  abort,
-  confirm,
-  detail,
-  dim,
-  hint,
-  note,
-  ok,
-  out,
-  section,
-  table,
-  warn,
-} from "./ui";
 import { type WaitOutcome, type WaitTarget, waitForDeployments } from "./wait";
 
 export interface RunDeployOptions {

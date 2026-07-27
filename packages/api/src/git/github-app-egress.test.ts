@@ -11,9 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 // (controlPlaneEgressDenylist) and the DNS resolver are stubbed, so this
 // still runs as a pure unit test without a real network or database.
 vi.mock("../lib/egress-denylist", () => ({
-  controlPlaneEgressDenylist: vi
-    .fn()
-    .mockResolvedValue({ blockedHosts: [], blockedAddresses: [] }),
+  controlPlaneEgressDenylist: vi.fn().mockResolvedValue({ blockedHosts: [], blockedAddresses: [] }),
 }));
 vi.mock("../lib/egress-options", () => ({
   egressAllowlist: () => [],

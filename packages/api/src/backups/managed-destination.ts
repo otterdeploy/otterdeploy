@@ -56,9 +56,7 @@ export function managedLocalConfig(organizationId: OrganizationId): Record<strin
  * pointing at a directory that no longer exists. Existing snapshots under the
  * old root are not migrated — this only makes NEW backups land somewhere real.
  */
-export async function ensureManagedLocalDestination(
-  organizationId: OrganizationId,
-): Promise<void> {
+export async function ensureManagedLocalDestination(organizationId: OrganizationId): Promise<void> {
   const desiredConfig = managedLocalConfig(organizationId);
 
   const [inserted] = await db

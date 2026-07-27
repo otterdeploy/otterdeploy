@@ -72,9 +72,7 @@ const tailCommand = defineCommand({
       host: args.host,
     });
     if (!args.json) {
-      note(
-        `Tailing edge access logs (${scopeLabel(projectId, args.host)}) — Ctrl-C to stop.`,
-      );
+      note(`Tailing edge access logs (${scopeLabel(projectId, args.host)}) — Ctrl-C to stop.`);
     }
 
     // Graceful SIGINT — leave the stream's `for await` early so the

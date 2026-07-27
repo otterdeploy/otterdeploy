@@ -11,7 +11,6 @@ import type { EnvironmentId, PreviewId, ProjectId, ResourceId } from "@otterdepl
 import { Result } from "better-result";
 
 import { listProxyRoutesByResourceId } from "../../caddy/queries";
-import { decryptForDomain } from "../crypto";
 import {
   getDatabaseResourceRecord,
   getProjectRecord,
@@ -33,6 +32,7 @@ import {
   type ServiceEnvVarRow,
   type ServiceRecord,
 } from "../../routers/service/queries";
+import { decryptForDomain } from "../crypto";
 import { postgresExports, serviceExports } from "./exporters";
 import { parseValue, type Token } from "./parser";
 interface ResolveContext {

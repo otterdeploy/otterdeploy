@@ -29,12 +29,16 @@
  */
 import type { auth as AuthInstance } from "@otterdeploy/auth";
 
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { SQL } from "bun";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 
 import { allMigrationsDir, applyMigrations } from "./migrations";
-import { integrationRunnable, type PostgresInstance, startPostgresInstance } from "./postgres-harness";
+import {
+  integrationRunnable,
+  type PostgresInstance,
+  startPostgresInstance,
+} from "./postgres-harness";
 
 const BOOTSTRAP_TOKEN = "integration-test-bootstrap-token-32chars-min";
 const BOOTSTRAP_TOKEN_HEADER = "x-otterdeploy-bootstrap-token";
@@ -69,7 +73,9 @@ if (!canRun) {
   );
 }
 
-async function attempt<T>(fn: () => Promise<T>): Promise<{ ok: true; value: T } | { ok: false; error: unknown }> {
+async function attempt<T>(
+  fn: () => Promise<T>,
+): Promise<{ ok: true; value: T } | { ok: false; error: unknown }> {
   try {
     return { ok: true, value: await fn() };
   } catch (error) {
@@ -137,7 +143,10 @@ describe.skipIf(!canRun)("bootstrap (fresh install) — real better-auth hook + 
 
   test("1b. denies signup with a wrong bootstrap token", async () => {
     const before = await userCount();
-    const result = await signUp({ email: `wrong-token-${randomUUID()}@example.com`, token: `${BOOTSTRAP_TOKEN}-wrong` });
+    const result = await signUp({
+      email: `wrong-token-${randomUUID()}@example.com`,
+      token: `${BOOTSTRAP_TOKEN}-wrong`,
+    });
     expect(result.ok).toBe(false);
     expect(await userCount()).toBe(before);
   });
@@ -153,14 +162,18 @@ describe.skipIf(!canRun)("bootstrap (fresh install) — real better-auth hook + 
     expect(users[0].email).toBe(ownerEmail);
     expect(users[0].is_install_admin).toBe(true);
 
-    const [settings] = await sql`select bootstrap_completed_at from platform_settings where id = 'platform'`;
+    const [settings] =
+      await sql`select bootstrap_completed_at from platform_settings where id = 'platform'`;
     expect(settings).toBeTruthy();
     expect(settings.bootstrap_completed_at).not.toBeNull();
   });
 
   test("3a. token replay is denied (bootstrap is single-use)", async () => {
     const before = await userCount();
-    const result = await signUp({ email: `replay-${randomUUID()}@example.com`, token: BOOTSTRAP_TOKEN });
+    const result = await signUp({
+      email: `replay-${randomUUID()}@example.com`,
+      token: BOOTSTRAP_TOKEN,
+    });
     expect(result.ok).toBe(false);
     expect(await userCount()).toBe(before);
   });
@@ -169,11 +182,15 @@ describe.skipIf(!canRun)("bootstrap (fresh install) — real better-auth hook + 
     await sql`delete from "user" where email = ${ownerEmail}`;
     expect(await userCount()).toBe(0);
 
-    const result = await signUp({ email: `post-deletion-${randomUUID()}@example.com`, token: BOOTSTRAP_TOKEN });
+    const result = await signUp({
+      email: `post-deletion-${randomUUID()}@example.com`,
+      token: BOOTSTRAP_TOKEN,
+    });
     expect(result.ok).toBe(false);
     // The completion marker survived the owner's deletion — that's what
     // keeps bootstrap closed.
-    const [settings] = await sql`select bootstrap_completed_at from platform_settings where id = 'platform'`;
+    const [settings] =
+      await sql`select bootstrap_completed_at from platform_settings where id = 'platform'`;
     expect(settings.bootstrap_completed_at).not.toBeNull();
     expect(await userCount()).toBe(0);
   });

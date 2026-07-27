@@ -262,7 +262,12 @@ async function main(): Promise<void> {
   }
 
   console.log("");
-  console.log("table".padEnd(42), "scanned".padStart(8), "rotated".padStart(8), "errors".padStart(7));
+  console.log(
+    "table".padEnd(42),
+    "scanned".padStart(8),
+    "rotated".padStart(8),
+    "errors".padStart(7),
+  );
   let totalRotated = 0;
   let totalErrors = 0;
   for (const s of summaries) {

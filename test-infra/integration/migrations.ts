@@ -77,7 +77,10 @@ export function allMigrationsDir(): string {
   return REAL_MIGRATIONS_DIR;
 }
 
-export async function applyMigrations(databaseUrl: string, migrationsFolder: string): Promise<void> {
+export async function applyMigrations(
+  databaseUrl: string,
+  migrationsFolder: string,
+): Promise<void> {
   const client = new SQL({ url: databaseUrl, max: 1 });
   try {
     const db = drizzle({ client });

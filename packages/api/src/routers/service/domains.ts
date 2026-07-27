@@ -41,8 +41,8 @@ import {
   type ProxyRouteRecord,
   updateProxyRoute,
 } from "../../caddy/queries";
-import { checkDomainReachability } from "../../lib/domain-reachability";
 import { verifyDomainTxt } from "../../lib/dns-verify";
+import { checkDomainReachability } from "../../lib/domain-reachability";
 import { loadResource } from "./context";
 import {
   acmeFor,
@@ -144,20 +144,13 @@ export async function addServiceDomain(
 async function loadOwnedRoute(
   input: ResourceRef & { routeId: ProxyRouteId },
 ): Promise<
-  Result<
-    { route: ProxyRouteRecord; record: ServiceRecord },
-    NotFound | DomainNotFoundError
-  >
+  Result<{ route: ProxyRouteRecord; record: ServiceRecord }, NotFound | DomainNotFoundError>
 > {
   const ctx = await loadResource(input);
   if (ctx.isErr()) return Result.err(ctx.error);
 
   const route = await getProxyRouteById(input.routeId);
-  if (
-    !route ||
-    route.resourceId !== input.resourceId ||
-    route.projectId !== input.projectId
-  ) {
+  if (!route || route.resourceId !== input.resourceId || route.projectId !== input.projectId) {
     return Result.err(new DomainNotFoundError({ routeId: input.routeId }));
   }
   return Result.ok({ route, record: ctx.value.record });

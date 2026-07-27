@@ -45,11 +45,9 @@ async function warmUpClients(): Promise<void> {
       new Promise<false>((resolve) => setTimeout(() => resolve(false), 2_000)),
     ]);
     if (ok) return;
-    log.warn({ build: { event: "warmup-retry", attempt } } );
+    log.warn({ build: { event: "warmup-retry", attempt } });
   }
 }
-
-
 
 async function main(): Promise<never> {
   const deploymentId = process.argv[2] as DeploymentId | undefined;

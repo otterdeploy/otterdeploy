@@ -66,7 +66,8 @@ async function promptForNewUrl(): Promise<string | null> {
   if (raw === null) return null; // cancelled (Ctrl-C)
   const url = normalizeUrl(raw);
   if (!url) {
-    if (raw.trim()) fail(`"${raw.trim()}" is not a valid URL.`, "include the scheme, e.g. https://");
+    if (raw.trim())
+      fail(`"${raw.trim()}" is not a valid URL.`, "include the scheme, e.g. https://");
     return null;
   }
   return url;

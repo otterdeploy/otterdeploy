@@ -1,13 +1,5 @@
 {
   "title": "Guides",
   "icon": "Book",
-  "pages": [
-    "services",
-    "databases",
-    "domains",
-    "environment",
-    "previews",
-    "backups",
-    "servers"
-  ]
+  "pages": ["services", "databases", "domains", "environment", "previews", "backups", "servers"]
 }

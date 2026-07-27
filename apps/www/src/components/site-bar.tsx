@@ -3,8 +3,8 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { useRouterState } from "@tanstack/react-router";
 
 import { Wordmark } from "@/components/brand/otterdeploy-mark";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { GITHUB_URL } from "@/components/landing/content";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 /**
  * The marketing bar that sits above the docs layout.

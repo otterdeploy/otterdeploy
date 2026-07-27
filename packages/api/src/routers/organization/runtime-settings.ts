@@ -79,7 +79,6 @@ export async function saveAccessSettings(
 
 // ─── SMS + push transports ────────────────────────────────────────────
 
-
 // ─── CrowdSec ─────────────────────────────────────────────────────────
 
 export interface CrowdsecSettingsView {

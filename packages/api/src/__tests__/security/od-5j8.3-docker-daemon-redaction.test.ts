@@ -100,7 +100,7 @@ describe("[od-5j8.3] safe-view allowlists survive hostile / obfuscated placement
     const volume = safeVolumeInspect({
       Name: "vol",
       Driver: "local",
-      Options: { "o": "addr=10.0.0.1,secret=deep-secret-5" },
+      Options: { o: "addr=10.0.0.1,secret=deep-secret-5" },
       Status: { data: { nested: { token: "deep-secret-6" } } },
     });
     const serialized = JSON.stringify({ image, volume });
@@ -154,7 +154,9 @@ describe("[od-5j8.3] the router-level installation gate is a standing regression
   });
 
   test("inspect contracts cannot regress to an untyped daemon passthrough", () => {
-    expect(source("packages/api/src/routers/docker/contract.ts")).not.toContain(".output(z.unknown())");
+    expect(source("packages/api/src/routers/docker/contract.ts")).not.toContain(
+      ".output(z.unknown())",
+    );
     expect(source("packages/api/src/routers/volumes/contract.ts")).not.toContain(
       "z.record(z.string(), z.unknown())",
     );
@@ -165,7 +167,9 @@ describe("[od-5j8.3] the router-level installation gate is a standing regression
       "packages/api/src/routers/docker/service-admin.ts",
       "packages/api/src/routers/volumes/service.ts",
     ]) {
-      expect(source(path)).toMatch(/from ["']\.\/safe-view["']|from ["']\.\.\/docker\/safe-view["']/);
+      expect(source(path)).toMatch(
+        /from ["']\.\/safe-view["']|from ["']\.\.\/docker\/safe-view["']/,
+      );
     }
   });
 });

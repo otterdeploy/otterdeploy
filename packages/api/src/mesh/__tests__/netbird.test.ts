@@ -1,18 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  clampTtl,
-  NetbirdClient,
-  normalizeManagementUrl,
-  resolvePeerDomain,
-} from "../netbird";
-import { MeshProviderError } from "../types";
 import { privateHostFor } from "../index";
+import { clampTtl, NetbirdClient, normalizeManagementUrl, resolvePeerDomain } from "../netbird";
+import { MeshProviderError } from "../types";
 
 /** Minimal fetch stub: returns a queued response per call, recording requests. */
-function stubFetch(
-  responses: Array<{ status?: number; body?: unknown; text?: string }>,
-): { impl: typeof fetch; calls: Array<{ url: string; init: RequestInit }> } {
+function stubFetch(responses: Array<{ status?: number; body?: unknown; text?: string }>): {
+  impl: typeof fetch;
+  calls: Array<{ url: string; init: RequestInit }>;
+} {
   const calls: Array<{ url: string; init: RequestInit }> = [];
   let i = 0;
   const impl = (async (url: string, init: RequestInit) => {

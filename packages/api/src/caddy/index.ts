@@ -207,10 +207,7 @@ export async function renderProjectCaddyfile(projectId: ProjectId): Promise<Proj
 export async function renderInstalledCaddyfile(): Promise<ProjectCaddyfile> {
   const records = await listEnabledProxyRoutes();
   let routes = records.map(toRouteInput);
-  const [options, customCerts] = await Promise.all([
-    loadCaddyOptions(),
-    listServableCustomCerts(),
-  ]);
+  const [options, customCerts] = await Promise.all([loadCaddyOptions(), listServableCustomCerts()]);
   if (customCerts.length > 0) {
     const projectOrg = await mapProjectOrganizations([
       ...new Set(records.map((r) => r.projectId)),

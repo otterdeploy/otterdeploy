@@ -76,7 +76,9 @@ async function waitForPostgres(url: string, timeoutMs = 60_000): Promise<void> {
       await new Promise((resolve) => setTimeout(resolve, 400));
     }
   }
-  throw new Error(`Postgres at ${url.replace(/:[^:@/]+@/, ":***@")} did not become ready: ${String(lastError)}`);
+  throw new Error(
+    `Postgres at ${url.replace(/:[^:@/]+@/, ":***@")} did not become ready: ${String(lastError)}`,
+  );
 }
 
 async function createDatabaseOn(adminUrl: string, prefix: string): Promise<PostgresDatabase> {
@@ -155,7 +157,10 @@ async function startEphemeralContainer(): Promise<PostgresInstance> {
         adminUrl,
         createDatabase: (prefix) => createDatabaseOn(adminUrl, prefix),
         stop: async () => {
-          Bun.spawnSync(["docker", "rm", "-f", containerName], { stdout: "ignore", stderr: "ignore" });
+          Bun.spawnSync(["docker", "rm", "-f", containerName], {
+            stdout: "ignore",
+            stderr: "ignore",
+          });
         },
       };
     }
@@ -164,7 +169,9 @@ async function startEphemeralContainer(): Promise<PostgresInstance> {
     // Most likely a port collision — retry with a different random port.
   }
 
-  throw new Error(`Failed to start ephemeral postgres:17 container after retries: ${String(lastError)}`);
+  throw new Error(
+    `Failed to start ephemeral postgres:17 container after retries: ${String(lastError)}`,
+  );
 }
 
 export async function startPostgresInstance(): Promise<PostgresInstance> {

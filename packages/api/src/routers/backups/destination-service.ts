@@ -72,9 +72,7 @@ export async function listDestinations(input: OrgRef): Promise<DestinationRow[]>
  */
 export async function setDestinationEnabled(
   input: OrgRef & { id: BackupDestinationId; enabled: boolean },
-): Promise<
-  Result<DestinationResult, DestinationNotFoundError | DestinationLastActiveError>
-> {
+): Promise<Result<DestinationResult, DestinationNotFoundError | DestinationLastActiveError>> {
   const guard = await getDestinationGuardFields({
     organizationId: input.organizationId,
     id: input.id,
@@ -202,10 +200,7 @@ export async function updateDestination(
 export async function deleteDestination(
   input: OrgRef & { id: BackupDestinationId },
 ): Promise<
-  Result<
-    { ok: true },
-    DestinationNotFoundError | DestinationInUseError | DestinationManagedError
-  >
+  Result<{ ok: true }, DestinationNotFoundError | DestinationInUseError | DestinationManagedError>
 > {
   // The managed row is never deletable — that is the whole point of it: an org
   // must never be able to reach zero destinations and land back in the

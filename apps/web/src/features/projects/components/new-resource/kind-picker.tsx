@@ -70,7 +70,7 @@ export function KindPicker({ value, onChange, dbView, onDbViewChange }: KindPick
     return (
       <>
         <div className="mb-3 text-sm font-semibold">Pick a database engine</div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
           {DB_ENGINES.map((engine) => (
             <EngineCard
               key={engine.id}
@@ -121,7 +121,7 @@ export function KindPicker({ value, onChange, dbView, onDbViewChange }: KindPick
   };
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
       {LAUNCH_CATEGORIES.map((cat) => {
         const active = activeCat === cat.id;
         const soon = cat.comingSoon === true;

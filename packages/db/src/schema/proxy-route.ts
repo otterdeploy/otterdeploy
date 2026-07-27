@@ -138,10 +138,7 @@ export const proxyRoute = pgTable(
     // Allowlisted edge behavior rendered by trusted builder code. Unlike the
     // former custom_directives text escape hatch, this cannot introduce
     // handlers, upstreams, paths, filesystem access, or global options.
-    routePolicy: jsonb("route_policy")
-      .$type<RoutePolicy>()
-      .notNull()
-      .default(DEFAULT_ROUTE_POLICY),
+    routePolicy: jsonb("route_policy").$type<RoutePolicy>().notNull().default(DEFAULT_ROUTE_POLICY),
     // Optional access PIN for the auth wall (NetBird-style): an argon2 hash
     // of a short numeric code anyone can enter on the wall page — no org
     // account or email invite needed. Null = the PIN method is off. Only

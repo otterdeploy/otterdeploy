@@ -1,8 +1,7 @@
-import type { AddressInfo } from "node:net";
 import type { RequestListener } from "node:http";
+import type { AddressInfo } from "node:net";
 
 import { createServer } from "node:http";
-
 import { describe, expect, test } from "vite-plus/test";
 
 import { requestPinnedPublicAddress } from "../public-fetch-request";
@@ -72,5 +71,4 @@ describe("requestPinnedPublicAddress", () => {
       },
     );
   });
-
 });
