@@ -304,13 +304,40 @@ describe("[od-5j8.10] the control plane's own dashboard route carries HSTS + har
 
 // ─── 4. Structural: publish surface + middleware wiring ───────────────────
 
-describe("[od-5j8.10] the published prod compose never republishes the dashboard to the world", () => {
-  test("the control-plane port is bound to loopback only, not 0.0.0.0", () => {
+describe("[od-cse] the dashboard's publish address is an operator choice, and the loopback posture still exists", () => {
+  // od-5j8.10 hardcoded 127.0.0.1 here. That made a fresh install end in
+  // SSH-tunnel instructions rather than a URL, so od-cse parameterized it.
+  // What matters now is that BOTH postures are reachable from config — never
+  // that one of them is compiled in.
+  test("the bind is parameterized, with the loopback posture still selectable", () => {
     const compose = source("docker-compose.prod.yml");
-    expect(compose).toMatch(/127\.0\.0\.1:\$\{CONTROL_PLANE_PORT:-3000\}:3000/);
-    // The old bare "${CONTROL_PLANE_PORT:-3000}:3000" (published on every
-    // interface) must be gone, not just supplemented.
-    expect(compose).not.toMatch(/[^.\d]"\$\{CONTROL_PLANE_PORT:-3000\}:3000"/);
+    expect(compose).toMatch(/\$\{CONTROL_PLANE_BIND:-0\.0\.0\.0\}:\$\{CONTROL_PLANE_PORT:-3000\}:3000/);
+    // A bare "${CONTROL_PLANE_PORT:-3000}:3000" would publish on every
+    // interface with no way to pin it back — that's what must not return.
+    expect(compose).not.toMatch(/[^.\d}]"\$\{CONTROL_PLANE_PORT:-3000\}:3000"/);
+    expect(compose).toContain("CONTROL_PLANE_BIND=127.0.0.1");
+  });
+
+  test("the installer writes the bind and keeps the SSH-tunnel path for the loopback case", () => {
+    const install = source("scripts/install.sh");
+    expect(install).toContain("CONTROL_PLANE_BIND=$control_plane_bind");
+    // The tunnel instructions must survive as the loopback branch — pinning
+    // the bind back must not leave the operator with no way in.
+    expect(install).toContain("ssh -L $CONTROL_PLANE_PORT:localhost:$CONTROL_PLANE_PORT");
+  });
+
+  test("the firewall opens the control-plane port only when it is actually published", () => {
+    // A published port is DNAT'd into FORWARD, so the DOCKER-USER guard — not
+    // the input chain — is what decides whether the dashboard is reachable.
+    // Both read edge_tcp_ports so the two can't drift apart.
+    const install = source("scripts/install.sh");
+    expect(install).toContain("edge_tcp_ports()");
+    expect(install).toMatch(/127\.0\.0\.1\|localhost\) printf '80, 443' ;;/);
+    expect(install).toMatch(/\*\) printf '80, 443, %s' "\$CONTROL_PLANE_PORT" ;;/);
+    expect(install).toContain(
+      'nft insert rule ip filter DOCKER-USER tcp dport != { $(edge_tcp_ports) }',
+    );
+    expect(install).toMatch(/tcp dport \{ %s \} accept\\n' "\$\(edge_tcp_ports\)"/);
   });
 });
 
@@ -327,10 +354,17 @@ describe("[od-5j8.10] trusted-proxy configuration exists and is safe by default"
     expect(install).toContain("TRUSTED_PROXIES=$trusted_proxies");
   });
 
-  test("the installer no longer advertises the dashboard at a public/LAN address", () => {
+  test("TRUSTED_PROXIES stays narrow even though the dashboard is published again", () => {
+    // od-5j8.10's original assertion here was "the installer no longer
+    // advertises the dashboard at a public/LAN address" — od-cse deliberately
+    // reversed that. What still has to hold is the reason that hardening
+    // existed: forwarded headers are honored ONLY from loopback and the edge
+    // network, so a direct caller on :3000 can't spoof its IP past rate
+    // limits, allowlists, or audit attribution.
     const install = source("scripts/install.sh");
-    expect(install).not.toMatch(/Public IPv4:\s+http/);
-    expect(install).toContain("ssh -L $CONTROL_PLANE_PORT:localhost:$CONTROL_PLANE_PORT");
+    expect(install).toContain("detect_trusted_proxies");
+    expect(install).toMatch(/printf '127\.0\.0\.1\/32,::1\/128/);
+    expect(install).not.toContain("TRUSTED_PROXIES=0.0.0.0/0");
   });
 });
 

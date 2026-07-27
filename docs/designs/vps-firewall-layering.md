@@ -46,11 +46,19 @@ Two layers, one tool (`nftables`), one mental model:
 │   table inet otterdeploy                                      │
 │   chain input: policy drop                                    │
 │     allow: lo, established/related, icmp(v6) ping/unreachable,│
-│            SSH (detected port), 80/443                        │
+│            SSH (detected port), edge ports                    │
 │     allow (peer-scoped only): 2377/tcp, 7946/tcp+udp, 4789/udp│
 │   DOCKER-USER guard (ip filter, Docker's own chain):           │
-│     drop NEW forwarded connections to any port but 80/443     │
+│     drop NEW forwarded connections to any port but edge ports │
 └─────────────────────────────────────────────────────────────┘
+
+**Edge ports** (`edge_tcp_ports` in `install.sh`) are 80/443, plus the
+control-plane port when the dashboard is published to a real address rather
+than loopback (`CONTROL_PLANE_BIND`, od-cse). Both the `input` chain and the
+guard read the same helper so they can't drift: a published container port is
+DNAT'd into `FORWARD`, so the guard — not `input` — is what actually decides
+whether the dashboard is reachable, and opening one without the other yields a
+dashboard that binds `0.0.0.0` and still refuses connections.
 ```
 
 **Who owns what:**
@@ -85,8 +93,16 @@ Two layers, one tool (`nftables`), one mental model:
   skip installing nftables alongside it (narrated, `firewallStatus:
   "unsupported"`), rather than risking two managers fighting over the same
   netfilter hooks. The CrowdSec bouncers still work in that case; only the
-  static baseline is the operator's own responsibility (a short hint is
-  printed: `sudo ufw allow 80,443/tcp`).
+  static baseline is the operator's own responsibility.
+
+  **Known gap (od-k7x):** that early exit also skips the `DOCKER-USER` guard,
+  which is a different chain in a different table and would be safe to install
+  alongside ufw. So on a ufw host, *no* layer filters published container
+  ports — and ufw structurally cannot, since Docker publishes into `FORWARD`
+  ahead of ufw's chains. The installer used to print `sudo ufw allow
+  80,443/tcp` here, which is a no-op for this stack for exactly that reason
+  (nothing listens on 80/443 at host level; Caddy's ports are published by
+  Docker and were never gated by ufw). It now says so plainly instead.
 
 ## Enabled by default
 

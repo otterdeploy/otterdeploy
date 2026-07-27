@@ -12,6 +12,8 @@
  *   3. Auto-detect from a public-IP echo service — only when `allowDetect`
  *      (production). A dev box's WAN IP isn't reachable on :443, so dev
  *      skips detection rather than persist a misleading address.
+ *   4. A local non-internal IPv4 — when the echo services can't be reached at
+ *      all. Better than the loopback the resolver would otherwise fall to.
  *
  * Unlike Coolify — which takes the IP the operator typed when adding a
  * server over SSH and never calls an echo service — otterdeploy runs *on*
@@ -20,12 +22,14 @@
  * operator-provided value for when detection is wrong (NAT, multi-homed).
  */
 
+import { networkInterfaces } from "node:os";
+
 import { db } from "@otterdeploy/db";
 import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 
-export type ServerIpSource = "override" | "existing" | "detected" | "none";
+export type ServerIpSource = "override" | "existing" | "detected" | "local" | "none";
 
 export interface EnsureServerIpResult {
   ip: string | null;
@@ -64,6 +68,29 @@ async function detectPublicIp(): Promise<string | null> {
   return null;
 }
 
+/**
+ * od-bad: last resort before giving up — the first non-internal IPv4 this
+ * container can see. Runs when the echo services are unreachable (no egress,
+ * blocked outbound, air-gapped LAN install), where the alternative is
+ * `domains.ts` degrading every generated domain to `127.0.0.1.sslip.io`: a URL
+ * that renders as live and is reachable from nowhere. A LAN address is not
+ * always the right answer, but it is always a better guess than loopback, and
+ * the operator can correct it in Settings.
+ *
+ * Docker caveat: in a bridged container this sees the container's own address
+ * on the compose network, not the host's. That's why `install.sh` writes
+ * SERVER_IP from the host (precedence #1) — this only carries an install where
+ * that didn't happen.
+ */
+function detectLocalIp(): string | null {
+  for (const addrs of Object.values(networkInterfaces())) {
+    for (const addr of addrs ?? []) {
+      if (addr.family === "IPv4" && !addr.internal) return addr.address;
+    }
+  }
+  return null;
+}
+
 async function persist(ip: string): Promise<void> {
   await db
     .insert(platformSettings)
@@ -96,7 +123,18 @@ export async function ensureServerIp(opts: {
 
   // 3. Nothing on record — detect (production only) and persist.
   const detected = opts.allowDetect ? await detectPublicIp() : null;
-  if (!detected) return { ip: null, source: "none" };
-  await persist(detected);
-  return { ip: detected, source: "detected" };
+  if (detected) {
+    await persist(detected);
+    return { ip: detected, source: "detected" };
+  }
+
+  // 4. No public answer — fall back to a local interface rather than let the
+  //    resolver silently mint loopback domains.
+  const local = opts.allowDetect ? detectLocalIp() : null;
+  if (local) {
+    await persist(local);
+    return { ip: local, source: "local" };
+  }
+
+  return { ip: null, source: "none" };
 }
