@@ -3,8 +3,11 @@ import { useState, type ReactElement } from "react";
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useForm, useStore } from "@tanstack/react-form";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
 import * as z from "zod";
+
+import type { ProjectSlug } from "@otterdeploy/shared/id";
 
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -32,6 +35,37 @@ const schema = z.object({
     .max(48, "Slug must be 48 characters or fewer"),
 });
 
+/** The optimistic row for a brand-new project: everything the collection needs
+ *  so the destination route can render immediately, with every count and
+ *  binding at its true empty value. Module-level because it's pure data — it
+ *  also keeps the component under the max-lines-per-function ceiling. */
+function newProjectRow(value: { name: string; slug: string }) {
+  const now = new Date();
+  return {
+    ...value,
+    environmentId: null,
+    id: createId(ID_PREFIX.project),
+    databaseCount: 0,
+    // A brand-new project has nothing configured or running yet.
+    serviceCount: 0,
+    routeCount: 0,
+    runningServiceCount: 0,
+    stackFile: null,
+    stackFileVersion: 0,
+    lastAppliedFile: null,
+    lastAppliedAt: null,
+    customDomain: null,
+    customDomainVerifiedAt: null,
+    customDomainVerifyToken: null,
+    // Git source / image target moved to the SERVICE — no project-level
+    // build binding on the row anymore.
+    nixpacksConfig: null,
+    graphLayout: {},
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 interface CreateProjectDialogProps {
   /** Uncontrolled usage (org-home "New project" button) — omit `open` and
    *  the dialog manages its own visibility, toggled by this trigger. */
@@ -49,6 +83,10 @@ export function CreateProjectDialog({
   open: openProp,
   onOpenChange,
 }: CreateProjectDialogProps) {
+  const navigate = useNavigate();
+  // Both mount points (org home, header switcher) live under /$orgSlug, so the
+  // slug is always in scope here — no prop-drilling from the two callers.
+  const { orgSlug } = useParams({ from: "/_app/$orgSlug" });
   const [openState, setOpenState] = useState(false);
   const isControlled = openProp !== undefined;
   const open = isControlled ? openProp : openState;
@@ -61,36 +99,27 @@ export function CreateProjectDialog({
     defaultValues: { name: "", slug: "" },
     validators: { onChange: schema },
     onSubmit: ({ value }) => {
-      const tx = projectCollection.insert({
-        ...value,
-        environmentId: null,
-        id: createId(ID_PREFIX.project),
-        databaseCount: 0,
-        // A brand-new project has nothing configured or running yet.
-        serviceCount: 0,
-        routeCount: 0,
-        runningServiceCount: 0,
-        stackFile: null,
-        stackFileVersion: 0,
-        lastAppliedFile: null,
-        lastAppliedAt: null,
-        customDomain: null,
-        customDomainVerifiedAt: null,
-        customDomainVerifyToken: null,
-        // Git source / image target moved to the SERVICE — no project-level
-        // build binding on the row anymore.
-        nixpacksConfig: null,
-        graphLayout: {},
-        createdAt: new Date(),
-        updatedAt: new Date(),
+      const tx = projectCollection.insert(newProjectRow(value));
+
+      // Close and go straight to the new project. The optimistic row is
+      // already in `projectCollection`, so the destination renders its real
+      // name and slug immediately — there is no server round-trip to wait on
+      // and nothing to spin against ("fast is a feature": creating a thing
+      // should land you on the thing).
+      setOpen(false);
+      void navigate({
+        to: "/$orgSlug/$projectSlug",
+        params: { orgSlug, projectSlug: value.slug as ProjectSlug },
       });
 
-      // Close instantly — the optimistic row is already in the collection.
       // Surface server-side failures asynchronously; tanstack/db rolls back
-      // the optimistic row on rejection.
-      setOpen(false);
+      // the optimistic row on rejection. Bounce back off the now-dead route so
+      // the operator isn't stranded on a project that no longer exists —
+      // "honest about system state" cuts both ways: the optimistic jump is
+      // only honest if a rejection undoes it visibly.
       tx.isPersisted.promise.catch((error) => {
         toast.error(error instanceof Error ? error.message : "Failed to create project");
+        void navigate({ to: "/$orgSlug", params: { orgSlug } });
       });
     },
   });

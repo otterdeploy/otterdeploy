@@ -1005,12 +1005,15 @@ OTTERDEPLOY_NFT_RULESET=/etc/nftables-otterdeploy.conf
 # early, the producer dies of SIGPIPE, and the pipeline reports 141 — so a host
 # that IS running ufw would read as "no ufw" and get nftables installed
 # alongside it. Exactly the fight this check exists to avoid.
+# od-2qk: match the status line EXACTLY. The previous glob was
+# `*[Ss]tatus:*[Aa]ctive*`, whose middle `*` happily swallows the "in" of
+# "Status: inactive" — so every host with ufw merely INSTALLED (the stock
+# Ubuntu state: present, disabled) was read as firewalled, and the entire
+# nftables baseline + DOCKER-USER guard were skipped with a note saying ufw
+# had it covered. Anchor the whole line so the two states can't collide.
 ufw_active() {
   command -v ufw >/dev/null 2>&1 || return 1
-  case "$($SUDO ufw status 2>/dev/null || true)" in
-    *[Ss]tatus:*[Aa]ctive*) return 0 ;;
-    *) return 1 ;;
-  esac
+  $SUDO ufw status 2>/dev/null | grep -qiE '^status:[[:space:]]*active[[:space:]]*$'
 }
 
 firewalld_active() {
@@ -1104,9 +1107,17 @@ provision_host_firewall() {
     warn "firewalld was already managing this host's firewall, so the nftables baseline was not applied. Make sure 80/tcp and 443/tcp are open. CrowdSec IP-reputation blocking is unaffected."
     return
   fi
+  # od-yg9: refresh the package lists first. `apt-get update` runs exactly once
+  # in this script — inside install_prereqs, and only when curl/git/jq/openssl
+  # are MISSING. On the common host where they're already present it never
+  # runs, so apt's lists can be stale or empty for the whole install and
+  # `apt-get install nftables` fails with "Unable to locate package". The `||
+  # true` then swallowed it and the firewall was skipped with a note blaming
+  # the platform. host-firewall.ts:180-181 (the path for nodes added later)
+  # always updated first; this one didn't.
   if ! command -v nft >/dev/null 2>&1; then
     case "$OS_FAMILY" in
-      debian) run $SUDO apt-get install -y nftables || true ;;
+      debian) run $SUDO apt-get update -y || true; run $SUDO apt-get install -y nftables || true ;;
       rhel)   run $SUDO dnf install -y nftables || true ;;
       arch)   run $SUDO pacman -Sy --noconfirm nftables || true ;;
     esac
