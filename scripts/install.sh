@@ -21,6 +21,15 @@
 #                             (default get.otterdeploy.com/docker-compose.yml)
 #   OTTERDEPLOY_NETWORK       shared stack network    (default otterdeploy)
 #   OTTERDEPLOY_CONTROL_PLANE_PORT  dashboard port    (default 3000)
+#   OTTERDEPLOY_CONTROL_PLANE_BIND  dashboard bind address (default 0.0.0.0 — reachable
+#                             at this host's addresses). Set 127.0.0.1 to publish the
+#                             dashboard to loopback only and reach it through a domain
+#                             or an SSH tunnel instead.
+#   OTTERDEPLOY_SERVER_IP     address this host is reachable at (default: detected —
+#                             public IP, else primary source IP). Written to .env as
+#                             SERVER_IP; builds the <app>-<project>.<ip>.sslip.io
+#                             fallback domains that give an exposed service a working
+#                             URL before you own a domain.
 #   OTTERDEPLOY_ADVERTISE_ADDR  swarm advertise-addr  (default: primary source IP)
 #   OTTERDEPLOY_BRANCHING     auto | on | off         (default auto) — ZFS branching pool
 #
@@ -224,12 +233,42 @@ env_value() {
 # Keep an existing value if present, else use the generated one.
 keep_or() { local existing; existing="$(env_value "$1")"; [ -n "$existing" ] && printf '%s' "$existing" || printf '%s' "$2"; }
 
-detect_public_host() {
+# od-gez: the address this host is actually reachable at. Written to .env as
+# SERVER_IP, which is what packages/api/src/lib/server-ip.ts treats as the
+# operator override (precedence #1) — so it is never overwritten by the app's
+# own public-IP echo on a later boot. Without it the app falls back to that
+# echo, which returns the router's WAN address on a NATed host and nothing at
+# all with no egress; packages/api/src/lib/domains.ts then builds every
+# generated service domain as `<app>-<project>.127.0.0.1.sslip.io` — a URL
+# that looks live and resolves to loopback.
+#
+# Public first (that's what a VPS needs and what sslip.io must encode to be
+# reachable off-box), local source address second (correct for LAN/NAT/VM
+# installs, and the only answer with no outbound internet).
+detect_server_ip() {
   local ip=""
+  [ -n "${OTTERDEPLOY_SERVER_IP:-}" ] && { printf '%s' "$OTTERDEPLOY_SERVER_IP"; return; }
   ip="$(curl -fsSL --max-time 4 https://api.ipify.org 2>/dev/null || true)"
+  [ -z "$ip" ] && ip="$(primary_ip)"
   [ -z "$ip" ] && ip="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
-  [ -z "$ip" ] && ip="localhost"
+  [ -z "$ip" ] && ip="127.0.0.1"
   printf '%s' "$ip"
+}
+
+# Every other address this host answers on, one per line, excluding the one
+# detect_server_ip picked. Printed in the install summary so an operator whose
+# public IP isn't reachable (NAT, firewalled provider, private VM) has the
+# working URL in front of them instead of having to go find it — the same
+# affordance coolify.sh:1038-1046 gives.
+detect_private_ips() {
+  local chosen="$1" ip
+  { hostname -I 2>/dev/null || ip -o addr show scope global 2>/dev/null | awk '{print $4}' | cut -d/ -f1; } \
+    | tr ' ' '\n' | while read -r ip; do
+      [ -n "$ip" ] || continue
+      case "$ip" in *:*) continue ;; esac          # ipv4 only — the sslip form we generate
+      [ "$ip" = "$chosen" ] && continue
+      printf '%s\n' "$ip"
+    done
 }
 
 # od-5j8.10: the control plane only honors X-Forwarded-For/X-Forwarded-Proto
@@ -686,14 +725,19 @@ prepare_tree() {
 # ── 6. environment file ─────────────────────────────────────────────────────
 write_env() {
   step "Writing $ENV_FILE"
-  local pg_pass auth_secret bootstrap_token pg_user pg_db pool_line public_host public_url cors_origin trusted_proxies
+  local pg_pass auth_secret bootstrap_token pg_user pg_db pool_line server_ip control_plane_bind public_url cors_origin trusted_proxies
   local crowdsec_bouncer_key crowdsec_lapi_url crowdsec_firewall_bouncer_key crowdsec_env_lines
   pg_user="$(keep_or POSTGRES_USER otterdeploy)"
   pg_db="$(keep_or POSTGRES_DB otterdeploy)"
   pg_pass="$(keep_or POSTGRES_PASSWORD "$(random_secret)")"
   auth_secret="$(keep_or BETTER_AUTH_SECRET "$(random_secret)")"
   bootstrap_token="$(keep_or OTTERDEPLOY_BOOTSTRAP_TOKEN "$(random_secret)")"
-  public_host="$(keep_or PUBLIC_HOST "$(detect_public_host)")"
+  # od-gez: replaces PUBLIC_HOST, which was written here and read by NOTHING in
+  # the repo — the installer detected the right value into a variable no code
+  # consumed, while SERVER_IP (the one packages/env/src/server.ts declares and
+  # server-ip.ts reads) was never written at all.
+  server_ip="$(keep_or SERVER_IP "$(detect_server_ip)")"
+  control_plane_bind="$(keep_or CONTROL_PLANE_BIND "${OTTERDEPLOY_CONTROL_PLANE_BIND:-0.0.0.0}")"
 
   # od-5j8.11: generate the CrowdSec wiring so the firewall is protected with
   # ZERO manual steps when FIREWALL=true (the default) — previously an
@@ -713,13 +757,17 @@ CROWDSEC_FIREWALL_BOUNCER_KEY=$crowdsec_firewall_bouncer_key"
   else
     crowdsec_env_lines="# Firewall disabled (OTTERDEPLOY_FIREWALL=false) — CROWDSEC_* left unset."
   fi
-  # od-5j8.10: the control-plane port is published to loopback only (see
-  # docker-compose.prod.yml) — it's never actually reachable at the public
-  # host, so the auth authority/CORS origin default to loopback too (the
-  # SSH-tunnel bootstrap path visits it there). Set a real BETTER_AUTH_URL
-  # (and re-run) once you've configured a control-plane domain in Settings —
-  # or override it here for a LAN-only setup that skips the tunnel.
-  public_url="$(keep_or BETTER_AUTH_URL "http://127.0.0.1:$CONTROL_PLANE_PORT")"
+  # od-cse: anchor the auth authority at the address the dashboard is actually
+  # reachable at, so the first visit works without an SSH tunnel. Reaching it
+  # at some OTHER origin (loopback via tunnel, a LAN IP, a domain) still works
+  # without re-running: packages/auth/src/index.ts:232-242 echoes any
+  # same-origin request back as trusted, and the session cookie is set on the
+  # request host. When the bind is pinned back to loopback, so is this.
+  if [ "$control_plane_bind" = "127.0.0.1" ] || [ "$control_plane_bind" = "localhost" ]; then
+    public_url="$(keep_or BETTER_AUTH_URL "http://127.0.0.1:$CONTROL_PLANE_PORT")"
+  else
+    public_url="$(keep_or BETTER_AUTH_URL "http://$server_ip:$CONTROL_PLANE_PORT")"
+  fi
   cors_origin="$(keep_or CORS_ORIGIN "$public_url")"
   # Trust loopback plus the shared edge network's subnet, so forwarded
   # headers from the Caddy container are honored while anything else is
@@ -734,7 +782,8 @@ CROWDSEC_FIREWALL_BOUNCER_KEY=$crowdsec_firewall_bouncer_key"
     say "       REDIS_URL=redis://redis:6379  BETTER_AUTH_SECRET=********"
     say "       OTTERDEPLOY_BOOTSTRAP_TOKEN=********"
     say "       OTTERDEPLOY_DATA_DIR=$DATA_DIR  OTTERDEPLOY_INSTALL_DIR=$INSTALL_DIR"
-    say "       PUBLIC_HOST=$public_host  CONTROL_PLANE_PORT=$CONTROL_PLANE_PORT"
+    say "       SERVER_IP=$server_ip  CONTROL_PLANE_PORT=$CONTROL_PLANE_PORT"
+    say "       CONTROL_PLANE_BIND=$control_plane_bind"
     say "       BETTER_AUTH_URL=$public_url  CORS_ORIGIN=$cors_origin  NODE_ENV=production"
     say "       TRUSTED_PROXIES=$trusted_proxies"
     if [ "$FIREWALL" = "true" ]; then
@@ -756,7 +805,16 @@ OTTERDEPLOY_DATA_DIR=$DATA_DIR
 OTTERDEPLOY_INSTALL_DIR=$INSTALL_DIR
 DEPLOY_RUNTIME=docker
 CONTROL_PLANE_PORT=$CONTROL_PLANE_PORT
-PUBLIC_HOST=$public_host
+# Which host address the dashboard is published on. 0.0.0.0 = reachable at this
+# machine's addresses (http://$server_ip:$CONTROL_PLANE_PORT); set 127.0.0.1 to
+# publish to loopback only and reach it through a domain or an SSH tunnel.
+CONTROL_PLANE_BIND=$control_plane_bind
+# The address this host is reachable at. Read by packages/api/src/lib/server-ip.ts
+# as the operator override, and used to build the sslip.io fallback domains
+# (<app>-<project>.$server_ip.sslip.io) that let an exposed service have a
+# working URL before you own a domain. Change it here if this box is reachable
+# at a different address than the installer detected, then re-run.
+SERVER_IP=$server_ip
 # od-5j8.10: only these peers may set X-Forwarded-For/X-Forwarded-Proto —
 # loopback plus the shared edge network (so the Caddy container is trusted).
 # Detected from '$EDGE_NETWORK's subnet at install time; update if you change
@@ -960,6 +1018,24 @@ firewalld_active() {
   [ "$($SUDO firewall-cmd --state 2>/dev/null || true)" = "running" ]
 }
 
+# od-cse: the TCP ports the platform itself needs open on this host. Caddy's
+# edge is always 80/443; the control-plane port joins them whenever the
+# dashboard is published to a real address rather than loopback.
+#
+# It has to feed BOTH chains. The `input` chain covers a host listener (the
+# userland docker-proxy path), and the DOCKER-USER guard covers the DNAT'd
+# forward path a published container port actually takes — an INPUT-only rule
+# never sees it. Get this wrong and the dashboard binds 0.0.0.0 and is still
+# unreachable, which is exactly the failure this whole change is undoing.
+edge_tcp_ports() {
+  local bind; bind="$(env_value CONTROL_PLANE_BIND)"
+  [ -n "$bind" ] || bind="${OTTERDEPLOY_CONTROL_PLANE_BIND:-0.0.0.0}"
+  case "$bind" in
+    127.0.0.1|localhost) printf '80, 443' ;;
+    *) printf '80, 443, %s' "$CONTROL_PLANE_PORT" ;;
+  esac
+}
+
 # The CURRENT sshd port — never assumed to be 22, so a customized install
 # can't get locked out. `ct state established,related accept` (in the
 # ruleset below) means even a WRONG detection can't kill the session this
@@ -1012,7 +1088,7 @@ provision_host_firewall() {
     say "   + would install nftables (if missing) and load a default-deny table 'otterdeploy':"
     say "     allow loopback, established/related, SSH ($ssh_port/tcp), 80/443/tcp"
     say "     swarm ports 2377/7946/4789 stay peer-scoped (current swarm members, if any joined already)"
-    say "   + would insert a DOCKER-USER guard dropping forwarded traffic to non-80/443 ports"
+    say "   + would insert a DOCKER-USER guard dropping forwarded traffic to ports outside { $(edge_tcp_ports) }"
     say "   + would skip entirely if ufw/firewalld is already active"
     return
   fi
@@ -1064,7 +1140,7 @@ provision_host_firewall() {
     printf '\t\ticmp type { echo-request, destination-unreachable, time-exceeded } accept\n'
     printf '\t\ticmpv6 type { echo-request, nd-neighbor-solicit, nd-neighbor-advert, destination-unreachable, time-exceeded } accept\n'
     printf '\t\ttcp dport %s accept\n' "$ssh_port"
-    printf '\t\ttcp dport { 80, 443 } accept\n'
+    printf '\t\ttcp dport { %s } accept\n' "$(edge_tcp_ports)"
     printf '\t\ttcp dport { 2377, 7946 } ip saddr @otterdeploy_peers accept\n'
     printf '\t\tudp dport { 7946, 4789 } ip saddr @otterdeploy_peers accept\n'
     printf '\t}\n}\n'
@@ -1088,9 +1164,9 @@ provision_host_firewall() {
   if $SUDO nft list chain ip filter DOCKER-USER >/dev/null 2>&1; then
     $SUDO nft -a list chain ip filter DOCKER-USER 2>/dev/null | awk '/otterdeploy-guard/{print $NF}' \
       | while read -r h; do $SUDO nft delete rule ip filter DOCKER-USER handle "$h"; done
-    $SUDO nft insert rule ip filter DOCKER-USER tcp dport != { 80, 443 } ct state new counter drop comment "otterdeploy-guard"
+    $SUDO nft insert rule ip filter DOCKER-USER tcp dport != { $(edge_tcp_ports) } ct state new counter drop comment "otterdeploy-guard"
   fi
-  say " - nftables baseline active (SSH $ssh_port, 80/443, swarm ports peer-scoped)"
+  say " - nftables baseline active (SSH $ssh_port, $(edge_tcp_ports), swarm ports peer-scoped)"
   chip "nftables baseline"
   say "   Rollback if needed: sudo nft delete table inet otterdeploy   (or: $(self_cmd) firewall-rollback)"
 }
@@ -1360,9 +1436,14 @@ report_notes() {
 print_firewall_hint() {
   if ufw_active; then
     tsay ""
-    tsay "  Firewall   ufw was already active, so it was left in place. Open what"
-    tsay "             the platform needs:  sudo ufw allow 80,443/tcp"
-    tsay "             (CrowdSec still enforces IP reputation either way.)"
+    tsay "  Firewall   ufw was already active, so otterdeploy left it alone and did not"
+    tsay "             apply its own baseline. Be aware of what ufw does NOT cover:"
+    tsay "             Docker publishes container ports straight into the FORWARD"
+    tsay "             chain, ahead of ufw's rules, so every published port on this"
+    tsay "             host — including 80/443 — is already reachable regardless of"
+    tsay "             what ufw allows or denies. 'ufw allow 80,443/tcp' is a no-op"
+    tsay "             for this stack; ufw still governs non-Docker host listeners."
+    tsay "             (CrowdSec enforces IP reputation either way.)"
     return 0
   fi
   tsay ""
@@ -1377,31 +1458,56 @@ print_firewall_hint() {
   return 0
 }
 
-# od-5j8.10: the dashboard is published to loopback ONLY (see
-# docker-compose.prod.yml) — it is never reachable at a public or LAN
-# address on $CONTROL_PLANE_PORT, by design (a fresh install must not expose
-# a plaintext dashboard to the internet). Tell the operator how to actually
-# reach it: an SSH tunnel for bootstrap, or a real domain through Caddy for
-# everyday HTTPS access.
+# od-cse/od-k5q: finish with a URL the operator can open, not homework. The
+# dashboard binds all interfaces by default (CONTROL_PLANE_BIND), so print the
+# detected address first and every other address this host answers on after it
+# — detection can't tell which one is routable for the caller, and an operator
+# behind NAT should not have to work that out themselves.
 report_access() {
-  local ssh_host ssh_user
+  local ssh_host ssh_user server_ip bind others ip
 
   tsay ""
   printf '  \033[32motterdeploy is up.\033[0m\n' >&3
   report_bootstrap_token
-  ssh_user="$(id -un 2>/dev/null || echo root)"
-  ssh_host="$(hostname -f 2>/dev/null || hostname 2>/dev/null || echo "<this-host>")"
+  server_ip="$(env_value SERVER_IP)"; [ -n "$server_ip" ] || server_ip="$(detect_server_ip)"
+  bind="$(env_value CONTROL_PLANE_BIND)"; [ -n "$bind" ] || bind="0.0.0.0"
   tsay ""
-  tsay "  Dashboard  http://127.0.0.1:$CONTROL_PLANE_PORT  (bound to loopback on this host —"
-  tsay "             deliberately not reachable from the internet or your LAN)"
+
+  if [ "$bind" = "127.0.0.1" ] || [ "$bind" = "localhost" ]; then
+    ssh_user="$(id -un 2>/dev/null || echo root)"
+    ssh_host="$(hostname -f 2>/dev/null || hostname 2>/dev/null || echo "<this-host>")"
+    tsay "  Dashboard  http://127.0.0.1:$CONTROL_PLANE_PORT  (bound to loopback — CONTROL_PLANE_BIND"
+    tsay "             is 127.0.0.1, so it is not reachable from your LAN or the internet)"
+    tsay ""
+    tsay "             Reach it now, over SSH:"
+    tsay "               ssh -L $CONTROL_PLANE_PORT:localhost:$CONTROL_PLANE_PORT $ssh_user@$ssh_host"
+    tsay "               then open http://localhost:$CONTROL_PLANE_PORT"
+  else
+    tsay "  Dashboard  http://$server_ip:$CONTROL_PLANE_PORT"
+    others="$(detect_private_ips "$server_ip")"
+    if [ -n "$others" ]; then
+      tsay ""
+      tsay "             If that address isn't reachable from where you are, this host"
+      tsay "             also answers on:"
+      while read -r ip; do
+        [ -n "$ip" ] && tsay "               http://$ip:$CONTROL_PLANE_PORT"
+      done <<< "$others"
+    fi
+    tsay ""
+    tsay "             Plain HTTP on an IP — fine for setup, not for daily use. Pin it"
+    tsay "             to loopback any time with CONTROL_PLANE_BIND=127.0.0.1 in"
+    tsay "             $ENV_FILE, then re-run."
+  fi
+
   tsay ""
-  tsay "             Reach it now, over SSH:"
-  tsay "               ssh -L $CONTROL_PLANE_PORT:localhost:$CONTROL_PLANE_PORT $ssh_user@$ssh_host"
-  tsay "               then open http://localhost:$CONTROL_PLANE_PORT"
+  tsay "             For HTTPS, point a domain at this host and set it as the"
+  tsay "             control-plane domain in Settings → Networking. Caddy is already"
+  tsay "             listening on 80/443 and will front the dashboard."
   tsay ""
-  tsay "             For everyday HTTPS, point a domain at this host and set it as"
-  tsay "             the control-plane domain in Settings → Networking. Caddy is"
-  tsay "             already listening on 80/443 and will front the dashboard."
+  tsay "  Your apps  Exposed services get a working URL with no domain and no DNS"
+  tsay "             setup: <app>-<project>.$server_ip.sslip.io, served by Caddy on"
+  tsay "             80/443. Wrong address? Edit SERVER_IP in $ENV_FILE and re-run,"
+  tsay "             or change it in Settings → Networking."
   return 0
 }
 

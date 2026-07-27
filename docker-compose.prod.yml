@@ -67,16 +67,25 @@ services:
     working_dir: /app/apps/server
     command: ["bun", "run", "dist/index.mjs"]
     restart: unless-stopped
-    # od-5j8.10: the dashboard/API listens on 3000, published to the HOST
-    # LOOPBACK ONLY — never 0.0.0.0. A fresh install must not expose a
-    # plaintext dashboard to the internet; bootstrap access is over an SSH
-    # tunnel (`ssh -L 3000:localhost:3000 ...`) or, once a control-plane
-    # domain is configured, verified HTTPS through Caddy (80/443), which
-    # fronts USER-deployed apps AND — when a control-plane domain is set —
-    # this dashboard, reaching it by service DNS (server:3000) over the
-    # internal compose network rather than this published port.
+    # The dashboard/API listens on 3000. od-5j8.10 published it to the host
+    # loopback only; od-cse made the bind an operator choice, because the
+    # loopback-only default ended a fresh install with SSH-tunnel homework
+    # instead of a URL — and left the platform with no way at all to reach a
+    # service at this machine's address.
+    #
+    # Default (0.0.0.0): reachable at http://<host-ip>:3000 — plaintext, so
+    # it's the setup posture, not the destination. CONTROL_PLANE_BIND=127.0.0.1
+    # restores loopback-only for an internet-facing or multi-tenant box.
+    # Either way, once a control-plane domain is configured, Caddy fronts the
+    # dashboard over verified HTTPS on 80/443, reaching it by service DNS
+    # (server:3000) over the internal network rather than this published port.
     ports:
-      - "127.0.0.1:${CONTROL_PLANE_PORT:-3000}:3000"
+      # od-cse: the bind address is configurable and defaults to all interfaces,
+      # so a fresh install finishes with a URL you can open (http://<host-ip>:3000)
+      # rather than an SSH tunnel. Set CONTROL_PLANE_BIND=127.0.0.1 for the
+      # loopback-only posture (#58's default) when the box is multi-tenant or
+      # internet-facing and you'd rather reach the dashboard through a domain.
+      - "${CONTROL_PLANE_BIND:-0.0.0.0}:${CONTROL_PLANE_PORT:-3000}:3000"
     env_file:
       - .env
     environment:
