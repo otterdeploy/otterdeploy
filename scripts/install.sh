@@ -86,6 +86,7 @@ SWAP_FILE="${OTTERDEPLOY_SWAP_FILE:-/swapfile}"
 
 DRY_RUN="${OTTERDEPLOY_DRY_RUN:-false}"
 ASSUME_YES="${OTTERDEPLOY_YES:-false}"   # -y/--yes: skip the interactive prompts
+VERBOSE="${OTTERDEPLOY_VERBOSE:-false}"  # -v/--verbose: mirror the full log to the terminal
 
 DOCKER_ADDRESS_POOL_BASE="${DOCKER_ADDRESS_POOL_BASE:-10.0.0.0/8}"
 DOCKER_ADDRESS_POOL_SIZE="${DOCKER_ADDRESS_POOL_SIZE:-24}"
@@ -95,12 +96,100 @@ DATE="$(date +%Y%m%d-%H%M%S)"
 LOG_FILE="$INSTALL_DIR/install-$DATE.log"
 IS_UPDATE=false
 STEP=0
+LAST_STEP=""   # name of the most recent step(), for the failure report
+# Detected in install_prereqs (which runs during the Host phase, since it also
+# installs the base packages) but reported on the Docker phase line.
+DOCKER_VER=""
 
-# ── helpers ─────────────────────────────────────────────────────────────────
+# ── output model ────────────────────────────────────────────────────────────
+# Two audiences, two streams:
+#
+#   the LOG   — every step header, every detail line, every command. Always
+#               complete; it is what you read when something went wrong.
+#   the TERM  — one line per PHASE, then the notes worth acting on, then how
+#               to reach the thing. Nothing an operator can't act on.
+#
+# In quiet mode (the default) main() points stdout/stderr at the log, so the
+# existing say()/step()/run() calls throughout this script keep narrating into
+# it unchanged, and only the phase/summary helpers below — which write to fd 3,
+# the terminal saved aside before that redirect — reach the screen. --verbose
+# tees the log to the terminal as well, which is the old behaviour.
+exec 3>&1
+TERM_IS_TTY=false
+if [ -t 1 ]; then TERM_IS_TTY=true; fi
+# True once main() has pointed stdout/stderr at the log. Until then fd 3 and
+# stdout are the same terminal, so error paths must not write to both.
+LOG_ACTIVE=false
+
 say()  { printf '%s\n' "$*"; }
-step() { STEP=$((STEP + 1)); printf '\n\033[1m[%s] %s\033[0m\n' "$STEP" "$*"; }
-warn() { printf '\033[33mwarning:\033[0m %s\n' "$*" >&2; }
-fail() { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
+step() { STEP=$((STEP + 1)); LAST_STEP="$*"; printf '\n\033[1m[%s] %s\033[0m\n' "$STEP" "$*"; }
+fail() {
+  printf '\033[31merror:\033[0m %s\n' "$*" >&3
+  if [ "$LOG_ACTIVE" = true ]; then printf 'error: %s\n' "$*" >&2; fi
+  exit 1
+}
+
+# Terminal-only output — bypasses the log redirection.
+tsay() { printf '%s\n' "$*" >&3; }
+
+# How to re-invoke this installer in a form the operator can paste back. Under
+# `curl … | bash` there is no script on disk — $0 is just "bash", so printing
+# "bash $0 firewall-status" told them to run something that doesn't exist.
+self_cmd() {
+  if [ -f "$0" ] && [ -r "$0" ]; then printf 'sudo bash %s' "$0"
+  else printf 'curl -fsSL https://get.otterdeploy.com/install.sh | sudo bash -s --'
+  fi
+}
+
+# A warning the operator may need to ACT on. Shown at the end, in one block,
+# in plain language — not mixed into the narration where it reads like the
+# install is failing. Still logged inline for the post-mortem.
+NOTES=()
+warn() {
+  printf '\033[33mwarning:\033[0m %s\n' "$*" >&2
+  NOTES+=("$*")
+}
+
+# ── phases ──────────────────────────────────────────────────────────────────
+# A phase groups several internal steps under one outcome the operator cares
+# about. Chips are the short facts that make the line worth reading ("29.6.1",
+# "swarm active") — the reasoning behind them stays in the log.
+PHASE_LABEL=""; PHASE_CHIPS=""; PHASE_STATE=""
+
+chip() {
+  if [ -n "$PHASE_CHIPS" ]; then PHASE_CHIPS="$PHASE_CHIPS · $1"; else PHASE_CHIPS="$1"; fi
+}
+
+# Mark the current phase as not-done-as-intended. Still not a failure — the
+# install continues; the reason lands in the notes block.
+phase_skip() { PHASE_STATE=skip; }
+
+# Close out the running phase, printing its one-line result. Silent under
+# --verbose: the step-by-step narration is already on screen there, and a
+# summary line interleaved into it is just noise.
+phase_end() {
+  if [ -z "$PHASE_LABEL" ]; then return 0; fi
+  if [ "$VERBOSE" != "true" ]; then
+    local mark='\033[32m✓\033[0m'
+    if [ "$PHASE_STATE" = skip ]; then mark='\033[33m·\033[0m'; fi
+    if [ "$TERM_IS_TTY" = true ]; then printf '\r\033[2K' >&3; fi
+    printf "  $mark %-13s \033[2m%s\033[0m\n" "$PHASE_LABEL" "$PHASE_CHIPS" >&3
+  fi
+  PHASE_LABEL=""; PHASE_CHIPS=""; PHASE_STATE=""
+  return 0
+}
+
+# Start a phase. On a TTY the in-progress label is shown immediately (and
+# overwritten by phase_end) so a long docker pull doesn't look like a hang.
+phase() {
+  phase_end
+  PHASE_LABEL="$1"; PHASE_CHIPS=""; PHASE_STATE=""
+  if [ "$VERBOSE" != "true" ] && [ "$TERM_IS_TTY" = true ]; then
+    printf '  \033[2m· %s…\033[0m' "$2" >&3
+  fi
+  printf '\n========== %s ==========\n' "$2"
+  return 0
+}
 
 # Run a mutating command — or just print it in --dry-run.
 run() {
@@ -175,12 +264,31 @@ primary_ip() { ip route get 1 2>/dev/null | sed -n 's/^.*src \([0-9.]*\).*$/\1/p
 
 # Advisory recovery hint on any uncaught failure (set -e). No auto-undo.
 on_error() {
-  trap - ERR; set +e   # never let the handler re-trigger itself
   local code="$1"
-  printf '\n\033[31mInstall failed at step %s (exit %s).\033[0m\n' "${STEP:-?}" "$code" >&2
-  [ "$DRY_RUN" != "true" ] && [ -f "$LOG_FILE" ] && say "  Full log:           $LOG_FILE" >&2
-  [ -f "/etc/docker/daemon.json.bak-$DATE" ] && say "  daemon.json backup: /etc/docker/daemon.json.bak-$DATE" >&2
-  say "  Re-run is safe — secrets are preserved." >&2
+  # `set -E` propagates this trap into command substitutions and subshells, so a
+  # failure inside `x="$(f)"` fires it once per nesting level — each one printing
+  # "Install failed" for a run that is still going. Only the top-level shell may
+  # report; a subshell just lets errexit unwind and the status propagate.
+  [ "${BASHPID:-$$}" = "$$" ] || return 0
+  trap - ERR; set +e   # never let the handler re-trigger itself
+  # → fd 3: in quiet mode stderr is the log file, and a failure the operator
+  #   can't see is the one thing this handler exists to prevent.
+  if [ "$TERM_IS_TTY" = true ]; then printf '\r\033[2K' >&3; fi
+  printf '\n\033[31m✗ %s failed.\033[0m\n' "${PHASE_LABEL:-Install}" >&3
+  printf '  Last step: %s\n' "${LAST_STEP:-?} (exit $code)" >&3
+  if [ "$DRY_RUN" != "true" ] && [ -f "$LOG_FILE" ]; then
+    printf '  What happened is in the log — the last 20 lines are usually enough:\n' >&3
+    printf '    tail -n 20 %s\n' "$LOG_FILE" >&3
+  fi
+  if [ -f "/etc/docker/daemon.json.bak-$DATE" ]; then
+    printf '  daemon.json backup: /etc/docker/daemon.json.bak-%s\n' "$DATE" >&3
+  fi
+  printf '  Re-running is safe — secrets and data are preserved.\n' >&3
+  # Mirror into the log too, so the log ends with the same verdict.
+  if [ "$LOG_ACTIVE" = true ]; then
+    printf '\nInstall failed during "%s" at step "%s" (exit %s).\n' \
+      "${PHASE_LABEL:-?}" "${LAST_STEP:-?}" "$code" >&2
+  fi
   exit "$code"
 }
 
@@ -215,6 +323,7 @@ detect_os() {
   esac
   [ -n "$OS_FAMILY" ] || fail "Unsupported distro '$OS_PRETTY'. Supported: Debian/Ubuntu, RHEL family (Fedora/Rocky/Alma/CentOS/Amazon), Arch."
   say " - OS: $OS_PRETTY ($OS_FAMILY family)"
+  chip "$OS_PRETTY"
 }
 
 # All base tools already present? Lets re-runs skip the package step entirely.
@@ -236,7 +345,7 @@ preflight() {
   # Disk space — dumps and branch clones live under DATA_DIR.
   local avail_kb; avail_kb="$(df -Pk / | awk 'NR==2{print $4}')"
   if [ "${avail_kb:-0}" -lt 20000000 ]; then
-    warn "Less than ~20G free on / — backups and branch clones may run out of room."
+    warn "Less than ~20G free on / — the install will complete, but backups and branch clones may run out of room later. Add disk when you can."
   fi
 
   # Memory — a frontend build (vite/webpack) inside BuildKit can spike 1–2G; on
@@ -250,6 +359,7 @@ preflight() {
   else
     say " - Memory: ${mem_mb} MiB RAM, $((swap_kb / 1024)) MiB swap"
   fi
+  chip "$(awk -v m="${mem_mb:-0}" 'BEGIN{printf "%.1fG RAM", m/1024}')"
 
   for p in $REQUIRED_PORTS; do
     if command -v ss >/dev/null 2>&1 && ss -ltn "( sport = :$p )" 2>/dev/null | grep -q LISTEN; then
@@ -257,6 +367,7 @@ preflight() {
     fi
   done
   say " - Ports $REQUIRED_PORTS are free"
+  chip "ports free"
 }
 
 # ── 2. base packages + docker ───────────────────────────────────────────────
@@ -295,6 +406,7 @@ install_prereqs() {
   if command -v docker >/dev/null 2>&1; then
     local dshow; dshow="$(docker --version 2>/dev/null | awk '{print $3}' | tr -d , || true)"
     say " - Docker already present ($dshow)"
+    DOCKER_VER="$dshow"
   else
     case "$OS_FAMILY" in
       debian|rhel)
@@ -320,6 +432,7 @@ install_prereqs() {
     if [ -n "$dmajor" ] && [ "$dmajor" -eq "$dmajor" ] 2>/dev/null; then
       [ "$dmajor" -lt 28 ] && fail "Docker $dver is too old — need >= 28. Upgrade: https://docs.docker.com/engine/install/"
       say " - Docker engine $dver (>= 28)"
+      DOCKER_VER="$dver"
     else
       warn "Could not determine Docker server version — ensure it is >= 28."
     fi
@@ -488,8 +601,10 @@ JSON
 ensure_swarm() {
   step "Ensuring Docker Swarm is initialized"
   if dry; then say "   + would run docker swarm init --advertise-addr <primary-ip> if not already active"; return; fi
-  if $SUDO docker info 2>/dev/null | grep -q 'Swarm: active'; then
-    say " - Swarm already active"; return
+  # Read the field directly rather than `docker info | grep -q` — see
+  # detect_swarm_peer_ips for why that pipeline lies under pipefail.
+  if [ "$($SUDO docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null || true)" = "active" ]; then
+    say " - Swarm already active"; chip "swarm active"; return
   fi
   # Prefer the primary outbound source IP (correct on multi-NIC/cloud hosts);
   # fall back to hostname -I, then a public-IP lookup. Override with ADVERTISE_ADDR.
@@ -498,7 +613,7 @@ ensure_swarm() {
   [ -z "$addr" ] && addr="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
   [ -z "$addr" ] && addr="$(detect_public_host)"
   $SUDO docker swarm init --advertise-addr "$addr" >/dev/null 2>&1 \
-    && say " - Swarm initialized (advertise-addr $addr)" \
+    && { say " - Swarm initialized (advertise-addr $addr)"; chip "swarm active"; } \
     || warn "Swarm init skipped/failed — the platform will retry on startup."
 }
 
@@ -673,11 +788,12 @@ BRANCH_ZFS_POOL=$pool_line
 
 # od-5j8.11: CrowdSec IP-reputation bouncer — bundled + wired automatically
 # when the firewall is enabled (the default). packages/env/src/server.ts
-# treats both as required together; the Caddyfile gains the `crowdsec` gate
-# and the `firewall` compose profile starts as soon as these are set.
+# treats both as required together; the Caddyfile gains the "crowdsec" gate
+# and the "firewall" compose profile starts as soon as these are set.
 $crowdsec_env_lines
 EOF
   say " - Secrets generated (and preserved across re-runs)"
+  if [ "$IS_UPDATE" = true ]; then chip "secrets preserved"; else chip "secrets generated"; fi
 }
 
 report_bootstrap_token() {
@@ -695,7 +811,7 @@ report_bootstrap_token() {
       printf 'Paste this into the first sign-up form. Later accounts require an invitation.\n'
     } > /dev/tty
   else
-    say "First-account bootstrap token is stored in $ENV_FILE (root-readable)."
+    tsay "  First-account bootstrap token is in $ENV_FILE (root-readable)."
   fi
 }
 
@@ -733,6 +849,7 @@ provision_branching() {
 
   if [ "$BRANCHING" = "off" ]; then
     say " - Skipped (OTTERDEPLOY_BRANCHING=off); logical branching tier still works"
+    phase_skip; chip "logical branching (opted out)"
     return
   fi
 
@@ -756,12 +873,14 @@ provision_branching() {
     return
   fi
   if ! command -v zpool >/dev/null 2>&1; then
-    warn "ZFS unavailable on this host → falling back to logical branching (full pg_dump copies)."
+    phase_skip; chip "logical branching"
+    warn "Database branching is on the logical tier — ZFS is not available on this host. Branching still works; branches are full copies instead of instant. Nothing to do."
     return
   fi
   # Make sure the kernel module actually loads (managed/odd kernels can lack it).
   if ! $SUDO modprobe zfs 2>/dev/null && ! $SUDO zpool status >/dev/null 2>&1; then
-    warn "ZFS kernel module won't load → falling back to logical branching."
+    phase_skip; chip "logical branching"
+    warn "Database branching is on the logical tier — this kernel won't load the ZFS module. Branching still works; branches are full copies instead of instant. Nothing to do."
     return
   fi
 
@@ -770,7 +889,8 @@ provision_branching() {
   else
     size="$(pool_size)"
     if [ -z "$size" ]; then
-      warn "Less than 5G free at $DATA_DIR → skipping the ZFS pool; logical branching tier still works."
+      phase_skip; chip "logical branching"
+      warn "Database branching is on the logical tier — less than 5G free at $DATA_DIR to host a copy-on-write pool. Branching still works; branches are full copies instead of instant. Free up disk and re-run to make them instant."
       return
     fi
     say " - Creating file-backed ZFS pool '$ZFS_POOL' ($size) at $ZFS_IMG"
@@ -780,7 +900,8 @@ provision_branching() {
       $SUDO truncate -s "$size" "$ZFS_IMG"
     fi
     if ! $SUDO zpool create -f "$ZFS_POOL" "$ZFS_IMG"; then
-      warn "zpool create failed → falling back to logical branching."
+      phase_skip; chip "logical branching"
+      warn "Database branching is on the logical tier — creating the ZFS pool failed (see the log). Branching still works; branches are full copies instead of instant."
       return
     fi
   fi
@@ -802,6 +923,7 @@ provision_branching() {
     printf 'BRANCH_ZFS_POOL=%s\n' "$ZFS_POOL" >> "$ENV_FILE"
   fi
   say " - Instant CoW branching enabled (pool '$ZFS_POOL', dataset '$ZFS_POOL/pg')"
+  chip "instant branching (ZFS $ZFS_POOL)"
 }
 
 # ── 7b. host-level firewall (nftables baseline) ─────────────────────────────
@@ -820,13 +942,37 @@ provision_branching() {
 # choice — or when nftables can't be installed.
 OTTERDEPLOY_NFT_RULESET=/etc/nftables-otterdeploy.conf
 
+# "Is another firewall manager already in charge here?" Capture-then-match
+# rather than `cmd | grep -q`: under pipefail a match makes grep close the pipe
+# early, the producer dies of SIGPIPE, and the pipeline reports 141 — so a host
+# that IS running ufw would read as "no ufw" and get nftables installed
+# alongside it. Exactly the fight this check exists to avoid.
+ufw_active() {
+  command -v ufw >/dev/null 2>&1 || return 1
+  case "$($SUDO ufw status 2>/dev/null || true)" in
+    *[Ss]tatus:*[Aa]ctive*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+firewalld_active() {
+  command -v firewall-cmd >/dev/null 2>&1 || return 1
+  [ "$($SUDO firewall-cmd --state 2>/dev/null || true)" = "running" ]
+}
+
 # The CURRENT sshd port — never assumed to be 22, so a customized install
 # can't get locked out. `ct state established,related accept` (in the
 # ruleset below) means even a WRONG detection can't kill the session this
 # installer is already running over; only a NEW connection would be refused.
 detect_ssh_port() {
   local p
-  p="$($SUDO sshd -T 2>/dev/null | awk '/^port /{print $2; exit}')"
+  # Two pipefail hazards, both of which used to abort the whole install here:
+  #   * `sshd -T` exits non-zero when it can't read the config (not root, no
+  #     sshd installed) — swallow it, the fallback below is the answer.
+  #   * an awk that `exit`s on the first match closes the pipe while sshd is
+  #     still writing, so sshd dies of SIGPIPE and pipefail reports 141.
+  # Read the whole stream and keep the first match instead.
+  p="$({ $SUDO sshd -T 2>/dev/null || true; } | awk '/^port /{ if (!seen++) port = $2 } END { print port }')"
   case "$p" in ''|*[!0-9]*) printf '22' ;; *) printf '%s' "$p" ;; esac
 }
 
@@ -842,16 +988,23 @@ detect_ssh_port() {
 # plane — always has host-level access to) and re-renders the peer set.
 # Space-separated IPv4 addresses; empty on a fresh single-node install.
 detect_swarm_peer_ips() {
-  $SUDO docker info 2>/dev/null | grep -q 'Swarm: active' || return 0
-  $SUDO docker node ls -q 2>/dev/null | while read -r id; do
-    $SUDO docker node inspect "$id" --format '{{.Status.Addr}}' 2>/dev/null
-  done | grep -E '^[0-9]+(\.[0-9]+){3}$' | sort -u | tr '\n' ' '
+  # `docker info | grep -q` reads wrong under pipefail: grep closes the pipe on
+  # the match, docker dies of SIGPIPE, and the pipeline reports 141 — i.e. a
+  # SUCCESSFUL match looked like "swarm is not active" and silently emptied the
+  # peer set. Ask docker for the single field instead. Same reason the grep
+  # below is guarded: no matching node is a normal single-host install, not an
+  # error worth aborting the install over.
+  [ "$($SUDO docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null || true)" = "active" ] || return 0
+  { $SUDO docker node ls -q 2>/dev/null || true; } | while read -r id; do
+    $SUDO docker node inspect "$id" --format '{{.Status.Addr}}' 2>/dev/null || true
+  done | { grep -E '^[0-9]+(\.[0-9]+){3}$' || true; } | sort -u | tr '\n' ' '
 }
 
 provision_host_firewall() {
   step "Applying host firewall (nftables baseline)"
   if [ "$FIREWALL" != "true" ]; then
     say " - Skipped (OTTERDEPLOY_FIREWALL=false)"
+    phase_skip; chip "off (opted out)"
     return
   fi
   local ssh_port; ssh_port="$(detect_ssh_port)"
@@ -863,12 +1016,16 @@ provision_host_firewall() {
     say "   + would skip entirely if ufw/firewalld is already active"
     return
   fi
-  if command -v ufw >/dev/null 2>&1 && $SUDO ufw status 2>/dev/null | grep -qi 'Status: active'; then
+  if ufw_active; then
     say " - ufw is active — leaving it in place (otterdeploy will not install nftables alongside it)"
+    phase_skip; chip "ufw left in place"
+    warn "ufw was already managing this host's firewall, so the nftables baseline was not applied — otterdeploy does not fight an existing firewall. Open the ports it needs: sudo ufw allow 80,443/tcp. CrowdSec IP-reputation blocking is unaffected."
     return
   fi
-  if command -v firewall-cmd >/dev/null 2>&1 && $SUDO firewall-cmd --state 2>/dev/null | grep -q running; then
+  if firewalld_active; then
     say " - firewalld is active — leaving it in place"
+    phase_skip; chip "firewalld left in place"
+    warn "firewalld was already managing this host's firewall, so the nftables baseline was not applied. Make sure 80/tcp and 443/tcp are open. CrowdSec IP-reputation blocking is unaffected."
     return
   fi
   if ! command -v nft >/dev/null 2>&1; then
@@ -879,7 +1036,8 @@ provision_host_firewall() {
     esac
   fi
   if ! command -v nft >/dev/null 2>&1; then
-    warn "nftables unavailable on this host — host-level firewall not applied (the CrowdSec bouncers still protect what they cover)."
+    phase_skip; chip "CrowdSec only"
+    warn "The host-level nftables baseline could not be applied (nftables is unavailable here). CrowdSec still blocks hostile IPs at the edge, but this host has no default-deny rule — restrict inbound traffic another way if it is internet-facing."
     return
   fi
   run $SUDO mkdir -p /etc/otterdeploy
@@ -933,7 +1091,8 @@ provision_host_firewall() {
     $SUDO nft insert rule ip filter DOCKER-USER tcp dport != { 80, 443 } ct state new counter drop comment "otterdeploy-guard"
   fi
   say " - nftables baseline active (SSH $ssh_port, 80/443, swarm ports peer-scoped)"
-  say "   Rollback if needed: sudo nft delete table inet otterdeploy   (or: bash $0 firewall-rollback)"
+  chip "nftables baseline"
+  say "   Rollback if needed: sudo nft delete table inet otterdeploy   (or: $(self_cmd) firewall-rollback)"
 }
 
 # ── 7c. native CrowdSec firewall bouncer on the primary ─────────────────────
@@ -1088,6 +1247,11 @@ start_stack() {
   # container still references — so it's safe here. Best-effort; never fail the
   # run on cleanup.
   $SUDO docker image prune -f >/dev/null 2>&1 || true
+
+  # Count what actually came up, for the terminal summary.
+  local n
+  n="$($SUDO docker compose "${COMPOSE_F[@]}" --env-file "$ENV_FILE" ps -q 2>/dev/null | grep -c . || true)"
+  case "$n" in ''|*[!0-9]*) : ;; 0) : ;; *) chip "$n services" ;; esac
 }
 
 # Don't declare success until the control plane actually answers — never show a
@@ -1098,14 +1262,18 @@ wait_for_health() {
   local i=0
   while [ "$i" -lt 45 ]; do
     if curl -fsS -o /dev/null --max-time 3 "http://localhost:$CONTROL_PLANE_PORT/" 2>/dev/null; then
-      say " - Control plane is responding"; return 0
+      say " - Control plane is responding"
+      chip "healthy in $((i * 2))s"
+      return 0
     fi
     i=$((i + 1)); sleep 2
   done
-  warn "Control plane did not respond within ~90s. Recent logs:"
+  # Capture the container logs into the install log (quiet mode has no "above"
+  # to point at), then say exactly where to look.
+  say "Control plane did not respond within ~90s. Recent container logs:"
   compose_f_args
   $SUDO docker compose "${COMPOSE_F[@]}" --env-file "$ENV_FILE" logs --tail 200 >&2 2>/dev/null || true
-  fail "otterdeploy did not become healthy — see logs above and $LOG_FILE."
+  fail "otterdeploy started but never became healthy. The container logs are at the end of $LOG_FILE — that is where the reason will be."
 }
 
 # ── version resolution ────────────────────────────────────────────────────────
@@ -1117,6 +1285,7 @@ resolve_version() {
   step "Resolving version"
   if [ -n "$VERSION" ]; then
     say " - $VERSION (pinned via OTTERDEPLOY_VERSION)"
+    chip "$VERSION (pinned)"
     return 0
   fi
   local tag
@@ -1126,6 +1295,7 @@ resolve_version() {
   if [ -n "$tag" ]; then
     VERSION="$tag"
     say " - $VERSION (latest release of $RELEASE_REPO)"
+    chip "$VERSION"
     return 0
   fi
   # Lookup failed (offline, rate-limited, or no release published yet). Never
@@ -1133,6 +1303,7 @@ resolve_version() {
   VERSION="$(env_value OTTERDEPLOY_VERSION)"
   if [ -n "$VERSION" ]; then
     say " - $VERSION (kept from existing .env — release lookup failed)"
+    chip "$VERSION"
   else
     VERSION="latest"
     warn "Could not resolve the latest release of $RELEASE_REPO — using the moving '$VERSION' tag. In-app updates pin to a release on first apply; or re-run the installer once a release is published."
@@ -1158,36 +1329,52 @@ pin_version_in_env() {
 update_stack() {
   [ -f "$COMPOSE_FILE" ] || fail "No existing install at $COMPOSE_FILE — run the installer first."
   say "Updating otterdeploy (pull + restart) — secrets preserved…"
+  phase Update "Updating otterdeploy"
   resolve_version
   pin_version_in_env
   prepare_tree
   start_stack
   wait_for_health
-  say ""
-  printf '\033[32motterdeploy updated.\033[0m\n'
+  phase_end
+  report_notes
+  tsay ""
+  printf '  \033[32motterdeploy updated to %s.\033[0m\n' "$VERSION" >&3
   report_access
 }
 
+# Everything warn() collected, once, at the end — where it reads as a
+# checklist rather than as the install falling over mid-run. Each note says
+# what it means for the operator, not just what the script observed.
+report_notes() {
+  if [ "${#NOTES[@]}" -eq 0 ]; then return 0; fi
+  tsay ""
+  printf '  \033[33mNotes (%s)\033[0m — the install succeeded; these are worth knowing\n' \
+    "${#NOTES[@]}" >&3
+  local n
+  for n in "${NOTES[@]}"; do
+    printf '   · %s\n' "$n" | fold -s -w 74 | sed -e 's/[[:space:]]*$//' -e '2,$s/^/     /' >&3
+  done
+  return 0
+}
+
 print_firewall_hint() {
-  if command -v ufw >/dev/null 2>&1 && $SUDO ufw status 2>/dev/null | grep -qi 'Status: active'; then
-    say ""
-    say "UFW is active, so otterdeploy left it in place instead of installing nftables alongside it."
-    say "Allow the ports the platform needs:"
-    say "  sudo ufw allow 80,443/tcp"
-    say "  (CrowdSec's Caddy-edge + native bouncers still enforce IP-reputation decisions either way.)"
-    return
+  if ufw_active; then
+    tsay ""
+    tsay "  Firewall   ufw was already active, so it was left in place. Open what"
+    tsay "             the platform needs:  sudo ufw allow 80,443/tcp"
+    tsay "             (CrowdSec still enforces IP reputation either way.)"
+    return 0
   fi
+  tsay ""
   if [ "$FIREWALL" = "true" ]; then
-    say ""
-    say "Firewall: nftables baseline + CrowdSec are ON by default (OTTERDEPLOY_FIREWALL=false to opt out)."
-    say "  Inspect:  bash $0 firewall-status"
-    say "  Rollback: bash $0 firewall-rollback   (removes the host nftables table only; the CrowdSec"
-    say "            containers/profile are unaffected — stop them with --profile firewall down)"
+    tsay "  Firewall   nftables baseline + CrowdSec are on."
+    tsay "             inspect   $(self_cmd) firewall-status"
+    tsay "             rollback  $(self_cmd) firewall-rollback   (host table only)"
   else
-    say ""
-    say "Firewall: disabled (OTTERDEPLOY_FIREWALL=false). Re-run with OTTERDEPLOY_FIREWALL=true (or"
-    say "--firewall) to enable the bundled nftables baseline + CrowdSec IP-reputation blocking."
+    tsay "  Firewall   off. Re-run with --firewall to enable the nftables"
+    tsay "             baseline + CrowdSec IP-reputation blocking."
   fi
+  return 0
 }
 
 # od-5j8.10: the dashboard is published to loopback ONLY (see
@@ -1199,21 +1386,22 @@ print_firewall_hint() {
 report_access() {
   local ssh_host ssh_user
 
-  say ""
-  printf '\033[32motterdeploy is up.\033[0m\n'
+  tsay ""
+  printf '  \033[32motterdeploy is up.\033[0m\n' >&3
   report_bootstrap_token
-  say ""
-  say "The dashboard is bound to 127.0.0.1:$CONTROL_PLANE_PORT on this host only — it is"
-  say "NOT reachable from the internet or your LAN at that port. Bootstrap it over SSH:"
   ssh_user="$(id -un 2>/dev/null || echo root)"
   ssh_host="$(hostname -f 2>/dev/null || hostname 2>/dev/null || echo "<this-host>")"
-  say ""
-  say "  ssh -L $CONTROL_PLANE_PORT:localhost:$CONTROL_PLANE_PORT $ssh_user@$ssh_host"
-  say "  then open http://localhost:$CONTROL_PLANE_PORT in your browser."
-  say ""
-  say "For everyday access over real HTTPS (redirect + HSTS + a trusted cert), point a"
-  say "domain at this host and set it as the control-plane domain in Settings →"
-  say "Networking — Caddy (already listening on 80/443) will front the dashboard."
+  tsay ""
+  tsay "  Dashboard  http://127.0.0.1:$CONTROL_PLANE_PORT  (bound to loopback on this host —"
+  tsay "             deliberately not reachable from the internet or your LAN)"
+  tsay ""
+  tsay "             Reach it now, over SSH:"
+  tsay "               ssh -L $CONTROL_PLANE_PORT:localhost:$CONTROL_PLANE_PORT $ssh_user@$ssh_host"
+  tsay "               then open http://localhost:$CONTROL_PLANE_PORT"
+  tsay ""
+  tsay "             For everyday HTTPS, point a domain at this host and set it as"
+  tsay "             the control-plane domain in Settings → Networking. Caddy is"
+  tsay "             already listening on 80/443 and will front the dashboard."
   return 0
 }
 
@@ -1294,14 +1482,13 @@ configure() {
   _ctx "Leave it on 'auto' unless you have a reason not to."
   _ask BRANCHING OTTERDEPLOY_BRANCHING "Database branching (auto|on|off)" "$BRANCHING"
 
-  # 2) Compose source
-  _ctx ""
-  _ctx "Compose source — where to fetch the stack definition (docker-compose.yml)."
-  _ctx "Point it at your own URL, a local path, or a file:// path if the default"
-  _ctx "host isn't reachable. Only change this if you self-host the compose file."
-  _ask COMPOSE_URL OTTERDEPLOY_COMPOSE_URL "Compose source (URL / path / file://)" "$COMPOSE_URL"
+  # NOT prompted: the compose source. Where the stack definition is fetched
+  # from is our packaging detail, not an operator's decision — asking made
+  # every normal install answer a question that has exactly one right answer.
+  # OTTERDEPLOY_COMPOSE_URL still overrides it for air-gapped/self-hosted
+  # mirrors; that's an env var for people who already know they need it.
 
-  # 3) Firewall — od-5j8.11: ON by default (the product's headline
+  # 2) Firewall — od-5j8.11: ON by default (the product's headline
   #    differentiator). Community IP-reputation blocking (CrowdSec) at both
   #    the Caddy edge AND the host, plus a default-deny nftables baseline.
   _ctx ""
@@ -1315,8 +1502,7 @@ configure() {
     case "$fw" in [Nn]*) FIREWALL=false ;; *) FIREWALL=true ;; esac
   fi
 
-  printf '\n   Config → branching=%s  version=%s  firewall=%s\n           compose=%s\n' \
-    "$BRANCHING" "$VERSION" "$FIREWALL" "$COMPOSE_URL" > "$tty"
+  printf '\n   Config → branching=%s  firewall=%s\n' "$BRANCHING" "$FIREWALL" > "$tty"
 }
 
 usage() {
@@ -1336,15 +1522,17 @@ Subcommands:
 Flags:
   -n, --dry-run    Preview every action; change nothing on the host.
   -y, --yes        Don't prompt; use env vars + defaults (unattended install).
+  -v, --verbose    Show every step on screen as it runs. Without it you get one
+                   line per phase and the full detail goes to the install log.
       --firewall   Force-enable the bundled firewall (CrowdSec + nftables) — the default.
       --no-firewall  Opt out of the bundled firewall entirely.
   -h, --help       Show this help.
 
-Run \`bash install.sh\` on a terminal and it asks for the main options (compose
-source, port, data dir, version, branching, firewall) before installing. Piped
-\`curl | bash\`, --yes, --dry-run, or no TTY skip the prompts and use env vars +
-defaults. Any OTTERDEPLOY_* env var that's set is used as-is (that prompt is
-skipped). All flags have env-var equivalents (see header), e.g. OTTERDEPLOY_YES=true.
+Run \`bash install.sh\` on a terminal and it asks for the two options worth a
+decision (database branching, firewall) before installing. Piped \`curl | bash\`,
+--yes, --dry-run, or no TTY skip the prompts and use env vars + defaults. Any
+OTTERDEPLOY_* env var that's set is used as-is (that prompt is skipped). All
+flags have env-var equivalents (see header), e.g. OTTERDEPLOY_YES=true.
 
 The bundled firewall (od-5j8.11) is ON BY DEFAULT: CrowdSec's bouncer key/LAPI wiring
 is generated automatically, the \`firewall\` compose profile starts, a default-deny
@@ -1364,6 +1552,7 @@ main() {
       firewall-rollback)  mode="firewall-rollback" ;;
       -n|--dry-run)       DRY_RUN=true ;;
       -y|--yes)           ASSUME_YES=true ;;
+      -v|--verbose)       VERBOSE=true ;;
       --firewall)         FIREWALL=true ;;
       --no-firewall)      FIREWALL=false ;;
       -h|--help)          usage; exit 0 ;;
@@ -1386,9 +1575,23 @@ main() {
   [ "$mode" = "install" ] && configure
 
   # Capture the whole run to a timestamped log (curl|bash has no scrollback).
+  # Quiet mode sends the narration to the log ONLY and keeps the terminal for
+  # the phase summary; --verbose tees it to both. If the log can't be opened we
+  # fall back to narrating on screen rather than silently losing the record.
   if [ "$DRY_RUN" != "true" ]; then
     mkdir -p "$INSTALL_DIR" 2>/dev/null || $SUDO mkdir -p "$INSTALL_DIR" || true
-    [ -w "$INSTALL_DIR" ] && exec > >(tee -a "$LOG_FILE") 2>&1
+    if [ -w "$INSTALL_DIR" ]; then
+      LOG_ACTIVE=true
+      if [ "$VERBOSE" = "true" ]; then
+        exec > >(tee -a "$LOG_FILE") 2>&1
+      else
+        exec >>"$LOG_FILE" 2>&1
+      fi
+    else
+      VERBOSE=true
+    fi
+  else
+    VERBOSE=true   # a dry run IS the detail; there's nothing to summarize
   fi
   trap 'on_error $?' ERR
   [ -f "$ENV_FILE" ] && IS_UPDATE=true
@@ -1399,6 +1602,14 @@ main() {
   [ "$DRY_RUN" = "true" ] && say "  DRY RUN — no changes will be made"
   say "=========================================="
 
+  # The terminal header. In verbose/dry-run mode stdout is already the screen,
+  # so the banner above is enough — don't print it twice.
+  if [ "$VERBOSE" != "true" ]; then
+    tsay ""
+    tsay "$(printf '\033[1motterdeploy\033[0m → %s' "$DATA_DIR")"
+    tsay ""
+  fi
+
   migrate_legacy_install
 
   if [ "$mode" = "update" ]; then
@@ -1406,20 +1617,40 @@ main() {
     return
   fi
 
+  # Phases group the 17 internal steps into the six outcomes an operator
+  # actually tracks. Each is one line on the terminal; the steps inside it keep
+  # narrating into the log exactly as before.
+  phase Host      "Checking the host"
   preflight
   install_prereqs
   provision_swap
-  resolve_version
+
+  phase Docker    "Setting up Docker"
+  if [ -n "$DOCKER_VER" ]; then chip "docker $DOCKER_VER"; fi
   configure_docker_pool
   ensure_swarm
   ensure_network
+
+  # resolve_version moved in here from the Docker group: it is a plain network
+  # lookup that only needs curl (installed above), and the release tag it picks
+  # is what write_env pins — so it reads as part of "configuration", and its
+  # version lands on the Config line where an operator looks for it.
+  phase Config    "Writing configuration"
+  resolve_version
   prepare_tree
   write_env
+
+  phase Storage   "Preparing storage"
   provision_branching
+
+  phase Firewall  "Applying the firewall"
   provision_host_firewall
+
+  phase Services  "Starting otterdeploy"
   start_stack
   wait_for_health
   provision_native_bouncer
+  phase_end
 
   if [ "$DRY_RUN" = "true" ]; then
     say ""
@@ -1427,26 +1658,19 @@ main() {
     return
   fi
 
+  report_notes
   report_access
   print_firewall_hint
-  say ""
-  say "Files:"
-  say "  Compose: $COMPOSE_FILE"
-  say "  Data:    $DATA_DIR"
-  say "  Config:  $ENV_FILE"
-  say "  Log:     $LOG_FILE"
-  say ""
-  say "Manage it:"
-  say "  sudo docker compose -f $COMPOSE_FILE --env-file $ENV_FILE ps"
-  say "  sudo docker compose -f $COMPOSE_FILE --env-file $ENV_FILE logs -f"
-  say "  curl -fsSL https://get.otterdeploy.com/install.sh | sudo bash -s -- update   # pull a new version"
-  if [ -n "$(env_value BRANCH_ZFS_POOL)" ]; then
-    say ""
-    say "Database branching: instant copy-on-write tier ENABLED (ZFS pool '$(env_value BRANCH_ZFS_POOL)')."
-  else
-    say ""
-    say "Database branching: logical tier only (full-copy). Install ZFS + re-run to enable instant branches."
-  fi
+  tsay ""
+  tsay "  Files      compose $COMPOSE_FILE"
+  tsay "             data    $DATA_DIR"
+  tsay "             config  $ENV_FILE"
+  tsay "             log     $LOG_FILE"
+  tsay ""
+  tsay "  Manage it  sudo docker compose -f $COMPOSE_FILE --env-file $ENV_FILE ps"
+  tsay "             sudo docker compose -f $COMPOSE_FILE --env-file $ENV_FILE logs -f"
+  tsay "             curl -fsSL https://get.otterdeploy.com/install.sh | sudo bash -s -- update"
+  tsay ""
 }
 
 main "$@"
