@@ -5,6 +5,23 @@ import { clampTtl, NetbirdClient, normalizeManagementUrl, resolvePeerDomain } fr
 import { MeshProviderError } from "../types";
 
 /** Minimal fetch stub: returns a queued response per call, recording requests. */
+
+/**
+ * Index into a fixture array, failing loudly when the element is missing.
+ *
+ * Replaces `calls[0]!` — a bare non-null assertion turns "the code under test
+ * made fewer requests than expected" into "cannot read properties of
+ * undefined", which names the symptom and hides the cause. This names the
+ * cause.
+ */
+function at<T>(items: readonly T[], index: number, what: string): T {
+  const item = items[index];
+  if (item === undefined) {
+    throw new Error(`expected ${what}[${index}] to exist, but only ${items.length} were recorded`);
+  }
+  return item;
+}
+
 function stubFetch(responses: Array<{ status?: number; body?: unknown; text?: string }>): {
   impl: typeof fetch;
   calls: Array<{ url: string; init: RequestInit }>;
@@ -13,7 +30,7 @@ function stubFetch(responses: Array<{ status?: number; body?: unknown; text?: st
   let i = 0;
   const impl = (async (url: string, init: RequestInit) => {
     calls.push({ url, init });
-    const spec = responses[Math.min(i++, responses.length - 1)]!;
+    const spec = at(responses, Math.min(i++, responses.length - 1), "responses");
     const status = spec.status ?? 200;
     const text = spec.text ?? (spec.body === undefined ? "" : JSON.stringify(spec.body));
     return {
@@ -47,9 +64,9 @@ describe("auth header", () => {
       fetchImpl: impl,
     }).verify();
 
-    const headers = calls[0]!.init.headers as Record<string, string>;
+    const headers = at(calls, 0, "calls").init.headers as Record<string, string>;
     expect(headers.Authorization).toBe("Token pat_abc");
-    expect(calls[0]!.url).toBe("https://api.netbird.io/api/accounts");
+    expect(at(calls, 0, "calls").url).toBe("https://api.netbird.io/api/accounts");
   });
 });
 
@@ -101,7 +118,7 @@ describe("mintNodeKey", () => {
       ephemeral: true,
     });
 
-    const body = JSON.parse(calls[0]!.init.body as string);
+    const body = JSON.parse(at(calls, 0, "calls").init.body as string);
     // Without allow_extra_dns_labels the management server rejects the
     // wildcard label at registration and private hostnames never resolve.
     expect(body.allow_extra_dns_labels).toBe(true);
@@ -215,8 +232,8 @@ describe("ensureAccessPolicy", () => {
       destinationGroupIds: ["nodes"],
       ports: ["443"],
     });
-    expect(calls[1]!.init.method).toBe("PUT");
-    expect(calls[1]!.url).toContain("/api/policies/pol1");
+    expect(at(calls, 1, "calls").init.method).toBe("PUT");
+    expect(at(calls, 1, "calls").url).toContain("/api/policies/pol1");
   });
 });
 

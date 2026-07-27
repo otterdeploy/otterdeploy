@@ -67,7 +67,12 @@ export async function upsertMeshNetwork(input: UpsertMeshNetworkInput): Promise<
     .values(values)
     .onConflictDoUpdate({ target: meshNetwork.organizationId, set: values })
     .returning();
-  return row!;
+  // An upsert with `returning()` always yields exactly one row, so this is
+  // unreachable — but it throws rather than asserting non-null, so if the
+  // invariant ever breaks the failure names itself here instead of surfacing
+  // as a `undefined is not an object` somewhere downstream.
+  if (!row) throw new Error("mesh network upsert returned no row");
+  return row;
 }
 
 /** Record the outcome of a re-verify without touching the credential. */
