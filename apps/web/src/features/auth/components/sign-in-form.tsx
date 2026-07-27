@@ -11,7 +11,7 @@ import * as z from "zod";
 import { authClient } from "@/lib/auth-client";
 import { clearAuthCache } from "@/lib/auth-queries";
 
-import { AuthInput, AuthSubmitButton } from "./auth-fields";
+import { AuthField, AuthSubmitButton } from "./auth-fields";
 import { EnterpriseSsoSignIn } from "./enterprise-sso-sign-in";
 import { SocialSignIn } from "./social-sign-in";
 import { TwoFactorChallenge } from "./two-factor-challenge";
@@ -125,47 +125,25 @@ export function SignInForm({
       >
         <form.Field name="email">
           {(field) => (
-            <div className="space-y-2">
-              <AuthInput
-                id={field.name}
-                name={field.name}
-                label={t("auth.signIn.emailLabel")}
-                type="email"
-                autoComplete="email"
-                placeholder={t("auth.signIn.emailPlaceholder")}
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={field.handleChange}
-              />
-              {field.state.meta.errors.map((error) => (
-                <p key={error?.message} className="text-sm text-destructive">
-                  {error?.message}
-                </p>
-              ))}
-            </div>
+            <AuthField
+              field={field}
+              label={t("auth.signIn.emailLabel")}
+              type="email"
+              autoComplete="email"
+              placeholder={t("auth.signIn.emailPlaceholder")}
+            />
           )}
         </form.Field>
 
         <form.Field name="password">
           {(field) => (
-            <div className="space-y-2">
-              <AuthInput
-                id={field.name}
-                name={field.name}
-                label={t("auth.signIn.passwordLabel")}
-                type="password"
-                autoComplete="current-password"
-                placeholder={t("auth.signIn.passwordPlaceholder")}
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={field.handleChange}
-              />
-              {field.state.meta.errors.map((error) => (
-                <p key={error?.message} className="text-sm text-destructive">
-                  {error?.message}
-                </p>
-              ))}
-            </div>
+            <AuthField
+              field={field}
+              label={t("auth.signIn.passwordLabel")}
+              type="password"
+              autoComplete="current-password"
+              placeholder={t("auth.signIn.passwordPlaceholder")}
+            />
           )}
         </form.Field>
 
