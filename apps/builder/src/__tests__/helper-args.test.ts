@@ -11,6 +11,7 @@ import {
   buildHelperEnvFlags,
   buildHelperRunArgs,
   FORWARDED_ENV,
+  clampCpus,
   helperHardeningFlags,
   helperHardeningFromEnv,
 } from "../helper-args";
@@ -112,6 +113,56 @@ describe("helperHardeningFlags", () => {
     expect(flags).toContain("128");
     expect(flags).toContain("1g");
     expect(flags).toContain("0.5");
+  });
+
+  test("clamps --cpus to the host's CPU count", () => {
+    // The single-vCPU box. Docker REJECTS a request above the host count —
+    // "range of CPUs is from 0.01 to 1.00, as there are only 1 CPUs available"
+    // — and the helper exits 125 before the build starts, so the default of 2
+    // failed every build on the cheapest VPS tier.
+    const flags = helperHardeningFlags({}, 1);
+    expect(flags[flags.indexOf("--cpus") + 1]).toBe("1");
+  });
+
+  test("leaves --cpus alone when the host has the cores", () => {
+    const flags = helperHardeningFlags({}, 8);
+    expect(flags[flags.indexOf("--cpus") + 1]).toBe("2");
+  });
+
+  test("clamps an explicit override too", () => {
+    // A tuning knob the host can't satisfy is still an unstartable build.
+    const flags = helperHardeningFlags({ cpus: "4" }, 2);
+    expect(flags[flags.indexOf("--cpus") + 1]).toBe("2");
+  });
+
+  test("skips clamping when the host count is unknown", () => {
+    // Preserves the previous behaviour rather than guessing a limit.
+    const flags = helperHardeningFlags({ cpus: "2" }, null);
+    expect(flags[flags.indexOf("--cpus") + 1]).toBe("2");
+  });
+});
+
+describe("clampCpus", () => {
+  test("returns the request untouched when it fits", () => {
+    expect(clampCpus("2", 4)).toBe("2");
+    expect(clampCpus("0.5", 1)).toBe("0.5");
+    expect(clampCpus("1", 1)).toBe("1");
+  });
+
+  test("reduces to the host count when it doesn't", () => {
+    expect(clampCpus("2", 1)).toBe("1");
+    expect(clampCpus("16", 2)).toBe("2");
+  });
+
+  test("respects docker's 0.01 floor on fractional hosts", () => {
+    expect(clampCpus("2", 0.005)).toBe("0.01");
+  });
+
+  test("hands unparseable values to docker unchanged", () => {
+    // Docker's own error names the problem better than a silent substitution.
+    expect(clampCpus("abc", 1)).toBe("abc");
+    expect(clampCpus("0", 1)).toBe("0");
+    expect(clampCpus("-1", 1)).toBe("-1");
   });
 });
 
