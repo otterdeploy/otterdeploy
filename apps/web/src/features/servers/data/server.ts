@@ -14,6 +14,12 @@ export const serverCollection = createCollection(
     ...orpc.server.list.queryOptions(),
     queryKey: orpc.server.list.queryKey(),
     queryFn: async () => orpc.server.list.call(),
+    // This collection carries `status` and `provisionStatus` — the badge in the
+    // servers table. Without a poll it only changed on a manual reload, so a
+    // node going down (or a provision finishing) sat visibly wrong until the
+    // operator happened to refresh. 10s matches the swarm collection, which is
+    // the same underlying truth this status is derived from.
+    refetchInterval: 10_000,
     onInsert: async ({ transaction }) => {
       await Promise.all(
         transaction.mutations.map((m) =>
