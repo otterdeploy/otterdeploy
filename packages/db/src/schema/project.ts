@@ -14,6 +14,7 @@ import type {
   ProjectEnvVarId,
   ProjectId,
   ResourceId,
+  ServerId,
   ServiceEnvVarId,
   ServiceMountId,
   ServicePortId,
@@ -268,6 +269,13 @@ export const resource = pgTable(
     // Provenance for a branched resource (e.g. a COW db branch). Self-referential
     // FK enforced app-side (same idiom as project.gitRepoId).
     branchedFromResourceId: text("branched_from_resource_id").$type<ResourceId>(),
+    // Pin this resource to one server. NULL = let the scheduler place it
+    // anywhere, which is the default and the right choice for stateless work.
+    // Set = a hard swarm placement constraint, which also means NO failover:
+    // if that node dies the task waits rather than moving, because its volume
+    // does not move with it. Cleared (not cascaded) if the server is removed,
+    // so the resource falls back to being schedulable rather than unplaceable.
+    placementServerId: text("placement_server_id").$type<ServerId>(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

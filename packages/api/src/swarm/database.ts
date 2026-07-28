@@ -51,6 +51,11 @@ export interface ProvisionSwarmDatabaseInput {
   /** Stamped on Spec.Labels + ContainerSpec.Labels so each task carries
    *  the deployment id back through to the Deployments tab. */
   deploymentId: string;
+  /** Swarm node id to pin this database to, from the resource's
+   *  `placementServerId`. Undefined leaves the scheduler free. Pinning a
+   *  database is usually right — its volume is local — but it also means no
+   *  failover: see ./placement. */
+  placementNodeId?: string;
   /** Optional `<repo>:<tag>` override. Defaults to the adapter's pinned
    *  image. Drives the wizard's version picker — pass the chosen tag here
    *  and swarm pulls that exact build. */
