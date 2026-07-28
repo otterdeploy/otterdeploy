@@ -200,4 +200,57 @@ export const resourceContractSlice = {
     })
     .input(deleteProjectResourceInput)
     .output(z.object({ ok: z.boolean() })),
+
+  // Clone a SET of resources. Preview first: the names the copies get, and
+  // every env reference that will still point OUTSIDE the set — the latter is
+  // the part worth reading, because a copy holding a ref to a resource you
+  // didn't clone reads and writes the original with no visible symptom.
+  clonePreview: oc
+    .errors({
+      NOT_FOUND: { status: 404, message: "Project not found" as const },
+      INVALID_INPUT: { status: 400, message: "Select at least one resource" as const },
+    })
+    .meta({
+      path: `${basePath}/{projectId}/resources/clone/preview`,
+      tag,
+      method: "POST",
+    })
+    .input(z.object({ projectId: projectIdField, resourceIds: z.array(z.string()).min(1) }))
+    .output(
+      z.object({
+        names: z.array(z.object({ sourceName: z.string(), targetName: z.string() })),
+        externalRefs: z.array(
+          z.object({ fromName: z.string(), toName: z.string(), envKey: z.string() }),
+        ),
+      }),
+    ),
+
+  clone: oc
+    .errors({
+      NOT_FOUND: { status: 404, message: "Project not found" as const },
+      INVALID_INPUT: { status: 400, message: "Select at least one resource" as const },
+    })
+    .meta({
+      path: `${basePath}/{projectId}/resources/clone`,
+      tag,
+      method: "POST",
+    })
+    .input(z.object({ projectId: projectIdField, resourceIds: z.array(z.string()).min(1) }))
+    .output(
+      z.object({
+        created: z.array(
+          z.object({
+            resourceId: z.string(),
+            name: z.string(),
+            type: z.enum(["service", "database"]),
+          }),
+        ),
+        // Partial success is real: one bad source must not discard the copies
+        // already made, so both lists come back.
+        failed: z.array(z.object({ sourceName: z.string(), reason: z.string() })),
+        externalRefs: z.array(
+          z.object({ fromName: z.string(), toName: z.string(), envKey: z.string() }),
+        ),
+      }),
+    ),
 };
