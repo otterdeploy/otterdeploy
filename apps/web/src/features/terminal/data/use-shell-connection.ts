@@ -10,6 +10,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { env } from "@otterdeploy/env/web";
+import { Result } from "better-result";
 
 import { ServerMessage } from "@/messages";
 
@@ -146,16 +147,24 @@ export function useShellConnection(target: SessionSource, { write, onConnChange 
     // success. `STEP_UP_REQUIRED` means there's no live re-auth grant;
     // prompt for one and retry exactly once.
     const getTicket = async (): Promise<string> => {
-      try {
-        return (await mintShellTicket(target)).ticket;
-      } catch (err) {
-        if (!(err instanceof StepUpRequiredError)) throw err;
-        await new Promise<void>((resolve, reject) => {
-          stepUpWaiterRef.current = { resolve, reject };
-          setStepUpPromptOpen(true);
-        });
-        return (await mintShellTicket(target)).ticket;
-      }
+      const first = await Result.tryPromise({
+        try: () => mintShellTicket(target),
+        catch: (cause) => cause,
+      });
+      if (first.isOk()) return first.value.ticket;
+      // A missing step-up grant is the ONE recoverable failure here. Anything
+      // else — denied authorization, a dead network — is the caller's to
+      // report, so it propagates rather than being retried behind a prompt.
+      if (!(first.error instanceof StepUpRequiredError)) throw first.error;
+      // Rejects on teardown (see the cleanup), which surfaces to the caller as
+      // an error it discards because `disposed` is already set.
+      await new Promise<void>((resolve, reject) => {
+        stepUpWaiterRef.current = { resolve, reject };
+        setStepUpPromptOpen(true);
+      });
+      // Retried exactly once: a second STEP_UP_REQUIRED means the grant didn't
+      // take, and prompting again would loop.
+      return (await mintShellTicket(target)).ticket;
     };
 
     const handleMessage = (e: MessageEvent) => {
@@ -163,16 +172,20 @@ export function useShellConnection(target: SessionSource, { write, onConnChange 
         writeVisible(new Uint8Array(e.data));
         return;
       }
-      if (typeof e.data !== "string") return;
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(e.data);
-      } catch {
-        return;
-      }
-      const result = ServerMessage.safeParse(parsed);
-      if (!result.success) return;
-      const msg = result.data;
+      // Everything that can reject a frame lives in one place: a non-string
+      // payload, unparseable JSON, and JSON that isn't a ServerMessage all
+      // come back as null. A peer can put anything on this socket, so none of
+      // those is exceptional — they just mean "ignore this frame".
+      const decoded = Result.try({
+        try: () => {
+          if (typeof e.data !== "string") return null;
+          const parsed = ServerMessage.safeParse(JSON.parse(e.data));
+          return parsed.success ? parsed.data : null;
+        },
+        catch: () => null,
+      });
+      if (decoded.isErr() || !decoded.value) return;
+      const msg = decoded.value;
       switch (msg.type) {
         case "session:exit": {
           const detail =
@@ -196,22 +209,23 @@ export function useShellConnection(target: SessionSource, { write, onConnChange 
     };
 
     const connect = async () => {
-      let ticket: string;
-      try {
-        ticket = await getTicket();
-      } catch (err) {
-        if (disposed) return;
-        const message = err instanceof Error ? err.message : "Couldn't open a shell.";
-        update({ kind: "error", message });
-        writeVisible(`\r\n\x1b[31m[${message}]\x1b[0m\r\n`);
+      const ticket = await Result.tryPromise({
+        try: () => getTicket(),
+        catch: (cause) => (cause instanceof Error ? cause.message : "Couldn't open a shell."),
+      });
+      // Checked before the outcome is read: a teardown mid-mint must stay
+      // silent whether the mint succeeded or failed.
+      if (disposed) return;
+      if (ticket.isErr()) {
+        update({ kind: "error", message: ticket.error });
+        writeVisible(`\r\n\x1b[31m[${ticket.error}]\x1b[0m\r\n`);
         // No auto-reconnect — retrying immediately would just re-prompt for
         // step-up (or re-hit the same authorization denial) in a loop. The
         // caller can retry by opening a new session.
         return;
       }
-      if (disposed) return;
 
-      const ws = new WebSocket(wsUrlForTicket(ticket));
+      const ws = new WebSocket(wsUrlForTicket(ticket.value));
       wsRef.current = ws;
       ws.binaryType = "arraybuffer";
 

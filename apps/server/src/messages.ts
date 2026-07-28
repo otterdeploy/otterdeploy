@@ -4,9 +4,12 @@
 // modeled here — only JSON control messages (text frames) belong in these
 // unions. The wire format is one contract for both directions.
 //
-// NOTE: apps/web/src/messages.ts is a symlink to this file. Edit here.
+// NOTE: this file is duplicated at apps/web/src/messages.ts — NOT a symlink, despite what
+// this comment used to claim. The two are byte-identical except for which
+// union each side exports (ClientMessage here, since that is the one this
+// app receives). Keep both in step when the wire format changes.
 
-import { z } from "zod/v4";
+import * as z from "zod/v4";
 
 // Client -> Server control messages.
 export const ClientMessage = z.discriminatedUnion("type", [
