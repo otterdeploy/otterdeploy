@@ -5,6 +5,7 @@
 // so the virtualizer's rows stay uniform and can't overlap.
 
 import type { ColumnDef } from "@tanstack/react-table";
+import type { TFunction } from "i18next";
 
 import { Checkbox } from "@/shared/components/ui/checkbox";
 import { cn } from "@/shared/lib/utils";
@@ -19,14 +20,24 @@ import { stripAnsi } from "./ansi";
 
 const levelRank = (lv: LogLevel) => LOG_LEVELS.indexOf(lv);
 
-export const logColumns: ColumnDef<LogLine>[] = [
+/**
+ * Column definitions for the log table.
+ *
+ * A factory rather than a module constant because two of the columns carry
+ * translated aria-labels: `header`/`cell` are called as plain functions by
+ * TanStack Table, not rendered as components, so a hook inside them would be
+ * illegal. Taking `t` as a parameter keeps the strings translated and lets the
+ * caller — which IS a component — own the subscription to language changes.
+ */
+export function makeLogColumns(t: TFunction): ColumnDef<LogLine>[] {
+  return [
   {
     id: "select",
     size: 36,
     enableSorting: false,
     header: ({ table }) => (
       <Checkbox
-        aria-label="Select all"
+        aria-label={t("logs.selectAll")}
         checked={table.getIsAllRowsSelected()}
         indeterminate={table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()}
         onCheckedChange={(v) => table.toggleAllRowsSelected(!!v)}
@@ -36,7 +47,7 @@ export const logColumns: ColumnDef<LogLine>[] = [
       // Stop propagation so ticking the box doesn't also open the detail panel.
       <span onClick={(e) => e.stopPropagation()}>
         <Checkbox
-          aria-label="Select row"
+          aria-label={t("logs.selectRow")}
           checked={row.getIsSelected()}
           onCheckedChange={(v) => row.toggleSelected(!!v)}
         />
@@ -111,4 +122,5 @@ export const logColumns: ColumnDef<LogLine>[] = [
       );
     },
   },
-];
+  ];
+}

@@ -7,6 +7,7 @@
  */
 
 import { useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { TypedConfirmDialog } from "@/shared/components/typed-confirm-dialog";
@@ -28,12 +29,13 @@ export function RollbackDialog({
   /** Called after the rollback is accepted — refetch the list here. */
   onRolledBack: () => void;
 }) {
+  const { t } = useTranslation();
   // Re-points the service at this deployment's image and re-rolls; the list
   // picks up the new reason="rollback" row on its next refetch.
   const rollbackMut = useMutation({
     ...orpc.service.rollback.mutationOptions(),
     onSuccess: () => {
-      toast.success("Rolling back", {
+      toast.success(t("deployments.rollingBack"), {
         description: target
           ? `Re-deploying ${shortImageRef(target.image)} on ${target.resourceName}.`
           : undefined,
@@ -82,7 +84,7 @@ export function RollbackDialog({
         </>
       }
       confirmLabel="Roll back"
-      pendingLabel="Rolling back…"
+      pendingLabel={t("deployments.rollingBackPending")}
       pending={rollbackMut.isPending}
       onConfirm={() => {
         if (!target) return;

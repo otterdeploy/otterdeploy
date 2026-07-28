@@ -5,6 +5,7 @@
  */
 
 import { useForm } from "@tanstack/react-form";
+import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -41,6 +42,7 @@ export function ImportKeyDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const importKey = useMutation(
     orpc.sshKeys.import.mutationOptions({
       onSuccess: () => {
@@ -59,7 +61,7 @@ export function ImportKeyDialog({
           name: value.name.trim(),
           publicKey: value.publicKey.trim(),
         });
-        toast.success("SSH key imported");
+        toast.success(t("sshKeys.imported"));
         setOpen(false);
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to import SSH key");
@@ -68,6 +70,7 @@ export function ImportKeyDialog({
   });
 
   const setOpen = (next: boolean) => {
+    const { t } = useTranslation();
     if (!next) form.reset();
     onOpenChange(next);
   };
@@ -76,7 +79,7 @@ export function ImportKeyDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Import SSH key</DialogTitle>
+          <DialogTitle>{t("sshKeys.importTitle")}</DialogTitle>
           <DialogDescription>
             Paste a public key. Only the public half is stored — keep the private key on your own
             machine.
@@ -99,7 +102,7 @@ export function ImportKeyDialog({
           >
             {(field) => (
               <Field>
-                <FieldLabel htmlFor={field.name}>Name</FieldLabel>
+                <FieldLabel htmlFor={field.name}>{t("common.name")}</FieldLabel>
                 <Input
                   id={field.name}
                   name={field.name}
@@ -162,10 +165,11 @@ function DetectField({
   onBlur: () => void;
   errors: string[];
 }) {
+  const { t } = useTranslation();
   const detected = detectType(value);
   return (
     <Field>
-      <FieldLabel htmlFor="ssh-public-key">Public key</FieldLabel>
+      <FieldLabel htmlFor="ssh-public-key">{t("sshKeys.publicKey")}</FieldLabel>
       <Textarea
         id="ssh-public-key"
         rows={5}
@@ -176,15 +180,15 @@ function DetectField({
         className="resize-y font-mono text-xs leading-relaxed"
       />
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span>Detected type:</span>
+        <span>{t("sshKeys.detectedType")}</span>
         {detected ? (
           <Badge variant="outline" className="font-mono text-[11px]">
             {detected}
           </Badge>
         ) : value.trim() ? (
-          <span className="text-destructive">unrecognised — paste the full public-key line</span>
+          <span className="text-destructive">{t("sshKeys.unrecognised")}</span>
         ) : (
-          <span>paste a public key above</span>
+          <span>{t("sshKeys.pastePrompt")}</span>
         )}
       </div>
       {errors.map((err) => (

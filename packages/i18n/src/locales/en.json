@@ -37,7 +37,9 @@
     "language": "Language",
     "loadingLabel": "Loading",
     "copyFailed": "Couldn't copy",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "name": "Name",
+    "username": "Username"
   },
   "auth": {
     "signIn": {
@@ -385,5 +387,91 @@
     "allProjects": "All projects",
     "connecting": "Connecting…",
     "confirmIdentity": "Confirm it's you"
+  },
+  "deployments": {
+    "columns": {
+      "status": "Status",
+      "service": "Service",
+      "commit": "Commit",
+      "author": "Author",
+      "duration": "Duration",
+      "when": "When"
+    },
+    "filterByResource": "Filter by resource",
+    "filterByStatus": "Filter by status",
+    "timeWindow": "Time window",
+    "rollingBack": "Rolling back",
+    "rollingBackPending": "Rolling back…",
+    "buildCancelled": "Build cancelled",
+    "stopBuild": "Stop this build?",
+    "keepBuilding": "Keep building"
+  },
+  "logs": {
+    "allServices": "All services",
+    "filterVisible": "filter visible messages…",
+    "copyVisible": "Copy visible lines",
+    "clearTimeFilter": "Clear time filter",
+    "volumeLast30m": "Volume · last 30m",
+    "details": "Log details",
+    "closeDetails": "Close details",
+    "selectAll": "Select all",
+    "selectRow": "Select row",
+    "copyLogs": "Copy logs",
+    "findInLogs": "Find in logs",
+    "selectedCount_one": "{{count}} selected",
+    "selectedCount_other": "{{count}} selected"
+  },
+  "apiKeys": {
+    "createTitle": "Create API key",
+    "created": "API key created",
+    "copied": "API key copied",
+    "deleted": "API key deleted",
+    "rotate": "Rotate API key",
+    "delete": "Delete API key",
+    "permissions": "Permissions",
+    "expiry": "Expiry",
+    "fullAccess": "Full access",
+    "namePlaceholder": "CI deploy bot"
+  },
+  "registries": {
+    "label": "Registry",
+    "kind": "Registry kind",
+    "host": "Registry host",
+    "displayName": "Display name",
+    "edit": "Edit registry",
+    "delete": "Delete registry",
+    "removed": "Registry removed",
+    "removeConfirm": "Remove this registry?"
+  },
+  "sso": {
+    "addProvider": "Add identity provider",
+    "registered": "Identity provider registered",
+    "providerId": "Provider ID",
+    "providerIdHint": "Appears in the redirect URI you give your IdP. Cannot be changed later.",
+    "emailDomain": "Email domain",
+    "issuerUrl": "Issuer URL",
+    "clientId": "Client ID",
+    "clientSecret": "Client secret",
+    "clientSecretHint": "Stored encrypted and never shown again. To rotate it, remove the provider and add it back.",
+    "deriveHint": "Leave blank to derive it from the issuer."
+  },
+  "sshKeys": {
+    "generateTitle": "Generate SSH key",
+    "importTitle": "Import SSH key",
+    "generated": "SSH key generated",
+    "imported": "SSH key imported",
+    "rotated": "SSH key rotated",
+    "deleted": "SSH key deleted",
+    "deleteKey": "Delete SSH key",
+    "comment": "Comment",
+    "keyType": "Key type",
+    "publicKey": "Public key",
+    "detectedType": "Detected type:",
+    "unrecognised": "unrecognised — paste the full public-key line",
+    "pastePrompt": "paste a public key above",
+    "notInUse": "Not in use",
+    "copyFingerprint": "Copy fingerprint",
+    "copyPublicKey": "Copy public key",
+    "passphrasePlaceholder": "leave empty for unattended use"
   }
 }

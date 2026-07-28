@@ -37,7 +37,9 @@
     "disabled": "Desactivado",
     "loadingLabel": "Cargando",
     "copyFailed": "No se pudo copiar",
-    "dismiss": "Descartar"
+    "dismiss": "Descartar",
+    "name": "Nombre",
+    "username": "Usuario"
   },
   "auth": {
     "signIn": {
@@ -385,5 +387,91 @@
     "allProjects": "Todos los proyectos",
     "connecting": "Conectando…",
     "confirmIdentity": "Confirma tu identidad"
+  },
+  "deployments": {
+    "columns": {
+      "status": "Estado",
+      "service": "Servicio",
+      "commit": "Commit",
+      "author": "Autor",
+      "duration": "Duración",
+      "when": "Cuándo"
+    },
+    "filterByResource": "Filtrar por recurso",
+    "filterByStatus": "Filtrar por estado",
+    "timeWindow": "Ventana de tiempo",
+    "rollingBack": "Revirtiendo",
+    "rollingBackPending": "Revirtiendo…",
+    "buildCancelled": "Compilación cancelada",
+    "stopBuild": "¿Detener esta compilación?",
+    "keepBuilding": "Seguir compilando"
+  },
+  "logs": {
+    "allServices": "Todos los servicios",
+    "filterVisible": "filtrar mensajes visibles…",
+    "copyVisible": "Copiar líneas visibles",
+    "clearTimeFilter": "Quitar el filtro de tiempo",
+    "volumeLast30m": "Volumen · últimos 30 min",
+    "details": "Detalles del registro",
+    "closeDetails": "Cerrar detalles",
+    "selectAll": "Seleccionar todo",
+    "selectRow": "Seleccionar fila",
+    "copyLogs": "Copiar registros",
+    "findInLogs": "Buscar en los registros",
+    "selectedCount_one": "{{count}} seleccionado",
+    "selectedCount_other": "{{count}} seleccionados"
+  },
+  "apiKeys": {
+    "createTitle": "Crear clave de API",
+    "created": "Clave de API creada",
+    "copied": "Clave de API copiada",
+    "deleted": "Clave de API eliminada",
+    "rotate": "Rotar la clave de API",
+    "delete": "Eliminar la clave de API",
+    "permissions": "Permisos",
+    "expiry": "Caducidad",
+    "fullAccess": "Acceso completo",
+    "namePlaceholder": "Bot de despliegue de CI"
+  },
+  "registries": {
+    "label": "Registro de imágenes",
+    "kind": "Tipo de registro",
+    "host": "Host del registro",
+    "displayName": "Nombre visible",
+    "edit": "Editar el registro",
+    "delete": "Eliminar el registro",
+    "removed": "Registro eliminado",
+    "removeConfirm": "¿Eliminar este registro?"
+  },
+  "sso": {
+    "addProvider": "Añadir proveedor de identidad",
+    "registered": "Proveedor de identidad registrado",
+    "providerId": "ID del proveedor",
+    "providerIdHint": "Aparece en la URI de redirección que le das a tu IdP. No se puede cambiar después.",
+    "emailDomain": "Dominio de correo",
+    "issuerUrl": "URL del emisor",
+    "clientId": "ID de cliente",
+    "clientSecret": "Secreto de cliente",
+    "clientSecretHint": "Se guarda cifrado y no se vuelve a mostrar. Para rotarlo, elimina el proveedor y vuelve a añadirlo.",
+    "deriveHint": "Déjalo en blanco para derivarlo del emisor."
+  },
+  "sshKeys": {
+    "generateTitle": "Generar clave SSH",
+    "importTitle": "Importar clave SSH",
+    "generated": "Clave SSH generada",
+    "imported": "Clave SSH importada",
+    "rotated": "Clave SSH rotada",
+    "deleted": "Clave SSH eliminada",
+    "deleteKey": "Eliminar la clave SSH",
+    "comment": "Comentario",
+    "keyType": "Tipo de clave",
+    "publicKey": "Clave pública",
+    "detectedType": "Tipo detectado:",
+    "unrecognised": "no reconocida — pega la línea completa de la clave pública",
+    "pastePrompt": "pega una clave pública arriba",
+    "notInUse": "Sin usar",
+    "copyFingerprint": "Copiar la huella",
+    "copyPublicKey": "Copiar la clave pública",
+    "passphrasePlaceholder": "déjalo vacío para uso desatendido"
   }
 }

@@ -6,6 +6,7 @@
  */
 
 import { RocketIcon } from "@hugeicons/core-free-icons";
+import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { formatNumber } from "@otterdeploy/shared/format";
 
@@ -66,6 +67,7 @@ export function DeploymentsTableSection({
   onRollback: (d: ProjectDeployment) => void;
   onLoadMore: () => void;
 }) {
+  const { t } = useTranslation();
   if (isLoading) return <DeploymentsPending />;
   if (isError) {
     return (
@@ -104,12 +106,12 @@ export function DeploymentsTableSection({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-24 pl-4">Status</TableHead>
-            <TableHead className="w-40">Service</TableHead>
-            <TableHead>Commit</TableHead>
-            <TableHead className="w-32">Author</TableHead>
-            <TableHead className="w-20 text-right">Duration</TableHead>
-            <TableHead className="w-24 text-right">When</TableHead>
+            <TableHead className="w-24 pl-4">{t("deployments.columns.status")}</TableHead>
+            <TableHead className="w-40">{t("deployments.columns.service")}</TableHead>
+            <TableHead>{t("deployments.columns.commit")}</TableHead>
+            <TableHead className="w-32">{t("deployments.columns.author")}</TableHead>
+            <TableHead className="w-20 text-right">{t("deployments.columns.duration")}</TableHead>
+            <TableHead className="w-24 text-right">{t("deployments.columns.when")}</TableHead>
             <TableHead className="w-28 pr-4" />
           </TableRow>
         </TableHeader>

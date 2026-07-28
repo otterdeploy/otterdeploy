@@ -7,6 +7,7 @@
  */
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Delete01Icon, PencilEdit01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -37,6 +38,7 @@ interface RegistryCardProps {
 }
 
 export function RegistryCard({ registry, onEdit }: RegistryCardProps) {
+  const { t } = useTranslation();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -62,7 +64,7 @@ export function RegistryCard({ registry, onEdit }: RegistryCardProps) {
     const tx = registryCollection.delete(registry.id);
     tx.isPersisted.promise
       .then(() => {
-        toast.success("Registry removed");
+        toast.success(t("registries.removed"));
         setConfirmOpen(false);
       })
       .catch((err: unknown) =>
@@ -104,7 +106,7 @@ export function RegistryCard({ registry, onEdit }: RegistryCardProps) {
             size="sm"
             variant="outline"
             onClick={() => onEdit(registry)}
-            aria-label="Edit registry"
+            aria-label={t("registries.edit")}
           >
             <HugeiconsIcon icon={PencilEdit01Icon} strokeWidth={2} className="size-3.5" />
           </Button>
@@ -112,7 +114,7 @@ export function RegistryCard({ registry, onEdit }: RegistryCardProps) {
             size="sm"
             variant="outline"
             onClick={() => setConfirmOpen(true)}
-            aria-label="Delete registry"
+            aria-label={t("registries.delete")}
           >
             <HugeiconsIcon icon={Delete01Icon} strokeWidth={2} className="size-3.5" />
           </Button>
@@ -129,7 +131,7 @@ export function RegistryCard({ registry, onEdit }: RegistryCardProps) {
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove this registry?</AlertDialogTitle>
+            <AlertDialogTitle>{t("registries.removeConfirm")}</AlertDialogTitle>
             <AlertDialogDescription>
               Any projects pointing at <span className="font-mono">{registry.host}</span> via this
               credential will have their registry binding cleared. Builds for those projects will
@@ -137,7 +139,7 @@ export function RegistryCard({ registry, onEdit }: RegistryCardProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={busy}>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();

@@ -6,6 +6,7 @@
  */
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   Alert02Icon,
@@ -46,6 +47,7 @@ function truncateFingerprint(fp: string): string {
 const invalidate = () => queryClient.invalidateQueries({ queryKey: orpc.sshKeys.list.queryKey() });
 
 export function KeyCard({ sshKey, canManage }: { sshKey: SshKey; canManage: boolean }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [revealed, setRevealed] = useState(false);
 
@@ -53,7 +55,7 @@ export function KeyCard({ sshKey, canManage }: { sshKey: SshKey; canManage: bool
     orpc.sshKeys.rotate.mutationOptions({
       onSuccess: () => {
         void invalidate();
-        toast.success("SSH key rotated");
+        toast.success(t("sshKeys.rotated"));
       },
       onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to rotate key"),
     }),
@@ -63,13 +65,14 @@ export function KeyCard({ sshKey, canManage }: { sshKey: SshKey; canManage: bool
     orpc.sshKeys.delete.mutationOptions({
       onSuccess: () => {
         void invalidate();
-        toast.success("SSH key deleted");
+        toast.success(t("sshKeys.deleted"));
       },
       onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to delete key"),
     }),
   );
 
   const copy = (text: string, what: string) => {
+    const { t } = useTranslation();
     void copyToClipboard(text).then((ok) => {
       if (!ok) {
         toast.error(`Couldn't copy ${what}`);
@@ -118,7 +121,7 @@ export function KeyCard({ sshKey, canManage }: { sshKey: SshKey; canManage: bool
               variant="ghost"
               size="icon-sm"
               className="text-muted-foreground"
-              aria-label="Copy fingerprint"
+              aria-label={t("sshKeys.copyFingerprint")}
               onClick={() => copy(sshKey.fingerprint, "fingerprint")}
             >
               <HugeiconsIcon
@@ -143,7 +146,7 @@ export function KeyCard({ sshKey, canManage }: { sshKey: SshKey; canManage: bool
               variant="ghost"
               size="icon-sm"
               className="shrink-0 text-muted-foreground"
-              aria-label="Copy public key"
+              aria-label={t("sshKeys.copyPublicKey")}
               onClick={() => copy(sshKey.publicKey, "public key")}
             >
               <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} className="size-3.5" />
@@ -192,13 +195,14 @@ export function KeyCard({ sshKey, canManage }: { sshKey: SshKey; canManage: bool
 
 /** "Used by" chips — the git hosts / nodes / services this key authenticates. */
 function KeyUsedBy({ usedBy }: { usedBy: SshKey["usedBy"] }) {
+  const { t } = useTranslation();
   return (
     <div>
       <div className="mb-1.5 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
         Used by
       </div>
       {usedBy.length === 0 ? (
-        <span className="text-xs text-muted-foreground">Not in use</span>
+        <span className="text-xs text-muted-foreground">{t("sshKeys.notInUse")}</span>
       ) : (
         <div className="flex flex-wrap gap-1">
           {usedBy.map((u) => (

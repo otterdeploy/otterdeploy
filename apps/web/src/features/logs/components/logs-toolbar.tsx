@@ -1,4 +1,5 @@
 import { Copy01Icon, PauseIcon, PlayIcon, Search01Icon } from "@hugeicons/core-free-icons";
+import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Button } from "@/shared/components/ui/button";
@@ -53,6 +54,7 @@ export function LogsToolbar({
   onCopySelected,
   onClearSelection,
 }: LogsToolbarProps) {
+  const { t } = useTranslation();
   // Base UI's <SelectValue> renders the raw `value` (a resource id) unless the
   // root is given the {label, value} items to map it back to a label.
   const svcItems = [
@@ -63,10 +65,10 @@ export function LogsToolbar({
     <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2.5">
       <Select value={svcFilter} onValueChange={(v) => v && onSvcChange(v)} items={svcItems}>
         <SelectTrigger className="h-8 w-44 text-[12px]" size="sm">
-          <SelectValue placeholder="All services" />
+          <SelectValue placeholder={t("logs.allServices")} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All services</SelectItem>
+          <SelectItem value="all">{t("logs.allServices")}</SelectItem>
           {services.map((s) => (
             <SelectItem key={s.id} value={s.id}>
               {s.name}
@@ -105,7 +107,7 @@ export function LogsToolbar({
         <Input
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
-          placeholder="filter visible messages…"
+          placeholder={t("logs.filterVisible")}
           className="h-8 pl-8 font-mono text-[12px]"
         />
       </div>
@@ -124,7 +126,9 @@ export function LogsToolbar({
 
       {selectedCount > 0 && (
         <div className="flex items-center gap-1.5 rounded-md border bg-muted/40 px-2 py-0.5 text-[11px]">
-          <span className="font-medium text-foreground">{selectedCount} selected</span>
+          <span className="font-medium text-foreground">
+            {t("logs.selectedCount", { count: selectedCount })}
+          </span>
           <button
             type="button"
             onClick={onCopySelected}
@@ -156,7 +160,7 @@ export function LogsToolbar({
         type="button"
         variant="ghost"
         size="icon-sm"
-        aria-label="Copy visible lines"
+        aria-label={t("logs.copyVisible")}
         onClick={onCopy}
       >
         <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} className="size-3.5" />

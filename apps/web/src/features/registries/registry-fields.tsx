@@ -1,6 +1,7 @@
 /** Presentational field primitives for the registry add/edit dialog. */
 
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
+import { useTranslation } from "react-i18next";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import { cn } from "@/shared/lib/utils";
@@ -36,12 +37,13 @@ export function KindPicker({
   value: RegistryKind;
   onPick: (kind: RegistryKind) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-1.5">
-      <Label>Registry</Label>
+      <Label>{t("registries.label")}</Label>
       <div
         role="radiogroup"
-        aria-label="Registry kind"
+        aria-label={t("registries.kind")}
         className="grid grid-cols-2 gap-1.5 sm:grid-cols-4"
       >
         {REGISTRY_KINDS.map((meta) => {
@@ -83,9 +85,10 @@ export function HostField({
   isEdit: boolean;
   kind: RegistryKind;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-1.5">
-      <Label htmlFor="reg-host">Registry host</Label>
+      <Label htmlFor="reg-host">{t("registries.host")}</Label>
       <Input
         id="reg-host"
         value={value}

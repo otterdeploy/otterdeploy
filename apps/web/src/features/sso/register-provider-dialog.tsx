@@ -14,6 +14,7 @@
  */
 
 import { useForm } from "@tanstack/react-form";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import * as z from "zod";
 
@@ -109,6 +110,7 @@ export function RegisterProviderDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const register = useRegisterSsoProvider(organizationId);
 
   const form = useForm({
@@ -147,7 +149,7 @@ export function RegisterProviderDialog({
           clientSecret: value.clientSecret,
           discoveryEndpoint: value.discoveryEndpoint.trim() || undefined,
         });
-        toast.success("Identity provider registered");
+        toast.success(t("sso.registered"));
         form.reset();
         onOpenChange(false);
       } catch (error) {
@@ -160,7 +162,7 @@ export function RegisterProviderDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Add identity provider</DialogTitle>
+          <DialogTitle>{t("sso.addProvider")}</DialogTitle>
           <DialogDescription>
             Anyone whose email address is at this domain will sign in through your provider instead
             of a password.
@@ -179,34 +181,34 @@ export function RegisterProviderDialog({
             {(field) => (
               <ProviderField
                 field={field}
-                label="Provider ID"
+                label={t("sso.providerId")}
                 placeholder="okta"
-                hint="Appears in the redirect URI you give your IdP. Cannot be changed later."
+                hint={t("sso.providerIdHint")}
               />
             )}
           </form.Field>
 
           <form.Field name="domain">
-            {(field) => <ProviderField field={field} label="Email domain" placeholder="acme.com" />}
+            {(field) => <ProviderField field={field} label={t("sso.emailDomain")} placeholder="acme.com" />}
           </form.Field>
 
           <form.Field name="issuer">
             {(field) => (
-              <ProviderField field={field} label="Issuer URL" placeholder="https://acme.okta.com" />
+              <ProviderField field={field} label={t("sso.issuerUrl")} placeholder="https://acme.okta.com" />
             )}
           </form.Field>
 
           <form.Field name="clientId">
-            {(field) => <ProviderField field={field} label="Client ID" />}
+            {(field) => <ProviderField field={field} label={t("sso.clientId")} />}
           </form.Field>
 
           <form.Field name="clientSecret">
             {(field) => (
               <ProviderField
                 field={field}
-                label="Client secret"
+                label={t("sso.clientSecret")}
                 type="password"
-                hint="Stored encrypted and never shown again. To rotate it, remove the provider and add it back."
+                hint={t("sso.clientSecretHint")}
               />
             )}
           </form.Field>
@@ -217,7 +219,7 @@ export function RegisterProviderDialog({
                 field={field}
                 label="Discovery endpoint (optional)"
                 placeholder="https://acme.okta.com/.well-known/openid-configuration"
-                hint="Leave blank to derive it from the issuer."
+                hint={t("sso.deriveHint")}
               />
             )}
           </form.Field>

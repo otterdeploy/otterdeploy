@@ -1,4 +1,5 @@
 import type { DeploymentId } from "@otterdeploy/shared/id";
+import { useTranslation } from "react-i18next";
 
 import { useState } from "react";
 
@@ -44,12 +45,13 @@ export function CancelDeploymentButton({
    *  `aria-label` so the control stays announced. */
   compact?: boolean;
 }) {
+  const { t } = useTranslation();
   const [confirming, setConfirming] = useState(false);
 
   const cancel = useMutation(
     orpc.deployment.cancel.mutationOptions({
       onSuccess: () => {
-        toast.success("Build cancelled");
+        toast.success(t("deployments.buildCancelled"));
         // The row's status drives the tab favicon and every deployment list on
         // screen, so refresh broadly rather than patching one cache entry.
         void queryClient.invalidateQueries({ queryKey: orpc.deployment.listByProject.key() });
@@ -90,14 +92,14 @@ export function CancelDeploymentButton({
       <AlertDialog open={confirming} onOpenChange={setConfirming}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Stop this build?</AlertDialogTitle>
+            <AlertDialogTitle>{t("deployments.stopBuild")}</AlertDialogTitle>
             <AlertDialogDescription>
               The build container is killed immediately and this deployment is recorded as
               cancelled. Work already done is discarded — starting again means a fresh deploy.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={cancel.isPending}>Keep building</AlertDialogCancel>
+            <AlertDialogCancel disabled={cancel.isPending}>{t("deployments.keepBuilding")}</AlertDialogCancel>
             <AlertDialogAction
               disabled={cancel.isPending}
               onClick={(e) => {

@@ -6,6 +6,7 @@
  */
 
 import { useForm } from "@tanstack/react-form";
+import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -40,6 +41,7 @@ export function GenerateKeyDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const generate = useMutation(
     orpc.sshKeys.generate.mutationOptions({
       onSuccess: () => {
@@ -65,7 +67,7 @@ export function GenerateKeyDialog({
           comment: value.comment.trim() || undefined,
           passphrase: value.passphrase || undefined,
         });
-        toast.success("SSH key generated");
+        toast.success(t("sshKeys.generated"));
         setOpen(false);
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to generate SSH key");
@@ -74,6 +76,7 @@ export function GenerateKeyDialog({
   });
 
   const setOpen = (next: boolean) => {
+    const { t } = useTranslation();
     if (!next) form.reset();
     onOpenChange(next);
   };
@@ -82,7 +85,7 @@ export function GenerateKeyDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Generate SSH key</DialogTitle>
+          <DialogTitle>{t("sshKeys.generateTitle")}</DialogTitle>
           <DialogDescription>
             We run <code className="font-mono text-xs">ssh-keygen</code> on the cluster. The private
             key is encrypted at rest and never shown — copy the public key to your Git host or
@@ -106,7 +109,7 @@ export function GenerateKeyDialog({
           >
             {(field) => (
               <Field>
-                <FieldLabel htmlFor={field.name}>Name</FieldLabel>
+                <FieldLabel htmlFor={field.name}>{t("common.name")}</FieldLabel>
                 <Input
                   id={field.name}
                   name={field.name}
@@ -130,7 +133,7 @@ export function GenerateKeyDialog({
           <form.Field name="comment">
             {(field) => (
               <Field>
-                <FieldLabel htmlFor={field.name}>Comment</FieldLabel>
+                <FieldLabel htmlFor={field.name}>{t("sshKeys.comment")}</FieldLabel>
                 <Input
                   id={field.name}
                   name={field.name}
@@ -153,7 +156,7 @@ export function GenerateKeyDialog({
                   type="password"
                   value={field.state.value}
                   onChange={(e) => field.handleChange(e.target.value)}
-                  placeholder="leave empty for unattended use"
+                  placeholder={t("sshKeys.passphrasePlaceholder")}
                   className="font-mono"
                 />
               </Field>
@@ -186,9 +189,10 @@ function KeyTypeOptions({
   value: SshKeyType;
   onChange: (v: SshKeyType) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-1.5">
-      <Label>Key type</Label>
+      <Label>{t("sshKeys.keyType")}</Label>
       <RadioGroup
         value={value}
         onValueChange={(v) => typeof v === "string" && onChange(v as SshKeyType)}
