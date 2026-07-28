@@ -240,6 +240,7 @@ export const deployCallbackHandler: Handler = guard(async (c) => {
       400,
       "Link expired",
       "This sign-in link is invalid or has expired. Try opening the protected site again.",
+      host,
     );
 
   // Single-use: burn the nonce so a captured callback URL can't be replayed
@@ -250,6 +251,7 @@ export const deployCallbackHandler: Handler = guard(async (c) => {
       400,
       "Link already used",
       "This sign-in link has already been used. Try opening the protected site again.",
+      host,
     );
   }
 

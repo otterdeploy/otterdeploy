@@ -55,8 +55,11 @@ export const errorPage = (
   status: ContentfulStatusCode,
   title: string,
   detail: string,
+  /** Host to offer as a way back. Pass it only where retrying can actually
+   *  succeed — an expired link, not a deployment that doesn't exist. */
+  retryHost?: string,
 ): Response | Promise<Response> =>
-  c.html(<ErrorPage status={status} title={title} detail={detail} />, status);
+  c.html(<ErrorPage status={status} title={title} detail={detail} retryHost={retryHost} />, status);
 
 /** Boundary wrapper for the public wall routes. Any *thrown* error (e.g. a DB
  *  failure deep in resolveProtectedDomainOrg) is caught here and turned into a
