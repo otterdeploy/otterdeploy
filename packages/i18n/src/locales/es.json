@@ -698,5 +698,35 @@
     "searchHosts": "Buscar hosts…",
     "noHosts": "No se encontraron hosts.",
     "allHosts": "Todos los hosts"
+  },
+  "resources": {
+    "source": {
+      "title": "Origen",
+      "description": "Desde dónde se construye este servicio. Un push a su rama lo despliega.",
+      "installation": "Instalación",
+      "installationHint": "Qué cuenta conectada es dueña del repositorio.",
+      "repository": "Repositorio",
+      "repositoryHint": "owner/repo desde el que se construye este servicio.",
+      "branch": "Rama",
+      "branchHint": "Los pushes aquí despliegan. Vacío = rama por defecto del repositorio.",
+      "rootDirectory": "Directorio raíz",
+      "rootDirectoryHint": "Subcarpeta del monorepo. Vacío = raíz del repositorio.",
+      "imageTarget": "Imagen de destino",
+      "imageTargetHint": "Completamente cualificada, sin etiqueta. Vacío = compilación local. Las credenciales se asocian por host.",
+      "prPreviews": "Vistas previas de PR",
+      "prPreviewsHint": "Reconstruir este servicio en un entorno de vista previa aislado para cada pull request.",
+      "staged": "Origen preparado — despliega para aplicarlo",
+      "stageFailed": "No se pudo preparar el origen",
+      "registryMatched": "Se sube mediante {{name}} ({{host}}).",
+      "registryUnmatched": "No hay credenciales de registro para {{host}} — añade unas en «Registries» o vacía este campo.",
+      "pipe": {
+        "repo": "Repo",
+        "build": "Compilación",
+        "image": "Imagen",
+        "notSet": "sin definir",
+        "local": "local",
+        "defaultBranch": "por defecto"
+      }
+    }
   }
 }

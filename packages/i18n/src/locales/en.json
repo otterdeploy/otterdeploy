@@ -698,5 +698,35 @@
     "searchHosts": "Search hosts…",
     "noHosts": "No hosts found.",
     "allHosts": "All hosts"
+  },
+  "resources": {
+    "source": {
+      "title": "Source",
+      "description": "Where this service builds from. Pushing to its branch deploys it.",
+      "installation": "Installation",
+      "installationHint": "Which connected account owns the repo.",
+      "repository": "Repository",
+      "repositoryHint": "owner/repo this service builds from.",
+      "branch": "Branch",
+      "branchHint": "Pushes here deploy. Empty = repo default.",
+      "rootDirectory": "Root directory",
+      "rootDirectoryHint": "Monorepo subfolder. Empty = repo root.",
+      "imageTarget": "Image target",
+      "imageTargetHint": "Fully-qualified, no tag. Empty = local build. Credential matched by host.",
+      "prPreviews": "PR previews",
+      "prPreviewsHint": "Rebuild this service into an isolated preview environment for every pull request.",
+      "staged": "Source staged — Deploy to apply",
+      "stageFailed": "Failed to stage source",
+      "registryMatched": "Pushes via {{name}} ({{host}}).",
+      "registryUnmatched": "No registry credential for {{host}} — add one in Registries or clear this.",
+      "pipe": {
+        "repo": "Repo",
+        "build": "Build",
+        "image": "Image",
+        "notSet": "not set",
+        "local": "local",
+        "defaultBranch": "default"
+      }
+    }
   }
 }

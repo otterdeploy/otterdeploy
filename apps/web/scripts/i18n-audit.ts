@@ -19,6 +19,7 @@
  *
  * What counts as user-visible (the heuristics that matter):
  *   - JSX text nodes            <p>Deploy failed</p>
+ *   - Interpolated templates    `Pushes via ${name}`
  *   - Copy-bearing attributes   title= description= placeholder= label=
  *                               aria-label= emptyText= tooltip=
  *   - Toast / dialog copy       toast.success("…")  toast.error("…")
@@ -119,10 +120,25 @@ function isTechnical(value: string): boolean {
   return isIdentifier(text) || isSyntaxFragment(text) || isMachineToken(text);
 }
 
+/**
+ * A Tailwind/CSS class string rather than a sentence.
+ *
+ * `` `size-1.5 rounded-full ${tone}` `` reads as two words to a naive word
+ * count, so compare how many tokens look like utility classes against how many
+ * look like English. Class lists lose no meaning untranslated; sentences do.
+ */
+function isClassList(text: string): boolean {
+  const tokens = text.split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return true;
+  const cssish = tokens.filter((tk) => /[-:/[\]]/.test(tk) || /^--/.test(tk)).length;
+  const words = tokens.filter((tk) => /^[A-Za-z]{2,}[.,!?;:]?$/.test(tk)).length;
+  return cssish >= words;
+}
+
 interface Finding {
   file: string;
   line: number;
-  kind: "jsx-text" | "attribute" | "toast";
+  kind: "jsx-text" | "attribute" | "toast" | "template";
   attr?: string;
   text: string;
 }
@@ -185,7 +201,33 @@ function auditFile(path: string): Finding[] {
     findings.push({ file: rel, line: lineOf(masked, match.index), kind: "toast", text });
   }
 
-  // 3. JSX text nodes — text sitting directly between tags. Only in .tsx:
+  // 3. Template literals with prose in them. These are the audit's historic
+  // blind spot: `{`Pushes via ${name}`}` is neither a JSX text node nor an
+  // attribute, so the two scans above walk straight past it. Interpolated
+  // sentences are exactly the copy translators most need, and the ones a
+  // hand-review is least likely to spot.
+  const templateRe = /`([^`\\]*(?:\$\{[^}]*\}[^`\\]*)*)`/g;
+  for (const match of masked.matchAll(templateRe)) {
+    // Reduce to the literal chunks; an all-interpolation template is a
+    // computed key or a class string, not a sentence.
+    const prose = match[1].replace(/\$\{[^}]*\}/g, " ").trim();
+    if (prose.length < 4) continue;
+    // A nested interpolation the strip above couldn't handle — the residue is
+    // expression source, not copy.
+    if (prose.includes("${") || /[<>=?]{1,2}/.test(prose)) continue;
+    // Two real words is the bar for "sentence" — `${host}/${path}` and
+    // `bg-${tone}` never clear it.
+    if ((prose.match(/[A-Za-z]{2,}/g) ?? []).length < 2) continue;
+    if (isTechnical(prose) || isClassList(prose)) continue;
+    findings.push({
+      file: rel,
+      line: lineOf(masked, match.index),
+      kind: "template",
+      text: prose.replace(/\s+/g, " "),
+    });
+  }
+
+  // 4. JSX text nodes — text sitting directly between tags. Only in .tsx:
   // in a .ts file every `>…<` is a generic, never markup.
   if (!path.endsWith(".tsx")) return findings;
   const textRe = />([^<>{}\n]{2,})</g;

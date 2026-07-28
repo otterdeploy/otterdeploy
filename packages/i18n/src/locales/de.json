@@ -698,5 +698,35 @@
     "searchHosts": "Hosts suchen…",
     "noHosts": "Keine Hosts gefunden.",
     "allHosts": "Alle Hosts"
+  },
+  "resources": {
+    "source": {
+      "title": "Quelle",
+      "description": "Woraus dieser Service gebaut wird. Ein Push auf seinen Branch deployt ihn.",
+      "installation": "Installation",
+      "installationHint": "Welches verbundene Konto das Repository besitzt.",
+      "repository": "Repository",
+      "repositoryHint": "owner/repo, woraus dieser Service gebaut wird.",
+      "branch": "Branch",
+      "branchHint": "Pushes hierauf deployen. Leer = Standard-Branch des Repos.",
+      "rootDirectory": "Stammverzeichnis",
+      "rootDirectoryHint": "Unterordner im Monorepo. Leer = Repo-Wurzel.",
+      "imageTarget": "Image-Ziel",
+      "imageTargetHint": "Vollqualifiziert, ohne Tag. Leer = lokaler Build. Zugangsdaten werden über den Host zugeordnet.",
+      "prPreviews": "PR-Previews",
+      "prPreviewsHint": "Diesen Service für jeden Pull Request in eine isolierte Preview-Umgebung neu bauen.",
+      "staged": "Quelle vorgemerkt — zum Anwenden deployen",
+      "stageFailed": "Quelle konnte nicht vorgemerkt werden",
+      "registryMatched": "Push über {{name}} ({{host}}).",
+      "registryUnmatched": "Keine Registry-Zugangsdaten für {{host}} — lege welche unter „Registries“ an oder leere dieses Feld.",
+      "pipe": {
+        "repo": "Repo",
+        "build": "Build",
+        "image": "Image",
+        "notSet": "nicht gesetzt",
+        "local": "lokal",
+        "defaultBranch": "Standard"
+      }
+    }
   }
 }
