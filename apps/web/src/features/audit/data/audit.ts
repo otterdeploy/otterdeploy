@@ -18,7 +18,7 @@
  */
 import { createCollection } from "@tanstack/db";
 import { parseLoadSubsetOptions, queryCollectionOptions } from "@tanstack/query-db-collection";
-import { z } from "zod";
+import * as z from "zod";
 
 import { parseCol } from "@/shared/lib/utils";
 import { client, queryClient } from "@/shared/server/orpc";

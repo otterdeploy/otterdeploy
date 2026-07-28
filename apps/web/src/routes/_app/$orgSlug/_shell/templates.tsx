@@ -5,7 +5,7 @@
  * template" card sends the operator here from inside a project).
  */
 import { createFileRoute } from "@tanstack/react-router";
-import { z } from "zod";
+import * as z from "zod";
 
 import { TemplatesGallery } from "@/features/templates/components/templates-gallery";
 

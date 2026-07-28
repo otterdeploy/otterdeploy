@@ -1,6 +1,6 @@
 import { createCollection } from "@tanstack/db";
 import { parseLoadSubsetOptions, queryCollectionOptions } from "@tanstack/query-db-collection";
-import { z } from "zod";
+import * as z from "zod";
 
 import { authClient } from "@/lib/auth-client";
 import { parseCol } from "@/shared/lib/utils";
