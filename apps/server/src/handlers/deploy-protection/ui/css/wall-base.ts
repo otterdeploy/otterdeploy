@@ -17,11 +17,15 @@ export const accessWallBaseCss = `
         --fg-subtle: #3a3a36;
         --border: rgba(255, 255, 250, 0.08);
         --border-mid: rgba(255, 255, 250, 0.13);
-        --primary: oklch(0.623 0.214 300);
-        --primary-dim: oklch(0.623 0.214 300 / 0.15);
+        /* The brand accent, matching --sidebar-primary in apps/web/src/index.css.
+           This used to be hue 300 — a violet found nowhere else in the product,
+           on the most public screen we ship. DESIGN.md mandates one accent. */
+        --primary: oklch(0.623 0.214 259.815);
+        --primary-dim: oklch(0.623 0.214 259.815 / 0.15);
         --line: rgba(255, 255, 250, 0.04);
         --radius: 10px;
-        --input-bg: rgba(255, 255, 250, 0.05);
+        --input-bg: rgba(255, 255, 250, 0.038);
+        --panel: #121211;
       }
       html,
       body {
@@ -54,7 +58,7 @@ export const accessWallBaseCss = `
         pointer-events: none;
         background: radial-gradient(
           60rem 50rem at 50% 45%,
-          oklch(0.623 0.214 300 / 0.07),
+          oklch(0.623 0.214 259.815 / 0.07),
           transparent 65%
         );
       }
@@ -90,25 +94,32 @@ export const accessWallBaseCss = `
         text-transform: uppercase;
         margin-bottom: 14px;
       }
-      .domain-pill {
-        display: inline-flex;
+      .target-label {
+        display: flex;
         align-items: center;
-        gap: 8px;
-        padding: 8px 12px;
-        background: var(--input-bg);
-        border: 1px solid var(--border-mid);
-        border-radius: 8px;
+        gap: 5px;
         font-family: "Geist Mono Variable", ui-monospace, monospace;
-        font-size: 12px;
-        color: var(--fg);
-        font-feature-settings: "zero", "ss03";
-        margin-bottom: 28px;
+        font-size: 9.5px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--fg-muted);
       }
-      .domain-pill svg {
-        width: 15px;
-        height: 15px;
+      .target-label svg {
+        width: 11px;
+        height: 11px;
         color: var(--primary);
         flex-shrink: 0;
+      }
+      .target-host {
+        display: block;
+        margin-top: 4px;
+        font-family: "Geist Mono Variable", ui-monospace, monospace;
+        font-size: 13px;
+        color: var(--fg);
+        font-feature-settings: "zero", "ss03";
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       .domain-cursor {
         display: inline-block;

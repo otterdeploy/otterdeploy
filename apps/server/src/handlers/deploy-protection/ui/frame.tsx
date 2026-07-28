@@ -91,7 +91,8 @@ export const Interstitial: FC<{ next?: string }> = ({ next }) => (
     hideFoot
     headExtra={next ? <meta http-equiv="refresh" content={`0;url=${next}`} /> : undefined}
     css={
-      consoleFrameCss("oklch(0.7 0.18 300)", "oklch(0.7 0.18 300 / 0.26)") + interstitialExtraCss
+      consoleFrameCss("oklch(0.623 0.214 259.815)", "oklch(0.623 0.214 259.815 / 0.26)") +
+      interstitialExtraCss
     }
   >
     <ConsoleFrame
@@ -160,10 +161,13 @@ export const Interstitial: FC<{ next?: string }> = ({ next }) => (
 export const Denied: FC<{ domain: string }> = ({ domain }) => (
   <Page title="No access" css={deniedCss}>
     <div class="wrap">
-      <h1>You don't have access</h1>
+      {/* Reached only WITH a valid session, so the visitor is signed in — the
+          old "You don't have access" read as "you're signed out" and sent
+          people back to a sign-in they'd already completed. */}
+      <h1>You're signed in, but not invited here</h1>
       <p>
-        This deployment ({domain}) is protected. Ask an organization owner to add you, or switch to
-        an account that's a member.
+        Your account doesn't have access to {domain}. Ask an organization owner to add you, then
+        reload — or switch to an account that's already a member.
       </p>
     </div>
   </Page>
@@ -174,15 +178,19 @@ export const Denied: FC<{ domain: string }> = ({ domain }) => (
  *  grid/glow/grain + corner-tick chrome as the web `ErrorScreen`). `title`/
  *  `detail` are fixed, caller-chosen copy: no error object, stack, or SQL ever
  *  reaches the page. */
-export const ErrorPage: FC<{ status: number; title: string; detail: string }> = ({
-  status,
-  title,
-  detail,
-}) => {
+export const ErrorPage: FC<{
+  status: number;
+  title: string;
+  detail: string;
+  /** Host to offer as a way back, when one is known and still meaningful. A
+   *  404 deliberately passes none — retrying a deployment that doesn't exist
+   *  just fails again. */
+  retryHost?: string;
+}> = ({ status, title, detail, retryHost }) => {
   // 5xx = red (our fault), 4xx = indigo (request/link) — mirrors the web pages.
   const isServer = status >= 500;
-  const accent = isServer ? "oklch(0.685 0.205 25)" : "oklch(0.7 0.17 264)";
-  const glow = isServer ? "oklch(0.685 0.205 25 / 0.26)" : "oklch(0.7 0.17 264 / 0.26)";
+  const accent = isServer ? "oklch(0.685 0.205 25)" : "oklch(0.623 0.214 259.815)";
+  const glow = isServer ? "oklch(0.685 0.205 25 / 0.26)" : "oklch(0.623 0.214 259.815 / 0.26)";
   const eyebrow = isServer ? "Internal error" : "Request blocked";
   const statusTag = isServer ? "FAULT" : "BLOCKED";
 
@@ -208,6 +216,11 @@ export const ErrorPage: FC<{ status: number; title: string; detail: string }> = 
         <p class="msg rise" style="animation-delay:0.37s">
           {detail}
         </p>
+        {retryHost ? (
+          <a class="retry rise" style="animation-delay:0.46s" href={`https://${retryHost}/`}>
+            Open {retryHost}
+          </a>
+        ) : null}
       </ConsoleFrame>
     </Page>
   );

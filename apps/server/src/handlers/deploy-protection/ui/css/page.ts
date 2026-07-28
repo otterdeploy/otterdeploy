@@ -105,4 +105,19 @@ export const errorPageExtraCss = `
           font-size: clamp(3.2rem, 9vw, 6rem);
           text-shadow: 0 0 52px var(--glow);
         }
+        .retry {
+          display: inline-block;
+          margin-top: 22px;
+          padding: 9px 16px;
+          border: 1px solid rgba(255, 255, 250, 0.16);
+          border-radius: 8px;
+          color: var(--fg, #f5f5f0);
+          font-size: 13px;
+          text-decoration: none;
+          transition: border-color 0.15s ease, background 0.15s ease;
+        }
+        .retry:hover {
+          border-color: rgba(255, 255, 250, 0.3);
+          background: rgba(255, 255, 250, 0.04);
+        }
       `;
