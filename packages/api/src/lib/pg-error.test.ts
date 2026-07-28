@@ -22,13 +22,27 @@ function bunPgError(errno: string, extra: Record<string, unknown> = {}): Error {
   return Object.assign(new Error('duplicate key value violates unique constraint "x_unique"'), {
     code: "ERR_POSTGRES_SERVER_ERROR",
     errno,
+    // Reset every optional pg field the fixture doesn't set. Bun's Error
+    // carries its own `line`/`column` own-properties, so an unset `column`
+    // read back as 0 rather than undefined and the fixture lied about shape.
+    constraint: undefined,
+    table: undefined,
+    column: undefined,
+    detail: undefined,
     ...extra,
   });
 }
 
 /** node-postgres / postgres.js: SQLSTATE on `code`. */
 function nodePgError(code: string, extra: Record<string, unknown> = {}): Error {
-  return Object.assign(new Error("duplicate key value"), { code, ...extra });
+  return Object.assign(new Error("duplicate key value"), {
+    code,
+    constraint: undefined,
+    table: undefined,
+    column: undefined,
+    detail: undefined,
+    ...extra,
+  });
 }
 
 const wrapped = (cause: Error) => new DrizzleQueryError("insert into ...", [], cause);
