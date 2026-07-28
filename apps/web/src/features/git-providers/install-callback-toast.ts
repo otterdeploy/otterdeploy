@@ -13,9 +13,12 @@ import { useEffect } from "react";
 import { useLocation } from "@tanstack/react-router";
 import { toast } from "sonner";
 
+import { useTranslation } from "react-i18next";
+
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 export function useInstallCallbackToast() {
+  const { t } = useTranslation();
   const search = useLocation({
     select: (l) => l.search as { git_install?: "ok" | "error"; reason?: string },
   });
@@ -23,7 +26,7 @@ export function useInstallCallbackToast() {
   useEffect(() => {
     if (!search.git_install) return;
     if (search.git_install === "ok") {
-      toast.success("GitHub connected");
+      toast.success(t("gitProviders.githubConnected"));
       void queryClient.invalidateQueries({
         queryKey: orpc.git.list.queryKey({ input: undefined }),
       });

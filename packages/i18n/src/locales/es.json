@@ -380,7 +380,9 @@
       "createRows": "Crear filas nuevas",
       "keepRows": "Mantener las filas actuales"
     },
-    "invalidUrl": "URL no válida"
+    "invalidUrl": "URL no válida",
+    "copyFailed": "No se pudo copiar al portapapeles",
+    "cutFailed": "No se pudo cortar al portapapeles"
   },
   "onboarding": {
     "progress": "Progreso de la configuración",
@@ -639,7 +641,8 @@
     "permissionsRefreshed": "Permisos actualizados",
     "grantedPermissions": "Permisos concedidos",
     "repository": "Repositorio",
-    "branch": "Rama"
+    "branch": "Rama",
+    "githubConnected": "GitHub conectado"
   },
   "volumes": {
     "driver": "Controlador",

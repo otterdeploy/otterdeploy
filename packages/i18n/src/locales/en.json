@@ -380,7 +380,9 @@
       "createRows": "Create new rows",
       "keepRows": "Keep current rows"
     },
-    "invalidUrl": "Invalid URL"
+    "invalidUrl": "Invalid URL",
+    "copyFailed": "Failed to copy to clipboard",
+    "cutFailed": "Failed to cut to clipboard"
   },
   "onboarding": {
     "progress": "Setup progress",
@@ -639,7 +641,8 @@
     "permissionsRefreshed": "Permissions refreshed",
     "grantedPermissions": "Granted permissions",
     "repository": "Repository",
-    "branch": "Branch"
+    "branch": "Branch",
+    "githubConnected": "GitHub connected"
   },
   "volumes": {
     "driver": "Driver",

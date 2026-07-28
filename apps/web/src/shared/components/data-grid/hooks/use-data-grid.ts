@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   type ColumnDef,
@@ -143,6 +144,7 @@ function useDataGrid<TData>({
   initialState,
   ...props
 }: UseDataGridProps<TData>) {
+  const { t } = useTranslation();
   const dir = useDirection(dirProp);
   const dataGridRef = React.useRef<HTMLDivElement>(null);
   const tableRef = React.useRef<ReturnType<typeof useReactTable<TData>>>(null);
@@ -618,7 +620,7 @@ function useDataGrid<TData>({
     const { tsvData, selectedCellsArray } = result;
 
     if (!(await copyToClipboard(tsvData))) {
-      toast.error("Failed to copy to clipboard");
+      toast.error(t("dataGrid.copyFailed"));
       return;
     }
 
@@ -641,7 +643,7 @@ function useDataGrid<TData>({
     const { tsvData, selectedCellsArray } = result;
 
     if (!(await copyToClipboard(tsvData))) {
-      toast.error("Failed to cut to clipboard");
+      toast.error(t("dataGrid.cutFailed"));
       return;
     }
 

@@ -95,6 +95,15 @@ function isTechnical(value: string): boolean {
   if (/\bextends\b|\bPromise\b|\bReact\.|\bnew (Set|Map)\b|\bvoid\b/.test(text)) return true;
   if (/[()[\]|]/.test(text)) return true;
   if (/^,|^:|^=/.test(text)) return true;
+  // Machine-readable strings the Two-Cuts Rule keeps in mono and therefore
+  // untranslated: shell commands, env assignments, HTTP header names, key
+  // material. Translating any of these would make them wrong, not localised.
+  if (/^(docker|npm|bun|pnpm|yarn|git|ssh|scp|curl|sudo|systemctl|otterdeploy)\s/.test(text)) {
+    return true;
+  }
+  if (/^[A-Z][A-Z0-9_]*=/.test(text)) return true;
+  if (/^(X-|Authorization\b|Content-Type\b)/.test(text)) return true;
+  if (/^(ssh-(rsa|ed25519|dss)|ecdsa-sha2)\b/.test(text)) return true;
   return false;
 }
 
@@ -138,9 +147,12 @@ function auditFile(path: string): Finding[] {
   const findings: Finding[] = [];
   const rel = relative(join(import.meta.dir, "..", ".."), path);
 
-  // 1. Copy-bearing attributes with a plain string literal.
+  // 1. Copy-bearing attributes with a plain string literal. Only in .tsx —
+  // in a .ts file an `aria-label="…"` is inside a CSS selector string (the
+  // tour's step list), not a JSX attribute.
   const attrRe = /\b([a-zA-Z-]+)\s*=\s*(["'])([^"'\n]{2,})\2/g;
-  for (const match of masked.matchAll(attrRe)) {
+  const scanAttrs = path.endsWith(".tsx");
+  for (const match of scanAttrs ? masked.matchAll(attrRe) : []) {
     const [, attr, , text] = match;
     if (!COPY_ATTRS.has(attr)) continue;
     if (isTechnical(text)) continue;
