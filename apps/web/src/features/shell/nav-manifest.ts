@@ -41,6 +41,8 @@ import {
   WebhookIcon,
 } from "@hugeicons/core-free-icons";
 
+import type { TranslationKey } from "@otterdeploy/i18n";
+
 import type { RoutePath } from "./components/sidebar";
 
 /** Hugeicons free-icon data shape (same trick as the sidebar's NavItem). */
@@ -49,8 +51,14 @@ export type NavIcon = typeof Home01Icon;
 export interface NavManifestItem {
   /** English label — also the fallback when `i18nKey` is absent or untranslated. */
   title: string;
-  /** Optional i18n key; render with `t(i18nKey, title)`. */
-  i18nKey?: string;
+  /**
+   * Optional i18n key; render with `t(i18nKey, title)`.
+   *
+   * Typed as the checked key union rather than `string`: i18next keeps a
+   * `t(key: string, defaultValue: string)` overload, so a key that travels as
+   * data would otherwise launder a typo past the checker.
+   */
+  i18nKey?: TranslationKey;
   /** Typed route path — checked against the generated route tree. */
   to: RoutePath;
   icon: NavIcon;
@@ -83,7 +91,7 @@ export interface NavManifestGroup {
   /** Uppercase micro-label. Omitted for the ungrouped top items. */
   label?: string;
   /** Optional i18n key for `label`; render with `t(labelI18nKey, label)`. */
-  labelI18nKey?: string;
+  labelI18nKey?: TranslationKey;
   items: readonly NavManifestItem[];
 }
 
@@ -264,7 +272,7 @@ export const SETTINGS_ENTRY: NavManifestItem = {
 export interface SettingsNavGroup {
   label: string;
   /** Optional i18n key for `label`; render with `t(labelI18nKey, label)`. */
-  labelI18nKey?: string;
+  labelI18nKey?: TranslationKey;
   items: readonly NavManifestItem[];
 }
 

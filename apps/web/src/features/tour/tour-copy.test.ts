@@ -42,7 +42,10 @@ describe("tour copy", () => {
   }
 
   it("no step defines copy the script never shows", () => {
-    const scripted = new Set(allSteps.map((s) => s.id));
+    // The reverse direction — every step HAS copy — is a type error now
+    // (TourStepId is `keyof Translation["tour"]["steps"]`), so this only has
+    // to catch copy left behind after a step is removed.
+    const scripted = new Set<string>(allSteps.map((s) => s.id));
     const orphaned = Object.keys(en.tour.steps).filter((id) => !scripted.has(id));
     expect(orphaned).toEqual([]);
   });

@@ -6,6 +6,13 @@
  * shipping a surface so a hardcoded label can't quietly land in a screen that
  * is otherwise translated.
  *
+ * It answers a different question from the type system. Once a string is
+ * routed through `t()`, `packages/i18n/src/types.ts` takes over: the key must
+ * exist and every locale must define it, both enforced by `tsc`. What types
+ * cannot see is a string that never entered the system at all — a bare
+ * `<span>Deploy failed</span>` typechecks perfectly. That gap is this
+ * script's entire job.
+ *
  *   bun apps/web/scripts/i18n-audit.ts            # summary by feature area
  *   bun apps/web/scripts/i18n-audit.ts --list     # every finding, file:line
  *   bun apps/web/scripts/i18n-audit.ts --dir features/backups

@@ -3,6 +3,8 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
+import type { TranslationKey } from "@otterdeploy/i18n";
+
 import type { RoutePath } from "@/features/shell/components/sidebar";
 
 import { cn } from "@/shared/lib/utils";
@@ -16,7 +18,7 @@ import { cn } from "@/shared/lib/utils";
 type ProjectRoutePath = Extract<RoutePath, `/$orgSlug/$projectSlug${string}`>;
 
 interface Tab {
-  titleKey: string;
+  titleKey: TranslationKey;
   /** Anchor for the product tour, rendered as `data-tour`. */
   tourId?: string;
   to: ProjectRoutePath;
@@ -144,7 +146,9 @@ export function ProjectTabs() {
               className: "text-foreground font-medium",
             }}
           >
-            {t(tab.titleKey, tab.fallback ? { defaultValue: tab.fallback } : undefined)}
+            {tab.fallback === undefined
+              ? t(tab.titleKey)
+              : t(tab.titleKey, { defaultValue: tab.fallback })}
           </Link>
         ))}
         <span

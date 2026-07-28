@@ -16,7 +16,17 @@
  * `data-slot`. Never a Tailwind class — those change with styling.
  */
 
+import type { Translation } from "@otterdeploy/i18n";
 import type { Alignment, Side } from "driver.js";
+
+/**
+ * Step ids are exactly the keys the tour has copy for.
+ *
+ * Deriving the union from the English bundle means a step added here without
+ * copy fails `tsc`, and the `tour.steps.${id}.title` lookups in the provider
+ * resolve to real keys instead of collapsing to `string`.
+ */
+export type TourStepId = keyof Translation["tour"]["steps"];
 
 /** What the engine knows about the viewer when it builds the script. */
 export interface TourContext {
@@ -34,7 +44,7 @@ export interface TourStepRoute {
 
 export interface TourStep {
   /** Stable id — also the i18n key suffix (`tour.steps.<id>.title`). */
-  id: string;
+  id: TourStepId;
   /**
    * Element to highlight. Omitted for a centered step, which driver.js renders
    * as a modal with no cutout — used for the opening and closing beats.

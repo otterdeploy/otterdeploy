@@ -1,9 +1,20 @@
 /**
- * Locale parity.
+ * Locale parity, checked at runtime.
+ *
+ * Key drift is primarily a *type* error now — `packages/i18n/src/types.ts`
+ * derives a dotted-path union from each bundle and asserts the difference is
+ * `never`, so a missing or orphaned key fails `tsc`. These tests are not
+ * redundant with that:
+ *
+ *   - `tsc` reports the first offending key and stops. When a whole feature
+ *     lands untranslated you want the entire list at once, which is what
+ *     `expect(missing).toEqual([])` prints.
+ *   - Placeholder and empty-value checks are beyond what the type system
+ *     sees: `{{count}}` vs `{{total}}` are both just `string`.
  *
  * A missing key doesn't throw at runtime — i18next silently falls back to
  * English, so a half-translated screen ships looking fine to whoever wrote it
- * and broken to everyone else. These tests turn that into a failing build.
+ * and broken to everyone else.
  */
 
 import { describe, expect, it } from "vitest";
