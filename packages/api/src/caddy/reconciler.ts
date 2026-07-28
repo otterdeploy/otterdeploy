@@ -18,6 +18,15 @@ export interface ReconcileResult {
   skipped: { projectId: string; error: string }[];
   revision: string;
   loadError?: string;
+  /** Per-node edge push outcomes (swarm only). Absent under plain docker,
+   *  where the control-plane edge is the only one. Typed loosely here so the
+   *  reconciler core stays free of the SSH/node layer. */
+  nodeEdges?: {
+    serverId: string;
+    serverName: string;
+    routeCount: number;
+    outcome: { kind: string; error?: string; revision?: string };
+  }[];
 }
 
 interface ReconcileOptions {

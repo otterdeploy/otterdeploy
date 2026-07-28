@@ -198,6 +198,30 @@ export const serviceContract = {
     )
     .output(serviceSchema),
 
+  // Pin the service to one server (or clear the pin) and move it there. Always
+  // rolls the service — a placement constraint that hasn't been applied is not
+  // a placement, it's an intention.
+  setPlacement: oc
+    .errors({
+      NOT_FOUND: sharedErrors.NOT_FOUND,
+      // The service has node-local volumes that will NOT follow it. Retry with
+      // `acknowledgeVolumeLoss: true` to move anyway and start with empty ones.
+      PLACEMENT_VOLUME_LOSS: {
+        status: 409 as const,
+        message: "Moving this service leaves its volumes behind." as const,
+        data: z.object({ mounts: z.array(z.string()) }),
+      },
+    })
+    .meta({ path: `${basePath}/{resourceId}/placement`, tag, method: "POST" })
+    .input(
+      getServiceInput.extend({
+        // Null releases the service back to the scheduler.
+        serverId: z.string().nullable(),
+        acknowledgeVolumeLoss: z.boolean().optional(),
+      }),
+    )
+    .output(serviceSchema),
+
   unexpose: oc
     .errors({
       NOT_FOUND: sharedErrors.NOT_FOUND,

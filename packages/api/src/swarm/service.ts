@@ -83,6 +83,14 @@ export interface SwarmServiceSpec {
    * before its first deploy); the label is then omitted.
    */
   deploymentId?: string | null;
+
+  /**
+   * Swarm node id this service is pinned to, already resolved from the
+   * resource's `placementServerId` (see swarm/resolve-placement). Null/absent
+   * leaves the scheduler free, which is the right default for stateless work —
+   * a pinned service does not fail over.
+   */
+  placementNodeId?: string | null;
 }
 
 // ---------------------------------------------------------------------------

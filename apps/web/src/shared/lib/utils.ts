@@ -2,7 +2,7 @@ import { zId } from "@otterdeploy/shared/id";
 import { type SimpleComparison } from "@tanstack/db";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { z } from "zod";
+import * as z from "zod";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));

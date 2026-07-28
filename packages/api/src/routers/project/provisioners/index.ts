@@ -29,6 +29,11 @@ export interface ProvisionInput {
   /** When true, publish the engine's port on the swarm node's host
    *  interface. Off by default — in-cluster apps use overlay DNS. */
   public?: boolean;
+  /** Resolved swarm node id to pin to (see swarm/resolve-placement). A
+   *  database's volume is local to its node, so this is normally set —
+   *  and an unresolvable pin fails the deploy rather than starting the
+   *  engine on a different node with an empty volume. */
+  placementNodeId?: string | null;
 }
 
 export interface ProvisionRuntime {

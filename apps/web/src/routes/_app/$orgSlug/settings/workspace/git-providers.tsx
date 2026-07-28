@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { z } from "zod";
+import * as z from "zod";
 
 // Moved out of the settings zone into the operational sidebar (Workspace
 // group): a source connection is what deploy-on-push runs on, not one-time

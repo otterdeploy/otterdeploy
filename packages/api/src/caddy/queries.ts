@@ -2,6 +2,7 @@ import type { PreviewId, ProjectId, ProxyRouteId, ResourceId } from "@otterdeplo
 import type { InferSelectModel } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
+import { resource } from "@otterdeploy/db/schema/project";
 import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
 import { and, asc, desc, eq, isNotNull, isNull, or } from "drizzle-orm";
 import { createError } from "evlog";
@@ -13,6 +14,30 @@ export async function listEnabledProxyRoutes(): Promise<ProxyRouteRecord[]> {
     .from(proxyRoute)
     .where(eq(proxyRoute.enabled, true))
     .orderBy(asc(proxyRoute.projectId), asc(proxyRoute.domain));
+}
+
+/**
+ * Enabled routes paired with the server their resource is pinned to.
+ *
+ * A LEFT join, not an inner one: routes exist whose resourceId is null (the
+ * control-plane route is synthesized, compose-stack members can outlive a
+ * resource row mid-reconcile). An inner join would silently drop those from
+ * every node's config AND from the count the operator sees — the worst kind of
+ * missing route, because nothing anywhere reports it.
+ */
+export async function listEnabledRoutePlacements(): Promise<
+  { routeId: ProxyRouteId; domain: string; placementServerId: string | null }[]
+> {
+  const rows = await db
+    .select({
+      routeId: proxyRoute.id,
+      domain: proxyRoute.domain,
+      placementServerId: resource.placementServerId,
+    })
+    .from(proxyRoute)
+    .leftJoin(resource, eq(proxyRoute.resourceId, resource.id))
+    .where(eq(proxyRoute.enabled, true));
+  return rows.map((r) => ({ ...r, placementServerId: r.placementServerId ?? null }));
 }
 
 export async function listProxyRoutesByProject(projectId: ProjectId): Promise<ProxyRouteRecord[]> {

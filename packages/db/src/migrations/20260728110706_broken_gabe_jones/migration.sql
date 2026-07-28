@@ -1,0 +1,1 @@
+ALTER TABLE "resource" ADD COLUMN "placement_server_id" text;

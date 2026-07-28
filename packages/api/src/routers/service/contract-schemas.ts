@@ -76,6 +76,7 @@ export const serviceSchema = z.object({
   // Non-null = paused (scaled to zero via service.pause); holds the replica
   // count service.resume restores. Null = not paused.
   pausedReplicas: z.number().int().positive().nullable(),
+  placementServerId: z.string().nullable(),
 
   restart: serviceRestartSchema,
   healthcheck: serviceHealthcheckSchema,

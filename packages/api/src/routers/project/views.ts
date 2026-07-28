@@ -173,6 +173,10 @@ export async function mapDatabaseResource(
     name: record.resource.name,
     type: "database" as const,
     status: record.resource.status,
+    // Which machine this database is pinned to, or null. Surfaced on the list
+    // view because the Settings card that edits it renders from this record —
+    // and because a pin is a fact about the resource, not about a rollout.
+    placementServerId: record.resource.placementServerId ?? null,
     // A database mid-deploy legitimately has NO container (image still
     // pulling), which the live runtime reads as `missing`. The latest
     // deployment row is what lets the graph card show "building" for that

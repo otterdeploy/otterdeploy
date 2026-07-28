@@ -21,6 +21,7 @@ import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
 import { Button } from "@/shared/components/ui/button";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
+import { PlacementPin } from "./placement-pin";
 import {
   buildScalingPatch,
   clusterFitMessage,
@@ -172,6 +173,10 @@ function ScalingForm({ resource, service }: { resource: ScalingResource; service
         fitLine={fitLine}
         onPatch={patchScaling}
       />
+
+      {/* Intent above, reality below. When a pinned service isn't running on
+          its pinned machine, that gap is the signal worth seeing. */}
+      <PlacementPin resource={resource} service={service} plainDocker={plainDocker} />
 
       <PlacementReadout service={service} />
 

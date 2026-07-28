@@ -18,6 +18,7 @@ import { PLATFORM } from "../../../constants";
 import { createStackDeployLog } from "../../../lib/deploy-log";
 import { provisionSwarmDatabase } from "../../../runtime/db";
 import { createPullLineSummarizer, resolveRegistryAuth, streamImagePull } from "../../../swarm";
+import { resolvePlacementForResource } from "../../../swarm/resolve-placement";
 import { insertDeployment, markDeploymentFailed, reconcileDeploySuccess } from "../deployments";
 import { createDatabaseResourceRecord } from "../queries";
 import { isUniqueViolation } from "../views";
@@ -191,6 +192,10 @@ export async function* provisionStage(
       {
         engine: ctx.engine,
         resourceId,
+        // Honour a pin set before the first deploy. Stateful: an unresolvable
+        // target throws instead of starting the engine on the wrong node
+        // against an empty volume.
+        placementNodeId: (await resolvePlacementForResource({ resourceId, stateful: true })).nodeId,
         image: ctx.dbImage,
         serviceName: ctx.containerName,
         volumeName: ctx.volumeName,

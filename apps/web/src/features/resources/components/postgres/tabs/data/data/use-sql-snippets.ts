@@ -14,7 +14,7 @@
  */
 import { createCollection, localStorageCollectionOptions } from "@tanstack/db";
 import { eq, useLiveQuery } from "@tanstack/react-db";
-import { z } from "zod";
+import * as z from "zod";
 
 /** Sentinel id for the always-available, cross-database scratch buffer. */
 export const PLAYGROUND_ID = "playground";

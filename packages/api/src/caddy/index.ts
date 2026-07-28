@@ -1,4 +1,4 @@
-import type { ProjectId } from "@otterdeploy/shared/id";
+import type { ProjectId, ServerId } from "@otterdeploy/shared/id";
 import type { RoutePolicy } from "@otterdeploy/shared/route-policy";
 import type { RequestLogger } from "evlog";
 
@@ -10,6 +10,7 @@ import { createHash } from "node:crypto";
 
 import { asStepLogger } from "../lib/logger";
 import { crowdsecConfig } from "../lib/platform-runtime-settings";
+import { listAllServers } from "../routers/server/queries";
 import { isSwarmRuntime } from "../runtime";
 import { ensureEdgeOnProjectNetworks } from "../swarm/client";
 import {
@@ -27,8 +28,10 @@ import {
 import { adaptCaddyfile, loadCaddyfile } from "./client";
 import { CONTROL_PLANE_ROUTE_POLICY } from "./control-plane-policy";
 import { maskCaddySecrets, stripGlobalBlock } from "./display";
+import { reconcileNodeEdges, type NodeEdgeResult, type PlacedRoute } from "./node-reconciler";
 import {
   listEnabledProxyRoutes,
+  listEnabledRoutePlacements,
   listProxyRoutesByProject,
   updateProxyRoute,
   type ProxyRouteRecord,
@@ -160,7 +163,7 @@ export async function reconcile(rlog?: RequestLogger): Promise<ReconcileResult> 
     routes.push(controlPlaneRoute(options.controlPlane));
   }
 
-  return reconcileRoutes({
+  const result = await reconcileRoutes({
     routes,
     adminBind: env.CADDY_ADMIN_BIND,
     ...options,
@@ -168,6 +171,60 @@ export async function reconcile(rlog?: RequestLogger): Promise<ReconcileResult> 
     load: (caddyfile) => loadCaddyfile(caddyfile, env.CADDY_ADMIN_URL, rlog),
     rlog,
   });
+
+  // Then every OTHER node's edge, over SSH. Deliberately after the control
+  // plane: it serves every unplaced route, so getting it right first means a
+  // node that can't be reached degrades instead of going dark. Failures ride
+  // back on the result rather than throwing — one unreachable machine must not
+  // fail the reconcile for the rest.
+  const nodeEdges = await reconcileNodeEdgesForInstall(routes, options, rlog);
+
+  return { ...result, nodeEdges };
+}
+
+/**
+ * Fan the reconciled routes out to per-node edges.
+ *
+ * Swarm-only: under plain docker there is one machine, its edge IS the control
+ * plane's, and there is nothing to push anywhere.
+ */
+async function reconcileNodeEdgesForInstall(
+  routes: ProxyRouteInput[],
+  options: Awaited<ReturnType<typeof loadCaddyOptions>>,
+  rlog?: RequestLogger,
+): Promise<NodeEdgeResult[]> {
+  if (!isSwarmRuntime()) return [];
+
+  const placements = await listEnabledRoutePlacements();
+  const placementByDomain = new Map(placements.map((p) => [p.domain, p.placementServerId]));
+
+  // Index by domain because that's the one key both sides share — the built
+  // route inputs have already lost their row ids by this point.
+  const placed: PlacedRoute[] = routes.map((route) => ({
+    domain: route.domain,
+    placementServerId: placementByDomain.get(route.domain) ?? null,
+    route,
+  }));
+
+  return reconcileNodeEdges({
+    placed,
+    // The control plane's own edge was just reconciled in-process above, and it
+    // keeps every unplaced route. Identified by the bootstrap row's loopback
+    // host — the machine running otterdeploy registers itself as 127.0.0.1.
+    controlPlaneServerId: await resolveControlPlaneServerId(),
+    buildOptions: options,
+    adminBind: env.CADDY_ADMIN_BIND,
+    rlog,
+  });
+}
+
+/** The bootstrap row for the machine running otterdeploy itself, which owns the
+ *  in-process edge. Null when no such row exists yet — every node then gets
+ *  only its own routes, and unplaced ones stay on the control-plane edge that
+ *  was just reconciled regardless. */
+async function resolveControlPlaneServerId(): Promise<ServerId | null> {
+  const servers = await listAllServers();
+  return servers.find((s) => s.host === "127.0.0.1" || s.host === "localhost")?.id ?? null;
 }
 
 export interface ProjectCaddyfile {

@@ -16,6 +16,7 @@
 import type { RequestLogger } from "evlog";
 
 import { updateSwarmDatabase } from "../../../runtime/db";
+import { resolvePlacementForResource } from "../../../swarm/resolve-placement";
 import { insertDeployment, markDeploymentFailed, reconcileDeploySuccess } from "../deployments";
 import { type DatabaseResourceRecord } from "../queries";
 import { buildContainerName, buildVolumeName, sanitizeProjectSlug } from "../views";
@@ -66,6 +67,12 @@ export async function rollDatabaseContainer(
       {
         engine,
         resourceId: record.resource.id,
+        // Docker REPLACES the whole spec on update, so omitting this would
+        // silently strip the placement constraint and let the next reschedule
+        // move the engine away from its volume.
+        placementNodeId: (
+          await resolvePlacementForResource({ resourceId: record.resource.id, stateful: true })
+        ).nodeId,
         image,
         serviceName: buildContainerName({
           engine,

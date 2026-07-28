@@ -39,6 +39,7 @@ export interface GraphContextMenuActions {
   onRestart: (node: ResourceFlowNode) => void;
   onCopyHostname: (node: ResourceFlowNode) => void;
   onDelete: (node: ResourceFlowNode) => void;
+  onClone: (node: ResourceFlowNode) => void;
   onNewService: () => void;
   onFitView: () => void;
 }
@@ -157,6 +158,12 @@ function NodeMenuItems({
         <DropdownMenuItem onClick={() => actions.onCopyHostname(node)}>
           <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
           Copy internal hostname
+        </DropdownMenuItem>
+      )}
+      {isReal && (
+        <DropdownMenuItem onClick={() => actions.onClone(node)}>
+          <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
+          Clone…
         </DropdownMenuItem>
       )}
       {canDelete && (

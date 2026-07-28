@@ -1,5 +1,6 @@
 import type { ServerId, SshKeyId } from "@otterdeploy/shared/id";
 
+import { useLiveQuery } from "@tanstack/react-db";
 import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -15,6 +16,8 @@ import {
 } from "@/shared/components/ui/select";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
+import { serverCollection } from "../data/server";
+import { managerPromotionWarning } from "../quorum";
 import { ProvisionAdvancedSection } from "./server-provision-advanced";
 import { type AuthMode, ProvisionAuthSection } from "./server-provision-auth";
 import { ProvisionFooter } from "./server-provision-footer";
@@ -129,6 +132,21 @@ export function ProvisionForm({
   );
 }
 
+/**
+ * Promoting a second machine to manager is the intuitive move and the wrong
+ * one — see ../quorum. Warn at the point of choosing, with the count this
+ * install actually has.
+ */
+function ManagerQuorumWarning() {
+  const { data: servers } = useLiveQuery((q) => q.from({ s: serverCollection }));
+  const managers = servers.filter((s) => s.role === "manager").length;
+  const warning = managerPromotionWarning(managers);
+  if (!warning) return null;
+  return (
+    <p className="text-[12px] leading-relaxed text-amber-600 dark:text-amber-500">{warning}</p>
+  );
+}
+
 function IdentityFields({ form }: { form: ProvisionFormApi }) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -238,6 +256,7 @@ function ConnectionFields({ form }: { form: ProvisionFormApi }) {
                 <SelectItem value="manager">manager (raft quorum)</SelectItem>
               </SelectContent>
             </Select>
+            {field.state.value === "manager" ? <ManagerQuorumWarning /> : null}
           </Field>
         )}
       </form.Field>

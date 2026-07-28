@@ -27,6 +27,9 @@ export interface ServiceView {
   replicas: number;
   /** Non-null = paused; the replica count `service.resume` restores. */
   pausedReplicas: number | null;
+  /** Server this service is pinned to, or null when the scheduler places it.
+   *  Pinned means no failover — the UI has to say so wherever it's shown. */
+  placementServerId: string | null;
 
   restart: {
     condition: "none" | "on-failure" | "any";
@@ -138,6 +141,7 @@ export async function mapServiceView(
     entrypoint: record.service.entrypoint,
     replicas: record.service.replicas,
     pausedReplicas: record.service.pausedReplicas,
+    placementServerId: record.resource.placementServerId ?? null,
     restart: {
       condition: record.service.restartCondition,
       maxAttempts: record.service.restartMaxAttempts,

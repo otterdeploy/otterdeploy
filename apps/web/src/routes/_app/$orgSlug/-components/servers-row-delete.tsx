@@ -45,9 +45,18 @@ export function ServerDeleteButton({ server }: { server: Server }) {
     setDeleting(true);
     orpc.server.delete
       .call({ id: server.id })
-      .then(() => {
+      .then((result) => {
         serverCollection.utils.writeDelete(server.id);
-        toast.success(`${server.name} removed`);
+        // Removing a machine silently changes where other things may run. Say
+        // how many, because "schedulable again" is a real change of behaviour
+        // for anything that was pinned here.
+        toast.success(
+          result.unpinnedResources > 0
+            ? `${server.name} removed — ${result.unpinnedResources} pinned ${
+                result.unpinnedResources === 1 ? "resource is" : "resources are"
+              } now schedulable anywhere`
+            : `${server.name} removed`,
+        );
         setOpen(false);
       })
       .catch((err: unknown) => {

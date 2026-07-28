@@ -13,6 +13,7 @@ import {
   tailResourceLogs,
   tailTaskLogs,
 } from "./handlers";
+import { cloneHandler, clonePreviewHandler } from "./router-resource-clone";
 import { deploymentsResourceRouter } from "./router-resource-deployments";
 import { postgresResourceRouter } from "./router-resource-postgres";
 
@@ -219,6 +220,9 @@ export const resourceRouter = {
       return result.value;
     },
   ),
+
+  clonePreview: clonePreviewHandler,
+  clone: cloneHandler,
 
   database: {
     postgres: postgresResourceRouter,

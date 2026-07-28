@@ -12,6 +12,7 @@ import { Result } from "better-result";
 
 import { updateSwarmDatabase } from "../../runtime/db";
 import { defaultImageFor } from "../../swarm";
+import { resolvePlacementForResource } from "../../swarm/resolve-placement";
 import {
   getLatestDeploymentForResource,
   insertDeployment,
@@ -68,12 +69,16 @@ export async function rollDatabaseEnv(args: {
   // Wrapped so a driver throw marks the just-inserted row failed instead of
   // stranding it "building" forever (the stale-row rescue only covers
   // zero-task rows; a live DB container keeps deriving from its tasks).
+  const placement = await resolvePlacementForResource({ resourceId, stateful: true });
+
   const rolled = await Result.tryPromise({
     try: () =>
       updateSwarmDatabase(
         {
           engine,
           resourceId,
+          // Same reason as roll.ts: an update without this unpins the database.
+          placementNodeId: placement.nodeId,
           // Without an explicit image the driver falls back to the engine
           // default — which would swap the running version on an env roll.
           image: engineImage,

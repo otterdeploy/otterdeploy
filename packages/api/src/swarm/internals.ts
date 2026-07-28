@@ -10,6 +10,8 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 import type { SwarmServiceResources, SwarmServiceRuntime, SwarmServiceSpec } from "./service";
 
+import { placementSpread } from "./placement";
+
 function msToNs(ms: number): number {
   return ms * 1_000_000;
 }
@@ -144,6 +146,7 @@ export function buildServiceSpec(spec: SwarmServiceSpec, networkName: string) {
       Window: msToNs(RESTART_WINDOW_MS),
     },
     ForceUpdate: spec.forceUpdateCounter,
+    ...placementSpread(spec.placementNodeId),
   };
 
   if (spec.resources) {

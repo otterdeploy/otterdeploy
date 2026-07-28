@@ -2,8 +2,9 @@ import type { OrganizationId, ServerId, SshKeyId } from "@otterdeploy/shared/id"
 import type { InferSelectModel } from "drizzle-orm";
 
 import { db } from "@otterdeploy/db";
+import { project, resource } from "@otterdeploy/db/schema/project";
 import { server } from "@otterdeploy/db/schema/server";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import os from "node:os";
 type OrgId = OrganizationId;
 
@@ -15,6 +16,20 @@ export async function listServersByOrg(organizationId: OrgId): Promise<ServerRec
     .from(server)
     .where(eq(server.organizationId, organizationId))
     .orderBy(asc(server.createdAt));
+}
+
+/**
+ * Every provisioned server in the install, across organizations.
+ *
+ * Edge reconciliation is install-wide because the config a node needs is
+ * defined by what it must STOP serving as much as what it must start. A node
+ * whose only service just moved away has no routes and no org with routes —
+ * scoping the sweep to orgs that currently have routes would skip exactly the
+ * node holding the stale one, and it would keep answering for a domain it no
+ * longer runs.
+ */
+export async function listAllServers(): Promise<ServerRecord[]> {
+  return db.select().from(server).orderBy(asc(server.name));
 }
 
 export async function getServerInOrg(input: {
@@ -162,12 +177,44 @@ export async function updateServerAvailabilityRecord(input: {
 export async function deleteServerRecord(input: {
   serverId: ServerId;
   organizationId: OrgId;
-}): Promise<{ id: ServerId } | undefined> {
-  const [deleted] = await db
-    .delete(server)
-    .where(and(eq(server.id, input.serverId), eq(server.organizationId, input.organizationId)))
-    .returning({ id: server.id });
-  return deleted;
+}): Promise<{ id: ServerId; unpinnedResources: number } | undefined> {
+  // placement_server_id carries no FK (resource is org-scoped through project,
+  // server is org-scoped directly — there is no single parent to cascade from),
+  // so the pin has to be released here. Left dangling, every affected resource
+  // would resolve its placement to a server that no longer exists: a stateless
+  // one would deploy unpinned with a confusing warning forever, and a database
+  // would refuse to deploy at all. Clearing it means "schedulable again", which
+  // is the honest state once the machine is gone.
+  return db.transaction(async (tx) => {
+    const orgProjects = tx
+      .select({ id: project.id })
+      .from(project)
+      .where(eq(project.organizationId, input.organizationId));
+
+    const unpinned = await tx
+      .update(resource)
+      .set({ placementServerId: null })
+      .where(
+        and(
+          eq(resource.placementServerId, input.serverId),
+          inArray(resource.projectId, orgProjects),
+        ),
+      )
+      .returning({ id: resource.id });
+
+    const [deleted] = await tx
+      .delete(server)
+      .where(and(eq(server.id, input.serverId), eq(server.organizationId, input.organizationId)))
+      .returning({ id: server.id });
+
+    // Server wasn't ours — roll the unpin back rather than quietly editing
+    // another org's resources.
+    if (!deleted) {
+      tx.rollback();
+      return undefined;
+    }
+    return { id: deleted.id, unpinnedResources: unpinned.length };
+  });
 }
 
 /**

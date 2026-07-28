@@ -241,7 +241,7 @@ export async function retryProvision(
 
 export async function deleteServer(
   input: { id: ServerId } & OrgRef,
-): Promise<Result<{ ok: true }, ServerNotFoundError>> {
+): Promise<Result<{ ok: true; unpinnedResources: number }, ServerNotFoundError>> {
   const deleted = await deleteServerRecord({
     serverId: input.id,
     organizationId: input.organizationId,
@@ -249,5 +249,5 @@ export async function deleteServer(
   if (!deleted) {
     return Result.err(new ServerNotFoundError({ serverId: input.id }));
   }
-  return Result.ok({ ok: true });
+  return Result.ok({ ok: true, unpinnedResources: deleted.unpinnedResources });
 }

@@ -52,6 +52,9 @@ export function useGraphContextMenu({
   // the menu unmounts the moment Delete is clicked — GraphCanvas renders
   // GraphNodeDeleteDialog with this as a sibling of the menu.
   const [deleteTarget, setDeleteTarget] = useState<ResourceFlowNode | null>(null);
+  // Same reason as deleteTarget — the menu unmounts on click, so the dialog is
+  // rendered as its sibling by GraphCanvas.
+  const [cloneTarget, setCloneTarget] = useState<ResourceFlowNode | null>(null);
   const close = () => setTarget(null);
 
   const dbRestart = useMutation({
@@ -111,6 +114,13 @@ export function useGraphContextMenu({
       close();
       setDeleteTarget(node);
     },
+    onClone: (node) => {
+      close();
+      // Seeds the dialog's selection; the operator widens it there. Cloning a
+      // service without its database is the common mistake, and the dialog is
+      // where that gets surfaced.
+      setCloneTarget(node);
+    },
     onNewService: () => {
       close();
       overlay.setOpen(true);
@@ -149,5 +159,7 @@ export function useGraphContextMenu({
     onPaneContextMenu,
     deleteTarget,
     closeDelete: () => setDeleteTarget(null),
+    cloneTarget,
+    closeClone: () => setCloneTarget(null),
   };
 }

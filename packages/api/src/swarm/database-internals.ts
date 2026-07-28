@@ -13,6 +13,7 @@ import type { ProvisionSwarmDatabaseInput, SwarmDatabaseRuntime } from "./databa
 
 import { getEngineAdapter, resolveDatabaseMount } from "./database-engines";
 import { subscribeDockerEvents } from "./events";
+import { placementSpread } from "./placement";
 
 export function buildDatabaseSpec(input: ProvisionSwarmDatabaseInput, networkName: string) {
   const adapter = getEngineAdapter(input.engine);
@@ -89,6 +90,10 @@ export function buildDatabaseSpec(input: ProvisionSwarmDatabaseInput, networkNam
         Delay: 5_000_000_000,
       },
       ForceUpdate: input.forceUpdateCounter ?? 1,
+      // Pinned only when the resource names a target node. A database owns a
+      // local volume, so a pinned one must NOT fail over — swarm leaves the
+      // task pending rather than starting it somewhere its data isn't.
+      ...placementSpread(input.placementNodeId),
     },
     Mode: {
       Replicated: { Replicas: 1 },

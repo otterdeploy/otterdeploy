@@ -34,7 +34,7 @@ import { useGraphContextMenu } from "./-components/graph-context-menu-actions";
 import { useBoundedGraph } from "./-components/graph-extent";
 import { GraphFlow } from "./-components/graph-flow";
 import { useGraphModel } from "./-components/graph-model";
-import { GraphNodeDeleteDialog } from "./-components/graph-node-delete";
+import { GraphNodeDialogs } from "./-components/graph-node-dialogs";
 import {
   commitNodeDrop,
   computeLaidOutNodes,
@@ -356,12 +356,13 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
         onOpenChange={contextMenu.onOpenChange}
         actions={contextMenu.actions}
       />
-      {/* Sibling of the menu, not a child: the menu unmounts as soon as
-          Delete is clicked, and a dialog inside it would go with it. */}
-      <GraphNodeDeleteDialog
-        target={contextMenu.deleteTarget}
+      <GraphNodeDialogs
         projectId={project.id}
-        onClose={contextMenu.closeDelete}
+        nodes={liveNodes}
+        deleteTarget={contextMenu.deleteTarget}
+        closeDelete={contextMenu.closeDelete}
+        cloneTarget={contextMenu.cloneTarget}
+        closeClone={contextMenu.closeClone}
       />
     </>
   );
