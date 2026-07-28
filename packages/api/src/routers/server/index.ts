@@ -1,3 +1,4 @@
+import { ORPCError } from "@orpc/server";
 import { matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../..";
@@ -49,6 +50,10 @@ export const serverRouter = {
       if (result.isErr()) {
         throw matchError(result.error, {
           ServerConflictError: () => errors.CONFLICT(),
+          // Surfaces the real Postgres message instead of the opaque
+          // Panic("catch handler threw") that replaced it before.
+          ServerDatabaseError: (e: { message: string }) =>
+            new ORPCError("INTERNAL_SERVER_ERROR", { message: e.message }),
         });
       }
       context.log.set({ target: { type: "server", id: result.value.id } });
@@ -173,6 +178,10 @@ export const serverRouter = {
       if (result.isErr()) {
         throw matchError(result.error, {
           ServerConflictError: () => errors.CONFLICT(),
+          // Surfaces the real Postgres message instead of the opaque
+          // Panic("catch handler threw") that replaced it before.
+          ServerDatabaseError: (e: { message: string }) =>
+            new ORPCError("INTERNAL_SERVER_ERROR", { message: e.message }),
           ProvisionCredentialError: () => errors.BAD_REQUEST(),
         });
       }

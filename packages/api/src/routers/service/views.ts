@@ -212,11 +212,12 @@ export function sanitizeSlug(value: string): string {
   return normalized.length > 0 ? normalized.slice(0, 32) : "x";
 }
 
-export function isUniqueViolation(error: unknown): error is { code: string } {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code: unknown }).code === "23505"
-  );
-}
+/**
+ * Re-exported from the leaf ../project/view-helpers rather than reimplemented.
+ *
+ * This module used to carry its own copy that checked only the TOP-LEVEL
+ * `error.code`. Drizzle wraps the driver error, so the Postgres `23505` sits on
+ * `.cause` — the copy therefore missed every real collision and misclassified
+ * it as an unexpected failure. One implementation, one behaviour.
+ */
+export { isUniqueViolation } from "../project/view-helpers";

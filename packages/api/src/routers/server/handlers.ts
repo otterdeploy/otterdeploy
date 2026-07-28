@@ -9,7 +9,7 @@
 
 import type { ServerId, SshKeyId } from "@otterdeploy/shared/id";
 
-import { panic, Result } from "better-result";
+import { Result } from "better-result";
 
 import type { OrgRef } from "../scopes";
 
@@ -19,6 +19,7 @@ import {
   ProvisionMissingCredentialError,
   ProvisionNotFailedError,
   ServerConflictError,
+  ServerDatabaseError,
   ServerNotFoundError,
 } from "./errors";
 import { enqueueProvision } from "./provision-runner";
@@ -68,7 +69,7 @@ export async function createServer(
     daemonVersion?: string;
     labels?: string[];
   } & OrgRef,
-): Promise<Result<ServerRecord, ServerConflictError>> {
+): Promise<Result<ServerRecord, ServerConflictError | ServerDatabaseError>> {
   const insert = await Result.tryPromise({
     try: () =>
       createServerRecord({
@@ -76,10 +77,12 @@ export async function createServer(
         name: input.name.trim(),
         host: input.host.trim(),
       }),
+    // Must RETURN, never throw: better-result masks a throwing catch handler
+    // as Panic("catch handler threw") and the real DB error is lost.
     catch: (cause) =>
       isUniqueViolation(cause)
         ? new ServerConflictError({ host: input.host })
-        : panic("server.createServer: unexpected DB error", cause),
+        : new ServerDatabaseError({ operation: "server.createServer", cause }),
   });
   if (Result.isError(insert)) return Result.err(insert.error);
   if (!insert.value) {
@@ -104,7 +107,9 @@ export async function provisionServer(
     meshAuthKey?: string;
     cloudflareToken?: string;
   } & OrgRef,
-): Promise<Result<ServerRecord, ServerConflictError | ProvisionCredentialError>> {
+): Promise<
+  Result<ServerRecord, ServerConflictError | ProvisionCredentialError | ServerDatabaseError>
+> {
   // Exactly one SSH credential. Neither → nothing to auth with; both → ambiguous.
   const hasKey = input.sshKeyId != null;
   const hasPassword = input.password != null && input.password.length > 0;
@@ -127,10 +132,11 @@ export async function provisionServer(
         meshProvider,
         buildServer: input.buildServer ?? false,
       }),
+    // Must RETURN, never throw — see createServer above.
     catch: (cause) =>
       isUniqueViolation(cause)
         ? new ServerConflictError({ host: input.host })
-        : panic("server.provisionServer: unexpected DB error", cause),
+        : new ServerDatabaseError({ operation: "server.provisionServer", cause }),
   });
   if (Result.isError(insert)) return Result.err(insert.error);
   if (!insert.value) return Result.err(new ServerConflictError({ host: input.host }));

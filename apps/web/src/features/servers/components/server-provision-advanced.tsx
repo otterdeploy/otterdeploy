@@ -1,44 +1,37 @@
-import { Globe02Icon, ShareKnowledgeIcon } from "@hugeicons/core-free-icons";
+import { useState } from "react";
+
+import { Globe02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Field, FieldLabel } from "@/shared/components/ui/field";
 import { Input } from "@/shared/components/ui/input";
 import { Cloudflare } from "@/shared/components/ui/svgs/cloudflare";
+import { NetBird } from "@/shared/components/ui/svgs/netbird";
 import { Tailscale } from "@/shared/components/ui/svgs/tailscale";
 import { Switch } from "@/shared/components/ui/switch";
 
 import type { ProvisionFormApi } from "./server-provision-form";
 
-import { PickerGroup, type PickerOption } from "./provision-picker";
+import { PickerGroup, type PickerOption, PickerToggle } from "./provision-picker";
 
-// Tailscale is the Simple Icons mark; NetBird publishes no mark to Simple Icons
-// and none was reachable from its own repos, so it carries a neutral network
-// glyph rather than an invented logo — swap in the real asset when you have it.
 const MESH_ITEMS: PickerOption<string>[] = [
   {
     value: "none",
     label: "Public",
     hint: "Routable IP",
-    icon: <HugeiconsIcon icon={Globe02Icon} strokeWidth={2} className="size-4" />,
+    icon: <HugeiconsIcon icon={Globe02Icon} strokeWidth={2} />,
   },
-  {
-    value: "tailscale",
-    label: "Tailscale",
-    hint: "WireGuard mesh",
-    icon: <Tailscale className="size-4" />,
-  },
-  {
-    value: "netbird",
-    label: "NetBird",
-    hint: "WireGuard mesh",
-    icon: <HugeiconsIcon icon={ShareKnowledgeIcon} strokeWidth={2} className="size-4" />,
-  },
+  { value: "tailscale", label: "Tailscale", hint: "WireGuard mesh", icon: <Tailscale /> },
+  { value: "netbird", label: "NetBird", hint: "WireGuard mesh", icon: <NetBird /> },
 ];
 
 /** Connectivity (mesh/tunnel) + build-node designation. Mesh joins the node to a
  *  WireGuard network and advertises the swarm on the mesh IP; Cloudflare Tunnel
  *  installs a connector for NAT/ingress. */
 export function ProvisionAdvancedSection({ form }: { form: ProvisionFormApi }) {
+  // Local disclosure only — the field value stays the source of truth, so a
+  // prefilled token (re-add of a failed server) opens the card on mount.
+  const [cfOpen, setCfOpen] = useState(false);
   return (
     <section className="flex flex-col gap-3">
       <form.Field name="meshProvider">
@@ -127,27 +120,32 @@ export function ProvisionAdvancedSection({ form }: { form: ProvisionFormApi }) {
         )}
       </form.Field>
 
-      {/* Orthogonal to the mesh choice above — a tunnel is for ingress, not for
-          the swarm join — so it stays its own opt-in rather than a fourth
-          connectivity card that would imply they're alternatives. */}
       <form.Field name="cloudflareToken">
         {(field) => (
-          <Field>
-            <FieldLabel htmlFor="srv-cf">
-              <span className="flex items-center gap-2">
-                <Cloudflare className="size-4 text-muted-foreground" />
-                Cloudflare Tunnel token (optional)
-              </span>
-            </FieldLabel>
-            <Input
-              id="srv-cf"
-              type="password"
-              className="font-mono"
-              placeholder="installs cloudflared on the node"
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-            />
-          </Field>
+          <PickerToggle
+            label="Cloudflare Tunnel"
+            hint="Optional — installs cloudflared for ingress"
+            icon={<Cloudflare />}
+            enabled={field.state.value.length > 0 || cfOpen}
+            onToggle={(next) => {
+              setCfOpen(next);
+              // Clearing on collapse keeps the form honest: a hidden token would
+              // still be submitted, so the closed card must mean "not using it".
+              if (!next) field.handleChange("");
+            }}
+          >
+            <Field>
+              <FieldLabel htmlFor="srv-cf">Tunnel token</FieldLabel>
+              <Input
+                id="srv-cf"
+                type="password"
+                className="font-mono"
+                placeholder="installs cloudflared on the node"
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+              />
+            </Field>
+          </PickerToggle>
         )}
       </form.Field>
     </section>

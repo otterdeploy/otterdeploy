@@ -80,12 +80,14 @@ export function ProvisionAuthSection({
                         before it ever opened a connection. */}
                     <PickerGroup
                       label="SSH key"
+                      columns="auto"
                       value={field.state.value}
                       onChange={(v) => field.handleChange(v)}
                       options={usableKeys.map((k) => ({
                         value: k.id,
                         label: k.name,
-                        icon: <HugeiconsIcon icon={Key01Icon} strokeWidth={2} className="size-4" />,
+                        hint: "Managed key",
+                        icon: <HugeiconsIcon icon={Key01Icon} strokeWidth={2} />,
                       }))}
                     />
                     {field.state.value === "" ? (

@@ -26,6 +26,50 @@ export class ServerConflictError extends TaggedError("ServerConflictError")<{
   }
 }
 
+/**
+ * An unexpected database failure while registering a server.
+ *
+ * Exists because `panic()` cannot be used from a `Result.tryPromise` catch
+ * handler: the handler is required to RETURN an error, and better-result
+ * replaces anything thrown there with an opaque
+ * `Panic("Result.tryPromise catch handler threw")`. That discarded the real
+ * Postgres error, so provisioning 500s carried no diagnostic at all. Carrying
+ * the cause's message through as a value keeps it in the log.
+ */
+/** A readable one-liner for any thrown value — never "[object Object]", which
+ *  would throw away the very detail this error exists to carry. */
+function describeCause(cause: unknown): string {
+  if (cause instanceof Error) return cause.message;
+  if (cause == null) return "unknown error";
+  if (typeof cause === "string") return cause;
+  if (typeof cause === "object") {
+    const message = (cause as { message?: unknown }).message;
+    if (typeof message === "string" && message.length > 0) return message;
+    try {
+      return JSON.stringify(cause) ?? "unknown error";
+    } catch {
+      return "unserializable error";
+    }
+  }
+  // Remaining primitives only — enumerated so nothing `unknown` reaches String().
+  if (typeof cause === "number" || typeof cause === "boolean" || typeof cause === "bigint") {
+    return String(cause);
+  }
+  return "unknown error";
+}
+
+export class ServerDatabaseError extends TaggedError("ServerDatabaseError")<{
+  message: string;
+  operation: string;
+}>() {
+  constructor(args: { operation: string; cause: unknown }) {
+    super({
+      operation: args.operation,
+      message: `${args.operation}: unexpected database error: ${describeCause(args.cause)}`,
+    });
+  }
+}
+
 /** Provision auth must be exactly one of a managed key or a one-time password
  *  — neither (nothing to auth with) and both (ambiguous) are rejected. */
 export class ProvisionCredentialError extends TaggedError("ProvisionCredentialError")<{
