@@ -21,6 +21,7 @@ import { Docker, type Node, type Task } from "@otterdeploy/docker";
 import { and, eq, inArray } from "drizzle-orm";
 
 import { isSwarmRuntime } from "../../runtime";
+import { isLiveTask, localHostRowIndex, unreachableNodeIds } from "./stats-attribution";
 type OrgId = OrganizationId;
 
 export interface ServerNodeStats {
@@ -94,14 +95,17 @@ function buildSwarmHostnameMap(nodes: Node[]): Map<string, string> {
  * per-project running-task tally, and the cluster running total. Tasks without
  * a resolvable node hostname still count toward cluster/project totals.
  */
-function aggregateTasks(tasks: Task[], swarmIdToHostname: Map<string, string>): TaskAggregation {
+function aggregateTasks(
+  tasks: Task[],
+  swarmIdToHostname: Map<string, string>,
+  unreachable: Set<string>,
+): TaskAggregation {
   const perHostname = new Map<string, Bucket>();
   const projectTaskCount = new Map<string, number>();
   let clusterRunning = 0;
 
   for (const t of tasks) {
-    const state = t.Status?.State ?? "";
-    const isRunning = state === "running";
+    const isRunning = isLiveTask(t, unreachable);
     if (isRunning) clusterRunning++;
 
     const slug = t.Labels?.["otterdeploy.project"];
@@ -164,6 +168,8 @@ interface ServerRow {
   id: ServerId;
   name: string | null;
   hostname: string | null;
+  host?: string | null;
+  role?: string | null;
 }
 
 /**
@@ -199,8 +205,9 @@ async function getDockerServerStats(
     }
   }
 
+  const localIndex = localHostRowIndex(servers);
   const perServer: ServerNodeStats[] = servers.map((s, i) =>
-    i === 0
+    i === localIndex
       ? {
           serverId: s.id,
           tasksRunning,
@@ -233,6 +240,8 @@ export async function getServerStats(input: { organizationId: OrgId }): Promise<
       id: server.id,
       name: server.name,
       hostname: server.hostname,
+      host: server.host,
+      role: server.role,
     })
     .from(server)
     .where(eq(server.organizationId, input.organizationId));
@@ -263,6 +272,9 @@ export async function getServerStats(input: { organizationId: OrgId }): Promise<
   const swarmIdToHostname = nodesResult.isOk()
     ? buildSwarmHostnameMap(nodesResult.value)
     : new Map<string, string>();
+  const unreachable = nodesResult.isOk()
+    ? unreachableNodeIds(nodesResult.value)
+    : new Set<string>();
 
   // ── All otterdeploy-managed tasks ──────────────────────────────────────
   // Single call, label-filtered so other docker workloads don't leak into
@@ -276,6 +288,7 @@ export async function getServerStats(input: { organizationId: OrgId }): Promise<
   const { perHostname, projectTaskCount, clusterRunning } = aggregateTasks(
     tasksResult.value,
     swarmIdToHostname,
+    unreachable,
   );
 
   // ── Per-server emission ───────────────────────────────────────────────
