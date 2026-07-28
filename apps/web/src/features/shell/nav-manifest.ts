@@ -19,6 +19,8 @@
  * silently in three nav surfaces.
  */
 
+import type { TranslationKey } from "@otterdeploy/i18n";
+
 import {
   Alert01Icon,
   BellDotIcon,
@@ -49,8 +51,14 @@ export type NavIcon = typeof Home01Icon;
 export interface NavManifestItem {
   /** English label — also the fallback when `i18nKey` is absent or untranslated. */
   title: string;
-  /** Optional i18n key; render with `t(i18nKey, title)`. */
-  i18nKey?: string;
+  /**
+   * Optional i18n key; render with `t(i18nKey, title)`.
+   *
+   * Typed as the checked key union rather than `string`: i18next keeps a
+   * `t(key: string, defaultValue: string)` overload, so a key that travels as
+   * data would otherwise launder a typo past the checker.
+   */
+  i18nKey?: TranslationKey;
   /** Typed route path — checked against the generated route tree. */
   to: RoutePath;
   icon: NavIcon;
@@ -68,11 +76,22 @@ export interface NavManifestItem {
    * the server re-checks the same flag (authz/capability.ts).
    */
   installAdminOnly?: boolean;
+  /**
+   * Anchor for the product tour, rendered as `data-tour="<id>"`.
+   *
+   * Set it only on destinations the tour actually stops at — the attribute is
+   * a contract with `features/tour/steps.ts`, so an unused one is dead weight
+   * and a renamed one silently breaks a step (the tour skips a missing
+   * element rather than stalling, so nothing throws).
+   */
+  tourId?: string;
 }
 
 export interface NavManifestGroup {
   /** Uppercase micro-label. Omitted for the ungrouped top items. */
   label?: string;
+  /** Optional i18n key for `label`; render with `t(labelI18nKey, label)`. */
+  labelI18nKey?: TranslationKey;
   items: readonly NavManifestItem[];
 }
 
@@ -87,6 +106,7 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         to: "/$orgSlug",
         icon: Home01Icon,
         exact: true,
+        tourId: "nav-projects",
       },
       // No "Templates" slot (od-u63.2) — it's a creation path (the + New
       // service wizard's "From template" source), not a destination. The
@@ -102,12 +122,14 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
   },
   {
     label: "Infrastructure",
+    labelI18nKey: "nav.groups.infrastructure",
     items: [
       {
         title: "Servers",
         i18nKey: "nav.servers",
         to: "/$orgSlug/servers",
         icon: ServerStack01Icon,
+        tourId: "nav-servers",
         // Docker (od-u63.3), Volumes ("Raw Docker" tab) and Platform
         // (od-u63.4, "Install health" tab) all fold in here — keep every
         // surface's old search terms so the palette still finds this page.
@@ -129,14 +151,17 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
       },
       {
         title: "Backups",
+        i18nKey: "nav.backups",
         to: "/$orgSlug/backups",
         icon: DatabaseIcon,
         keywords: ["restore", "snapshot", "database", "databases", "connections"],
       },
       {
         title: "Edge",
+        i18nKey: "nav.edge",
         to: "/$orgSlug/edge",
         icon: EarthIcon,
+        tourId: "nav-edge",
         // Networking, Edge logs and Settings → Certificates all folded in as
         // tabs (od-u63.1) — keep every surface's old search terms so the
         // palette still finds this from any of their names.
@@ -162,6 +187,7 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
       // less group heading for one destination reads calmer.
       {
         title: "Audit",
+        i18nKey: "nav.audit",
         to: "/$orgSlug/audit",
         icon: File01Icon,
         keywords: ["activity", "history"],
@@ -177,21 +203,25 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
     // shell next to the things they serve. API keys stayed behind: that is
     // programmatic access to otterdeploy itself, not something a deploy uses.
     label: "Workspace",
+    labelI18nKey: "nav.groups.workspace",
     items: [
       {
         title: "Git providers",
+        i18nKey: "nav.gitProviders",
         to: "/$orgSlug/git-providers",
         icon: GitBranchIcon,
         keywords: ["github", "gitlab", "gitea", "bitbucket", "source", "repo", "connection"],
       },
       {
         title: "Registries",
+        i18nKey: "nav.registries",
         to: "/$orgSlug/registries",
         icon: Database02Icon,
         keywords: ["docker", "image", "ghcr", "ecr", "pull", "credentials"],
       },
       {
         title: "SSH keys",
+        i18nKey: "nav.sshKeys",
         to: "/$orgSlug/ssh-keys",
         icon: Key01Icon,
         keywords: ["deploy key", "git", "node", "credentials", "keypair"],
@@ -202,6 +232,7 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         // a failed delivery), not one-time setup. Moved out of
         // Settings → Workspace.
         title: "Notifications",
+        i18nKey: "nav.notifications",
         to: "/$orgSlug/notifications",
         icon: BellDotIcon,
         keywords: ["alerts", "slack", "discord", "email", "webhook", "telegram", "pagerduty"],
@@ -219,6 +250,7 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
 export const PALETTE_EXTRA_NAV: readonly NavManifestItem[] = [
   {
     title: "Templates",
+    i18nKey: "nav.templates",
     to: "/$orgSlug/templates",
     icon: PackageIcon,
     keywords: ["gallery", "stacks", "deploy", "catalog"],
@@ -235,105 +267,7 @@ export const SETTINGS_ENTRY: NavManifestItem = {
 };
 
 // ─── Settings zone ───────────────────────────────────────────────────
-
-/** Settings-zone groups. `label` is required — the rail always shows it. */
-export interface SettingsNavGroup {
-  label: string;
-  items: readonly NavManifestItem[];
-}
-
-export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
-  {
-    label: "Account",
-    items: [
-      {
-        title: "Profile",
-        to: "/$orgSlug/settings/account/profile",
-        icon: UserCircleIcon,
-        keywords: ["account", "avatar", "name", "email"],
-      },
-      {
-        title: "Security",
-        to: "/$orgSlug/settings/account/security",
-        icon: ShieldKeyIcon,
-        keywords: ["password", "2fa", "two-factor", "totp"],
-      },
-      {
-        title: "Sessions",
-        to: "/$orgSlug/settings/account/sessions",
-        icon: DeviceAccessIcon,
-        keywords: ["devices", "sign out", "cli", "revoke"],
-      },
-    ],
-  },
-  {
-    label: "Workspace",
-    items: [
-      {
-        // Label-only rename (od-u63.7) — path is unchanged. "General" was
-        // ambiguous with Instance → General; this page is base domain +
-        // Cloudflare, so "Domains" says what it actually does.
-        title: "Domains",
-        to: "/$orgSlug/settings/workspace/general",
-        icon: Settings01Icon,
-        keywords: ["domain", "cloudflare", "workspace settings", "general"],
-      },
-      {
-        title: "Team",
-        to: "/$orgSlug/settings/workspace/team",
-        icon: UserMultipleIcon,
-        keywords: ["members", "invite"],
-      },
-      // Git providers, Registries and SSH keys moved to the operational
-      // sidebar's Workspace group — see OPERATIONAL_NAV above. The settings
-      // paths remain as redirect shims, so old bookmarks still land.
-      {
-        title: "Single sign-on",
-        to: "/$orgSlug/settings/workspace/sso",
-        icon: ShieldKeyIcon,
-        keywords: ["sso", "saml", "oidc", "okta", "entra", "azure", "identity provider", "idp"],
-      },
-      {
-        title: "API keys",
-        to: "/$orgSlug/settings/workspace/api-keys",
-        icon: Key02Icon,
-        keywords: ["tokens", "access"],
-      },
-      {
-        title: "Webhooks",
-        to: "/$orgSlug/settings/workspace/webhooks",
-        icon: WebhookIcon,
-        keywords: ["hmac", "deliveries", "inbound", "events"],
-      },
-      // Notifications moved to OPERATIONAL_NAV → Workspace; the old settings
-      // path now redirects there. Its transport cards (email provider, Twilio,
-      // FCM) were removed outright — per-channel delivery credentials are
-      // captured by the channel dialog itself.
-    ],
-  },
-  {
-    label: "Instance",
-    items: [
-      {
-        // Label-only rename (od-u63.7) — path is unchanged. No page should be
-        // named "General" twice in the same rail; "Instance" says whose
-        // config this is (install-wide, not workspace-scoped).
-        title: "Instance",
-        to: "/$orgSlug/settings/instance/general",
-        icon: ServerStack01Icon,
-        // Every card on this page is backed by the platform-settings router,
-        // which is install-admin in its entirety (16 of 16 procedures).
-        installAdminOnly: true,
-        keywords: [
-          "instance",
-          "platform",
-          "server ip",
-          "control plane",
-          "acme",
-          "updates",
-          "general",
-        ],
-      },
-    ],
-  },
-];
+//
+// Lives in ./settings-nav, re-exported so this module stays the one place
+// navigation is imported from.
+export { SETTINGS_NAV, type SettingsNavGroup } from "./settings-nav";

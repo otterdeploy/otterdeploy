@@ -7,6 +7,7 @@
 
 import { Delete02Icon, RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import {
   AlertDialog,
@@ -32,6 +33,7 @@ export function RotateKeyDialog({
   expired: boolean;
   onConfirm: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <AlertDialog>
       <AlertDialogTrigger
@@ -40,7 +42,7 @@ export function RotateKeyDialog({
             variant="ghost"
             size="icon-sm"
             className="text-muted-foreground hover:text-foreground"
-            aria-label="Rotate API key"
+            aria-label={t("apiKeys.rotate")}
             disabled={busy || expired}
           >
             <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
@@ -86,6 +88,7 @@ export function DeleteKeyDialog({
   busy: boolean;
   onConfirm: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <AlertDialog>
       <AlertDialogTrigger
@@ -94,7 +97,7 @@ export function DeleteKeyDialog({
             variant="ghost"
             size="icon-sm"
             className="text-muted-foreground hover:text-destructive"
-            aria-label="Delete API key"
+            aria-label={t("apiKeys.delete")}
           >
             <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
           </Button>

@@ -8,6 +8,7 @@
 import { useState } from "react";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -105,10 +106,11 @@ export function FirewallView() {
 }
 
 function FirewallHeader({ configured, reachable }: { configured: boolean; reachable: boolean }) {
+  const { t } = useTranslation();
   return (
     <div className="px-4 pt-4">
       <div className="flex items-center gap-2">
-        <h1 className="text-base font-semibold">Firewall</h1>
+        <h1 className="text-base font-semibold">{t("firewall.title")}</h1>
         {reachable ? (
           <span className="inline-flex items-center gap-1.5 text-[11px] text-success">
             <span className="size-1.5 animate-pulse rounded-full bg-success" />

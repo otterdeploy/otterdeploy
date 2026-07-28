@@ -12,6 +12,7 @@ import { useState } from "react";
 import { Delete02Icon, Download01Icon, ViewIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import {
@@ -47,6 +48,7 @@ import { orpc, queryClient } from "@/shared/server/orpc";
 
 import type { TrustedCa } from "./data/certificates";
 
+import { RemoveCaButton } from "./cas-table-parts";
 import { daysUntil, expiryLabel, truncateMiddle } from "./data/certificates";
 import { ViewPemDialog } from "./view-pem-dialog";
 
@@ -71,6 +73,7 @@ export function TrustedCasTable({
   canManage: boolean;
   onUpload: () => void;
 }) {
+  const { t } = useTranslation();
   const [viewing, setViewing] = useState<TrustedCa | null>(null);
 
   if (isLoading) {
@@ -87,7 +90,7 @@ export function TrustedCasTable({
     return (
       <Empty className="border-dashed">
         <EmptyHeader>
-          <EmptyTitle>No trusted CAs</EmptyTitle>
+          <EmptyTitle>{t("certificates.noCas")}</EmptyTitle>
           <EmptyDescription>
             Store CA certificates here as a shared inventory — view and download the PEM whenever
             you need it. The generated edge config doesn't consume this pool (services are proxied
@@ -209,63 +212,5 @@ function CaRow({
         </span>
       </TableCell>
     </TableRow>
-  );
-}
-
-function RemoveCaButton({
-  name,
-  disabled,
-  onConfirm,
-}: {
-  name: string;
-  disabled: boolean;
-  onConfirm: () => void;
-}) {
-  return (
-    <AlertDialog>
-      <AlertDialogTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7 text-muted-foreground hover:text-destructive"
-            disabled={disabled}
-            aria-label={`Remove ${name}`}
-          >
-            <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
-          </Button>
-        }
-      />
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Remove “{name}” from the CA store?</AlertDialogTitle>
-          <AlertDialogDescription>
-            The stored PEM is deleted. Anything referencing it (e.g. a project's custom Caddy config
-            pointing at a downloaded copy) is unaffected — this only removes the inventory entry.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel
-            render={
-              <Button variant="outline" size="sm">
-                Cancel
-              </Button>
-            }
-          />
-          <AlertDialogAction
-            render={
-              <Button
-                size="sm"
-                variant="ghost"
-                className="bg-destructive/10 text-destructive hover:bg-destructive/20"
-                onClick={onConfirm}
-              >
-                Remove
-              </Button>
-            }
-          />
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
   );
 }

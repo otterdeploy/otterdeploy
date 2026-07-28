@@ -1,0 +1,779 @@
+{
+  "common": {
+    "search": "Suchen",
+    "searchOrRun": "Suchen oder Befehl ausführen...",
+    "loading": "Lädt…",
+    "save": "Speichern",
+    "saving": "Wird gespeichert…",
+    "cancel": "Abbrechen",
+    "close": "Schließen",
+    "delete": "Löschen",
+    "deleting": "Wird gelöscht…",
+    "remove": "Entfernen",
+    "edit": "Bearbeiten",
+    "create": "Erstellen",
+    "creating": "Wird erstellt…",
+    "add": "Hinzufügen",
+    "copy": "Kopieren",
+    "copied": "Kopiert",
+    "retry": "Erneut versuchen",
+    "refresh": "Aktualisieren",
+    "back": "Zurück",
+    "next": "Weiter",
+    "done": "Fertig",
+    "continue": "Fortfahren",
+    "skip": "Überspringen",
+    "confirm": "Bestätigen",
+    "enabled": "Aktiviert",
+    "disabled": "Deaktiviert",
+    "openSidebar": "Seitenleiste öffnen",
+    "closeSidebar": "Seitenleiste schließen",
+    "notifications": {
+      "title": "Benachrichtigungen",
+      "unread": "Benachrichtigungen — {{count}} ungelesen",
+      "labelFailure": "enthält einen Fehler"
+    },
+    "toggleTheme": "Design wechseln",
+    "language": "Sprache",
+    "loadingLabel": "Lädt",
+    "copyFailed": "Kopieren fehlgeschlagen",
+    "dismiss": "Ausblenden",
+    "name": "Name",
+    "username": "Benutzername",
+    "port": "Port",
+    "password": "Passwort",
+    "slug": "Slug",
+    "more": "Mehr",
+    "typeToConfirm": "Tippe {{phrase}}, um zu bestätigen"
+  },
+  "auth": {
+    "signIn": {
+      "title": "Anmelden",
+      "subtitle": "Gib deine Daten ein, um fortzufahren.",
+      "emailLabel": "E-Mail",
+      "emailPlaceholder": "du@beispiel.de",
+      "passwordLabel": "Passwort",
+      "passwordPlaceholder": "Dein Passwort",
+      "forgotPassword": "Passwort vergessen?",
+      "submit": "Anmelden",
+      "signingIn": "Anmeldung läuft…",
+      "welcomeBack": "Willkommen zurück",
+      "invalidEmail": "Bitte gib eine gültige E-Mail-Adresse ein",
+      "passwordMinLength": "Das Passwort muss mindestens 8 Zeichen lang sein",
+      "noAccount": "Noch kein Konto?",
+      "createAccount": "Jetzt erstellen"
+    },
+    "signUp": {
+      "title": "Konto erstellen",
+      "subtitle": "In wenigen Minuten deployen.",
+      "nameLabel": "Vollständiger Name",
+      "namePlaceholder": "Jane Doe",
+      "emailLabel": "E-Mail",
+      "emailPlaceholder": "du@beispiel.de",
+      "passwordLabel": "Passwort",
+      "passwordPlaceholder": "Wähle ein sicheres Passwort",
+      "submit": "Konto erstellen",
+      "creatingAccount": "Konto wird erstellt…",
+      "accountCreated": "Konto erstellt",
+      "nameMinLength": "Der Name muss mindestens 2 Zeichen lang sein",
+      "hasAccount": "Du hast bereits ein Konto?",
+      "signIn": "Anmelden",
+      "bootstrapToken": "Bootstrap-Token der Installation",
+      "bootstrapTokenPlaceholder": "Füge den von install.sh ausgegebenen Token ein",
+      "bootstrapTokenHint": "Dieser Einmal-Token belegt, dass du den VPS kontrollierst, und macht dieses Konto zum Eigentümer der Installation."
+    },
+    "logout": "Abmelden",
+    "layoutFooter": "Otterdeploy Authentifizierung",
+    "twoFactor": {
+      "verify": "Bestätigen"
+    },
+    "sso": {
+      "enterWorkEmail": "Gib deine geschäftliche E-Mail-Adresse ein"
+    }
+  },
+  "errors": {
+    "notFound": {
+      "eyebrow": "Seite nicht gefunden",
+      "title": "Hier ist nichts.",
+      "statusTag": "NO_ROUTE",
+      "messageBefore": "Es gibt keine Route zu ",
+      "messageAfter": " in dieser App. Sie wurde vielleicht verschoben, umbenannt oder hat nie existiert.",
+      "messageFallbackPath": "diesem Pfad",
+      "returnHome": "↩ Zur Startseite",
+      "goBack": "← Zurück"
+    },
+    "serverError": {
+      "eyebrow": "Interner Fehler",
+      "title": "Etwas ist schiefgelaufen.",
+      "statusTag": "FAULT",
+      "messageDefault": "Otterdeploy ist beim Rendern dieser Seite auf einen unerwarteten Fehler gestoßen. Der Fehler wurde protokolliert — das liegt an uns, nicht an dir. Versuch es gleich noch einmal.",
+      "retry": "⟳ Erneut versuchen",
+      "returnHome": "↩ Zur Startseite"
+    },
+    "generic": "Etwas ist schiefgelaufen"
+  },
+  "shell": {
+    "search": "Suchen",
+    "searchPlaceholder": "Ressourcen, Einstellungen suchen…",
+    "switchWorkspace": "Workspace wechseln",
+    "newWorkspace": "Neuer Workspace",
+    "selfHostedServers_one": "selbst gehostet · {{count}} Server",
+    "selfHostedServers_other": "selbst gehostet · {{count}} Server",
+    "toggleSidebar": "Seitenleiste ein-/ausblenden",
+    "sidebar": "Seitenleiste",
+    "sidebarDescription": "Zeigt die mobile Seitenleiste.",
+    "noProjects": "Keine Projekte",
+    "environment": "Umgebung",
+    "createEnvironment": "Umgebung erstellen",
+    "environmentPlaceholder": "Staging"
+  },
+  "nav": {
+    "overview": "Übersicht",
+    "graph": "Graph",
+    "deployments": "Deployments",
+    "logs": "Logs",
+    "metrics": "Metriken",
+    "variables": "Variablen",
+    "networking": "Netzwerk",
+    "servers": "Server",
+    "terminal": "Terminal",
+    "settings": "Einstellungen",
+    "project": "Projekt",
+    "projects": "Projekte",
+    "services": "Services",
+    "addService": "Service hinzufügen",
+    "newService": "+ Neuer Service",
+    "workspace": "Workspace",
+    "backups": "Backups",
+    "edge": "Edge",
+    "audit": "Audit",
+    "gitProviders": "Git-Anbieter",
+    "registries": "Registries",
+    "sshKeys": "SSH-Schlüssel",
+    "notifications": "Benachrichtigungen",
+    "templates": "Vorlagen",
+    "profile": "Profil",
+    "security": "Sicherheit",
+    "sessions": "Sitzungen",
+    "domains": "Domains",
+    "team": "Team",
+    "sso": "Single Sign-on",
+    "apiKeys": "API-Schlüssel",
+    "webhooks": "Webhooks",
+    "instance": "Instanz",
+    "groups": {
+      "infrastructure": "Infrastruktur",
+      "workspace": "Workspace",
+      "account": "Konto",
+      "instance": "Instanz"
+    }
+  },
+  "projects": {
+    "title": "Projekte",
+    "subtitle": "Öffne ein Projekt, um seine Services, Datenbanken und Routen zu verwalten.",
+    "newProject": "Neues Projekt",
+    "emptyTitle": "Keine Projekte in {{name}}",
+    "emptyDescription": "Projekte bündeln Services, Datenbanken und Routen. Erstelle dein erstes, um loszulegen.",
+    "loadFailed": "Projekte konnten nicht geladen werden",
+    "database_one": "Datenbank",
+    "database_other": "Datenbanken",
+    "route_one": "Route",
+    "route_other": "Routen"
+  },
+  "servers": {
+    "title": "Server",
+    "addServer": "+ Server hinzufügen",
+    "secureEnrollment": "Sichere Aufnahme",
+    "nodeDescription_one": "{{count}} Node in diesem Swarm · Replicas werden über rollierende Docker-Stack-Updates platziert",
+    "nodeDescription_other": "{{count}} Nodes in diesem Swarm · Replicas werden über rollierende Docker-Stack-Updates platziert",
+    "addServerTitle": "Server hinzufügen",
+    "form": {
+      "host": "Host / IP",
+      "sshUser": "SSH-Benutzer",
+      "role": "Rolle",
+      "sshKey": "SSH-Schlüssel"
+    },
+    "advanced": {
+      "connectivity": "Konnektivität",
+      "buildNode": "Dedizierter Build-Node",
+      "tunnel": "Cloudflare Tunnel",
+      "tunnelHint": "Optional. Installiert cloudflared für eingehenden Traffic",
+      "tunnelToken": "Tunnel-Token",
+      "tunnelPlaceholder": "installiert cloudflared auf dem Node"
+    },
+    "stepUp": {
+      "confirmTitle": "Manager-Berechtigung bestätigen",
+      "authenticatorCode": "Authenticator-Code",
+      "passwordPlaceholder": "Das Passwort deines Kontos",
+      "confirmPhrase": "ENROLL MANAGER"
+    },
+    "enrollment": {
+      "title": "Sichere Node-Aufnahme",
+      "worker": "Worker-Aufnahme",
+      "manager": "Manager-Aufnahme",
+      "revoked": "Aufnahme widerrufen",
+      "recent": "Zuletzt erstellte Aufnahme-Credentials",
+      "none": "Keine Aufnahme-Credentials erstellt.",
+      "progress": "Fortschritt der Aufnahme"
+    }
+  },
+  "environments": {
+    "label": "Umgebungen"
+  },
+  "user": {
+    "upgradeToPro": "Auf Pro upgraden",
+    "account": "Konto",
+    "billing": "Abrechnung",
+    "notifications": "Benachrichtigungen",
+    "logout": "Abmelden",
+    "commandMenu": "Befehlsmenü",
+    "connectCli": "CLI verbinden",
+    "activeSessions": "Aktive Sitzungen",
+    "twoFactor": "Zwei-Faktor-Authentifizierung",
+    "appearance": "Darstellung",
+    "theme": {
+      "system": "System",
+      "light": "Hell",
+      "dark": "Dunkel"
+    }
+  },
+  "tour": {
+    "menuItem": "Tour starten",
+    "progress": "{{current}} von {{total}}",
+    "next": "Weiter",
+    "previous": "Zurück",
+    "done": "Fertig",
+    "steps": {
+      "welcome": {
+        "title": "Eine kurze Tour",
+        "description": "Sechs Minuten durch die Teile von otterdeploy, die du täglich brauchst — wo deine Maschinen liegen, wie ein Projekt aufgebaut ist und wo du nachsiehst, wenn ein Deploy schiefgeht. Mit Esc kommst du jederzeit raus; im Kontomenü findest du sie wieder."
+      },
+      "sidebar": {
+        "title": "Die Seitenleiste",
+        "description": "Alles Organisationsweite liegt hier, gruppiert nach Zweck: oben deine Projekte, in der Mitte die Infrastruktur, auf der sie laufen, darunter die ausgehenden Verbindungen, die ein Deploy braucht — Git, Registries, Schlüssel."
+      },
+      "projects": {
+        "title": "Projekte",
+        "description": "Ein Projekt bündelt die Services, Datenbanken und Routen, die zusammen ausgeliefert werden — eine App und ihre Abhängigkeiten. Die Badge zählt, was dieser Workspace hat."
+      },
+      "infrastructure": {
+        "title": "Server",
+        "description": "Die Linux-Maschinen in deinem Swarm. Füge eine per SSH oder mit einem Join-Token hinzu und verfolge dann Rolle, Verfügbarkeit und Zustand in der Tabelle. Nichts wird deployt, solange nicht mindestens ein Node bereit ist."
+      },
+      "edge": {
+        "title": "Edge",
+        "description": "Die Caddy-Schicht vor allem, was du deployst: Domains und Routen, TLS-Zertifikate, Zugriffslogs und die Host-Firewall. Hierher gehst du, wenn eine URL nicht auflöst oder ein Zertifikat nicht ausgestellt wurde."
+      },
+      "search": {
+        "title": "Alles finden",
+        "description": "Die Befehlspalette springt zu jeder Seite, jedem Projekt und jeder Ressource, ohne die Tastatur zu verlassen. Drücke von überall ⌘K."
+      },
+      "activity": {
+        "title": "Systemzustand in Echtzeit",
+        "description": "Laufende Deploys, ungelesene Benachrichtigungen und der Design-Umschalter. Die Marke oben links zeigt denselben Zustand, sodass ein laufender Build von jeder Seite sichtbar ist — und aus einem Hintergrund-Tab."
+      },
+      "serversPage": {
+        "title": "Dein Cluster",
+        "description": "Eine Zeile pro Maschine, mit Swarm-Rolle, Verfügbarkeit und letzter Zustandsmessung. `unknown` ist bewusst kein Bestanden — es heißt, dass noch niemand nachgesehen hat."
+      },
+      "addServer": {
+        "title": "Server hinzufügen",
+        "description": "Provisioniere per SSH, und otterdeploy geht den ganzen Weg selbst: Docker installieren, dem Mesh beitreten, dem Swarm beitreten, den Node verifizieren, ihn für Builds labeln. Jede Phase meldet ehrlich, was passiert."
+      },
+      "enrollment": {
+        "title": "Oder ohne SSH aufnehmen",
+        "description": "Du willst keinen SSH-Zugang herausgeben? Erzeuge stattdessen einen kurzlebigen Join-Token und führe einen einzigen Befehl auf der Maschine aus. Praktisch für Hosts, die du nur über eine Konsole erreichst."
+      },
+      "projectGraph": {
+        "title": "Der Projektgraph",
+        "description": "Dein Projekt als Leinwand: Services, Datenbanken und die Routen dorthin, mit Live-Status an jedem Node. Rechtsklick auf einen Node öffnet, startet neu, klont oder zeigt Logs — Rechtsklick auf die Leinwand legt Neues an."
+      },
+      "projectTabs": {
+        "title": "Alles zu diesem Projekt",
+        "description": "Der Graph ist die Übersicht, diese Tabs sind das Detail. Deployments, Logs, Metriken, Variablen und Netzwerk bleiben alle auf dieses Projekt beschränkt."
+      },
+      "newService": {
+        "title": "Service hinzufügen",
+        "description": "Aus einem Git-Repo bauen, ein Docker-Image ziehen, eine Datenbank starten oder eine Compose-Datei einfügen. Der schnelle Weg sind drei bis vier Klicks; „Erweiterte Einrichtung“ öffnet den vollen Ablauf."
+      },
+      "deployments": {
+        "title": "Jeder Deploy bleibt erhalten",
+        "description": "Eine Zeile pro Push, mit Grund — git-push, redeploy, env-change, rollback — und dem Konfigurations-Snapshot, mit dem er lief. Dieser Snapshot macht ein Rollback zur echten Option statt zum Ratespiel."
+      },
+      "logs": {
+        "title": "Logs, die die Wahrheit sagen",
+        "description": "Laufzeit-Logs deiner Container und Edge-Logs von Caddy an einem Ort. Filtere nach Service, Level und Zeit; jeder Filter steht in der URL, eine nützliche Ansicht ist also ein Link, den du weitergeben kannst."
+      },
+      "variables": {
+        "title": "Variablen",
+        "description": "Setze sie pro Projekt oder pro Service und referenziere andere Ressourcen über ihren Namen — `${database:main.DATABASE_URL}` wird beim Deploy aufgelöst. Diese späte Bindung gibt Previews ihre eigene Datenbank."
+      },
+      "networking": {
+        "title": "Domains und Routen",
+        "description": "Richte eine Domain auf einen Service, und otterdeploy übernimmt DNS-Prüfung und Zertifikatsausstellung und meldet jeden Zustand klar. Der Deployment-Schutz stellt alles, was noch nicht öffentlich sein soll, hinter eine Anmeldung."
+      },
+      "help": {
+        "title": "Wo du das wiederfindest",
+        "description": "Die Tour liegt hier, wann immer du sie erneut willst — neben dem Befehlsmenü und deinen Kontoeinstellungen."
+      },
+      "done": {
+        "title": "Das ist die Grundform",
+        "description": "Der Rest sind Dokumentation und die Befehlspalette. Wenn etwas falsch aussieht, steht die ehrliche Antwort meist im Tab Deployments oder Logs — otterdeploy versteckt einen Fehler nie hinter einem Spinner."
+      }
+    }
+  },
+  "pagination": {
+    "previous": "Zurück",
+    "next": "Weiter",
+    "previousPage": "Zur vorherigen Seite",
+    "nextPage": "Zur nächsten Seite",
+    "morePages": "Weitere Seiten"
+  },
+  "commandPalette": {
+    "title": "Befehlspalette",
+    "description": "Suche nach einem Befehl zum Ausführen…",
+    "placeholder": "Befehl eingeben oder suchen…",
+    "noResults": "Kein passender Befehl.",
+    "groups": {
+      "thisProject": "Dieses Projekt",
+      "environment": "Umgebung",
+      "projects": "Projekte",
+      "appearance": "Darstellung"
+    }
+  },
+  "dns": {
+    "dialogTitle": "DNS-Einträge konfigurieren",
+    "dialogDescription": "Lege beide Einträge bei deinem DNS-Anbieter an und prüfe sie dann.",
+    "dialogDescriptionZone": "Lege beide Einträge in {{zone}} an und prüfe sie dann.",
+    "lookupFailed": "Wir konnten keinen DNS-Resolver erreichen, um deinen Anbieter zu erkennen — daher werden nur die manuellen Einträge angezeigt.",
+    "proxiedWarning": "Dieser Name löst derzeit auf etwas anderes als diese Installation auf {{address}}. Falls das ein Cloudflare-Proxy ist, schalte die orange Wolke aus — bei Einträgen mit Proxy endet TLS am Proxy, und das Zertifikat hier kann nie fertig ausgestellt werden.",
+    "oneClick": {
+      "title": "DNS-Einrichtung mit einem Klick",
+      "canAuto": "Diese Domain liegt bei Cloudflare. Wir können beide Einträge für dich anlegen.",
+      "needsToken": "Diese Domain liegt bei Cloudflare. Verbinde einen API-Token, um sie automatisch zu konfigurieren.",
+      "configure": "Konfigurieren",
+      "configuring": "Wird konfiguriert…",
+      "connect": "Cloudflare verbinden"
+    },
+    "table": {
+      "type": "Typ",
+      "name": "Name",
+      "value": "Wert",
+      "empty": "Noch nichts hinzuzufügen — speichere zuerst die Domain."
+    }
+  },
+  "dataGrid": {
+    "label": "Datentabelle",
+    "addRow": "Zeile hinzufügen",
+    "findInTable": "In Tabelle suchen...",
+    "previousMatch": "Vorheriger Treffer",
+    "nextMatch": "Nächster Treffer",
+    "closeSearch": "Suche schließen",
+    "noResults": "Keine Ergebnisse",
+    "typeToSearch": "Zum Suchen tippen",
+    "enterText": "Text eingeben...",
+    "search": "Suchen...",
+    "noOptions": "Keine Optionen gefunden.",
+    "clickToBrowse": "oder klicken zum Auswählen",
+    "dropFiles": "Dateien hier ablegen",
+    "paste": {
+      "question": "Möchtest du weitere Zeilen hinzufügen?",
+      "createRows": "Neue Zeilen anlegen",
+      "keepRows": "Aktuelle Zeilen behalten"
+    },
+    "invalidUrl": "Ungültige URL",
+    "copyFailed": "Kopieren in die Zwischenablage fehlgeschlagen",
+    "cutFailed": "Ausschneiden in die Zwischenablage fehlgeschlagen",
+    "cellsCleared_one": "{{count}} Zelle geleert",
+    "cellsCleared_other": "{{count}} Zellen geleert",
+    "rowsDeleted_one": "{{count}} Zeile gelöscht",
+    "rowsDeleted_other": "{{count}} Zeilen gelöscht",
+    "cellsCopied_one": "{{count}} Zelle kopiert",
+    "cellsCopied_other": "{{count}} Zellen kopiert",
+    "cellsCut_one": "{{count}} Zelle ausgeschnitten",
+    "cellsCut_other": "{{count}} Zellen ausgeschnitten",
+    "cellsPasted_one": "{{count}} Zelle eingefügt",
+    "cellsPasted_other": "{{count}} Zellen eingefügt",
+    "cellsPastedPartial_one": "{{count}} Zelle eingefügt, {{skipped}} übersprungen",
+    "cellsPastedPartial_other": "{{count}} Zellen eingefügt, {{skipped}} übersprungen",
+    "cellsSkipped_one": "{{count}} Zelle wegen ungültiger Daten nicht eingefügt",
+    "cellsSkipped_other": "{{count}} Zellen wegen ungültiger Daten nicht eingefügt",
+    "resizeColumn": "Spalte {{label}} in der Breite ändern",
+    "openReferenced": "Referenzierte {{table}} öffnen",
+    "file": {
+      "tooLarge": "Datei überschreitet {{max}}",
+      "tooMany_one": "Maximal {{count}} Datei erlaubt",
+      "tooMany_other": "Maximal {{count}} Dateien erlaubt",
+      "rejected": "„{{name}}“ wurde abgelehnt",
+      "rejectedMore_one": "„{{name}}“ und {{count}} weitere abgelehnt",
+      "rejectedMore_other": "„{{name}}“ und {{count}} weitere abgelehnt",
+      "uploadFailed_one": "{{count}} Datei konnte nicht hochgeladen werden",
+      "uploadFailed_other": "{{count}} Dateien konnten nicht hochgeladen werden",
+      "deleteFailed": "{{name}} konnte nicht gelöscht werden",
+      "maxFiles_one": "Max. {{count}} Datei",
+      "maxFiles_other": "Max. {{count}} Dateien"
+    }
+  },
+  "onboarding": {
+    "progress": "Fortschritt der Einrichtung",
+    "shellTitle": "Otterdeploy Einrichtung",
+    "secureChannel": "sichere Verbindung",
+    "fields": {
+      "name": "Name",
+      "slug": "URL-Slug"
+    },
+    "organization": {
+      "title": "Organisation erstellen",
+      "description": "Eine Organisation ist dein oberster Workspace — ihr gehören deine Projekte, Server, Domains und dein Team. Du kannst später weitere anlegen oder Leute einladen.",
+      "namePlaceholder": "Acme"
+    },
+    "domain": {
+      "title": "Basis-Domain festlegen",
+      "description": "Darunter bekommen deine deployten Apps und Datenbanken ihre öffentlichen URLs — nicht das Dashboard selbst.",
+      "label": "Basis-Domain"
+    },
+    "project": {
+      "title": "Erstes Projekt erstellen",
+      "description": "Ein Projekt bündelt die Services, Datenbanken und Routen, die zusammen ausgeliefert werden — wie eine App und ihre Abhängigkeiten. Wir bringen dich direkt hinein.",
+      "namePlaceholder": "Storefront"
+    }
+  },
+  "activity": {
+    "title": "Aktivität",
+    "builderStalledSuffix": ", Builder antwortet nicht"
+  },
+  "updates": {
+    "starting": "Startet…"
+  },
+  "team": {
+    "inviteTeammate": "Teammitglied einladen",
+    "role": "Rolle",
+    "copyInviteLink": "Einladungslink kopieren",
+    "inviteLinkCopied": "Einladungslink kopiert",
+    "copyInviteFailed": "Einladungslink konnte nicht kopiert werden"
+  },
+  "terminal": {
+    "openTerminal": "Terminal öffnen",
+    "searchPlaceholder": "Services, Datenbanken, Server suchen…",
+    "allProjects": "Alle Projekte",
+    "connecting": "Verbindung wird hergestellt…",
+    "confirmIdentity": "Bestätige, dass du es bist"
+  },
+  "deployments": {
+    "columns": {
+      "status": "Status",
+      "service": "Service",
+      "commit": "Commit",
+      "author": "Autor",
+      "duration": "Dauer",
+      "when": "Wann"
+    },
+    "filterByResource": "Nach Ressource filtern",
+    "filterByStatus": "Nach Status filtern",
+    "timeWindow": "Zeitfenster",
+    "rollingBack": "Rollback läuft",
+    "rollingBackPending": "Rollback läuft…",
+    "buildCancelled": "Build abgebrochen",
+    "stopBuild": "Diesen Build stoppen?",
+    "keepBuilding": "Weiter bauen"
+  },
+  "logs": {
+    "allServices": "Alle Services",
+    "filterVisible": "sichtbare Meldungen filtern…",
+    "copyVisible": "Sichtbare Zeilen kopieren",
+    "clearTimeFilter": "Zeitfilter zurücksetzen",
+    "volumeLast30m": "Volumen · letzte 30 Min.",
+    "details": "Log-Details",
+    "closeDetails": "Details schließen",
+    "selectAll": "Alle auswählen",
+    "selectRow": "Zeile auswählen",
+    "copyLogs": "Logs kopieren",
+    "findInLogs": "In Logs suchen",
+    "selectedCount_one": "{{count}} ausgewählt",
+    "selectedCount_other": "{{count}} ausgewählt"
+  },
+  "apiKeys": {
+    "createTitle": "API-Schlüssel erstellen",
+    "created": "API-Schlüssel erstellt",
+    "copied": "API-Schlüssel kopiert",
+    "deleted": "API-Schlüssel gelöscht",
+    "rotate": "API-Schlüssel rotieren",
+    "delete": "API-Schlüssel löschen",
+    "permissions": "Berechtigungen",
+    "expiry": "Ablauf",
+    "fullAccess": "Vollzugriff",
+    "namePlaceholder": "CI-Deploy-Bot"
+  },
+  "registries": {
+    "label": "Registry",
+    "kind": "Registry-Typ",
+    "host": "Registry-Host",
+    "displayName": "Anzeigename",
+    "edit": "Registry bearbeiten",
+    "delete": "Registry löschen",
+    "removed": "Registry entfernt",
+    "removeConfirm": "Diese Registry entfernen?"
+  },
+  "sso": {
+    "addProvider": "Identitätsanbieter hinzufügen",
+    "registered": "Identitätsanbieter registriert",
+    "providerId": "Anbieter-ID",
+    "providerIdHint": "Erscheint in der Redirect-URI, die du deinem IdP gibst. Später nicht mehr änderbar.",
+    "emailDomain": "E-Mail-Domain",
+    "issuerUrl": "Issuer-URL",
+    "clientId": "Client-ID",
+    "clientSecret": "Client-Secret",
+    "clientSecretHint": "Wird verschlüsselt gespeichert und nie wieder angezeigt. Zum Rotieren den Anbieter entfernen und neu anlegen.",
+    "deriveHint": "Leer lassen, um sie aus dem Issuer abzuleiten."
+  },
+  "sshKeys": {
+    "generateTitle": "SSH-Schlüssel erzeugen",
+    "importTitle": "SSH-Schlüssel importieren",
+    "generated": "SSH-Schlüssel erzeugt",
+    "imported": "SSH-Schlüssel importiert",
+    "rotated": "SSH-Schlüssel rotiert",
+    "deleted": "SSH-Schlüssel gelöscht",
+    "deleteKey": "SSH-Schlüssel löschen",
+    "comment": "Kommentar",
+    "keyType": "Schlüsseltyp",
+    "publicKey": "Öffentlicher Schlüssel",
+    "detectedType": "Erkannter Typ:",
+    "unrecognised": "nicht erkannt — füge die vollständige Public-Key-Zeile ein",
+    "pastePrompt": "füge oben einen öffentlichen Schlüssel ein",
+    "notInUse": "Nicht in Verwendung",
+    "copyFingerprint": "Fingerprint kopieren",
+    "copyPublicKey": "Öffentlichen Schlüssel kopieren",
+    "passphrasePlaceholder": "leer lassen für unbeaufsichtigten Einsatz"
+  },
+  "account": {
+    "cli": {
+      "title": "CLI-Zugang",
+      "description": "Maschinenzugang für die otterdeploy-CLI und Automatisierung.",
+      "connect": "CLI verbinden",
+      "installThenRun": "Installiere die CLI und führe dann aus:"
+    },
+    "profile": {
+      "description": "Wie du in dieser Control Plane erscheinst.",
+      "updated": "Profil aktualisiert"
+    },
+    "twoFactor": {
+      "description": "Ein zeitbasierter Code aus einer Authenticator-App, bei der Anmeldung erforderlich.",
+      "enabled": "Zwei-Faktor-Authentifizierung aktiviert",
+      "disabled": "Zwei-Faktor-Authentifizierung deaktiviert"
+    },
+    "password": {
+      "description": "Die Zugangsdaten für die Anmeldung mit E-Mail und Passwort.",
+      "current": "Aktuelles Passwort",
+      "new": "Neues Passwort",
+      "confirm": "Neues Passwort bestätigen",
+      "changed": "Passwort geändert"
+    },
+    "sessions": {
+      "revoked": "Sitzung widerrufen",
+      "signedOutOthers": "Von allen anderen Sitzungen abgemeldet",
+      "thisDevice": "Dieses Gerät"
+    },
+    "danger": {
+      "title": "Gefahrenbereich",
+      "description": "Aktionen, die den Zugang für dieses Konto beenden.",
+      "signOutEverywhere": "Überall abmelden",
+      "signOutEverywhereConfirm": "Überall abmelden?"
+    }
+  },
+  "notifications": {
+    "deliverVia": "Zustellen über",
+    "smtpHost": "SMTP-Host",
+    "fromAddress": "Absenderadresse",
+    "smtpUserPlaceholder": "apikey / Benutzer",
+    "channelType": "Kanaltyp",
+    "keepStoredHint": "Ziel oder Secret leer lassen, um den gespeicherten Wert zu behalten.",
+    "deleteChannel": "Kanal löschen",
+    "channelRemoved": "Kanal entfernt",
+    "matrixTitle": "Matrix der Ereignis-Abonnements",
+    "event": "Ereignis",
+    "severity": "Schweregrad",
+    "noDetail": "Keine weiteren Details.",
+    "empty": "Noch keine Benachrichtigungen",
+    "eventsLast7Days": "Ereignisse · letzte 7 Tage",
+    "recentDeliveries": "Letzte Zustellungen"
+  },
+  "certificates": {
+    "noCustom": "Keine eigenen Zertifikate",
+    "noDomains": "Noch keine öffentlichen Domains",
+    "noCas": "Keine vertrauenswürdigen CAs",
+    "pemCopied": "PEM kopiert",
+    "uploadCa": "Vertrauenswürdige CA hochladen",
+    "state": {
+      "serving": "Wird am Edge ausgeliefert",
+      "installFailed": "Installation fehlgeschlagen",
+      "noRoute": "Keine passende Route",
+      "installedNotObserved": "Installiert · nicht beobachtet",
+      "storedPending": "Gespeichert · Installation ausstehend"
+    },
+    "stats": {
+      "publicDomains": "Öffentliche Domains",
+      "acmeManaged": "Über ACME verwaltet",
+      "expiringSoon": "Läuft ab in < 30 T.",
+      "customUploads": "Eigene Uploads"
+    },
+    "removeCa": "{{name}} entfernen",
+    "removeCaConfirm": "„{{name}}“ aus dem CA-Speicher entfernen?",
+    "removeCaDescription": "Das gespeicherte PEM wird gelöscht. Alles, was darauf verweist (etwa eine eigene Caddy-Konfiguration eines Projekts, die auf eine heruntergeladene Kopie zeigt), bleibt unberührt — dies entfernt nur den Inventareintrag."
+  },
+  "webhooks": {
+    "columns": {
+      "time": "Zeit",
+      "target": "Ziel",
+      "code": "Code",
+      "attempt": "Versuch",
+      "latency": "Latenz"
+    },
+    "endpointCreated": "Endpoint erstellt",
+    "endpointUpdated": "Endpoint aktualisiert",
+    "endpointRemoved": "Endpoint entfernt",
+    "deleteEndpoint": "Endpoint löschen",
+    "deleteWebhook": "Webhook löschen",
+    "webhookRemoved": "Webhook entfernt",
+    "hmacSecret": "HMAC-Secret",
+    "targetUrl": "Ziel-URL",
+    "subscribeToEvents": "Ereignisse abonnieren",
+    "signingSecretHint": "Das Signatur-Secret wird für dich erzeugt und auf der Karte angezeigt.",
+    "fixedForLifetime": "Endpoint-URL und HMAC-Secret bleiben für die gesamte Lebensdauer des Endpoints unverändert.",
+    "targetAction": "Zielaktion",
+    "redeployService": "Einen Service neu deployen",
+    "recordOnly": "Nichts — nur den Aufruf protokollieren"
+  },
+  "firewall": {
+    "title": "Firewall",
+    "notEnabled": "Firewall ist nicht aktiviert",
+    "alreadyBanned": "Für diese IP besteht bereits eine aktive CrowdSec-Sperre.",
+    "listName": "Listenname",
+    "enrollmentKey": "Enrollment-Key aus der Konsole",
+    "listAdded": "Liste hinzugefügt — Import läuft…",
+    "syncNow": "Jetzt synchronisieren",
+    "blockPlaceholder": "IP oder CIDR sperren…",
+    "blockAria": "Eine IP oder einen CIDR-Bereich sperren",
+    "banDuration": "Sperrdauer",
+    "yourLists": "Deine Listen",
+    "yourListsSubtitle": "Öffentliche und eigene Listen, die planmäßig in CrowdSec importiert werden.",
+    "publicLists": "Öffentliche Sperrlisten",
+    "publicListsSubtitle": "Bekannte kostenlose Listen — kein CrowdSec-Konto nötig. Mit einem Klick hinzufügen.",
+    "removeListDescription": "Die Liste und alle von ihr importierten IPs werden aus der Firewall entfernt. Du kannst sie später aus dem Katalog oder per URL erneut hinzufügen.",
+    "block": "Sperren",
+    "blocking": "Wird gesperrt…",
+    "duration": {
+      "hour1": "1 Stunde",
+      "hours24": "24 Stunden",
+      "days7": "7 Tage",
+      "days30": "30 Tage",
+      "days180": "180 Tage"
+    }
+  },
+  "gitProviders": {
+    "disconnected": "Getrennt",
+    "personalIfBlank": "Persönliches Konto, wenn leer",
+    "appName": "App-Name",
+    "host": "Host",
+    "appId": "App-ID",
+    "installationId": "Installations-ID",
+    "repositories": "Repositories",
+    "connected": "Verbunden",
+    "webhookSecret": "Webhook-Secret",
+    "privateKey": "Privater Schlüssel",
+    "permissionsRefreshed": "Berechtigungen aktualisiert",
+    "grantedPermissions": "Erteilte Berechtigungen",
+    "repository": "Repository",
+    "branch": "Branch",
+    "githubConnected": "GitHub verbunden"
+  },
+  "volumes": {
+    "driver": "Treiber",
+    "size": "Größe",
+    "attachedTo": "Verbunden mit",
+    "created": "Erstellt",
+    "empty": "Keine Volumes auf diesem Daemon",
+    "inspect": "Volume inspizieren",
+    "create": "Volume erstellen",
+    "labels": "Labels",
+    "jsonCopied": "JSON in die Zwischenablage kopiert",
+    "alreadyRemoved": "Das Volume wurde bereits entfernt",
+    "stats": {
+      "total": "Volumes gesamt",
+      "onDisk": "Auf der Festplatte",
+      "inUse": "In Verwendung",
+      "orphans": "Verwaist"
+    },
+    "noun_one": "{{count}} Volume",
+    "noun_other": "{{count}} Volumes"
+  },
+  "templates": {
+    "search": "Vorlagen suchen",
+    "sort": "Vorlagen sortieren",
+    "architecture": "Architektur",
+    "includedServices": "Enthaltene Services",
+    "requiredVariables": "Erforderliche Variablen",
+    "deployToProject": "In Projekt deployen",
+    "pickProject": "Projekt auswählen",
+    "image": "Image",
+    "ports": "Ports",
+    "volumes": "Volumes",
+    "description": "Beschreibung",
+    "suggestedValue": "Vorgeschlagener Wert"
+  },
+  "edgeLogs": {
+    "events": "Edge-Ereignisse",
+    "accessLogs": "Edge-Zugriffslogs",
+    "searchEvents": "Meldung, Host, Fehler suchen…",
+    "searchLogs": "Pfad, IP, Status suchen…",
+    "wrapHint": "Lange Werte in erweiterten Zeilen umbrechen statt abschneiden",
+    "bannedIp": "Für diese IP besteht eine aktive CrowdSec-Sperre — neue Anfragen werden am Edge abgewiesen.",
+    "searchHosts": "Hosts suchen…",
+    "noHosts": "Keine Hosts gefunden.",
+    "allHosts": "Alle Hosts"
+  },
+  "resources": {
+    "source": {
+      "title": "Quelle",
+      "description": "Woraus dieser Service gebaut wird. Ein Push auf seinen Branch deployt ihn.",
+      "installation": "Installation",
+      "installationHint": "Welches verbundene Konto das Repository besitzt.",
+      "repository": "Repository",
+      "repositoryHint": "owner/repo, woraus dieser Service gebaut wird.",
+      "branch": "Branch",
+      "branchHint": "Pushes hierauf deployen. Leer = Standard-Branch des Repos.",
+      "rootDirectory": "Stammverzeichnis",
+      "rootDirectoryHint": "Unterordner im Monorepo. Leer = Repo-Wurzel.",
+      "imageTarget": "Image-Ziel",
+      "imageTargetHint": "Vollqualifiziert, ohne Tag. Leer = lokaler Build. Zugangsdaten werden über den Host zugeordnet.",
+      "prPreviews": "PR-Previews",
+      "prPreviewsHint": "Diesen Service für jeden Pull Request in eine isolierte Preview-Umgebung neu bauen.",
+      "staged": "Quelle vorgemerkt — zum Anwenden deployen",
+      "stageFailed": "Quelle konnte nicht vorgemerkt werden",
+      "registryMatched": "Push über {{name}} ({{host}}).",
+      "registryUnmatched": "Keine Registry-Zugangsdaten für {{host}} — lege welche unter „Registries“ an oder leere dieses Feld.",
+      "pipe": {
+        "repo": "Repo",
+        "build": "Build",
+        "image": "Image",
+        "notSet": "nicht gesetzt",
+        "local": "lokal",
+        "defaultBranch": "Standard"
+      }
+    }
+  },
+  "tableSelection": {
+    "genericFailure": "fehlgeschlagen",
+    "removed": "{{items}} entfernt",
+    "removeFailed": "{{items}} konnten nicht entfernt werden — {{reason}}",
+    "removedPartial": "{{items}} entfernt · {{skipped}} übersprungen — {{reason}}"
+  },
+  "docker": {
+    "someNotRemoved": "Einige {{items}} konnten nicht entfernt werden",
+    "noun": {
+      "image_one": "{{count}} Image",
+      "image_other": "{{count}} Images",
+      "network_one": "{{count}} Netzwerk",
+      "network_other": "{{count}} Netzwerke"
+    }
+  }
+}

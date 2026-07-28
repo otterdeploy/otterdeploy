@@ -1,12 +1,31 @@
 {
   "common": {
     "search": "Search",
+    "searchOrRun": "Search or run a command...",
     "loading": "Loading…",
     "save": "Save",
+    "saving": "Saving…",
     "cancel": "Cancel",
+    "close": "Close",
     "delete": "Delete",
+    "deleting": "Deleting…",
+    "remove": "Remove",
     "edit": "Edit",
     "create": "Create",
+    "creating": "Creating…",
+    "add": "Add",
+    "copy": "Copy",
+    "copied": "Copied",
+    "retry": "Retry",
+    "refresh": "Refresh",
+    "back": "Back",
+    "next": "Next",
+    "done": "Done",
+    "continue": "Continue",
+    "skip": "Skip",
+    "confirm": "Confirm",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
     "openSidebar": "Open sidebar",
     "closeSidebar": "Close sidebar",
     "notifications": {
@@ -15,7 +34,17 @@
       "labelFailure": "includes a failure"
     },
     "toggleTheme": "Toggle theme",
-    "language": "Language"
+    "language": "Language",
+    "loadingLabel": "Loading",
+    "copyFailed": "Couldn't copy",
+    "dismiss": "Dismiss",
+    "name": "Name",
+    "username": "Username",
+    "port": "Port",
+    "password": "Password",
+    "slug": "Slug",
+    "more": "More",
+    "typeToConfirm": "Type {{phrase}} to confirm"
   },
   "auth": {
     "signIn": {
@@ -48,9 +77,19 @@
       "accountCreated": "Account created",
       "nameMinLength": "Name must be at least 2 characters",
       "hasAccount": "Already have an account?",
-      "signIn": "Sign in"
+      "signIn": "Sign in",
+      "bootstrapToken": "Installation bootstrap token",
+      "bootstrapTokenPlaceholder": "Paste the token printed by install.sh",
+      "bootstrapTokenHint": "This one-time token proves you control the VPS and makes this account the installation owner."
     },
-    "logout": "Log out"
+    "logout": "Log out",
+    "layoutFooter": "Otterdeploy Authentication",
+    "twoFactor": {
+      "verify": "Verify"
+    },
+    "sso": {
+      "enterWorkEmail": "Enter your work email address"
+    }
   },
   "errors": {
     "notFound": {
@@ -70,13 +109,23 @@
       "messageDefault": "Otterdeploy hit an unexpected error rendering this page. The failure has been logged — this one's on us, not you. Try again in a moment.",
       "retry": "⟳ Retry",
       "returnHome": "↩ Return home"
-    }
+    },
+    "generic": "Something went wrong"
   },
   "shell": {
     "search": "Search",
     "searchPlaceholder": "Search resources, settings…",
     "switchWorkspace": "Switch workspace",
-    "newWorkspace": "New workspace"
+    "newWorkspace": "New workspace",
+    "selfHostedServers_one": "self-hosted · {{count}} server",
+    "selfHostedServers_other": "self-hosted · {{count}} servers",
+    "toggleSidebar": "Toggle sidebar",
+    "sidebar": "Sidebar",
+    "sidebarDescription": "Displays the mobile sidebar.",
+    "noProjects": "No projects",
+    "environment": "Environment",
+    "createEnvironment": "Create environment",
+    "environmentPlaceholder": "Staging"
   },
   "nav": {
     "overview": "Overview",
@@ -93,16 +142,80 @@
     "projects": "Projects",
     "services": "Services",
     "addService": "Add service",
-    "workspace": "Workspace"
+    "newService": "+ New service",
+    "workspace": "Workspace",
+    "backups": "Backups",
+    "edge": "Edge",
+    "audit": "Audit",
+    "gitProviders": "Git providers",
+    "registries": "Registries",
+    "sshKeys": "SSH keys",
+    "notifications": "Notifications",
+    "templates": "Templates",
+    "profile": "Profile",
+    "security": "Security",
+    "sessions": "Sessions",
+    "domains": "Domains",
+    "team": "Team",
+    "sso": "Single sign-on",
+    "apiKeys": "API keys",
+    "webhooks": "Webhooks",
+    "instance": "Instance",
+    "groups": {
+      "infrastructure": "Infrastructure",
+      "workspace": "Workspace",
+      "account": "Account",
+      "instance": "Instance"
+    }
   },
   "projects": {
     "title": "Projects",
     "subtitle": "Open a project to manage its services, databases, and routes.",
     "newProject": "New project",
+    "emptyTitle": "No projects in {{name}}",
+    "emptyDescription": "Projects group services, databases, and routes. Create your first one to get started.",
+    "loadFailed": "Couldn't load projects",
     "database_one": "database",
     "database_other": "databases",
     "route_one": "route",
     "route_other": "routes"
+  },
+  "servers": {
+    "title": "Servers",
+    "addServer": "+ Add server",
+    "secureEnrollment": "Secure enrollment",
+    "nodeDescription_one": "{{count}} node in this swarm · replicas placed via Docker Stack rolling updates",
+    "nodeDescription_other": "{{count}} nodes in this swarm · replicas placed via Docker Stack rolling updates",
+    "addServerTitle": "Add server",
+    "form": {
+      "host": "Host / IP",
+      "sshUser": "SSH user",
+      "role": "Role",
+      "sshKey": "SSH key"
+    },
+    "advanced": {
+      "connectivity": "Connectivity",
+      "buildNode": "Dedicated build node",
+      "tunnel": "Cloudflare Tunnel",
+      "tunnelHint": "Optional. Installs cloudflared for ingress",
+      "tunnelToken": "Tunnel token",
+      "tunnelPlaceholder": "installs cloudflared on the node"
+    },
+    "stepUp": {
+      "confirmTitle": "Confirm manager authority",
+      "authenticatorCode": "Authenticator code",
+      "passwordPlaceholder": "Your account password",
+      "confirmPhrase": "ENROLL MANAGER"
+    },
+    "enrollment": {
+      "title": "Secure node enrollment",
+      "worker": "Worker enrollment",
+      "manager": "Manager enrollment",
+      "revoked": "Enrollment revoked",
+      "recent": "Recent enrollment credentials",
+      "none": "No enrollment credentials created.",
+      "progress": "Enrollment progress"
+    }
   },
   "environments": {
     "label": "Environments"
@@ -112,6 +225,555 @@
     "account": "Account",
     "billing": "Billing",
     "notifications": "Notifications",
-    "logout": "Log out"
+    "logout": "Log out",
+    "commandMenu": "Command menu",
+    "connectCli": "Connect CLI",
+    "activeSessions": "Active sessions",
+    "twoFactor": "Two-factor authentication",
+    "appearance": "Appearance",
+    "theme": {
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark"
+    }
+  },
+  "tour": {
+    "menuItem": "Take the tour",
+    "progress": "{{current}} of {{total}}",
+    "next": "Next",
+    "previous": "Back",
+    "done": "Done",
+    "steps": {
+      "welcome": {
+        "title": "A quick tour",
+        "description": "Six minutes through the parts of otterdeploy you'll use daily — where your machines live, how a project is laid out, and where to look when a deploy goes wrong. Leave any time with Esc; it's in your account menu when you want it back."
+      },
+      "sidebar": {
+        "title": "The sidebar",
+        "description": "Everything org-wide lives here, grouped by what it's for: your projects at the top, the infrastructure they run on in the middle, and the outbound connections a deploy needs — git, registries, keys — below that."
+      },
+      "projects": {
+        "title": "Projects",
+        "description": "A project groups the services, databases, and routes that ship together — one app and its dependencies. The badge counts what this workspace has."
+      },
+      "infrastructure": {
+        "title": "Servers",
+        "description": "The Linux machines in your swarm. Add one over SSH or with a join token, then watch its role, availability, and health from the table. Nothing deploys until at least one node is ready."
+      },
+      "edge": {
+        "title": "Edge",
+        "description": "The Caddy layer in front of everything you deploy: domains and routes, TLS certificates, access logs, and the host firewall. This is where you go when a URL doesn't resolve or a certificate hasn't issued."
+      },
+      "search": {
+        "title": "Search anything",
+        "description": "The command palette jumps to any page, project, or resource without leaving the keyboard. Press ⌘K from anywhere."
+      },
+      "activity": {
+        "title": "Live system state",
+        "description": "Running deploys, unread notifications, and the theme switch. The mark in the top-left changes with the same state, so a build in progress is visible from any page — and from a background tab."
+      },
+      "serversPage": {
+        "title": "Your cluster",
+        "description": "One row per machine, with its swarm role, availability, and last health sample. `unknown` is deliberately not a pass — it means nobody has checked yet."
+      },
+      "addServer": {
+        "title": "Add a server",
+        "description": "Provision over SSH and otterdeploy walks the whole path itself: install Docker, join the mesh, join the swarm, verify the node, label it for builds. Each phase reports honestly as it runs."
+      },
+      "enrollment": {
+        "title": "Or enrol without SSH",
+        "description": "Prefer not to hand over SSH? Generate a short-lived join token and run one command on the machine instead. Useful for hosts you can only reach from a console."
+      },
+      "projectGraph": {
+        "title": "The project graph",
+        "description": "Your project as a canvas: services, databases, and the routes that reach them, with live status on every node. Right-click a node to open, restart, clone, or read its logs — right-click the canvas to add something new."
+      },
+      "projectTabs": {
+        "title": "Everything about this project",
+        "description": "The graph is the overview; these tabs are the detail. Deployments, logs, metrics, variables, and networking all stay scoped to this project."
+      },
+      "newService": {
+        "title": "Add a service",
+        "description": "Build from a git repo, pull a Docker image, launch a database, or paste a compose file. The fast path is three or four clicks; \"Advanced setup\" opens the full flow when you need it."
+      },
+      "deployments": {
+        "title": "Every deploy, kept",
+        "description": "One row per push, with its reason — git-push, redeploy, env-change, rollback — and the config snapshot it ran with. That snapshot is what makes rolling back a real option rather than a guess."
+      },
+      "logs": {
+        "title": "Logs that tell the truth",
+        "description": "Runtime logs from your containers and edge logs from Caddy, in one place. Filter by service, level, and time; every filter lives in the URL, so a useful view is a link you can send someone."
+      },
+      "variables": {
+        "title": "Variables",
+        "description": "Set them per project or per service, and reference other resources by name — `${database:main.DATABASE_URL}` resolves at deploy time. That late binding is what lets previews get their own database without editing config."
+      },
+      "networking": {
+        "title": "Domains and routes",
+        "description": "Point a domain at a service and otterdeploy handles DNS checks and certificate issuance, reporting each state plainly. Deployment protection can put an auth wall in front of anything not ready to be public."
+      },
+      "help": {
+        "title": "Where this lives",
+        "description": "The tour is here whenever you want it again, next to the command menu and your account settings."
+      },
+      "done": {
+        "title": "That's the shape of it",
+        "description": "The rest is documentation and the command palette. If something looks wrong, the honest answer is usually on the Deployments or Logs tab — otterdeploy tries never to hide a failure behind a spinner."
+      }
+    }
+  },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next",
+    "previousPage": "Go to previous page",
+    "nextPage": "Go to next page",
+    "morePages": "More pages"
+  },
+  "commandPalette": {
+    "title": "Command palette",
+    "description": "Search for a command to run…",
+    "placeholder": "Type a command or search…",
+    "noResults": "No matching command.",
+    "groups": {
+      "thisProject": "This project",
+      "environment": "Environment",
+      "projects": "Projects",
+      "appearance": "Appearance"
+    }
+  },
+  "dns": {
+    "dialogTitle": "Configure DNS records",
+    "dialogDescription": "Add both records to your DNS provider, then verify.",
+    "dialogDescriptionZone": "Add both records to {{zone}}, then verify.",
+    "lookupFailed": "We couldn't reach a DNS resolver to detect your provider, so only the manual records are shown.",
+    "proxiedWarning": "This name currently resolves somewhere other than this install {{address}}. If that's a Cloudflare proxy, turn the orange cloud off — proxied records terminate TLS at the proxy and the certificate here can never finish issuing.",
+    "oneClick": {
+      "title": "One-click DNS setup",
+      "canAuto": "This domain is on Cloudflare. We can create both records for you.",
+      "needsToken": "This domain is on Cloudflare. Connect an API token to configure it automatically.",
+      "configure": "Configure",
+      "configuring": "Configuring…",
+      "connect": "Connect Cloudflare"
+    },
+    "table": {
+      "type": "Type",
+      "name": "Name",
+      "value": "Value",
+      "empty": "Nothing to add yet — save the domain first."
+    }
+  },
+  "dataGrid": {
+    "label": "Data grid",
+    "addRow": "Add row",
+    "findInTable": "Find in table...",
+    "previousMatch": "Previous match",
+    "nextMatch": "Next match",
+    "closeSearch": "Close search",
+    "noResults": "No results",
+    "typeToSearch": "Type to search",
+    "enterText": "Enter text...",
+    "search": "Search...",
+    "noOptions": "No options found.",
+    "clickToBrowse": "or click to browse",
+    "dropFiles": "Drop files here",
+    "paste": {
+      "question": "Do you want to add more rows?",
+      "createRows": "Create new rows",
+      "keepRows": "Keep current rows"
+    },
+    "invalidUrl": "Invalid URL",
+    "copyFailed": "Failed to copy to clipboard",
+    "cutFailed": "Failed to cut to clipboard",
+    "cellsCleared_one": "{{count}} cell cleared",
+    "cellsCleared_other": "{{count}} cells cleared",
+    "rowsDeleted_one": "{{count}} row deleted",
+    "rowsDeleted_other": "{{count}} rows deleted",
+    "cellsCopied_one": "{{count}} cell copied",
+    "cellsCopied_other": "{{count}} cells copied",
+    "cellsCut_one": "{{count}} cell cut",
+    "cellsCut_other": "{{count}} cells cut",
+    "cellsPasted_one": "{{count}} cell pasted",
+    "cellsPasted_other": "{{count}} cells pasted",
+    "cellsPastedPartial_one": "{{count}} cell pasted, {{skipped}} skipped",
+    "cellsPastedPartial_other": "{{count}} cells pasted, {{skipped}} skipped",
+    "cellsSkipped_one": "{{count}} cell skipped pasting for invalid data",
+    "cellsSkipped_other": "{{count}} cells skipped pasting for invalid data",
+    "resizeColumn": "Resize {{label}} column",
+    "openReferenced": "Open referenced {{table}}",
+    "file": {
+      "tooLarge": "File size exceeds {{max}}",
+      "tooMany_one": "Maximum {{count}} file allowed",
+      "tooMany_other": "Maximum {{count}} files allowed",
+      "rejected": "“{{name}}” has been rejected",
+      "rejectedMore_one": "“{{name}}” and {{count}} more rejected",
+      "rejectedMore_other": "“{{name}}” and {{count}} more rejected",
+      "uploadFailed_one": "Failed to upload {{count}} file",
+      "uploadFailed_other": "Failed to upload {{count}} files",
+      "deleteFailed": "Failed to delete {{name}}",
+      "maxFiles_one": "Max {{count}} file",
+      "maxFiles_other": "Max {{count}} files"
+    }
+  },
+  "onboarding": {
+    "progress": "Setup progress",
+    "shellTitle": "Otterdeploy Setup",
+    "secureChannel": "secure channel",
+    "fields": {
+      "name": "Name",
+      "slug": "URL slug"
+    },
+    "organization": {
+      "title": "Create your organization",
+      "description": "An organization is your top-level workspace — it owns your projects, servers, domains, and team. You can create more later or invite people in.",
+      "namePlaceholder": "Acme"
+    },
+    "domain": {
+      "title": "Set a base domain",
+      "description": "Where your deployed apps and databases get their public URLs — not the dashboard itself.",
+      "label": "Base domain"
+    },
+    "project": {
+      "title": "Create your first project",
+      "description": "A project groups the services, databases, and routes that ship together — like one app and its dependencies. We'll drop you straight into it.",
+      "namePlaceholder": "Storefront"
+    }
+  },
+  "activity": {
+    "title": "Activity",
+    "builderStalledSuffix": ", builder not responding"
+  },
+  "updates": {
+    "starting": "Starting…"
+  },
+  "team": {
+    "inviteTeammate": "Invite a teammate",
+    "role": "Role",
+    "copyInviteLink": "Copy invite link",
+    "inviteLinkCopied": "Invite link copied",
+    "copyInviteFailed": "Couldn't copy invite link"
+  },
+  "terminal": {
+    "openTerminal": "Open a terminal",
+    "searchPlaceholder": "Search services, databases, servers…",
+    "allProjects": "All projects",
+    "connecting": "Connecting…",
+    "confirmIdentity": "Confirm it's you"
+  },
+  "deployments": {
+    "columns": {
+      "status": "Status",
+      "service": "Service",
+      "commit": "Commit",
+      "author": "Author",
+      "duration": "Duration",
+      "when": "When"
+    },
+    "filterByResource": "Filter by resource",
+    "filterByStatus": "Filter by status",
+    "timeWindow": "Time window",
+    "rollingBack": "Rolling back",
+    "rollingBackPending": "Rolling back…",
+    "buildCancelled": "Build cancelled",
+    "stopBuild": "Stop this build?",
+    "keepBuilding": "Keep building"
+  },
+  "logs": {
+    "allServices": "All services",
+    "filterVisible": "filter visible messages…",
+    "copyVisible": "Copy visible lines",
+    "clearTimeFilter": "Clear time filter",
+    "volumeLast30m": "Volume · last 30m",
+    "details": "Log details",
+    "closeDetails": "Close details",
+    "selectAll": "Select all",
+    "selectRow": "Select row",
+    "copyLogs": "Copy logs",
+    "findInLogs": "Find in logs",
+    "selectedCount_one": "{{count}} selected",
+    "selectedCount_other": "{{count}} selected"
+  },
+  "apiKeys": {
+    "createTitle": "Create API key",
+    "created": "API key created",
+    "copied": "API key copied",
+    "deleted": "API key deleted",
+    "rotate": "Rotate API key",
+    "delete": "Delete API key",
+    "permissions": "Permissions",
+    "expiry": "Expiry",
+    "fullAccess": "Full access",
+    "namePlaceholder": "CI deploy bot"
+  },
+  "registries": {
+    "label": "Registry",
+    "kind": "Registry kind",
+    "host": "Registry host",
+    "displayName": "Display name",
+    "edit": "Edit registry",
+    "delete": "Delete registry",
+    "removed": "Registry removed",
+    "removeConfirm": "Remove this registry?"
+  },
+  "sso": {
+    "addProvider": "Add identity provider",
+    "registered": "Identity provider registered",
+    "providerId": "Provider ID",
+    "providerIdHint": "Appears in the redirect URI you give your IdP. Cannot be changed later.",
+    "emailDomain": "Email domain",
+    "issuerUrl": "Issuer URL",
+    "clientId": "Client ID",
+    "clientSecret": "Client secret",
+    "clientSecretHint": "Stored encrypted and never shown again. To rotate it, remove the provider and add it back.",
+    "deriveHint": "Leave blank to derive it from the issuer."
+  },
+  "sshKeys": {
+    "generateTitle": "Generate SSH key",
+    "importTitle": "Import SSH key",
+    "generated": "SSH key generated",
+    "imported": "SSH key imported",
+    "rotated": "SSH key rotated",
+    "deleted": "SSH key deleted",
+    "deleteKey": "Delete SSH key",
+    "comment": "Comment",
+    "keyType": "Key type",
+    "publicKey": "Public key",
+    "detectedType": "Detected type:",
+    "unrecognised": "unrecognised — paste the full public-key line",
+    "pastePrompt": "paste a public key above",
+    "notInUse": "Not in use",
+    "copyFingerprint": "Copy fingerprint",
+    "copyPublicKey": "Copy public key",
+    "passphrasePlaceholder": "leave empty for unattended use"
+  },
+  "account": {
+    "cli": {
+      "title": "CLI access",
+      "description": "Machine access for the otterdeploy CLI and automation.",
+      "connect": "Connect the CLI",
+      "installThenRun": "Install the CLI, then run:"
+    },
+    "profile": {
+      "description": "How you appear across this control plane.",
+      "updated": "Profile updated"
+    },
+    "twoFactor": {
+      "description": "A time-based code from an authenticator app, required at sign-in.",
+      "enabled": "Two-factor authentication enabled",
+      "disabled": "Two-factor authentication disabled"
+    },
+    "password": {
+      "description": "The credential used for email + password sign-in.",
+      "current": "Current password",
+      "new": "New password",
+      "confirm": "Confirm new password",
+      "changed": "Password changed"
+    },
+    "sessions": {
+      "revoked": "Session revoked",
+      "signedOutOthers": "Signed out of all other sessions",
+      "thisDevice": "This device"
+    },
+    "danger": {
+      "title": "Danger zone",
+      "description": "Actions that end access for this account.",
+      "signOutEverywhere": "Sign out everywhere",
+      "signOutEverywhereConfirm": "Sign out everywhere?"
+    }
+  },
+  "notifications": {
+    "deliverVia": "Deliver via",
+    "smtpHost": "SMTP host",
+    "fromAddress": "From address",
+    "smtpUserPlaceholder": "apikey / user",
+    "channelType": "Channel type",
+    "keepStoredHint": "Leave the destination or secret blank to keep the stored value.",
+    "deleteChannel": "Delete channel",
+    "channelRemoved": "Channel removed",
+    "matrixTitle": "Event subscription matrix",
+    "event": "Event",
+    "severity": "Severity",
+    "noDetail": "No additional detail.",
+    "empty": "No notifications yet",
+    "eventsLast7Days": "Events · last 7 days",
+    "recentDeliveries": "Recent deliveries"
+  },
+  "certificates": {
+    "noCustom": "No custom certificates",
+    "noDomains": "No public domains yet",
+    "noCas": "No trusted CAs",
+    "pemCopied": "PEM copied",
+    "uploadCa": "Upload trusted CA",
+    "state": {
+      "serving": "Serving at edge",
+      "installFailed": "Install failed",
+      "noRoute": "No matching route",
+      "installedNotObserved": "Installed · not observed",
+      "storedPending": "Stored · pending install"
+    },
+    "stats": {
+      "publicDomains": "Public domains",
+      "acmeManaged": "ACME-managed",
+      "expiringSoon": "Expiring < 30d",
+      "customUploads": "Custom uploads"
+    },
+    "removeCa": "Remove {{name}}",
+    "removeCaConfirm": "Remove “{{name}}” from the CA store?",
+    "removeCaDescription": "The stored PEM is deleted. Anything referencing it (e.g. a project's custom Caddy config pointing at a downloaded copy) is unaffected — this only removes the inventory entry."
+  },
+  "webhooks": {
+    "columns": {
+      "time": "Time",
+      "target": "Target",
+      "code": "Code",
+      "attempt": "Attempt",
+      "latency": "Latency"
+    },
+    "endpointCreated": "Endpoint created",
+    "endpointUpdated": "Endpoint updated",
+    "endpointRemoved": "Endpoint removed",
+    "deleteEndpoint": "Delete endpoint",
+    "deleteWebhook": "Delete webhook",
+    "webhookRemoved": "Webhook removed",
+    "hmacSecret": "HMAC secret",
+    "targetUrl": "Target URL",
+    "subscribeToEvents": "Subscribe to events",
+    "signingSecretHint": "The signing secret is generated for you and revealed on the card.",
+    "fixedForLifetime": "The endpoint URL and HMAC secret are fixed for the endpoint's lifetime.",
+    "targetAction": "Target action",
+    "redeployService": "Redeploy a service",
+    "recordOnly": "Nothing — record the invocation"
+  },
+  "firewall": {
+    "title": "Firewall",
+    "notEnabled": "Firewall isn't enabled",
+    "alreadyBanned": "This IP already has an active CrowdSec ban.",
+    "listName": "List name",
+    "enrollmentKey": "Enrollment key from the console",
+    "listAdded": "List added — importing…",
+    "syncNow": "Sync now",
+    "blockPlaceholder": "Block IP or CIDR…",
+    "blockAria": "Block an IP or CIDR range",
+    "banDuration": "Ban duration",
+    "yourLists": "Your lists",
+    "yourListsSubtitle": "Public + custom lists imported into CrowdSec on a schedule.",
+    "publicLists": "Public blocklists",
+    "publicListsSubtitle": "Well-known free lists — no CrowdSec account needed. One click to add.",
+    "removeListDescription": "The list and every IP it imported are dropped from the firewall. You can re-add it from the catalog or by URL later.",
+    "block": "Block",
+    "blocking": "Blocking…",
+    "duration": {
+      "hour1": "1 hour",
+      "hours24": "24 hours",
+      "days7": "7 days",
+      "days30": "30 days",
+      "days180": "180 days"
+    }
+  },
+  "gitProviders": {
+    "disconnected": "Disconnected",
+    "personalIfBlank": "Personal account if blank",
+    "appName": "App name",
+    "host": "Host",
+    "appId": "App ID",
+    "installationId": "Installation ID",
+    "repositories": "Repositories",
+    "connected": "Connected",
+    "webhookSecret": "Webhook secret",
+    "privateKey": "Private key",
+    "permissionsRefreshed": "Permissions refreshed",
+    "grantedPermissions": "Granted permissions",
+    "repository": "Repository",
+    "branch": "Branch",
+    "githubConnected": "GitHub connected"
+  },
+  "volumes": {
+    "driver": "Driver",
+    "size": "Size",
+    "attachedTo": "Attached to",
+    "created": "Created",
+    "empty": "No volumes on this daemon",
+    "inspect": "Inspect volume",
+    "create": "Create volume",
+    "labels": "Labels",
+    "jsonCopied": "JSON copied to clipboard",
+    "alreadyRemoved": "Volume was already removed",
+    "stats": {
+      "total": "Total volumes",
+      "onDisk": "On disk",
+      "inUse": "In use",
+      "orphans": "Orphans"
+    },
+    "noun_one": "{{count}} volume",
+    "noun_other": "{{count}} volumes"
+  },
+  "templates": {
+    "search": "Search templates",
+    "sort": "Sort templates",
+    "architecture": "Architecture",
+    "includedServices": "Included services",
+    "requiredVariables": "Required variables",
+    "deployToProject": "Deploy to project",
+    "pickProject": "Pick a project",
+    "image": "Image",
+    "ports": "Ports",
+    "volumes": "Volumes",
+    "description": "Description",
+    "suggestedValue": "Suggested value"
+  },
+  "edgeLogs": {
+    "events": "Edge events",
+    "accessLogs": "Edge access logs",
+    "searchEvents": "search message, host, error…",
+    "searchLogs": "search path, ip, status…",
+    "wrapHint": "Wrap long values in expanded rows instead of truncating",
+    "bannedIp": "This IP has an active CrowdSec ban — new requests are rejected at the edge.",
+    "searchHosts": "Search hosts…",
+    "noHosts": "No hosts found.",
+    "allHosts": "All hosts"
+  },
+  "resources": {
+    "source": {
+      "title": "Source",
+      "description": "Where this service builds from. Pushing to its branch deploys it.",
+      "installation": "Installation",
+      "installationHint": "Which connected account owns the repo.",
+      "repository": "Repository",
+      "repositoryHint": "owner/repo this service builds from.",
+      "branch": "Branch",
+      "branchHint": "Pushes here deploy. Empty = repo default.",
+      "rootDirectory": "Root directory",
+      "rootDirectoryHint": "Monorepo subfolder. Empty = repo root.",
+      "imageTarget": "Image target",
+      "imageTargetHint": "Fully-qualified, no tag. Empty = local build. Credential matched by host.",
+      "prPreviews": "PR previews",
+      "prPreviewsHint": "Rebuild this service into an isolated preview environment for every pull request.",
+      "staged": "Source staged — Deploy to apply",
+      "stageFailed": "Failed to stage source",
+      "registryMatched": "Pushes via {{name}} ({{host}}).",
+      "registryUnmatched": "No registry credential for {{host}} — add one in Registries or clear this.",
+      "pipe": {
+        "repo": "Repo",
+        "build": "Build",
+        "image": "Image",
+        "notSet": "not set",
+        "local": "local",
+        "defaultBranch": "default"
+      }
+    }
+  },
+  "tableSelection": {
+    "genericFailure": "failed",
+    "removed": "Removed {{items}}",
+    "removeFailed": "Couldn't remove {{items}} — {{reason}}",
+    "removedPartial": "Removed {{items}} · {{skipped}} skipped — {{reason}}"
+  },
+  "docker": {
+    "someNotRemoved": "Some {{items}} couldn't be removed",
+    "noun": {
+      "image_one": "{{count}} image",
+      "image_other": "{{count}} images",
+      "network_one": "{{count}} network",
+      "network_other": "{{count}} networks"
+    }
   }
 }

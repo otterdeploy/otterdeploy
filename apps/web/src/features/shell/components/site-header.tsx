@@ -66,13 +66,17 @@ export function SiteHeader() {
 
         <HeaderNav />
 
-        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+        <div
+          className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2"
+          data-tour="header-actions"
+        >
           {/* The full search field needs ~18rem it doesn't have on a phone, so
               below `sm` it collapses to an icon button onto the same palette. */}
           <button
             type="button"
             onClick={() => setCommandPaletteOpen(true)}
             aria-label={t("common.search")}
+            data-tour="command-palette"
             className="hidden h-8 w-56 items-center gap-2 rounded-md border bg-background px-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:inline-flex lg:w-72"
           >
             <HugeiconsIcon icon={Search01Icon} strokeWidth={2} className="size-4" />
@@ -104,14 +108,18 @@ export function SiteHeader() {
 
           {project && (
             <>
-              <Button className="hidden h-8 sm:inline-flex" onClick={() => overlay.setOpen(true)}>
-                + New service
+              <Button
+                className="hidden h-8 sm:inline-flex"
+                data-tour="new-service"
+                onClick={() => overlay.setOpen(true)}
+              >
+                {t("nav.newService", "+ New service")}
               </Button>
               {/* Same action, icon-only — the label alone is wider than the
                   space left beside the notification and theme controls. */}
               <Button
                 size="icon"
-                aria-label="New service"
+                aria-label={t("nav.addService")}
                 onClick={() => overlay.setOpen(true)}
                 className="sm:hidden"
               >

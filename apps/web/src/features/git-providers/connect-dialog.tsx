@@ -22,6 +22,7 @@ import { ArrowDown01Icon, GitBranchIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import * as z from "zod";
 
@@ -66,6 +67,7 @@ function errMessages(errors: readonly unknown[]): string[] {
 }
 
 export function ConnectDialog({ open, onOpenChange, returnTo }: ConnectDialogProps) {
+  const { t } = useTranslation();
   // GitHub App names must be unique across all of GitHub — seed a random one.
   const defaultName = `otterdeploy-${crypto.randomUUID().slice(0, 8)}`;
   const [enterpriseOpen, setEnterpriseOpen] = useState(false);
@@ -147,7 +149,7 @@ export function ConnectDialog({ open, onOpenChange, returnTo }: ConnectDialogPro
                     value={field.state.value}
                     onBlur={field.handleBlur}
                     onChange={(e) => field.handleChange(e.target.value)}
-                    placeholder="Personal account if blank"
+                    placeholder={t("gitProviders.personalIfBlank")}
                     className="font-mono text-[13px]"
                     disabled={startManifest.isPending}
                   />

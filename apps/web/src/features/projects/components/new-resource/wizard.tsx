@@ -80,6 +80,7 @@ function ResourceWizardBody({
     attempted,
     handleContinue,
     goPrev,
+    goToStep,
     advancedSetup,
     setAdvanced,
   } = useWizardForm({
@@ -123,7 +124,7 @@ function ResourceWizardBody({
   return (
     <form.AppForm>
       <div className="flex h-full flex-col bg-transparent text-foreground">
-        <Stepper steps={steps} idx={idx} setStep={goTo} failingSteps={failingSteps} />
+        <Stepper steps={steps} idx={idx} setStep={goToStep} failingSteps={failingSteps} />
 
         <WizardStepBody
           step={step}

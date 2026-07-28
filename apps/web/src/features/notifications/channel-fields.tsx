@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 /**
  * Per-kind field set for the add/edit-channel dialog. Captures the destination
  * (`target`), an optional `secret` (Telegram bot token, webhook HMAC key, SMTP
@@ -88,6 +90,7 @@ export function ChannelFields({
   setConfigField,
   errors,
 }: ChannelFieldsProps) {
+  const { t } = useTranslation();
   const emailClient = config.client === "smtp" ? "smtp" : "resend";
   // email always carries a secret: SMTP password, or the Resend API key.
   const needsSecret = kind === "telegram" || kind === "webhook" || kind === "email";
@@ -109,7 +112,9 @@ export function ChannelFields({
 
       {kind === "email" && (
         <div className="flex flex-col gap-2">
-          <Label className="text-[11px] text-muted-foreground">Deliver via</Label>
+          <Label className="text-[11px] text-muted-foreground">
+            {t("notifications.deliverVia")}
+          </Label>
           <div className="flex gap-2">
             {(["resend", "smtp"] as const).map((c) => (
               <button
@@ -134,7 +139,7 @@ export function ChannelFields({
         <>
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="smtp-host">SMTP host</Label>
+              <Label htmlFor="smtp-host">{t("notifications.smtpHost")}</Label>
               <Input
                 id="smtp-host"
                 aria-invalid={Boolean(errors.host)}
@@ -146,7 +151,7 @@ export function ChannelFields({
               <FieldError message={errors.host} />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="smtp-port">Port</Label>
+              <Label htmlFor="smtp-port">{t("common.port")}</Label>
               <Input
                 id="smtp-port"
                 aria-invalid={Boolean(errors.port)}
@@ -160,7 +165,7 @@ export function ChannelFields({
           </div>
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="smtp-from">From address</Label>
+              <Label htmlFor="smtp-from">{t("notifications.fromAddress")}</Label>
               <Input
                 id="smtp-from"
                 className="font-mono"
@@ -170,11 +175,11 @@ export function ChannelFields({
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="smtp-user">Username</Label>
+              <Label htmlFor="smtp-user">{t("common.username")}</Label>
               <Input
                 id="smtp-user"
                 className="font-mono"
-                placeholder="apikey / user"
+                placeholder={t("notifications.smtpUserPlaceholder")}
                 value={config.username ?? ""}
                 onChange={(e) => setConfigField("username", e.target.value)}
               />

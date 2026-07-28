@@ -2,6 +2,8 @@
 
 import * as React from "react";
 
+import { useTranslation } from "react-i18next";
+
 import type { SearchState } from "@/shared/components/data-grid/types";
 
 import { useAsRef } from "@/shared/components/data-grid/hooks/use-as-ref";
@@ -66,6 +68,7 @@ function DataGridSearchImpl({
   onNavigateToNextMatch,
   onNavigateToPrevMatch,
 }: DataGridSearchProps) {
+  const { t } = useTranslation();
   const propsRef = useAsRef({
     onSearchOpenChange,
     onSearchQueryChange,
@@ -175,7 +178,7 @@ function DataGridSearchImpl({
           autoCorrect="off"
           autoCapitalize="off"
           spellCheck={false}
-          placeholder="Find in table..."
+          placeholder={t("dataGrid.findInTable")}
           className="h-8 w-64"
           ref={inputRef}
           defaultValue={searchQuery}
@@ -186,7 +189,7 @@ function DataGridSearchImpl({
         />
         <div className="flex items-center gap-1">
           <Button
-            aria-label="Previous match"
+            aria-label={t("dataGrid.previousMatch")}
             variant="ghost"
             size="icon"
             className="size-7"
@@ -197,7 +200,7 @@ function DataGridSearchImpl({
             <ChevronUp />
           </Button>
           <Button
-            aria-label="Next match"
+            aria-label={t("dataGrid.nextMatch")}
             variant="ghost"
             size="icon"
             className="size-7"
@@ -208,7 +211,7 @@ function DataGridSearchImpl({
             <ChevronDown />
           </Button>
           <Button
-            aria-label="Close search"
+            aria-label={t("dataGrid.closeSearch")}
             variant="ghost"
             size="icon"
             className="size-7"
@@ -224,9 +227,9 @@ function DataGridSearchImpl({
             {matchIndex + 1} of {searchMatches.length}
           </span>
         ) : hasQuery ? (
-          <span>No results</span>
+          <span>{t("dataGrid.noResults")}</span>
         ) : (
-          <span>Type to search</span>
+          <span>{t("dataGrid.typeToSearch")}</span>
         )}
       </div>
     </search>

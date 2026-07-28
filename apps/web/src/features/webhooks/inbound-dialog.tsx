@@ -1,3 +1,5 @@
+import type { TFunction } from "i18next";
+
 /**
  * Create / edit an inbound trigger endpoint. Create is two-phase: the form
  * (name, action, target service, IP allowlist) then — because the HMAC secret
@@ -12,6 +14,7 @@ import { useState } from "react";
 
 import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -50,6 +53,8 @@ function parseAllowlist(raw: string): string[] {
 /** Persist the endpoint — PATCH in edit mode, POST (returning the one-time
  *  secret) in create mode — and refetch the list. */
 function persistEndpoint(args: {
+  /** Passed in rather than hooked: this is a plain helper, not a component. */
+  t: TFunction;
   editing: InboundEndpoint | null;
   name: string;
   action: InboundAction;
@@ -69,7 +74,7 @@ function persistEndpoint(args: {
         })
         .then(() => {
           void invalidateInbound();
-          toast.success("Endpoint updated");
+          toast.success(args.t("webhooks.endpointUpdated"));
           args.onUpdated();
         })
     : client.webhooks.inbound
@@ -116,6 +121,7 @@ function AllowlistField({
 }
 
 export function InboundDialog({ open, onOpenChange, editing }: InboundDialogProps) {
+  const { t } = useTranslation();
   const isEdit = editing !== null;
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<Created | null>(null);
@@ -145,6 +151,7 @@ export function InboundDialog({ open, onOpenChange, editing }: InboundDialogProp
       setError(null);
 
       await persistEndpoint({
+        t,
         editing,
         name: trimmedName,
         action: value.action,
@@ -185,7 +192,7 @@ export function InboundDialog({ open, onOpenChange, editing }: InboundDialogProp
               </DialogTitle>
               <DialogDescription>
                 {isEdit ? (
-                  <>The endpoint URL and HMAC secret are fixed for the endpoint's lifetime.</>
+                  <>{t("webhooks.fixedForLifetime")}</>
                 ) : (
                   <>
                     You'll get a unique URL and an HMAC secret. Requests must be signed with{" "}
@@ -209,7 +216,7 @@ export function InboundDialog({ open, onOpenChange, editing }: InboundDialogProp
               <form.Field name="name">
                 {(field) => (
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="inbound-name">Name</Label>
+                    <Label htmlFor="inbound-name">{t("common.name")}</Label>
                     <Input
                       id="inbound-name"
                       className="font-mono"

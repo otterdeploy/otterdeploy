@@ -2,6 +2,7 @@ import { useLiveQuery } from "@tanstack/react-db";
 import { useStore } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Result } from "better-result";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { RootDirectoryPicker } from "@/features/projects/components/new-resource/root-directory-picker";
@@ -54,21 +55,30 @@ function PipeStrip({
   image: string;
   builder: string;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="mx-3 mt-3 flex items-center gap-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2.5">
       <PipeChip
-        label="Repo"
-        value={repo ? `${repo}@${branch || "default"}` : "not set"}
+        label={t("resources.source.pipe.repo")}
+        value={
+          repo
+            ? `${repo}@${branch || t("resources.source.pipe.defaultBranch")}`
+            : t("resources.source.pipe.notSet")
+        }
         muted={!repo}
       />
       <span className="text-muted-foreground/50" aria-hidden>
         →
       </span>
-      <PipeChip label="Build" value={builder} />
+      <PipeChip label={t("resources.source.pipe.build")} value={builder} />
       <span className="text-muted-foreground/50" aria-hidden>
         →
       </span>
-      <PipeChip label="Image" value={image.trim() || "local"} muted={!image.trim()} />
+      <PipeChip
+        label={t("resources.source.pipe.image")}
+        value={image.trim() || t("resources.source.pipe.local")}
+        muted={!image.trim()}
+      />
     </div>
   );
 }
@@ -82,19 +92,24 @@ function RegistryHint({
   image: string;
   registries: { host: string; displayName: string }[];
 }) {
+  const { t } = useTranslation();
   const imageHost = image.trim().split("/")[0] ?? "";
   const matched = imageHost ? (registries.find((r) => r.host === imageHost) ?? null) : null;
   if (!imageHost) return null;
   return (
     <p className={`mt-1 text-[11px] ${matched ? "text-muted-foreground" : "text-destructive"}`}>
       {matched
-        ? `Pushes via ${matched.displayName} (${matched.host}).`
-        : `No registry credential for ${imageHost} — add one in Registries or clear this.`}
+        ? t("resources.source.registryMatched", {
+            name: matched.displayName,
+            host: matched.host,
+          })
+        : t("resources.source.registryUnmatched", { host: imageHost })}
     </p>
   );
 }
 
 export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource }) {
+  const { t } = useTranslation();
   // Current source block from the saved manifest (the source of truth this card
   // edits). Read straight off manifest.get — the same call stageSource writes.
   const manifest = useQuery(
@@ -129,10 +144,11 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
         previews: value.previews,
       }),
     onSuccess: async () => {
-      toast.success("Source staged — Deploy to apply");
+      toast.success(t("resources.source.staged"));
       await invalidateAfterSave(resource.projectId);
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to stage source"),
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : t("resources.source.stageFailed")),
   });
 
   // Re-seeding when the saved source block changes (manifest load, post-save
@@ -175,13 +191,16 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
 
   return (
     <SettingsCard
-      title="Source"
-      description="Where this service builds from. Pushing to its branch deploys it."
+      title={t("resources.source.title")}
+      description={t("resources.source.description")}
     >
       <PipeStrip repo={repo} branch={branch} image={image} builder={builder} />
 
       <div className="mt-3">
-        <BuildFieldRow label="Installation" hint="Which connected account owns the repo.">
+        <BuildFieldRow
+          label={t("resources.source.installation")}
+          hint={t("resources.source.installationHint")}
+        >
           <InstallationField
             installations={installations}
             value={activeInstallationId}
@@ -189,7 +208,10 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
           />
         </BuildFieldRow>
 
-        <BuildFieldRow label="Repository" hint="owner/repo this service builds from.">
+        <BuildFieldRow
+          label={t("resources.source.repository")}
+          hint={t("resources.source.repositoryHint")}
+        >
           <form.Field name="repo">
             {(field) => (
               <RepositoryField
@@ -203,7 +225,7 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
           </form.Field>
         </BuildFieldRow>
 
-        <BuildFieldRow label="Branch" hint="Pushes here deploy. Empty = repo default.">
+        <BuildFieldRow label={t("resources.source.branch")} hint={t("resources.source.branchHint")}>
           <form.Field name="branch">
             {(field) => (
               <Input
@@ -217,7 +239,10 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
           </form.Field>
         </BuildFieldRow>
 
-        <BuildFieldRow label="Root directory" hint="Monorepo subfolder. Empty = repo root.">
+        <BuildFieldRow
+          label={t("resources.source.rootDirectory")}
+          hint={t("resources.source.rootDirectoryHint")}
+        >
           <form.Field name="root">
             {(field) => (
               <RootDirectoryPicker
@@ -231,8 +256,8 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
         </BuildFieldRow>
 
         <BuildFieldRow
-          label="Image target"
-          hint="Fully-qualified, no tag. Empty = local build. Credential matched by host."
+          label={t("resources.source.imageTarget")}
+          hint={t("resources.source.imageTargetHint")}
         >
           <form.Field name="image">
             {(field) => (
@@ -249,8 +274,8 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
         </BuildFieldRow>
 
         <BuildFieldRow
-          label="PR previews"
-          hint="Rebuild this service into an isolated preview environment for every pull request."
+          label={t("resources.source.prPreviews")}
+          hint={t("resources.source.prPreviewsHint")}
         >
           <form.Field name="previews">
             {(field) => <PreviewsField checked={field.state.value} onChange={field.handleChange} />}

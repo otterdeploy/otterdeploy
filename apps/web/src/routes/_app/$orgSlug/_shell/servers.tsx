@@ -4,6 +4,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useLiveQuery } from "@tanstack/react-db";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Key01Icon } from "@hugeicons/core-free-icons";
+import { useTranslation } from "react-i18next";
 import * as z from "zod";
 
 import { PageHeader } from "@/shared/components/page";
@@ -62,10 +63,7 @@ function visibleServersForProject<T extends { id: string }>(
   return servers.filter((server) => stats.get(server.id)?.projects.includes(project));
 }
 
-function nodeDescription(count: number): string {
-  const noun = count === 1 ? "node" : "nodes";
-  return `${count} ${noun} in this swarm · replicas placed via Docker Stack rolling updates`;
-}
+
 
 function ServerPageActions({
   tab,
@@ -76,15 +74,22 @@ function ServerPageActions({
   onEnroll: () => void;
   onCreate: () => void;
 }) {
+  const { t } = useTranslation();
   if (tab !== "overview") return null;
   return (
     <>
-      <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={onEnroll}>
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-8 gap-1.5"
+        data-tour="secure-enrollment"
+        onClick={onEnroll}
+      >
         <HugeiconsIcon icon={Key01Icon} strokeWidth={2} className="size-3.5" />
-        Secure enrollment
+        {t("servers.secureEnrollment")}
       </Button>
-      <Button size="sm" className="h-8 gap-1.5" onClick={onCreate}>
-        + Add server
+      <Button size="sm" className="h-8 gap-1.5" data-tour="add-server" onClick={onCreate}>
+        {t("servers.addServer")}
       </Button>
     </>
   );
@@ -174,6 +179,7 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/servers")({
 });
 
 function ServersRoute() {
+  const { t } = useTranslation();
   const { orgSlug } = Route.useParams();
   const { isInstallAdmin } = Route.useRouteContext();
   const { tab: requestedTab, dockerTab } = Route.useSearch();
@@ -221,8 +227,8 @@ function ServersRoute() {
     >
       <div className="border-b px-4 pt-4 pb-0 sm:px-6 sm:pt-6">
         <PageHeader
-          title="Servers"
-          description={nodeDescription(servers.length)}
+          title={t("servers.title")}
+          description={t("servers.nodeDescription", { count: servers.length })}
           actions={
             <ServerPageActions
               tab={tab}

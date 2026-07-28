@@ -4,6 +4,8 @@
  * toggle so callers just pass the current map + an onChange.
  */
 
+import { useTranslation } from "react-i18next";
+
 import { Checkbox } from "@/shared/components/ui/checkbox";
 import { Label } from "@/shared/components/ui/label";
 
@@ -16,6 +18,7 @@ export function ScopePicker({
   value: Record<string, string[]>;
   onChange: (next: Record<string, string[]>) => void;
 }) {
+  const { t } = useTranslation();
   const hasScopes = Object.keys(value).length > 0;
 
   // Add/remove an action; dropping a resource's last action removes it entirely.
@@ -36,7 +39,7 @@ export function ScopePicker({
   return (
     <div className="flex flex-col gap-2">
       <div>
-        <Label>Permissions</Label>
+        <Label>{t("apiKeys.permissions")}</Label>
         <p className="text-[11px] text-muted-foreground">
           {hasScopes
             ? "This key is limited to the selected scopes."

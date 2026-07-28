@@ -13,6 +13,7 @@
 
 import { useState } from "react";
 
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Badge } from "@/shared/components/ui/badge";
@@ -33,6 +34,7 @@ export function ApiKeyRow({
   /** Receives the replacement key's one-time plaintext token after a rotate. */
   onRotated: (key: string) => void;
 }) {
+  const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
 
   const scopes = apiKey.permissions ? Object.keys(apiKey.permissions) : [];
@@ -56,7 +58,7 @@ export function ApiKeyRow({
     setBusy(true);
     const tx = apiKeysCollection.delete(apiKey.id);
     tx.isPersisted.promise
-      .then(() => toast.success("API key deleted"))
+      .then(() => toast.success(t("apiKeys.deleted")))
       .catch((err: unknown) =>
         toast.error(err instanceof Error ? err.message : "Failed to delete key"),
       )
@@ -125,7 +127,7 @@ export function ApiKeyRow({
       </TableCell>
       <TableCell>
         {scopes.length === 0 ? (
-          <span className="text-[12px] text-muted-foreground">Full access</span>
+          <span className="text-[12px] text-muted-foreground">{t("apiKeys.fullAccess")}</span>
         ) : (
           <div className="flex flex-wrap gap-1">
             {scopes.map((s) => (

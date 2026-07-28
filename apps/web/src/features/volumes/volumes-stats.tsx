@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 /**
  * Summary tiles above the volumes table. Only measured numbers: the `local`
  * driver has no provisioned/quota size, so there is no "provisioned" tile —
@@ -11,6 +13,7 @@ import type { VolumeRow } from "./shared";
 import { fmtBytes } from "./shared";
 
 export function VolumesStats({ volumes }: { volumes: VolumeRow[] }) {
+  const { t } = useTranslation();
   const measured = volumes.filter((v) => v.sizeBytes >= 0);
   const unmeasured = volumes.length - measured.length;
   const onDisk = measured.reduce((s, v) => s + v.sizeBytes, 0);
@@ -19,9 +22,9 @@ export function VolumesStats({ volumes }: { volumes: VolumeRow[] }) {
 
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <Stat label="Total volumes" value={String(volumes.length)} sub="on this daemon" />
+      <Stat label={t("volumes.stats.total")} value={String(volumes.length)} sub="on this daemon" />
       <Stat
-        label="On disk"
+        label={t("volumes.stats.onDisk")}
         value={measured.length > 0 ? fmtBytes(onDisk) : "—"}
         sub={
           unmeasured > 0
@@ -30,12 +33,12 @@ export function VolumesStats({ volumes }: { volumes: VolumeRow[] }) {
         }
       />
       <Stat
-        label="In use"
+        label={t("volumes.stats.inUse")}
         value={String(inUse)}
         sub={`mounted by ${inUse === 1 ? "a container" : "containers"}`}
       />
       <Stat
-        label="Orphans"
+        label={t("volumes.stats.orphans")}
         value={String(orphans)}
         sub={orphans > 0 ? "unreferenced and unclaimed" : "none detected"}
         tone={orphans > 0 ? "warn" : undefined}

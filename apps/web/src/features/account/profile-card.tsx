@@ -10,6 +10,7 @@ import { UserCircleIcon } from "@hugeicons/core-free-icons";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
@@ -21,6 +22,7 @@ import { ProfileFields, ProfileIdentity } from "./profile-form-fields";
 
 /** The `updateUser` mutation — `onSaved` resets the form on success. */
 function useSaveProfile({ onSaved }: { onSaved: () => void }) {
+  const { t } = useTranslation();
   const router = useRouter();
   const queryClient = useQueryClient();
   return useMutation({
@@ -36,13 +38,14 @@ function useSaveProfile({ onSaved }: { onSaved: () => void }) {
       await queryClient.invalidateQueries({ queryKey: authKeys.currentSession });
       // Refresh the router context so the sidebar identity block updates too.
       await router.invalidate();
-      toast.success("Profile updated");
+      toast.success(t("account.profile.updated"));
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to update profile"),
   });
 }
 
 export function ProfileCard() {
+  const { t } = useTranslation();
   const sessionQ = useCurrentSession();
   const user = sessionQ.data?.user;
 
@@ -67,8 +70,8 @@ export function ProfileCard() {
   return (
     <SettingsSection
       icon={UserCircleIcon}
-      title="Profile"
-      description="How you appear across this control plane."
+      title={t("nav.profile")}
+      description={t("account.profile.description")}
     >
       <form
         className="flex flex-col gap-4 p-4"

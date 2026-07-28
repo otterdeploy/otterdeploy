@@ -2,6 +2,8 @@ import type { ServerId } from "@otterdeploy/shared/id";
 
 import { useState } from "react";
 
+import { useTranslation } from "react-i18next";
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
 
 import { ProvisionForm, type ProvisionInitialValues } from "./server-provision-form";
@@ -16,6 +18,7 @@ interface Props {
 }
 
 export function ServerCreateDialog({ open, onOpenChange, initial }: Props) {
+  const { t } = useTranslation();
   const [provisioningId, setProvisioningId] = useState<ServerId | null>(null);
 
   // Reset back to the form whenever the dialog is closed, so re-opening starts
@@ -29,7 +32,7 @@ export function ServerCreateDialog({ open, onOpenChange, initial }: Props) {
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Add server</DialogTitle>
+          <DialogTitle>{t("servers.addServerTitle")}</DialogTitle>
         </DialogHeader>
         {provisioningId ? (
           <ProvisionProgress serverId={provisioningId} onClose={() => close(false)} />

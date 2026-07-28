@@ -9,6 +9,7 @@ import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-client";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/shared/components/ui/button";
 import { JsonView } from "@/shared/components/ui/json-view";
@@ -41,6 +42,7 @@ export function LogDetailsPanel({ line, onClose }: { line: LogLine | null; onClo
 }
 
 function Panel({ line, onClose }: { line: LogLine; onClose: () => void }) {
+  const { t } = useTranslation();
   // Strip ANSI/SGR escapes so the full entry (and its JSON detection) works on
   // clean text instead of showing literal `[32m…` codes.
   const msg = stripAnsi(line.msg);
@@ -59,7 +61,7 @@ function Panel({ line, onClose }: { line: LogLine; onClose: () => void }) {
     >
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div className="min-w-0">
-          <div className="text-[13px] font-semibold">Log details</div>
+          <div className="text-[13px] font-semibold">{t("logs.details")}</div>
           <div className="mt-0.5 flex items-center gap-3 font-mono text-[11px] text-muted-foreground">
             <span className="truncate">{line.tsIso ?? line.ts}</span>
             <span className={cn("tracking-[0.08em] uppercase", LEVEL_TEXT[line.level])}>
@@ -71,7 +73,7 @@ function Panel({ line, onClose }: { line: LogLine; onClose: () => void }) {
           type="button"
           variant="ghost"
           size="icon-sm"
-          aria-label="Close details"
+          aria-label={t("logs.closeDetails")}
           onClick={onClose}
         >
           <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-4" />

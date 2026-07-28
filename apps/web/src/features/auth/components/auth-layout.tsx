@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { useTranslation } from "react-i18next";
+
 import { AuthHero } from "@/features/auth/components/auth-hero";
 import { OtterdeployLogo } from "@/shared/components/brand/otterdeploy-logo";
 
@@ -61,6 +63,7 @@ export function AuthLayout({
   subhead?: string;
   children: ReactNode;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex min-h-svh w-full flex-col bg-background">
       <div className="flex flex-1 flex-col lg:flex-row">
@@ -127,7 +130,7 @@ export function AuthLayout({
 
       {/* ─── Environment footer (full width, normal flow) ─── */}
       <footer className="flex items-center justify-between border-t border-border px-7 py-3.5 font-mono text-[10px] tracking-[0.06em] text-muted-foreground/70 lg:px-16">
-        <span className="uppercase">Otterdeploy Authentication</span>
+        <span className="uppercase">{t("auth.layoutFooter")}</span>
         <ConnectionBadge />
       </footer>
     </div>

@@ -4,6 +4,8 @@
  * `inbound-dialog.tsx` to keep that module within the file-size budget.
  */
 
+import { useTranslation } from "react-i18next";
+
 import { Label } from "@/shared/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/shared/components/ui/native-select";
 
@@ -22,24 +24,25 @@ export function TargetFields({
   onResourceIdChange: (id: string) => void;
   services: { resourceId: string; projectSlug: string; name: string }[] | undefined;
 }) {
+  const { t } = useTranslation();
   return (
     <>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="inbound-action">Target action</Label>
+        <Label htmlFor="inbound-action">{t("webhooks.targetAction")}</Label>
         <NativeSelect
           className="w-full"
           id="inbound-action"
           value={action}
           onChange={(e) => onActionChange(e.target.value as InboundAction)}
         >
-          <NativeSelectOption value="redeploy">Redeploy a service</NativeSelectOption>
-          <NativeSelectOption value="none">Nothing — record the invocation</NativeSelectOption>
+          <NativeSelectOption value="redeploy">{t("webhooks.redeployService")}</NativeSelectOption>
+          <NativeSelectOption value="none">{t("webhooks.recordOnly")}</NativeSelectOption>
         </NativeSelect>
       </div>
 
       {action === "redeploy" && (
         <div className="flex flex-col gap-2">
-          <Label htmlFor="inbound-service">Service</Label>
+          <Label htmlFor="inbound-service">{t("deployments.columns.service")}</Label>
           <NativeSelect
             className="w-full"
             id="inbound-service"

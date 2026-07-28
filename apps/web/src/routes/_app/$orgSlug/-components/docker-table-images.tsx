@@ -162,7 +162,7 @@ export function ImagesTable({ query }: { query: QueryLike<Image> }) {
 
       <SelectionBar
         selection={selection}
-        noun="image"
+        nounKey="docker.noun.image"
         actionLabel="Remove"
         onAction={() => setBulkOpen(true)}
         pending={bulkOpen}
@@ -171,7 +171,7 @@ export function ImagesTable({ query }: { query: QueryLike<Image> }) {
         open={bulkOpen}
         onOpenChange={setBulkOpen}
         selection={selection}
-        noun="image"
+        nounKey="docker.noun.image"
         labelOf={(img) => splitRef(img.repoTags[0] ?? "").repo || shortId(img.id)}
         removeOne={(img) => orpc.docker.images.remove.call({ id: img.id })}
         consequence="They'll be deleted from this daemon's cache. The next deploy that needs one will pull or rebuild it from scratch. Images still backing a container will be skipped."

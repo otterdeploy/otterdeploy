@@ -3,6 +3,7 @@ import type { ProjectId } from "@otterdeploy/shared/id";
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { envCollection, newPersistentEnvRow } from "@/features/projects/data/env";
@@ -33,6 +34,7 @@ interface Props {
 }
 
 export function EnvironmentCreateDialog({ projectId, open, onOpenChange }: Props) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const form = useForm({
@@ -73,7 +75,7 @@ export function EnvironmentCreateDialog({ projectId, open, onOpenChange }: Props
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create environment</DialogTitle>
+          <DialogTitle>{t("shell.createEnvironment")}</DialogTitle>
           <DialogDescription>
             Spin up a new environment to deploy to alongside production.
           </DialogDescription>
@@ -95,12 +97,12 @@ export function EnvironmentCreateDialog({ projectId, open, onOpenChange }: Props
           >
             {(field) => (
               <Field>
-                <FieldLabel htmlFor={field.name}>Name</FieldLabel>
+                <FieldLabel htmlFor={field.name}>{t("common.name")}</FieldLabel>
                 <Input
                   id={field.name}
                   name={field.name}
                   autoFocus
-                  placeholder="Staging"
+                  placeholder={t("shell.environmentPlaceholder")}
                   value={field.state.value}
                   onBlur={field.handleBlur}
                   onChange={(e) => {
@@ -126,7 +128,7 @@ export function EnvironmentCreateDialog({ projectId, open, onOpenChange }: Props
           >
             {(field) => (
               <Field>
-                <FieldLabel htmlFor={field.name}>Slug</FieldLabel>
+                <FieldLabel htmlFor={field.name}>{t("common.slug")}</FieldLabel>
                 <Input
                   id={field.name}
                   name={field.name}

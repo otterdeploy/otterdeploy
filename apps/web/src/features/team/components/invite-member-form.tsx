@@ -14,6 +14,7 @@
 import { useState } from "react";
 
 import { useForm } from "@tanstack/react-form";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { CopyLinkButton } from "@/features/team/components/copy-link-button";
@@ -49,6 +50,7 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
   const { data: members } = useMembers(organizationId);
   const { data: pending } = useInvitations(organizationId);
 
+  const { t } = useTranslation();
   const form = useForm({
     defaultValues: {
       email: "",
@@ -87,7 +89,7 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
   return (
     <div className="flex flex-col gap-3 rounded-xl border p-4">
       <div>
-        <h3 className="text-sm font-semibold">Invite a teammate</h3>
+        <h3 className="text-sm font-semibold">{t("team.inviteTeammate")}</h3>
         <p className="mt-0.5 text-[12.5px] text-muted-foreground">
           They&apos;ll get an email link to join (if email is configured). Admins can manage members
           and settings; members can build and deploy but not administer the workspace.
@@ -141,7 +143,7 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
         <form.Field name="role">
           {(field) => (
             <div className="flex flex-col gap-1.5">
-              <Label className="text-[12px]">Role</Label>
+              <Label className="text-[12px]">{t("team.role")}</Label>
               <Select
                 items={INVITE_ROLES.map((r) => ({ label: r.label, value: r.value }))}
                 value={field.state.value}
@@ -180,7 +182,7 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
             Invited <span className="font-medium text-foreground/80">{sent.email}</span>. If email
             delivery isn&apos;t set up, share this link so they can join.
           </p>
-          <CopyLinkButton link={sent.url} label="Copy invite link" className="shrink-0" />
+          <CopyLinkButton link={sent.url} label={t("team.copyInviteLink")} className="shrink-0" />
         </div>
       ) : null}
     </div>

@@ -16,6 +16,7 @@ import {
   Search01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import { cn } from "@/shared/lib/utils";
 
@@ -49,12 +50,13 @@ export function LogToolbar({
   searchRef: RefObject<HTMLInputElement | null>;
   onCopy: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center gap-2">
       <button
         type="button"
         onClick={onCopy}
-        aria-label="Copy logs"
+        aria-label={t("logs.copyLogs")}
         className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
       >
         <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} className="size-3.5" />
@@ -91,8 +93,8 @@ export function LogToolbar({
             ref={searchRef}
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
-            aria-label="Find in logs"
-            placeholder="Find in logs"
+            aria-label={t("logs.findInLogs")}
+            placeholder={t("logs.findInLogs")}
             className="h-7 w-44 rounded-md border bg-transparent pr-9 pl-8 font-mono text-[11.5px] outline-none placeholder:text-muted-foreground/60 focus-visible:ring-1 focus-visible:ring-foreground/20"
           />
           <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 font-mono text-[10px] text-muted-foreground/50">

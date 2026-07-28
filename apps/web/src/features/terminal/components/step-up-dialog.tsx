@@ -11,6 +11,7 @@ import { useState } from "react";
 
 import { ShieldKeyIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import { useCurrentSession } from "@/features/account/data/use-account";
 import { Button } from "@/shared/components/ui/button";
@@ -36,6 +37,7 @@ interface Props {
 }
 
 export function StepUpDialog({ open, targetLabel, onVerified, onCancel }: Props) {
+  const { t } = useTranslation();
   const sessionQ = useCurrentSession();
   const twoFactorEnabled = Boolean(
     (sessionQ.data?.user as { twoFactorEnabled?: boolean } | undefined)?.twoFactorEnabled,
@@ -79,7 +81,7 @@ export function StepUpDialog({ open, targetLabel, onVerified, onCancel }: Props)
               strokeWidth={2}
               className="size-4 text-muted-foreground"
             />
-            <DialogTitle>Confirm it's you</DialogTitle>
+            <DialogTitle>{t("terminal.confirmIdentity")}</DialogTitle>
           </div>
           <DialogDescription>
             Opening {targetLabel} needs a recent sign-in.{" "}

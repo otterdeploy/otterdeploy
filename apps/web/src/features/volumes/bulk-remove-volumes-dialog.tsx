@@ -10,6 +10,7 @@
 import { useState } from "react";
 
 import { ORPCError } from "@orpc/client";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import type { VolumeRow } from "@/features/volumes/shared";
@@ -44,6 +45,7 @@ export function BulkRemoveVolumesDialog({
   /** Refetch the list once the run settles. */
   onDone: () => void;
 }) {
+  const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<BulkOutcome<VolumeRow> | null>(null);
 
@@ -72,7 +74,7 @@ export function BulkRemoveVolumesDialog({
     setBusy(false);
     onDone();
 
-    const { message, tone } = summarizeBulk(result, "volume");
+    const { message, tone } = summarizeBulk(result, t, "volumes.noun");
     if (tone === "success") toast.success(message);
     else if (tone === "warning") toast.warning(message);
     else toast.error(message);

@@ -10,6 +10,7 @@ import { useState } from "react";
 
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
@@ -47,6 +48,7 @@ export function TwoFactorDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
 
   // Shares the gate's cached session rather than declaring a second queryFn on
@@ -108,7 +110,7 @@ export function TwoFactorDialog({
     },
     onSuccess: async () => {
       await refreshSession();
-      toast.success("Two-factor authentication enabled");
+      toast.success(t("account.twoFactor.enabled"));
       // Keep the dialog open on the backup-codes panel until the user closes it.
       setTotpURI(null);
       form.setFieldValue("code", "");
@@ -125,7 +127,7 @@ export function TwoFactorDialog({
     },
     onSuccess: async () => {
       await refreshSession();
-      toast.success("Two-factor authentication disabled");
+      toast.success(t("account.twoFactor.disabled"));
       close(false);
     },
     // No onError toast — the failure renders inline in the dialog (stepError).

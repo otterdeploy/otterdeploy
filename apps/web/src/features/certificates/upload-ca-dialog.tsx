@@ -5,6 +5,7 @@
  */
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -28,6 +29,7 @@ export function UploadCaDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const upload = useMutation(
     orpc.certificates.uploadCa.mutationOptions({
       onSuccess: () => {
@@ -58,7 +60,7 @@ export function UploadCaDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Upload trusted CA</DialogTitle>
+          <DialogTitle>{t("certificates.uploadCa")}</DialogTitle>
           <DialogDescription>
             Stored as inventory — view and download the PEM from the table. Only a CA certificate
             (basicConstraints CA:TRUE) is accepted; no private key is ever uploaded here.
@@ -81,7 +83,7 @@ export function UploadCaDialog({
           >
             {(field) => (
               <Field>
-                <FieldLabel htmlFor={field.name}>Name</FieldLabel>
+                <FieldLabel htmlFor={field.name}>{t("common.name")}</FieldLabel>
                 <Input
                   id={field.name}
                   name={field.name}

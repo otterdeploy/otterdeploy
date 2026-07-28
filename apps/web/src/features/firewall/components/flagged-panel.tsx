@@ -7,6 +7,7 @@
  * needs the agent running to enforce.
  */
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -24,6 +25,7 @@ import { BlockAllButton } from "../../edge-logs/components/edge-logs-block-ip";
 import { useEdgeBans } from "../../edge-logs/data/use-edge-bans";
 
 export function FlaggedPanel() {
+  const { t } = useTranslation();
   const flagged = useQuery({
     ...orpc.firewall.flagged.queryOptions({ input: { windowMinutes: 60 } }),
     refetchInterval: 15_000,
@@ -107,7 +109,7 @@ export function FlaggedPanel() {
                   {bannedIps.has(r.ip) ? (
                     <span
                       className="text-[11px] text-muted-foreground"
-                      title="This IP already has an active CrowdSec ban."
+                      title={t("firewall.alreadyBanned")}
                     >
                       Blocked
                     </span>

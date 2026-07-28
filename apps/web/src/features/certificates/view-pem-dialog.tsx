@@ -1,6 +1,7 @@
 /** Read-only PEM viewer for a stored trusted CA — copy + download. */
 import { Copy01Icon, Download01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -25,6 +26,7 @@ export function ViewPemDialog({
   onClose: () => void;
   onDownload: (ca: TrustedCa) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <Dialog open={ca !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-2xl">
@@ -51,7 +53,7 @@ export function ViewPemDialog({
                 // bare call threw before the toast. See shared/lib/clipboard.ts.
                 onClick={() => {
                   void copyToClipboard(ca.pem).then((ok) =>
-                    ok ? toast.success("PEM copied") : toast.error("Couldn't copy"),
+                    ok ? toast.success(t("certificates.pemCopied")) : toast.error("Couldn't copy"),
                   );
                 }}
               >

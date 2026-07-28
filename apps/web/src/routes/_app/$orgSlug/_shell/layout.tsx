@@ -1,6 +1,7 @@
 import { ProjectSidebar } from "@/features/shell/components/sidebar/project-sidebar";
 
 import { SiteHeader } from "@/features/shell/components/site-header";
+import { TourAutoStart } from "@/features/tour";
 import { UpdateBanner, useIsFirstSession, useUpdateStatus } from "@/features/updates";
 
 import { SidebarInset, SidebarProvider } from "@/shared/components/ui/sidebar";
@@ -69,6 +70,7 @@ function RouteComponent() {
           <UpdateBanner />
           <SiteHeader />
         </div>
+        <TourAutoStart />
         <div className="flex flex-1">
           {!match ? (
             <>

@@ -5,6 +5,7 @@
  * time / target / event / code / attempt / latency table.
  */
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import {
@@ -27,6 +28,7 @@ function timeOf(d: Date): string {
 }
 
 export function DeliveriesTable() {
+  const { t } = useTranslation();
   const { data: deliveries, isLoading } = useQuery({
     ...orpc.webhooks.deliveries.list.queryOptions({ input: { limit: 50 } }),
     refetchInterval: 15_000,
@@ -41,12 +43,12 @@ export function DeliveriesTable() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-24">Time</TableHead>
-              <TableHead>Target</TableHead>
-              <TableHead className="w-44">Event</TableHead>
-              <TableHead className="w-16 text-right">Code</TableHead>
-              <TableHead className="w-16 text-right">Attempt</TableHead>
-              <TableHead className="w-20 text-right">Latency</TableHead>
+              <TableHead className="w-24">{t("webhooks.columns.time")}</TableHead>
+              <TableHead>{t("webhooks.columns.target")}</TableHead>
+              <TableHead className="w-44">{t("notifications.event")}</TableHead>
+              <TableHead className="w-16 text-right">{t("webhooks.columns.code")}</TableHead>
+              <TableHead className="w-16 text-right">{t("webhooks.columns.attempt")}</TableHead>
+              <TableHead className="w-20 text-right">{t("webhooks.columns.latency")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

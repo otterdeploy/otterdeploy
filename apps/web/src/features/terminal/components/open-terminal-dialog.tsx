@@ -4,6 +4,7 @@ import { SearchIcon, TerminalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useLiveQuery } from "@tanstack/react-db";
 import { Command as CommandPrimitive } from "cmdk";
+import { useTranslation } from "react-i18next";
 
 import { serverCollection } from "@/features/servers/data/server";
 import {
@@ -54,6 +55,7 @@ const GROUP_ORDER: TargetGroup[] = ["service", "database", "server"];
  * quiet trailing detail on the row.
  */
 export function OpenTerminalDialog({ open, onOpenChange, onPick, defaultProject = "all" }: Props) {
+  const { t } = useTranslation();
   const [project, setProject] = useState(defaultProject);
 
   // Containers and databases come from one terminal.targets RPC (two sibling
@@ -80,7 +82,7 @@ export function OpenTerminalDialog({ open, onOpenChange, onPick, defaultProject 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-2xl" showCloseButton={false}>
-        <DialogTitle className="sr-only">Open a terminal</DialogTitle>
+        <DialogTitle className="sr-only">{t("terminal.openTerminal")}</DialogTitle>
         <DialogDescription className="sr-only">
           Search every service, database, and server you can open a shell on.
         </DialogDescription>
@@ -95,7 +97,7 @@ export function OpenTerminalDialog({ open, onOpenChange, onPick, defaultProject 
             {/* No autoFocus: the dialog moves focus to its first focusable
                 child on open, which is this input. */}
             <CommandPrimitive.Input
-              placeholder="Search services, databases, servers…"
+              placeholder={t("terminal.searchPlaceholder")}
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
             <Kbd>esc</Kbd>
@@ -104,7 +106,7 @@ export function OpenTerminalDialog({ open, onOpenChange, onPick, defaultProject 
           {facets.length > 1 && (
             <div className="flex flex-wrap items-center gap-1 border-b px-3 py-2">
               <ProjectFacet
-                label="All projects"
+                label={t("terminal.allProjects")}
                 mono={false}
                 count={targets.length}
                 active={project === "all"}

@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 /**
  * Event → channel routing grid. Rows are events (with a severity dot),
  * columns are channels; each cell is a Switch that toggles whether that event
@@ -19,12 +21,15 @@ interface SubscriptionMatrixProps {
 }
 
 export function SubscriptionMatrix({ channels, subs, onToggle }: SubscriptionMatrixProps) {
+  const { t } = useTranslation();
   const gridCols = `minmax(0,1fr) 90px repeat(${channels.length}, minmax(110px, 1fr))`;
 
   return (
     <div className="flex flex-col gap-2.5">
       <div>
-        <h2 className="text-[14px] font-semibold tracking-tight">Event subscription matrix</h2>
+        <h2 className="text-[14px] font-semibold tracking-tight">
+          {t("notifications.matrixTitle")}
+        </h2>
         <p className="text-[12.5px] text-muted-foreground">
           Toggle which events deliver to which channel.
         </p>
@@ -42,8 +47,8 @@ export function SubscriptionMatrix({ channels, subs, onToggle }: SubscriptionMat
           className="grid min-w-[520px] items-start gap-2 border-b bg-muted/50 px-3.5 py-2.5 text-[11px] tracking-wider text-muted-foreground uppercase"
           style={{ gridTemplateColumns: gridCols }}
         >
-          <span>Event</span>
-          <span>Severity</span>
+          <span>{t("notifications.event")}</span>
+          <span>{t("notifications.severity")}</span>
           {channels.map((c) => (
             <span key={c.id} className="flex min-w-0 items-start gap-2">
               <SvglLogo

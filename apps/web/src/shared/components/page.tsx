@@ -69,6 +69,9 @@ export function PageHeader({
     // against the left edge. Stacked, the title reads at full width and the
     // buttons get a comfortable touch row.
     <header
+      // Every page's title block answers "where am I" the same way, so the
+      // product tour anchors to it generically rather than per-page.
+      data-tour="page-header"
       className={cn(
         "flex flex-col items-stretch gap-3",
         "sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-x-4 sm:gap-y-3",

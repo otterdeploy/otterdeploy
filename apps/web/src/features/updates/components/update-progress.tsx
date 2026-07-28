@@ -16,18 +16,15 @@ import { orpc } from "@/shared/server/orpc";
 
 import { useCancelUpdate, useUpdateState } from "../data/use-update-status";
 import {
-  LogPane,
-  PhaseStepper,
-  ProgressHeader,
   STEPS,
-  UpdateOutcome,
   deriveOutcome,
   phaseIndex,
   toErrorLine,
   toLogLine,
   useCutoverRecovery,
   type UpdatePhase,
-} from "./update-progress-parts";
+} from "./update-progress-model";
+import { LogPane, PhaseStepper, ProgressHeader, UpdateOutcome } from "./update-progress-parts";
 
 export function UpdateProgress({
   target,

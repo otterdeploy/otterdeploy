@@ -4,6 +4,8 @@
  * URL); this component is purely presentational.
  */
 
+import { useTranslation } from "react-i18next";
+
 import { NativeSelect, NativeSelectOption } from "@/shared/components/ui/native-select";
 import {
   Select,
@@ -44,6 +46,7 @@ export function DeploymentsToolbar({
   window: DeployWindow;
   onWindowChange: (value: DeployWindow) => void;
 }) {
+  const { t } = useTranslation();
   // Base UI <SelectValue> renders the selected option's *label* only when the
   // root <Select> gets a matching `items` list (same trick as the audit page).
   const serviceItems = [
@@ -62,7 +65,7 @@ export function DeploymentsToolbar({
         value={service}
         onValueChange={(v) => onServiceChange(v ?? service)}
       >
-        <SelectTrigger className="h-8 w-48" aria-label="Filter by resource">
+        <SelectTrigger className="h-8 w-48" aria-label={t("deployments.filterByResource")}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -79,7 +82,7 @@ export function DeploymentsToolbar({
         value={status}
         onValueChange={(v) => onStatusChange((v as DeployStatusFilter | "any") ?? status)}
       >
-        <SelectTrigger className="h-8 w-40" aria-label="Filter by status">
+        <SelectTrigger className="h-8 w-40" aria-label={t("deployments.filterByStatus")}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -95,7 +98,7 @@ export function DeploymentsToolbar({
         value={window}
         onChange={(e) => onWindowChange(e.target.value as DeployWindow)}
         className="h-8 w-36"
-        aria-label="Time window"
+        aria-label={t("deployments.timeWindow")}
       >
         {DEPLOY_WINDOWS.map((w) => (
           <NativeSelectOption key={w.id} value={w.id}>

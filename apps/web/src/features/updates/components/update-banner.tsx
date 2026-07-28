@@ -5,6 +5,7 @@
  */
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
@@ -14,6 +15,7 @@ import { useDismissUpdate, useUpdateStatus } from "../data/use-update-status";
 import { useUpdate } from "./update-provider";
 
 export function UpdateBanner() {
+  const { t } = useTranslation();
   const status = useUpdateStatus();
   const { openUpdate } = useUpdate();
   const dismiss = useDismissUpdate();
@@ -47,7 +49,7 @@ export function UpdateBanner() {
           type="button"
           size="sm"
           variant="ghost"
-          aria-label="Dismiss"
+          aria-label={t("common.dismiss")}
           disabled={dismiss.isPending}
           onClick={() => dismiss.mutate({ dismissedVersion: status.latest })}
         >

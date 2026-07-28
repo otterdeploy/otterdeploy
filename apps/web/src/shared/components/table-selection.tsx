@@ -14,12 +14,16 @@
  * "3 removed · 1 skipped" instead of collapsing to one all-or-nothing result.
  */
 
+import type { TranslationKey } from "@otterdeploy/i18n";
+import type { TFunction } from "i18next";
+
 import { useMemo, useState } from "react";
 
 import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { AnimatePresence, useReducedMotion, type Transition } from "motion/react";
 import * as m from "motion/react-client";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/shared/components/ui/button";
 import { Checkbox } from "@/shared/components/ui/checkbox";
@@ -164,14 +168,14 @@ export function SelectRowCell<T>({
  */
 export function SelectionBar<T>({
   selection,
-  noun,
+  nounKey,
   actionLabel,
   onAction,
   pending,
 }: {
   selection: TableSelection<T>;
-  /** Singular noun for the count, e.g. "volume". */
-  noun: string;
+  /** Pluralisable i18n key for the count, e.g. `volumes.noun`. */
+  nounKey: TranslationKey;
   /**
    * The bare verb — "Remove", "Archive". Deliberately NOT "Remove 8": the
    * count is already stated by the label to its left, and repeating it inside
@@ -183,6 +187,7 @@ export function SelectionBar<T>({
   onAction: () => void;
   pending: boolean;
 }) {
+  const { t } = useTranslation();
   // Framer's JS animations aren't covered by the CSS prefers-reduced-motion
   // reset, so collapse to instant ourselves — same as PendingChangesBar.
   const reduce = useReducedMotion();
@@ -203,7 +208,7 @@ export function SelectionBar<T>({
             className="pointer-events-auto flex max-w-full items-center gap-2 rounded-full border bg-popover/95 py-1.5 pr-1.5 pl-4 shadow-lg backdrop-blur-md sm:gap-3"
           >
             <span className="truncate text-[13px] font-medium">
-              {selection.count} {noun}
+              {t(nounKey, { count: selection.count })}
               {selection.count === 1 ? "" : "s"} selected
             </span>
             <Button
@@ -275,27 +280,41 @@ function reasonOf(err: unknown): string {
 /**
  * One-line summary of a bulk run, for a toast. Names the first failure's reason
  * so "1 skipped" is never a dead end the operator has to go re-derive.
+ *
+ * `t` is a parameter because this is a plain helper, not a component. `nounKey`
+ * is a key rather than a word because the old `${n} ${noun}${n === 1 ? "" : "s"}`
+ * only pluralises English — every other language needs the locale to decide.
  */
 export function summarizeBulk<T>(
   outcome: BulkOutcome<T>,
-  noun: string,
+  t: TFunction,
+  nounKey: TranslationKey,
 ): {
   message: string;
   tone: "success" | "warning" | "error";
 } {
   const okCount = outcome.ok.length;
   const failCount = outcome.failed.length;
-  const plural = (n: number) => `${n} ${noun}${n === 1 ? "" : "s"}`;
+  const plural = (n: number) => t(nounKey, { count: n });
 
-  if (failCount === 0) return { message: `Removed ${plural(okCount)}`, tone: "success" };
+  if (failCount === 0) {
+    return { message: t("tableSelection.removed", { items: plural(okCount) }), tone: "success" };
+  }
   if (okCount === 0) {
     return {
-      message: `Couldn't remove ${plural(failCount)} — ${outcome.failed[0]?.reason ?? "failed"}`,
+      message: t("tableSelection.removeFailed", {
+        items: plural(failCount),
+        reason: outcome.failed[0]?.reason ?? t("tableSelection.genericFailure"),
+      }),
       tone: "error",
     };
   }
   return {
-    message: `Removed ${plural(okCount)} · ${failCount} skipped — ${outcome.failed[0]?.reason ?? "failed"}`,
+    message: t("tableSelection.removedPartial", {
+      items: plural(okCount),
+      skipped: failCount,
+      reason: outcome.failed[0]?.reason ?? t("tableSelection.genericFailure"),
+    }),
     tone: "warning",
   };
 }

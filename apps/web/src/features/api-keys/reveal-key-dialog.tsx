@@ -10,6 +10,7 @@ import { useState } from "react";
 
 import { Copy01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -33,6 +34,7 @@ export function RevealKeyDialog({
   apiKey: string | null;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
 
@@ -50,7 +52,7 @@ export function RevealKeyDialog({
         return;
       }
       setCopied(true);
-      toast.success("API key copied");
+      toast.success(t("apiKeys.copied"));
       setTimeout(() => setCopied(false), 1500);
     });
   };
@@ -67,7 +69,7 @@ export function RevealKeyDialog({
       {/* No X button: the only way out is Done, unlocked by the checkbox. */}
       <DialogContent className="sm:max-w-lg" showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle>API key created</DialogTitle>
+          <DialogTitle>{t("apiKeys.created")}</DialogTitle>
           <DialogDescription>
             Copy it now — this is the only time the full key is shown. Store it somewhere safe; you
             won't be able to see it again.

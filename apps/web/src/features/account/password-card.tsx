@@ -10,6 +10,7 @@ import type { AnyFieldApi } from "@tanstack/react-form";
 import { SquareLockPasswordIcon } from "@hugeicons/core-free-icons";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
@@ -42,14 +43,15 @@ function isComplete(values: PasswordValues): boolean {
 }
 
 export function PasswordCard() {
+  const { t } = useTranslation();
   const accountsQ = useLinkedAccounts();
   const hasCredential = (accountsQ.data ?? []).some((a) => a.providerId === "credential");
 
   return (
     <SettingsSection
       icon={SquareLockPasswordIcon}
-      title="Password"
-      description="The credential used for email + password sign-in."
+      title={t("common.password")}
+      description={t("account.password.description")}
     >
       {accountsQ.isPending ? (
         <div className="flex flex-col gap-3 p-4">
@@ -83,6 +85,7 @@ export function PasswordCard() {
 }
 
 function ChangePasswordForm() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   const change = useMutation({
@@ -99,7 +102,7 @@ function ChangePasswordForm() {
       form.setFieldValue("next", "");
       form.setFieldValue("confirm", "");
       if (values.revokeOthers) await queryClient.invalidateQueries({ queryKey: authKeys.sessions });
-      toast.success("Password changed");
+      toast.success(t("account.password.changed"));
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to change password"),
   });
@@ -124,7 +127,7 @@ function ChangePasswordForm() {
           {(field) => (
             <PasswordField
               id="pw-current"
-              label="Current password"
+              label={t("account.password.current")}
               autoComplete="current-password"
               disabled={change.isPending}
               field={field}
@@ -145,7 +148,7 @@ function ChangePasswordForm() {
             {(field) => (
               <PasswordField
                 id="pw-new"
-                label="New password"
+                label={t("account.password.new")}
                 autoComplete="new-password"
                 disabled={change.isPending}
                 field={field}
@@ -165,7 +168,7 @@ function ChangePasswordForm() {
             {(field) => (
               <PasswordField
                 id="pw-confirm"
-                label="Confirm new password"
+                label={t("account.password.confirm")}
                 autoComplete="new-password"
                 disabled={change.isPending}
                 field={field}

@@ -1,6 +1,7 @@
 import { Building02Icon } from "@hugeicons/core-free-icons";
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 import { authClient } from "@/lib/auth-client";
 import { invalidateAuth } from "@/lib/auth-queries";
@@ -38,6 +39,7 @@ export function OrganizationStep({ onComplete }: { onComplete: (org: CreatedOrg)
     },
   });
 
+  const { t } = useTranslation();
   const form = useForm({
     defaultValues: { name: "", slug: "" },
     validators: { onChange: nameAndSlugSchema },
@@ -49,8 +51,8 @@ export function OrganizationStep({ onComplete }: { onComplete: (org: CreatedOrg)
   return (
     <StepFrame
       icon={Building02Icon}
-      title="Create your organization"
-      description="An organization is your top-level workspace — it owns your projects, servers, domains, and team. You can create more later or invite people in."
+      title={t("onboarding.organization.title")}
+      description={t("onboarding.organization.description")}
     >
       <form
         onSubmit={(e) => {
@@ -70,8 +72,8 @@ export function OrganizationStep({ onComplete }: { onComplete: (org: CreatedOrg)
           {(field) => (
             <WizardField
               id={field.name}
-              label="Name"
-              placeholder="Acme"
+              label={t("onboarding.fields.name")}
+              placeholder={t("onboarding.organization.namePlaceholder")}
               focusOnMount
               value={field.state.value}
               onBlur={field.handleBlur}
@@ -88,7 +90,7 @@ export function OrganizationStep({ onComplete }: { onComplete: (org: CreatedOrg)
           {(field) => (
             <WizardField
               id={field.name}
-              label="URL slug"
+              label={t("onboarding.fields.slug")}
               mono
               value={field.state.value}
               onBlur={field.handleBlur}

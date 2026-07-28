@@ -4,6 +4,7 @@ import type { ColumnDef, TableMeta } from "@tanstack/react-table";
 
 import * as React from "react";
 
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import type { CellUpdate, ContextMenuState } from "@/shared/components/data-grid/types";
@@ -100,6 +101,7 @@ function ContextMenuImpl<TData>({
   onCellsCopy,
   onCellsCut,
 }: ContextMenuProps<TData>) {
+  const { t } = useTranslation();
   const propsRef = useAsRef({
     dataGridRef,
     selectionState,
@@ -165,7 +167,7 @@ function ContextMenuImpl<TData>({
 
     onDataUpdate?.(updates);
 
-    toast.success(`${updates.length} cell${updates.length !== 1 ? "s" : ""} cleared`);
+    toast.success(t("dataGrid.cellsCleared", { count: updates.length }));
   };
 
   const onDelete = async () => {
@@ -184,7 +186,7 @@ function ContextMenuImpl<TData>({
 
     await onRowsDelete?.(rowIndicesArray);
 
-    toast.success(`${rowCount} row${rowCount !== 1 ? "s" : ""} deleted`);
+    toast.success(t("dataGrid.rowsDeleted", { count: rowCount }));
   };
 
   return (

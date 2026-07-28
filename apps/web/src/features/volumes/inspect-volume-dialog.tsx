@@ -7,6 +7,7 @@
 import { Copy01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -39,6 +40,7 @@ export function InspectVolumeDialog({
 }
 
 function InspectBody({ name }: { name: string }) {
+  const { t } = useTranslation();
   const inspect = useQuery(orpc.volumes.inspect.queryOptions({ input: { name } }));
 
   const copyJson = async () => {
@@ -46,7 +48,7 @@ function InspectBody({ name }: { name: string }) {
     // over plain http://<ip>, so this always took the catch branch on a
     // self-hosted install. See shared/lib/clipboard.ts.
     const ok = await copyToClipboard(JSON.stringify(inspect.data?.details, null, 2));
-    if (ok) toast.success("JSON copied to clipboard");
+    if (ok) toast.success(t("volumes.jsonCopied"));
     else toast.error("Couldn't access the clipboard");
   };
 
@@ -54,7 +56,7 @@ function InspectBody({ name }: { name: string }) {
     <DialogContent className="gap-0 p-0 sm:max-w-3xl">
       <DialogHeader className="flex-row items-center justify-between gap-3 border-b px-5 py-4">
         <div className="min-w-0">
-          <DialogTitle className="text-base font-semibold">Inspect volume</DialogTitle>
+          <DialogTitle className="text-base font-semibold">{t("volumes.inspect")}</DialogTitle>
           <DialogDescription className="mt-0.5 truncate font-mono text-xs">
             {name}
           </DialogDescription>

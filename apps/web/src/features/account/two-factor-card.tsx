@@ -10,6 +10,7 @@
 import { useState } from "react";
 
 import { ShieldKeyIcon } from "@hugeicons/core-free-icons";
+import { useTranslation } from "react-i18next";
 
 import { TwoFactorDialog } from "@/features/shell/components/nav/two-factor-dialog";
 import { SettingsSection } from "@/shared/components/settings-section";
@@ -20,6 +21,7 @@ import { Skeleton } from "@/shared/components/ui/skeleton";
 import { useCurrentSession, useLinkedAccounts } from "./data/use-account";
 
 export function TwoFactorCard() {
+  const { t } = useTranslation();
   const sessionQ = useCurrentSession();
   const accountsQ = useLinkedAccounts();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -33,8 +35,8 @@ export function TwoFactorCard() {
   return (
     <SettingsSection
       icon={ShieldKeyIcon}
-      title="Two-factor authentication"
-      description="A time-based code from an authenticator app, required at sign-in."
+      title={t("user.twoFactor")}
+      description={t("account.twoFactor.description")}
     >
       {loading ? (
         <div className="flex items-center justify-between gap-3 p-4">

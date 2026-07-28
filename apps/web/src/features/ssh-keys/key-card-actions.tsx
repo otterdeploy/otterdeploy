@@ -1,5 +1,6 @@
 import { Delete02Icon, RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import {
   AlertDialog,
@@ -77,6 +78,7 @@ export function DeleteButton({
   disabled: boolean;
   onConfirm: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <AlertDialog>
       <AlertDialogTrigger
@@ -85,7 +87,7 @@ export function DeleteButton({
             variant="ghost"
             size="icon-sm"
             className={cn("text-muted-foreground hover:text-destructive")}
-            aria-label="Delete SSH key"
+            aria-label={t("sshKeys.deleteKey")}
             disabled={disabled}
           >
             <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />

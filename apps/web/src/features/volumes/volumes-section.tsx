@@ -8,6 +8,7 @@ import { useState } from "react";
 import { HardDriveIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 import type { VolumeRow } from "@/features/volumes/shared";
 
@@ -32,6 +33,7 @@ import { ErrorState } from "@/shared/components/ui/error-state";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
 export function VolumesSection({ orgSlug }: { orgSlug: string }) {
+  const { t } = useTranslation();
   const list = useQuery(volumesListQuery());
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -81,7 +83,7 @@ export function VolumesSection({ orgSlug }: { orgSlug: string }) {
               strokeWidth={1.5}
               className="size-10 text-muted-foreground/50"
             />
-            <EmptyTitle>No volumes on this daemon</EmptyTitle>
+            <EmptyTitle>{t("volumes.empty")}</EmptyTitle>
             <EmptyDescription>
               Databases and service mounts create volumes automatically when deployed — or create
               one here to attach to a service.
@@ -128,7 +130,7 @@ export function VolumesSection({ orgSlug }: { orgSlug: string }) {
           flow and stays put while a long inventory scrolls. */}
       <SelectionBar
         selection={selection}
-        noun="volume"
+        nounKey="volumes.noun"
         actionLabel="Remove"
         onAction={() => setBulkOpen(true)}
         pending={bulkOpen}

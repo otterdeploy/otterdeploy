@@ -150,7 +150,7 @@ export function NetworksTable({ query }: { query: QueryLike<Network> }) {
 
       <SelectionBar
         selection={selection}
-        noun="network"
+        nounKey="docker.noun.network"
         actionLabel="Remove"
         onAction={() => setBulkOpen(true)}
         pending={bulkOpen}
@@ -159,7 +159,7 @@ export function NetworksTable({ query }: { query: QueryLike<Network> }) {
         open={bulkOpen}
         onOpenChange={setBulkOpen}
         selection={selection}
-        noun="network"
+        nounKey="docker.noun.network"
         labelOf={(n) => n.name}
         removeOne={(n) => orpc.docker.networks.remove.call({ id: n.id })}
         consequence="They'll be deleted from this daemon. Anything still referencing one by name will fail to start. Networks with containers still attached — and Docker's built-in networks — will be refused."

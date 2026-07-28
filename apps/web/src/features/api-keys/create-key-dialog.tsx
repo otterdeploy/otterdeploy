@@ -5,6 +5,7 @@
  */
 
 import { useForm } from "@tanstack/react-form";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -43,6 +44,7 @@ export function CreateKeyDialog({
   /** Called with the plaintext token once the key is created. */
   onCreated: (apiKey: string) => void;
 }) {
+  const { t } = useTranslation();
   const form = useForm({
     defaultValues: {
       name: "",
@@ -75,7 +77,7 @@ export function CreateKeyDialog({
 
       setOpen(false);
       tx.isPersisted.promise
-        .then(() => toast.success("API key created"))
+        .then(() => toast.success(t("apiKeys.created")))
         .catch((err: unknown) =>
           toast.error(err instanceof Error ? err.message : "Failed to create API key"),
         );
@@ -92,7 +94,7 @@ export function CreateKeyDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Create API key</DialogTitle>
+          <DialogTitle>{t("apiKeys.createTitle")}</DialogTitle>
           <DialogDescription>
             Keys belong to this workspace and authenticate automated access (CLI, CI, scripts).
           </DialogDescription>
@@ -114,14 +116,14 @@ export function CreateKeyDialog({
           >
             {(field) => (
               <Field>
-                <FieldLabel htmlFor={field.name}>Name</FieldLabel>
+                <FieldLabel htmlFor={field.name}>{t("common.name")}</FieldLabel>
                 <Input
                   id={field.name}
                   name={field.name}
                   value={field.state.value}
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
-                  placeholder="CI deploy bot"
+                  placeholder={t("apiKeys.namePlaceholder")}
                   autoFocus
                 />
                 {field.state.meta.errors.map((err) => (
@@ -159,6 +161,7 @@ export function CreateKeyDialog({
 
 /** Expiry preset dropdown, keyed by index into EXPIRY_OPTIONS. */
 function ExpiryField({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const { t } = useTranslation();
   // Base UI's <SelectValue> renders the label only when the root is given the
   // full items list; we key options by their index in EXPIRY_OPTIONS.
   const items = EXPIRY_OPTIONS.map((opt, i) => ({
@@ -168,7 +171,7 @@ function ExpiryField({ value, onChange }: { value: number; onChange: (v: number)
 
   return (
     <div className="flex flex-col gap-1.5">
-      <Label htmlFor="key-expiry">Expiry</Label>
+      <Label htmlFor="key-expiry">{t("apiKeys.expiry")}</Label>
       <Select
         items={items}
         value={String(value)}

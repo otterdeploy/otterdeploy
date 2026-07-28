@@ -15,11 +15,12 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { useTranslation } from "react-i18next";
 
 import type { TimeRange } from "./logs-histogram";
 
 import { useProjectLogStream, type LogLevel } from "../data/use-project-log-stream";
-import { logColumns } from "./log-columns";
+import { makeLogColumns } from "./log-columns";
 
 interface UseLogsTableArgs {
   projectId: string;
@@ -38,6 +39,9 @@ export function useLogsTable({
   timeRange,
   paused,
 }: UseLogsTableArgs) {
+  const { t } = useTranslation();
+  // Rebuilt when the language changes so the columns' aria-labels follow it.
+  const columns = useMemo(() => makeLogColumns(t), [t]);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   // Live tail sticks to the bottom until the operator scrolls up (or sorts).
@@ -71,7 +75,7 @@ export function useLogsTable({
 
   const table = useReactTable({
     data: filtered,
-    columns: logColumns,
+    columns,
     state: { sorting, rowSelection },
     onSortingChange: setSorting,
     onRowSelectionChange: setRowSelection,

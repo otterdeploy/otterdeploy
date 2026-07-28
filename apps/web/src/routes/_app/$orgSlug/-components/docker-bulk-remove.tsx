@@ -9,6 +9,9 @@
 
 import { useState } from "react";
 
+import type { TranslationKey } from "@otterdeploy/i18n";
+import { useTranslation } from "react-i18next";
+
 import { toast } from "sonner";
 
 import {
@@ -32,7 +35,7 @@ export function DockerBulkRemoveDialog<T>({
   open,
   onOpenChange,
   selection,
-  noun,
+  nounKey,
   labelOf,
   removeOne,
   consequence,
@@ -41,19 +44,20 @@ export function DockerBulkRemoveDialog<T>({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selection: TableSelection<T>;
-  /** Singular noun — "image", "network". */
-  noun: string;
+  /** Pluralisable i18n key for the noun — e.g. `docker.noun.image`. */
+  nounKey: TranslationKey;
   labelOf: (row: T) => string;
   removeOne: (row: T) => Promise<unknown>;
   /** Consequence copy — say what breaks, not just "are you sure". */
   consequence: string;
   onDone: () => void;
 }) {
+  const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<BulkOutcome<T> | null>(null);
 
   const rows = selection.selectedRows;
-  const plural = (n: number) => `${n} ${noun}${n === 1 ? "" : "s"}`;
+  const plural = (n: number) => t(nounKey, { count: n });
 
   const close = (next: boolean) => {
     if (busy) return;
@@ -67,7 +71,7 @@ export function DockerBulkRemoveDialog<T>({
     setBusy(false);
     onDone();
 
-    const { message, tone } = summarizeBulk(result, noun);
+    const { message, tone } = summarizeBulk(result, t, nounKey);
     if (tone === "success") toast.success(message);
     else if (tone === "warning") toast.warning(message);
     else toast.error(message);
@@ -90,7 +94,7 @@ export function DockerBulkRemoveDialog<T>({
         <AlertDialogHeader>
           <AlertDialogTitle>
             {outcome
-              ? `Some ${noun}s couldn't be removed`
+              ? t("docker.someNotRemoved", { items: t(nounKey, { count: 2 }) })
               : `Remove ${plural(rows.length)}?`}
           </AlertDialogTitle>
           <AlertDialogDescription>

@@ -4,6 +4,7 @@ import {
   UnfoldMoreIcon,
   CommandIcon,
   CommandLineIcon,
+  HelpCircleIcon,
   PaintBoardIcon,
   SunIcon,
   MoonIcon,
@@ -21,6 +22,7 @@ import { useTheme } from "next-themes";
 import { useTranslation } from "react-i18next";
 
 import { setCommandPaletteOpen } from "@/features/command-palette";
+import { useProductTour } from "@/features/tour";
 import { authClient } from "@/lib/auth-client";
 import { clearAuthCache } from "@/lib/auth-queries";
 import { Avatar, AvatarFallback, AvatarImage } from "@/shared/components/ui/avatar";
@@ -55,9 +57,9 @@ export interface User {
 }
 
 const THEMES = [
-  { value: "system", label: "System", icon: ComputerIcon },
-  { value: "light", label: "Light", icon: SunIcon },
-  { value: "dark", label: "Dark", icon: MoonIcon },
+  { value: "system", labelKey: "user.theme.system", icon: ComputerIcon },
+  { value: "light", labelKey: "user.theme.light", icon: SunIcon },
+  { value: "dark", labelKey: "user.theme.dark", icon: MoonIcon },
 ] as const;
 
 export function NavUser({ user }: { user: User }) {
@@ -66,6 +68,7 @@ export function NavUser({ user }: { user: User }) {
   const navigate = useNavigate();
   const { orgSlug } = useParams({ strict: false }) as { orgSlug?: string };
   const [cliOpen, setCliOpen] = useState(false);
+  const tour = useProductTour();
 
   async function handleSignOut() {
     await authClient.signOut();
@@ -85,6 +88,7 @@ export function NavUser({ user }: { user: User }) {
               render={
                 <SidebarMenuButton
                   size="lg"
+                  data-tour="user-menu"
                   className="border border-border bg-secondary/40 aria-expanded:bg-muted aria-expanded:text-foreground"
                 />
               }
@@ -125,10 +129,18 @@ export function NavUser({ user }: { user: User }) {
               <DropdownMenuGroup>
                 <DropdownMenuItem onClick={() => setCommandPaletteOpen(true)}>
                   <HugeiconsIcon icon={CommandIcon} strokeWidth={2} />
-                  Command menu
+                  {t("user.commandMenu")}
                   <kbd className="ml-auto font-mono text-[11px] tracking-wider text-muted-foreground">
                     ⌘K
                   </kbd>
+                </DropdownMenuItem>
+                {/* The only durable way back into the product tour. It runs
+                    once unprompted for a new operator; after that it lives
+                    here, where "how does this work again" is already looked
+                    for. */}
+                <DropdownMenuItem onClick={() => tour.start()}>
+                  <HugeiconsIcon icon={HelpCircleIcon} strokeWidth={2} />
+                  {t("tour.menuItem")}
                 </DropdownMenuItem>
               </DropdownMenuGroup>
 
@@ -157,7 +169,7 @@ export function NavUser({ user }: { user: User }) {
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setCliOpen(true)}>
                   <HugeiconsIcon icon={CommandLineIcon} strokeWidth={2} />
-                  Connect CLI
+                  {t("user.connectCli")}
                 </DropdownMenuItem>
                 {/* Links, not dialogs (od-u63.7) — the settings pages already own
                     this UI (SessionsCard / TwoFactorCard), so the menu just
@@ -171,7 +183,7 @@ export function NavUser({ user }: { user: User }) {
                   }
                 >
                   <HugeiconsIcon icon={DeviceAccessIcon} strokeWidth={2} />
-                  Active sessions
+                  {t("user.activeSessions")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   disabled={!orgSlug}
@@ -182,7 +194,7 @@ export function NavUser({ user }: { user: User }) {
                   }
                 >
                   <HugeiconsIcon icon={ShieldKeyIcon} strokeWidth={2} />
-                  Two-factor authentication
+                  {t("user.twoFactor")}
                 </DropdownMenuItem>
               </DropdownMenuGroup>
 
@@ -214,14 +226,14 @@ function EnvironmentMenu() {
       <DropdownMenuSub>
         <DropdownMenuSubTrigger>
           <HugeiconsIcon icon={PaintBoardIcon} strokeWidth={2} />
-          Appearance
+          {t("user.appearance")}
         </DropdownMenuSubTrigger>
         <DropdownMenuSubContent className="min-w-40">
           <DropdownMenuRadioGroup value={theme ?? "system"} onValueChange={(v) => setTheme(v)}>
             {THEMES.map((o) => (
               <DropdownMenuRadioItem key={o.value} value={o.value}>
                 <HugeiconsIcon icon={o.icon} strokeWidth={2} />
-                {o.label}
+                {t(o.labelKey)}
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>

@@ -7,6 +7,7 @@
 import { useState } from "react";
 
 import { ORPCError } from "@orpc/client";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import {
@@ -46,6 +47,7 @@ export function RemoveVolumeDialog({
   volume: VolumeRow | null;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   const reason = volume ? blockReason(volume) : null;
 
@@ -63,7 +65,7 @@ export function RemoveVolumeDialog({
       } else if (err instanceof ORPCError && err.code === "NOT_FOUND") {
         // Already gone (raced a prune / another operator) — refresh handled
         // by the data layer's invalidation.
-        toast.info("Volume was already removed");
+        toast.info(t("volumes.alreadyRemoved"));
         onOpenChange(false);
       } else {
         toast.error(err instanceof Error ? err.message : "Couldn't remove the volume");

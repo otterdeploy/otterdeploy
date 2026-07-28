@@ -7,6 +7,7 @@
 import { useState } from "react";
 
 import { useForm } from "@tanstack/react-form";
+import { useTranslation } from "react-i18next";
 
 import { EVENTS, SEVERITY_DOT } from "@/features/notifications/shared";
 import { Button } from "@/shared/components/ui/button";
@@ -41,6 +42,7 @@ interface OutboundDialogProps {
 }
 
 export function OutboundDialog({ open, onOpenChange, editing, onSubmit }: OutboundDialogProps) {
+  const { t } = useTranslation();
   const isEdit = editing !== null;
   const [error, setError] = useState<string | null>(null);
 
@@ -80,7 +82,7 @@ export function OutboundDialog({ open, onOpenChange, editing, onSubmit }: Outbou
           <DialogDescription>
             Every payload is a JSON POST signed with HMAC-SHA256 in the{" "}
             <span className="font-mono text-foreground">X-Otterdeploy-Signature</span> header.
-            {!isEdit && <> The signing secret is generated for you and revealed on the card.</>}
+            {!isEdit && <> {t("webhooks.signingSecretHint")}</>}
           </DialogDescription>
         </DialogHeader>
 
@@ -95,7 +97,7 @@ export function OutboundDialog({ open, onOpenChange, editing, onSubmit }: Outbou
           <form.Field name="url">
             {(field) => (
               <div className="flex flex-col gap-2">
-                <Label htmlFor="webhook-url">Target URL</Label>
+                <Label htmlFor="webhook-url">{t("webhooks.targetUrl")}</Label>
                 <Input
                   id="webhook-url"
                   className="font-mono"
@@ -112,7 +114,7 @@ export function OutboundDialog({ open, onOpenChange, editing, onSubmit }: Outbou
           <form.Field name="events">
             {(field) => (
               <div className="flex flex-col gap-2">
-                <Label>Subscribe to events</Label>
+                <Label>{t("webhooks.subscribeToEvents")}</Label>
                 <div className="flex flex-wrap gap-1.5">
                   {EVENTS.map((e) => {
                     const on = field.state.value.includes(e.id);

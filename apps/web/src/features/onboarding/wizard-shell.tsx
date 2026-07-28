@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { useTranslation } from "react-i18next";
+
 import { OtterdeployLogo } from "@/shared/components/brand/otterdeploy-logo";
 
 /** Faint grid washed by a primary glow, both driven off theme tokens via
@@ -27,6 +29,7 @@ const glowStyle = {
  * caller rather than wrapping it in a fixed single card.
  */
 export function WizardShell({ children }: { children: ReactNode }) {
+  const { t } = useTranslation();
   return (
     <div className="flex min-h-svh w-full flex-col bg-background">
       <main className="relative flex flex-1 items-center justify-center overflow-hidden px-6 py-14">
@@ -42,12 +45,12 @@ export function WizardShell({ children }: { children: ReactNode }) {
 
       {/* ─── Security footer (full width, normal flow) ─── */}
       <footer className="flex items-center justify-between border-t border-border px-7 py-3.5 font-mono text-[10px] tracking-[0.06em] text-muted-foreground/70 lg:px-12">
-        <span className="uppercase">Otterdeploy Setup</span>
+        <span className="uppercase">{t("onboarding.shellTitle")}</span>
         <span className="flex items-center gap-2">
           <span className="rounded border border-border px-1.5 py-0.5 text-[9px] tracking-[0.08em]">
             TLS 1.3
           </span>
-          <span className="hidden uppercase sm:inline">secure channel</span>
+          <span className="hidden uppercase sm:inline">{t("onboarding.secureChannel")}</span>
         </span>
       </footer>
     </div>

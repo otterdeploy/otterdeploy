@@ -5,6 +5,7 @@
  */
 
 import { useForm } from "@tanstack/react-form";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/shared/components/ui/button";
 import { DialogFooter } from "@/shared/components/ui/dialog";
@@ -66,6 +67,7 @@ export function RegistryFormBody({
   testResult: { ok: boolean; message: string } | null;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation();
   const meta = REGISTRY_KIND_META[kind];
 
   return (
@@ -74,7 +76,7 @@ export function RegistryFormBody({
 
       <form.Field name="displayName">
         {(field) => (
-          <FieldShell label="Display name" htmlFor="reg-display">
+          <FieldShell label={t("registries.displayName")} htmlFor="reg-display">
             <Input
               id="reg-display"
               value={field.state.value}
@@ -104,7 +106,7 @@ export function RegistryFormBody({
 
       <form.Field name="username">
         {(field) => (
-          <FieldShell label="Username" htmlFor="reg-username">
+          <FieldShell label={t("common.username")} htmlFor="reg-username">
             <Input
               id="reg-username"
               value={field.state.value}

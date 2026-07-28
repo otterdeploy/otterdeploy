@@ -22,6 +22,7 @@ import { useState } from "react";
 import { Alert02Icon, Copy01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -50,6 +51,7 @@ export interface DnsRecordRow {
 }
 
 function CopyCell({ text, mono = true }: { text: string; mono?: boolean }) {
+  const { t } = useTranslation();
   return (
     <button
       type="button"
@@ -59,7 +61,7 @@ function CopyCell({ text, mono = true }: { text: string; mono?: boolean }) {
       // toast ran, so the row just did nothing. See shared/lib/clipboard.ts.
       onClick={() => {
         void copyToClipboard(text).then((ok) =>
-          ok ? toast.success("Copied") : toast.error("Couldn't copy"),
+          ok ? toast.success(t("common.copied")) : toast.error(t("common.copyFailed")),
         );
       }}
       className={cn(
@@ -92,26 +94,25 @@ function OneClickRow({
   onAutoConfigure?: () => void;
   connectHref?: string;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center justify-between gap-3 rounded-md border p-3">
       <div className="flex min-w-0 items-center gap-3">
         <Cloudflare aria-hidden className="size-5 shrink-0 text-muted-foreground" />
         <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="text-[13px] font-medium">One-click DNS setup</span>
+          <span className="text-[13px] font-medium">{t("dns.oneClick.title")}</span>
           <span className="text-[11px] text-muted-foreground">
-            {canAuto
-              ? "This domain is on Cloudflare. We can create both records for you."
-              : "This domain is on Cloudflare. Connect an API token to configure it automatically."}
+            {canAuto ? t("dns.oneClick.canAuto") : t("dns.oneClick.needsToken")}
           </span>
         </div>
       </div>
       {canAuto ? (
         <Button size="sm" disabled={autoConfiguring} onClick={onAutoConfigure}>
-          {autoConfiguring ? "Configuring…" : "Configure"}
+          {autoConfiguring ? t("dns.oneClick.configuring") : t("dns.oneClick.configure")}
         </Button>
       ) : connectHref ? (
         <Button size="sm" variant="outline" render={<a href={connectHref} />}>
-          Connect Cloudflare
+          {t("dns.oneClick.connect")}
         </Button>
       ) : null}
     </div>
@@ -121,14 +122,15 @@ function OneClickRow({
 /** The records themselves, click-to-copy. Empty only before the domain is
  *  saved — there is no "this provider needs no records" case. */
 function RecordsTable({ records }: { records: DnsRecordRow[] }) {
+  const { t } = useTranslation();
   return (
     <div className="overflow-x-auto rounded-md border">
       <table className="w-full text-[12px]">
         <thead className="bg-muted/40 text-muted-foreground">
           <tr>
-            <th className="px-2 py-1.5 text-left font-medium">Type</th>
-            <th className="px-2 py-1.5 text-left font-medium">Name</th>
-            <th className="px-2 py-1.5 text-left font-medium">Value</th>
+            <th className="px-2 py-1.5 text-left font-medium">{t("dns.table.type")}</th>
+            <th className="px-2 py-1.5 text-left font-medium">{t("dns.table.name")}</th>
+            <th className="px-2 py-1.5 text-left font-medium">{t("dns.table.value")}</th>
           </tr>
         </thead>
         <tbody>
@@ -146,7 +148,7 @@ function RecordsTable({ records }: { records: DnsRecordRow[] }) {
           {records.length === 0 ? (
             <tr className="border-t">
               <td colSpan={3} className="px-2 py-3 text-center text-muted-foreground">
-                Nothing to add yet — save the domain first.
+                {t("dns.table.empty")}
               </td>
             </tr>
           ) : null}
@@ -160,15 +162,11 @@ function RecordsTable({ records }: { records: DnsRecordRow[] }) {
  *  resolved address when we have one — it makes the warning checkable rather
  *  than something the operator has to take on faith. */
 function ProxiedWarning({ address }: { address: string | undefined }) {
+  const { t } = useTranslation();
   return (
     <p className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-[11px] text-warning-foreground">
       <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="mt-px size-3.5 shrink-0" />
-      <span>
-        This name currently resolves somewhere other than this install
-        {address ? ` (${address})` : ""}. If that's a Cloudflare proxy, turn the orange cloud off —
-        proxied records terminate TLS at the proxy and the certificate here can never finish
-        issuing.
-      </span>
+      <span>{t("dns.proxiedWarning", { address: address ?? "" })}</span>
     </p>
   );
 }
@@ -193,6 +191,7 @@ export function DnsRecordsDialog({
   autoConfiguring?: boolean;
   connectHref?: string;
 }) {
+  const { t } = useTranslation();
   const inspect = useQuery({
     ...orpc.dns.inspect.queryOptions({ input: { domain } }),
     // Only ask once the dialog is actually open — this does live DNS lookups.
@@ -209,11 +208,11 @@ export function DnsRecordsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Configure DNS records</DialogTitle>
+          <DialogTitle>{t("dns.dialogTitle")}</DialogTitle>
           <DialogDescription>
             {info?.zone
-              ? `Add both records to ${info.zone}, then verify.`
-              : `Add both records to your DNS provider, then verify.`}
+              ? t("dns.dialogDescriptionZone", { zone: info.zone })
+              : t("dns.dialogDescription")}
           </DialogDescription>
         </DialogHeader>
 
@@ -238,15 +237,12 @@ export function DnsRecordsDialog({
         {info?.proxied === true ? <ProxiedWarning address={info.resolvedAddresses[0]} /> : null}
 
         {info?.lookupFailed ? (
-          <p className="text-[11px] text-muted-foreground">
-            We couldn't reach a DNS resolver to detect your provider, so only the manual records are
-            shown.
-          </p>
+          <p className="text-[11px] text-muted-foreground">{t("dns.lookupFailed")}</p>
         ) : null}
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Done
+            {t("common.done")}
           </Button>
         </DialogFooter>
       </DialogContent>

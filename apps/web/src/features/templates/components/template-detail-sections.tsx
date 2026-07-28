@@ -4,6 +4,8 @@
  */
 import type { ParsedCompose } from "@otterdeploy/api/stack/compose/types";
 
+import { useTranslation } from "react-i18next";
+
 import {
   Table,
   TableBody,
@@ -16,15 +18,16 @@ import {
 import type { TemplateEnvVar } from "../catalog";
 
 export function IncludedServicesTable({ parsed }: { parsed: ParsedCompose }) {
+  const { t } = useTranslation();
   return (
     <div className="overflow-x-auto rounded-lg ring-1 ring-foreground/10">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Service</TableHead>
-            <TableHead>Image</TableHead>
-            <TableHead>Ports</TableHead>
-            <TableHead>Volumes</TableHead>
+            <TableHead>{t("deployments.columns.service")}</TableHead>
+            <TableHead>{t("templates.image")}</TableHead>
+            <TableHead>{t("templates.ports")}</TableHead>
+            <TableHead>{t("templates.volumes")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -54,6 +57,7 @@ export function IncludedServicesTable({ parsed }: { parsed: ParsedCompose }) {
 }
 
 export function RequiredEnvTable({ requiredEnv }: { requiredEnv: TemplateEnvVar[] }) {
+  const { t } = useTranslation();
   if (requiredEnv.length === 0) {
     return (
       <p className="rounded-lg bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground ring-1 ring-foreground/10">
@@ -67,8 +71,8 @@ export function RequiredEnvTable({ requiredEnv }: { requiredEnv: TemplateEnvVar[
         <TableHeader>
           <TableRow>
             <TableHead>Key</TableHead>
-            <TableHead>Description</TableHead>
-            <TableHead>Suggested value</TableHead>
+            <TableHead>{t("templates.description")}</TableHead>
+            <TableHead>{t("templates.suggestedValue")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

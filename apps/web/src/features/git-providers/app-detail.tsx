@@ -5,6 +5,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { ID_PREFIX, zSlug, type GitProviderId } from "@otterdeploy/shared/id";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -34,13 +35,14 @@ export function DeleteButton({ pending, onDelete }: { pending: boolean; onDelete
 // ─── General ───
 
 export function GeneralTab({ provider }: { provider: ProviderData }) {
+  const { t } = useTranslation();
   const inst = provider.installation;
   return (
     <div className="flex flex-col gap-6 rounded-lg border bg-card p-5">
       <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
-        <Row label="App name" value={provider.displayName} />
+        <Row label={t("gitProviders.appName")} value={provider.displayName} />
         <Row
-          label="Account"
+          label={t("user.account")}
           value={
             inst
               ? `${inst.accountType === "organization" ? "org" : "user"}/${inst.accountLogin}`
@@ -48,11 +50,15 @@ export function GeneralTab({ provider }: { provider: ProviderData }) {
           }
           mono
         />
-        <Row label="Host" value={provider.host} mono />
-        <Row label="App ID" value={provider.externalAppId ?? "—"} mono />
-        <Row label="Installation ID" value={inst?.installationId ?? "Not installed"} mono />
+        <Row label={t("gitProviders.host")} value={provider.host} mono />
+        <Row label={t("gitProviders.appId")} value={provider.externalAppId ?? "—"} mono />
         <Row
-          label="Repositories"
+          label={t("gitProviders.installationId")}
+          value={inst?.installationId ?? "Not installed"}
+          mono
+        />
+        <Row
+          label={t("gitProviders.repositories")}
           value={
             // Null count = never fetched / revoked → "—" (a 0 here would
             // wrongly claim GitHub granted no repos).
@@ -61,8 +67,14 @@ export function GeneralTab({ provider }: { provider: ProviderData }) {
               : "—"
           }
         />
-        <Row label="Connected" value={new Date(provider.createdAt).toLocaleString()} />
-        <Row label="Status" value={<InstallStatus provider={provider} />} />
+        <Row
+          label={t("gitProviders.connected")}
+          value={new Date(provider.createdAt).toLocaleString()}
+        />
+        <Row
+          label={t("deployments.columns.status")}
+          value={<InstallStatus provider={provider} />}
+        />
       </dl>
 
       <div className="flex flex-col gap-2 border-t pt-4">
@@ -70,9 +82,15 @@ export function GeneralTab({ provider }: { provider: ProviderData }) {
           Credentials
         </span>
         <div className="flex flex-wrap gap-2">
-          <SecretChip label="Client secret" ok={provider.secretsConfigured.clientSecret} />
-          <SecretChip label="Webhook secret" ok={provider.secretsConfigured.webhookSecret} />
-          <SecretChip label="Private key" ok={provider.secretsConfigured.privateKey} />
+          <SecretChip label={t("sso.clientSecret")} ok={provider.secretsConfigured.clientSecret} />
+          <SecretChip
+            label={t("gitProviders.webhookSecret")}
+            ok={provider.secretsConfigured.webhookSecret}
+          />
+          <SecretChip
+            label={t("gitProviders.privateKey")}
+            ok={provider.secretsConfigured.privateKey}
+          />
         </div>
         <p className="text-[11.5px] text-muted-foreground">
           Secrets are encrypted at rest and never shown. GitHub issued them when the App was
@@ -98,6 +116,7 @@ function InstallStatus({ provider }: { provider: ProviderData }) {
 // ─── Permissions ───
 
 export function PermissionsTab({ provider }: { provider: ProviderData }) {
+  const { t } = useTranslation();
   const inst = provider.installation;
   const refetch = useMutation({
     ...orpc.git.refetchPermissions.mutationOptions(),
@@ -105,7 +124,7 @@ export function PermissionsTab({ provider }: { provider: ProviderData }) {
       await queryClient.invalidateQueries({
         queryKey: orpc.git.getProvider.queryKey({ input: { providerId: provider.id } }),
       });
-      toast.success("Permissions refreshed");
+      toast.success(t("gitProviders.permissionsRefreshed"));
     },
     onError: (err) => toast.error(err.message ?? "Refetch failed"),
   });
@@ -115,7 +134,7 @@ export function PermissionsTab({ provider }: { provider: ProviderData }) {
   return (
     <div className="flex flex-col gap-4 rounded-lg border bg-card p-5">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold">Granted permissions</span>
+        <span className="text-sm font-semibold">{t("gitProviders.grantedPermissions")}</span>
         {inst ? (
           <Button
             variant="outline"
@@ -160,6 +179,7 @@ export function ResourcesTab({
   orgSlug: string;
   providerId: GitProviderId;
 }) {
+  const { t } = useTranslation();
   const query = useQuery(orpc.git.resources.queryOptions({ input: { providerId } }));
 
   if (query.isLoading) {
@@ -196,9 +216,9 @@ export function ResourcesTab({
       <table className="w-full text-left text-[12.5px]">
         <thead className="border-b text-[10.5px] font-semibold tracking-wider text-muted-foreground uppercase">
           <tr>
-            <th className="px-4 py-2.5">Project</th>
-            <th className="px-4 py-2.5">Repository</th>
-            <th className="px-4 py-2.5">Branch</th>
+            <th className="px-4 py-2.5">{t("nav.project")}</th>
+            <th className="px-4 py-2.5">{t("gitProviders.repository")}</th>
+            <th className="px-4 py-2.5">{t("gitProviders.branch")}</th>
           </tr>
         </thead>
         <tbody>

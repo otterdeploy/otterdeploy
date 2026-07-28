@@ -2,6 +2,7 @@ import { useEffect, useEffectEvent, useMemo, useState } from "react";
 
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import {
   bucketize,
@@ -39,6 +40,7 @@ export function LogsHistogram({
   selectedRange,
   onSelectRange,
 }: LogsHistogramProps) {
+  const { t } = useTranslation();
   // `now` anchors the 30-bucket window. It's wall-clock, so reading it during
   // render is impure — refresh it from an effect whenever `lines` change, the
   // same cadence the live tail re-buckets at. `earliest` (and every bucket's
@@ -110,13 +112,15 @@ export function LogsHistogram({
   return (
     <div className="border-b px-5 pt-4 pb-2.5">
       <div className="mb-2 flex items-center gap-2 text-[11px]">
-        <span className="tracking-[0.06em] text-muted-foreground uppercase">Volume · last 30m</span>
+        <span className="tracking-[0.06em] text-muted-foreground uppercase">
+          {t("logs.volumeLast30m")}
+        </span>
         {selectedRange && (
           <button
             type="button"
             onClick={() => onSelectRange(null)}
             className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] text-foreground hover:bg-muted/70"
-            title="Clear time filter"
+            title={t("logs.clearTimeFilter")}
           >
             {clockHM(selectedRange.from)}–{clockHM(selectedRange.to)}
             <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} className="size-3" />

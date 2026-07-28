@@ -8,6 +8,7 @@
  */
 
 import { useForm } from "@tanstack/react-form";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -19,22 +20,19 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 
-/** Ban lengths offered by the manual block form (hours). */
+/**
+ * Ban lengths offered by the manual block form (hours).
+ *
+ * Labels are i18n keys, not text: "7 days" pluralises and declines
+ * differently per language, so the string has to be resolved at render.
+ */
 const BLOCK_DURATIONS = [
-  { hours: 1, label: "1 hour" },
-  { hours: 24, label: "24 hours" },
-  { hours: 168, label: "7 days" },
-  { hours: 720, label: "30 days" },
-  { hours: 4320, label: "180 days" },
+  { hours: 1, labelKey: "firewall.duration.hour1" },
+  { hours: 24, labelKey: "firewall.duration.hours24" },
+  { hours: 168, labelKey: "firewall.duration.days7" },
+  { hours: 720, labelKey: "firewall.duration.days30" },
+  { hours: 4320, labelKey: "firewall.duration.days180" },
 ] as const;
-
-/** The same durations shaped for Select, whose values are strings. Built once
- *  so the trigger's label lookup isn't rebuilt on every keystroke in the IP
- *  field beside it. */
-const BLOCK_DURATION_ITEMS = BLOCK_DURATIONS.map((d) => ({
-  value: String(d.hours),
-  label: d.label,
-}));
 
 export function BlockIpForm({
   onBlock,
@@ -43,6 +41,9 @@ export function BlockIpForm({
   onBlock: (ip: string, durationHours: number) => void;
   blocking: boolean;
 }) {
+  const { t } = useTranslation();
+  // Rebuilt when the language changes; `Select` values round-trip as strings.
+  const items = BLOCK_DURATIONS.map((d) => ({ value: String(d.hours), label: t(d.labelKey) }));
   const form = useForm({
     defaultValues: { ip: "", hours: 720 },
     onSubmit: ({ value, formApi }) => {
@@ -66,8 +67,8 @@ export function BlockIpForm({
             value={field.state.value}
             onBlur={field.handleBlur}
             onChange={(e) => field.handleChange(e.target.value)}
-            placeholder="Block IP or CIDR…"
-            aria-label="Block an IP or CIDR range"
+            placeholder={t("firewall.blockPlaceholder")}
+            aria-label={t("firewall.blockAria")}
             className="h-8 w-44 font-mono text-[12px]"
           />
         )}
@@ -79,13 +80,13 @@ export function BlockIpForm({
           <Select
             value={String(field.state.value)}
             onValueChange={(next) => field.handleChange(Number(next))}
-            items={BLOCK_DURATION_ITEMS}
+            items={items}
           >
-            <SelectTrigger aria-label="Ban duration" className="w-28 text-[12px]">
+            <SelectTrigger aria-label={t("firewall.banDuration")} className="w-28 text-[12px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {BLOCK_DURATION_ITEMS.map((item) => (
+              {items.map((item) => (
                 <SelectItem key={item.value} value={item.value}>
                   {item.label}
                 </SelectItem>
@@ -97,7 +98,7 @@ export function BlockIpForm({
       <form.Subscribe selector={(s) => s.values.ip.trim().length === 0}>
         {(empty) => (
           <Button type="submit" variant="outline" size="sm" disabled={blocking || empty}>
-            {blocking ? "Blocking…" : "Block"}
+            {blocking ? t("firewall.blocking") : t("firewall.block")}
           </Button>
         )}
       </form.Subscribe>

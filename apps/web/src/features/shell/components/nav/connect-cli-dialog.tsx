@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
  * login command for this control plane + a shortcut to the approval page.
  */
 import { useLoaderData, useNavigate, useRouteContext } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -27,6 +28,7 @@ export function ConnectCliDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
 
@@ -55,7 +57,7 @@ export function ConnectCliDialog({
 
   const copy = () => {
     void copyToClipboard(cmd).then((ok) =>
-      ok ? toast.success("Copied") : toast.error("Couldn't copy"),
+      ok ? toast.success(t("common.copied")) : toast.error("Couldn't copy"),
     );
   };
 
@@ -63,7 +65,7 @@ export function ConnectCliDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Connect the CLI</DialogTitle>
+          <DialogTitle>{t("account.cli.connect")}</DialogTitle>
           <DialogDescription>
             Authenticate the otterdeploy CLI with this control plane.
           </DialogDescription>
@@ -71,11 +73,11 @@ export function ConnectCliDialog({
 
         <ol className="flex flex-col gap-3 text-sm">
           <li>
-            <p className="text-muted-foreground">Install the CLI, then run:</p>
+            <p className="text-muted-foreground">{t("account.cli.installThenRun")}</p>
             <button
               type="button"
               onClick={copy}
-              title="Copy"
+              title={t("common.copy")}
               className="mt-1 flex w-full items-center justify-between gap-2 rounded-md bg-muted/40 px-3 py-2 text-left font-mono text-[12.5px] ring-1 ring-foreground/10 hover:bg-muted"
             >
               <span className="truncate">{cmd}</span>

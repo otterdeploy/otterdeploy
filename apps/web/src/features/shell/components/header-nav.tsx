@@ -10,6 +10,7 @@ import {
   useRouteContext,
   useSearch,
 } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 
 import { CreateProjectDialog } from "@/features/projects/components/create-project-dialog";
 import { envCollection } from "@/features/projects/data/env";
@@ -164,8 +165,9 @@ interface CrumbProps {
 /** Full crumb trail — org / project / environment as three separate triggers.
  *  Needs ~26rem, so it only appears once there's room for it. */
 function DesktopTrail({ orgName, projectName, currentEnv, lists }: CrumbProps) {
+  const { t } = useTranslation();
   return (
-    <nav aria-label="Workspace" className="hidden min-w-0 items-center gap-0.5 md:flex">
+    <nav aria-label={t("nav.workspace")} className="hidden min-w-0 items-center gap-0.5 md:flex">
       <DropdownMenu>
         <CrumbTrigger label={orgName} />
         <DropdownMenuContent align="start" className="min-w-56">
@@ -203,8 +205,9 @@ function DesktopTrail({ orgName, projectName, currentEnv, lists }: CrumbProps) {
  *  as labelled groups. Switching workspace, project and environment all stay
  *  reachable — they just share a surface. */
 function MobileCrumbMenu({ orgName, projectName, currentEnv, lists }: CrumbProps) {
+  const { t } = useTranslation();
   return (
-    <nav aria-label="Workspace" className="flex min-w-0 items-center md:hidden">
+    <nav aria-label={t("nav.workspace")} className="flex min-w-0 items-center md:hidden">
       <DropdownMenu>
         <CrumbTrigger
           label={projectName ?? orgName}
@@ -212,7 +215,9 @@ function MobileCrumbMenu({ orgName, projectName, currentEnv, lists }: CrumbProps
           className="min-w-0"
         />
         <DropdownMenuContent align="start" className="max-h-[70svh] min-w-56 overflow-y-auto">
-          <DropdownMenuLabel className="text-muted-foreground">Workspace</DropdownMenuLabel>
+          <DropdownMenuLabel className="text-muted-foreground">
+            {t("nav.workspace")}
+          </DropdownMenuLabel>
           <DropdownMenuGroup>
             <OrgItems {...lists} />
           </DropdownMenuGroup>
@@ -220,13 +225,17 @@ function MobileCrumbMenu({ orgName, projectName, currentEnv, lists }: CrumbProps
           {projectName && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-muted-foreground">Project</DropdownMenuLabel>
+              <DropdownMenuLabel className="text-muted-foreground">
+                {t("nav.project")}
+              </DropdownMenuLabel>
               <DropdownMenuGroup>
                 <ProjectItems {...lists} />
               </DropdownMenuGroup>
 
               <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-muted-foreground">Environment</DropdownMenuLabel>
+              <DropdownMenuLabel className="text-muted-foreground">
+                {t("shell.environment")}
+              </DropdownMenuLabel>
               <DropdownMenuGroup>
                 <EnvItems {...lists} />
               </DropdownMenuGroup>
