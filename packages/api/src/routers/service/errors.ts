@@ -217,3 +217,24 @@ export type ResolveError =
   | RefMissingResourceError
   | RefUnknownVarError
   | RefCycleError;
+
+/**
+ * A move was refused because the service has node-local volumes that will not
+ * follow it. Not a failure so much as a question — the caller can retry with
+ * `acknowledgeVolumeLoss` once the operator has seen which mounts are at stake.
+ */
+export class PlacementVolumeLossError extends TaggedError("PlacementVolumeLossError")<{
+  message: string;
+  resourceId: ResourceId;
+  mounts: string[];
+}>() {
+  constructor(args: { resourceId: ResourceId; mounts: string[] }) {
+    super({
+      resourceId: args.resourceId,
+      mounts: args.mounts,
+      message:
+        `moving this service leaves ${args.mounts.length} volume mount(s) behind ` +
+        `(${args.mounts.join(", ")}); it will start with empty volume(s) on the new node`,
+    });
+  }
+}

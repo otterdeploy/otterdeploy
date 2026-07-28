@@ -46,6 +46,7 @@ export {
   bumpForceUpdateCounter,
   setPublicExposure,
   setServicePublicDomain,
+  setResourcePlacement,
   setServiceReplicaState,
 } from "./service-state";
 

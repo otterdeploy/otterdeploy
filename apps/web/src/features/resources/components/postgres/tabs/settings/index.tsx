@@ -19,6 +19,7 @@ import { BackupsCard } from "./backups-card";
 import { DangerZone } from "./danger-zone";
 import { EphemeralAccessCard } from "./ephemeral-access-card";
 import { ExtensionsCard } from "./extensions-card";
+import { DatabasePlacementCard } from "./placement-card";
 import { PublicAccessCard } from "./public-access-card";
 
 interface PostgresSettingsBodyProps {
@@ -74,6 +75,17 @@ export function PostgresSettingsBody({
       </SettingsCard>
 
       <PublicAccessCard resource={resource} />
+
+      {/* Above backups on purpose: the safe way to move a database is to back
+          it up first, and the placement card's refusal says exactly that. */}
+      <DatabasePlacementCard
+        resource={{
+          projectId: resource.projectId,
+          id: resource.resourceId,
+          name: resource.name,
+          placementServerId: resource.placementServerId,
+        }}
+      />
 
       <BackupsCard resourceId={resource.resourceId} />
 

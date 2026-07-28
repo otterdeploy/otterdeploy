@@ -12,6 +12,7 @@ import {
 } from "./handlers";
 import { deriveInternalDbCredentials } from "./postgres/credentials";
 import { ensureDraftCredentialPassword, getProjectInOrg } from "./queries";
+import { postgresSetPlacementHandler } from "./router-resource-postgres-placement";
 
 export const postgresResourceRouter = {
   // Streaming create. Pre-flight validation (project lookup + name
@@ -118,6 +119,8 @@ export const postgresResourceRouter = {
     }
     return result.value;
   }),
+
+  setPlacement: postgresSetPlacementHandler,
 
   restart: requirePermission({
     database: ["update"],

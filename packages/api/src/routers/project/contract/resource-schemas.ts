@@ -46,6 +46,10 @@ const databaseResourceSchema = z.object({
   latestDeploymentStartedAt: z.string().nullable(),
   latestDeploymentFinishedAt: z.string().nullable(),
   engine: z.enum(["postgres", "redis", "mariadb", "mongodb", "clickhouse"]),
+  /** Server this database is pinned to, or null when the scheduler places it.
+   *  Its storage is local to whichever machine it runs on, so a pin here is
+   *  what stops a reschedule from starting it elsewhere with empty storage. */
+  placementServerId: z.string().nullable(),
   databaseName: z.string(),
   username: z.string(),
   password: z.string(),

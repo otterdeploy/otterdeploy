@@ -11,6 +11,7 @@ import { enqueueGitBuild } from "../project/manifest-apply";
 import { loadResource } from "./context";
 import { exposeService, unexposeService } from "./handlers";
 import { pauseService, resumeService } from "./pause";
+import { setServicePlacement } from "./placement";
 
 export const serviceRuntimeRouter = {
   build: requirePermission({ service: ["deploy"] }).service.build.handler(
@@ -69,6 +70,39 @@ export const serviceRuntimeRouter = {
         throw matchError(result.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
           ServiceNotFoundError: () => errors.NOT_FOUND(),
+          RefMissingResourceError: (e) => new Error(e.message),
+          RefCycleError: (e) => new Error(e.message),
+          RefParseError: (e) => new Error(e.message),
+          RefUnknownVarError: (e) => new Error(e.message),
+        });
+      }
+      return result.value;
+    },
+  ),
+
+  setPlacement: requirePermission({ service: ["deploy"] }).service.setPlacement.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({
+        target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+      });
+      const result = await setServicePlacement(
+        {
+          projectId: input.projectId,
+          resourceId: input.resourceId,
+          organizationId: context.activeOrganizationId,
+          serverId: input.serverId,
+          acknowledgeVolumeLoss: input.acknowledgeVolumeLoss,
+        },
+        context.log,
+      );
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
+          ServiceNotFoundError: () => errors.NOT_FOUND(),
+          // The mounts ride along so the UI can name exactly what gets left
+          // behind instead of asking the operator to confirm in the abstract.
+          PlacementVolumeLossError: (e) =>
+            errors.PLACEMENT_VOLUME_LOSS({ message: e.message, data: { mounts: e.mounts } }),
           RefMissingResourceError: (e) => new Error(e.message),
           RefCycleError: (e) => new Error(e.message),
           RefParseError: (e) => new Error(e.message),

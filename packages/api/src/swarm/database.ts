@@ -55,7 +55,7 @@ export interface ProvisionSwarmDatabaseInput {
    *  `placementServerId`. Undefined leaves the scheduler free. Pinning a
    *  database is usually right — its volume is local — but it also means no
    *  failover: see ./placement. */
-  placementNodeId?: string;
+  placementNodeId?: string | null;
   /** Optional `<repo>:<tag>` override. Defaults to the adapter's pinned
    *  image. Drives the wizard's version picker — pass the chosen tag here
    *  and swarm pulls that exact build. */

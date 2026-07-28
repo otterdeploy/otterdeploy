@@ -8,6 +8,7 @@ import { getProxyRouteByResourceId, updateProxyRoute } from "../../caddy/queries
 import { PLATFORM } from "../../constants";
 import { inspectSwarmDatabaseRuntime, provisionSwarmDatabase } from "../../runtime/db";
 import { defaultImageFor, type SwarmDatabaseRuntime } from "../../swarm";
+import { resolvePlacementForProject } from "../../swarm/resolve-placement";
 import {
   deleteDeploymentById,
   getLatestDeploymentForResource,
@@ -158,9 +159,20 @@ export async function ensureSwarmRuntimeForRecord(
     // Provision can throw (e.g. a concurrent create won the service-name race).
     // Mark the row failed rather than leave it stranded in "building" with no
     // task ever carrying its deployment.id label.
+    // A database's volume lives on one node, so an unresolvable pin THROWS
+    // here rather than letting the engine start elsewhere against a fresh
+    // empty volume — which reads as total data loss to whoever looks at it.
+    const placement = await resolvePlacementForProject({
+      placementServerId: record.resource.placementServerId,
+      projectId: record.resource.projectId,
+      resourceName: record.resource.name,
+      stateful: true,
+    });
+
     let runtime: SwarmDatabaseRuntime;
     try {
       runtime = await provisionSwarmDatabase({
+        placementNodeId: placement.nodeId,
         engine,
         resourceId: record.resource.id,
         image: engineImage,

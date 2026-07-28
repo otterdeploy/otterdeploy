@@ -6,10 +6,10 @@
  * surface that `updateServiceRecord` owns — they are written by the runtime
  * and edge paths instead.
  */
-import type { ResourceId } from "@otterdeploy/shared/id";
+import type { ResourceId, ServerId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-import { serviceResource } from "@otterdeploy/db/schema/project";
+import { resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { eq, sql } from "drizzle-orm";
 
 import type { ServiceResourceRow } from ".";
@@ -39,6 +39,21 @@ export async function setServiceReplicaState(
     .where(eq(serviceResource.resourceId, resourceId))
     .returning();
   return updated;
+}
+
+/**
+ * Pin a resource to a server, or clear the pin. Writes the `resource` row (not
+ * `service_resource`) because placement applies to databases and compose
+ * members too — every resource type is scheduled the same way.
+ */
+export async function setResourcePlacement(
+  resourceId: ResourceId,
+  serverId: string | null,
+): Promise<void> {
+  await db
+    .update(resource)
+    .set({ placementServerId: (serverId as ServerId | null) ?? null })
+    .where(eq(resource.id, resourceId));
 }
 
 export async function setPublicExposure(input: {

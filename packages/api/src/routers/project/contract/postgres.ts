@@ -229,6 +229,37 @@ export const postgresContractSlice = {
   // Re-roll the running database with its current spec — same image, env, and
   // public flag. Forces swarm to schedule a fresh task (and re-applies the
   // container labels, so a DB created before a label change picks it up).
+  // Pin the database to one machine (or release it). Restarts to apply the
+  // constraint — a pin that hasn't rolled is only a record of intent.
+  setPlacement: oc
+    .errors({
+      ...resourceNotFoundErrors,
+      // The database has data on its current node and that volume does not
+      // move. Retry with `acknowledgeDataLoss: true` to move it empty.
+      DATABASE_MOVE_DATA_LOSS: {
+        status: 409 as const,
+        message: "Moving this database leaves its data behind." as const,
+      },
+    })
+    .meta({
+      path: `${basePath}/{projectId}/resources/database/postgres/{resourceId}/placement`,
+      tag,
+      method: "POST",
+    })
+    .input(
+      restartPostgresInput.extend({
+        serverId: z.string().nullable(),
+        acknowledgeDataLoss: z.boolean().optional(),
+      }),
+    )
+    .output(
+      z.object({
+        placementServerId: z.string().nullable(),
+        /** False when the database was a draft — the pin applies on first deploy. */
+        restarted: z.boolean(),
+      }),
+    ),
+
   restart: oc
     .errors(resourceNotFoundErrors)
     .meta({

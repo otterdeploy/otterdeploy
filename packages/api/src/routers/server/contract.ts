@@ -296,7 +296,15 @@ export const serverContract = {
     })
     .meta({ path: `${basePath}/{id}`, tag, method: "DELETE" })
     .input(deleteServerInput)
-    .output(z.object({ ok: z.boolean() })),
+    .output(
+      z.object({
+        ok: z.boolean(),
+        /** Resources that were pinned to this server and are now schedulable
+         *  again. Reported because removing a machine silently changes where
+         *  other things are allowed to run, and that shouldn't be invisible. */
+        unpinnedResources: z.number().int().nonnegative(),
+      }),
+    ),
   setAvailability: oc
     .errors({
       NOT_FOUND: { status: 404, message: "Server not found" as const },

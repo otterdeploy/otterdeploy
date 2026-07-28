@@ -185,6 +185,7 @@ export function buildCreatedResourceView(
     name: created.resource.name,
     type: "database" as const,
     status: created.resource.status,
+    placementServerId: created.resource.placementServerId ?? null,
     // The create's deployment row is inserted right after this event is
     // emitted — at this instant there is none yet. The synthetic "starting"
     // runtime below keeps the card on "building" until the next list poll

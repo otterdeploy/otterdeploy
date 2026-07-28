@@ -5,6 +5,7 @@
 
 import { type PreviewScope, runtimeServiceName } from "../../lib/environment/scoping";
 import { materializeServiceMounts, type SpecMount, type SwarmServiceSpec } from "../../swarm";
+import { resolvePlacementForProject } from "../../swarm/resolve-placement";
 import { getLatestDeploymentForResource } from "../project/deployments";
 import { type ServiceRecord } from "./queries";
 import { sanitizeSlug } from "./views";
@@ -53,8 +54,20 @@ export async function buildSwarmSpec(
     })),
   );
 
+  // Resolve the pin to a live swarm node id. Stateless: an unresolvable pin
+  // degrades to "schedule anywhere" rather than blocking the deploy — a
+  // service that runs somewhere beats one that runs nowhere. Costs nothing
+  // when unpinned, which is the default.
+  const placement = await resolvePlacementForProject({
+    placementServerId: record.resource.placementServerId,
+    projectId: record.resource.projectId,
+    resourceName: record.resource.name,
+    stateful: false,
+  });
+
   return {
     resourceId: record.resource.id,
+    placementNodeId: placement.nodeId,
     resourceName,
     projectSlug: sanitizeSlug(projectSlug),
     serviceName,
