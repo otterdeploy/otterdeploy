@@ -12,6 +12,7 @@
 import { FRAMEWORK_KINDS } from "@otterdeploy/shared/framework";
 import * as z from "zod";
 
+import { buildSchema } from "../../../stack/manifest";
 import { projectIdField, resourceIdField } from "./shared";
 
 // Renamed conceptually from postgresResourceSchema to "database resource
@@ -169,7 +170,16 @@ export const serviceResourceSchema = z.object({
   // without a second fetch.
   preDeploy: z.array(z.string()).nullable().optional(),
   postDeploy: z.array(z.string()).nullable().optional(),
-  buildConfig: z.unknown().nullable().optional(),
+  // The real discriminated union, not `z.unknown()` — the column is already
+  // `$type<BuildConfig>()`, and erasing that here forced every consumer to
+  // re-narrow by hand before it could read `builder`.
+  //
+  // `.catch(null)` is the safety valve: this is an output schema on the
+  // whole-project resource list, so a single row whose stored JSON predates
+  // the current union (an old `builder`, a dropped field) must not fail the
+  // list and blank the graph. Such a row degrades to "no build config" —
+  // exactly what the hand-narrowing did with an unrecognised builder.
+  buildConfig: buildSchema.nullable().catch(null).optional(),
   restartWindowMs: z.number().int().nullable().optional(),
   diskLimitMb: z.number().int().nullable().optional(),
   swapLimitMb: z.number().int().nullable().optional(),

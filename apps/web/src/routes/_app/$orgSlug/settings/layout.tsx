@@ -1,7 +1,6 @@
-import { useEffect } from "react";
-
 import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import { createFileRoute, Link, Outlet, useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
@@ -23,18 +22,21 @@ export const Route = createFileRoute("/_app/$orgSlug/settings")({
   component: SettingsZoneLayout,
 });
 
-/** True when Esc should be left to the focused element / open overlay. */
+/**
+ * True when Esc should be left to whatever else is on screen.
+ *
+ * Editable elements are NOT checked here — the hotkey's `ignoreInputs` covers
+ * them, and covers more than a `closest()` on the event target could: it also
+ * consults `document.activeElement` and the composed path, so a field inside
+ * shadow DOM still suppresses the key.
+ *
+ * What's left is the part the library can't see: an already-handled event, and
+ * any open popup layer. `useIsOverlayOpen` isn't reused for that — it only
+ * matches dialog/alertdialog, and a dropdown menu or combobox listbox owns Esc
+ * just as much.
+ */
 function escBelongsElsewhere(event: KeyboardEvent): boolean {
   if (event.defaultPrevented) return true;
-  const target = event.target as HTMLElement | null;
-  if (
-    target?.closest(
-      "input, textarea, select, [contenteditable='true'], [contenteditable='']",
-    )
-  ) {
-    return true;
-  }
-  // Any open popup layer (dialog, alert, menu, combobox listbox) owns Esc.
   return Boolean(
     document.querySelector(
       "[role='dialog'], [role='alertdialog'], [role='menu'], [role='listbox']",
@@ -52,14 +54,18 @@ function SettingsZoneLayout() {
   const navigate = useNavigate();
   const navGroups = visibleNav(SETTINGS_NAV, isInstallAdmin);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || escBelongsElsewhere(event)) return;
+  useHotkey(
+    "Escape",
+    (event) => {
+      if (escBelongsElsewhere(event)) return;
       void navigate({ to: "/$orgSlug", params: { orgSlug } });
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [navigate, orgSlug]);
+    },
+    {
+      ignoreInputs: true,
+      preventDefault: false,
+      stopPropagation: false,
+    },
+  );
 
   return (
     <div className="flex min-h-svh flex-col bg-background">

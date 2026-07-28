@@ -1,5 +1,3 @@
-import { useEffect, useRef } from "react";
-
 import { Alert01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useStore } from "@tanstack/react-form";
@@ -9,8 +7,6 @@ import type { ServiceKind } from "@/features/projects/data/service-kinds";
 
 import { orpc } from "@/shared/server/orpc";
 
-import type { Var } from "../form-fields/variables-field";
-
 import { useFormContext } from "../form-context";
 import { SectionHeader } from "../form-primitives";
 
@@ -19,15 +15,16 @@ interface StepVariablesProps {
   projectId: string;
 }
 
-// Keys that look like credentials get the secret lock on by default.
-const SECRETISH =
-  /(SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|API_?KEY|ACCESS_?KEY|CREDENTIAL|DSN|AUTH|SALT|WEBHOOK|SIGNING)/i;
-
+/**
+ * Read-only here: filling the rows from `.env.example` is `applyVariables` in
+ * `source-defaults`, which runs when the repo or root is bound. This step only
+ * reports what that probe found — the committed-env warning and the count —
+ * and reads it straight out of the cache the probe already populated.
+ */
 export function StepVariables({ projectId }: StepVariablesProps) {
   const form = useFormContext();
   const repo = useStore(form.store, (s) => s.values.repo as string);
   const root = useStore(form.store, (s) => s.values.root as string);
-  const variables = useStore(form.store, (s) => s.values.variables as Var[]);
 
   const env = useQuery({
     ...orpc.git.inspectEnv.queryOptions({
@@ -35,21 +32,7 @@ export function StepVariables({ projectId }: StepVariablesProps) {
     }),
     staleTime: 5 * 60 * 1000,
   });
-
-  // Prefill from the repo's .env.example exactly once, and only when the
-  // operator hasn't already entered variables — never clobber manual edits.
   const keys = env.data?.keys;
-  const prefilled = useRef(false);
-  useEffect(() => {
-    if (prefilled.current) return;
-    if (!keys || keys.length === 0) return;
-    prefilled.current = true;
-    if (variables.length > 0) return;
-    form.setFieldValue(
-      "variables",
-      keys.map((k) => ({ key: k, value: "", secret: SECRETISH.test(k) })),
-    );
-  }, [keys, variables.length, form]);
 
   return (
     <>

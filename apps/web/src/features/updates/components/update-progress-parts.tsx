@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 /**
  * Presentational + pure helpers for {@link UpdateProgress}. Split out so the
  * pane component itself stays under the line/complexity budget.
  */
 import { env } from "@otterdeploy/env/web";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
@@ -15,107 +16,8 @@ import type { useCancelUpdate } from "../data/use-update-status";
 
 export type UpdatePhase = "validate" | "pull" | "migrate" | "recreate" | "handoff" | "done";
 export type RunStatus = "idle" | "running" | "succeeded" | "failed";
-type CancelMutation = ReturnType<typeof useCancelUpdate>;
 
-/** Visible steps in order. `handoff` folds into `recreate` for display — it's
- *  the same "restarting the control plane" beat. */
-export const STEPS: { key: Exclude<UpdatePhase, "handoff">; label: string }[] = [
-  { key: "validate", label: "Validate" },
-  { key: "pull", label: "Pull" },
-  { key: "migrate", label: "Migrate" },
-  { key: "recreate", label: "Recreate" },
-  { key: "done", label: "Done" },
-];
-
-export function phaseIndex(p: UpdatePhase): number {
-  const key = p === "handoff" ? "recreate" : p;
-  const i = STEPS.findIndex((s) => s.key === key);
-  return i < 0 ? 0 : i;
-}
-
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-
-/** Poll the control plane until the new container reports the target version,
- *  then reload onto the updated dashboard. Real-cutover recovery only. */
-export function useCutoverRecovery(target: string, enabled: boolean): void {
-  useEffect(() => {
-    if (!enabled) return;
-    let cancelled = false;
-    const poll = async () => {
-      await sleep(6000);
-      while (!cancelled) {
-        try {
-          const r = await fetch(`${env.VITE_SERVER_URL}/api/health`, { cache: "no-store" });
-          if (r.ok) {
-            const body = (await r.json()) as { version?: string };
-            if (body.version === target) {
-              window.location.reload();
-              return;
-            }
-          }
-        } catch {
-          // control plane still down — keep polling.
-        }
-        await sleep(3000);
-      }
-    };
-    void poll();
-    return () => {
-      cancelled = true;
-    };
-  }, [target, enabled]);
-}
-
-// ─── stream → line mappers ───────────────────────────────────────────────────
-
-export function toLogLine(e: {
-  level: "info" | "success" | "error";
-  message: string;
-  ts: string;
-}): Omit<LogLine, "id"> {
-  return { stream: e.level === "error" ? "stderr" : "system", line: e.message, ts: e.ts };
-}
-
-export function toErrorLine(err: unknown): Omit<LogLine, "id"> {
-  return {
-    stream: "stderr",
-    line: `Stream error: ${err instanceof Error ? err.message : String(err)}`,
-    ts: new Date().toISOString(),
-  };
-}
-
-// ─── terminal-outcome derivation (pure) ──────────────────────────────────────
-
-export interface Outcome {
-  failed: boolean;
-  dryDone: boolean;
-  realDone: boolean;
-  done: boolean;
-  terminal: boolean;
-  /** Whether the /health cutover poll should run. */
-  recovering: boolean;
-}
-
-export function deriveOutcome(
-  dryRun: boolean,
-  streamEnded: boolean,
-  runStatus?: RunStatus,
-): Outcome {
-  const failed = runStatus === "failed";
-  const dryDone = dryRun && streamEnded && !failed;
-  const realDone = !dryRun && runStatus === "succeeded";
-  const done = dryDone || realDone;
-  return {
-    failed,
-    dryDone,
-    realDone,
-    done,
-    terminal: done || failed,
-    recovering: !dryRun && !failed && !realDone,
-  };
-}
-
-// ─── presentational pieces ───────────────────────────────────────────────────
+import { STEPS, phaseIndex, type CancelMutation, type Outcome } from "./update-progress-model";
 
 function dotClass(errored: boolean, done: boolean, active: boolean): string {
   const base = "size-1.5 rounded-full";

@@ -23,6 +23,9 @@ export interface SeoInput {
   path: string;
   /** Overrides the default social card. Site-relative. */
   image?: string;
+  /** What the card shows, for screen readers and for crawlers that index it.
+   *  Defaults to describing the standard card. */
+  imageAlt?: string;
   /** Articles and reference pages are "article"; the landing page is a website. */
   type?: "website" | "article";
 }
@@ -32,11 +35,13 @@ export function seo({
   description = siteDescription,
   path,
   image = "/og.png",
+  imageAlt = "otterdeploy — calm, confident infrastructure. Self-hostable deployments: build, ship, and operate your services on your own servers.",
   type = "website",
 }: SeoInput): MetaTag[] {
   // "otterdeploy" alone on the home page; "Getting started — otterdeploy"
   // elsewhere. Repeating the site name in front of itself reads as a bug.
   const fullTitle = title ? `${title} — otterdeploy` : `${appName} — deploy on your own servers`;
+  const imageUrl = absoluteUrl(image);
 
   return [
     { title: fullTitle },
@@ -46,15 +51,27 @@ export function seo({
     { property: "og:description", content: description },
     { property: "og:type", content: type },
     { property: "og:url", content: absoluteUrl(path) },
-    { property: "og:image", content: absoluteUrl(image) },
+    { property: "og:site_name", content: "otterdeploy" },
+    { property: "og:locale", content: "en_US" },
+
+    // The full set, not just `og:image`. Unfurlers differ in what they demand
+    // before they'll render a card instead of dropping to a text-only preview:
+    // WhatsApp reads `secure_url`, and several clients skip an image whose
+    // type and dimensions they'd otherwise have to download the file to learn.
+    // Dimensions must match the real asset (1200×630) — a mismatch reads as a
+    // broken image to the stricter ones.
+    { property: "og:image", content: imageUrl },
+    { property: "og:image:secure_url", content: imageUrl },
+    { property: "og:image:type", content: "image/png" },
     { property: "og:image:width", content: "1200" },
     { property: "og:image:height", content: "630" },
-    { property: "og:site_name", content: "otterdeploy" },
+    { property: "og:image:alt", content: imageAlt },
 
     { name: "twitter:card", content: "summary_large_image" },
     { name: "twitter:title", content: fullTitle },
     { name: "twitter:description", content: description },
-    { name: "twitter:image", content: absoluteUrl(image) },
+    { name: "twitter:image", content: imageUrl },
+    { name: "twitter:image:alt", content: imageAlt },
   ];
 }
 

@@ -4,8 +4,6 @@
  * caps. `useSwarmNodes` is also consumed by the Size section's capacity copy.
  */
 
-import { useEffect } from "react";
-
 import { useLiveQuery } from "@tanstack/react-db";
 import { useStore } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
@@ -77,14 +75,6 @@ export function PlacementSection() {
   const replicas = useStore(form.store, (s) => s.values.replicas);
   const pinnedNodeId = useStore(form.store, (s) => s.values.pinnedNodeId);
   const { nodes, loading: nodesLoading } = useSwarmNodes();
-
-  // If the user has a pinned node selected but it's no longer in the cluster,
-  // clear it so we don't submit a stale id.
-  useEffect(() => {
-    if (!pinnedNodeId) return;
-    if (nodes.some((n) => n.id === pinnedNodeId)) return;
-    form.setFieldValue("pinnedNodeId", null);
-  }, [pinnedNodeId, nodes, form]);
 
   return (
     <>

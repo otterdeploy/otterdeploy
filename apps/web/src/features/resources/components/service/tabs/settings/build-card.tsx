@@ -14,33 +14,22 @@
 // The two cards live in `build-card-forms.tsx`; image / compose / auto services
 // have no build knobs and render nothing.
 
-import type { BuildDockerfileConfig, BuildRailpackConfig } from "@otterdeploy/shared/build-config";
-
 import type { ServiceBuildResource } from "./build-card-shared";
 
 import { DockerfileBuildCard, RailpackBuildCard } from "./build-card-forms";
-
-/** The resource-list contract types `buildConfig` as `unknown` (consumers that
- *  don't care ignore it), so narrow it here before reading builder fields. */
-function asBuilder<T>(buildConfig: unknown, builder: string): T | null {
-  return buildConfig != null &&
-    typeof buildConfig === "object" &&
-    (buildConfig as { builder?: string }).builder === builder
-    ? (buildConfig as T)
-    : null;
-}
 
 /** Dispatch on the builder: railpack and dockerfile each get their own card;
  *  everything else (image / compose / auto) renders nothing. Pure narrowing
  *  only — no hooks — so the sub-components own their own state. */
 export function ServiceBuildCard({ resource }: { resource: ServiceBuildResource }) {
-  const railpack = asBuilder<BuildRailpackConfig>(resource.buildConfig, "railpack");
-  if (railpack) {
-    return <RailpackBuildCard resource={resource} config={railpack} />;
+  // `buildConfig` arrives as the `BuildConfig` union, so the discriminator
+  // does the narrowing — no hand-written cast per builder.
+  switch (resource.buildConfig?.builder) {
+    case "railpack":
+      return <RailpackBuildCard resource={resource} config={resource.buildConfig} />;
+    case "dockerfile":
+      return <DockerfileBuildCard resource={resource} config={resource.buildConfig} />;
+    default:
+      return null;
   }
-  const dockerfile = asBuilder<BuildDockerfileConfig>(resource.buildConfig, "dockerfile");
-  if (dockerfile) {
-    return <DockerfileBuildCard resource={resource} config={dockerfile} />;
-  }
-  return null;
 }

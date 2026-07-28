@@ -9,7 +9,7 @@
  * Nothing here renders; source-card.tsx stays presentational + wiring.
  */
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { useForm } from "@tanstack/react-form";
 
@@ -44,28 +44,15 @@ export const seedSource = (svc: Partial<GitSourceBlock> | null) => ({
 
 export type SourceFormValues = ReturnType<typeof seedSource>;
 
-/**
- * The seeded values, with a reference that only changes when the SAVED source
- * changes.
- *
- * `readGitSource` rebuilds its object on every render, so seeding inline gave
- * the re-seed effect in the card a new `seeded` identity each time: the effect
- * called `form.reset`, that store write re-rendered the component, and the
- * cycle repeated until React killed it with "Maximum update depth exceeded" —
- * taking the whole service settings tab down with it.
- *
- * Depends on the five PRIMITIVES rather than the block. Passing the object
- * would satisfy `exhaustive-deps` while reintroducing exactly the unstable
- * identity that caused the loop, so this destructure is load-bearing, not
- * style.
- */
-export function useSeededSource(svc: Partial<GitSourceBlock> | null): SourceFormValues {
-  const { repo, branch, sourceSubdir, imageRepository, previews } = svc ?? {};
-  return useMemo(
-    () => seedSource({ repo, branch, sourceSubdir, imageRepository, previews }),
-    [repo, branch, sourceSubdir, imageRepository, previews],
-  );
-}
+// Historical note: `seedSource` was wrapped in a `useMemo` over its five
+// primitives to hand the card a reference that only changed when the saved
+// source did. That existed because the card re-seeded through an effect keyed
+// on the object — `readGitSource` rebuilds it every render, so the effect
+// called `form.reset`, the store write re-rendered, and it looped until React
+// gave up with "Maximum update depth exceeded", taking the settings tab with
+// it. The effect is gone; TanStack Form compares `defaultValues` structurally,
+// so identity no longer decides anything and the memo went with it. Keep it
+// that way: if a re-seed ever needs an effect again, the loop comes back.
 
 export const sourceDirty = (values: SourceFormValues, seeded: SourceFormValues) =>
   values.repo !== seeded.repo ||
@@ -75,14 +62,17 @@ export const sourceDirty = (values: SourceFormValues, seeded: SourceFormValues) 
   values.previews !== seeded.previews;
 
 /** Form state seeded from the saved source block; submit hands the values to
- *  the caller's stage mutation. */
+ *  the caller's stage mutation, along with the form itself so a successful save
+ *  can re-baseline it (see the reset in source-card.tsx). Passing `formApi`
+ *  through is what lets the caller avoid reaching back into the `const` this
+ *  hook returns from inside its own initialiser. */
 export function useSourceFormState(
   seeded: SourceFormValues,
-  save: (value: SourceFormValues) => void,
+  save: (value: SourceFormValues, form: { reset: () => void }) => void | Promise<void>,
 ) {
   return useForm({
     defaultValues: seeded,
-    onSubmit: ({ value }) => save(value),
+    onSubmit: ({ value, formApi }) => save(value, formApi),
   });
 }
 

@@ -15,9 +15,11 @@
  * "no provider connected" empty state, (b) repo metadata for displaying
  * the bound row's `fullName`. Neither is used to gate the binding
  * check itself.
+ *
+ * Everything the wizard *derives* from the binding — service name,
+ * monorepo root, service type — lives in `useSourceDefaults`, driven by
+ * the field listeners below rather than by effects watching queries.
  */
-
-import { useEffect, useRef } from "react";
 
 import { useStore } from "@tanstack/react-form";
 import { skipToken, useQuery } from "@tanstack/react-query";
@@ -28,12 +30,11 @@ import { orpc } from "@/shared/server/orpc";
 
 import { useFormContext } from "../form-context";
 import { SectionHeader } from "../form-primitives";
-import { frameworkDefaultServiceType, pickDefaultMonorepoApp } from "../frameworks";
 import { RootDirectoryPicker } from "../root-directory-picker";
 import { BindingSummary, useBindingSummary } from "./source-binding";
+import { useSourceDefaults } from "./source-defaults";
 import {
   BranchPicker,
-  deriveServiceName,
   DetectedFrameworkBadge,
   RepoCheck,
   ServiceTypeSelector,
@@ -69,65 +70,48 @@ export function StepSource() {
     repoMeta.data?.fullName ??
     null;
 
-  // Default the service name from the repo once one is bound. `kind.tsx`
-  // seeds `name` with the kind id (e.g. "app") as a placeholder; we only
-  // override that auto-default (or an empty value), never a name the user
-  // actually typed.
-  useEffect(() => {
-    if (!repo || !boundFullName) return;
-    if (name && name !== kindId) return;
-    const derived = deriveServiceName(boundFullName);
-    if (derived && derived !== name) form.setFieldValue("name", derived);
-  }, [repo, boundFullName, name, kindId, form]);
-
-  // The same repo inspection RepoCheck / the badge run (react-query dedupes on
-  // the shared key), used here to pre-select the service type from what we
-  // detected: an SPA/static framework (Vite, React, …) → "Static site"; a server
-  // framework → "Web app". Only until the operator picks one (kindTouched); we
-  // keep the name placeholder in lockstep so derive-from-repo still fires.
-  const inspect = useQuery({
-    ...orpc.git.inspectRepo.queryOptions({
-      input: repo ? { gitRepoId: repo, path: root || "" } : skipToken,
-    }),
-    staleTime: 5 * 60 * 1000,
-  });
-  const kindTouched = useRef(false);
-  useEffect(() => {
-    if (kindTouched.current) return;
-    const fw = inspect.data?.framework;
-    if (!fw) return;
-    const desired = frameworkDefaultServiceType(fw);
-    if (desired === kindId) return;
-    if (name === kindId) form.setFieldValue("name", desired);
-    form.setFieldValue("kindId", desired);
-  }, [inspect.data?.framework, kindId, name, form]);
-
-  // Monorepo: the deployable app almost never sits at the repo root, so point
-  // the root at the best-guess `apps/*` package (from the detected workspace
-  // packages). Detection then re-runs against that folder, so the framework +
-  // service type reflect the actual app. Only while the root is still empty and
-  // the operator hasn't browsed to a folder themselves.
-  const rootTouched = useRef(false);
-  useEffect(() => {
-    if (rootTouched.current || root !== "" || !inspect.data?.monorepo) return;
-    const app = pickDefaultMonorepoApp(inspect.data.monorepoPackages ?? []);
-    if (app) form.setFieldValue("root", app);
-  }, [inspect.data?.monorepo, inspect.data?.monorepoPackages, root, form]);
+  const defaults = useSourceDefaults(form);
 
   // Bind the repo; leave `branch` empty so the BranchPicker below can seed it
   // from the repo's real default branch once `git.listBranches` resolves
   // (forcing "main" here would mask a master/develop default). Both bind paths
   // (picker + public-URL CTA) hand us the fullName, so stash it as the
   // portable "owner/repo" the manifest needs (`repo` holds the opaque
-  // gitRepoId) right here — no derived-state effect.
+  // gitRepoId). `repoFullName` goes first: writing `repo` is what fires the
+  // listener that reads it.
   const onPublicRepoBound = (repoId: string, fullName: string) => {
-    form.setFieldValue("repo", repoId);
     form.setFieldValue("repoFullName", fullName);
+    form.setFieldValue("repo", repoId);
     summary.rememberJustBound(repoId, fullName);
   };
 
   return (
     <>
+      {/* Headless fields. `repo` and `root` are written programmatically —
+          by the binding card and the folder picker below — and TanStack Form
+          only dispatches a field's listeners while that field is mounted, so
+          these are what make `setFieldValue` the trigger for the
+          repo-derived defaults. `onMount` covers a binding the wizard was
+          constructed with (project already bound to a repo). */}
+      <form.AppField
+        name="repo"
+        listeners={{
+          onMount: ({ value }) => void defaults.onRepoBound(value),
+          onChange: ({ value }) => void defaults.onRepoBound(value),
+        }}
+      >
+        {() => null}
+      </form.AppField>
+      <form.AppField
+        name="root"
+        listeners={{
+          onChange: ({ value }) => void defaults.onRootPicked(value),
+          onChangeDebounceMs: 250,
+        }}
+      >
+        {() => null}
+      </form.AppField>
+
       <SectionHeader title="Source" />
 
       <BindingSummary
@@ -140,22 +124,10 @@ export function StepSource() {
         projectSlug={projectSlug}
         installations={summary.installations}
         onBound={onPublicRepoBound}
-        onChangeRepo={() => {
-          // Drop the binding → BindingSummary re-renders the picker so the
-          // operator can point this service at a different repo. Clearing the
-          // branch lets it re-seed from the new repo's default, and resetting
-          // the name back to the kind placeholder lets the derive-from-repo
-          // effect re-run so the service name follows the newly-picked repo
-          // (otherwise the old repo's auto-derived name sticks).
-          form.setFieldValue("repo", "");
-          form.setFieldValue("repoFullName", "");
-          form.setFieldValue("branch", "");
-          form.setFieldValue("name", kindId);
-          form.setFieldValue("root", "");
-          // Let the new repo's framework + layout re-default the type and root.
-          kindTouched.current = false;
-          rootTouched.current = false;
-        }}
+        // Drop the binding → BindingSummary re-renders the picker so the
+        // operator can point this service at a different repo, and everything
+        // derived from the old one goes with it.
+        onChangeRepo={defaults.clearBinding}
       />
 
       {/* Service config only appears once a repo is bound — paste/connect a
@@ -181,7 +153,7 @@ export function StepSource() {
                 onChange={(next) => {
                   // The operator chose a type — stop auto-defaulting it from the
                   // detected framework.
-                  kindTouched.current = true;
+                  defaults.pinKind();
                   form.setFieldValue("kindId", next);
                 }}
               />
@@ -201,12 +173,10 @@ export function StepSource() {
                     gitRepoId={repo || null}
                     value={root}
                     repoFullName={boundFullName}
-                    onChange={(next) => {
-                      // The operator picked a folder — stop auto-pointing it at
-                      // the guessed monorepo app.
-                      rootTouched.current = true;
-                      form.setFieldValue("root", next);
-                    }}
+                    // A plain write: it marks the field dirty, which is what
+                    // stops the monorepo guess from moving it again, and it
+                    // fires the `root` listener above to re-detect there.
+                    onChange={(next) => form.setFieldValue("root", next)}
                   />
                 </label>
                 <p className="text-[11px] text-muted-foreground">

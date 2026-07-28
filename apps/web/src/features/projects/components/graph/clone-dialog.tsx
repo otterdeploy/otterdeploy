@@ -12,7 +12,7 @@
  * Clones land as drafts. Copying is not deploying.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -51,13 +51,24 @@ export function CloneDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const [selected, setSelected] = useState<string[]>(initialSelection);
+  // The operator's ticks, or null while they haven't touched anything — in
+  // which case the right-clicked node *is* the selection. Nothing watches
+  // `initialSelection` for changes: the caller rebuilds it inline
+  // (`[target.data.resourceId]`) inside a graph that polls every 5s, so
+  // anything keyed to that prop would re-seed mid-decision and silently drop
+  // ticks the operator had added. Tick the database, wait five seconds,
+  // clone, and you get the app alone still wired to the original's database —
+  // the exact hazard this dialog exists to catch.
+  const [picked, setPicked] = useState<string[] | null>(null);
+  const selected = picked ?? initialSelection;
 
-  // Re-seed when the dialog is opened on a different node. Without this the
-  // second open still shows the first node's selection.
-  useEffect(() => {
-    if (open) setSelected(initialSelection);
-  }, [open, initialSelection]);
+  // Every close routes through here so the next open seeds itself from
+  // whatever node its menu was opened on. Dropping the ticks as the dialog
+  // leaves is free: the exit animation is 50ms.
+  const handleOpenChange = (next: boolean) => {
+    if (!next) setPicked(null);
+    onOpenChange(next);
+  };
 
   const previewQuery = useQuery({
     ...orpc.project.resource.clonePreview.queryOptions({
@@ -69,7 +80,7 @@ export function CloneDialog({
   const cloneMut = useMutation({
     ...orpc.project.resource.clone.mutationOptions(),
     onSuccess: (result) => {
-      onOpenChange(false);
+      handleOpenChange(false);
       void queryClient.invalidateQueries();
       if (result.failed.length > 0) {
         // Partial success is real and must not read as total success.
@@ -88,14 +99,19 @@ export function CloneDialog({
   });
 
   const toggle = (resourceId: string) =>
-    setSelected((prev) =>
-      prev.includes(resourceId) ? prev.filter((id) => id !== resourceId) : [...prev, resourceId],
-    );
+    setPicked((prev) => {
+      // First tick promotes the seed to a real selection; from then on the
+      // prop is out of the picture entirely.
+      const base = prev ?? initialSelection;
+      return base.includes(resourceId)
+        ? base.filter((id) => id !== resourceId)
+        : [...base, resourceId];
+    });
 
   const externalRefs = previewQuery.data?.externalRefs ?? [];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Clone resources</DialogTitle>
@@ -151,7 +167,7 @@ export function CloneDialog({
         )}
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" onClick={() => handleOpenChange(false)}>
             Cancel
           </Button>
           <Button

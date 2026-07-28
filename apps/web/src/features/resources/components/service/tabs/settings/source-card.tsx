@@ -1,21 +1,7 @@
-/**
- * Per-service Source mixer — the repo → build → image pipeline for a git
- * service, edited in one place. Repo binding lives on the SERVICE now (two
- * services in one project can build from two different repos), so this is where
- * it's set: installation → repository → branch → root, plus the optional image
- * target. Every field stages into the service's manifest source block (same
- * pending-changes → Deploy path as the build card) via `stageSource`.
- *
- * The push credential is matched from the shared registry library by the image
- * target's host — the strip surfaces which credential will be used so the
- * host-match is transparent, not magic.
- */
-
-import { useEffect } from "react";
-
 import { useLiveQuery } from "@tanstack/react-db";
 import { useStore } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { Result } from "better-result";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
@@ -37,7 +23,7 @@ import {
   boundRepoId,
   readGitSource,
   repoOptions,
-  useSeededSource,
+  seedSource,
   sourceDirty,
   useActiveInstallation,
   useSourceFormState,
@@ -145,10 +131,8 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
     }),
   );
 
-  // Local edit state (seeded from the manifest source block) + dirty flag.
-  // Stable reference — see useSeededSource; seeding inline here is what caused
-  // the render loop.
-  const seeded = useSeededSource(gitSvc);
+  // The saved values this card edits against — form baseline and dirty check.
+  const seeded = seedSource(gitSvc);
 
   const saveMut = useMutation({
     mutationFn: (value: typeof seeded) =>
@@ -167,13 +151,32 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
       toast.error(err instanceof Error ? err.message : t("resources.source.stageFailed")),
   });
 
-  const form = useSourceFormState(seeded, (value) => saveMut.mutate(value));
-
-  // Re-seed whenever the saved source block changes (manifest load / post-save
-  // refetch) — same reset-to-saved semantics the useState form had.
-  useEffect(() => {
-    form.reset(seeded);
-  }, [form, seeded]);
+  // Re-seeding when the saved source block changes (manifest load, post-save
+  // refetch) needs no effect: useForm hands `defaultValues` to `form.update()`
+  // on every render, and update() re-seeds when they change — comparing them
+  // structurally, so `seeded` being a fresh object each render costs nothing.
+  //
+  // It re-seeds only while the form is untouched, which is the behaviour we
+  // want and the reason the effect had to go: `form.reset(seeded)` has no such
+  // guard, so any manifest refetch mid-edit — the build card on this same tab
+  // staging a change, a teammate deploying — threw away what the operator had
+  // typed. Its dep array is also what span the render loop this card was
+  // already carrying a workaround for.
+  const form = useSourceFormState(seeded, async (value, formApi) => {
+    const staged = await Result.tryPromise({
+      try: () => saveMut.mutateAsync(value),
+      catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
+    });
+    // The mutation's onError has already surfaced the failure — bailing here
+    // just keeps the operator's edits so a retry is one click.
+    if (staged.isErr()) return;
+    // Staged values are the new baseline. Reset clears `isTouched`, which is
+    // what re-arms the automatic re-seed above: a touched form is left alone
+    // forever, so without this the card would stop tracking the manifest after
+    // the operator's first edit. It also absorbs anything the stage normalised
+    // (trimmed whitespace, empty → null), so the Save row settles.
+    formApi.reset();
+  });
 
   const values = useStore(form.store, (s) => s.values);
   const { repo, branch, image } = values;
@@ -181,8 +184,7 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
 
   const { data: registries } = useLiveQuery((q) => q.from({ r: registryCollection }));
 
-  const builder =
-    (resource.buildConfig as { builder?: string } | null | undefined)?.builder ?? "auto";
+  const builder = resource.buildConfig?.builder ?? "auto";
 
   const options = repoOptions(reposQuery.data, repo);
   const selectedRepoId = boundRepoId(reposQuery.data, repo);

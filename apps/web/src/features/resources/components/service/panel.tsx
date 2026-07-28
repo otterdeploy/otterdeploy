@@ -7,6 +7,7 @@
  * databases.
  */
 
+import type { BuildConfig } from "@otterdeploy/shared/build-config";
 import type { ProjectId, ProjectSlug, ResourceId } from "@otterdeploy/shared/id";
 
 import { useState } from "react";
@@ -43,9 +44,9 @@ interface ServiceResourcePanelProps {
     publicDomain: string | null;
     extraEnv: Record<string, string>;
     secretKeys: string[];
-    // Stored build config (railpack/dockerfile/…). Optional + `unknown` to
-    // match the resource-list contract; the Settings tab's build card narrows it.
-    buildConfig?: unknown;
+    // Stored build config (railpack/dockerfile/…), as the contract's
+    // discriminated union; the Settings tab's build card switches on `builder`.
+    buildConfig?: BuildConfig | null;
   };
   /** Detected framework for git-sourced services — drives the header tile's
    *  brand mark so the drawer matches the graph node. Null when undetected

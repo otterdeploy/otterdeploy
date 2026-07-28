@@ -14,10 +14,10 @@ export const accessWallFormCss = `
       }
       .card {
         width: 100%;
-        max-width: 400px;
-        padding: 36px 36px 28px;
-        background: rgba(255, 255, 250, 0.02);
-        border: 1px solid var(--border);
+        max-width: 380px;
+        padding: 28px 28px 24px;
+        background: var(--panel);
+        border: 1px solid var(--border-mid);
         border-radius: 14px;
         animation: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
       }
@@ -31,6 +31,19 @@ export const accessWallFormCss = `
           transform: none;
         }
       }
+      .card-head {
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      .card-head .card-eyebrow {
+        margin-bottom: 10px;
+      }
+      .controls {
+        padding-top: 20px;
+      }
+      .target {
+        margin-top: 16px;
+      }
       .form-title {
         font-size: 20px;
         font-weight: 600;
@@ -43,7 +56,6 @@ export const accessWallFormCss = `
         color: var(--fg-muted);
         letter-spacing: -0.01em;
         line-height: 1.5;
-        margin-bottom: 20px;
       }
       .btn-org {
         width: 100%;

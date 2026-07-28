@@ -14,7 +14,7 @@
 
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
-import { useEffect, useEffectEvent, useState } from "react";
+import { useState } from "react";
 
 import { EdgeLogsView } from "@/features/edge-logs/components/edge-logs-view";
 import {
@@ -34,6 +34,7 @@ import { LogsToolbar } from "@/features/logs/components/logs-toolbar";
 import { statusBadge } from "@/features/logs/components/logs-status";
 import { useLogsTable } from "@/features/logs/components/use-logs-table";
 import { resourceCollection } from "@/features/resources/data/resource";
+import { useDebouncedCallback } from "@/shared/components/data-grid/hooks/use-debounced-callback";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { copyToClipboard } from "@/shared/lib/clipboard";
 
@@ -91,17 +92,18 @@ function RouteComponent() {
       : null;
 
   // Search text stays local for input responsiveness and is debounced into the
-  // URL below so we don't navigate on every keystroke.
+  // URL so we don't navigate on every keystroke. Debounced from the change
+  // handler rather than an effect on `query`: typing is the thing being
+  // rate-limited, so arriving on the page shouldn't commit the value it just
+  // read out of the URL back into it.
   const [query, setQuery] = useState(search.q ?? "");
-  // `patchSearch` follows router `navigate` identity; keep it out of the
-  // effect's deps so the debounce timer resets only on `query` changes.
-  const commitQuery = useEffectEvent((q: string) => {
+  const commitQuery = useDebouncedCallback((q: string) => {
     patchSearch({ q: q.trim() || undefined });
-  });
-  useEffect(() => {
-    const id = setTimeout(() => commitQuery(query), 300);
-    return () => clearTimeout(id);
-  }, [query]);
+  }, 300);
+  const onQueryChange = (next: string) => {
+    setQuery(next);
+    commitQuery(next);
+  };
 
   const [paused, setPaused] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -176,7 +178,7 @@ function RouteComponent() {
           lvlFilter={lvlFilter}
           onToggleLevel={toggleLevel}
           query={query}
-          onQueryChange={setQuery}
+          onQueryChange={onQueryChange}
           badge={badge}
           paused={paused}
           onTogglePause={() => setPaused((p) => !p)}

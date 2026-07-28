@@ -3,7 +3,11 @@
 // atoms (save row + labelled field row). The Railpack and Dockerfile cards in
 // `build-card-forms.tsx` build on these.
 
-import type { BuildDockerfileConfig, BuildRailpackConfig } from "@otterdeploy/shared/build-config";
+import type {
+  BuildConfig,
+  BuildDockerfileConfig,
+  BuildRailpackConfig,
+} from "@otterdeploy/shared/build-config";
 
 import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
 import { Button } from "@/shared/components/ui/button";
@@ -12,7 +16,9 @@ import { orpc, queryClient } from "@/shared/server/orpc";
 export interface ServiceBuildResource {
   projectId: string;
   name: string;
-  buildConfig?: unknown;
+  /** Stored build config, straight off the resource-list contract — already
+   *  the discriminated union, so read `builder` and narrow on it. */
+  buildConfig?: BuildConfig | null;
 }
 
 /** Stage `build` for a git service into the manifest. Throws (surfaced via the

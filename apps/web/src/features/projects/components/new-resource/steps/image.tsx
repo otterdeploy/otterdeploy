@@ -16,8 +16,6 @@
  * pipeline polls digests or verifies signatures, so they'd be fake.
  */
 
-import { useEffect, useRef } from "react";
-
 import { useLiveQuery } from "@tanstack/react-db";
 import { useStore } from "@tanstack/react-form";
 
@@ -27,7 +25,7 @@ import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { cn } from "@/shared/lib/utils";
 
-import { useFormContext } from "../form-context";
+import { AUTO_WRITE, useFormContext } from "../form-context";
 import { SectionHeader, builderCardClass, builderCardActiveClass } from "../form-primitives";
 import { I } from "../icons";
 import { imageBasename, knownImagePort } from "../image-defaults";
@@ -41,6 +39,42 @@ const ANONYMOUS = {
   brand: null as string | null,
 };
 
+type WizardForm = ReturnType<typeof useFormContext>;
+
+/**
+ * Image-driven defaults: the service name follows the image's basename
+ * ("nginx", not the source kind "docker"), and the port fills only for
+ * well-known official images whose EXPOSE is a lookup.
+ *
+ * Runs from the image field's own `onChange` listener rather than an effect
+ * watching the value, so it fires once the operator stops typing instead of
+ * on every keystroke — "n" → "ng" → "ngi" has no useful basename or port
+ * between them. `AUTO_WRITE` is what lets it ask `isDirty` whether a value
+ * is still the wizard's to fill, instead of keeping a ref of its own last
+ * write to tell that apart from a real edit.
+ */
+function applyImageDefaults(form: WizardForm, image: string): void {
+  const base = imageBasename(image);
+  if (!base) return;
+
+  if (form.getFieldMeta("name")?.isDirty !== true) {
+    form.setFieldValue("name", base, AUTO_WRITE);
+  }
+
+  // One pristine row is the only shape we fill: once the operator has been
+  // in the ports table it's theirs, rows and all.
+  if (form.getFieldMeta("ports")?.isDirty === true) return;
+  const ports = form.getFieldValue("ports");
+  if (ports.length !== 1) return;
+  // Unknown image → 0 rather than a stale guess carried over from the last
+  // one. An empty port asks the operator; a wrong one (the old hardcoded
+  // 3000) breaks publishing silently.
+  const port = knownImagePort(image) ?? 0;
+  if (ports[0].port !== port) {
+    form.setFieldValue("ports", [{ ...ports[0], port }], AUTO_WRITE);
+  }
+}
+
 export function StepImage() {
   const form = useFormContext();
   const registryId = useStore(form.store, (s) => s.values.registry as string);
@@ -48,41 +82,6 @@ export function StepImage() {
   const tag = useStore(form.store, (s) => s.values.tag as string);
 
   const { data: registries } = useLiveQuery((q) => q.from({ r: registryCollection }));
-
-  // Image-driven defaults, never clobbering a user edit (same contract as
-  // useDetectionDefaults): the service name follows the image's basename
-  // ("nginx", not the source kind "docker"), and the port fills only for
-  // well-known official images whose EXPOSE is a lookup. We overwrite a
-  // value only while it's still empty, the kind id, or our own last auto
-  // value — anything else is the operator's and is left alone.
-  const auto = useRef<{ name: string; port: number }>({ name: "", port: 0 });
-  useEffect(() => {
-    const base = imageBasename(image);
-    if (!base) return;
-    const currentName = form.getFieldValue("name");
-    if (currentName === "" || currentName === "docker" || currentName === auto.current.name) {
-      form.setFieldValue("name", base);
-      auto.current.name = base;
-    }
-    const port = knownImagePort(image);
-    const ports = form.getFieldValue("ports");
-    const only = ports.length === 1 ? ports[0] : undefined;
-    if (
-      port != null &&
-      only &&
-      (only.port === 0 || only.port === auto.current.port) &&
-      only.port !== port
-    ) {
-      form.setFieldValue("ports", [{ ...only, port }]);
-      auto.current.port = port;
-    } else if (port == null && only && auto.current.port !== 0 && only.port === auto.current.port) {
-      // Image changed from a known one to an unknown one and the port is
-      // still our previous auto-fill — empty it rather than keep a stale
-      // guess from a different image.
-      form.setFieldValue("ports", [{ ...only, port: 0 }]);
-      auto.current.port = 0;
-    }
-  }, [image, form]);
 
   const options: Array<{
     id: string;
@@ -149,7 +148,13 @@ export function StepImage() {
       <Card className="mt-2.5 rounded-md">
         <CardContent className="flex flex-col gap-2">
           <div className="grid grid-cols-[2fr_1fr] gap-2.5">
-            <form.AppField name="image">
+            <form.AppField
+              name="image"
+              listeners={{
+                onChange: ({ value }) => applyImageDefaults(form, value),
+                onChangeDebounceMs: 300,
+              }}
+            >
               {(f) => (
                 <f.TextField label="Image" className="font-mono" placeholder="ghcr.io/owner/repo" />
               )}

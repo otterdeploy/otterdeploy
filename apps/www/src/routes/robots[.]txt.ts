@@ -1,25 +1,27 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { absoluteUrl } from "@/lib/shared";
+import { absoluteUrl, isCanonicalHost } from "@/lib/shared";
 
 /**
  * robots.txt.
  *
  * A route rather than a static file for one reason: preview deployments must
- * not be indexed. Vercel sets `VERCEL_ENV` to "preview" on every branch and PR
- * build, and each of those gets its own public URL — left open, they compete
- * with production for the same queries and leak unreleased copy into search
+ * not be indexed. Each gets its own public URL — left open, they compete with
+ * production for the same queries and leak unreleased copy into search
  * results. Production serves the permissive version; everything else is
  * closed.
+ *
+ * "Production" is decided by the host that was actually asked, not by an env
+ * var. This gate used to read `VERCEL_ENV`, which no longer exists anywhere
+ * after the move to Workers: `!process.env.VERCEL_ENV` was true on every
+ * deployment, so every preview served the permissive version. The host is
+ * something Workers genuinely knows.
  */
 export const Route = createFileRoute("/robots.txt")({
   server: {
     handlers: {
-      GET: () => {
-        // oxlint-disable-next-line node/no-process-env
-        const isProduction = process.env.VERCEL_ENV === "production" || !process.env.VERCEL_ENV;
-
-        const body = isProduction
+      GET: ({ request }) => {
+        const body = isCanonicalHost(request.url)
           ? [
               "User-agent: *",
               "Allow: /",

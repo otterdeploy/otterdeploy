@@ -4,7 +4,7 @@ import { SERVICE_KINDS } from "@/features/projects/data/service-kinds";
 
 import type { Port } from "../form-fields/ports-field";
 
-import { useFormContext } from "../form-context";
+import { AUTO_WRITE, useFormContext } from "../form-context";
 import { DOCKER_PORT_DEFAULTS } from "../image-defaults";
 import { KindPicker } from "../kind-picker";
 import { resourceDefaults } from "../schemas";
@@ -39,7 +39,11 @@ export function StepKind({ dbView, onDbViewChange }: StepKindProps) {
           // Docker-image services derive their name from the image basename
           // (image step) — seeding the source kind's id ("docker") ships a
           // service literally named docker when nobody notices.
-          form.setFieldValue("name", k.id === "docker" ? "" : k.id);
+          //
+          // AUTO_WRITE: these are placeholders the wizard wrote, not answers
+          // the operator gave. Leaving them pristine is what lets the later
+          // steps fill them in from the repo or the image reference.
+          form.setFieldValue("name", k.id === "docker" ? "" : k.id, AUTO_WRITE);
           form.setFieldValue("version", k.versions && k.versions.length > 0 ? k.versions[0] : null);
           if (isPristinePorts(form.getFieldValue("ports"))) {
             // Docker flow starts with an EMPTY port (known images fill it on
@@ -49,6 +53,7 @@ export function StepKind({ dbView, onDbViewChange }: StepKindProps) {
               (k.id === "docker" ? DOCKER_PORT_DEFAULTS : resourceDefaults.ports).map((p) => ({
                 ...p,
               })),
+              AUTO_WRITE,
             );
           }
         }

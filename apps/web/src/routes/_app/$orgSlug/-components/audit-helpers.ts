@@ -1,16 +1,4 @@
-import { useEffect, useState } from "react";
-
 import type { AuditEvent } from "@/features/audit/data/audit";
-
-/** Trailing-edge debounce — the input stays instant, the query waits a beat. */
-export function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const id = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(id);
-  }, [value, delayMs]);
-  return debounced;
-}
 
 /**
  * Color family for an action's leading dot, keyed off the action's verb —

@@ -13,6 +13,7 @@ import { and, eq, useLiveQuery } from "@tanstack/react-db";
 
 import type { ProjectResource } from "@/features/projects/components/graph/resource-to-node";
 import type { ServiceTaskInfo } from "@otterdeploy/api/routers/project/service-tasks";
+import type { Builder } from "@otterdeploy/shared/build-config";
 
 import type {
   DeploymentRow,
@@ -221,7 +222,7 @@ function SourceBlock({
 
 // ─── Configuration (Build · Deploy) ──────────────────────────────────────────
 
-const BUILDER_LABEL: Record<string, string> = {
+const BUILDER_LABEL: Record<Builder, string> = {
   auto: "Auto-detect",
   dockerfile: "Dockerfile",
   railpack: "Railpack",
@@ -230,12 +231,8 @@ const BUILDER_LABEL: Record<string, string> = {
 
 function readBuilder(resource: ProjectResource | undefined): string | null {
   if (resource?.type !== "service") return null;
-  const bc = resource.buildConfig;
-  if (bc && typeof bc === "object" && "builder" in bc) {
-    const builder = (bc as { builder?: unknown }).builder;
-    if (typeof builder === "string") return BUILDER_LABEL[builder] ?? builder;
-  }
-  return null;
+  const builder = resource.buildConfig?.builder;
+  return builder ? BUILDER_LABEL[builder] : null;
 }
 
 function ConfigurationSection({

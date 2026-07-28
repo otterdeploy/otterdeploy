@@ -56,9 +56,7 @@ export function restoreBackup(input: Parameters<typeof orpc.backups.restore.call
   return orpc.backups.restore.call(input);
 }
 
-/** Integrity check: server re-fetches the archive and recomputes its checksum. */
-export function verifyBackup(id: Backup["id"]) {
-  return orpc.backups.verify.call({ id });
-}
-
-export type VerifyResult = Awaited<ReturnType<typeof verifyBackup>>;
+/** Integrity check result — the server re-fetches the stored archive and
+ *  recomputes its checksum. Read through `useQuery` at the point of use (see
+ *  restore-verify-step.tsx), so only the output type is shared from here. */
+export type VerifyResult = Awaited<ReturnType<typeof orpc.backups.verify.call>>;
