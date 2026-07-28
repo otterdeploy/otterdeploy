@@ -79,7 +79,7 @@ function IntegrityBadge({
     return (
       <Badge
         variant="outline"
-        className="gap-1 border-emerald-500/30 bg-emerald-500/10 font-mono text-[10px] text-emerald-500"
+        className="gap-1 border-success/30 bg-success/10 font-mono text-[10px] text-success"
       >
         <HugeiconsIcon icon={CheckmarkCircle01Icon} className="size-2.5" />
         checksum match
@@ -90,7 +90,7 @@ function IntegrityBadge({
     return (
       <Badge
         variant="outline"
-        className="gap-1 border-rose-500/30 bg-rose-500/10 font-mono text-[10px] text-rose-500"
+        className="gap-1 border-destructive/30 bg-destructive/10 font-mono text-[10px] text-destructive"
       >
         <HugeiconsIcon icon={Alert02Icon} className="size-2.5" />
         checksum mismatch
@@ -100,7 +100,7 @@ function IntegrityBadge({
   return (
     <Badge
       variant="outline"
-      className="gap-1 border-amber-500/30 bg-amber-500/10 font-mono text-[10px] text-amber-500"
+      className="gap-1 border-warning/30 bg-warning/10 font-mono text-[10px] text-warning"
     >
       <HugeiconsIcon icon={Alert02Icon} className="size-2.5" />
       unverifiable
@@ -130,9 +130,7 @@ function ChecksumLines({
           : fmtBytes(backup.compressedSizeBytes)}{" "}
         at destination · encryption: {encLabel(backup.encryption)}
       </span>
-      {(error ?? result?.reason) && (
-        <span className="text-amber-500">{error ?? result?.reason}</span>
-      )}
+      {(error ?? result?.reason) && <span className="text-warning">{error ?? result?.reason}</span>}
     </div>
   );
 }
@@ -153,7 +151,7 @@ function RestoreSummary({
       <div>size: {fmtBytes(backup.sourceSizeBytes)} raw</div>
       <div>method: {backup.method ?? "—"}</div>
       {mode === "in-place" && (
-        <div className="text-rose-500">existing data on {source} will be replaced</div>
+        <div className="text-destructive">existing data on {source} will be replaced</div>
       )}
     </div>
   );

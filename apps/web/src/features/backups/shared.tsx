@@ -177,18 +177,21 @@ export function kindLabel(k: BackupKind): string {
 
 // ────── Badges ──────
 
-// Status tone → Tailwind classes.
+// Status tone → the semantic state tokens (DESIGN.md §2). Not raw palette
+// colours: `emerald-500` is one fixed value in both themes, while `--success`
+// resolves to #1f7a3f on light and #4ade80 on dark, which is what keeps the
+// contrast bar met in each.
 function statusTone(status: BackupStatus | "active" | "degraded" | "disabled"): string {
   switch (status) {
     case "succeeded":
     case "active":
-      return "border-emerald-500/30 bg-emerald-500/10 text-emerald-500";
+      return "border-success/30 bg-success/10 text-success";
     case "failed":
-      return "border-rose-500/30 bg-rose-500/10 text-rose-500";
+      return "border-destructive/30 bg-destructive/10 text-destructive";
     case "running":
-      return "border-blue-500/30 bg-blue-500/10 text-blue-500";
+      return "border-info/30 bg-info/10 text-info";
     case "degraded":
-      return "border-amber-500/30 bg-amber-500/10 text-amber-500";
+      return "border-warning/30 bg-warning/10 text-warning";
     // `disabled` falls through to muted on purpose: it's operator intent, not a
     // fault, so it must not compete visually with a real failure.
     default:

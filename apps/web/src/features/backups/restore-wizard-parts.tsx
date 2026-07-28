@@ -64,19 +64,21 @@ export function RestoreModeCard({
         "flex flex-col gap-1 rounded-md border p-3.5 text-left transition-colors " +
         (active
           ? danger
-            ? "border-rose-500 bg-rose-500/5"
+            ? "border-destructive bg-destructive/5"
             : "border-foreground bg-muted/50"
           : "hover:bg-muted/30")
       }
     >
       <div className="flex items-center gap-2">
-        <span className={"text-sm font-semibold " + (danger ? "text-rose-500" : "text-foreground")}>
+        <span
+          className={"text-sm font-semibold " + (danger ? "text-destructive" : "text-foreground")}
+        >
           {title}
         </span>
         {danger && (
           <Badge
             variant="outline"
-            className="border-rose-500/30 bg-rose-500/10 text-[10px] text-rose-500"
+            className="border-destructive/30 bg-destructive/10 text-[10px] text-destructive"
           >
             destructive
           </Badge>
@@ -115,11 +117,11 @@ export function ConfirmStep({
   }
   return (
     <>
-      <div className="flex gap-2 rounded-md border border-rose-500/35 bg-rose-500/10 p-3.5">
-        <HugeiconsIcon icon={Alert02Icon} className="mt-0.5 size-3.5 shrink-0 text-rose-500" />
+      <div className="flex gap-2 rounded-md border border-destructive/35 bg-destructive/10 p-3.5">
+        <HugeiconsIcon icon={Alert02Icon} className="mt-0.5 size-3.5 shrink-0 text-destructive" />
         <p className="text-xs text-foreground/80">
           This overwrites all current data on{" "}
-          <span className="font-mono text-rose-500">{source}</span> with snapshot{" "}
+          <span className="font-mono text-destructive">{source}</span> with snapshot{" "}
           <span className="font-mono">{backupId}</span>. The current state can't be recovered unless
           a separate snapshot exists.
           {isVolume && " The restore is refused while any container still mounts the volume."}
@@ -136,7 +138,7 @@ export function ConfirmStep({
         />
       </Field>
       {!typedOk && confirm.length > 0 && (
-        <div className="font-mono text-[11px] text-rose-500">Typed name does not match.</div>
+        <div className="font-mono text-[11px] text-destructive">Typed name does not match.</div>
       )}
     </>
   );

@@ -76,9 +76,9 @@ export function BackupDetail({
       </div>
 
       {backup.errorMessage && (
-        <div className="mb-3 flex gap-2 rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2">
-          <HugeiconsIcon icon={Alert02Icon} className="mt-0.5 size-3.5 shrink-0 text-rose-500" />
-          <div className="font-mono text-[11px] text-rose-500">{backup.errorMessage}</div>
+        <div className="mb-3 flex gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">
+          <HugeiconsIcon icon={Alert02Icon} className="mt-0.5 size-3.5 shrink-0 text-destructive" />
+          <div className="font-mono text-[11px] text-destructive">{backup.errorMessage}</div>
         </div>
       )}
 
@@ -107,7 +107,7 @@ function BackupLog({ backupId }: { backupId: string }) {
           logs.map((l) => (
             <div
               key={l.seq}
-              className={cn("text-foreground/80", l.stream === "stderr" && "text-rose-500")}
+              className={cn("text-foreground/80", l.stream === "stderr" && "text-destructive")}
             >
               {l.line}
             </div>

@@ -115,10 +115,17 @@ export function BackupRow({
         </span>
 
         <span className="flex items-center justify-between gap-2 md:contents">
-          <span className="flex items-center gap-2">
+          {/* `md:contents` here too, not just on the parent. Without it this
+              grouping span stays ONE grid item, so the encryption badge and the
+              status badge shared the 120px Encryption column while the actions
+              sat under Status — every cell from here on was a column to the
+              left of its header, and the squeeze wrapped "AES-256 GCM" onto
+              three lines. Below `md` the flex grouping is still what keeps the
+              two badges together on the left. */}
+          <span className="flex items-center gap-2 md:contents">
             {b.encryption !== "none" ? (
-              <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[10px] text-emerald-500">
-                <HugeiconsIcon icon={SquareLock01Icon} className="size-2.5" />
+              <span className="inline-flex w-fit items-center gap-1 rounded bg-success/10 px-1.5 py-0.5 font-mono text-[10px] whitespace-nowrap text-success">
+                <HugeiconsIcon icon={SquareLock01Icon} className="size-2.5 shrink-0" />
                 {encLabel(b.encryption)}
               </span>
             ) : (

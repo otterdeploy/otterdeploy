@@ -71,7 +71,7 @@ export function ScheduleCard({ schedule: s, onEdit }: { schedule: Schedule; onEd
     <div
       className={cn(
         "flex flex-col gap-3 rounded-md border bg-card p-4",
-        missing.length > 0 && "border-amber-500/40 bg-amber-500/[0.03]",
+        missing.length > 0 && "border-warning/40 bg-warning/[0.03]",
       )}
     >
       <div className="flex items-center gap-2">
@@ -183,7 +183,7 @@ function SourceHealthBadge({ orphaned }: { orphaned: boolean }) {
   return (
     <Badge
       variant="secondary"
-      className="gap-1 border-amber-500/30 bg-amber-500/10 text-[10px] text-amber-700 dark:text-amber-400"
+      className="gap-1 border-warning/30 bg-warning/10 text-[10px] text-warning"
     >
       <HugeiconsIcon icon={Alert02Icon} className="size-2.5" />
       {orphaned ? "Source missing" : "Source degraded"}
@@ -196,17 +196,17 @@ function SourceHealthBadge({ orphaned }: { orphaned: boolean }) {
 function MissingSourceBanner({ missing }: { missing: string[] }) {
   const many = missing.length > 1;
   return (
-    <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/[0.06] px-2.5 py-2 text-[11px] text-amber-800 dark:text-amber-300">
+    <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/[0.06] px-2.5 py-2 text-[11px] text-warning">
       <HugeiconsIcon icon={Alert02Icon} className="mt-px size-3.5 shrink-0" />
       <div className="flex flex-col gap-0.5">
         <span className="font-medium">
           {many ? "Backup sources no longer exist" : "Backup source no longer exists"}
         </span>
-        <span className="text-amber-700/80 dark:text-amber-400/80">
+        <span className="text-warning/80">
           The database this schedule backs up was deleted, so runs produce nothing. Repair the
           source in Edit, or delete the schedule.
         </span>
-        <span className="mt-0.5 font-mono text-[10px] text-amber-700/70 dark:text-amber-400/70">
+        <span className="mt-0.5 font-mono text-[10px] text-warning/70">
           {missing.slice(0, 3).join(", ")}
           {missing.length > 3 && ` +${missing.length - 3}`}
         </span>
