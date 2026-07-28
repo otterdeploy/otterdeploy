@@ -12,7 +12,7 @@
  * passes it through.
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Maximize01Icon, Minimize01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -63,15 +63,27 @@ export function ResourceTerminal({ match, fallbackLabel, projectSlug }: Resource
     ? `sh · ${target.name}${target.replicaSlot ? `.${target.replicaSlot}` : ""}`
     : `sh · ${fallbackLabel}`;
 
-  const session: Extract<SessionSource, { kind: "container" }> | null = target
-    ? {
-        kind: "container",
-        project: projectSlug,
-        service: target.serviceName ?? target.name,
-        replica: target.replicaSlot ?? "1",
-        containerId: target.containerId,
-      }
-    : null;
+  // Memoised on the fields that identify the target, not on `target` itself:
+  // this object is the shell connection's dependency, and `containers` comes
+  // from a live collection that hands back fresh rows on every refresh. Built
+  // inline, a new identity per render tore the WebSocket down and reopened it,
+  // which the UI rendered as a permanent "connection lost — reconnecting".
+  const containerId = target?.containerId;
+  const serviceName = target ? (target.serviceName ?? target.name) : undefined;
+  const replicaSlot = target?.replicaSlot ?? "1";
+  const session: Extract<SessionSource, { kind: "container" }> | null = useMemo(
+    () =>
+      containerId && serviceName
+        ? {
+            kind: "container",
+            project: projectSlug,
+            service: serviceName,
+            replica: replicaSlot,
+            containerId,
+          }
+        : null,
+    [projectSlug, serviceName, replicaSlot, containerId],
+  );
 
   // Reconnect / Clear both recycle the underlying WebSocket + PTY by bumping
   // the generation key — mirrors the original behaviour.

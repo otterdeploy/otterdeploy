@@ -7,7 +7,7 @@
  * Split out of the `TerminalSession` component so that component stays
  * render/layout-focused; this hook is the connection state machine.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { env } from "@otterdeploy/env/web";
 
@@ -62,7 +62,25 @@ interface Options {
   onConnChange?: (conn: ConnState) => void;
 }
 
-export function useShellConnection(source: SessionSource, { write, onConnChange }: Options) {
+/**
+ * Hold a source steady across renders, keyed on WHAT it identifies rather than
+ * the identity of the object carrying it.
+ *
+ * A caller that builds `source` inline hands back a new object every render.
+ * As the connection effect's dependency, that tore the WebSocket down and
+ * reopened it on each render — which the UI rendered as an endless
+ * "connection lost — reconnecting" while the server was perfectly healthy.
+ * Callers should memoize anyway; this makes forgetting harmless instead of
+ * fatal. A genuine target change still produces a new key, so switching
+ * container or replica reconnects exactly as it should.
+ */
+function useStableSource(source: SessionSource): SessionSource {
+  const key = JSON.stringify(source);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by value, not identity
+  return useMemo(() => source, [key]);
+}
+
+export function useShellConnection(target: SessionSource, { write, onConnChange }: Options) {
   const wsRef = useRef<WebSocket | null>(null);
   // Flips true on the FIRST byte written from any source (server data, the
   // reconnect-lost banner, the not-implemented notice, …) and never resets —
@@ -98,6 +116,8 @@ export function useShellConnection(source: SessionSource, { write, onConnChange 
       setHasOutput(true);
     }
   };
+
+  const source = useStableSource(target);
 
   useEffect(() => {
     const target = shellTargetFor(source);
