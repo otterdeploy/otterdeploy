@@ -13,7 +13,7 @@ import { HeaderNav } from "@/features/shell/components/header-nav";
 import { ModeToggle } from "@/features/shell/components/mode-toggle";
 import { OtterdeployMark } from "@/shared/components/brand/otterdeploy-logo";
 import { Button } from "@/shared/components/ui/button";
-import { SidebarTrigger } from "@/shared/components/ui/sidebar";
+import { useSidebar } from "@/shared/components/ui/sidebar";
 import { useAppStatus } from "@/shared/lib/app-status";
 
 export function SiteHeader() {
@@ -29,19 +29,32 @@ export function SiteHeader() {
   // state to drift out of sync.
   const overlay = useResourceOverlay();
   const status = useAppStatus();
+  const { toggleSidebar, openMobile } = useSidebar();
 
   return (
     <header className="z-50 flex w-full items-center border-b bg-background">
       <div className="flex h-12 w-full min-w-0 items-center gap-2 px-3">
-        {/* Below `md` the sidebar is an off-canvas Sheet whose only other
-            opener is Cmd/Ctrl+B — unreachable on a touch device. Without this
-            trigger the entire nav column is inaccessible on a phone. */}
-        <SidebarTrigger className="-ml-1 shrink-0 md:hidden" />
+        {/* Below `md` the mark IS the sidebar toggle, so the header carries one
+            brand element instead of a panel icon sitting next to a logo that
+            did something else. The sidebar is an off-canvas Sheet there and its
+            only other opener is Cmd/Ctrl+B — unreachable on a touch device — so
+            this control has to exist; folding it into the mark keeps it to one.
+            From `md` the sidebar is always visible and toggles from its own
+            rail, so the mark goes back to being the link home. */}
+        <button
+          type="button"
+          onClick={toggleSidebar}
+          className="flex shrink-0 items-center rounded-md focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none md:hidden"
+          aria-label={openMobile ? "Close navigation" : "Open navigation"}
+          aria-expanded={openMobile}
+        >
+          <OtterdeployMark size={24} status={status} />
+        </button>
 
         <Link
           to="/$orgSlug"
           params={{ orgSlug: organization.slug }}
-          className="flex shrink-0 items-center"
+          className="hidden shrink-0 items-center md:flex"
           // The label overrides the mark's own, so it has to carry the state
           // too — otherwise a deploy is visible but never announced.
           aria-label={status === "idle" ? "otterdeploy home" : `otterdeploy home — ${status}`}

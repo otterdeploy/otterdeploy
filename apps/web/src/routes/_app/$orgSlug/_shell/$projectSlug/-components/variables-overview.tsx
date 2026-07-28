@@ -23,6 +23,37 @@ function cellStatus(rows: EnvVarRow[], key: string): CellStatus {
   return row.value === "" ? "empty" : "set";
 }
 
+/**
+ * Title + filter + search above the matrix. The fixed `w-72` search plus the
+ * title and Filters is ~460px of unshrinkable content, so below `sm` the field
+ * drops to its own full-width line instead of pushing the panel off-screen.
+ */
+function OverviewToolbar({ q, onQChange }: { q: string; onQChange: (next: string) => void }) {
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-2">
+      <h2 className="text-lg font-semibold">Project overview</h2>
+      {/* The spacer only earns its place on one line. */}
+      <div className="hidden flex-1 sm:block" />
+      <Button variant="outline" size="sm" className="gap-1.5">
+        <HugeiconsIcon icon={FilterIcon} className="size-3.5" />
+        Filters
+      </Button>
+      <div className="relative w-full min-w-0 sm:w-72">
+        <HugeiconsIcon
+          icon={Search01Icon}
+          className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
+        />
+        <Input
+          placeholder="Search by secret or folder name…"
+          value={q}
+          onChange={(e) => onQChange(e.target.value)}
+          className="h-8 w-full pl-8"
+        />
+      </div>
+    </div>
+  );
+}
+
 export function OverviewMatrix({
   envs,
   byEnv,
@@ -62,27 +93,8 @@ export function OverviewMatrix({
   const gridCols = `28px 1fr 28px repeat(${envs.length}, minmax(96px, 1fr))`;
 
   return (
-    <div className="mx-auto w-full max-w-6xl p-6">
-      <div className="mb-4 flex items-center gap-2">
-        <h2 className="text-lg font-semibold">Project overview</h2>
-        <div className="flex-1" />
-        <Button variant="outline" size="sm" className="gap-1.5">
-          <HugeiconsIcon icon={FilterIcon} className="size-3.5" />
-          Filters
-        </Button>
-        <div className="relative">
-          <HugeiconsIcon
-            icon={Search01Icon}
-            className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            placeholder="Search by secret or folder name…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="h-8 w-72 pl-8"
-          />
-        </div>
-      </div>
+    <div className="mx-auto w-full max-w-6xl p-4 sm:p-6">
+      <OverviewToolbar q={q} onQChange={setQ} />
 
       <p className="mb-3 text-xs text-muted-foreground">
         Inject secrets via the{" "}
@@ -91,9 +103,12 @@ export function OverviewMatrix({
         add or edit values.
       </p>
 
-      <div className="overflow-hidden rounded-md border bg-card">
+      {/* secret × environment is a real matrix — it can't stack into a list
+          without losing the comparison it exists for, so it scrolls sideways
+          on a phone rather than clipping the right-hand environments. */}
+      <div className="overflow-x-auto rounded-md border bg-card">
         <div
-          className="grid items-center gap-2 border-b bg-muted/30 px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
+          className="grid min-w-[460px] items-center gap-2 border-b bg-muted/30 px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
           style={{ gridTemplateColumns: gridCols }}
         >
           <Checkbox
@@ -126,7 +141,7 @@ export function OverviewMatrix({
           filtered.map((key) => (
             <div
               key={key}
-              className="grid items-center gap-2 border-b px-3 py-2 last:border-b-0 hover:bg-muted/30"
+              className="grid min-w-[460px] items-center gap-2 border-b px-3 py-2 last:border-b-0 hover:bg-muted/30"
               style={{ gridTemplateColumns: gridCols }}
             >
               <Checkbox

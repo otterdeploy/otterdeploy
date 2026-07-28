@@ -196,7 +196,7 @@
       "connectivity": "Connectivity",
       "buildNode": "Dedicated build node",
       "tunnel": "Cloudflare Tunnel",
-      "tunnelHint": "Optional — installs cloudflared for ingress",
+      "tunnelHint": "Optional. Installs cloudflared for ingress",
       "tunnelToken": "Tunnel token",
       "tunnelPlaceholder": "installs cloudflared on the node"
     },
@@ -625,7 +625,16 @@
     "yourListsSubtitle": "Public + custom lists imported into CrowdSec on a schedule.",
     "publicLists": "Public blocklists",
     "publicListsSubtitle": "Well-known free lists — no CrowdSec account needed. One click to add.",
-    "removeListDescription": "The list and every IP it imported are dropped from the firewall. You can re-add it from the catalog or by URL later."
+    "removeListDescription": "The list and every IP it imported are dropped from the firewall. You can re-add it from the catalog or by URL later.",
+    "block": "Block",
+    "blocking": "Blocking…",
+    "duration": {
+      "hour1": "1 hour",
+      "hours24": "24 hours",
+      "days7": "7 days",
+      "days30": "30 days",
+      "days180": "180 days"
+    }
   },
   "gitProviders": {
     "disconnected": "Disconnected",

@@ -36,8 +36,12 @@ export function VariablesToolbar({
   onBulkOpen: () => void;
 }) {
   return (
-    <div className="mb-4 flex items-center gap-2">
-      <div className="relative flex-1 max-w-sm">
+    // flex-wrap + a full-width search below `sm`: an <input> carries an
+    // intrinsic min-width (~270px here) that no amount of flex-shrink beats,
+    // so on a phone the search alone plus five controls ran 70px past the
+    // panel. Wrapped, the field takes its own line and the actions follow.
+    <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="relative w-full min-w-0 sm:max-w-sm sm:flex-1">
         <HugeiconsIcon
           icon={Search01Icon}
           className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
@@ -53,7 +57,9 @@ export function VariablesToolbar({
         <HugeiconsIcon icon={FilterIcon} className="size-3.5" />
         Filters
       </Button>
-      <div className="flex-1" />
+      {/* The spacer only earns its place on one line — wrapped, it would open
+          a gap between the wrapped rows instead of pushing icons right. */}
+      <div className="hidden flex-1 sm:block" />
       <Button
         variant="ghost"
         size="icon"

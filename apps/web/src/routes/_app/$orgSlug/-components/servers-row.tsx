@@ -8,6 +8,7 @@ import { serverCollection, type Server } from "@/features/servers/data/server";
 import { type ServerHealthEntry } from "@/features/servers/data/health";
 import { type SwarmNode } from "@/features/servers/data/swarm";
 import { orpc } from "@/shared/server/orpc";
+import { cn } from "@/shared/lib/utils";
 import {
   Select,
   SelectContent,
@@ -116,7 +117,14 @@ export function ServerRow({
   );
 }
 
-function AvailabilitySelect({ server }: { server: Server }) {
+export function AvailabilitySelect({
+  server,
+  className,
+}: {
+  server: Server;
+  /** Sizing override — the phone list uses a taller, full-width trigger. */
+  className?: string;
+}) {
   // Optimistic local override: shows the picked value immediately, then either
   // settles it into the collection (docker confirmed the node update) or clears
   // it so the select rolls back to the persisted value (typed error → toast).
@@ -150,7 +158,7 @@ function AvailabilitySelect({ server }: { server: Server }) {
         if (v === "active" || v === "drain" || v === "pause") setAvailability(v);
       }}
     >
-      <SelectTrigger className="h-7 w-[120px] px-2 text-[12px]">
+      <SelectTrigger className={cn("h-7 w-[120px] px-2 text-[12px]", className)}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

@@ -100,7 +100,7 @@ export function ResourceTerminal({ match, fallbackLabel, projectSlug }: Resource
         {/* 100svh, not 100vh: on mobile browsers vh includes the collapsible URL
             bar, so a vh-sized fullscreen terminal runs off the bottom of the
             visible viewport and its input row becomes unreachable. */}
-        <DialogContent className="top-0 left-0 flex h-[100svh] w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:max-w-none">
+        <DialogContent className="top-0 left-0 flex h-[100svh] max-h-none w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:max-w-none">
           <DialogHeader className="sr-only">
             <DialogTitle>{headerLabel}</DialogTitle>
           </DialogHeader>

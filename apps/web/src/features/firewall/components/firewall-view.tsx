@@ -8,15 +8,14 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
+import { BlockIpForm } from "./block-ip-form";
 import { BlocklistsPanel } from "./blocklists-panel";
 import { DecisionsTable, FirewallDisabledCard } from "./firewall-view-parts";
 import { FlaggedPanel } from "./flagged-panel";
@@ -194,80 +193,5 @@ function FirewallToolbar({
         </>
       ) : null}
     </div>
-  );
-}
-
-/** Ban lengths offered by the manual block form (hours). */
-const BLOCK_DURATIONS = [
-  { hours: 1, label: "1 hour" },
-  { hours: 24, label: "24 hours" },
-  { hours: 168, label: "7 days" },
-  { hours: 720, label: "30 days" },
-  { hours: 4320, label: "180 days" },
-] as const;
-
-/** Inline "block an IP by hand" form — bans the entered IP/CIDR via CrowdSec
- *  for the selected duration. */
-function BlockIpForm({
-  onBlock,
-  blocking,
-}: {
-  onBlock: (ip: string, durationHours: number) => void;
-  blocking: boolean;
-}) {
-  const { t } = useTranslation();
-  const form = useForm({
-    defaultValues: { ip: "", hours: 720 },
-    onSubmit: ({ value, formApi }) => {
-      const ip = value.ip.trim();
-      if (!ip) return;
-      onBlock(ip, value.hours);
-      formApi.setFieldValue("ip", "");
-    },
-  });
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        void form.handleSubmit();
-      }}
-      className="flex items-center gap-1.5"
-    >
-      <form.Field name="ip">
-        {(field) => (
-          <Input
-            value={field.state.value}
-            onBlur={field.handleBlur}
-            onChange={(e) => field.handleChange(e.target.value)}
-            placeholder={t("firewall.blockPlaceholder")}
-            aria-label={t("firewall.blockAria")}
-            className="h-8 w-44 font-mono text-[12px]"
-          />
-        )}
-      </form.Field>
-      <form.Field name="hours">
-        {(field) => (
-          <select
-            value={field.state.value}
-            onChange={(e) => field.handleChange(Number(e.target.value))}
-            aria-label={t("firewall.banDuration")}
-            className="h-8 rounded-md border bg-transparent px-2 text-[12px] text-foreground/90 focus-visible:ring-1 focus-visible:outline-none"
-          >
-            {BLOCK_DURATIONS.map((d) => (
-              <option key={d.hours} value={d.hours}>
-                {d.label}
-              </option>
-            ))}
-          </select>
-        )}
-      </form.Field>
-      <form.Subscribe selector={(s) => s.values.ip.trim().length === 0}>
-        {(empty) => (
-          <Button type="submit" variant="outline" size="sm" disabled={blocking || empty}>
-            {blocking ? "Blocking…" : "Block"}
-          </Button>
-        )}
-      </form.Subscribe>
-    </form>
   );
 }

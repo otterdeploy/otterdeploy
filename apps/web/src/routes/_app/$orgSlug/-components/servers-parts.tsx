@@ -29,30 +29,36 @@ function StatTile({
     // min-w-0 on the Card itself, not just the text block: as a grid item its
     // default min-width:auto lets a long label ("Containers running") set the
     // column's minimum, widening the grid past the viewport on a phone.
-    <Card className="min-w-0 rounded-md">
-      <CardContent className="flex min-w-0 items-center gap-3">
-        <div className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-          <HugeiconsIcon
-            icon={icon}
-            strokeWidth={1.8}
-            className="size-4 shrink-0"
-          />
+    <Card className="min-w-0 gap-0 rounded-md py-3 sm:py-4">
+      {/* Two layouts, one tile. On a phone the 36px icon chip took a third of
+          the tile's width, which wrapped "Cluster memory" onto two lines and
+          left the four tiles ragged and half-empty; there the icon rides
+          inline with the label instead and the text gets the full width. From
+          `sm` there is room for the chip, so the roomier layout returns. */}
+      <CardContent className="flex min-w-0 items-center gap-3 px-3 sm:px-4">
+        <div className="hidden size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground sm:inline-flex">
+          <HugeiconsIcon icon={icon} strokeWidth={1.8} className="size-4 shrink-0" />
         </div>
         <div className="min-w-0 flex-1">
-          {/* Single long tokens ("otterdeploy-managed") must be allowed to
-              break mid-word — a tile is ~85px of text width at 375px. */}
-          <div className="text-[11px] font-medium tracking-wider text-muted-foreground/70 uppercase [overflow-wrap:anywhere]">
-            {label}
+          <div className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-muted-foreground/70 uppercase">
+            <HugeiconsIcon
+              icon={icon}
+              strokeWidth={1.8}
+              className="size-3.5 shrink-0 sm:hidden"
+            />
+            {/* Single long tokens ("otterdeploy-managed") must be allowed to
+                break mid-word — a tile is ~150px of text width at 390px. */}
+            <span className="min-w-0 [overflow-wrap:anywhere]">{label}</span>
           </div>
           <div
             className={cn(
-              "mt-0.5 text-lg font-semibold leading-tight",
+              "mt-1 text-lg font-semibold leading-tight",
               isPlaceholder && "text-muted-foreground/40",
             )}
           >
             {value}
           </div>
-          <div className="mt-0.5 text-[11px] text-muted-foreground [overflow-wrap:anywhere]">
+          <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground [overflow-wrap:anywhere]">
             {sub}
           </div>
         </div>

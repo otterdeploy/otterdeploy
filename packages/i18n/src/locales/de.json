@@ -196,7 +196,7 @@
       "connectivity": "Konnektivität",
       "buildNode": "Dedizierter Build-Node",
       "tunnel": "Cloudflare Tunnel",
-      "tunnelHint": "Optional — installiert cloudflared für eingehenden Traffic",
+      "tunnelHint": "Optional. Installiert cloudflared für eingehenden Traffic",
       "tunnelToken": "Tunnel-Token",
       "tunnelPlaceholder": "installiert cloudflared auf dem Node"
     },
@@ -625,7 +625,16 @@
     "yourListsSubtitle": "Öffentliche und eigene Listen, die planmäßig in CrowdSec importiert werden.",
     "publicLists": "Öffentliche Sperrlisten",
     "publicListsSubtitle": "Bekannte kostenlose Listen — kein CrowdSec-Konto nötig. Mit einem Klick hinzufügen.",
-    "removeListDescription": "Die Liste und alle von ihr importierten IPs werden aus der Firewall entfernt. Du kannst sie später aus dem Katalog oder per URL erneut hinzufügen."
+    "removeListDescription": "Die Liste und alle von ihr importierten IPs werden aus der Firewall entfernt. Du kannst sie später aus dem Katalog oder per URL erneut hinzufügen.",
+    "block": "Sperren",
+    "blocking": "Wird gesperrt…",
+    "duration": {
+      "hour1": "1 Stunde",
+      "hours24": "24 Stunden",
+      "days7": "7 Tage",
+      "days30": "30 Tage",
+      "days180": "180 Tage"
+    }
   },
   "gitProviders": {
     "disconnected": "Getrennt",

@@ -22,9 +22,13 @@ export function BackupsTable({
 
   return (
     <div className="mb-8 overflow-hidden rounded-md border bg-card">
+      {/* The column header only means something next to the column layout it
+          labels — below `md` the rows stack and each value carries its own
+          shape, so the header goes rather than clipping nine titles into a
+          390px strip. */}
       <div
         className={cn(
-          "grid items-center gap-2 border-b bg-muted/30 px-3 py-2 font-mono text-[10px] tracking-wider text-muted-foreground uppercase",
+          "hidden items-center gap-2 border-b bg-muted/30 px-3 py-2 font-mono text-[10px] tracking-wider text-muted-foreground uppercase md:grid",
           BACKUP_COLS,
         )}
       >

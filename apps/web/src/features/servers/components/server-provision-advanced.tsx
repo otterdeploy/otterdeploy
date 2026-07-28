@@ -50,8 +50,8 @@ export function ProvisionAdvancedSection({ form }: { form: ProvisionFormApi }) {
               options={MESH_ITEMS}
             />
             <p className="text-[12px] text-muted-foreground">
-              Mesh installs a WireGuard agent and joins the swarm over the private network — the
-              robust path when the manager has no routable public IP.
+              Mesh installs a WireGuard agent and joins the swarm over the private network. Use it
+              when the manager has no routable public IP.
             </p>
           </Field>
         )}

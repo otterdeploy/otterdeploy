@@ -26,6 +26,61 @@ import { ActionDot, ActorChip, AuditPending, OutcomeBadge, TargetKindIcon } from
 import { timeAgo } from "./audit-helpers";
 
 /**
+ * Below `md` the six columns become a stacked entry per event: what happened
+ * and its outcome, then the target, then who and when. Scrolling an 890px
+ * table sideways in a 360px card hides the two columns an audit reader is
+ * actually scanning (action and outcome).
+ */
+function AuditMobileList({
+  items,
+  onOpen,
+}: {
+  items: AuditEvent[];
+  onOpen: (event: AuditEvent) => void;
+}) {
+  return (
+    <div className="divide-y divide-border/60 md:hidden">
+      {items.map((e) => (
+        <button
+          key={e.id}
+          type="button"
+          className={cn(
+            "flex w-full flex-col gap-2 p-4 text-left",
+            e.outcome !== "success" && "bg-amber-500/5",
+          )}
+          onClick={() => onOpen(e)}
+        >
+          <span className="flex items-start justify-between gap-2">
+            <span className="flex min-w-0 items-center gap-2 font-mono text-xs">
+              <ActionDot action={e.action} />
+              <span className="min-w-0 [overflow-wrap:anywhere]">{e.action}</span>
+            </span>
+            <OutcomeBadge outcome={e.outcome} />
+          </span>
+
+          <span className="flex min-w-0 items-center gap-1.5 font-mono text-xs text-muted-foreground">
+            <TargetKindIcon targetType={e.targetType} />
+            <span className="truncate" title={e.targetId ?? undefined}>
+              {e.targetId ?? e.targetType ?? "—"}
+            </span>
+          </span>
+
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <ActorChip event={e} />
+            <span className="font-mono text-[11px] text-muted-foreground">
+              {timeAgo(e.timestamp)}
+            </span>
+            {e.ip ? (
+              <span className="font-mono text-[11px] text-muted-foreground">· {e.ip}</span>
+            ) : null}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
  * The loading / error / empty / table states for the audit list. State flags
  * come from the companion stats query; the live rows + total drive the body.
  */
@@ -79,8 +134,10 @@ export function AuditTableSection({
     );
   }
   return (
-    <Card className="overflow-hidden rounded-md p-0 gap-0">
-      <Table>
+    <Card className="min-w-0 overflow-hidden rounded-md p-0 gap-0">
+      <AuditMobileList items={items} onOpen={onOpen} />
+
+      <Table className="hidden md:table">
         <TableHeader>
           <TableRow>
             <TableHead className="pl-4">Time</TableHead>
