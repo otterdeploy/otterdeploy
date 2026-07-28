@@ -116,8 +116,8 @@ export function ProvisionForm({
     >
       <div className="flex flex-col gap-5">
         <p className="text-sm text-muted-foreground">
-          Otterdeploy connects over SSH, installs Docker, and joins the host to the swarm — no
-          commands to run on the box.
+          Otterdeploy connects over SSH, installs Docker, and joins the host to the swarm. You run
+          no commands on the box.
         </p>
         <IdentityFields form={form} />
         <ConnectionFields form={form} />
