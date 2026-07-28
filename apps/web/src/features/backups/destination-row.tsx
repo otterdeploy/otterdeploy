@@ -148,7 +148,10 @@ export function DestinationRow({
           {pct != null && (
             <div className="mt-1 h-1 w-36 rounded-full bg-muted">
               <div
-                className={cn("h-full rounded-full", pct > 80 ? "bg-amber-500" : "bg-foreground/60")}
+                className={cn(
+                  "h-full rounded-full",
+                  pct > 80 ? "bg-amber-500" : "bg-foreground/60",
+                )}
                 style={{ width: `${Math.min(100, pct)}%` }}
               />
             </div>
@@ -160,7 +163,7 @@ export function DestinationRow({
       {/* pl-9, not pl-11: these are ghost buttons whose own px-2.5 padding
           carries the rest of the way, so their LABELS line up with the name
           rather than their invisible box edges. */}
-      <div className="flex flex-wrap items-center gap-1 pl-9 md:pl-0 md:contents">
+      <div className="flex flex-wrap items-center gap-1 pl-9 md:contents md:pl-0">
         <Button
           variant="ghost"
           size="sm"
