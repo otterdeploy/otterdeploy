@@ -143,22 +143,33 @@ interface Finding {
   text: string;
 }
 
+/**
+ * Blank a matched region while preserving its shape.
+ *
+ * Newlines must survive, or every multi-line comment collapses the line count
+ * and every finding after it is reported at the wrong line — which sends you
+ * editing the wrong part of the file.
+ */
+function blank(match: string): string {
+  return match.replace(/[^\n]/g, " ");
+}
+
 /** Strip the regions the audit must not look inside. */
 function maskIgnoredRegions(source: string): string {
   return (
     source
       // Whole-line comments and block comments.
-      .replace(/\/\*[\s\S]*?\*\//g, (m) => " ".repeat(m.length))
-      .replace(/(^|\n)\s*\/\/[^\n]*/g, (m) => " ".repeat(m.length))
+      .replace(/\/\*[\s\S]*?\*\//g, blank)
+      .replace(/(^|\n)\s*\/\/[^\n]*/g, blank)
       // Imports — module specifiers are never copy.
-      .replace(/^import[^;]+;/gm, (m) => " ".repeat(m.length))
+      .replace(/^import[^;]+;/gm, blank)
       // Anything already translated: t("…"), t('…'), i18nKey="…".
-      .replace(/\bt\(\s*(["'`])[^"'`]*\1/g, (m) => " ".repeat(m.length))
-      .replace(/i18nKey\s*=\s*(["'])[^"']*\1/g, (m) => " ".repeat(m.length))
+      .replace(/\bt\(\s*(["'`])[^"'`]*\1/g, blank)
+      .replace(/i18nKey\s*=\s*(["'])[^"']*\1/g, blank)
       // Tailwind and other non-copy attributes.
       .replace(
         /\b(className|class|data-[\w-]+|href|to|id|key|type|value|variant|size|name|role|src|as|from|path|icon|color|fill|stroke|viewBox|d|xmlns|charSet|rel|target|method|accept|autoComplete|storageKey|queryKey|slug|field|mode|side|align|position|direction|orientation|layout|format|locale|currency|timeZone|pattern|inputMode|enterKeyHint|testId)\s*=\s*(["'])[^"']*\2/g,
-        (m) => " ".repeat(m.length),
+        blank,
       )
   );
 }
