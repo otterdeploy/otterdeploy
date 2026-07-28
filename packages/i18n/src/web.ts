@@ -4,27 +4,9 @@ import i18n from "i18next";
 import LanguageDetector from "i18next-browser-languagedetector";
 import { initReactI18next } from "react-i18next";
 
-import { resources, supportedLngs } from "./resources";
+import { i18nOptions } from "./config";
 
-void i18n
-  .use(LanguageDetector)
-  .use(initReactI18next)
-  .init({
-    resources,
-    fallbackLng: "en",
-    supportedLngs,
-    // Region-stripped matching: browsers report `de-DE`, `de-AT`, `de-CH`,
-    // `es-MX` — none of which are in `supportedLngs`. Without this, every one
-    // of them misses and falls back to English, so a German user would only
-    // ever see German by picking it from the menu by hand.
-    load: "languageOnly",
-    interpolation: { escapeValue: false },
-    detection: {
-      order: ["localStorage", "navigator", "htmlTag"],
-      caches: ["localStorage"],
-      lookupLocalStorage: "lang",
-    },
-  });
+void i18n.use(LanguageDetector).use(initReactI18next).init(i18nOptions);
 
 /**
  * Keep `<html lang>` in step with the active language.
