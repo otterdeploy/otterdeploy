@@ -7,6 +7,7 @@
  */
 
 import { UserCircleIcon } from "@hugeicons/core-free-icons";
+import { useTranslation } from "react-i18next";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
@@ -32,11 +33,12 @@ function useSaveProfile({ onSaved }: { onSaved: () => void }) {
       if (res.error) throw new Error(res.error.message ?? "Failed to update profile");
     },
     onSuccess: async () => {
+      const { t } = useTranslation();
       onSaved();
       await queryClient.invalidateQueries({ queryKey: authKeys.currentSession });
       // Refresh the router context so the sidebar identity block updates too.
       await router.invalidate();
-      toast.success("Profile updated");
+      toast.success(t("account.profile.updated"));
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to update profile"),
   });
@@ -61,14 +63,15 @@ export function ProfileCard() {
   });
 
   const save = useSaveProfile({ onSaved: () => form.reset() });
+    const { t } = useTranslation();
 
   const busy = sessionQ.isPending || save.isPending;
 
   return (
     <SettingsSection
       icon={UserCircleIcon}
-      title="Profile"
-      description="How you appear across this control plane."
+      title={t("nav.profile")}
+      description={t("account.profile.description")}
     >
       <form
         className="flex flex-col gap-4 p-4"

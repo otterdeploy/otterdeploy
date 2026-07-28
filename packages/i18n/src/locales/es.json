@@ -39,7 +39,10 @@
     "copyFailed": "No se pudo copiar",
     "dismiss": "Descartar",
     "name": "Nombre",
-    "username": "Usuario"
+    "username": "Usuario",
+    "port": "Puerto",
+    "password": "Contraseña",
+    "slug": "Slug"
   },
   "auth": {
     "signIn": {
@@ -116,7 +119,11 @@
     "selfHostedServers_other": "autoalojado · {{count}} servidores",
     "toggleSidebar": "Alternar barra lateral",
     "sidebar": "Barra lateral",
-    "sidebarDescription": "Muestra la barra lateral en móvil."
+    "sidebarDescription": "Muestra la barra lateral en móvil.",
+    "noProjects": "Sin proyectos",
+    "environment": "Entorno",
+    "createEnvironment": "Crear entorno",
+    "environmentPlaceholder": "Staging"
   },
   "nav": {
     "overview": "Resumen",
@@ -196,7 +203,37 @@
     "addServer": "+ Añadir servidor",
     "secureEnrollment": "Inscripción segura",
     "nodeDescription_one": "{{count}} nodo en este swarm · réplicas colocadas mediante actualizaciones progresivas de Docker Stack",
-    "nodeDescription_other": "{{count}} nodos en este swarm · réplicas colocadas mediante actualizaciones progresivas de Docker Stack"
+    "nodeDescription_other": "{{count}} nodos en este swarm · réplicas colocadas mediante actualizaciones progresivas de Docker Stack",
+    "addServerTitle": "Añadir servidor",
+    "form": {
+      "host": "Host / IP",
+      "sshUser": "Usuario SSH",
+      "role": "Rol",
+      "sshKey": "Clave SSH"
+    },
+    "advanced": {
+      "connectivity": "Conectividad",
+      "buildNode": "Nodo dedicado de compilación",
+      "tunnel": "Cloudflare Tunnel",
+      "tunnelHint": "Opcional — instala cloudflared para la entrada de tráfico",
+      "tunnelToken": "Token del túnel",
+      "tunnelPlaceholder": "instala cloudflared en el nodo"
+    },
+    "stepUp": {
+      "confirmTitle": "Confirma la autoridad de manager",
+      "authenticatorCode": "Código del autenticador",
+      "passwordPlaceholder": "La contraseña de tu cuenta",
+      "confirmPhrase": "ENROLL MANAGER"
+    },
+    "enrollment": {
+      "title": "Inscripción segura de nodos",
+      "worker": "Inscripción de worker",
+      "manager": "Inscripción de manager",
+      "revoked": "Inscripción revocada",
+      "recent": "Credenciales de inscripción recientes",
+      "none": "No se han creado credenciales de inscripción.",
+      "progress": "Progreso de la inscripción"
+    }
   },
   "tour": {
     "menuItem": "Ver el recorrido",
@@ -473,5 +510,77 @@
     "copyFingerprint": "Copiar la huella",
     "copyPublicKey": "Copiar la clave pública",
     "passphrasePlaceholder": "déjalo vacío para uso desatendido"
+  },
+  "account": {
+    "cli": {
+      "title": "Acceso desde la CLI",
+      "description": "Acceso de máquina para la CLI de otterdeploy y la automatización.",
+      "connect": "Conectar la CLI",
+      "installThenRun": "Instala la CLI y luego ejecuta:"
+    },
+    "profile": {
+      "description": "Cómo apareces en este plano de control.",
+      "updated": "Perfil actualizado"
+    },
+    "twoFactor": {
+      "description": "Un código temporal de una aplicación de autenticación, obligatorio al iniciar sesión.",
+      "enabled": "Autenticación de dos factores activada",
+      "disabled": "Autenticación de dos factores desactivada"
+    },
+    "password": {
+      "description": "La credencial que se usa para iniciar sesión con correo y contraseña.",
+      "current": "Contraseña actual",
+      "new": "Contraseña nueva",
+      "confirm": "Confirma la contraseña nueva",
+      "changed": "Contraseña cambiada"
+    },
+    "sessions": {
+      "revoked": "Sesión revocada",
+      "signedOutOthers": "Se cerraron todas las demás sesiones",
+      "thisDevice": "Este dispositivo"
+    },
+    "danger": {
+      "title": "Zona de peligro",
+      "description": "Acciones que ponen fin al acceso de esta cuenta.",
+      "signOutEverywhere": "Cerrar sesión en todas partes",
+      "signOutEverywhereConfirm": "¿Cerrar sesión en todas partes?"
+    }
+  },
+  "notifications": {
+    "deliverVia": "Entregar mediante",
+    "smtpHost": "Host SMTP",
+    "fromAddress": "Dirección del remitente",
+    "smtpUserPlaceholder": "apikey / usuario",
+    "channelType": "Tipo de canal",
+    "keepStoredHint": "Deja el destino o el secreto en blanco para conservar el valor guardado.",
+    "deleteChannel": "Eliminar el canal",
+    "channelRemoved": "Canal eliminado",
+    "matrixTitle": "Matriz de suscripción a eventos",
+    "event": "Evento",
+    "severity": "Gravedad",
+    "noDetail": "Sin detalles adicionales.",
+    "empty": "Todavía no hay notificaciones",
+    "eventsLast7Days": "Eventos · últimos 7 días",
+    "recentDeliveries": "Entregas recientes"
+  },
+  "certificates": {
+    "noCustom": "Sin certificados personalizados",
+    "noDomains": "Todavía no hay dominios públicos",
+    "noCas": "Sin CA de confianza",
+    "pemCopied": "PEM copiado",
+    "uploadCa": "Subir una CA de confianza",
+    "state": {
+      "serving": "Sirviendo en el edge",
+      "installFailed": "Falló la instalación",
+      "noRoute": "Ninguna ruta coincide",
+      "installedNotObserved": "Instalado · no observado",
+      "storedPending": "Guardado · pendiente de instalar"
+    },
+    "stats": {
+      "publicDomains": "Dominios públicos",
+      "acmeManaged": "Gestionados por ACME",
+      "expiringSoon": "Caducan en < 30 d",
+      "customUploads": "Subidas personalizadas"
+    }
   }
 }

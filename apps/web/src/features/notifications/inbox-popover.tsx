@@ -69,6 +69,7 @@ function invalidateInbox() {
  * click actually shows something instead of just clearing the unread dot.
  */
 function InboxRow({ item, onRead }: { item: InboxItem; onRead: (id: InboxItem["id"]) => void }) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const unread = item.readAt === null;
 
@@ -159,7 +160,7 @@ function InboxRow({ item, onRead }: { item: InboxItem; onRead: (id: InboxItem["i
               ))}
             </dl>
           ) : !item.message && !eventName ? (
-            <p className="text-[11px] text-muted-foreground/70">No additional detail.</p>
+            <p className="text-[11px] text-muted-foreground/70">{t("notifications.noDetail")}</p>
           ) : null}
         </div>
       ) : null}
@@ -238,7 +239,7 @@ export function NotificationInboxPopover({ orgSlug }: { orgSlug: string }) {
                 strokeWidth={1.5}
                 className="mb-1 size-6 text-muted-foreground/40"
               />
-              <p className="text-[13px] text-muted-foreground">No notifications yet</p>
+              <p className="text-[13px] text-muted-foreground">{t("notifications.empty")}</p>
               <p className="text-xs text-muted-foreground/70">
                 Deploy, build, and backup events land here.
               </p>

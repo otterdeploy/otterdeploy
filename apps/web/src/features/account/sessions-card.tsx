@@ -5,6 +5,7 @@
  */
 
 import { DeviceAccessIcon } from "@hugeicons/core-free-icons";
+import { useTranslation } from "react-i18next";
 import { formatRelative } from "@otterdeploy/shared/format";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -19,6 +20,7 @@ import { Skeleton } from "@/shared/components/ui/skeleton";
 import { authKeys, describeAgent, useCurrentSession, useSessions } from "./data/use-account";
 
 export function SessionsCard() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const currentQ = useCurrentSession();
   const sessionsQ = useSessions();
@@ -40,7 +42,7 @@ export function SessionsCard() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: authKeys.sessions });
-      toast.success("Session revoked");
+      toast.success(t("account.sessions.revoked"));
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to revoke"),
   });
@@ -52,7 +54,7 @@ export function SessionsCard() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: authKeys.sessions });
-      toast.success("Signed out of all other sessions");
+      toast.success(t("account.sessions.signedOutOthers"));
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
@@ -60,7 +62,7 @@ export function SessionsCard() {
   return (
     <SettingsSection
       icon={DeviceAccessIcon}
-      title="Active sessions"
+      title={t("user.activeSessions")}
       description="Devices currently signed in to your account. Revoke any you don't recognise."
     >
       {sessionsQ.isPending ? (
@@ -94,7 +96,7 @@ export function SessionsCard() {
                       <span className="truncate text-[13px] font-medium">
                         {describeAgent(s.userAgent)}
                       </span>
-                      {isCurrent && <Badge variant="secondary">This device</Badge>}
+                      {isCurrent && <Badge variant="secondary">{t("account.sessions.thisDevice")}</Badge>}
                     </div>
                     <div className="truncate font-mono text-[11px] text-muted-foreground">
                       {s.ipAddress || "unknown IP"} · signed in {formatRelative(s.createdAt)} ·

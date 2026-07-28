@@ -1,4 +1,5 @@
 import { Key01Icon } from "@hugeicons/core-free-icons";
+import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import type { SshKey } from "@/features/ssh-keys/data/ssh-keys";
@@ -22,6 +23,7 @@ export function ProvisionAuthSection({
   form: ProvisionFormApi;
   usableKeys: SshKey[];
 }) {
+  const { t } = useTranslation();
   return (
     <form.Field name="authMode">
       {(authField) => (
@@ -73,13 +75,13 @@ export function ProvisionAuthSection({
                   </div>
                 ) : (
                   <Field>
-                    <FieldLabel>SSH key</FieldLabel>
+                    <FieldLabel>{t("servers.form.sshKey")}</FieldLabel>
                     {/* A Select showed nothing when the value was "" — no
                         placeholder, no cue that a pick was required — so the
                         form submitted with no credential and the run died
                         before it ever opened a connection. */}
                     <PickerGroup
-                      label="SSH key"
+                      label={t("servers.form.sshKey")}
                       columns="auto"
                       value={field.state.value}
                       onChange={(v) => field.handleChange(v)}
@@ -116,7 +118,7 @@ export function ProvisionAuthSection({
             >
               {(field) => (
                 <Field>
-                  <FieldLabel htmlFor="srv-pw">Password</FieldLabel>
+                  <FieldLabel htmlFor="srv-pw">{t("common.password")}</FieldLabel>
                   <Input
                     id="srv-pw"
                     type="password"

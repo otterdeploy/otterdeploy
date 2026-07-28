@@ -7,6 +7,7 @@
  * delivery` records — no synthesized history.
  */
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 import { useInfiniteQuery } from "@tanstack/react-query";
 
@@ -130,9 +131,10 @@ function SectionLabel({ children }: { children: ReactNode }) {
 
 /** 7-day per-event totals; failures get the only red on the panel. */
 function Breakdown({ rows }: { rows: DeliveriesPage["breakdown7d"] }) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-1.5">
-      <SectionLabel>Events · last 7 days</SectionLabel>
+      <SectionLabel>{t("notifications.eventsLast7Days")}</SectionLabel>
       {rows.length === 0 ? (
         <p className="text-[12px] text-muted-foreground">
           Nothing in the last 7 days — older deliveries are listed below.
@@ -180,9 +182,10 @@ function RecentList({
   loadingMore: boolean;
   onLoadMore: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-1.5">
-      <SectionLabel>Recent deliveries</SectionLabel>
+      <SectionLabel>{t("notifications.recentDeliveries")}</SectionLabel>
       <div className="max-h-[300px] overflow-y-auto rounded-md border">
         {items.map((d, i) => (
           <div

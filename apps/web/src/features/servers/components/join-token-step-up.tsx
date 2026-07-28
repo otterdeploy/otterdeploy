@@ -13,6 +13,7 @@
  */
 
 import { Button } from "@/shared/components/ui/button";
+import { useTranslation } from "react-i18next";
 import { Input } from "@/shared/components/ui/input";
 
 import type { JoinRole } from "./join-token-panel";
@@ -73,13 +74,14 @@ export interface StepUpFormProps {
 }
 
 export function StepUpForm(props: StepUpFormProps) {
+  const { t } = useTranslation();
   const canSubmit = props.blockedReason === null;
   const reasonId = "node-enrollment-blocked-reason";
   return (
     <div className="grid gap-3 rounded-md border bg-muted/20 p-3">
       {props.twoFactorEnabled ? (
         <label htmlFor="node-enrollment-totp" className="grid gap-1.5">
-          <span className="text-xs font-medium">Authenticator code</span>
+          <span className="text-xs font-medium">{t("servers.stepUp.authenticatorCode")}</span>
           <Input
             id="node-enrollment-totp"
             value={props.totpCode}
@@ -93,13 +95,13 @@ export function StepUpForm(props: StepUpFormProps) {
         </label>
       ) : (
         <label htmlFor="node-enrollment-password" className="grid gap-1.5">
-          <span className="text-xs font-medium">Password</span>
+          <span className="text-xs font-medium">{t("common.password")}</span>
           <Input
             id="node-enrollment-password"
             type="password"
             value={props.password}
             autoComplete="current-password"
-            placeholder="Your account password"
+            placeholder={t("servers.stepUp.passwordPlaceholder")}
             className="max-w-72"
             onChange={(event) => props.onPasswordChange(event.target.value)}
           />
@@ -107,11 +109,11 @@ export function StepUpForm(props: StepUpFormProps) {
       )}
       {props.role === "manager" ? (
         <label htmlFor="node-enrollment-manager-confirmation" className="grid gap-1.5">
-          <span className="text-xs font-medium">Confirm manager authority</span>
+          <span className="text-xs font-medium">{t("servers.stepUp.confirmTitle")}</span>
           <Input
             id="node-enrollment-manager-confirmation"
             value={props.managerConfirmation}
-            placeholder="ENROLL MANAGER"
+            placeholder={t("servers.stepUp.confirmPhrase")}
             className="font-mono"
             onChange={(event) => props.onManagerConfirmationChange(event.target.value)}
           />

@@ -10,6 +10,7 @@
  */
 
 import type { ProjectSlug } from "@otterdeploy/shared/id";
+import { useTranslation } from "react-i18next";
 
 import { Add01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -75,10 +76,11 @@ export function OrgItems({ orgs, activeOrgId, onSelectOrg }: NavLists) {
 }
 
 export function ProjectItems({ orgSlug, projects, activeProjectId, onCreateProject }: NavLists) {
+  const { t } = useTranslation();
   return (
     <>
       {projects.length === 0 ? (
-        <div className="px-2 py-1 text-xs text-muted-foreground">No projects</div>
+        <div className="px-2 py-1 text-xs text-muted-foreground">{t("shell.noProjects")}</div>
       ) : (
         projects.map((p) => (
           <DropdownMenuItem

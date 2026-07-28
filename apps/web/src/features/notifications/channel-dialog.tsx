@@ -7,6 +7,7 @@
  * target, never the secret).
  */
 import { useForm } from "@tanstack/react-form";
+import { useTranslation } from "react-i18next";
 
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 import { Button } from "@/shared/components/ui/button";
@@ -66,6 +67,7 @@ export function ChannelDialog({
   submitting,
   onSubmit,
 }: ChannelDialogProps) {
+  const { t } = useTranslation();
   const isEdit = editing !== null;
 
   const form = useForm({
@@ -99,7 +101,7 @@ export function ChannelDialog({
           </DialogTitle>
           <DialogDescription>
             {isEdit ? (
-              <>Leave the destination or secret blank to keep the stored value.</>
+              <>{t("notifications.keepStoredHint")}</>
             ) : (
               <>
                 Otterdeploy delivers a synthetic{" "}
@@ -137,7 +139,7 @@ export function ChannelDialog({
                     onChange={(k) => form.setFieldValue("kind", k)}
                   />
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="channel-name">Display name</Label>
+                    <Label htmlFor="channel-name">{t("registries.displayName")}</Label>
                     <Input
                       id="channel-name"
                       aria-invalid={Boolean(errors.name)}
@@ -191,9 +193,10 @@ function KindPicker({
   isEdit: boolean;
   onChange: (k: ChannelKind) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-2">
-      <Label className="text-[11px] text-muted-foreground">Channel type</Label>
+      <Label className="text-[11px] text-muted-foreground">{t("notifications.channelType")}</Label>
       <div className="flex flex-wrap gap-2">
         {(Object.keys(KIND_META) as ChannelKind[]).map((k) => {
           const active = value === k;

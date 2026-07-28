@@ -1,4 +1,5 @@
 import { Fragment, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -44,6 +45,7 @@ export function ManagedCertsTable({
   isLoading: boolean;
   orgSlug: string;
 }) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState<string | null>(null);
   const certs = inventory?.certificates ?? [];
 
@@ -68,7 +70,7 @@ export function ManagedCertsTable({
               className="size-5 text-muted-foreground"
             />
           </EmptyMedia>
-          <EmptyTitle>No public domains yet</EmptyTitle>
+          <EmptyTitle>{t("certificates.noDomains")}</EmptyTitle>
           <EmptyDescription>
             Publish a domain to a service and Caddy will issue a certificate — every enabled domain
             across the workspace shows up here.

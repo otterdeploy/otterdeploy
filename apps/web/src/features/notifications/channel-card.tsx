@@ -13,6 +13,7 @@
  */
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   Alert02Icon,
@@ -33,6 +34,7 @@ import { channelsCollection } from "./data/notifications";
 import { type Channel, type ChannelStatus, KIND_META, relativeTime } from "./shared";
 
 function StatusPill({ status }: { status: ChannelStatus }) {
+  const { t } = useTranslation();
   const meta: Record<ChannelStatus, { label: string; dot: string }> = {
     active: { label: "active", dot: "bg-emerald-500" },
     warn: { label: "degraded", dot: "bg-amber-500" },
@@ -58,6 +60,7 @@ export function ChannelCard({
   /** Opens the per-channel delivery-history dialog. */
   onViewDeliveries: (c: Channel) => void;
 }) {
+  const { t } = useTranslation();
   const meta = KIND_META[channel.kind];
   const [busy, setBusy] = useState(false);
 
@@ -91,7 +94,7 @@ export function ChannelCard({
     setBusy(true);
     channelsCollection
       .delete(channel.id)
-      .isPersisted.promise.then(() => toast.success("Channel removed"))
+      .isPersisted.promise.then(() => toast.success(t("notifications.channelRemoved")))
       .catch((err: unknown) =>
         toast.error(err instanceof Error ? err.message : "Couldn't remove channel"),
       )
@@ -163,7 +166,7 @@ export function ChannelCard({
             variant="ghost"
             disabled={busy}
             onClick={remove}
-            aria-label="Delete channel"
+            aria-label={t("notifications.deleteChannel")}
             className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
           >
             <HugeiconsIcon icon={Delete01Icon} strokeWidth={2} className="size-3.5" />

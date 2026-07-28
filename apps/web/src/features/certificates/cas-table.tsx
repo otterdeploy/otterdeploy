@@ -8,6 +8,7 @@
  * custom Caddy config).
  */
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Delete02Icon, Download01Icon, ViewIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -71,6 +72,7 @@ export function TrustedCasTable({
   canManage: boolean;
   onUpload: () => void;
 }) {
+  const { t } = useTranslation();
   const [viewing, setViewing] = useState<TrustedCa | null>(null);
 
   if (isLoading) {
@@ -87,7 +89,7 @@ export function TrustedCasTable({
     return (
       <Empty className="border-dashed">
         <EmptyHeader>
-          <EmptyTitle>No trusted CAs</EmptyTitle>
+          <EmptyTitle>{t("certificates.noCas")}</EmptyTitle>
           <EmptyDescription>
             Store CA certificates here as a shared inventory — view and download the PEM whenever
             you need it. The generated edge config doesn't consume this pool (services are proxied

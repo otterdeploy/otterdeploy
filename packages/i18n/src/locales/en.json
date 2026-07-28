@@ -39,7 +39,10 @@
     "copyFailed": "Couldn't copy",
     "dismiss": "Dismiss",
     "name": "Name",
-    "username": "Username"
+    "username": "Username",
+    "port": "Port",
+    "password": "Password",
+    "slug": "Slug"
   },
   "auth": {
     "signIn": {
@@ -116,7 +119,11 @@
     "selfHostedServers_other": "self-hosted · {{count}} servers",
     "toggleSidebar": "Toggle sidebar",
     "sidebar": "Sidebar",
-    "sidebarDescription": "Displays the mobile sidebar."
+    "sidebarDescription": "Displays the mobile sidebar.",
+    "noProjects": "No projects",
+    "environment": "Environment",
+    "createEnvironment": "Create environment",
+    "environmentPlaceholder": "Staging"
   },
   "nav": {
     "overview": "Overview",
@@ -176,7 +183,37 @@
     "addServer": "+ Add server",
     "secureEnrollment": "Secure enrollment",
     "nodeDescription_one": "{{count}} node in this swarm · replicas placed via Docker Stack rolling updates",
-    "nodeDescription_other": "{{count}} nodes in this swarm · replicas placed via Docker Stack rolling updates"
+    "nodeDescription_other": "{{count}} nodes in this swarm · replicas placed via Docker Stack rolling updates",
+    "addServerTitle": "Add server",
+    "form": {
+      "host": "Host / IP",
+      "sshUser": "SSH user",
+      "role": "Role",
+      "sshKey": "SSH key"
+    },
+    "advanced": {
+      "connectivity": "Connectivity",
+      "buildNode": "Dedicated build node",
+      "tunnel": "Cloudflare Tunnel",
+      "tunnelHint": "Optional — installs cloudflared for ingress",
+      "tunnelToken": "Tunnel token",
+      "tunnelPlaceholder": "installs cloudflared on the node"
+    },
+    "stepUp": {
+      "confirmTitle": "Confirm manager authority",
+      "authenticatorCode": "Authenticator code",
+      "passwordPlaceholder": "Your account password",
+      "confirmPhrase": "ENROLL MANAGER"
+    },
+    "enrollment": {
+      "title": "Secure node enrollment",
+      "worker": "Worker enrollment",
+      "manager": "Manager enrollment",
+      "revoked": "Enrollment revoked",
+      "recent": "Recent enrollment credentials",
+      "none": "No enrollment credentials created.",
+      "progress": "Enrollment progress"
+    }
   },
   "environments": {
     "label": "Environments"
@@ -473,5 +510,77 @@
     "copyFingerprint": "Copy fingerprint",
     "copyPublicKey": "Copy public key",
     "passphrasePlaceholder": "leave empty for unattended use"
+  },
+  "account": {
+    "cli": {
+      "title": "CLI access",
+      "description": "Machine access for the otterdeploy CLI and automation.",
+      "connect": "Connect the CLI",
+      "installThenRun": "Install the CLI, then run:"
+    },
+    "profile": {
+      "description": "How you appear across this control plane.",
+      "updated": "Profile updated"
+    },
+    "twoFactor": {
+      "description": "A time-based code from an authenticator app, required at sign-in.",
+      "enabled": "Two-factor authentication enabled",
+      "disabled": "Two-factor authentication disabled"
+    },
+    "password": {
+      "description": "The credential used for email + password sign-in.",
+      "current": "Current password",
+      "new": "New password",
+      "confirm": "Confirm new password",
+      "changed": "Password changed"
+    },
+    "sessions": {
+      "revoked": "Session revoked",
+      "signedOutOthers": "Signed out of all other sessions",
+      "thisDevice": "This device"
+    },
+    "danger": {
+      "title": "Danger zone",
+      "description": "Actions that end access for this account.",
+      "signOutEverywhere": "Sign out everywhere",
+      "signOutEverywhereConfirm": "Sign out everywhere?"
+    }
+  },
+  "notifications": {
+    "deliverVia": "Deliver via",
+    "smtpHost": "SMTP host",
+    "fromAddress": "From address",
+    "smtpUserPlaceholder": "apikey / user",
+    "channelType": "Channel type",
+    "keepStoredHint": "Leave the destination or secret blank to keep the stored value.",
+    "deleteChannel": "Delete channel",
+    "channelRemoved": "Channel removed",
+    "matrixTitle": "Event subscription matrix",
+    "event": "Event",
+    "severity": "Severity",
+    "noDetail": "No additional detail.",
+    "empty": "No notifications yet",
+    "eventsLast7Days": "Events · last 7 days",
+    "recentDeliveries": "Recent deliveries"
+  },
+  "certificates": {
+    "noCustom": "No custom certificates",
+    "noDomains": "No public domains yet",
+    "noCas": "No trusted CAs",
+    "pemCopied": "PEM copied",
+    "uploadCa": "Upload trusted CA",
+    "state": {
+      "serving": "Serving at edge",
+      "installFailed": "Install failed",
+      "noRoute": "No matching route",
+      "installedNotObserved": "Installed · not observed",
+      "storedPending": "Stored · pending install"
+    },
+    "stats": {
+      "publicDomains": "Public domains",
+      "acmeManaged": "ACME-managed",
+      "expiringSoon": "Expiring < 30d",
+      "customUploads": "Custom uploads"
+    }
   }
 }

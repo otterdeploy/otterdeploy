@@ -5,6 +5,7 @@
  * error; a cert no enabled domain points at says so.
  */
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { UploadCircle01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -50,6 +51,7 @@ export function CustomCertsTable({
   canManage: boolean;
   onUpload: () => void;
 }) {
+  const { t } = useTranslation();
   if (isLoading) {
     return (
       <div className="space-y-2 rounded-lg border p-4">
@@ -64,7 +66,7 @@ export function CustomCertsTable({
     return (
       <Empty className="border-dashed">
         <EmptyHeader>
-          <EmptyTitle>No custom certificates</EmptyTitle>
+          <EmptyTitle>{t("certificates.noCustom")}</EmptyTitle>
           <EmptyDescription>
             Upload a PEM chain and private key to serve your own certificate for a domain instead of
             the ACME-issued one. Custom certificates are not auto-renewed.

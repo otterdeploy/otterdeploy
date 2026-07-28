@@ -8,6 +8,7 @@
  */
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { CommandLineIcon } from "@hugeicons/core-free-icons";
 import { Link } from "@tanstack/react-router";
@@ -17,17 +18,18 @@ import { SettingsSection } from "@/shared/components/settings-section";
 import { Button } from "@/shared/components/ui/button";
 
 export function CliCard({ orgSlug }: { orgSlug: string }) {
+  const { t } = useTranslation();
   const [dialogOpen, setDialogOpen] = useState(false);
 
   return (
     <SettingsSection
       icon={CommandLineIcon}
-      title="CLI access"
-      description="Machine access for the otterdeploy CLI and automation."
+      title={t("account.cli.title")}
+      description={t("account.cli.description")}
     >
       <div className="flex items-center justify-between gap-4 px-4 py-3.5">
         <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="text-[13px] font-medium text-foreground">Connect the CLI</span>
+          <span className="text-[13px] font-medium text-foreground">{t("account.cli.connect")}</span>
           <span className="max-w-md text-[12px] leading-relaxed text-muted-foreground">
             Sign the <span className="font-mono">otterdeploy</span> CLI in to this control plane
             with a one-time device code — no token to copy around.
@@ -45,7 +47,7 @@ export function CliCard({ orgSlug }: { orgSlug: string }) {
       </div>
       <div className="flex items-center justify-between gap-4 px-4 py-3.5">
         <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="text-[13px] font-medium text-foreground">API keys</span>
+          <span className="text-[13px] font-medium text-foreground">{t("nav.apiKeys")}</span>
           <span className="max-w-md text-[12px] leading-relaxed text-muted-foreground">
             Keys on this install are workspace-scoped, not personal — create and manage them on the
             workspace's API keys page.

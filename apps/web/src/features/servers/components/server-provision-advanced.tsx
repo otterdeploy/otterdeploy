@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Globe02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -29,6 +30,7 @@ const MESH_ITEMS: PickerOption<string>[] = [
  *  WireGuard network and advertises the swarm on the mesh IP; Cloudflare Tunnel
  *  installs a connector for NAT/ingress. */
 export function ProvisionAdvancedSection({ form }: { form: ProvisionFormApi }) {
+  const { t } = useTranslation();
   // Local disclosure only — the field value stays the source of truth, so a
   // prefilled token (re-add of a failed server) opens the card on mount.
   const [cfOpen, setCfOpen] = useState(false);
@@ -37,9 +39,9 @@ export function ProvisionAdvancedSection({ form }: { form: ProvisionFormApi }) {
       <form.Field name="meshProvider">
         {(field) => (
           <Field>
-            <FieldLabel>Connectivity</FieldLabel>
+            <FieldLabel>{t("servers.advanced.connectivity")}</FieldLabel>
             <PickerGroup
-              label="Connectivity"
+              label={t("servers.advanced.connectivity")}
               columns={3}
               value={field.state.value}
               onChange={(v) => {
@@ -109,7 +111,7 @@ export function ProvisionAdvancedSection({ form }: { form: ProvisionFormApi }) {
         {(field) => (
           <div className="flex items-center justify-between gap-3">
             <div className="flex flex-col">
-              <span className="text-sm font-medium text-foreground">Dedicated build node</span>
+              <span className="text-sm font-medium text-foreground">{t("servers.advanced.buildNode")}</span>
               <span className="text-[12px] text-muted-foreground">
                 Labelled for build workloads. Requires a registry so deploy nodes can pull the
                 image.
@@ -123,8 +125,8 @@ export function ProvisionAdvancedSection({ form }: { form: ProvisionFormApi }) {
       <form.Field name="cloudflareToken">
         {(field) => (
           <PickerToggle
-            label="Cloudflare Tunnel"
-            hint="Optional — installs cloudflared for ingress"
+            label={t("servers.advanced.tunnel")}
+            hint={t("servers.advanced.tunnelHint")}
             icon={<Cloudflare />}
             enabled={field.state.value.length > 0 || cfOpen}
             onToggle={(next) => {
@@ -135,12 +137,12 @@ export function ProvisionAdvancedSection({ form }: { form: ProvisionFormApi }) {
             }}
           >
             <Field>
-              <FieldLabel htmlFor="srv-cf">Tunnel token</FieldLabel>
+              <FieldLabel htmlFor="srv-cf">{t("servers.advanced.tunnelToken")}</FieldLabel>
               <Input
                 id="srv-cf"
                 type="password"
                 className="font-mono"
-                placeholder="installs cloudflared on the node"
+                placeholder={t("servers.advanced.tunnelPlaceholder")}
                 value={field.state.value}
                 onChange={(e) => field.handleChange(e.target.value)}
               />

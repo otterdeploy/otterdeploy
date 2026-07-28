@@ -6,6 +6,7 @@
  */
 
 import { Alert02Icon } from "@hugeicons/core-free-icons";
+import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
@@ -27,6 +28,7 @@ import {
 import { Button } from "@/shared/components/ui/button";
 
 export function DangerCard() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -50,12 +52,12 @@ export function DangerCard() {
   return (
     <SettingsSection
       icon={Alert02Icon}
-      title="Danger zone"
-      description="Actions that end access for this account."
+      title={t("account.danger.title")}
+      description={t("account.danger.description")}
     >
       <div className="flex items-center justify-between gap-4 px-4 py-3.5">
         <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="text-[13px] font-medium text-destructive">Sign out everywhere</span>
+          <span className="text-[13px] font-medium text-destructive">{t("account.danger.signOutEverywhere")}</span>
           <span className="max-w-md text-[12px] leading-relaxed text-muted-foreground">
             Revokes every session on every device — including this one. You'll be returned to the
             sign-in page.
@@ -77,7 +79,7 @@ export function DangerCard() {
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Sign out everywhere?</AlertDialogTitle>
+              <AlertDialogTitle>{t("account.danger.signOutEverywhereConfirm")}</AlertDialogTitle>
               <AlertDialogDescription>
                 Every device signed in to your account — including this one — will be signed out
                 immediately. You'll need to sign in again.

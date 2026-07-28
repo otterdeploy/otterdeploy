@@ -4,6 +4,7 @@
  * leaf fingerprint matches the stored one) and the delete confirm button.
  */
 import { Delete02Icon } from "@hugeicons/core-free-icons";
+import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import {
@@ -32,6 +33,7 @@ export function CustomStatusBadge({
   cert: CustomCertificate;
   inventory: CertificateInventory | undefined;
 }) {
+  const { t } = useTranslation();
   const status = deriveCustomStatus(cert, inventory);
   switch (status.kind) {
     case "serving":
@@ -39,7 +41,7 @@ export function CustomStatusBadge({
         <StatusWithTip
           className="text-success"
           dot="bg-success"
-          label="Serving at edge"
+          label={t("certificates.state.serving")}
           tip={`Live probe confirms this certificate on ${status.domains.join(", ")}.`}
         />
       );
@@ -48,7 +50,7 @@ export function CustomStatusBadge({
         <StatusWithTip
           className="text-destructive"
           dot="bg-destructive"
-          label="Install failed"
+          label={t("certificates.state.installFailed")}
           tip={status.detail ?? "Installation failed — replace the certificate to retry."}
         />
       );
@@ -57,7 +59,7 @@ export function CustomStatusBadge({
         <StatusWithTip
           className="text-muted-foreground"
           dot="bg-muted-foreground"
-          label="No matching route"
+          label={t("certificates.state.noRoute")}
           tip="No enabled public domain is covered by this certificate. It's stored, but nothing can serve it until a matching domain is published."
         />
       );
@@ -66,7 +68,7 @@ export function CustomStatusBadge({
         <StatusWithTip
           className="text-amber-500"
           dot="bg-amber-500"
-          label="Installed · not observed"
+          label={t("certificates.state.installedNotObserved")}
           tip={`The edge accepted the config, but the live probe hasn't seen fingerprint ${truncateMiddle(cert.fingerprint256, 20)} yet. Recheck, or expand the domain in Managed to see what's actually served.`}
         />
       );
@@ -75,7 +77,7 @@ export function CustomStatusBadge({
         <StatusWithTip
           className="text-sky-500"
           dot="bg-sky-500"
-          label="Stored · pending install"
+          label={t("certificates.state.storedPending")}
           tip="Stored; the next reconcile pass installs it at the edge."
         />
       );
@@ -93,6 +95,7 @@ function StatusWithTip({
   label: string;
   tip: string;
 }) {
+  const { t } = useTranslation();
   return (
     <Tooltip>
       <TooltipTrigger
@@ -117,6 +120,7 @@ export function DeleteCertButton({
   disabled: boolean;
   onConfirm: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <AlertDialog>
       <AlertDialogTrigger

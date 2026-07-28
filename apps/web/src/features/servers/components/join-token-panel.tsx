@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -34,11 +35,12 @@ function EnrollmentHistory({
   revoking: boolean;
   onRevoke: (id: string) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="grid gap-2">
-      <span className="text-xs font-medium">Recent enrollment credentials</span>
+      <span className="text-xs font-medium">{t("servers.enrollment.recent")}</span>
       {enrollments.length === 0 ? (
-        <p className="text-xs text-muted-foreground">No enrollment credentials created.</p>
+        <p className="text-xs text-muted-foreground">{t("servers.enrollment.none")}</p>
       ) : (
         <div className="divide-y rounded-md border">
           {enrollments.map((enrollment) => (
@@ -66,6 +68,7 @@ function EnrollmentHistory({
 }
 
 export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
+  const { t } = useTranslation();
   const [totpCode, setTotpCode] = useState("");
   const [password, setPassword] = useState("");
   // Which credential this account can present. The server accepts either
@@ -100,7 +103,7 @@ export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
   const revoke = useMutation(
     orpc.server.revokeEnrollment.mutationOptions({
       onSuccess: (_value, variables) => {
-        toast.success("Enrollment revoked");
+        toast.success(t("servers.enrollment.revoked"));
         setCreated((current) => (current?.id === variables.id ? null : current));
         void queryClient.invalidateQueries({ queryKey: orpc.server.enrollments.queryKey() });
       },
@@ -166,10 +169,10 @@ export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
         }}
         className="self-start"
       >
-        <ToggleGroupItem value="worker" aria-label="Worker enrollment">
+        <ToggleGroupItem value="worker" aria-label={t("servers.enrollment.worker")}>
           Worker
         </ToggleGroupItem>
-        <ToggleGroupItem value="manager" aria-label="Manager enrollment">
+        <ToggleGroupItem value="manager" aria-label={t("servers.enrollment.manager")}>
           Manager
         </ToggleGroupItem>
       </ToggleGroup>
@@ -202,7 +205,7 @@ export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
 
       {tracked ? (
         <div className="grid gap-2 rounded-md border bg-muted/20 p-3">
-          <span className="text-xs font-medium">Enrollment progress</span>
+          <span className="text-xs font-medium">{t("servers.enrollment.progress")}</span>
           <EnrollmentProgress row={tracked} />
         </div>
       ) : null}

@@ -1,4 +1,5 @@
 import { cn } from "@/shared/lib/utils";
+import { useTranslation } from "react-i18next";
 
 /** Summary tiles above the certificate tables — computed from LIVE probe data
  *  plus the stored custom-cert rows; nothing here is synthesized. */
@@ -11,6 +12,7 @@ export function CertificateStats({
   inventory: CertificateInventory | undefined;
   customs: CustomCertificate[] | undefined;
 }) {
+  const { t } = useTranslation();
   const probes = inventory?.certificates ?? [];
   const total = probes.length;
   // ACME-managed = the edge serves a real (non-self-signed) cert that isn't
@@ -22,23 +24,23 @@ export function CertificateStats({
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <Stat
-        label="Public domains"
+        label={t("certificates.stats.publicDomains")}
         value={inventory ? String(total) : "—"}
         sub={inventory ? `probed via ${inventory.edgeHost}` : "probing…"}
       />
       <Stat
-        label="ACME-managed"
+        label={t("certificates.stats.acmeManaged")}
         value={inventory ? String(acme) : "—"}
         sub="auto-renewed by Caddy"
       />
       <Stat
-        label="Expiring < 30d"
+        label={t("certificates.stats.expiringSoon")}
         value={inventory ? String(expiring) : "—"}
         sub={expiring > 0 ? "includes expired" : "nothing due"}
         tone={expiring > 0 ? "warn" : undefined}
       />
       <Stat
-        label="Custom uploads"
+        label={t("certificates.stats.customUploads")}
         value={customs ? String(custom) : "—"}
         sub={custom > 0 ? "manual rotation required" : "none uploaded"}
       />

@@ -1,4 +1,5 @@
 import type { ServerId, SshKeyId } from "@otterdeploy/shared/id";
+import { useTranslation } from "react-i18next";
 
 import { useLiveQuery } from "@tanstack/react-db";
 import { useForm } from "@tanstack/react-form";
@@ -148,6 +149,7 @@ function ManagerQuorumWarning() {
 }
 
 function IdentityFields({ form }: { form: ProvisionFormApi }) {
+  const { t } = useTranslation();
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <form.Field
@@ -158,7 +160,7 @@ function IdentityFields({ form }: { form: ProvisionFormApi }) {
       >
         {(field) => (
           <Field>
-            <FieldLabel htmlFor={field.name}>Name</FieldLabel>
+            <FieldLabel htmlFor={field.name}>{t("common.name")}</FieldLabel>
             <Input
               id={field.name}
               name={field.name}
@@ -182,7 +184,7 @@ function IdentityFields({ form }: { form: ProvisionFormApi }) {
       >
         {(field) => (
           <Field>
-            <FieldLabel htmlFor={field.name}>Host / IP</FieldLabel>
+            <FieldLabel htmlFor={field.name}>{t("servers.form.host")}</FieldLabel>
             <Input
               id={field.name}
               name={field.name}
@@ -203,12 +205,13 @@ function IdentityFields({ form }: { form: ProvisionFormApi }) {
 }
 
 function ConnectionFields({ form }: { form: ProvisionFormApi }) {
+  const { t } = useTranslation();
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:grid-cols-3">
       <form.Field name="sshUser">
         {(field) => (
           <Field>
-            <FieldLabel htmlFor={field.name}>SSH user</FieldLabel>
+            <FieldLabel htmlFor={field.name}>{t("servers.form.sshUser")}</FieldLabel>
             <Input
               id={field.name}
               name={field.name}
@@ -222,7 +225,7 @@ function ConnectionFields({ form }: { form: ProvisionFormApi }) {
       <form.Field name="sshPort">
         {(field) => (
           <Field>
-            <FieldLabel htmlFor={field.name}>Port</FieldLabel>
+            <FieldLabel htmlFor={field.name}>{t("common.port")}</FieldLabel>
             <Input
               id={field.name}
               name={field.name}
@@ -237,7 +240,7 @@ function ConnectionFields({ form }: { form: ProvisionFormApi }) {
       <form.Field name="role">
         {(field) => (
           <Field>
-            <FieldLabel htmlFor="srv-role">Role</FieldLabel>
+            <FieldLabel htmlFor="srv-role">{t("servers.form.role")}</FieldLabel>
             <Select
               value={field.state.value}
               onValueChange={(v) => {
