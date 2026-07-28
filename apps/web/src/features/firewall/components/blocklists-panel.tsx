@@ -11,6 +11,7 @@ import {
   RefreshIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -29,6 +30,7 @@ type BlockList = Lists["lists"][number];
 type CatalogEntry = Lists["catalog"][number];
 
 export function BlocklistsPanel() {
+  const { t } = useTranslation();
   const listQuery = useQuery({
     ...orpc.firewall.blocklists.list.queryOptions(),
     refetchInterval: 10_000,
@@ -46,8 +48,8 @@ export function BlocklistsPanel() {
         {/* Active lists */}
         <section className="flex flex-col gap-3">
           <SectionTitle
-            title="Your lists"
-            subtitle="Public + custom lists imported into CrowdSec on a schedule."
+            title={t("firewall.yourLists")}
+            subtitle={t("firewall.yourListsSubtitle")}
           />
           {lists.length === 0 ? (
             <p className="text-[13px] text-muted-foreground">
@@ -68,8 +70,8 @@ export function BlocklistsPanel() {
         {/* Catalog */}
         <section className="flex flex-col gap-3">
           <SectionTitle
-            title="Public blocklists"
-            subtitle="Well-known free lists — no CrowdSec account needed. One click to add."
+            title={t("firewall.publicLists")}
+            subtitle={t("firewall.publicListsSubtitle")}
           />
           <div className="grid gap-2.5 sm:grid-cols-2">
             {catalog.map((c) => (
@@ -108,6 +110,7 @@ function syncBadge(l: BlockList) {
 }
 
 function ListRow({ list, onChanged }: { list: BlockList; onChanged: () => void }) {
+  const { t } = useTranslation();
   const toggle = useMutation({
     ...orpc.firewall.blocklists.toggle.mutationOptions(),
     onSuccess: onChanged,
@@ -148,8 +151,8 @@ function ListRow({ list, onChanged }: { list: BlockList; onChanged: () => void }
       <Button
         variant="ghost"
         size="icon-sm"
-        aria-label="Sync now"
-        title="Sync now"
+        aria-label={t("firewall.syncNow")}
+        title={t("firewall.syncNow")}
         onClick={() => sync.mutate({ id: list.id })}
         disabled={sync.isPending}
       >
@@ -164,15 +167,15 @@ function ListRow({ list, onChanged }: { list: BlockList; onChanged: () => void }
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label="Remove"
-            title="Remove"
+            aria-label={t("common.remove")}
+            title={t("common.remove")}
             disabled={remove.isPending}
           >
             <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
           </Button>
         }
         title={`Remove ${list.name}?`}
-        description="The list and every IP it imported are dropped from the firewall. You can re-add it from the catalog or by URL later."
+        description={t("firewall.removeListDescription")}
         confirmLabel="Remove"
         pendingLabel="Removing…"
         pending={remove.isPending}

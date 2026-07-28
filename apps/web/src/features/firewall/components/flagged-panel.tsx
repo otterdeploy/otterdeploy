@@ -7,6 +7,7 @@
  * needs the agent running to enforce.
  */
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -31,6 +32,7 @@ export function FlaggedPanel() {
   // Active bans flip already-blocked rows to a passive "Blocked" state; the
   // hook refreshes both after each block.
   const { bannedIps, block, blockMany } = useEdgeBans(() => void flagged.refetch());
+    const { t } = useTranslation();
 
   const rows = flagged.data ?? [];
   const unblockedIps = (flagged.data ?? [])
@@ -107,7 +109,7 @@ export function FlaggedPanel() {
                   {bannedIps.has(r.ip) ? (
                     <span
                       className="text-[11px] text-muted-foreground"
-                      title="This IP already has an active CrowdSec ban."
+                      title={t("firewall.alreadyBanned")}
                     >
                       Blocked
                     </span>

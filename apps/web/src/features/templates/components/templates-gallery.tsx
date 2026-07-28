@@ -5,6 +5,7 @@
  * trending lists because we don't measure those.
  */
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -40,6 +41,7 @@ export function TemplatesGallery({
   orgSlug: string;
   initialProjectSlug?: string;
 }) {
+  const { t } = useTranslation();
   const [category, setCategory] = useState<TemplateCategoryId | "all">("all");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<TemplateSort>("az");
@@ -52,7 +54,7 @@ export function TemplatesGallery({
   return (
     <Page>
       <PageHeader
-        title="Templates"
+        title={t("nav.templates")}
         description={`${TEMPLATES.length} curated stacks — pick one, choose a project, review its variables, deploy.`}
       />
 
@@ -84,13 +86,13 @@ export function TemplatesGallery({
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search templates"
-            aria-label="Search templates"
+            placeholder={t("templates.search")}
+            aria-label={t("templates.search")}
             className="h-8 w-52 pl-8"
           />
         </div>
         <Select items={SORT_ITEMS} value={sort} onValueChange={(v) => setSort(v ?? "az")}>
-          <SelectTrigger className="h-8 w-36" aria-label="Sort templates">
+          <SelectTrigger className="h-8 w-36" aria-label={t("templates.sort")}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

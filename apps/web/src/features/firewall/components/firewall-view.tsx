@@ -6,6 +6,7 @@
  * then a full-bleed table that fills the remaining height.
  */
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -23,6 +24,7 @@ import { FlaggedPanel } from "./flagged-panel";
 type View = "decisions" | "flagged" | "sources";
 
 export function FirewallView() {
+  const { t } = useTranslation();
   const status = useQuery({
     ...orpc.firewall.status.queryOptions(),
     refetchInterval: 15_000,
@@ -106,10 +108,11 @@ export function FirewallView() {
 }
 
 function FirewallHeader({ configured, reachable }: { configured: boolean; reachable: boolean }) {
+  const { t } = useTranslation();
   return (
     <div className="px-4 pt-4">
       <div className="flex items-center gap-2">
-        <h1 className="text-base font-semibold">Firewall</h1>
+        <h1 className="text-base font-semibold">{t("firewall.title")}</h1>
         {reachable ? (
           <span className="inline-flex items-center gap-1.5 text-[11px] text-success">
             <span className="size-1.5 animate-pulse rounded-full bg-success" />
@@ -154,6 +157,7 @@ function FirewallToolbar({
   onBlock: (ip: string, durationHours: number) => void;
   blocking: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
       <div className="flex items-center gap-0.5 rounded-md border p-0.5">
@@ -211,6 +215,7 @@ function BlockIpForm({
   onBlock: (ip: string, durationHours: number) => void;
   blocking: boolean;
 }) {
+  const { t } = useTranslation();
   const form = useForm({
     defaultValues: { ip: "", hours: 720 },
     onSubmit: ({ value, formApi }) => {
@@ -234,8 +239,8 @@ function BlockIpForm({
             value={field.state.value}
             onBlur={field.handleBlur}
             onChange={(e) => field.handleChange(e.target.value)}
-            placeholder="Block IP or CIDR…"
-            aria-label="Block an IP or CIDR range"
+            placeholder={t("firewall.blockPlaceholder")}
+            aria-label={t("firewall.blockAria")}
             className="h-8 w-44 font-mono text-[12px]"
           />
         )}
@@ -245,7 +250,7 @@ function BlockIpForm({
           <select
             value={field.state.value}
             onChange={(e) => field.handleChange(Number(e.target.value))}
-            aria-label="Ban duration"
+            aria-label={t("firewall.banDuration")}
             className="h-8 rounded-md border bg-transparent px-2 text-[12px] text-foreground/90 focus-visible:ring-1 focus-visible:outline-none"
           >
             {BLOCK_DURATIONS.map((d) => (

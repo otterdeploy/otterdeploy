@@ -60,6 +60,7 @@ export function ShortTextCell<TData>({
   isActiveSearchMatch,
   readOnly,
 }: DataGridCellProps<TData>) {
+  const { t } = useTranslation();
   const initialValue = cell.getValue() as string;
   const [value, setValue] = React.useState(initialValue);
   const cellRef = React.useRef<HTMLDivElement>(null);
@@ -423,6 +424,7 @@ export function NumberCell<TData>({
   isActiveSearchMatch,
   readOnly,
 }: DataGridCellProps<TData>) {
+  const { t } = useTranslation();
   const initialValue = cell.getValue() as number;
   const [value, setValue] = React.useState(String(initialValue ?? ""));
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -550,6 +552,7 @@ export function UrlCell<TData>({
   isActiveSearchMatch,
   readOnly,
 }: DataGridCellProps<TData>) {
+  const { t } = useTranslation();
   const initialValue = cell.getValue() as string;
   const [value, setValue] = React.useState(initialValue ?? "");
   const cellRef = React.useRef<HTMLDivElement>(null);
@@ -652,7 +655,7 @@ export function UrlCell<TData>({
       const href = getUrlHref(value);
       if (!href) {
         event.preventDefault();
-        toast.error("Invalid URL", {
+        toast.error(t("dataGrid.invalidUrl"), {
           description:
             "URL contains a dangerous protocol (javascript:, data:, vbscript:, or file:)",
         });
@@ -754,6 +757,7 @@ export function CheckboxCell<TData>({
   isActiveSearchMatch,
   readOnly,
 }: Omit<DataGridCellProps<TData>, "isEditing">) {
+  const { t } = useTranslation();
   const initialValue = cell.getValue() as boolean;
   const [value, setValue] = React.useState(Boolean(initialValue));
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -860,6 +864,7 @@ export function SelectCell<TData>({
   isActiveSearchMatch,
   readOnly,
 }: DataGridCellProps<TData>) {
+  const { t } = useTranslation();
   const initialValue = cell.getValue() as string;
   const [value, setValue] = React.useState(initialValue);
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -1277,6 +1282,7 @@ export function DateCell<TData>({
   isActiveSearchMatch,
   readOnly,
 }: DataGridCellProps<TData>) {
+  const { t } = useTranslation();
   const initialValue = cell.getValue() as string;
   const [value, setValue] = React.useState(initialValue ?? "");
   const containerRef = React.useRef<HTMLDivElement>(null);

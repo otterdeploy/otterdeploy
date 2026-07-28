@@ -10,6 +10,7 @@
  * flips a server-computed status — both refetch the list on success.
  */
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Delete01Icon, FlashIcon, PencilEdit01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -29,6 +30,7 @@ const EVENT_LABELS = new Map(EVENTS.map((e) => [e.id, e.label]));
 const SHOWN_EVENTS = 6;
 
 function StatusPill({ status }: { status: OutboundWebhook["status"] }) {
+  const { t } = useTranslation();
   const { label, dot } = STATUS_META[status];
   return (
     <Badge variant="outline" className="gap-1.5 font-normal">
@@ -45,6 +47,7 @@ export function OutboundCard({
   webhook: OutboundWebhook;
   onEdit: (w: OutboundWebhook) => void;
 }) {
+  const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
 
   const test = () => {
@@ -73,7 +76,7 @@ export function OutboundCard({
     setBusy(true);
     outboundCollection
       .delete(webhook.id)
-      .isPersisted.promise.then(() => toast.success("Webhook removed"))
+      .isPersisted.promise.then(() => toast.success(t("webhooks.webhookRemoved")))
       .catch((err: unknown) =>
         toast.error(err instanceof Error ? err.message : "Couldn't remove webhook"),
       )
@@ -128,7 +131,7 @@ export function OutboundCard({
             variant="ghost"
             disabled={busy}
             onClick={remove}
-            aria-label="Delete webhook"
+            aria-label={t("webhooks.deleteWebhook")}
             className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
           >
             <HugeiconsIcon icon={Delete01Icon} strokeWidth={2} className="size-3.5" />
@@ -164,7 +167,7 @@ export function OutboundCard({
             HMAC secret
           </div>
           <SecretReveal
-            label="HMAC secret"
+            label={t("webhooks.hmacSecret")}
             fetchSecret={() =>
               client.webhooks.outbound.reveal({ id: webhook.id }).then((r) => r.secret)
             }

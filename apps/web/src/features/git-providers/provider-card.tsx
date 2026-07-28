@@ -1,4 +1,5 @@
 import { MoreVerticalIcon, RefreshIcon } from "@hugeicons/core-free-icons";
+import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { isDefinedError } from "@orpc/client";
 import { useMutation } from "@tanstack/react-query";
@@ -147,13 +148,14 @@ export function DisconnectedProviderCard({
 }
 
 function InstallationActions({ installation }: { installation: InstallationView }) {
+  const { t } = useTranslation();
   const disconnect = useMutation({
     ...orpc.git.disconnect.mutationOptions(),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: orpc.git.list.queryKey({ input: undefined }),
       });
-      toast.success("Disconnected");
+      toast.success(t("gitProviders.disconnected"));
     },
     onError: (err) => toast.error(err.message ?? "Disconnect failed"),
   });
@@ -166,7 +168,7 @@ function InstallationActions({ installation }: { installation: InstallationView 
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label="More" />}>
+      <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t("common.more")} />}>
         <HugeiconsIcon icon={MoreVerticalIcon} strokeWidth={2} />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">

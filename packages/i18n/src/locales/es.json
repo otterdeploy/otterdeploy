@@ -42,7 +42,8 @@
     "username": "Usuario",
     "port": "Puerto",
     "password": "Contraseña",
-    "slug": "Slug"
+    "slug": "Slug",
+    "more": "Más"
   },
   "auth": {
     "signIn": {
@@ -378,7 +379,8 @@
       "question": "¿Quieres añadir más filas?",
       "createRows": "Crear filas nuevas",
       "keepRows": "Mantener las filas actuales"
-    }
+    },
+    "invalidUrl": "URL no válida"
   },
   "onboarding": {
     "progress": "Progreso de la configuración",
@@ -582,5 +584,104 @@
       "expiringSoon": "Caducan en < 30 d",
       "customUploads": "Subidas personalizadas"
     }
+  },
+  "webhooks": {
+    "columns": {
+      "time": "Hora",
+      "target": "Destino",
+      "code": "Código",
+      "attempt": "Intento",
+      "latency": "Latencia"
+    },
+    "endpointCreated": "Endpoint creado",
+    "endpointUpdated": "Endpoint actualizado",
+    "endpointRemoved": "Endpoint eliminado",
+    "deleteEndpoint": "Eliminar el endpoint",
+    "deleteWebhook": "Eliminar el webhook",
+    "webhookRemoved": "Webhook eliminado",
+    "hmacSecret": "Secreto HMAC",
+    "targetUrl": "URL de destino",
+    "subscribeToEvents": "Suscribirse a eventos",
+    "signingSecretHint": "El secreto de firma se genera automáticamente y se muestra en la tarjeta.",
+    "fixedForLifetime": "La URL del endpoint y el secreto HMAC son fijos durante toda la vida del endpoint.",
+    "targetAction": "Acción de destino",
+    "redeployService": "Redesplegar un servicio",
+    "recordOnly": "Nada — solo registrar la invocación"
+  },
+  "firewall": {
+    "title": "Cortafuegos",
+    "notEnabled": "El cortafuegos no está activado",
+    "alreadyBanned": "Esta IP ya tiene un bloqueo activo de CrowdSec.",
+    "listName": "Nombre de la lista",
+    "enrollmentKey": "Clave de inscripción de la consola",
+    "listAdded": "Lista añadida — importando…",
+    "syncNow": "Sincronizar ahora",
+    "blockPlaceholder": "Bloquear IP o CIDR…",
+    "blockAria": "Bloquear una IP o un rango CIDR",
+    "banDuration": "Duración del bloqueo",
+    "yourLists": "Tus listas",
+    "yourListsSubtitle": "Listas públicas y personalizadas importadas a CrowdSec de forma programada.",
+    "publicLists": "Listas de bloqueo públicas",
+    "publicListsSubtitle": "Listas gratuitas conocidas — no hace falta cuenta de CrowdSec. Se añaden con un clic.",
+    "removeListDescription": "La lista y todas las IP que importó se eliminan del cortafuegos. Puedes volver a añadirla desde el catálogo o por URL más adelante."
+  },
+  "gitProviders": {
+    "disconnected": "Desconectado",
+    "personalIfBlank": "Cuenta personal si se deja en blanco",
+    "appName": "Nombre de la aplicación",
+    "host": "Host",
+    "appId": "ID de la aplicación",
+    "installationId": "ID de la instalación",
+    "repositories": "Repositorios",
+    "connected": "Conectado",
+    "webhookSecret": "Secreto del webhook",
+    "privateKey": "Clave privada",
+    "permissionsRefreshed": "Permisos actualizados",
+    "grantedPermissions": "Permisos concedidos",
+    "repository": "Repositorio",
+    "branch": "Rama"
+  },
+  "volumes": {
+    "driver": "Controlador",
+    "size": "Tamaño",
+    "attachedTo": "Conectado a",
+    "created": "Creado",
+    "empty": "No hay volúmenes en este daemon",
+    "inspect": "Inspeccionar el volumen",
+    "create": "Crear volumen",
+    "labels": "Etiquetas",
+    "jsonCopied": "JSON copiado al portapapeles",
+    "alreadyRemoved": "El volumen ya se había eliminado",
+    "stats": {
+      "total": "Volúmenes totales",
+      "onDisk": "En disco",
+      "inUse": "En uso",
+      "orphans": "Huérfanos"
+    }
+  },
+  "templates": {
+    "search": "Buscar plantillas",
+    "sort": "Ordenar plantillas",
+    "architecture": "Arquitectura",
+    "includedServices": "Servicios incluidos",
+    "requiredVariables": "Variables obligatorias",
+    "deployToProject": "Desplegar en un proyecto",
+    "pickProject": "Elige un proyecto",
+    "image": "Imagen",
+    "ports": "Puertos",
+    "volumes": "Volúmenes",
+    "description": "Descripción",
+    "suggestedValue": "Valor sugerido"
+  },
+  "edgeLogs": {
+    "events": "Eventos del edge",
+    "accessLogs": "Registros de acceso del edge",
+    "searchEvents": "buscar mensaje, host, error…",
+    "searchLogs": "buscar ruta, ip, estado…",
+    "wrapHint": "Ajustar los valores largos en las filas expandidas en lugar de truncarlos",
+    "bannedIp": "Esta IP tiene un bloqueo activo de CrowdSec — las nuevas solicitudes se rechazan en el edge.",
+    "searchHosts": "Buscar hosts…",
+    "noHosts": "No se encontraron hosts.",
+    "allHosts": "Todos los hosts"
   }
 }

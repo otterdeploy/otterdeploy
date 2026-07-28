@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
@@ -13,6 +14,7 @@ const customListValid = (v: { name: string; url: string }) =>
   v.name.trim().length > 0 && /^https?:\/\//i.test(v.url.trim());
 
 export function AddCustomForm({ onAdded }: { onAdded: () => void }) {
+  const { t } = useTranslation();
   const form = useForm({
     defaultValues: { name: "", url: "" },
     onSubmit: ({ value }) => {
@@ -22,7 +24,7 @@ export function AddCustomForm({ onAdded }: { onAdded: () => void }) {
   const add = useMutation({
     ...orpc.firewall.blocklists.addCustom.mutationOptions(),
     onSuccess: () => {
-      toast.success("List added — importing…");
+      toast.success(t("firewall.listAdded"));
       form.reset();
       onAdded();
     },
@@ -42,7 +44,7 @@ export function AddCustomForm({ onAdded }: { onAdded: () => void }) {
             value={field.state.value}
             onBlur={field.handleBlur}
             onChange={(e) => field.handleChange(e.target.value)}
-            placeholder="List name"
+            placeholder={t("firewall.listName")}
             className="h-8 w-40 text-[12px]"
           />
         )}
@@ -70,6 +72,7 @@ export function AddCustomForm({ onAdded }: { onAdded: () => void }) {
 }
 
 export function ConsoleEnrollCard() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const form = useForm({
     defaultValues: { key: "" },
@@ -125,7 +128,7 @@ export function ConsoleEnrollCard() {
                 value={field.state.value}
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
-                placeholder="Enrollment key from the console"
+                placeholder={t("firewall.enrollmentKey")}
                 className="h-8 min-w-0 flex-1 font-mono text-[12px]"
               />
             )}

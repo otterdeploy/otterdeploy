@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Download01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -50,6 +51,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
   // Active CrowdSec bans + block actions (single from a row, bulk from the
   // suspicious filter). CrowdSec-enforced; reversible from the Firewall view.
   const { bannedIps, block, blockMany, canBlock } = useEdgeBans();
+    const { t } = useTranslation();
 
   const data = query.data;
   const allRows = data?.rows ?? [];
@@ -71,7 +73,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
       {/* Header */}
       <div className="px-4 pt-4">
         <div className="flex items-center gap-2">
-          <h1 className="text-base font-semibold">Edge access logs</h1>
+          <h1 className="text-base font-semibold">{t("edgeLogs.accessLogs")}</h1>
           <LiveBadge live={live} />
         </div>
         <p className="mt-0.5 text-[13px] text-muted-foreground">
@@ -99,7 +101,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="search path, ip, status…"
+          placeholder={t("edgeLogs.searchLogs")}
           className="h-8 max-w-xs text-[12px]"
         />
         <div className="flex-1" />
@@ -118,7 +120,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
           size="sm"
           className={cn(wrap && "bg-muted")}
           onClick={() => setWrap((v) => !v)}
-          title="Wrap long values in expanded rows instead of truncating"
+          title={t("edgeLogs.wrapHint")}
         >
           Wrap
         </Button>

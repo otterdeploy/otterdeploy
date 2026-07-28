@@ -7,6 +7,7 @@
  * manifest flow (review vars → stage → Deploy) takes over from there.
  */
 import { useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 import { parseCompose } from "@otterdeploy/api/stack/compose/parse";
 import { useQuery } from "@tanstack/react-query";
@@ -70,6 +71,7 @@ function TemplateDetailBody({
   orgSlug: string;
   initialProjectSlug?: string;
 }) {
+  const { t } = useTranslation();
   // Same parser the wizard preview and the deploy reconciler run — the
   // diagram and tables below can't drift from what would actually deploy.
   const parsed = parseCompose(template.compose);
@@ -95,10 +97,10 @@ function TemplateDetailBody({
       <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-4">
         {parsed.isOk() ? (
           <>
-            <Section title="Architecture">
+            <Section title={t("templates.architecture")}>
               <TemplateArchDiagram parsed={parsed.value} />
             </Section>
-            <Section title="Included services">
+            <Section title={t("templates.includedServices")}>
               <IncludedServicesTable parsed={parsed.value} />
             </Section>
           </>
@@ -107,7 +109,7 @@ function TemplateDetailBody({
             This template's compose file failed to parse: {parsed.error.message}
           </p>
         )}
-        <Section title="Required variables">
+        <Section title={t("templates.requiredVariables")}>
           <RequiredEnvTable requiredEnv={template.requiredEnv} />
           {template.requiredEnv.length > 0 && (
             <p className="mt-2 text-[11px] text-muted-foreground">
@@ -142,6 +144,7 @@ function DeployFooter({
 }) {
   const router = useRouter();
   const { data: projects } = useQuery(orpc.project.list.queryOptions());
+    const { t } = useTranslation();
   const [picked, setPicked] = useState(initialProjectSlug ?? "");
   // Fall back to the first project once the list loads, without an effect.
   const projectSlug = picked || projects?.[0]?.slug || "";
@@ -157,8 +160,8 @@ function DeployFooter({
       {items.length > 0 ? (
         <>
           <Select items={items} value={projectSlug} onValueChange={(v) => setPicked(v ?? "")}>
-            <SelectTrigger className="h-8 w-44" aria-label="Deploy to project">
-              <SelectValue placeholder="Pick a project" />
+            <SelectTrigger className="h-8 w-44" aria-label={t("templates.deployToProject")}>
+              <SelectValue placeholder={t("templates.pickProject")} />
             </SelectTrigger>
             <SelectContent>
               {items.map((it) => (

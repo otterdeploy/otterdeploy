@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 import { FirewallIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -152,6 +153,7 @@ export function DecisionsTable({
  * (OTTERDEPLOY_FIREWALL=false / --no-firewall).
  */
 export function FirewallDisabledCard() {
+  const { t } = useTranslation();
   return (
     <div className="min-h-0 flex-1 overflow-auto p-4">
       <Card className="border-dashed p-5">
@@ -160,7 +162,7 @@ export function FirewallDisabledCard() {
             <HugeiconsIcon icon={FirewallIcon} strokeWidth={1.8} className="size-4.5" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-[13px] font-semibold">Firewall isn't enabled</h2>
+            <h2 className="text-[13px] font-semibold">{t("firewall.notEnabled")}</h2>
             <p className="mt-0.5 text-[13px] text-muted-foreground">
               A fresh install turns CrowdSec on automatically — if you just installed, the agent may
               still be starting (this can take a few seconds after{" "}

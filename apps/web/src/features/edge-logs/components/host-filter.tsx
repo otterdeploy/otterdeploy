@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { ArrowDown01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -29,6 +30,7 @@ export function HostFilter({
   value: string[];
   onChange: (next: string[]) => void;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
   const label =
@@ -59,12 +61,12 @@ export function HostFilter({
       />
       <PopoverContent align="start" className="w-72 p-0">
         <Command>
-          <CommandInput placeholder="Search hosts…" />
+          <CommandInput placeholder={t("edgeLogs.searchHosts")} />
           <CommandList>
-            <CommandEmpty>No hosts found.</CommandEmpty>
+            <CommandEmpty>{t("edgeLogs.noHosts")}</CommandEmpty>
             <CommandItem value="__all_hosts__" onSelect={() => onChange([])} className="gap-2">
               <Checkbox checked={value.length === 0} className="pointer-events-none" />
-              <span>All hosts</span>
+              <span>{t("edgeLogs.allHosts")}</span>
             </CommandItem>
             {options.map((host) => (
               <CommandItem

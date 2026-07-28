@@ -4,6 +4,7 @@
  * Split out of `inbound-dialog.tsx` to keep the dialog file within budget.
  */
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Copy01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -54,10 +55,11 @@ function CopyRow({ value }: { value: string }) {
 
 /** Post-create screen — the only place the plaintext secret ever appears. */
 export function SuccessScreen({ created, onDone }: { created: Created; onDone: () => void }) {
+  const { t } = useTranslation();
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Endpoint created</DialogTitle>
+        <DialogTitle>{t("webhooks.endpointCreated")}</DialogTitle>
         <DialogDescription>
           Store the HMAC secret now — this is the only time it's shown in full. You can reveal it
           again later from the card, but treat this screen as the handoff.
@@ -94,7 +96,7 @@ export function SuccessScreen({ created, onDone }: { created: Created; onDone: (
       </div>
 
       <DialogFooter>
-        <Button onClick={onDone}>Done</Button>
+        <Button onClick={onDone}>{t("common.done")}</Button>
       </DialogFooter>
     </>
   );

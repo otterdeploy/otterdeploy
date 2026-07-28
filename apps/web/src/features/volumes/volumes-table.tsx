@@ -8,6 +8,7 @@ import {
   MoreVerticalIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 /**
  * Volumes inventory table. Attached-to chips deep-link to the owning
  * resource's graph panel; orphans get a warning badge (icon + label, never
@@ -157,18 +158,19 @@ export function VolumesTable({
   onInspect: (volume: VolumeRow) => void;
   onRemove: (volume: VolumeRow) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <Card className="min-w-0 gap-0 overflow-hidden rounded-md p-0">
       <Table>
         <TableHeader>
           <TableRow>
             <SelectAllHead selection={selection} />
-            <TableHead>Name</TableHead>
-            <TableHead>Driver</TableHead>
-            <TableHead>Size</TableHead>
-            <TableHead>Attached to</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Created</TableHead>
+            <TableHead>{t("common.name")}</TableHead>
+            <TableHead>{t("volumes.driver")}</TableHead>
+            <TableHead>{t("volumes.size")}</TableHead>
+            <TableHead>{t("volumes.attachedTo")}</TableHead>
+            <TableHead>{t("deployments.columns.status")}</TableHead>
+            <TableHead>{t("volumes.created")}</TableHead>
             <TableHead className="w-10 pr-4" />
           </TableRow>
         </TableHeader>

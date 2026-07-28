@@ -5,6 +5,7 @@
  * rendering decorative toggles.
  */
 import { type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Delete02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -42,6 +43,7 @@ function Field({
   children: ReactNode;
   className?: string;
 }) {
+  const { t } = useTranslation();
   return (
     <label className={cn("flex flex-col gap-1.5", className)}>
       <span className="text-xs text-muted-foreground">{label}</span>
@@ -59,6 +61,7 @@ export function CreateVolumeDialog({
   onOpenChange: (open: boolean) => void;
   drivers: string[];
 }) {
+  const { t } = useTranslation();
   if (!open) return null;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -68,6 +71,7 @@ export function CreateVolumeDialog({
 }
 
 function CreateVolumeBody({ drivers, onClose }: { drivers: string[]; onClose: () => void }) {
+  const { t } = useTranslation();
   const form = useForm({
     defaultValues: {
       name: "",
@@ -101,7 +105,7 @@ function CreateVolumeBody({ drivers, onClose }: { drivers: string[]; onClose: ()
   return (
     <DialogContent className="gap-0 p-0 sm:max-w-lg">
       <DialogHeader className="border-b px-5 py-3">
-        <DialogTitle className="text-sm font-semibold">Create volume</DialogTitle>
+        <DialogTitle className="text-sm font-semibold">{t("volumes.create")}</DialogTitle>
         <p className="text-xs text-muted-foreground">
           A named volume on this daemon. Attach it to a service via its mounts.
         </p>
@@ -120,7 +124,7 @@ function CreateVolumeBody({ drivers, onClose }: { drivers: string[]; onClose: ()
               const nameTouchedInvalid =
                 field.state.value.length > 0 && !NAME_RE.test(field.state.value);
               return (
-                <Field label="Name">
+                <Field label={t("common.name")}>
                   <Input
                     className="font-mono"
                     placeholder="app-uploads"
@@ -142,7 +146,7 @@ function CreateVolumeBody({ drivers, onClose }: { drivers: string[]; onClose: ()
 
           <form.Field name="driver">
             {(field) => (
-              <Field label="Driver">
+              <Field label={t("volumes.driver")}>
                 <Select
                   items={drivers.map((d) => ({ label: d, value: d }))}
                   value={field.state.value}
@@ -209,12 +213,13 @@ function LabelsEditor({
   value: LabelRow[];
   onChange: (rows: LabelRow[]) => void;
 }) {
+  const { t } = useTranslation();
   const setLabel = (i: number, patch: Partial<LabelRow>) =>
     onChange(value.map((row, j) => (j === i ? { ...row, ...patch } : row)));
 
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-xs text-muted-foreground">Labels</span>
+      <span className="text-xs text-muted-foreground">{t("volumes.labels")}</span>
       {value.map((row, i) => (
         <div key={i} className="flex items-center gap-1.5">
           <Input

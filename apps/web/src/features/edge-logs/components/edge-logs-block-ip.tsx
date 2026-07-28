@@ -3,6 +3,7 @@
  *  it's an outward-facing enforcement action. */
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   AlertDialog,
@@ -28,6 +29,7 @@ export function BlockAllButton({
   onConfirm: () => void;
   blocking: boolean;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
@@ -52,7 +54,7 @@ export function BlockAllButton({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={blocking}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={blocking}>{t("common.cancel")}</AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();
@@ -78,6 +80,7 @@ export function BlockIpButton({
   onBlockIp: (ip: string) => void;
   blocking: boolean;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
@@ -104,7 +107,7 @@ export function BlockIpButton({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={blocking}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={blocking}>{t("common.cancel")}</AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();

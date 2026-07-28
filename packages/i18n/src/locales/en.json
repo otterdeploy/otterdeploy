@@ -42,7 +42,8 @@
     "username": "Username",
     "port": "Port",
     "password": "Password",
-    "slug": "Slug"
+    "slug": "Slug",
+    "more": "More"
   },
   "auth": {
     "signIn": {
@@ -378,7 +379,8 @@
       "question": "Do you want to add more rows?",
       "createRows": "Create new rows",
       "keepRows": "Keep current rows"
-    }
+    },
+    "invalidUrl": "Invalid URL"
   },
   "onboarding": {
     "progress": "Setup progress",
@@ -582,5 +584,104 @@
       "expiringSoon": "Expiring < 30d",
       "customUploads": "Custom uploads"
     }
+  },
+  "webhooks": {
+    "columns": {
+      "time": "Time",
+      "target": "Target",
+      "code": "Code",
+      "attempt": "Attempt",
+      "latency": "Latency"
+    },
+    "endpointCreated": "Endpoint created",
+    "endpointUpdated": "Endpoint updated",
+    "endpointRemoved": "Endpoint removed",
+    "deleteEndpoint": "Delete endpoint",
+    "deleteWebhook": "Delete webhook",
+    "webhookRemoved": "Webhook removed",
+    "hmacSecret": "HMAC secret",
+    "targetUrl": "Target URL",
+    "subscribeToEvents": "Subscribe to events",
+    "signingSecretHint": "The signing secret is generated for you and revealed on the card.",
+    "fixedForLifetime": "The endpoint URL and HMAC secret are fixed for the endpoint's lifetime.",
+    "targetAction": "Target action",
+    "redeployService": "Redeploy a service",
+    "recordOnly": "Nothing — record the invocation"
+  },
+  "firewall": {
+    "title": "Firewall",
+    "notEnabled": "Firewall isn't enabled",
+    "alreadyBanned": "This IP already has an active CrowdSec ban.",
+    "listName": "List name",
+    "enrollmentKey": "Enrollment key from the console",
+    "listAdded": "List added — importing…",
+    "syncNow": "Sync now",
+    "blockPlaceholder": "Block IP or CIDR…",
+    "blockAria": "Block an IP or CIDR range",
+    "banDuration": "Ban duration",
+    "yourLists": "Your lists",
+    "yourListsSubtitle": "Public + custom lists imported into CrowdSec on a schedule.",
+    "publicLists": "Public blocklists",
+    "publicListsSubtitle": "Well-known free lists — no CrowdSec account needed. One click to add.",
+    "removeListDescription": "The list and every IP it imported are dropped from the firewall. You can re-add it from the catalog or by URL later."
+  },
+  "gitProviders": {
+    "disconnected": "Disconnected",
+    "personalIfBlank": "Personal account if blank",
+    "appName": "App name",
+    "host": "Host",
+    "appId": "App ID",
+    "installationId": "Installation ID",
+    "repositories": "Repositories",
+    "connected": "Connected",
+    "webhookSecret": "Webhook secret",
+    "privateKey": "Private key",
+    "permissionsRefreshed": "Permissions refreshed",
+    "grantedPermissions": "Granted permissions",
+    "repository": "Repository",
+    "branch": "Branch"
+  },
+  "volumes": {
+    "driver": "Driver",
+    "size": "Size",
+    "attachedTo": "Attached to",
+    "created": "Created",
+    "empty": "No volumes on this daemon",
+    "inspect": "Inspect volume",
+    "create": "Create volume",
+    "labels": "Labels",
+    "jsonCopied": "JSON copied to clipboard",
+    "alreadyRemoved": "Volume was already removed",
+    "stats": {
+      "total": "Total volumes",
+      "onDisk": "On disk",
+      "inUse": "In use",
+      "orphans": "Orphans"
+    }
+  },
+  "templates": {
+    "search": "Search templates",
+    "sort": "Sort templates",
+    "architecture": "Architecture",
+    "includedServices": "Included services",
+    "requiredVariables": "Required variables",
+    "deployToProject": "Deploy to project",
+    "pickProject": "Pick a project",
+    "image": "Image",
+    "ports": "Ports",
+    "volumes": "Volumes",
+    "description": "Description",
+    "suggestedValue": "Suggested value"
+  },
+  "edgeLogs": {
+    "events": "Edge events",
+    "accessLogs": "Edge access logs",
+    "searchEvents": "search message, host, error…",
+    "searchLogs": "search path, ip, status…",
+    "wrapHint": "Wrap long values in expanded rows instead of truncating",
+    "bannedIp": "This IP has an active CrowdSec ban — new requests are rejected at the edge.",
+    "searchHosts": "Search hosts…",
+    "noHosts": "No hosts found.",
+    "allHosts": "All hosts"
   }
 }

@@ -1,4 +1,5 @@
 import { TableCell, TableRow } from "@/shared/components/ui/table";
+import { useTranslation } from "react-i18next";
 import { flagEmoji } from "@/shared/lib/flag";
 import { cn } from "@/shared/lib/utils";
 
@@ -34,6 +35,7 @@ export function EdgeRow({
   /** This client IP currently has an active CrowdSec ban. */
   banned: boolean;
 }) {
+  const { t } = useTranslation();
   const b = statusBucket(row.status);
   const threat = classifyThreat(row.path);
   return (
@@ -108,7 +110,7 @@ export function EdgeRow({
           {banned ? (
             <span
               className="ml-1.5 inline-block rounded-sm bg-foreground/10 px-1 py-px align-middle text-[9px] font-semibold tracking-[0.04em] text-foreground/70 uppercase"
-              title="This IP has an active CrowdSec ban — new requests are rejected at the edge."
+              title={t("edgeLogs.bannedIp")}
             >
               blocked
             </span>

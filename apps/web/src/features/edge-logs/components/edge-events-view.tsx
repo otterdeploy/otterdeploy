@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { useQuery } from "@tanstack/react-query";
 
@@ -26,6 +27,7 @@ import { HostFilter } from "./host-filter";
  * table; no histogram/percentiles (these are discrete events, not requests).
  */
 export function EdgeEventsView({ projectId }: { projectId?: string }) {
+  const { t } = useTranslation();
   const [range, setRange] = useState<Range>("1h");
   const [categories, setCategories] = useState<Set<string>>(new Set());
   const [levels, setLevels] = useState<Set<string>>(new Set());
@@ -67,7 +69,7 @@ export function EdgeEventsView({ projectId }: { projectId?: string }) {
       {/* Header */}
       <div className="px-4 pt-4">
         <div className="flex items-center gap-2">
-          <h1 className="text-base font-semibold">Edge events</h1>
+          <h1 className="text-base font-semibold">{t("edgeLogs.events")}</h1>
           <LiveBadge live={live} />
         </div>
         <p className="mt-0.5 text-[13px] text-muted-foreground">
@@ -95,7 +97,7 @@ export function EdgeEventsView({ projectId }: { projectId?: string }) {
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="search message, host, error…"
+          placeholder={t("edgeLogs.searchEvents")}
           className="h-8 max-w-xs text-[12px]"
         />
         <div className="flex-1" />
@@ -104,7 +106,7 @@ export function EdgeEventsView({ projectId }: { projectId?: string }) {
           size="sm"
           className={cn(wrap && "bg-muted")}
           onClick={() => setWrap((v) => !v)}
-          title="Wrap long values in expanded rows instead of truncating"
+          title={t("edgeLogs.wrapHint")}
         >
           Wrap
         </Button>
