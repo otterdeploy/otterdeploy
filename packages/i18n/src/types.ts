@@ -7,18 +7,20 @@
  *   1. **Keys exist.** `CustomTypeOptions` binds i18next's key union to the
  *      English bundle, so `t("nav.projcts")` is a compile error at the call
  *      site — not a string that renders as its own key in production.
- *   2. **Locales don't drift.** Every English key must have a Spanish
- *      translation and vice versa. A mismatch fails the build and the error
- *      names the offending key.
+ *   2. **Locales don't drift.** Every English key must have a translation in
+ *      every other locale and vice versa. A mismatch fails the build and the
+ *      error names the offending key.
  *
- * English is the source of truth for what keys exist; other locales are
- * checked against it.
+ * English is the source of truth for which keys exist; every other locale is
+ * checked against it. Adding a locale is two lines: import the bundle and add
+ * one `LocaleParity` entry below.
  *
  * IMPORTANT: this module must stay in the compilation for the augmentation to
  * apply — `index.ts` and `web.ts` both import it for that side effect. It has
  * no runtime content, so the import costs nothing at runtime.
  */
 
+import type de from "./locales/de.json";
 import type en from "./locales/en.json";
 import type es from "./locales/es.json";
 
@@ -62,16 +64,36 @@ type Paths<T> = {
  * Compile-time assertion that a key set is empty.
  *
  * When it isn't, the constraint failure prints the offending keys — so the
- * error reads "Type '"tour.steps.welcome.title"' does not satisfy the
- * constraint 'never'" rather than something generic.
+ * error reads "Type '"nav.projects"' does not satisfy the constraint 'never'"
+ * rather than something generic.
  */
 type AssertNoKeys<Keys extends never> = Keys;
 
-/** Keys English defines that Spanish is missing. Must be empty. */
-export type MissingFromSpanish = AssertNoKeys<Exclude<Paths<typeof en>, Paths<typeof es>>>;
+/**
+ * Both directions of drift, per locale.
+ *
+ * First slot — English defines it, this locale doesn't. That's the failure
+ * users actually see: i18next silently serves the English string.
+ * Second slot — this locale defines it, English doesn't. Usually a rename
+ * that only landed in one file.
+ *
+ * Deliberately NOT a generic `LocaleParity<Locale>` helper: TypeScript checks
+ * `AssertNoKeys`'s `extends never` constraint at the point the generic is
+ * *declared*, with the type parameter still unresolved, so the helper fails to
+ * compile for every locale including correct ones. Each locale has to
+ * instantiate `Paths` concretely.
+ *
+ * Adding a locale is one entry here plus one in `resources.ts`.
+ */
+export type GermanParity = [
+  AssertNoKeys<Exclude<Paths<Translation>, Paths<typeof de>>>,
+  AssertNoKeys<Exclude<Paths<typeof de>, Paths<Translation>>>,
+];
 
-/** Keys Spanish defines that English doesn't. Must be empty. */
-export type NotInEnglish = AssertNoKeys<Exclude<Paths<typeof es>, Paths<typeof en>>>;
+export type SpanishParity = [
+  AssertNoKeys<Exclude<Paths<Translation>, Paths<typeof es>>>,
+  AssertNoKeys<Exclude<Paths<typeof es>, Paths<Translation>>>,
+];
 
 /**
  * Every valid translation key, as a literal union.

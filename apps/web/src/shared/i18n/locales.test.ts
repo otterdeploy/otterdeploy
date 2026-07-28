@@ -20,6 +20,7 @@
 import { describe, expect, it } from "vitest";
 
 import en from "../../../../../packages/i18n/src/locales/en.json";
+import de from "../../../../../packages/i18n/src/locales/de.json";
 import es from "../../../../../packages/i18n/src/locales/es.json";
 
 type Tree = { [key: string]: string | Tree };
@@ -46,37 +47,57 @@ function valueAt(tree: Tree, path: string): string | undefined {
 }
 
 const enPaths = paths(en as Tree);
-const esPaths = paths(es as Tree);
 
-describe("locale parity", () => {
-  it("every English key has a Spanish translation", () => {
-    const missing = enPaths.filter((path) => !esPaths.includes(path));
+/**
+ * Every locale except the source of truth. Adding one here is all it takes to
+ * hold it to the same bar.
+ */
+const translations: ReadonlyArray<{ name: string; tree: Tree }> = [
+  { name: "de", tree: de as Tree },
+  { name: "es", tree: es as Tree },
+];
+
+describe.each(translations)("locale parity: $name", ({ tree }) => {
+  const localePaths = paths(tree);
+
+  it("translates every English key", () => {
+    const missing = enPaths.filter((path) => !localePaths.includes(path));
     expect(missing).toEqual([]);
   });
 
-  it("Spanish has no keys English doesn't define", () => {
+  it("defines no key English doesn't", () => {
     // A stale key is dead weight and usually means a rename landed in one
     // locale only.
-    const orphaned = esPaths.filter((path) => !enPaths.includes(path));
+    const orphaned = localePaths.filter((path) => !enPaths.includes(path));
     expect(orphaned).toEqual([]);
   });
 
-  it("interpolation placeholders match across locales", () => {
+  it("keeps the same interpolation placeholders as English", () => {
+    // `{{count}}` vs `{{total}}` are both just `string` to the type system, so
+    // this is the check that has to be a test.
     const mismatched = enPaths
       .map((path) => ({
         path,
         en: placeholders(valueAt(en as Tree, path) ?? ""),
-        es: placeholders(valueAt(es as Tree, path) ?? ""),
+        translated: placeholders(valueAt(tree, path) ?? ""),
       }))
-      .filter(({ en: a, es: b }) => a.join(",") !== b.join(","));
+      .filter(({ en: a, translated: b }) => a.join(",") !== b.join(","));
     expect(mismatched).toEqual([]);
   });
 
-  it("no translation is left empty", () => {
-    const empty = [...enPaths, ...esPaths].filter((path) => {
-      const value = valueAt(en as Tree, path) ?? valueAt(es as Tree, path);
-      return value !== undefined && value.trim() === "";
-    });
+  it("leaves no translation empty", () => {
+    const empty = localePaths.filter((path) => (valueAt(tree, path) ?? "").trim() === "");
     expect(empty).toEqual([]);
+  });
+
+  it("actually translates — a locale that is byte-identical to English is a stub", () => {
+    // Guards the failure mode where a bundle is copied from English and never
+    // translated: it passes every parity check above while showing English.
+    // Proper nouns and machine tokens legitimately match, so this only asserts
+    // that the bulk of the bundle differs.
+    const identical = enPaths.filter(
+      (path) => valueAt(en as Tree, path) === valueAt(tree, path),
+    );
+    expect(identical.length).toBeLessThan(enPaths.length / 2);
   });
 });
