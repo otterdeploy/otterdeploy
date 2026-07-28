@@ -120,6 +120,10 @@ export const backupsRouter = {
         backupId: input.id,
         mode: input.mode,
         confirm: input.confirm,
+        // Cross-database restore. The target is re-resolved (and its engine
+        // re-checked) server-side; enforceBackupScope above has already tied
+        // the SNAPSHOT to this org.
+        targetResourceId: input.targetResourceId,
       });
       return {
         ok: result.ok,

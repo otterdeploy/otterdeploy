@@ -172,9 +172,14 @@ const runBackupInput = z
 const restoreBackupInput = z.object({
   id: backupIdField,
   mode: z.enum(["download", "in-place"]).default("in-place"),
-  /** Typed-name confirmation (the resource name). Required for in-place;
-   *  enforced server-side so the destructive path can't be called blind. */
+  /** Typed-name confirmation (the name of whatever is OVERWRITTEN — the target
+   *  database when one is given). Required for in-place; enforced server-side
+   *  so the destructive path can't be called blind. */
   confirm: z.string().optional(),
+  /** Restore into this database instead of the one the snapshot came from.
+   *  Omitted = restore over the snapshot's own source (the original behaviour).
+   *  Engines must match, and a volume snapshot has no database target. */
+  targetResourceId: resourceIdField.optional(),
 });
 
 const backupLogsInput = z.object({

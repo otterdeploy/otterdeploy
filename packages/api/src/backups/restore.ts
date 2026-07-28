@@ -7,6 +7,7 @@
  * run's `storagePath` is the snapshot id, which is all we need to address it.
  * Split out of engine.ts, which keeps the backup write path (executeBackup).
  */
+import type { ResourceId } from "@otterdeploy/shared/id";
 import type { Duplex, Readable, Writable } from "node:stream";
 
 import { Docker, demuxStream } from "@otterdeploy/docker";
@@ -16,7 +17,12 @@ import type { ResolvedDestination } from "./backends";
 
 import { buildContainerName } from "../routers/project/views";
 import { deriveRepoId, toRusticRepo } from "./backends";
-import { type ExecutionContext, getExecutionContext } from "./db";
+import {
+  type DatabaseTarget,
+  type ExecutionContext,
+  getExecutionContext,
+  resolveDatabaseTarget,
+} from "./db";
 import { resolveSecret } from "./engine-helpers";
 import { findResourceContainerId } from "./exec";
 import { RusticCli } from "./rustic";
@@ -78,7 +84,6 @@ export type RestoreMode = "download" | "in-place";
 
 type VolumeContext = Extract<ExecutionContext, { kind: "volume" }>;
 // The DB-ish arm — managed `database` and compose `stack` share one field set.
-type DatabaseContext = Exclude<ExecutionContext, { kind: "volume" }>;
 
 /** In-place restore of a named volume: refuse while any container mounts it,
  *  then reload the snapshot's tar via the backup path's helper mechanics. */
@@ -108,20 +113,20 @@ async function restoreVolumeInPlace(
  *  deadlock); fail the run on a non-zero pg_restore exit. */
 async function restorePostgresInPlace(
   docker: Docker,
-  ctx: DatabaseContext,
+  target: DatabaseTarget,
   cli: RusticCli,
   snapshotId: string,
 ): Promise<{ ok: true }> {
   const serviceName = buildContainerName({
-    engine: ctx.engine,
-    projectSlug: ctx.projectSlug,
-    resourceName: ctx.resourceName,
+    engine: target.engine,
+    projectSlug: target.projectSlug,
+    resourceName: target.resourceName,
   });
-  const containerId = await findResourceContainerId(docker, ctx.resourceId);
+  const containerId = await findResourceContainerId(docker, target.resourceId);
   if (!containerId) throw new Error(`No running container for ${serviceName}`);
 
-  if (ctx.engine !== "postgres") {
-    throw new Error(`in-place restore for ${ctx.engine} is not implemented`);
+  if (target.engine !== "postgres") {
+    throw new Error(`in-place restore for ${target.engine} is not implemented`);
   }
 
   // Stream the custom-format dump straight from the snapshot into an in-container
@@ -137,11 +142,11 @@ async function restorePostgresInPlace(
       "--if-exists",
       "--no-owner",
       "-U",
-      ctx.username,
+      target.username,
       "-d",
-      ctx.databaseName,
+      target.databaseName,
     ],
-    Env: [`PGPASSWORD=${ctx.password}`],
+    Env: [`PGPASSWORD=${target.password}`],
     AttachStdin: true,
     AttachStdout: true,
     AttachStderr: true,
@@ -182,21 +187,58 @@ async function restorePostgresInPlace(
  * streams it into the live database (pg only) or, for volume runs, replaces the
  * volume's contents — refused while any container still mounts it.
  */
+/**
+ * The database a restore should WRITE to, or null to write back over the
+ * snapshot's own source.
+ *
+ * Scoped to the run's organization: the snapshot is already tied to the caller's
+ * org upstream, but the write target is a separate id and must be re-checked, or
+ * a caller could restore their own snapshot into another tenant's database.
+ */
+async function resolveRestoreTarget(
+  ctx: ExecutionContext,
+  targetResourceId: string | undefined,
+): Promise<DatabaseTarget | null> {
+  if (!targetResourceId) return null;
+  if (ctx.kind === "volume") {
+    throw new Error("a volume snapshot cannot be restored into a database");
+  }
+  if (targetResourceId === ctx.resourceId) return null;
+  const target = await resolveDatabaseTarget(targetResourceId as ResourceId, ctx.organizationId);
+  if (!target) throw new Error("restore target not found, or is not a managed database");
+  if (target.engine !== ctx.engine) {
+    throw new Error(`cannot restore a ${ctx.engine} snapshot into a ${target.engine} database`);
+  }
+  return target;
+}
+
 export async function restoreBackup(input: {
   backupId: string;
   mode: RestoreMode;
   /** Typed-name confirmation, required for the destructive in-place mode.
-   *  Must equal the source's name (resource name/id, or the volume name). The
-   *  UI collects it; we re-check here so a direct API call can't skip the gate. */
+   *  Must equal the name of whatever gets OVERWRITTEN — the target database
+   *  when one is given, otherwise the snapshot's own source. The UI collects
+   *  it; we re-check here so a direct API call can't skip the gate. */
   confirm?: string;
+  /** Restore into this database instead of the one the snapshot came from.
+   *  Database runs only — a volume snapshot has no such notion. */
+  targetResourceId?: string;
 }): Promise<{ ok: true; bytes?: Buffer; filename?: string }> {
   const ctx = await getExecutionContext(input.backupId as ExecutionContext["backupId"]);
   if (!ctx) throw new Error("backup execution context not found");
 
+  // Resolved before the confirmation gate: what the operator has to type is
+  // the name of the thing being overwritten, which differs once there's a target.
+  const target = await resolveRestoreTarget(ctx, input.targetResourceId);
+
   // In-place overwrites live data — require the typed-name confirmation
   // server-side, not just in the dialog.
   if (input.mode === "in-place") {
-    const expected = ctx.kind === "volume" ? [ctx.volumeName] : [ctx.resourceName, ctx.resourceId];
+    const expected = target
+      ? [target.resourceName, target.resourceId]
+      : ctx.kind === "volume"
+        ? [ctx.volumeName]
+        : [ctx.resourceName, ctx.resourceId];
     if (!input.confirm || !expected.includes(input.confirm)) {
       throw new Error(
         `restore confirmation required: type "${expected[0]}" to confirm in-place restore`,
@@ -221,9 +263,18 @@ export async function restoreBackup(input: {
 
   const docker = Docker.fromEnv();
   try {
-    return ctx.kind === "volume"
-      ? await restoreVolumeInPlace(docker, ctx, cli, snapshotId)
-      : await restorePostgresInPlace(docker, ctx, cli, snapshotId);
+    if (ctx.kind === "volume") return await restoreVolumeInPlace(docker, ctx, cli, snapshotId);
+    // No explicit target — write back over the snapshot's own source.
+    const writeTo: DatabaseTarget = target ?? {
+      resourceId: ctx.resourceId,
+      resourceName: ctx.resourceName,
+      projectSlug: ctx.projectSlug,
+      engine: ctx.engine,
+      databaseName: ctx.databaseName,
+      username: ctx.username,
+      password: ctx.password,
+    };
+    return await restorePostgresInPlace(docker, writeTo, cli, snapshotId);
   } finally {
     docker.destroy();
   }

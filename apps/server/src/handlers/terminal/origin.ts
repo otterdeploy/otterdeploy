@@ -35,8 +35,38 @@ function normalize(origin: string): string {
 export function isTrustedOrigin(
   origin: string | null | undefined,
   allowed: readonly string[],
+  /** The upgrade's own `Host`. When the Origin's host equals it, the request is
+   *  same-origin and is trusted without being enumerated — see below. */
+  host?: string | null,
 ): boolean {
   if (!origin) return false;
   const normalizedOrigin = normalize(origin);
-  return allowed.some((candidate) => normalize(candidate) === normalizedOrigin);
+  if (allowed.some((candidate) => normalize(candidate) === normalizedOrigin)) return true;
+  return isSameOrigin(origin, host);
+}
+
+/**
+ * Same-origin requests are trusted without appearing in `CORS_ORIGIN`.
+ *
+ * An install is reachable at several legitimate origins — public IP, LAN IP,
+ * the control-plane domain, a tunnel — and better-auth already accepts all of
+ * them by echoing a same-origin `Origin` (see packages/auth trustedOrigins).
+ * This check did NOT, so adding a control-plane domain left the whole app
+ * working while the terminal alone returned 403 and the UI rendered it as an
+ * endless "connection lost — reconnecting".
+ *
+ * Still CSRF-safe, and for the same reason better-auth's is: a cross-site
+ * attacker's page has its own Origin host, which cannot equal our Host, so it
+ * is never same-origin. And Origin is browser-set — page script cannot forge
+ * it. Authorization itself remains the single-use ticket; this is defence in
+ * depth over that, not the gate.
+ */
+function isSameOrigin(origin: string, host: string | null | undefined): boolean {
+  if (!host) return false;
+  try {
+    return new URL(origin).host.toLowerCase() === host.toLowerCase();
+  } catch {
+    // A malformed Origin is not same-origin — fall through to rejection.
+    return false;
+  }
 }

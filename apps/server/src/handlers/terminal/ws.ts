@@ -216,7 +216,7 @@ export const terminalWebSocketHandler: MiddlewareHandler = async (c, next) => {
   // 1. Origin — cheap, and the one check a malicious cross-site page can
   // never spoof. Runs before touching Redis.
   const origin = c.req.header("origin");
-  if (!isTrustedOrigin(origin, env.CORS_ORIGIN)) {
+  if (!isTrustedOrigin(origin, env.CORS_ORIGIN, c.req.header("host"))) {
     log.warn({
       pty: { event: "origin-rejected", origin: origin ?? "(missing)" },
     });
