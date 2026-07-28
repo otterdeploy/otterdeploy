@@ -47,6 +47,7 @@ import { checkDomainReachability } from "../../lib/domain-reachability";
 import { loadResource } from "./context";
 import {
   acmeFor,
+  acmeForExistingRoute,
   domainUpdatePatch,
   isReservedControlPlaneDomain,
   normalizeDomain,
@@ -182,7 +183,17 @@ export async function recheckServiceDomain(
       ? route.domainVerifiedAt
       : (route.domainVerifiedAt ?? (ownership.ok ? new Date() : null));
   const ownershipVerified = route.source === "generated" || domainVerifiedAt !== null;
-  const usesAcme = ownershipVerified && acmeFor(route.domain, reachability.state);
+  // acmeForExistingRoute, not acmeFor: a recheck must not revoke working TLS
+  // just because DNS now reads `proxied` (e.g. the operator put Cloudflare in
+  // front). See domain-rules.ts.
+  const usesAcme =
+    ownershipVerified &&
+    acmeForExistingRoute({
+      domain: route.domain,
+      dnsState: reachability.state,
+      currentUsesAcme: route.usesAcme,
+      certState: route.certState,
+    });
   const enabled = ownershipVerified && record.service.publicEnabled;
 
   const updated = await updateProxyRoute(input.routeId, {
