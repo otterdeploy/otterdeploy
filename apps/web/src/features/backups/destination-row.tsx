@@ -30,11 +30,8 @@ import { StatusBadge, destIcon, destSub, destUri } from "./shared";
 function DestinationIdentity({ dest }: { dest: Destination }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span className="text-sm font-semibold">{dest.name}</span>
-        <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
-          {destUri(dest)}
-        </span>
         {dest.managed && (
           <span
             className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground"
@@ -44,6 +41,17 @@ function DestinationIdentity({ dest }: { dest: Destination }) {
           </span>
         )}
       </div>
+      {/* The URI gets its own line and TRUNCATES rather than wrapping: it is a
+          single unbreakable token (a bucket URL, an absolute host path), and
+          wrapping turned it into a two-line filled slab that outweighed the
+          destination's own name. The full value stays available on hover and
+          in the editor. */}
+      <span
+        className="block truncate font-mono text-[11px] text-muted-foreground"
+        title={destUri(dest)}
+      >
+        {destUri(dest)}
+      </span>
       <div className="text-[11px] text-muted-foreground">
         {dest.managed
           ? // Honesty over reassurance (PRODUCT.md): this copy exists so nobody
@@ -107,7 +115,10 @@ export function DestinationRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 px-4 py-3.5",
+        // One line from `md`; below it the identity, the usage read-out and
+        // the four controls each take their own row — six items on one line is
+        // ~700px of content in a 358px card.
+        "flex flex-col gap-3 px-4 py-3.5 md:flex-row md:items-center",
         !first && "border-t",
         // A disabled destination takes no new backups. Dimming it keeps that
         // legible at a glance without hiding the row, since its existing
@@ -115,66 +126,83 @@ export function DestinationRow({
         disabled && "opacity-60",
       )}
     >
-      <div className="grid size-8 place-items-center rounded-md border bg-muted/30 text-muted-foreground">
-        <HugeiconsIcon icon={DIcon} className="size-3.5" />
+      {/* Each wrapper is a mobile row and `display:contents` from `md`, so the
+          same children become direct flex items of the one-line desktop row. */}
+      <div className="flex min-w-0 items-start gap-3 md:contents">
+        <div className="grid size-8 shrink-0 place-items-center rounded-md border bg-muted/30 text-muted-foreground">
+          <HugeiconsIcon icon={DIcon} className="size-3.5" />
+        </div>
+        <DestinationIdentity dest={dest} />
       </div>
-      <DestinationIdentity dest={dest} />
-      <div className="flex min-w-40 flex-col items-end gap-0.5">
-        <span className="font-mono text-xs">
-          {usedGB.toFixed(usedGB >= 10 ? 0 : 1)} GB
-          {totalGB ? <span className="text-muted-foreground"> / {totalGB} GB</span> : null}
-        </span>
-        {pct != null && (
-          <div className="mt-1 h-1 w-36 rounded-full bg-muted">
-            <div
-              className={cn("h-full rounded-full", pct > 80 ? "bg-amber-500" : "bg-foreground/60")}
-              style={{ width: `${Math.min(100, pct)}%` }}
-            />
-          </div>
+
+      {/* pl-11 = the 32px icon + 12px gap above it, so every stacked row hangs
+          off the SAME left edge as the destination's name instead of starting
+          under the icon. Dropped at `md`, where these become flex items of the
+          one-line row. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pl-11 md:contents">
+        <div className="flex flex-col items-start gap-0.5 md:min-w-40 md:items-end">
+          <span className="font-mono text-xs">
+            {usedGB.toFixed(usedGB >= 10 ? 0 : 1)} GB
+            {totalGB ? <span className="text-muted-foreground"> / {totalGB} GB</span> : null}
+          </span>
+          {pct != null && (
+            <div className="mt-1 h-1 w-36 rounded-full bg-muted">
+              <div
+                className={cn("h-full rounded-full", pct > 80 ? "bg-amber-500" : "bg-foreground/60")}
+                style={{ width: `${Math.min(100, pct)}%` }}
+              />
+            </div>
+          )}
+        </div>
+        <StatusBadge status={dest.status} />
+      </div>
+
+      {/* pl-9, not pl-11: these are ghost buttons whose own px-2.5 padding
+          carries the rest of the way, so their LABELS line up with the name
+          rather than their invisible box edges. */}
+      <div className="flex flex-wrap items-center gap-1 pl-9 md:pl-0 md:contents">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1.5"
+          title="Validate stored credential"
+          disabled={busy}
+          onClick={test}
+        >
+          <HugeiconsIcon icon={Tick02Icon} className="size-3.5" />
+          Test
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={busy}
+          title={
+            disabled
+              ? "Resume sending backups here"
+              : "Stop sending new backups here. Existing snapshots stay restorable."
+          }
+          onClick={toggleEnabled}
+        >
+          {disabled ? "Enable" : "Disable"}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          title={dest.managed ? "Rename" : "Edit"}
+          onClick={onEdit}
+        >
+          <HugeiconsIcon icon={Settings01Icon} className="size-3.5" />
+        </Button>
+        {/* No delete for the managed destination — it must always exist, or the
+            org is back to "configure storage before you can back anything up".
+            Disable is the escape hatch. */}
+        {!dest.managed && (
+          <Button variant="ghost" size="icon" className="size-7" title="Delete" onClick={remove}>
+            <HugeiconsIcon icon={Delete02Icon} className="size-3.5" />
+          </Button>
         )}
       </div>
-      <StatusBadge status={dest.status} />
-      <Button
-        variant="ghost"
-        size="sm"
-        className="gap-1.5"
-        title="Validate stored credential"
-        disabled={busy}
-        onClick={test}
-      >
-        <HugeiconsIcon icon={Tick02Icon} className="size-3.5" />
-        Test
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        disabled={busy}
-        title={
-          disabled
-            ? "Resume sending backups here"
-            : "Stop sending new backups here. Existing snapshots stay restorable."
-        }
-        onClick={toggleEnabled}
-      >
-        {disabled ? "Enable" : "Disable"}
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-7"
-        title={dest.managed ? "Rename" : "Edit"}
-        onClick={onEdit}
-      >
-        <HugeiconsIcon icon={Settings01Icon} className="size-3.5" />
-      </Button>
-      {/* No delete for the managed destination — it must always exist, or the
-          org is back to "configure storage before you can back anything up".
-          Disable is the escape hatch. */}
-      {!dest.managed && (
-        <Button variant="ghost" size="icon" className="size-7" title="Delete" onClick={remove}>
-          <HugeiconsIcon icon={Delete02Icon} className="size-3.5" />
-        </Button>
-      )}
     </div>
   );
 }

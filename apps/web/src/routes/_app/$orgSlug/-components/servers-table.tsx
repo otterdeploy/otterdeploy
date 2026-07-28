@@ -29,6 +29,7 @@ import {
 } from "@/shared/components/ui/table";
 
 import { ServerRow, type ServerRowStats } from "./servers-row";
+import { ServerMobileRow } from "./servers-row-mobile";
 
 export function ServersTable({
   servers,
@@ -78,7 +79,24 @@ export function ServersTable({
     // min-w-0 so the ~900px of fixed column widths below scroll inside the
     // card's own overflow-x-auto instead of widening the page.
     <Card className="min-w-0 gap-0 overflow-hidden rounded-md p-0">
-      <Table>
+      {/* Below `md` the table's fixed columns would be a sideways scroll on a
+          phone, so the same rows render stacked instead. One card, divided
+          rows — not a card per server, which would nest cards. */}
+      <div className="divide-y divide-border/60 md:hidden">
+        {servers.map((server) => (
+          <ServerMobileRow
+            key={server.id}
+            server={server}
+            stats={statsByServer.get(server.id) ?? null}
+            health={healthByServer.get(server.id) ?? null}
+            node={nodesByServer.get(server.id) ?? null}
+            onOpen={() => onOpenServer(server.id)}
+            onReAdd={onReAdd}
+          />
+        ))}
+      </div>
+
+      <Table className="hidden md:table">
         <TableHeader>
           <TableRow className="bg-muted/50 hover:bg-muted/50">
             <TableHead className="pl-4">Hostname</TableHead>

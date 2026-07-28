@@ -53,7 +53,12 @@ function RootComponent() {
         storageKey="vite-ui-theme"
       >
         <TooltipProvider>
-          <div className="grid h-svh grid-rows-[auto_1fr]">
+          {/* grid-cols-[minmax(0,1fr)], not the implicit `1fr`: a grid item's
+              default `min-width:auto` floors it at min-content, so ONE wide
+              child deep in the tree (a fixed-column table, a long log line)
+              stretched the whole app past the viewport on a phone — header,
+              tiles and all — instead of scrolling inside its own container. */}
+          <div className="grid h-svh grid-cols-[minmax(0,1fr)] grid-rows-[auto_1fr]">
             <Outlet />
           </div>
           <Toaster richColors />

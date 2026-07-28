@@ -64,85 +64,100 @@ export function BackupRow({
 
   return (
     <div className="border-b last:border-b-0">
+      {/* Below `md` the nine columns stack into four labelled lines; from `md`
+          the wrappers go `display:contents` so the SAME cells become the grid's
+          own items and the column track lines up with the header. One markup,
+          two layouts — the alternative (a second mobile row component) drifts
+          the moment a column is added. */}
       <button
         type="button"
-        className={cn("grid w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted/30", COLS)}
+        className={cn(
+          "flex w-full flex-col gap-1.5 px-3 py-2.5 text-left hover:bg-muted/30",
+          "md:grid md:items-center md:gap-2 md:py-2",
+          COLS,
+        )}
         onClick={() => setExpanded((v) => !v)}
       >
-        <span className="flex min-w-0 items-center gap-2">
-          <HugeiconsIcon icon={KIcon} className="size-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate font-mono text-xs font-medium">
-            {b.source ?? b.volumeName ?? b.resourceId ?? "—"}
-          </span>
-          <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-            {kindLabel(b.kind)}
-          </span>
-        </span>
-        <span>
-          <ProjectTagBadge id={b.project ?? "—"} />
-        </span>
-        <span
-          className="font-mono text-[11px] text-muted-foreground"
-          title={absTime(backupWhen(b))}
-        >
-          {relTime(backupWhen(b))}
-        </span>
-        <span className="font-mono text-[11px] text-foreground/80">
-          {fmtDuration(b.durationMs)}
-        </span>
-        <span className="font-mono text-[11px] text-foreground/80">
-          {fmtBytes(b.compressedSizeBytes)}
-        </span>
-        <span className="flex min-w-0 items-center gap-1.5">
-          <HugeiconsIcon icon={DIcon} className="size-3 shrink-0 text-muted-foreground" />
-          <span className="truncate font-mono text-[11px] text-foreground/80">
-            {b.destinationName ?? "—"}
-          </span>
-        </span>
-        <span>
-          {b.encryption !== "none" ? (
-            <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[10px] text-emerald-500">
-              <HugeiconsIcon icon={SquareLock01Icon} className="size-2.5" />
-              {encLabel(b.encryption)}
+        <span className="flex min-w-0 items-center justify-between gap-2 md:contents">
+          <span className="flex min-w-0 items-center gap-2">
+            <HugeiconsIcon icon={KIcon} className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="truncate font-mono text-xs font-medium">
+              {b.source ?? b.volumeName ?? b.resourceId ?? "—"}
             </span>
-          ) : (
-            <span className="font-mono text-[11px] text-muted-foreground">—</span>
-          )}
+            <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+              {kindLabel(b.kind)}
+            </span>
+          </span>
+          <span className="shrink-0">
+            <ProjectTagBadge id={b.project ?? "—"} />
+          </span>
         </span>
-        <span>
-          <StatusBadge status={b.status} />
+
+        <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1 md:contents">
+          <span
+            className="font-mono text-[11px] text-muted-foreground"
+            title={absTime(backupWhen(b))}
+          >
+            {relTime(backupWhen(b))}
+          </span>
+          <span className="font-mono text-[11px] text-foreground/80">
+            {fmtDuration(b.durationMs)}
+          </span>
+          <span className="font-mono text-[11px] text-foreground/80">
+            {fmtBytes(b.compressedSizeBytes)}
+          </span>
+          <span className="flex min-w-0 items-center gap-1.5">
+            <HugeiconsIcon icon={DIcon} className="size-3 shrink-0 text-muted-foreground" />
+            <span className="truncate font-mono text-[11px] text-foreground/80">
+              {b.destinationName ?? "—"}
+            </span>
+          </span>
         </span>
-        <span
-          className="flex items-center justify-end gap-0.5"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-6"
-            title="Restore"
-            disabled={!succeeded}
-            onClick={() => onRestore(b)}
-          >
-            <HugeiconsIcon icon={Refresh01Icon} className="size-3" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-6"
-            title="Download"
-            disabled={!succeeded || downloading}
-            onClick={download}
-          >
-            <HugeiconsIcon icon={Download01Icon} className="size-3" />
-          </Button>
-          <HugeiconsIcon
-            icon={ArrowRight01Icon}
-            className={cn(
-              "ml-1 size-3 text-muted-foreground transition-transform",
-              expanded && "rotate-90",
+
+        <span className="flex items-center justify-between gap-2 md:contents">
+          <span className="flex items-center gap-2">
+            {b.encryption !== "none" ? (
+              <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[10px] text-emerald-500">
+                <HugeiconsIcon icon={SquareLock01Icon} className="size-2.5" />
+                {encLabel(b.encryption)}
+              </span>
+            ) : (
+              <span className="font-mono text-[11px] text-muted-foreground">—</span>
             )}
-          />
+            <StatusBadge status={b.status} />
+          </span>
+          <span
+            className="flex items-center justify-end gap-0.5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-6"
+              title="Restore"
+              disabled={!succeeded}
+              onClick={() => onRestore(b)}
+            >
+              <HugeiconsIcon icon={Refresh01Icon} className="size-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-6"
+              title="Download"
+              disabled={!succeeded || downloading}
+              onClick={download}
+            >
+              <HugeiconsIcon icon={Download01Icon} className="size-3" />
+            </Button>
+            <HugeiconsIcon
+              icon={ArrowRight01Icon}
+              className={cn(
+                "ml-1 size-3 text-muted-foreground transition-transform",
+                expanded && "rotate-90",
+              )}
+            />
+          </span>
         </span>
       </button>
       {expanded && <BackupDetail backup={b} onRestore={onRestore} />}
