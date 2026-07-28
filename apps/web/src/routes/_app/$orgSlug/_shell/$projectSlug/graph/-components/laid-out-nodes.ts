@@ -9,6 +9,7 @@ import type { Node } from "@xyflow/react";
 
 import {
   incrementalLayout,
+  NODE_WIDTH,
   resolveNewCollisions,
   topologySignature,
   type XY,
@@ -17,8 +18,9 @@ import { orpc } from "@/shared/server/orpc";
 
 import type { useGraphModel } from "./graph-model";
 
-// Approx card width for satellite placement. Keep in sync with ResourceNode.
-export const CARD_W = 420;
+// Satellite placement measures the same card the layout does — re-exported
+// rather than duplicated, so shrinking the card can't leave the two disagreeing.
+export const CARD_W = NODE_WIDTH;
 
 type Model = ReturnType<typeof useGraphModel>;
 type LiveNode = Model["liveNodes"][number];

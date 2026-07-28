@@ -75,6 +75,55 @@ export function preloadNodeRoute(
     .catch(() => {});
 }
 
+/**
+ * Bring a newly-created node into view.
+ *
+ * Layout places a new node wherever dagre decides, which is frequently outside
+ * the current viewport — so creating a resource appeared to do nothing at all:
+ * the card existed, just off-screen, with no cue about where. `fitView` only
+ * ran on mount and on panel close, never on a node appearing.
+ *
+ * Only acts when the new node is actually off-screen. Refitting unconditionally
+ * would yank the camera (and the user's chosen zoom) on every create, including
+ * the common case where the card landed somewhere already visible.
+ */
+export function useRevealNewNodes(
+  nodes: Node[],
+  fitView: ReturnType<typeof useReactFlow>["fitView"],
+  getViewport: ReturnType<typeof useReactFlow>["getViewport"],
+): void {
+  // Undefined until the first pass, so the initial load — which `fitView`
+  // already frames — isn't mistaken for a burst of new nodes.
+  const seen = useRef<Set<string> | undefined>(undefined);
+  useEffect(() => {
+    const ids = new Set(nodes.map((n) => n.id));
+    const previous = seen.current;
+    seen.current = ids;
+    if (!previous) return;
+    const fresh = nodes.filter((n) => !previous.has(n.id));
+    if (fresh.length === 0) return;
+    if (fresh.every((n) => isNodeOnScreen(n, getViewport()))) return;
+    void fitView({ padding: 0.2, duration: 400 });
+  }, [nodes, fitView, getViewport]);
+}
+
+/** Is the node's box inside the visible canvas, in screen space? */
+function isNodeOnScreen(node: Node, viewport: { x: number; y: number; zoom: number }): boolean {
+  const wrapper = document.querySelector(".react-flow");
+  const width = wrapper?.clientWidth ?? 0;
+  const height = wrapper?.clientHeight ?? 0;
+  // Can't measure the canvas — assume off-screen so we reveal rather than
+  // silently leave the node somewhere the user can't find.
+  if (!width || !height) return false;
+  const w = node.measured?.width ?? CARD_W;
+  const h = node.measured?.height ?? CARD_H;
+  const left = node.position.x * viewport.zoom + viewport.x;
+  const top = node.position.y * viewport.zoom + viewport.y;
+  return (
+    left >= 0 && top >= 0 && left + w * viewport.zoom <= width && top + h * viewport.zoom <= height
+  );
+}
+
 /** Whether a right-hand detail panel (resource or preview) is open — and, on the
  *  open→closed transition, refit the whole graph into view so the user gets the
  *  wide overview instead of staying parked on the previously-focused node. */

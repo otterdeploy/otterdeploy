@@ -2,10 +2,11 @@
  * Expanded detail drawer for one backup run. Reads its own log lines on demand
  * (real `backups.logs` query — no fake preview).
  */
-import { Alert02Icon } from "@hugeicons/core-free-icons";
+import { Alert02Icon, DatabaseRestoreIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
 
+import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
@@ -13,7 +14,13 @@ import type { Backup } from "./data/backups";
 
 import { fmtBytes } from "./shared";
 
-export function BackupDetail({ backup }: { backup: Backup }) {
+export function BackupDetail({
+  backup,
+  onRestore,
+}: {
+  backup: Backup;
+  onRestore: (backup: Backup) => void;
+}) {
   const sourceBytes = backup.sourceSizeBytes ?? 0;
   const compressedBytes = backup.compressedSizeBytes ?? 0;
   const ratio =
@@ -23,6 +30,22 @@ export function BackupDetail({ backup }: { backup: Backup }) {
 
   return (
     <div className="border-t bg-muted/30 px-4 py-3.5">
+      {/* The row's restore control is a 24px ghost icon with only a tooltip —
+          effectively invisible, and a refresh glyph reads as "retry" rather
+          than "restore". Restoring a database is the whole point of having
+          backups, so it gets a named button where there's room for one. */}
+      {backup.status === "succeeded" ? (
+        <div className="mb-3.5 flex flex-wrap items-center gap-2">
+          <Button size="sm" className="h-8 gap-1.5" onClick={() => onRestore(backup)}>
+            <HugeiconsIcon icon={DatabaseRestoreIcon} strokeWidth={2} className="size-3.5" />
+            Restore from this backup
+          </Button>
+          <span className="text-[11px] text-muted-foreground">
+            Opens the restore wizard — you choose the target before anything is written.
+          </span>
+        </div>
+      ) : null}
+
       <div className="mb-3 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
         <DetailField label="Backup ID" value={backup.id} mono />
         <DetailField label="Method" value={backup.method ?? "—"} mono />

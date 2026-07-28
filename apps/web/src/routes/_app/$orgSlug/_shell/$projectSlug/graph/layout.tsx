@@ -24,7 +24,12 @@ import {
 import { resourceCollection } from "@/features/resources/data/resource";
 import { orpc } from "@/shared/server/orpc";
 
-import { focusNodeInView, preloadNodeRoute, useDetailPanelRefit } from "./-components/graph-camera";
+import {
+  focusNodeInView,
+  preloadNodeRoute,
+  useDetailPanelRefit,
+  useRevealNewNodes,
+} from "./-components/graph-camera";
 import { useGraphContextMenu } from "./-components/graph-context-menu-actions";
 import { useBoundedGraph } from "./-components/graph-extent";
 import { GraphFlow } from "./-components/graph-flow";
@@ -43,14 +48,18 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/graph")
 });
 
 function RouteComponent() {
-  // AnimatePresence only sees its DIRECT children — passing <Outlet /> with
-  // no key would never trigger an exit since the same element re-renders
-  // on every navigation. Keying by the active immediate child match (or
-  // omitting the Outlet entirely when no child is active) makes the
-  // presence change visible to motion so the panel can slide out before
-  // it unmounts.
+  // AnimatePresence only sees its DIRECT children, so the drawer is rendered
+  // conditionally: present while a child route matches, absent otherwise. That
+  // presence flip is what lets it slide out before unmounting.
+  //
+  // What it is deliberately NOT keyed on is *which* child matched. Keying by
+  // pathname made every resource-to-resource click a full exit + re-enter —
+  // panel A slid away, then panel B slid back in — when the drawer never left
+  // the screen conceptually. It animates once on open and once on close; a
+  // switch between resources just swaps the Outlet's contents inside the
+  // already-open drawer.
   const childMatches = useChildMatches();
-  const childKey = childMatches[0]?.pathname ?? null;
+  const panelOpen = childMatches.length > 0;
   const { orgSlug, projectSlug } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
 
@@ -81,14 +90,14 @@ function RouteComponent() {
               phone the drawer covers the whole canvas instead, so it starts at
               the top edge. */}
           <div className="pointer-events-none absolute inset-0 top-0 z-10 flex size-full items-end justify-end sm:top-10">
-            <AnimatePresence mode="wait">
-              {childKey ? (
+            <AnimatePresence>
+              {panelOpen ? (
                 // The drawer itself is OURS, not the child route's — see
                 // panel-shell.tsx. The child routes set `pendingMs: 0`, so
-                // `childKey` flips the moment a node is clicked and the drawer
+                // `panelOpen` flips the moment a node is clicked and the drawer
                 // starts sliding in while the child is still pending; its
                 // skeleton renders inside this already-animating shell.
-                <GraphPanelShell key={childKey} orgSlug={orgSlug} projectSlug={projectSlug}>
+                <GraphPanelShell key="graph-panel" orgSlug={orgSlug} projectSlug={projectSlug}>
                   <Outlet />
                 </GraphPanelShell>
               ) : null}
@@ -114,7 +123,7 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
   const router = useRouter();
   const { orgSlug, projectSlug } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
-  const { setCenter, fitView } = useReactFlow();
+  const { setCenter, fitView, getViewport } = useReactFlow();
   const overlay = useResourceOverlay();
 
   const { liveNodes, liveEdges, traffic } = useGraphModel(project);
@@ -215,6 +224,10 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
     useBoundedGraph(laidOutNodes, layoutCache);
 
   const panelOpen = useDetailPanelRefit(fitView);
+  // A node created after load lands wherever dagre puts it, which is often
+  // outside the current viewport — reveal it instead of leaving the operator
+  // to hunt for a card they were just told was created.
+  useRevealNewNodes(boundedNodes, fitView, getViewport);
 
   // A resource panel (or preview/deployment overlay) is open — collapse the
   // bottom drawer so its content isn't squeezed into a ~6-line sliver behind

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   incrementalLayout,
+  NODE_WIDTH,
   resolveNewCollisions,
   topologySignature,
   type XY,
@@ -19,7 +20,7 @@ const node = (id: string): Node => ({
 const noEdges: Edge[] = [];
 
 // Default resource card footprint the layout uses (NODE_WIDTH × NODE_HEIGHT).
-const W = 420;
+const W = NODE_WIDTH;
 const H = 220;
 
 // Strict geometric overlap (no gap) between two default-size cards at p and q.

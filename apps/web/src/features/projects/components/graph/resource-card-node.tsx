@@ -185,7 +185,7 @@ export function ResourceCardNode({ id, data, selected, dragging }: NodeProps<Res
 
       <div
         className={cn(
-          "w-92 overflow-hidden rounded-2xl border bg-card shadow-[0_24px_60px_-30px_rgba(0,0,0,0.45)] transition-all",
+          "w-84 overflow-hidden rounded-2xl border bg-card shadow-[0_24px_60px_-30px_rgba(0,0,0,0.45)] transition-all",
           selected && "ring-2 ring-ring/40",
           // Pending markers — visible state for staged manifest changes. Render
           // this on the node itself so the operator sees the diff without

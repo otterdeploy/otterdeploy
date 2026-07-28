@@ -12,8 +12,10 @@ import dagre from "dagre";
 // Match the rendered ResourceNode card so dagre's overlap detection is
 // accurate. Width matches `w-92` (368px) plus the implicit padding; height is
 // a rough average since cards grow with replicas/mounts trays.
-const NODE_WIDTH = 420;
-const NODE_HEIGHT = 220;
+// Exported so the collision/extent code and the tests measure the same card
+// instead of each carrying their own copy of the number.
+export const NODE_WIDTH = 388;
+export const NODE_HEIGHT = 220;
 const RANK_SEP = 140;
 const NODE_SEP = 80;
 

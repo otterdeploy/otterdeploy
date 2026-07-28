@@ -145,7 +145,7 @@ export function BackupRow({
           />
         </span>
       </button>
-      {expanded && <BackupDetail backup={b} />}
+      {expanded && <BackupDetail backup={b} onRestore={onRestore} />}
     </div>
   );
 }

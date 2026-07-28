@@ -89,6 +89,10 @@ export function GraphFlow({
       translateExtent={translateExtent}
       fitView
       fitViewOptions={{ padding: 0.2 }}
+      // Wider than React Flow's 0.5–2 default: 0.2 lets a large stack fit on
+      // one screen, 2.5 keeps a single card readable when zoomed in.
+      minZoom={0.2}
+      maxZoom={2.5}
       proOptions={{ hideAttribution: true }}
       defaultEdgeOptions={{ type: "smoothstep" }}
       onNodeDragStart={onNodeDragStart}
