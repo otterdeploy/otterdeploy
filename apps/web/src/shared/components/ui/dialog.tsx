@@ -55,19 +55,43 @@ function DialogContent({
           // takes its automatic minimum from content, so wide children (a long
           // title, a code block, a table) stretch the dialog past max-w-sm.
           "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 grid-cols-[minmax(0,1fr)] gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-[50ms] outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          // A tall form (Add server runs ~1200px) in a centred dialog with no
+          // height cap hangs off BOTH ends of a phone screen — half the fields
+          // above the top edge, the submit buttons below the bottom, and no way
+          // to reach either, because the page behind is what scrolls. Cap the
+          // popup to the viewport and let its own content scroll.
+          // `svh`, not `vh`: mobile browser chrome makes `vh` taller than what
+          // is actually on screen, which would re-hide the footer it exists to
+          // protect. overscroll-contain keeps the page behind from scrolling
+          // once the dialog hits its end.
+          "max-h-[calc(100svh-2rem)] overflow-y-auto overscroll-contain",
           className,
         )}
         {...props}
       >
         {children}
         {showCloseButton && (
-          <DialogPrimitive.Close
-            data-slot="dialog-close"
-            render={<Button variant="ghost" className="absolute top-2 right-2" size="icon-sm" />}
-          >
-            <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
-            <span className="sr-only">Close</span>
-          </DialogPrimitive.Close>
+          // Sticky, not absolute: the popup is now the scroll container, and an
+          // absolutely-positioned close sits at the top of the CONTENT — it
+          // scrolls out of sight the moment a tall dialog is scrolled. Parked
+          // in the first grid cell at zero height so it overlays the header
+          // instead of taking a row of its own, and pinned there while the rest
+          // scrolls under it.
+          <div className="pointer-events-none sticky top-0 z-10 col-start-1 row-start-1 h-0 justify-self-end">
+            <DialogPrimitive.Close
+              data-slot="dialog-close"
+              render={
+                <Button
+                  variant="ghost"
+                  className="pointer-events-auto -mt-2 -mr-2"
+                  size="icon-sm"
+                />
+              }
+            >
+              <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
+              <span className="sr-only">Close</span>
+            </DialogPrimitive.Close>
+          </div>
         )}
       </DialogPrimitive.Popup>
     </DialogPortal>
