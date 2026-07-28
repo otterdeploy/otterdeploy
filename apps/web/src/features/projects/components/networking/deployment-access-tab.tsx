@@ -17,7 +17,10 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
-import { ProtectionSwitch } from "@/features/projects/components/networking/protection-switch";
+import {
+  ProtectionStateLabel,
+  ProtectionSwitch,
+} from "@/features/projects/components/networking/protection-switch";
 import { RouteAccessControls } from "@/features/projects/components/networking/route-access-controls";
 import { Card } from "@/shared/components/ui/card";
 import {
@@ -172,9 +175,7 @@ function DeploymentAccessPanel({ route, projectId }: { route: AccessRoute; proje
           </a>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <span className="font-mono text-[11px] text-muted-foreground">
-            {route.protected ? "login required" : "public"}
-          </span>
+          <ProtectionStateLabel isProtected={route.protected} />
           <ProtectionSwitch route={route} projectId={projectId} />
         </div>
       </div>

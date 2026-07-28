@@ -12,6 +12,22 @@ import { toast } from "sonner";
 import { proxyRoutesCollection } from "@/features/projects/data/proxy-routes";
 import { Switch } from "@/shared/components/ui/switch";
 
+/**
+ * The word beside the switch, in a box sized to the longer of the two states.
+ *
+ * "public" and "login required" differ by eight monospace characters, so an
+ * intrinsically-sized label moved the switch out from under the pointer on
+ * every toggle — and in the Routes table it resized the shared column with it.
+ * Both call sites get the fixed box from here rather than repeating the width.
+ */
+export function ProtectionStateLabel({ isProtected }: { isProtected: boolean }) {
+  return (
+    <span className="w-[14ch] shrink-0 font-mono text-[11px] text-muted-foreground">
+      {isProtected ? "login required" : "public"}
+    </span>
+  );
+}
+
 export function ProtectionSwitch({
   route,
 }: {

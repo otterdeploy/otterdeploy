@@ -1,7 +1,7 @@
 import type { ProxyRouteId } from "@otterdeploy/shared/id";
 import type { RoutePolicy } from "@otterdeploy/shared/route-policy";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import { Settings02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -22,11 +22,27 @@ import {
 } from "@/shared/components/ui/dialog";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select";
 import { Switch } from "@/shared/components/ui/switch";
 import { Textarea } from "@/shared/components/ui/textarea";
 
 const copyPolicy = (policy: RoutePolicy): RoutePolicy => ({ ...policy });
 
+/**
+ * One policy dropdown.
+ *
+ * Uses the app's Select rather than a bare `<select>`: the native control paints
+ * its popup from the OS, so it ignored the theme entirely — a light system menu
+ * over the dark dialog, with the platform's own chevron next to our tokens. The
+ * options here are also long enough ("Strict origin when cross-origin") to need
+ * the popup width our Select gives them.
+ */
 function SelectField<T extends string>({
   label,
   value,
@@ -38,20 +54,24 @@ function SelectField<T extends string>({
   options: Array<{ value: T; label: string }>;
   onChange: (value: T) => void;
 }) {
+  const id = useId();
   return (
     <div className="grid gap-1.5">
-      <Label>{label}</Label>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value as T)}
-        className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+      <Label htmlFor={id}>{label}</Label>
+      {/* `items` is what lets the trigger show the option's label instead of
+          its wire value — "Same origin", not "same-origin". */}
+      <Select value={value} onValueChange={(next) => onChange(next as T)} items={options}>
+        <SelectTrigger id={id} className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
