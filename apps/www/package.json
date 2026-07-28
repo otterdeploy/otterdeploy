@@ -11,6 +11,7 @@
     "postinstall": "fumadocs-mdx",
     "serve": "vite preview",
     "start": "vite preview",
+    "test": "bun test ./src",
     "typecheck": "fumadocs-mdx && tsr generate && tsc --noEmit --checkers 4"
   },
   "dependencies": {
