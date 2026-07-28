@@ -24,6 +24,7 @@ import type { ProvisionInitialValues } from "@/features/servers/components/serve
 
 import { LiveHealthCell } from "./servers-live-cell";
 import { RoleBadge, ServerNameCell, StatusBadge, UsageBars } from "./servers-row-cells";
+import { ServerDeleteButton } from "./servers-row-delete";
 import { ProvisionRetryCell } from "./servers-row-retry";
 
 export interface ServerRowStats {
@@ -103,6 +104,7 @@ export function ServerRow({
       <TableCell className="pr-3">
         <div className="flex items-center justify-end gap-2">
           <ProvisionRetryCell server={server} onReAdd={onReAdd} />
+          <ServerDeleteButton server={server} />
           <HugeiconsIcon
             icon={ArrowRight01Icon}
             strokeWidth={2}
