@@ -15,6 +15,7 @@
  */
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -71,7 +72,8 @@ export function EnterpriseSsoSignIn() {
         e.preventDefault();
         const trimmed = email.trim();
         if (!trimmed.includes("@")) {
-          toast.error("Enter your work email address");
+          const { t } = useTranslation();
+          toast.error(t("auth.sso.enterWorkEmail"));
           return;
         }
         start.mutate(trimmed);

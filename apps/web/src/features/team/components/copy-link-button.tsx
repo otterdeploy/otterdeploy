@@ -5,6 +5,7 @@
  */
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Copy01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -23,15 +24,16 @@ export function CopyLinkButton({
   label?: string;
   className?: string;
 }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const copy = () => {
     void copyToClipboard(link).then((ok) => {
       if (!ok) {
-        toast.error("Couldn't copy invite link");
+        toast.error(t("team.copyInviteFailed"));
         return;
       }
       setCopied(true);
-      toast.success("Invite link copied");
+      toast.success(t("team.inviteLinkCopied"));
       setTimeout(() => setCopied(false), 1500);
     });
   };
@@ -55,7 +57,7 @@ export function CopyLinkButton({
       size="icon"
       className={cn("size-7 text-muted-foreground", className)}
       onClick={copy}
-      aria-label="Copy invite link"
+      aria-label={t("team.copyInviteLink")}
     >
       <HugeiconsIcon
         icon={copied ? Tick02Icon : Copy01Icon}

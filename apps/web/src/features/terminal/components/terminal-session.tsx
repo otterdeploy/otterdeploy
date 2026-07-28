@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 
 // @ts-expect-error — CSS-only side-effect import; @wterm/react ships a
 // `/css` entry that Vite injects. No type declarations.
@@ -43,6 +44,7 @@ function targetLabel(source: SessionSource): string {
 }
 
 export function TerminalSession({ source, active, onConnChange }: Props) {
+  const { t } = useTranslation();
   const { ref, write } = useTerminal();
   const { wsRef, hasOutput, stepUpPromptOpen, resolveStepUp, cancelStepUp } = useShellConnection(
     source,
@@ -114,7 +116,7 @@ export function TerminalSession({ source, active, onConnChange }: Props) {
       {showConnecting ? (
         <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-[oklch(0.12_0_0)]">
           <Spinner className="size-4 text-muted-foreground" />
-          <span className="font-mono text-[11px] text-muted-foreground">Connecting…</span>
+          <span className="font-mono text-[11px] text-muted-foreground">{t("terminal.connecting")}</span>
         </div>
       ) : null}
       <StepUpDialog

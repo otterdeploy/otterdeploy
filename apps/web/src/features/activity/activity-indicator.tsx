@@ -16,6 +16,7 @@
  */
 
 import { Loading03Icon, Queue01Icon } from "@hugeicons/core-free-icons";
+import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link } from "@tanstack/react-router";
 
@@ -121,13 +122,14 @@ function ActivityRow({
 }
 
 export function ActivityIndicator({ orgSlug }: { orgSlug: string }) {
+  const { t } = useTranslation();
   const { items, building, queued, total, builderStalled, busy, fetchedAt } = useDeployActivity();
 
   // Idle workspace → no control at all. See the module comment.
   if (!busy) return null;
 
-  const label = `Activity — ${summary(building, queued)}${
-    builderStalled ? ", builder not responding" : ""
+  const label = `${t("activity.title")} — ${summary(building, queued)}${
+    builderStalled ? t("activity.builderStalledSuffix") : ""
   }`;
 
   return (
@@ -171,7 +173,7 @@ export function ActivityIndicator({ orgSlug }: { orgSlug: string }) {
 
       <PopoverContent align="end" className="w-80 max-w-[92vw] gap-0 p-0">
         <div className="flex h-9 items-center justify-between border-b px-3">
-          <span className="text-[13px] font-medium">Activity</span>
+          <span className="text-[13px] font-medium">{t("activity.title")}</span>
           <span className="font-mono text-[10px] text-muted-foreground">
             {summary(building, queued)}
           </span>

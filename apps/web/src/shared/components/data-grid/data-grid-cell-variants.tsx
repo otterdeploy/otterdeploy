@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 
 import { toast } from "sonner";
 
@@ -235,6 +236,7 @@ export function LongTextCell<TData>({
   isActiveSearchMatch,
   readOnly,
 }: DataGridCellProps<TData>) {
+  const { t } = useTranslation();
   const initialValue = cell.getValue() as string;
   const [value, setValue] = React.useState(initialValue ?? "");
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
@@ -395,7 +397,7 @@ export function LongTextCell<TData>({
         className="w-[min(400px,calc(100vw-2rem))] rounded-none p-0"
       >
         <Textarea
-          placeholder="Enter text..."
+          placeholder={t("dataGrid.enterText")}
           className="max-h-[300px] min-h-[150px] resize-none overflow-y-auto rounded-none border-0 shadow-none focus-visible:ring-1 focus-visible:ring-ring"
           ref={textareaRef}
           value={value}
@@ -990,6 +992,7 @@ export function MultiSelectCell<TData>({
   isActiveSearchMatch,
   readOnly,
 }: DataGridCellProps<TData>) {
+  const { t } = useTranslation();
   const cellValue = React.useMemo(() => {
     const value = cell.getValue() as string[];
     return value ?? [];
@@ -1194,12 +1197,12 @@ export function MultiSelectCell<TData>({
                   value={searchValue}
                   onValueChange={setSearchValue}
                   onKeyDown={onInputKeyDown}
-                  placeholder="Search..."
+                  placeholder={t("dataGrid.search")}
                   className="h-auto flex-1 p-0"
                 />
               </div>
               <CommandList className="max-h-full">
-                <CommandEmpty>No options found.</CommandEmpty>
+                <CommandEmpty>{t("dataGrid.noOptions")}</CommandEmpty>
                 <CommandGroup className="max-h-[300px] scroll-py-1 overflow-x-hidden overflow-y-auto">
                   {options.map((option) => {
                     const isSelected = selectedValuesSet.has(option.value);
@@ -1381,6 +1384,7 @@ export function FileCell<TData>({
   isActiveSearchMatch,
   readOnly,
 }: DataGridCellProps<TData>) {
+  const { t } = useTranslation();
   const cellValue = React.useMemo(() => (cell.getValue() as FileCellData[]) ?? [], [cell]);
 
   const cellKey = getCellKey(rowIndex, columnId);
@@ -1893,7 +1897,7 @@ export function FileCell<TData>({
                   <p className="font-medium">
                     {isDragging ? "Drop files here" : "Drag files here"}
                   </p>
-                  <p className="text-xs text-muted-foreground">or click to browse</p>
+                  <p className="text-xs text-muted-foreground">{t("dataGrid.clickToBrowse")}</p>
                 </div>
                 <p id={descriptionId} className="text-xs text-muted-foreground">
                   {maxFileSize
@@ -1978,7 +1982,7 @@ export function FileCell<TData>({
       {isDraggingOver ? (
         <div className="flex items-center justify-center gap-2 text-sm text-primary">
           <Upload className="size-4" />
-          <span>Drop files here</span>
+          <span>{t("dataGrid.dropFiles")}</span>
         </div>
       ) : files.length > 0 ? (
         <div className="flex flex-wrap items-center gap-1 overflow-hidden">

@@ -65,7 +65,12 @@ export function PageHeader({
     // flex-wrap so the action buttons drop under the title on a phone rather
     // than squeezing it — several pages carry two of them ("Enroll" + "Add
     // server"), which is wider than the space left beside a title.
-    <header className={cn("flex flex-wrap items-end justify-between gap-x-4 gap-y-3", className)}>
+    <header
+      // Every page's title block answers "where am I" the same way, so the
+      // product tour anchors to it generically rather than per-page.
+      data-tour="page-header"
+      className={cn("flex flex-wrap items-end justify-between gap-x-4 gap-y-3", className)}
+    >
       <div className="min-w-0 flex-1">
         <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{title}</h1>
         {description ? (

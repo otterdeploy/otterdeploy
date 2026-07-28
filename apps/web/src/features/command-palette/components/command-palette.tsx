@@ -7,6 +7,7 @@ import {
   Sun02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useMatch, useNavigate, useParams } from "@tanstack/react-router";
@@ -83,6 +84,7 @@ function makeGoHandlers(opts: {
 }
 
 export function CommandPalette() {
+  const { t } = useTranslation();
   const { open, setOpen } = useCommandPalette();
   const navigate = useNavigate();
   const { orgSlug, projectSlug } = useParams({ strict: false });
@@ -139,17 +141,17 @@ export function CommandPalette() {
         <div className="flex items-center gap-2 border-b px-3 py-2.5">
           <HugeiconsIcon icon={SearchIcon} strokeWidth={2} className="size-4 shrink-0 opacity-50" />
           <CommandPrimitive.Input
-            placeholder="Type a command or search…"
+            placeholder={t("commandPalette.placeholder")}
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
           <Kbd>esc</Kbd>
         </div>
 
         <CommandList>
-          <CommandEmpty>No matching command.</CommandEmpty>
+          <CommandEmpty>{t("commandPalette.noResults")}</CommandEmpty>
 
           {inProject && (
-            <CommandGroup heading="This project">
+            <CommandGroup heading={t("commandPalette.groups.thisProject")}>
               <CommandItem value="action new-service deploy" onSelect={goNewResource}>
                 <HugeiconsIcon icon={Rocket01Icon} strokeWidth={2} />
                 Deploy a new service…
@@ -180,7 +182,7 @@ export function CommandPalette() {
           )}
 
           {environments.length > 0 && (
-            <CommandGroup heading="Environment">
+            <CommandGroup heading={t("commandPalette.groups.environment")}>
               {environments.map((envOption) => (
                 <CommandItem
                   key={envOption.slug}
@@ -195,7 +197,7 @@ export function CommandPalette() {
           )}
 
           {projects.length > 0 && (
-            <CommandGroup heading="Projects">
+            <CommandGroup heading={t("commandPalette.groups.projects")}>
               {projects.map((project) => (
                 <CommandItem
                   key={project.id}
@@ -218,7 +220,7 @@ export function CommandPalette() {
             />
           ))}
 
-          <CommandGroup heading="Appearance">
+          <CommandGroup heading={t("commandPalette.groups.appearance")}>
             <CommandItem value="theme light" onSelect={() => run(() => setTheme("light"))}>
               <HugeiconsIcon icon={Sun02Icon} strokeWidth={2} />
               Light theme

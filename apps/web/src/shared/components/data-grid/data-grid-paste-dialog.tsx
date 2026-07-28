@@ -1,6 +1,7 @@
 "use client";
 
 import type { TableMeta } from "@tanstack/react-table";
+import { useTranslation } from "react-i18next";
 
 import * as React from "react";
 
@@ -55,6 +56,7 @@ const PasteDialog = React.memo(PasteDialogImpl, (prev, next) => {
 });
 
 function PasteDialogImpl({ pasteDialog, onPasteDialogOpenChange, onCellsPaste }: PasteDialogProps) {
+  const { t } = useTranslation();
   const propsRef = useAsRef({
     onPasteDialogOpenChange,
     onCellsPaste,
@@ -78,7 +80,7 @@ function PasteDialogImpl({ pasteDialog, onPasteDialogOpenChange, onCellsPaste }:
     <Dialog open={pasteDialog.open} onOpenChange={onOpenChange}>
       <DialogContent data-grid-popover="">
         <DialogHeader>
-          <DialogTitle>Do you want to add more rows?</DialogTitle>
+          <DialogTitle>{t("dataGrid.paste.question")}</DialogTitle>
           <DialogDescription>
             We need <strong>{pasteDialog.rowsNeeded}</strong> additional row
             {pasteDialog.rowsNeeded !== 1 ? "s" : ""} to paste everything from your clipboard.
@@ -88,7 +90,7 @@ function PasteDialogImpl({ pasteDialog, onPasteDialogOpenChange, onCellsPaste }:
           <label className="flex cursor-pointer items-start gap-3">
             <RadioItem ref={expandRadioRef} name="expand-option" value="expand" defaultChecked />
             <div className="flex flex-col gap-1">
-              <span className="text-sm leading-none font-medium">Create new rows</span>
+              <span className="text-sm leading-none font-medium">{t("dataGrid.paste.createRows")}</span>
               <span className="text-sm text-muted-foreground">
                 Add {pasteDialog.rowsNeeded} new row
                 {pasteDialog.rowsNeeded !== 1 ? "s" : ""} to the table and paste all data
@@ -98,7 +100,7 @@ function PasteDialogImpl({ pasteDialog, onPasteDialogOpenChange, onCellsPaste }:
           <label className="flex cursor-pointer items-start gap-3">
             <RadioItem name="expand-option" value="no-expand" />
             <div className="flex flex-col gap-1">
-              <span className="text-sm leading-none font-medium">Keep current rows</span>
+              <span className="text-sm leading-none font-medium">{t("dataGrid.paste.keepRows")}</span>
               <span className="text-sm text-muted-foreground">
                 Paste only what fits in the existing rows
               </span>
@@ -109,7 +111,7 @@ function PasteDialogImpl({ pasteDialog, onPasteDialogOpenChange, onCellsPaste }:
           <Button variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button onClick={onContinue}>Continue</Button>
+          <Button onClick={onContinue}>{t("common.continue")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

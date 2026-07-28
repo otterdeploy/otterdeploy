@@ -12,6 +12,7 @@
  */
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
@@ -49,6 +50,7 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
   const { data: members } = useMembers(organizationId);
   const { data: pending } = useInvitations(organizationId);
 
+  const { t } = useTranslation();
   const form = useForm({
     defaultValues: {
       email: "",
@@ -64,6 +66,7 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
         organizationId,
       });
       if (res.error) {
+        const { t } = useTranslation();
         // Server is authoritative (e.g. already-a-member if the client list was
         // stale). Surface its message rather than a generic failure.
         toast.error(res.error.message ?? "Couldn't create the invitation");
@@ -87,7 +90,7 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
   return (
     <div className="flex flex-col gap-3 rounded-xl border p-4">
       <div>
-        <h3 className="text-sm font-semibold">Invite a teammate</h3>
+        <h3 className="text-sm font-semibold">{t("team.inviteTeammate")}</h3>
         <p className="mt-0.5 text-[12.5px] text-muted-foreground">
           They&apos;ll get an email link to join (if email is configured). Admins can manage members
           and settings; members can build and deploy but not administer the workspace.
@@ -108,6 +111,7 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
               const email = value.trim().toLowerCase();
               if (!email) return "Email is required";
               if ((members ?? []).some((m) => m.email.toLowerCase() === email)) {
+                const { t } = useTranslation();
                 return "This person is already a member of the organization";
               }
               if ((pending ?? []).some((i) => i.email.toLowerCase() === email)) {
@@ -141,7 +145,7 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
         <form.Field name="role">
           {(field) => (
             <div className="flex flex-col gap-1.5">
-              <Label className="text-[12px]">Role</Label>
+              <Label className="text-[12px]">{t("team.role")}</Label>
               <Select
                 items={INVITE_ROLES.map((r) => ({ label: r.label, value: r.value }))}
                 value={field.state.value}
@@ -180,7 +184,7 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
             Invited <span className="font-medium text-foreground/80">{sent.email}</span>. If email
             delivery isn&apos;t set up, share this link so they can join.
           </p>
-          <CopyLinkButton link={sent.url} label="Copy invite link" className="shrink-0" />
+          <CopyLinkButton link={sent.url} label={t("team.copyInviteLink")} className="shrink-0" />
         </div>
       ) : null}
     </div>

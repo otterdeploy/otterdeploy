@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Loading03Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -33,6 +34,7 @@ export function TwoFactorChallenge({ onVerified }: { onVerified: () => void }) {
     onError: (error) => toast.error(error.message),
   });
 
+  const { t } = useTranslation();
   const form = useForm({
     defaultValues: { code: "", trustDevice: false },
     onSubmit: ({ value }) => {
@@ -118,7 +120,7 @@ export function TwoFactorChallenge({ onVerified }: { onVerified: () => void }) {
                   Verifying…
                 </>
               ) : (
-                <>Verify</>
+                <>{t("auth.twoFactor.verify")}</>
               )}
             </Button>
           )}

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 
 /**
  * Presentational + pure helpers for {@link UpdateProgress}. Split out so the
@@ -179,13 +180,14 @@ export function LogPane({
   lines: LogLine[];
   scrollRef: React.RefObject<HTMLDivElement | null>;
 }) {
+  const { t } = useTranslation();
   return (
     <div
       ref={scrollRef}
       className="h-[320px] overflow-auto rounded-md border bg-terminal p-2.5 font-mono text-[11px] leading-relaxed text-terminal-foreground/85"
     >
       {lines.length === 0 ? (
-        <div className="text-muted-foreground/60">Starting…</div>
+        <div className="text-muted-foreground/60">{t("updates.starting")}</div>
       ) : (
         lines.map((l) => <LogLineRow key={l.id} line={l} />)
       )}

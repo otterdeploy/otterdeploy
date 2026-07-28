@@ -4,6 +4,7 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { CommandPalette } from "@/features/command-palette";
 import { useInstallCallbackToast } from "@/features/git-providers/install-callback-toast";
 import { ResourceOverlayProvider } from "@/features/projects/components/new-resource/overlay-provider";
+import { TourProvider } from "@/features/tour";
 import { decideAuthGate } from "@/lib/auth-gate";
 import { organizationsQuery, sessionQuery } from "@/lib/auth-queries";
 import { useFaviconStatus } from "@/shared/hooks/use-favicon-status";
@@ -115,8 +116,13 @@ function RouteComponent() {
   useFaviconStatus();
   return (
     <ResourceOverlayProvider>
-      <Outlet />
-      <CommandPalette />
+      {/* Inside the auth gate (org + user context resolved) and above both
+          chromes, so a tour that walks from the org shell into a project
+          survives the navigation between them. */}
+      <TourProvider>
+        <Outlet />
+        <CommandPalette />
+      </TourProvider>
     </ResourceOverlayProvider>
   );
 }

@@ -1,12 +1,31 @@
 {
   "common": {
     "search": "Search",
+    "searchOrRun": "Search or run a command...",
     "loading": "Loading…",
     "save": "Save",
+    "saving": "Saving…",
     "cancel": "Cancel",
+    "close": "Close",
     "delete": "Delete",
+    "deleting": "Deleting…",
+    "remove": "Remove",
     "edit": "Edit",
     "create": "Create",
+    "creating": "Creating…",
+    "add": "Add",
+    "copy": "Copy",
+    "copied": "Copied",
+    "retry": "Retry",
+    "refresh": "Refresh",
+    "back": "Back",
+    "next": "Next",
+    "done": "Done",
+    "continue": "Continue",
+    "skip": "Skip",
+    "confirm": "Confirm",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
     "openSidebar": "Open sidebar",
     "closeSidebar": "Close sidebar",
     "notifications": {
@@ -15,7 +34,10 @@
       "labelFailure": "includes a failure"
     },
     "toggleTheme": "Toggle theme",
-    "language": "Language"
+    "language": "Language",
+    "loadingLabel": "Loading",
+    "copyFailed": "Couldn't copy",
+    "dismiss": "Dismiss"
   },
   "auth": {
     "signIn": {
@@ -48,9 +70,19 @@
       "accountCreated": "Account created",
       "nameMinLength": "Name must be at least 2 characters",
       "hasAccount": "Already have an account?",
-      "signIn": "Sign in"
+      "signIn": "Sign in",
+      "bootstrapToken": "Installation bootstrap token",
+      "bootstrapTokenPlaceholder": "Paste the token printed by install.sh",
+      "bootstrapTokenHint": "This one-time token proves you control the VPS and makes this account the installation owner."
     },
-    "logout": "Log out"
+    "logout": "Log out",
+    "layoutFooter": "Otterdeploy Authentication",
+    "twoFactor": {
+      "verify": "Verify"
+    },
+    "sso": {
+      "enterWorkEmail": "Enter your work email address"
+    }
   },
   "errors": {
     "notFound": {
@@ -70,13 +102,19 @@
       "messageDefault": "Otterdeploy hit an unexpected error rendering this page. The failure has been logged — this one's on us, not you. Try again in a moment.",
       "retry": "⟳ Retry",
       "returnHome": "↩ Return home"
-    }
+    },
+    "generic": "Something went wrong"
   },
   "shell": {
     "search": "Search",
     "searchPlaceholder": "Search resources, settings…",
     "switchWorkspace": "Switch workspace",
-    "newWorkspace": "New workspace"
+    "newWorkspace": "New workspace",
+    "selfHostedServers_one": "self-hosted · {{count}} server",
+    "selfHostedServers_other": "self-hosted · {{count}} servers",
+    "toggleSidebar": "Toggle sidebar",
+    "sidebar": "Sidebar",
+    "sidebarDescription": "Displays the mobile sidebar."
   },
   "nav": {
     "overview": "Overview",
@@ -93,16 +131,50 @@
     "projects": "Projects",
     "services": "Services",
     "addService": "Add service",
-    "workspace": "Workspace"
+    "newService": "+ New service",
+    "workspace": "Workspace",
+    "backups": "Backups",
+    "edge": "Edge",
+    "audit": "Audit",
+    "gitProviders": "Git providers",
+    "registries": "Registries",
+    "sshKeys": "SSH keys",
+    "notifications": "Notifications",
+    "templates": "Templates",
+    "profile": "Profile",
+    "security": "Security",
+    "sessions": "Sessions",
+    "domains": "Domains",
+    "team": "Team",
+    "sso": "Single sign-on",
+    "apiKeys": "API keys",
+    "webhooks": "Webhooks",
+    "instance": "Instance",
+    "groups": {
+      "infrastructure": "Infrastructure",
+      "workspace": "Workspace",
+      "account": "Account",
+      "instance": "Instance"
+    }
   },
   "projects": {
     "title": "Projects",
     "subtitle": "Open a project to manage its services, databases, and routes.",
     "newProject": "New project",
+    "emptyTitle": "No projects in {{name}}",
+    "emptyDescription": "Projects group services, databases, and routes. Create your first one to get started.",
+    "loadFailed": "Couldn't load projects",
     "database_one": "database",
     "database_other": "databases",
     "route_one": "route",
     "route_other": "routes"
+  },
+  "servers": {
+    "title": "Servers",
+    "addServer": "+ Add server",
+    "secureEnrollment": "Secure enrollment",
+    "nodeDescription_one": "{{count}} node in this swarm · replicas placed via Docker Stack rolling updates",
+    "nodeDescription_other": "{{count}} nodes in this swarm · replicas placed via Docker Stack rolling updates"
   },
   "environments": {
     "label": "Environments"
@@ -112,6 +184,206 @@
     "account": "Account",
     "billing": "Billing",
     "notifications": "Notifications",
-    "logout": "Log out"
+    "logout": "Log out",
+    "commandMenu": "Command menu",
+    "connectCli": "Connect CLI",
+    "activeSessions": "Active sessions",
+    "twoFactor": "Two-factor authentication",
+    "appearance": "Appearance",
+    "theme": {
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark"
+    }
+  },
+  "tour": {
+    "menuItem": "Take the tour",
+    "progress": "{{current}} of {{total}}",
+    "next": "Next",
+    "previous": "Back",
+    "done": "Done",
+    "steps": {
+      "welcome": {
+        "title": "A quick tour",
+        "description": "Six minutes through the parts of otterdeploy you'll use daily — where your machines live, how a project is laid out, and where to look when a deploy goes wrong. Leave any time with Esc; it's in your account menu when you want it back."
+      },
+      "sidebar": {
+        "title": "The sidebar",
+        "description": "Everything org-wide lives here, grouped by what it's for: your projects at the top, the infrastructure they run on in the middle, and the outbound connections a deploy needs — git, registries, keys — below that."
+      },
+      "projects": {
+        "title": "Projects",
+        "description": "A project groups the services, databases, and routes that ship together — one app and its dependencies. The badge counts what this workspace has."
+      },
+      "infrastructure": {
+        "title": "Servers",
+        "description": "The Linux machines in your swarm. Add one over SSH or with a join token, then watch its role, availability, and health from the table. Nothing deploys until at least one node is ready."
+      },
+      "edge": {
+        "title": "Edge",
+        "description": "The Caddy layer in front of everything you deploy: domains and routes, TLS certificates, access logs, and the host firewall. This is where you go when a URL doesn't resolve or a certificate hasn't issued."
+      },
+      "search": {
+        "title": "Search anything",
+        "description": "The command palette jumps to any page, project, or resource without leaving the keyboard. Press ⌘K from anywhere."
+      },
+      "activity": {
+        "title": "Live system state",
+        "description": "Running deploys, unread notifications, and the theme switch. The mark in the top-left changes with the same state, so a build in progress is visible from any page — and from a background tab."
+      },
+      "serversPage": {
+        "title": "Your cluster",
+        "description": "One row per machine, with its swarm role, availability, and last health sample. `unknown` is deliberately not a pass — it means nobody has checked yet."
+      },
+      "addServer": {
+        "title": "Add a server",
+        "description": "Provision over SSH and otterdeploy walks the whole path itself: install Docker, join the mesh, join the swarm, verify the node, label it for builds. Each phase reports honestly as it runs."
+      },
+      "enrollment": {
+        "title": "Or enrol without SSH",
+        "description": "Prefer not to hand over SSH? Generate a short-lived join token and run one command on the machine instead. Useful for hosts you can only reach from a console."
+      },
+      "projectGraph": {
+        "title": "The project graph",
+        "description": "Your project as a canvas: services, databases, and the routes that reach them, with live status on every node. Right-click a node to open, restart, clone, or read its logs — right-click the canvas to add something new."
+      },
+      "projectTabs": {
+        "title": "Everything about this project",
+        "description": "The graph is the overview; these tabs are the detail. Deployments, logs, metrics, variables, and networking all stay scoped to this project."
+      },
+      "newService": {
+        "title": "Add a service",
+        "description": "Build from a git repo, pull a Docker image, launch a database, or paste a compose file. The fast path is three or four clicks; \"Advanced setup\" opens the full flow when you need it."
+      },
+      "deployments": {
+        "title": "Every deploy, kept",
+        "description": "One row per push, with its reason — git-push, redeploy, env-change, rollback — and the config snapshot it ran with. That snapshot is what makes rolling back a real option rather than a guess."
+      },
+      "logs": {
+        "title": "Logs that tell the truth",
+        "description": "Runtime logs from your containers and edge logs from Caddy, in one place. Filter by service, level, and time; every filter lives in the URL, so a useful view is a link you can send someone."
+      },
+      "variables": {
+        "title": "Variables",
+        "description": "Set them per project or per service, and reference other resources by name — `${database:main.DATABASE_URL}` resolves at deploy time. That late binding is what lets previews get their own database without editing config."
+      },
+      "networking": {
+        "title": "Domains and routes",
+        "description": "Point a domain at a service and otterdeploy handles DNS checks and certificate issuance, reporting each state plainly. Deployment protection can put an auth wall in front of anything not ready to be public."
+      },
+      "help": {
+        "title": "Where this lives",
+        "description": "The tour is here whenever you want it again, next to the command menu and your account settings."
+      },
+      "done": {
+        "title": "That's the shape of it",
+        "description": "The rest is documentation and the command palette. If something looks wrong, the honest answer is usually on the Deployments or Logs tab — otterdeploy tries never to hide a failure behind a spinner."
+      }
+    }
+  },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next",
+    "previousPage": "Go to previous page",
+    "nextPage": "Go to next page",
+    "morePages": "More pages"
+  },
+  "commandPalette": {
+    "title": "Command palette",
+    "description": "Search for a command to run…",
+    "placeholder": "Type a command or search…",
+    "noResults": "No matching command.",
+    "groups": {
+      "thisProject": "This project",
+      "environment": "Environment",
+      "projects": "Projects",
+      "appearance": "Appearance"
+    }
+  },
+  "dns": {
+    "dialogTitle": "Configure DNS records",
+    "dialogDescription": "Add both records to your DNS provider, then verify.",
+    "dialogDescriptionZone": "Add both records to {{zone}}, then verify.",
+    "lookupFailed": "We couldn't reach a DNS resolver to detect your provider, so only the manual records are shown.",
+    "proxiedWarning": "This name currently resolves somewhere other than this install {{address}}. If that's a Cloudflare proxy, turn the orange cloud off — proxied records terminate TLS at the proxy and the certificate here can never finish issuing.",
+    "oneClick": {
+      "title": "One-click DNS setup",
+      "canAuto": "This domain is on Cloudflare. We can create both records for you.",
+      "needsToken": "This domain is on Cloudflare. Connect an API token to configure it automatically.",
+      "configure": "Configure",
+      "configuring": "Configuring…",
+      "connect": "Connect Cloudflare"
+    },
+    "table": {
+      "type": "Type",
+      "name": "Name",
+      "value": "Value",
+      "empty": "Nothing to add yet — save the domain first."
+    }
+  },
+  "dataGrid": {
+    "label": "Data grid",
+    "addRow": "Add row",
+    "findInTable": "Find in table...",
+    "previousMatch": "Previous match",
+    "nextMatch": "Next match",
+    "closeSearch": "Close search",
+    "noResults": "No results",
+    "typeToSearch": "Type to search",
+    "enterText": "Enter text...",
+    "search": "Search...",
+    "noOptions": "No options found.",
+    "clickToBrowse": "or click to browse",
+    "dropFiles": "Drop files here",
+    "paste": {
+      "question": "Do you want to add more rows?",
+      "createRows": "Create new rows",
+      "keepRows": "Keep current rows"
+    }
+  },
+  "onboarding": {
+    "progress": "Setup progress",
+    "shellTitle": "Otterdeploy Setup",
+    "secureChannel": "secure channel",
+    "fields": {
+      "name": "Name",
+      "slug": "URL slug"
+    },
+    "organization": {
+      "title": "Create your organization",
+      "description": "An organization is your top-level workspace — it owns your projects, servers, domains, and team. You can create more later or invite people in.",
+      "namePlaceholder": "Acme"
+    },
+    "domain": {
+      "title": "Set a base domain",
+      "description": "Where your deployed apps and databases get their public URLs — not the dashboard itself.",
+      "label": "Base domain"
+    },
+    "project": {
+      "title": "Create your first project",
+      "description": "A project groups the services, databases, and routes that ship together — like one app and its dependencies. We'll drop you straight into it.",
+      "namePlaceholder": "Storefront"
+    }
+  },
+  "activity": {
+    "title": "Activity",
+    "builderStalledSuffix": ", builder not responding"
+  },
+  "updates": {
+    "starting": "Starting…"
+  },
+  "team": {
+    "inviteTeammate": "Invite a teammate",
+    "role": "Role",
+    "copyInviteLink": "Copy invite link",
+    "inviteLinkCopied": "Invite link copied",
+    "copyInviteFailed": "Couldn't copy invite link"
+  },
+  "terminal": {
+    "openTerminal": "Open a terminal",
+    "searchPlaceholder": "Search services, databases, servers…",
+    "allProjects": "All projects",
+    "connecting": "Connecting…",
+    "confirmIdentity": "Confirm it's you"
   }
 }

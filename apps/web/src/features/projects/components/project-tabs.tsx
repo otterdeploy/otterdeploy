@@ -17,6 +17,8 @@ type ProjectRoutePath = Extract<RoutePath, `/$orgSlug/$projectSlug${string}`>;
 
 interface Tab {
   titleKey: string;
+  /** Anchor for the product tour, rendered as `data-tour`. */
+  tourId?: string;
   to: ProjectRoutePath;
   /** True only for the index route — TanStack's exact match opt-in. */
   exact?: boolean;
@@ -33,12 +35,25 @@ const tabs: readonly Tab[] = [
   {
     titleKey: "nav.deployments",
     to: "/$orgSlug/$projectSlug/deployments",
+    tourId: "project-tab-deployments",
     fallback: "Deployments",
   },
-  { titleKey: "nav.logs", to: "/$orgSlug/$projectSlug/logs" },
+  {
+    titleKey: "nav.logs",
+    to: "/$orgSlug/$projectSlug/logs",
+    tourId: "project-tab-logs",
+  },
   { titleKey: "nav.metrics", to: "/$orgSlug/$projectSlug/metrics" },
-  { titleKey: "nav.variables", to: "/$orgSlug/$projectSlug/variables" },
-  { titleKey: "nav.networking", to: "/$orgSlug/$projectSlug/networking" },
+  {
+    titleKey: "nav.variables",
+    to: "/$orgSlug/$projectSlug/variables",
+    tourId: "project-tab-variables",
+  },
+  {
+    titleKey: "nav.networking",
+    to: "/$orgSlug/$projectSlug/networking",
+    tourId: "project-tab-networking",
+  },
   // No "Edge logs" tab (od-u63.5) — merged into Logs as a Runtime | Edge
   // source toggle (see $projectSlug/logs.tsx). The route still exists as a
   // redirect shim for old links.
@@ -116,6 +131,7 @@ export function ProjectTabs() {
           <Link
             key={tab.to}
             to={tab.to}
+            data-tour={tab.tourId}
             params={{ orgSlug, projectSlug }}
             activeOptions={tab.exact ? { exact: true } : undefined}
             className={cn(

@@ -92,6 +92,9 @@ export function ProjectSidebar({
     return (
       <SidebarMenuItem key={item.title}>
         <SidebarMenuButton
+          // Anchor for the product tour (features/tour/steps.ts). Only the
+          // destinations the tour stops at carry one.
+          data-tour={item.tourId}
           // Collapsed to the icon rail, the label is clipped and each item is
           // just a glyph. SidebarMenuButton only renders this tooltip while
           // `state === "collapsed"` (and never on mobile), so the expanded
@@ -123,7 +126,7 @@ export function ProjectSidebar({
           <SidebarGroup key={group.label ?? group.items[0]?.title ?? "top"}>
             {group.label ? (
               <SidebarGroupLabel className="text-[11px] tracking-wider text-sidebar-foreground/50 uppercase">
-                {group.label}
+                {group.labelI18nKey ? t(group.labelI18nKey, group.label) : group.label}
               </SidebarGroupLabel>
             ) : null}
             <SidebarMenu>{group.items.map(renderItem)}</SidebarMenu>
@@ -148,7 +151,7 @@ export function ProjectSidebar({
             width so its text can't overflow the 3rem column. */}
         <div className="flex items-center gap-2 px-2 pb-1 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
           <span className="min-w-0 flex-1 truncate leading-snug">
-            self-hosted · {servers.length} {servers.length === 1 ? "server" : "servers"}
+            {t("shell.selfHostedServers", { count: servers.length })}
           </span>
           {currentVersion && <span className="shrink-0 font-mono">{currentVersion}</span>}
         </div>

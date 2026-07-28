@@ -1,4 +1,5 @@
 import type { ProjectSlug } from "@otterdeploy/shared/id";
+import { useTranslation } from "react-i18next";
 
 import { useState } from "react";
 
@@ -33,6 +34,7 @@ const STEPS: { id: StepId; title: string; hint: string }[] = [
  * organization (e.g. a mid-wizard refresh after the org was created).
  */
 export function SetupWizard({ initialOrg = null }: { initialOrg?: CreatedOrg | null }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [org, setOrg] = useState<CreatedOrg | null>(initialOrg);
   const [step, setStep] = useState<StepId>(initialOrg ? "domain" : "organization");
@@ -48,6 +50,7 @@ export function SetupWizard({ initialOrg = null }: { initialOrg?: CreatedOrg | n
   }
 
   function finishToOrg() {
+    const { t } = useTranslation();
     if (!org) return;
     void navigate({ to: "/$orgSlug", params: { orgSlug: org.slug } });
   }
@@ -57,7 +60,7 @@ export function SetupWizard({ initialOrg = null }: { initialOrg?: CreatedOrg | n
       <div className="overflow-hidden rounded-lg bg-card ring-1 ring-foreground/10 md:grid md:grid-cols-[13.5rem_1fr]">
         {/* ─── Stepper rail (md+) ─── */}
         <nav
-          aria-label="Setup progress"
+          aria-label={t("onboarding.progress")}
           className="hidden border-r border-border bg-foreground/[0.015] p-6 md:block"
         >
           <p className="mb-5 font-mono text-[10px] tracking-[0.08em] text-muted-foreground/70 uppercase">

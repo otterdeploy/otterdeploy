@@ -20,13 +20,14 @@
  */
 import { Alert02Icon, RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import { cn } from "@/shared/lib/utils";
 
 import { Button } from "./button";
 
 export function ErrorState({
-  title = "Something went wrong",
+  title,
   message,
   onRetry,
   className,
@@ -38,6 +39,7 @@ export function ErrorState({
   onRetry?: () => void;
   className?: string;
 }) {
+  const { t } = useTranslation();
   return (
     <div
       // Announced to assistive tech: this replaces content the user was
@@ -52,7 +54,7 @@ export function ErrorState({
         <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="size-5" />
       </div>
       <div className="flex max-w-md flex-col items-center gap-2">
-        <p className="text-sm font-semibold">{title}</p>
+        <p className="text-sm font-semibold">{title ?? t("errors.generic")}</p>
         {message ? (
           // Boxed rather than loose prose so it separates "what the server
           // said" from "what we're telling you" — a terse status like

@@ -132,11 +132,11 @@ export function SignUpForm({
             {(field) => (
               <AuthField
                 field={field}
-                label="Installation bootstrap token"
+                label={t("auth.signUp.bootstrapToken")}
                 type="password"
                 autoComplete="off"
-                placeholder="Paste the token printed by install.sh"
-                hint="This one-time token proves you control the VPS and makes this account the installation owner."
+                placeholder={t("auth.signUp.bootstrapTokenPlaceholder")}
+                hint={t("auth.signUp.bootstrapTokenHint")}
               />
             )}
           </form.Field>

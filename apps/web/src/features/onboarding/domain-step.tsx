@@ -1,4 +1,5 @@
 import { GlobalIcon } from "@hugeicons/core-free-icons";
+import { useTranslation } from "react-i18next";
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import * as z from "zod";
@@ -33,6 +34,7 @@ export function DomainStep({
   onComplete: () => void;
   onSkip: () => void;
 }) {
+  const { t } = useTranslation();
   const setDomain = useMutation({
     mutationKey: ["onboarding", "setBaseDomain"],
     mutationFn: async (baseDomain: string) => {
@@ -52,8 +54,8 @@ export function DomainStep({
   return (
     <StepFrame
       icon={GlobalIcon}
-      title="Set a base domain"
-      description="Where your deployed apps and databases get their public URLs — not the dashboard itself."
+      title={t("onboarding.domain.title")}
+      description={t("onboarding.domain.description")}
     >
       <form
         onSubmit={(e) => {
@@ -73,7 +75,7 @@ export function DomainStep({
           {(field) => (
             <WizardField
               id={field.name}
-              label="Base domain"
+              label={t("onboarding.domain.label")}
               placeholder="acme.com"
               mono
               focusOnMount

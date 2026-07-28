@@ -1,4 +1,5 @@
 import { StructureFolderIcon } from "@hugeicons/core-free-icons";
+import { useTranslation } from "react-i18next";
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 
@@ -24,6 +25,7 @@ export function ProjectStep({
     onSuccess: onCreated,
   });
 
+  const { t } = useTranslation();
   const form = useForm({
     defaultValues: { name: "", slug: "" },
     validators: { onChange: nameAndSlugSchema },
@@ -35,8 +37,8 @@ export function ProjectStep({
   return (
     <StepFrame
       icon={StructureFolderIcon}
-      title="Create your first project"
-      description="A project groups the services, databases, and routes that ship together — like one app and its dependencies. We’ll drop you straight into it."
+      title={t("onboarding.project.title")}
+      description={t("onboarding.project.description")}
     >
       <form
         onSubmit={(e) => {
@@ -56,8 +58,8 @@ export function ProjectStep({
           {(field) => (
             <WizardField
               id={field.name}
-              label="Name"
-              placeholder="Storefront"
+              label={t("onboarding.fields.name")}
+              placeholder={t("onboarding.project.namePlaceholder")}
               focusOnMount
               value={field.state.value}
               onBlur={field.handleBlur}
@@ -74,7 +76,7 @@ export function ProjectStep({
           {(field) => (
             <WizardField
               id={field.name}
-              label="URL slug"
+              label={t("onboarding.fields.slug")}
               mono
               value={field.state.value}
               onBlur={field.handleBlur}

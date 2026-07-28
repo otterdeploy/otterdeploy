@@ -4,6 +4,7 @@
  * (the header button remains as the quiet, always-there affordance).
  */
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
+import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Badge } from "@/shared/components/ui/badge";
@@ -16,6 +17,7 @@ import { useUpdate } from "./update-provider";
 export function UpdateBanner() {
   const status = useUpdateStatus();
   const { openUpdate } = useUpdate();
+    const { t } = useTranslation();
   const dismiss = useDismissUpdate();
   // Suppress the loud banner during a user's first session — the quiet header
   // affordance (see the file doc comment) still surfaces the update either
@@ -47,7 +49,7 @@ export function UpdateBanner() {
           type="button"
           size="sm"
           variant="ghost"
-          aria-label="Dismiss"
+          aria-label={t("common.dismiss")}
           disabled={dismiss.isPending}
           onClick={() => dismiss.mutate({ dismissedVersion: status.latest })}
         >
