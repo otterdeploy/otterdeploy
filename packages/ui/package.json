@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./hooks/*": "./src/hooks/*.ts",
     "./error-screen": "./src/error-screen.tsx",
     "./error-screen.css": "./src/error-screen.css",
     "./selection.css": "./src/selection.css"

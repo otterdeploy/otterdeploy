@@ -4,6 +4,7 @@
  * presentational; all state (active tab, logs-visited latch, live service
  * view) is owned by the panel and passed in.
  */
+import type { BuildConfig } from "@otterdeploy/shared/build-config";
 import type { ProjectId, ProjectSlug, ResourceId } from "@otterdeploy/shared/id";
 
 import { Activity } from "react";
@@ -44,7 +45,7 @@ export interface ServicePanelResource {
   publicDomain: string | null;
   extraEnv: Record<string, string>;
   secretKeys: string[];
-  buildConfig?: unknown;
+  buildConfig?: BuildConfig | null;
 }
 
 export function ServicePanelBody({

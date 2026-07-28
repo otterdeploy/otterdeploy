@@ -4,20 +4,21 @@
  * the recorded one — a real probe, no fake diff) plus a plain source → target
  * summary built from what is genuinely stored on the run row.
  *
- * Callers key this component by `backup.id` so a different run remounts it
- * with fresh state instead of resetting state inside the effect.
+ * The check is a query keyed on the run id, so switching runs swaps verdicts
+ * without any per-mount refetch — and re-opening the wizard on a run verified
+ * moments ago reuses that result rather than making the server pull the whole
+ * archive down again.
  */
-import { useEffect, useState } from "react";
-
 import { Alert02Icon, CheckmarkCircle01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useQuery } from "@tanstack/react-query";
 
 import { Badge } from "@/shared/components/ui/badge";
+import { orpc } from "@/shared/server/orpc";
 
 import type { Backup, VerifyResult } from "./data/backups";
 import type { RestoreMode } from "./restore-wizard-parts";
 
-import { verifyBackup } from "./data/backups";
 import { encLabel, fmtBytes } from "./shared";
 
 export function VerifyStep({
@@ -29,24 +30,20 @@ export function VerifyStep({
   mode: RestoreMode;
   source: string;
 }) {
-  const [result, setResult] = useState<VerifyResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const verify = useQuery({
+    ...orpc.backups.verify.queryOptions({ input: { id: backup.id } }),
+    // One shot, like the probe this replaces. An unreachable archive is a
+    // verdict to show, not a blip worth three rounds of backoff — retrying
+    // would only hold the badge on "re-fetching archive…" for seconds longer.
+    retry: false,
+    // The badge and the amber reason line carry the failure inline, so opt out
+    // of the global error toast rather than reporting it twice.
+    meta: { suppressErrorToast: true },
+  });
 
-  useEffect(() => {
-    let cancelled = false;
-    verifyBackup(backup.id)
-      .then((r) => {
-        if (!cancelled) setResult(r);
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Verification failed");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [backup.id]);
-
-  const checking = !result && !error;
+  const result = verify.data ?? null;
+  const error = verify.error ? verify.error.message || "Verification failed" : null;
+  const checking = verify.isPending;
 
   return (
     <>

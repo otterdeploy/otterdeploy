@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 /**
  * Presentational + pure helpers for {@link UpdateProgress}. Split out so the
  * pane component itself stays under the line/complexity budget.
  */
 import { env } from "@otterdeploy/env/web";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { LogLineRow, type LogLine } from "@/features/logs/components/log-viewer";
@@ -32,40 +33,69 @@ export function phaseIndex(p: UpdatePhase): number {
   return i < 0 ? 0 : i;
 }
 
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+/**
+ * `enabled`, but only once it has held for `delayMs`.
+ *
+ * The cutover poll must not fire on the first render: `recovering` is true
+ * from mount for any real run, so re-opening this pane after an update already
+ * landed would probe a control plane that *already* reports the target and
+ * reload straight back into the same state. The lead-in gives
+ * `useUpdateState` time to answer `succeeded` and disarm the poll first.
+ */
+function useArmedAfter(enabled: boolean, delayMs: number): boolean {
+  const [elapsed, setElapsed] = useState(false);
+  useEffect(() => {
+    if (!enabled) return;
+    const id = setTimeout(() => setElapsed(true), delayMs);
+    // Rearm from zero if this ever re-enables — a second wait deserves a
+    // second lead-in, not the leftover `true` from the first.
+    return () => {
+      clearTimeout(id);
+      setElapsed(false);
+    };
+  }, [enabled, delayMs]);
+  // Derived, not stored: disabling disarms without a state write.
+  return enabled && elapsed;
+}
 
 /** Poll the control plane until the new container reports the target version,
  *  then reload onto the updated dashboard. Real-cutover recovery only. */
 export function useCutoverRecovery(target: string, enabled: boolean): void {
-  useEffect(() => {
-    if (!enabled) return;
-    let cancelled = false;
-    const poll = async () => {
-      await sleep(6000);
-      while (!cancelled) {
-        try {
-          const r = await fetch(`${env.VITE_SERVER_URL}/api/health`, { cache: "no-store" });
-          if (r.ok) {
-            const body = (await r.json()) as { version?: string };
-            if (body.version === target) {
-              window.location.reload();
-              return;
-            }
-          }
-        } catch {
-          // control plane still down — keep polling.
-        }
-        await sleep(3000);
-      }
-    };
-    void poll();
-    return () => {
-      cancelled = true;
-    };
-  }, [target, enabled]);
-}
+  const armed = useArmedAfter(enabled, 6000);
 
-// ─── stream → line mappers ───────────────────────────────────────────────────
+  const health = useQuery({
+    queryKey: ["cutover-health", target],
+    queryFn: async ({ signal }) => {
+      // Unauthenticated and outside oRPC on purpose: /rpc needs a session the
+      // restarting server can't validate, and we want the version the *new*
+      // binary reports, not a cached read model.
+      const res = await fetch(`${env.VITE_SERVER_URL}/api/health`, { cache: "no-store", signal });
+      if (!res.ok) throw new Error(`health ${res.status}`);
+      return (await res.json()) as { version?: string };
+    },
+    enabled: armed,
+    // Across a cutover the control plane is *expected* to be unreachable, so a
+    // failed probe is the normal path, not an error: the interval is the retry
+    // (no backoff), and the global queryCache toast must stay quiet or the
+    // operator gets "Failed to fetch" every 3s while they wait.
+    retry: false,
+    meta: { suppressErrorToast: true },
+    refetchInterval: 3000,
+    // An operator who switches tabs mid-update still gets reloaded — React
+    // Query otherwise pauses the interval whenever the document is unfocused.
+    refetchIntervalInBackground: true,
+    staleTime: 0,
+    gcTime: 0,
+  });
+
+  const arrived = armed && health.data?.version === target;
+  useEffect(() => {
+    // Reloading is terminal, so it must not survive an unmount: closing the
+    // pane while a probe is in flight has to abandon the reload, not perform
+    // it a moment later.
+    if (arrived) window.location.reload();
+  }, [arrived]);
+}
 
 export function toLogLine(e: {
   level: "info" | "success" | "error";
@@ -82,8 +112,6 @@ export function toErrorLine(err: unknown): Omit<LogLine, "id"> {
     ts: new Date().toISOString(),
   };
 }
-
-// ─── terminal-outcome derivation (pure) ──────────────────────────────────────
 
 export interface Outcome {
   failed: boolean;
@@ -113,8 +141,6 @@ export function deriveOutcome(
     recovering: !dryRun && !failed && !realDone,
   };
 }
-
-// ─── presentational pieces ───────────────────────────────────────────────────
 
 function dotClass(errored: boolean, done: boolean, active: boolean): string {
   const base = "size-1.5 rounded-full";

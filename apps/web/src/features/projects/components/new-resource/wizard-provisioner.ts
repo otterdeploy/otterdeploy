@@ -1,13 +1,11 @@
 import type { Framework } from "@otterdeploy/shared/framework";
 import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 
-import { useEffect } from "react";
-
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { setPendingFramework } from "@/features/projects/components/graph/pending-framework-store";
-import { orpc, queryClient } from "@/shared/server/orpc";
+import { orpc } from "@/shared/server/orpc";
 
 import type { Port } from "./form-fields/ports-field";
 import type { Var } from "./form-fields/variables-field";
@@ -171,60 +169,4 @@ export function useResourceProvisioner({
   };
 
   return { isCreating: stage.isPending, runDatabaseCreate, runServiceCreate };
-}
-
-/**
- * Warm the caches the source step depends on so the dropdown +
- * Root Directory picker have data the instant the operator gets to
- * the source step instead of waterfalling three queries on arrival.
- *
- *   - git.list          → providers + installations + repoCount
- *   - git.listRepos     → repos for the active installation (used by
- *                         the repo dropdown + the bound-repo fullName
- *                         lookup)
- *   - git.inspectRepo   → root listing for the currently-bound repo;
- *                         the server caches the full tree on this
- *                         first call so subsequent navigations are
- *                         free.
- *
- * Prefetches fan out in parallel; each is no-op when the data is
- * already cached, so the cost of an extra wizard mount is zero.
- */
-export function usePrefetchSourceData(initialGitRepoId: string | null) {
-  useEffect(() => {
-    const run = async () => {
-      const providersOptions = orpc.git.list.queryOptions();
-      await queryClient.prefetchQuery(providersOptions);
-      const providers = queryClient.getQueryData(providersOptions.queryKey) ?? [];
-      const installations = providers.flatMap((p) => p.installations);
-      const active = installations[0];
-      if (!active) return;
-
-      await Promise.all([
-        queryClient.prefetchQuery(
-          orpc.git.listRepos.queryOptions({
-            input: { installationId: active.id },
-          }),
-        ),
-        initialGitRepoId
-          ? queryClient.prefetchQuery({
-              ...orpc.git.inspectRepo.queryOptions({
-                input: {
-                  // The route loader hands us a plain string; the
-                  // inspect input wants the branded GitRepoId. Cast
-                  // through `as never` so the unique-symbol brand is
-                  // satisfied without dragging the brand type into
-                  // this file.
-                  gitRepoId: initialGitRepoId,
-                  path: "",
-                },
-              }),
-              staleTime: 5 * 60 * 1000,
-            })
-          : Promise.resolve(),
-      ]);
-    };
-    void run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialGitRepoId]);
 }

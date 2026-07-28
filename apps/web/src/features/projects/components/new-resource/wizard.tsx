@@ -7,10 +7,9 @@ import type { Step } from "./schemas";
 
 import { ComposeWizard } from "./compose-wizard";
 import { Stepper } from "./steps";
-import { useDetectionDefaults } from "./use-repo-detection";
 import { isKindWired, RequiredHint, WizardFooter, WizardStepBody } from "./wizard-chrome";
 import { useWizardForm } from "./wizard-form";
-import { useResourceProvisioner, usePrefetchSourceData } from "./wizard-provisioner";
+import { useResourceProvisioner } from "./wizard-provisioner";
 
 export interface ResourceWizardProps {
   orgSlug: string;
@@ -57,8 +56,6 @@ function ResourceWizardBody({
   step,
   goTo,
 }: BodyProps) {
-  usePrefetchSourceData(initialGitRepoId ?? null);
-
   // Provisioner state + create mutators (database + service) hoisted
   // into a hook so this component stays under the file-length cap.
   const { isCreating, runDatabaseCreate, runServiceCreate } = useResourceProvisioner({
@@ -94,10 +91,6 @@ function ResourceWizardBody({
     runDatabaseCreate,
     runServiceCreate,
   });
-
-  // Detection-driven defaults: once the repo is bound, inspection answers the
-  // SPA toggle and the port question so the user doesn't have to.
-  useDetectionDefaults(form);
 
   const kindWired = isKindWired(kindId, kind);
   const createDisabled = isLast && (!kindWired || isCreating);

@@ -8,8 +8,11 @@
  * limit, private repo, bad host) instead of an empty shrug.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
+import { formatBytes } from "@otterdeploy/shared/format";
+import { shortDigest } from "@otterdeploy/shared/image-ref";
+import { useDebouncedValue } from "@otterdeploy/ui/hooks/use-debounced-value";
 import { useQuery } from "@tanstack/react-query";
 
 import { Card } from "@/shared/components/ui/card";
@@ -19,27 +22,6 @@ import { orpc } from "@/shared/server/orpc";
 
 import { SectionHeader } from "../form-primitives";
 import { I } from "../icons";
-
-/** Local debounce — don't hammer the registry on every keystroke. */
-function useDebouncedValue(value: string, delayMs: number): string {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(t);
-  }, [value, delayMs]);
-  return debounced;
-}
-
-function formatSize(bytes: number): string {
-  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
-  if (bytes >= 1024 ** 2) return `${Math.round(bytes / 1024 ** 2)} MB`;
-  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-}
-
-function shortDigest(digest: string | undefined): string | null {
-  if (!digest) return null;
-  return digest.replace(/^sha256:/, "").slice(0, 7);
-}
 
 interface TagInfo {
   name: string;
@@ -74,7 +56,7 @@ function TagRow({
       {digest && <span className="font-mono text-[11px] text-muted-foreground">{digest}</span>}
       {tag.sizeBytes !== undefined && (
         <span className="w-16 text-right text-[11px] text-muted-foreground">
-          {formatSize(tag.sizeBytes)}
+          {formatBytes(tag.sizeBytes)}
         </span>
       )}
       {selected && <I.check width={11} height={11} className="shrink-0" />}

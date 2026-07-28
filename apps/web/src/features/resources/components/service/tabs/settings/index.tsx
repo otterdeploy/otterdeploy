@@ -2,6 +2,8 @@
 // a danger zone that stages a manifest delete (mirrors the database
 // danger zone but writes to manifest.services instead of .databases).
 
+import type { BuildConfig } from "@otterdeploy/shared/build-config";
+
 import type { VariablesEditorResource } from "@/features/resources/components/_shared/variables-editor";
 
 import {
@@ -27,9 +29,9 @@ export interface ServiceSettingsResource extends VariablesEditorResource {
   publicEnabled: boolean;
   publicDomain: string | null;
   source: "image" | "git" | "upload";
-  // Stored railpack/dockerfile/… config. Optional + `unknown` to match the
-  // resource-list contract; the build card narrows it.
-  buildConfig?: unknown;
+  // Stored railpack/dockerfile/… config, as the contract's discriminated
+  // union; the build card switches on `builder`.
+  buildConfig?: BuildConfig | null;
 }
 
 interface ServiceSettingsBodyProps {

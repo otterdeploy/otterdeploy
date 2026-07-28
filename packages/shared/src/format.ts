@@ -3,21 +3,30 @@
  * No platform deps — safe to import from any package.
  */
 
+/** Placeholder for a value the caller doesn't have. Shared so a column of
+ *  formatted cells lines up on the same glyph. */
+export const ABSENT = "—";
+
+// Binary (1024) units — every figure this formats (Docker images, registry
+// manifests, host disk) is reported in powers of two.
+const BYTE_UNITS = ["B", "KB", "MB", "GB", "TB", "PB"] as const;
+
 /**
- * Human-readable byte size. Returns `null` when the input is null so
- * callers can pipe through "value or empty" rendering without an extra
- * branch.
+ * Human-readable byte size. Whole bytes carry no useful fraction, so `B`
+ * always renders as an integer; every larger unit gets `decimals` places.
+ * Missing, non-finite, and negative inputs render as {@link ABSENT} rather
+ * than a fabricated "0 B" — a size we don't have is not a size of zero.
  *
- *   formatBytes(0)          // "0B"
- *   formatBytes(2048)       // "2.0KB"
- *   formatBytes(15 * 1024**3) // "15.00GB"
+ *   formatBytes(0)              // "0 B"
+ *   formatBytes(2048)           // "2.0 KB"
+ *   formatBytes(15 * 1024 ** 3) // "15.0 GB"
+ *   formatBytes(null)           // "—"
  */
-export function formatBytes(bytes: number | null | undefined): string | null {
-  if (bytes == null) return null;
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)}GB`;
+export function formatBytes(bytes: number | null | undefined, decimals = 1): string {
+  if (bytes == null || !Number.isFinite(bytes) || bytes < 0) return ABSENT;
+  if (bytes === 0) return "0 B";
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), BYTE_UNITS.length - 1);
+  return `${(bytes / 1024 ** i).toFixed(i === 0 ? 0 : decimals)} ${BYTE_UNITS[i]}`;
 }
 
 /**
@@ -31,7 +40,7 @@ export function formatBytes(bytes: number | null | undefined): string | null {
  */
 const numberFormatter = new Intl.NumberFormat();
 export function formatNumber(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return "—";
+  if (value == null || !Number.isFinite(value)) return ABSENT;
   return numberFormatter.format(value);
 }
 

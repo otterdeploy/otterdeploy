@@ -140,3 +140,4 @@
 {"id":"int-ffd67e1f1fdd7dbcc77e2d37edb477fd","kind":"field_change","created_at":"2026-07-27T07:41:51.042343Z","actor":"Jace","issue_id":"od-bad","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
 {"id":"int-c5c6e23347d47112fd812c4b67b518fd","kind":"field_change","created_at":"2026-07-27T07:41:51.274294Z","actor":"Jace","issue_id":"od-cse","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
 {"id":"int-350c95864137471d1827b51516083308","kind":"field_change","created_at":"2026-07-27T07:41:51.507416Z","actor":"Jace","issue_id":"od-k5q","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
+{"id":"int-b93184de7d45f7feb77f0b7b3ffc2cec","kind":"field_change","created_at":"2026-07-28T19:12:17.317132Z","actor":"Jace","issue_id":"od-sdy","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}

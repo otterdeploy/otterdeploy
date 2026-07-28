@@ -31,6 +31,21 @@ const formHook = createFormHook({
 
 export const { useAppForm } = formHook;
 
+/**
+ * `setFieldValue` options for a value the wizard fills in on the operator's
+ * behalf — a derived default, not an answer they gave.
+ *
+ * `dontUpdateMeta` leaves the field pristine, which is the whole point: it
+ * makes `getFieldMeta(f).isDirty` mean "a human edited this" and nothing
+ * else, so every auto-default can ask that one question instead of keeping
+ * its own ref of the last value it wrote and guessing. `dontRunListeners`
+ * keeps a default from re-entering the listener that produced it.
+ *
+ * Rule of thumb: if the operator clicked or typed it, write it plainly; if
+ * the wizard inferred it, write it with this.
+ */
+export const AUTO_WRITE = { dontUpdateMeta: true, dontRunListeners: true } as const;
+
 // Typed context hook — step files call this to get a fully-typed form.
 // useTypedAppFormContext takes the same props as useAppForm to infer TFormData,
 // but at runtime it just reads from the context (the _props are only for inference).

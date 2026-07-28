@@ -9,10 +9,11 @@
 
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Alert01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useDebouncedValue } from "@otterdeploy/ui/hooks/use-debounced-value";
 import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/shared/components/ui/button";
@@ -51,13 +52,9 @@ export function DomainAddForm({
   const [port, setPort] = useState<number | undefined>(
     () => (ports.find((p) => p.isPrimary) ?? ports[0])?.containerPort,
   );
-  const [debounced, setDebounced] = useState("");
 
   const trimmed = domain.trim().toLowerCase();
-  useEffect(() => {
-    const id = window.setTimeout(() => setDebounced(trimmed), CHECK_DEBOUNCE_MS);
-    return () => window.clearTimeout(id);
-  }, [trimmed]);
+  const debounced = useDebouncedValue(trimmed, CHECK_DEBOUNCE_MS);
 
   // Only ask once the name could plausibly be one — a lone "a" is not worth a
   // round trip, and "Not a valid hostname" while you're still typing the TLD

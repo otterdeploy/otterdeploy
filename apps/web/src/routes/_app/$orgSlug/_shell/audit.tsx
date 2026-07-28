@@ -8,6 +8,8 @@
  * collection can't represent come from a tiny companion query. See
  * `features/audit/data/audit.ts` for why the reads are split this way.
  */
+import { useDebouncedValue } from "@otterdeploy/ui/hooks/use-debounced-value";
+
 import { Download01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { eq, useLiveQuery } from "@tanstack/react-db";
@@ -28,7 +30,7 @@ import { orpc } from "@/shared/server/orpc";
 
 import { AuditFilters, useAuditFilterForm } from "../-components/audit-filters";
 import { EventDrawer } from "../-components/audit-drawer";
-import { exportCsv, useDebouncedValue } from "../-components/audit-helpers";
+import { exportCsv } from "../-components/audit-helpers";
 import { StatTile } from "../-components/audit-parts";
 import { AuditTableSection } from "../-components/audit-table";
 

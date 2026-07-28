@@ -1,27 +1,20 @@
+/**
+ * Daemon-panel display helpers. The reference/byte formatters live in
+ * `@otterdeploy/shared` — every surface that names an image must shorten and
+ * size it identically — so this file keeps only what is specific to reading
+ * the Docker daemon: relative timestamps in its two timestamp dialects, and
+ * the state→tone vocabulary for its badges.
+ */
+
+import { ABSENT, formatBytes } from "@otterdeploy/shared/format";
+import { DIGEST_ID, shortDigest } from "@otterdeploy/shared/image-ref";
+
+export { formatBytes };
+export { splitRef } from "@otterdeploy/shared/image-ref";
+
 /** Strip a Docker `sha256:…`/long id down to the conventional 12 chars. */
 export function shortId(id: string): string {
-  return id.replace(/^sha256:/, "").slice(0, 12) || "—";
-}
-
-/** Split an image ref into repo + tag on the final colon (registry ports keep their colon). */
-export function splitRef(ref: string): { repo: string; tag: string } {
-  const i = ref.lastIndexOf(":");
-  if (i === -1) return { repo: ref, tag: "" };
-  const tag = ref.slice(i + 1);
-  if (tag.includes("/")) return { repo: ref, tag: "" };
-  return { repo: ref.slice(0, i), tag };
-}
-
-export function formatBytes(n: number): string {
-  if (n < 0) return "—";
-  if (n === 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.min(
-    Math.floor(Math.log(n) / Math.log(1024)),
-    units.length - 1,
-  );
-  const v = n / 1024 ** i;
-  return `${i === 0 ? v : v.toFixed(1)} ${units[i]}`;
+  return shortDigest(id, DIGEST_ID) ?? ABSENT;
 }
 
 const RELATIVE_UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
@@ -38,7 +31,7 @@ function timeAgoMs(ms: number): string {
   // Some daemon resources report a missing/zero/garbage timestamp; guard so a
   // single bad row can't throw "value must be finite" out of Intl and crash
   // the whole route render.
-  if (!Number.isFinite(ms)) return "—";
+  if (!Number.isFinite(ms)) return ABSENT;
   const diffSeconds = (ms - Date.now()) / 1000;
   const abs = Math.abs(diffSeconds);
   for (const [unit, secs] of RELATIVE_UNITS) {
@@ -51,15 +44,15 @@ function timeAgoMs(ms: number): string {
 
 /** Docker `Created`/`createdAt` is a unix timestamp in seconds across all resources. */
 export function timeAgoSeconds(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds <= 0) return "—";
+  if (!Number.isFinite(seconds) || seconds <= 0) return ABSENT;
   return timeAgoMs(seconds * 1000);
 }
 
 /** Swarm tasks report RFC3339 strings instead of unix seconds. */
 export function timeAgoIso(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return ABSENT;
   const ms = Date.parse(iso);
-  if (Number.isNaN(ms)) return "—";
+  if (Number.isNaN(ms)) return ABSENT;
   return timeAgoMs(ms);
 }
 
