@@ -127,11 +127,6 @@ function RouteComponent() {
         </div>
       )}
 
-      <p className="text-xs text-muted-foreground">
-        Private keys are encrypted at rest with the cluster secret — only the
-        public half is ever displayed.
-      </p>
-
       <GenerateKeyDialog open={generateOpen} onOpenChange={setGenerateOpen} />
       <ImportKeyDialog open={importOpen} onOpenChange={setImportOpen} />
     </Page>

@@ -32,12 +32,16 @@ export function BackupNowDialog({
   onOpenChange,
   destinations,
   onAddDestination,
+  initialResourceId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   destinations: Destination[];
   /** Close this dialog and jump to the destination editor. */
   onAddDestination?: () => void;
+  /** Pre-select this database, for when the dialog is opened FROM a database
+   *  rather than from the global backups list. */
+  initialResourceId?: string;
 }) {
   if (!open) return null;
   return (
@@ -46,30 +50,38 @@ export function BackupNowDialog({
         onClose={() => onOpenChange(false)}
         destinations={destinations}
         onAddDestination={onAddDestination}
+        initialResourceId={initialResourceId}
       />
     </Dialog>
   );
+}
+
+/** A blank run, optionally pre-scoped to the database it was opened from. */
+function emptyRun(resourceId: string | undefined) {
+  return {
+    sourceKind: "database" as "database" | "volume",
+    resourceId: resourceId ?? "",
+    volumeName: "",
+    destinationIds: [] as string[],
+    encrypted: true,
+  };
 }
 
 function BackupNowBody({
   onClose,
   destinations,
   onAddDestination,
+  initialResourceId,
 }: {
   onClose: () => void;
   destinations: Destination[];
   onAddDestination?: () => void;
+  initialResourceId?: string;
 }) {
   const { data: databases } = useLiveQuery((q) => q.from({ d: terminalDatabasesCollection }));
 
   const form = useForm({
-    defaultValues: {
-      sourceKind: "database" as "database" | "volume",
-      resourceId: "",
-      volumeName: "",
-      destinationIds: [] as string[],
-      encrypted: true,
-    },
+    defaultValues: emptyRun(initialResourceId),
     onSubmit: async ({ value }) => {
       try {
         await runBackup({
