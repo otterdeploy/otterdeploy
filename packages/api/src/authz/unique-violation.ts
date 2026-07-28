@@ -21,8 +21,9 @@ import { ORPCError, os as orpc } from "@orpc/server";
 
 import type { Context } from "../context";
 
-/** Postgres SQLSTATE for unique_violation. */
-const UNIQUE_VIOLATION = "23505";
+/** Detection lives in the leaf ../routers/project/view-helpers so there is one
+ *  place that knows where each driver hides the SQLSTATE. */
+import { isUniqueViolation, uniqueViolationConstraint } from "../routers/project/view-helpers";
 
 /**
  * Constraint name → operator-facing message. Anything not listed still becomes
@@ -40,27 +41,16 @@ const CONSTRAINT_MESSAGES: Readonly<Record<string, string>> = {
   database_ephemeral_credential_role_unique: "That database role already exists.",
 };
 
-interface PgLikeError {
-  code?: unknown;
-  constraint?: unknown;
-  cause?: unknown;
-}
-
 /**
- * Find a unique violation anywhere in the cause chain, since drizzle wraps the
- * driver error (and better-result may wrap that again). Depth-capped so a
- * self-referential cause can't spin.
+ * A unique violation and the constraint it hit, or null when this isn't one.
+ *
+ * Both halves delegate to view-helpers: Bun's driver puts the SQLSTATE on
+ * `errno` (not `code`) and leaves `constraint` undefined, so the detection has
+ * to know each driver's shape — and it should only have to know it once.
  */
 export function findUniqueViolation(err: unknown): { constraint: string | null } | null {
-  let current: unknown = err;
-  for (let depth = 0; depth < 8 && current != null; depth++) {
-    const candidate = current as PgLikeError;
-    if (candidate.code === UNIQUE_VIOLATION) {
-      return { constraint: typeof candidate.constraint === "string" ? candidate.constraint : null };
-    }
-    current = candidate.cause;
-  }
-  return null;
+  if (!isUniqueViolation(err)) return null;
+  return { constraint: uniqueViolationConstraint(err) };
 }
 
 /** The message for a violated constraint; generic when it isn't mapped. */

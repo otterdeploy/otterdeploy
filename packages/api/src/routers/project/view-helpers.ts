@@ -1,3 +1,5 @@
+import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
+
 /**
  * Pure string / identifier helpers shared across the project handler split —
  * docker-name + slug sanitizers, per-engine swarm name builders, the public
@@ -5,7 +7,6 @@
  * depends only on the DatabaseEngine type so it can be imported anywhere
  * without creating a cycle.
  */
-import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 
 export function sanitizeProjectSlug(projectId: string): string {
   const value = projectId
@@ -110,13 +111,9 @@ export function buildConnectionString(input: {
   return url.toString();
 }
 
-export function isUniqueViolation(error: unknown): boolean {
-  // Drizzle wraps the driver error in a DrizzleQueryError, so the Postgres
-  // `23505` code sits on `.cause` — walk the chain to find it.
-  let e: unknown = error;
-  for (let depth = 0; depth < 5 && e && typeof e === "object"; depth++) {
-    if ((e as { code?: unknown }).code === "23505") return true;
-    e = (e as { cause?: unknown }).cause;
-  }
-  return false;
-}
+/**
+ * Re-exported from ../../lib/pg-error, which owns Postgres error
+ * classification for the whole package. Kept here because call sites already
+ * import it from this module.
+ */
+export { isUniqueViolation, pgConstraint as uniqueViolationConstraint } from "../../lib/pg-error";
