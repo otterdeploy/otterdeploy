@@ -62,11 +62,20 @@ export function PageHeader({
   className?: string;
 }) {
   return (
-    // flex-wrap so the action buttons drop under the title on a phone rather
-    // than squeezing it — several pages carry two of them ("Enroll" + "Add
-    // server"), which is wider than the space left beside a title.
-    <header className={cn("flex flex-wrap items-end justify-between gap-x-4 gap-y-3", className)}>
-      <div className="min-w-0 flex-1">
+    // Below `sm` the actions take their own full-width row UNDER the title.
+    // Wrapping alone wasn't enough: the title block is `flex-1`, so it kept
+    // shrinking to make room beside two buttons ("Secure enrollment" + "Add
+    // server" is ~230px) and the description collapsed into a 5-line column
+    // against the left edge. Stacked, the title reads at full width and the
+    // buttons get a comfortable touch row.
+    <header
+      className={cn(
+        "flex flex-col items-stretch gap-3",
+        "sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-x-4 sm:gap-y-3",
+        className,
+      )}
+    >
+      <div className="min-w-0 sm:flex-1">
         <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{title}</h1>
         {description ? (
           <p className="mt-1 text-sm [overflow-wrap:anywhere] text-muted-foreground">
@@ -74,7 +83,9 @@ export function PageHeader({
           </p>
         ) : null}
       </div>
-      {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
+      {actions ? (
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">{actions}</div>
+      ) : null}
     </header>
   );
 }

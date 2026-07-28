@@ -52,6 +52,10 @@ function AlertDialogContent({
           // string in the title (a volume id, image digest, path) widens the
           // dialog straight past its own max-w-sm. See AlertDialogTitle.
           "group/alert-dialog-content fixed top-1/2 left-1/2 z-50 grid w-full -translate-x-1/2 -translate-y-1/2 grid-cols-[minmax(0,1fr)] gap-4 rounded-xl bg-popover p-4 text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none data-[size=default]:max-w-xs data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          // Same viewport cap as DialogContent: a centred popup taller than the
+          // screen hangs off both ends, and here the thing pushed out of reach
+          // is the Cancel/Confirm pair on a destructive action. See dialog.tsx.
+          "max-h-[calc(100svh-2rem)] overflow-y-auto overscroll-contain",
           className,
         )}
         {...props}

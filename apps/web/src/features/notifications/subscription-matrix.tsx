@@ -30,10 +30,16 @@ export function SubscriptionMatrix({ channels, subs, onToggle }: SubscriptionMat
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-md border bg-card">
+      {/* overflow-x-auto, not overflow-hidden: this is a genuine 2-D matrix
+          (events × channels) — it is the one shape on the page that cannot
+          stack into a list without losing the relationship it exists to show,
+          so on a phone it scrolls sideways instead of silently clipping the
+          right-hand channels. The min-width keeps the columns legible rather
+          than crushing switches together. */}
+      <div className="overflow-x-auto rounded-md border bg-card">
         {/* Header */}
         <div
-          className="grid items-start gap-2 border-b bg-muted/50 px-3.5 py-2.5 text-[11px] tracking-wider text-muted-foreground uppercase"
+          className="grid min-w-[520px] items-start gap-2 border-b bg-muted/50 px-3.5 py-2.5 text-[11px] tracking-wider text-muted-foreground uppercase"
           style={{ gridTemplateColumns: gridCols }}
         >
           <span>Event</span>
@@ -67,7 +73,7 @@ export function SubscriptionMatrix({ channels, subs, onToggle }: SubscriptionMat
         {EVENTS.map((ev, i) => (
           <div
             key={ev.id}
-            className="grid items-center gap-2 px-3.5 py-2.5 text-[12px]"
+            className="grid min-w-[520px] items-center gap-2 px-3.5 py-2.5 text-[12px]"
             style={{
               gridTemplateColumns: gridCols,
               borderTop: i > 0 ? "1px solid var(--border)" : undefined,

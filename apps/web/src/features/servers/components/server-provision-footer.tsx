@@ -34,7 +34,11 @@ export function ProvisionFooter({
         // did nothing at all. Block it out loud instead.
         const blockedReason =
           authMode === "key" && usableKeys.length === 0
-            ? "No usable SSH key yet, so provisioning cannot start. Switch to One-time password above, or add a key under Settings → SSH keys."
+            // Says why the button is dead and nothing else: the panel above
+            // already explains how to add a key, and the button beside it
+            // already offers the password path. Repeating both here is what
+            // made this dialog read as four notices about one missing key.
+            ? "Provisioning needs a credential. Choose one above."
             : null;
         return (
           <>

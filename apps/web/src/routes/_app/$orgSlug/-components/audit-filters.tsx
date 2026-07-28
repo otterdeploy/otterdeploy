@@ -99,7 +99,12 @@ export function AuditFilters({
   const { actorOptions, actionOptions, targetOptions } = useFilterOptions(filter, queryFilter);
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    // Below `sm` this is a two-up grid, not a wrapping flex row: the controls
+    // carry fixed widths (w-40/w-48) that wrapped into a ragged 2-2-1 stagger
+    // with a different left edge on every line. On the grid each control fills
+    // its cell, so the bar reads as two clean columns. From `sm` the original
+    // flex bar returns unchanged.
+    <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
       <form.Field name="range">
         {(field) => (
           <FilterCombobox
@@ -107,12 +112,12 @@ export function AuditFilters({
             onChange={field.handleChange}
             options={RANGE_OPTIONS}
             searchPlaceholder="Time range…"
-            className="w-40"
+            className="w-full sm:w-40"
           />
         )}
       </form.Field>
       {filter.range === "custom" && (
-        <div className="flex items-center gap-1.5">
+        <div className="col-span-2 flex items-center gap-1.5 sm:col-auto">
           <form.Field name="from">
             {(field) => (
               <Input
@@ -148,7 +153,7 @@ export function AuditFilters({
             anyLabel="All actors"
             searchPlaceholder="Search actors…"
             options={actorOptions}
-            className="w-48"
+            className="w-full sm:w-48"
           />
         )}
       </form.Field>
@@ -160,7 +165,7 @@ export function AuditFilters({
             anyLabel="All actions"
             searchPlaceholder="Search actions…"
             options={actionOptions}
-            className="w-48"
+            className="w-full sm:w-48"
           />
         )}
       </form.Field>
@@ -172,7 +177,7 @@ export function AuditFilters({
             anyLabel="All targets"
             searchPlaceholder="Search targets…"
             options={targetOptions}
-            className="w-40"
+            className="w-full sm:w-40"
           />
         )}
       </form.Field>
@@ -184,11 +189,15 @@ export function AuditFilters({
             anyLabel="All outcomes"
             searchPlaceholder="Search outcomes…"
             options={OUTCOME_OPTIONS}
-            className="w-40"
+            className="w-full sm:w-40"
           />
         )}
       </form.Field>
-      <div className="relative ml-auto">
+      {/* `ml-auto` is a one-line instruction: once the bar wrapped, it shoved
+          the w-64 field to the right edge of its own line, misaligned with
+          every control above it and overhanging the card. On the phone grid it
+          spans both columns instead; `ml-auto` returns with the flex bar. */}
+      <div className="relative col-span-2 sm:col-auto sm:ml-auto">
         <HugeiconsIcon
           icon={Search01Icon}
           strokeWidth={2}
@@ -200,7 +209,7 @@ export function AuditFilters({
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
               placeholder="Search action / actor / target"
-              className="h-8 w-64 pl-8"
+              className="h-8 w-full pl-8 sm:w-64"
             />
           )}
         </form.Field>

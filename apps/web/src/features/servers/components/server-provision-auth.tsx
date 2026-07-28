@@ -57,9 +57,13 @@ export function ProvisionAuthSection({
                   // the sshKeyId validation failure on submit had nowhere to show.
                   // Offer the path that works from right here.
                   <div className="flex flex-col items-start gap-2">
+                    {/* The one-time-password alternative is NOT mentioned here:
+                        the button directly below is that alternative, and the
+                        tab above is too. Saying it a third time in prose is why
+                        this block read as noise. */}
                     <p className="text-sm text-muted-foreground">
-                      No generated SSH keys yet — create one under Settings → SSH keys and install
-                      its public key on the host, or provision with a one-time password instead.
+                      No SSH keys yet. Create one under Settings → SSH keys, then install its
+                      public key on the host.
                     </p>
                     <Button
                       type="button"
@@ -124,7 +128,7 @@ export function ProvisionAuthSection({
                     onChange={(e) => field.handleChange(e.target.value)}
                   />
                   <p className="text-[12px] text-muted-foreground">
-                    Used once to connect, then discarded — never stored.
+                    Used once to connect, then discarded. Never stored.
                   </p>
                   {field.state.meta.errors.map((err) => (
                     <FieldError key={String(err)}>{String(err)}</FieldError>
