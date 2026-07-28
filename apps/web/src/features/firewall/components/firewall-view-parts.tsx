@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
-import { useTranslation } from "react-i18next";
 
 import { FirewallIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import type { orpc } from "@/shared/server/orpc";
 

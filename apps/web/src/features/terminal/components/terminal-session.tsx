@@ -1,11 +1,11 @@
 import { useEffect, useRef } from "react";
-import { useTranslation } from "react-i18next";
 
+import { GhosttyCore } from "@wterm/ghostty";
 // @ts-expect-error — CSS-only side-effect import; @wterm/react ships a
 // `/css` entry that Vite injects. No type declarations.
 import "@wterm/react/css";
-import { GhosttyCore } from "@wterm/ghostty";
 import { Terminal, useTerminal, type WTerm } from "@wterm/react";
+import { useTranslation } from "react-i18next";
 
 import type { ClientMessage } from "@/messages";
 
@@ -116,7 +116,9 @@ export function TerminalSession({ source, active, onConnChange }: Props) {
       {showConnecting ? (
         <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-[oklch(0.12_0_0)]">
           <Spinner className="size-4 text-muted-foreground" />
-          <span className="font-mono text-[11px] text-muted-foreground">{t("terminal.connecting")}</span>
+          <span className="font-mono text-[11px] text-muted-foreground">
+            {t("terminal.connecting")}
+          </span>
         </div>
       ) : null}
       <StepUpDialog

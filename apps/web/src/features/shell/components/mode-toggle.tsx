@@ -1,6 +1,6 @@
 import { Moon02Icon, Sun02Icon } from "@hugeicons/core-free-icons";
-import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import { useTheme } from "@/shared/components/theme-provider";
 import { Button } from "@/shared/components/ui/button";
@@ -40,9 +40,13 @@ export function ModeToggle() {
         <span className="sr-only">{t("common.toggleTheme")}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => setTheme("light")}>{t("user.theme.light")}</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("light")}>
+          {t("user.theme.light")}
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme("dark")}>{t("user.theme.dark")}</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("system")}>{t("user.theme.system")}</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("system")}>
+          {t("user.theme.system")}
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

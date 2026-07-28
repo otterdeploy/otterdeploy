@@ -12,8 +12,8 @@
  */
 
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Badge } from "@/shared/components/ui/badge";

@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 /**
  * Per-kind field set for the add/edit-channel dialog. Captures the destination
  * (`target`), an optional `secret` (Telegram bot token, webhook HMAC key, SMTP
@@ -5,7 +7,6 @@
  * of the dialog so each file stays within the lint line budget.
  */
 import { Input } from "@/shared/components/ui/input";
-import { useTranslation } from "react-i18next";
 import { Label } from "@/shared/components/ui/label";
 import { cn } from "@/shared/lib/utils";
 
@@ -111,7 +112,9 @@ export function ChannelFields({
 
       {kind === "email" && (
         <div className="flex flex-col gap-2">
-          <Label className="text-[11px] text-muted-foreground">{t("notifications.deliverVia")}</Label>
+          <Label className="text-[11px] text-muted-foreground">
+            {t("notifications.deliverVia")}
+          </Label>
           <div className="flex gap-2">
             {(["resend", "smtp"] as const).map((c) => (
               <button

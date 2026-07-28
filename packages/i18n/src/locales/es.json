@@ -585,7 +585,10 @@
       "acmeManaged": "Gestionados por ACME",
       "expiringSoon": "Caducan en < 30 d",
       "customUploads": "Subidas personalizadas"
-    }
+    },
+    "removeCa": "Quitar {{name}}",
+    "removeCaConfirm": "¿Quitar «{{name}}» del almacén de CA?",
+    "removeCaDescription": "El PEM almacenado se elimina. Todo lo que haga referencia a él (por ejemplo, la configuración personalizada de Caddy de un proyecto que apunte a una copia descargada) no se ve afectado — esto solo elimina la entrada del inventario."
   },
   "webhooks": {
     "columns": {

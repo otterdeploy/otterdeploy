@@ -6,7 +6,6 @@
  */
 
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import {
   Alert02Icon,
@@ -21,6 +20,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Badge } from "@/shared/components/ui/badge";
@@ -72,7 +72,6 @@ export function KeyCard({ sshKey, canManage }: { sshKey: SshKey; canManage: bool
   );
 
   const copy = (text: string, what: string) => {
-    const { t } = useTranslation();
     void copyToClipboard(text).then((ok) => {
       if (!ok) {
         toast.error(`Couldn't copy ${what}`);

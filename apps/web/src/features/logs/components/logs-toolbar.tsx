@@ -1,6 +1,6 @@
 import { Copy01Icon, PauseIcon, PlayIcon, Search01Icon } from "@hugeicons/core-free-icons";
-import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";

@@ -7,9 +7,9 @@
  * delivery` records — no synthesized history.
  */
 import type { ReactNode } from "react";
-import { useTranslation } from "react-i18next";
 
 import { useInfiniteQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 import { Button } from "@/shared/components/ui/button";

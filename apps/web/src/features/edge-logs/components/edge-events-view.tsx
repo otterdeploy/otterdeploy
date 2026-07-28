@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";

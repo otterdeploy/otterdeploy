@@ -10,10 +10,10 @@
  * flips a server-computed status — both refetch the list on success.
  */
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import { Delete01Icon, FlashIcon, PencilEdit01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { EVENTS } from "@/features/notifications/shared";
@@ -30,7 +30,6 @@ const EVENT_LABELS = new Map(EVENTS.map((e) => [e.id, e.label]));
 const SHOWN_EVENTS = 6;
 
 function StatusPill({ status }: { status: OutboundWebhook["status"] }) {
-  const { t } = useTranslation();
   const { label, dot } = STATUS_META[status];
   return (
     <Badge variant="outline" className="gap-1.5 font-normal">

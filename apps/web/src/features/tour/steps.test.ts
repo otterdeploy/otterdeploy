@@ -71,10 +71,13 @@ describe("resolveRouteParams", () => {
     );
     expect(withProject.projectSlug).toBe("storefront");
 
-    const without = resolveRouteParams({ to: "/$orgSlug", params: {} }, {
-      ...base,
-      projectSlug: null,
-    });
+    const without = resolveRouteParams(
+      { to: "/$orgSlug", params: {} },
+      {
+        ...base,
+        projectSlug: null,
+      },
+    );
     expect(without).not.toHaveProperty("projectSlug");
   });
 

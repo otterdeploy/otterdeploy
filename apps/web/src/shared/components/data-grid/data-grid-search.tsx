@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+
 import { useTranslation } from "react-i18next";
 
 import type { SearchState } from "@/shared/components/data-grid/types";

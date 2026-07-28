@@ -1,8 +1,8 @@
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import {
   bucketize,
@@ -112,7 +112,9 @@ export function LogsHistogram({
   return (
     <div className="border-b px-5 pt-4 pb-2.5">
       <div className="mb-2 flex items-center gap-2 text-[11px]">
-        <span className="tracking-[0.06em] text-muted-foreground uppercase">{t("logs.volumeLast30m")}</span>
+        <span className="tracking-[0.06em] text-muted-foreground uppercase">
+          {t("logs.volumeLast30m")}
+        </span>
         {selectedRange && (
           <button
             type="button"

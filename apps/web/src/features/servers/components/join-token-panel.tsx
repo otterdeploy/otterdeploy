@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { sessionQuery } from "@/lib/auth-queries";

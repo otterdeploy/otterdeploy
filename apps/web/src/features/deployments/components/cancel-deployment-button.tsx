@@ -1,11 +1,11 @@
 import type { DeploymentId } from "@otterdeploy/shared/id";
-import { useTranslation } from "react-i18next";
 
 import { useState } from "react";
 
 import { StopIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import {
@@ -99,7 +99,9 @@ export function CancelDeploymentButton({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={cancel.isPending}>{t("deployments.keepBuilding")}</AlertDialogCancel>
+            <AlertDialogCancel disabled={cancel.isPending}>
+              {t("deployments.keepBuilding")}
+            </AlertDialogCancel>
             <AlertDialogAction
               disabled={cancel.isPending}
               onClick={(e) => {

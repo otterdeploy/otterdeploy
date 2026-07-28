@@ -6,9 +6,9 @@
  * then a full-bleed table that fills the remaining height.
  */
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -23,7 +23,6 @@ import { FlaggedPanel } from "./flagged-panel";
 type View = "decisions" | "flagged" | "sources";
 
 export function FirewallView() {
-  const { t } = useTranslation();
   const status = useQuery({
     ...orpc.firewall.status.queryOptions(),
     refetchInterval: 15_000,
@@ -156,7 +155,6 @@ function FirewallToolbar({
   onBlock: (ip: string, durationHours: number) => void;
   blocking: boolean;
 }) {
-  const { t } = useTranslation();
   return (
     <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
       <div className="flex items-center gap-0.5 rounded-md border p-0.5">

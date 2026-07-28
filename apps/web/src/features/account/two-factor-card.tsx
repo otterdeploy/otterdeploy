@@ -8,9 +8,9 @@
  */
 
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import { ShieldKeyIcon } from "@hugeicons/core-free-icons";
+import { useTranslation } from "react-i18next";
 
 import { TwoFactorDialog } from "@/features/shell/components/nav/two-factor-dialog";
 import { SettingsSection } from "@/shared/components/settings-section";

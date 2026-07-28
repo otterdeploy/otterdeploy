@@ -1,5 +1,6 @@
-import { TableCell, TableRow } from "@/shared/components/ui/table";
 import { useTranslation } from "react-i18next";
+
+import { TableCell, TableRow } from "@/shared/components/ui/table";
 import { flagEmoji } from "@/shared/lib/flag";
 import { cn } from "@/shared/lib/utils";
 

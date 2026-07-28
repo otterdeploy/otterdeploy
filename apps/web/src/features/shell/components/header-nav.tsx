@@ -1,5 +1,4 @@
 import { useState, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
 
 import { ArrowDown01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -11,6 +10,7 @@ import {
   useRouteContext,
   useSearch,
 } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 
 import { CreateProjectDialog } from "@/features/projects/components/create-project-dialog";
 import { envCollection } from "@/features/projects/data/env";
@@ -215,7 +215,9 @@ function MobileCrumbMenu({ orgName, projectName, currentEnv, lists }: CrumbProps
           className="min-w-0"
         />
         <DropdownMenuContent align="start" className="max-h-[70svh] min-w-56 overflow-y-auto">
-          <DropdownMenuLabel className="text-muted-foreground">{t("nav.workspace")}</DropdownMenuLabel>
+          <DropdownMenuLabel className="text-muted-foreground">
+            {t("nav.workspace")}
+          </DropdownMenuLabel>
           <DropdownMenuGroup>
             <OrgItems {...lists} />
           </DropdownMenuGroup>
@@ -223,13 +225,17 @@ function MobileCrumbMenu({ orgName, projectName, currentEnv, lists }: CrumbProps
           {projectName && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-muted-foreground">{t("nav.project")}</DropdownMenuLabel>
+              <DropdownMenuLabel className="text-muted-foreground">
+                {t("nav.project")}
+              </DropdownMenuLabel>
               <DropdownMenuGroup>
                 <ProjectItems {...lists} />
               </DropdownMenuGroup>
 
               <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-muted-foreground">{t("shell.environment")}</DropdownMenuLabel>
+              <DropdownMenuLabel className="text-muted-foreground">
+                {t("shell.environment")}
+              </DropdownMenuLabel>
               <DropdownMenuGroup>
                 <EnvItems {...lists} />
               </DropdownMenuGroup>

@@ -13,7 +13,6 @@
  */
 
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import {
   Alert02Icon,
@@ -23,6 +22,7 @@ import {
   PencilEdit01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
@@ -34,7 +34,6 @@ import { channelsCollection } from "./data/notifications";
 import { type Channel, type ChannelStatus, KIND_META, relativeTime } from "./shared";
 
 function StatusPill({ status }: { status: ChannelStatus }) {
-  const { t } = useTranslation();
   const meta: Record<ChannelStatus, { label: string; dot: string }> = {
     active: { label: "active", dot: "bg-emerald-500" },
     warn: { label: "degraded", dot: "bg-amber-500" },

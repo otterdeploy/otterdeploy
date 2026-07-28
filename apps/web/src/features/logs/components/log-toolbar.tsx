@@ -6,7 +6,6 @@
  */
 
 import type { RefObject } from "react";
-import { useTranslation } from "react-i18next";
 
 import {
   Alert02Icon,
@@ -17,6 +16,7 @@ import {
   Search01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import { cn } from "@/shared/lib/utils";
 

@@ -1,11 +1,11 @@
 import { useState, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
 
 import { RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ID_PREFIX, zSlug, type GitProviderId } from "@otterdeploy/shared/id";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -18,7 +18,6 @@ import { orpc, queryClient } from "@/shared/server/orpc";
 export type ProviderData = Awaited<ReturnType<typeof orpc.git.getProvider.call>>;
 
 export function DeleteButton({ pending, onDelete }: { pending: boolean; onDelete: () => void }) {
-  const { t } = useTranslation();
   const [confirming, setConfirming] = useState(false);
   return (
     <Button
@@ -53,7 +52,11 @@ export function GeneralTab({ provider }: { provider: ProviderData }) {
         />
         <Row label={t("gitProviders.host")} value={provider.host} mono />
         <Row label={t("gitProviders.appId")} value={provider.externalAppId ?? "—"} mono />
-        <Row label={t("gitProviders.installationId")} value={inst?.installationId ?? "Not installed"} mono />
+        <Row
+          label={t("gitProviders.installationId")}
+          value={inst?.installationId ?? "Not installed"}
+          mono
+        />
         <Row
           label={t("gitProviders.repositories")}
           value={
@@ -64,8 +67,14 @@ export function GeneralTab({ provider }: { provider: ProviderData }) {
               : "—"
           }
         />
-        <Row label={t("gitProviders.connected")} value={new Date(provider.createdAt).toLocaleString()} />
-        <Row label={t("deployments.columns.status")} value={<InstallStatus provider={provider} />} />
+        <Row
+          label={t("gitProviders.connected")}
+          value={new Date(provider.createdAt).toLocaleString()}
+        />
+        <Row
+          label={t("deployments.columns.status")}
+          value={<InstallStatus provider={provider} />}
+        />
       </dl>
 
       <div className="flex flex-col gap-2 border-t pt-4">
@@ -74,8 +83,14 @@ export function GeneralTab({ provider }: { provider: ProviderData }) {
         </span>
         <div className="flex flex-wrap gap-2">
           <SecretChip label={t("sso.clientSecret")} ok={provider.secretsConfigured.clientSecret} />
-          <SecretChip label={t("gitProviders.webhookSecret")} ok={provider.secretsConfigured.webhookSecret} />
-          <SecretChip label={t("gitProviders.privateKey")} ok={provider.secretsConfigured.privateKey} />
+          <SecretChip
+            label={t("gitProviders.webhookSecret")}
+            ok={provider.secretsConfigured.webhookSecret}
+          />
+          <SecretChip
+            label={t("gitProviders.privateKey")}
+            ok={provider.secretsConfigured.privateKey}
+          />
         </div>
         <p className="text-[11.5px] text-muted-foreground">
           Secrets are encrypted at rest and never shown. GitHub issued them when the App was
@@ -87,7 +102,6 @@ export function GeneralTab({ provider }: { provider: ProviderData }) {
 }
 
 function InstallStatus({ provider }: { provider: ProviderData }) {
-  const { t } = useTranslation();
   const inst = provider.installation;
   const { label, tone } = !inst
     ? { label: "not installed", tone: "text-warning" }
@@ -234,7 +248,6 @@ export function ResourcesTab({
 // ─── bits ───
 
 function Row({ label, value, mono }: { label: string; value: ReactNode; mono?: boolean }) {
-  const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-1">
       <dt className="text-[10.5px] font-semibold tracking-wider text-muted-foreground uppercase">
@@ -248,7 +261,6 @@ function Row({ label, value, mono }: { label: string; value: ReactNode; mono?: b
 }
 
 function SecretChip({ label, ok }: { label: string; ok: boolean }) {
-  const { t } = useTranslation();
   return (
     <span
       className={cn(

@@ -8,10 +8,10 @@
  * inventing new copy/validation for the same check.
  */
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import { ShieldKeyIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import { useCurrentSession } from "@/features/account/data/use-account";
 import { Button } from "@/shared/components/ui/button";

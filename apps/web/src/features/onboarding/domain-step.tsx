@@ -1,7 +1,7 @@
 import { GlobalIcon } from "@hugeicons/core-free-icons";
-import { useTranslation } from "react-i18next";
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import * as z from "zod";
 
 import { Alert, AlertDescription } from "@/shared/components/ui/alert";

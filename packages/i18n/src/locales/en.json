@@ -585,7 +585,10 @@
       "acmeManaged": "ACME-managed",
       "expiringSoon": "Expiring < 30d",
       "customUploads": "Custom uploads"
-    }
+    },
+    "removeCa": "Remove {{name}}",
+    "removeCaConfirm": "Remove “{{name}}” from the CA store?",
+    "removeCaDescription": "The stored PEM is deleted. Anything referencing it (e.g. a project's custom Caddy config pointing at a downloaded copy) is unaffected — this only removes the inventory entry."
   },
   "webhooks": {
     "columns": {

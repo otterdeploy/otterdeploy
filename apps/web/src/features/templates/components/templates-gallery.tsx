@@ -5,10 +5,10 @@
  * trending lists because we don't measure those.
  */
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import { Search01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import { Page, PageHeader } from "@/shared/components/page";
 import { Input } from "@/shared/components/ui/input";

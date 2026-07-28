@@ -1,6 +1,6 @@
 import { Key01Icon } from "@hugeicons/core-free-icons";
-import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import type { SshKey } from "@/features/ssh-keys/data/ssh-keys";
 
@@ -64,8 +64,8 @@ export function ProvisionAuthSection({
                         tab above is too. Saying it a third time in prose is why
                         this block read as noise. */}
                     <p className="text-sm text-muted-foreground">
-                      No SSH keys yet. Create one under Settings → SSH keys, then install its
-                      public key on the host.
+                      No SSH keys yet. Create one under Settings → SSH keys, then install its public
+                      key on the host.
                     </p>
                     <Button
                       type="button"

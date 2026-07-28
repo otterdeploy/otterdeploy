@@ -72,6 +72,42 @@ function isSkippedFile(path: string): boolean {
   );
 }
 
+/** Identifiers, slugs and enum values — a single token with no prose shape. */
+function isIdentifier(text: string): boolean {
+  if (/^[a-z][a-z0-9_-]*$/.test(text)) return true;
+  if (/^[A-Za-z][A-Za-z0-9]*$/.test(text) && !/\s/.test(text) && text.length < 4) return true;
+  // Prose has either a space or an initial capital.
+  return !/\s/.test(text) && !/^[A-Z]/.test(text);
+}
+
+/** TypeScript/JSX syntax the `>…<` scan catches inside generics and braces. */
+function isSyntaxFragment(text: string): boolean {
+  if (/&&|\|\||=>|\?\.|===|!==|^&\s|\s&$/.test(text)) return true;
+  if (/^&\s*\w+/.test(text)) return true;
+  if (/\bextends\b|\bPromise\b|\bReact\.|\bnew (Set|Map)\b|\bvoid\b/.test(text)) return true;
+  if (/[()[\]|]/.test(text)) return true;
+  return /^,|^:|^=/.test(text);
+}
+
+/**
+ * Machine-readable strings the Two-Cuts Rule keeps in mono, and therefore
+ * untranslated: paths, URLs, env keys, shell commands, header names, key
+ * material. Translating any of these would make them wrong, not localised.
+ */
+function isMachineToken(text: string): boolean {
+  if (/^[/.#$@]/.test(text)) return true;
+  if (/^https?:\/\//.test(text)) return true;
+  if (/^[A-Z][A-Z0-9_]*$/.test(text)) return true;
+  if (/^\w+\/\w+/.test(text)) return true;
+  if (/^\{\{.*\}\}$/.test(text)) return true;
+  if (/^(docker|npm|bun|pnpm|yarn|git|ssh|scp|curl|sudo|systemctl|otterdeploy)\s/.test(text)) {
+    return true;
+  }
+  if (/^[A-Z][A-Z0-9_]*=/.test(text)) return true;
+  if (/^(X-|Authorization\b|Content-Type\b)/.test(text)) return true;
+  return /^(ssh-(rsa|ed25519|dss)|ecdsa-sha2)\b/.test(text);
+}
+
 /**
  * A literal is technical (not copy) when it reads as something a machine
  * consumes rather than something a person reads.
@@ -80,38 +116,7 @@ function isTechnical(value: string): boolean {
   const text = value.trim();
   if (text.length < 2) return true;
   if (!/[a-zA-Z]/.test(text)) return true;
-  // Single lowercase token — almost always an identifier, slug, or enum value.
-  if (/^[a-z][a-z0-9_-]*$/.test(text)) return true;
-  // camelCase / PascalCase single token, kebab or snake identifiers.
-  if (/^[A-Za-z][A-Za-z0-9]*$/.test(text) && !/\s/.test(text) && text.length < 4) return true;
-  // TypeScript and JSX syntax the text regex can catch between angle brackets
-  // — `ComponentProps<"div"> & VariantProps<…>`, `{cond && <X/>}`.
-  if (/&&|\|\||=>|\?\.|===|!==|^&\s|\s&$/.test(text)) return true;
-  if (/^&\s*\w+/.test(text)) return true;
-  // Prose has either a space or an initial capital; a bare lowercase token is
-  // an identifier.
-  if (!/\s/.test(text) && !/^[A-Z]/.test(text)) return true;
-  // Paths, URLs, env keys, image refs, mime types, selectors, template exprs.
-  if (/^[/.#$@]/.test(text)) return true;
-  if (/^https?:\/\//.test(text)) return true;
-  if (/^[A-Z][A-Z0-9_]*$/.test(text)) return true;
-  if (/^\w+\/\w+/.test(text)) return true;
-  if (/^\{\{.*\}\}$/.test(text)) return true;
-  // Type-expression fragments the `>…<` scan picks up inside generics:
-  // `Omit<Props, "x">`, `): React.RefObject<T>`, `void | Promise<void>`.
-  if (/\bextends\b|\bPromise\b|\bReact\.|\bnew (Set|Map)\b|\bvoid\b/.test(text)) return true;
-  if (/[()[\]|]/.test(text)) return true;
-  if (/^,|^:|^=/.test(text)) return true;
-  // Machine-readable strings the Two-Cuts Rule keeps in mono and therefore
-  // untranslated: shell commands, env assignments, HTTP header names, key
-  // material. Translating any of these would make them wrong, not localised.
-  if (/^(docker|npm|bun|pnpm|yarn|git|ssh|scp|curl|sudo|systemctl|otterdeploy)\s/.test(text)) {
-    return true;
-  }
-  if (/^[A-Z][A-Z0-9_]*=/.test(text)) return true;
-  if (/^(X-|Authorization\b|Content-Type\b)/.test(text)) return true;
-  if (/^(ssh-(rsa|ed25519|dss)|ecdsa-sha2)\b/.test(text)) return true;
-  return false;
+  return isIdentifier(text) || isSyntaxFragment(text) || isMachineToken(text);
 }
 
 interface Finding {

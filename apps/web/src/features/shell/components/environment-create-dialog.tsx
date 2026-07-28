@@ -1,9 +1,9 @@
 import type { ProjectId } from "@otterdeploy/shared/id";
-import { useTranslation } from "react-i18next";
 
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { envCollection, newPersistentEnvRow } from "@/features/projects/data/env";

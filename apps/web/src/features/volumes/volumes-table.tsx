@@ -8,7 +8,6 @@ import {
   MoreVerticalIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useTranslation } from "react-i18next";
 /**
  * Volumes inventory table. Attached-to chips deep-link to the owning
  * resource's graph panel; orphans get a warning badge (icon + label, never
@@ -16,6 +15,7 @@ import { useTranslation } from "react-i18next";
  */
 import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 
 import {
   SelectAllHead,

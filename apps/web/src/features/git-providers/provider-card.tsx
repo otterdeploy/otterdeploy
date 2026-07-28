@@ -1,9 +1,9 @@
 import { MoreVerticalIcon, RefreshIcon } from "@hugeicons/core-free-icons";
-import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { isDefinedError } from "@orpc/client";
 import { useMutation } from "@tanstack/react-query";
 import { Link, useParams, useSearch } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
@@ -168,7 +168,9 @@ function InstallationActions({ installation }: { installation: InstallationView 
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t("common.more")} />}>
+      <DropdownMenuTrigger
+        render={<Button size="icon-sm" variant="ghost" aria-label={t("common.more")} />}
+      >
         <HugeiconsIcon icon={MoreVerticalIcon} strokeWidth={2} />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">

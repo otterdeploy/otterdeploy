@@ -7,10 +7,10 @@
  */
 
 import { UserCircleIcon } from "@hugeicons/core-free-icons";
-import { useTranslation } from "react-i18next";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
@@ -22,6 +22,7 @@ import { ProfileFields, ProfileIdentity } from "./profile-form-fields";
 
 /** The `updateUser` mutation — `onSaved` resets the form on success. */
 function useSaveProfile({ onSaved }: { onSaved: () => void }) {
+  const { t } = useTranslation();
   const router = useRouter();
   const queryClient = useQueryClient();
   return useMutation({
@@ -33,7 +34,6 @@ function useSaveProfile({ onSaved }: { onSaved: () => void }) {
       if (res.error) throw new Error(res.error.message ?? "Failed to update profile");
     },
     onSuccess: async () => {
-      const { t } = useTranslation();
       onSaved();
       await queryClient.invalidateQueries({ queryKey: authKeys.currentSession });
       // Refresh the router context so the sidebar identity block updates too.
@@ -45,6 +45,7 @@ function useSaveProfile({ onSaved }: { onSaved: () => void }) {
 }
 
 export function ProfileCard() {
+  const { t } = useTranslation();
   const sessionQ = useCurrentSession();
   const user = sessionQ.data?.user;
 
@@ -63,7 +64,6 @@ export function ProfileCard() {
   });
 
   const save = useSaveProfile({ onSaved: () => form.reset() });
-    const { t } = useTranslation();
 
   const busy = sessionQ.isPending || save.isPending;
 

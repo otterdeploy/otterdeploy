@@ -5,9 +5,9 @@
  * HMAC secret is minted server-side on create and revealed from the card.
  */
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import { useForm } from "@tanstack/react-form";
+import { useTranslation } from "react-i18next";
 
 import { EVENTS, SEVERITY_DOT } from "@/features/notifications/shared";
 import { Button } from "@/shared/components/ui/button";

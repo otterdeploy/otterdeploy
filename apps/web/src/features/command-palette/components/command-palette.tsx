@@ -7,12 +7,12 @@ import {
   Sun02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useTranslation } from "react-i18next";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useMatch, useNavigate, useParams } from "@tanstack/react-router";
 import { Command as CommandPrimitive } from "cmdk";
 import { useTheme } from "next-themes";
+import { useTranslation } from "react-i18next";
 
 import type { RoutePath } from "@/features/shell/components/sidebar";
 

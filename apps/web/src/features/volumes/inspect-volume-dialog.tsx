@@ -5,9 +5,9 @@
  * vocabulary.
  */
 import { Copy01Icon } from "@hugeicons/core-free-icons";
-import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -32,7 +32,6 @@ export function InspectVolumeDialog({
   name: string | null;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { t } = useTranslation();
   return (
     <Dialog open={name !== null} onOpenChange={onOpenChange}>
       {name !== null ? <InspectBody name={name} /> : null}

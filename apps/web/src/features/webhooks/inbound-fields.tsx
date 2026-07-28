@@ -4,8 +4,9 @@
  * `inbound-dialog.tsx` to keep that module within the file-size budget.
  */
 
-import { Label } from "@/shared/components/ui/label";
 import { useTranslation } from "react-i18next";
+
+import { Label } from "@/shared/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/shared/components/ui/native-select";
 
 export type InboundAction = "redeploy" | "none";

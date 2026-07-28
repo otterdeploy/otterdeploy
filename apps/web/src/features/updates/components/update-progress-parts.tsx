@@ -1,11 +1,11 @@
 import { useEffect } from "react";
-import { useTranslation } from "react-i18next";
 
 /**
  * Presentational + pure helpers for {@link UpdateProgress}. Split out so the
  * pane component itself stays under the line/complexity budget.
  */
 import { env } from "@otterdeploy/env/web";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { LogLineRow, type LogLine } from "@/features/logs/components/log-viewer";

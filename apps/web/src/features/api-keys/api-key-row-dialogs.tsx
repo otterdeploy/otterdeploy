@@ -6,8 +6,8 @@
  */
 
 import { Delete02Icon, RefreshIcon } from "@hugeicons/core-free-icons";
-import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import {
   AlertDialog,

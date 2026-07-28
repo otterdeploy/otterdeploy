@@ -4,11 +4,11 @@
  * Docker page's Volumes tab (its former standalone route now redirects there).
  */
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import { HardDriveIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 import type { VolumeRow } from "@/features/volumes/shared";
 

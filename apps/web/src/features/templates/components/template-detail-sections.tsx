@@ -3,6 +3,7 @@
  * (or the typed catalog entry), never from ad-hoc display copies.
  */
 import type { ParsedCompose } from "@otterdeploy/api/stack/compose/types";
+
 import { useTranslation } from "react-i18next";
 
 import {

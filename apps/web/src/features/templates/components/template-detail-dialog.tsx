@@ -7,11 +7,11 @@
  * manifest flow (review vars → stage → Deploy) takes over from there.
  */
 import { useState, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
 
 import { parseCompose } from "@otterdeploy/api/stack/compose/parse";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 import { Button } from "@/shared/components/ui/button";
@@ -142,9 +142,9 @@ function DeployFooter({
   orgSlug: string;
   initialProjectSlug?: string;
 }) {
+  const { t } = useTranslation();
   const router = useRouter();
   const { data: projects } = useQuery(orpc.project.list.queryOptions());
-    const { t } = useTranslation();
   const [picked, setPicked] = useState(initialProjectSlug ?? "");
   // Fall back to the first project once the list loads, without an effect.
   const projectSlug = picked || projects?.[0]?.slug || "";

@@ -15,12 +15,11 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { useTranslation } from "react-i18next";
 
 import type { TimeRange } from "./logs-histogram";
 
 import { useProjectLogStream, type LogLevel } from "../data/use-project-log-stream";
-import { useTranslation } from "react-i18next";
-
 import { makeLogColumns } from "./log-columns";
 
 interface UseLogsTableArgs {

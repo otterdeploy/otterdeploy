@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+
 import { useTranslation } from "react-i18next";
 
 import { OtterdeployLogo } from "@/shared/components/brand/otterdeploy-logo";

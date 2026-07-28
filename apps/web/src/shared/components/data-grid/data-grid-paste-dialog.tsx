@@ -1,9 +1,10 @@
 "use client";
 
 import type { TableMeta } from "@tanstack/react-table";
-import { useTranslation } from "react-i18next";
 
 import * as React from "react";
+
+import { useTranslation } from "react-i18next";
 
 import type { PasteDialogState } from "@/shared/components/data-grid/types";
 
@@ -90,7 +91,9 @@ function PasteDialogImpl({ pasteDialog, onPasteDialogOpenChange, onCellsPaste }:
           <label className="flex cursor-pointer items-start gap-3">
             <RadioItem ref={expandRadioRef} name="expand-option" value="expand" defaultChecked />
             <div className="flex flex-col gap-1">
-              <span className="text-sm leading-none font-medium">{t("dataGrid.paste.createRows")}</span>
+              <span className="text-sm leading-none font-medium">
+                {t("dataGrid.paste.createRows")}
+              </span>
               <span className="text-sm text-muted-foreground">
                 Add {pasteDialog.rowsNeeded} new row
                 {pasteDialog.rowsNeeded !== 1 ? "s" : ""} to the table and paste all data
@@ -100,7 +103,9 @@ function PasteDialogImpl({ pasteDialog, onPasteDialogOpenChange, onCellsPaste }:
           <label className="flex cursor-pointer items-start gap-3">
             <RadioItem name="expand-option" value="no-expand" />
             <div className="flex flex-col gap-1">
-              <span className="text-sm leading-none font-medium">{t("dataGrid.paste.keepRows")}</span>
+              <span className="text-sm leading-none font-medium">
+                {t("dataGrid.paste.keepRows")}
+              </span>
               <span className="text-sm text-muted-foreground">
                 Paste only what fits in the existing rows
               </span>

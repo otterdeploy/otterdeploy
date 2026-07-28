@@ -1,11 +1,11 @@
 import type { ProjectSlug } from "@otterdeploy/shared/id";
-import { useTranslation } from "react-i18next";
 
 import { useState } from "react";
 
 import { Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useNavigate } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 
 import { cn } from "@/shared/lib/utils";
 
@@ -50,7 +50,6 @@ export function SetupWizard({ initialOrg = null }: { initialOrg?: CreatedOrg | n
   }
 
   function finishToOrg() {
-    const { t } = useTranslation();
     if (!org) return;
     void navigate({ to: "/$orgSlug", params: { orgSlug: org.slug } });
   }

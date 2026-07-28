@@ -4,8 +4,8 @@
  * leaf fingerprint matches the stored one) and the delete confirm button.
  */
 import { Delete02Icon } from "@hugeicons/core-free-icons";
-import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import {
   AlertDialog,
@@ -95,7 +95,6 @@ function StatusWithTip({
   label: string;
   tip: string;
 }) {
-  const { t } = useTranslation();
   return (
     <Tooltip>
       <TooltipTrigger
@@ -120,7 +119,6 @@ export function DeleteCertButton({
   disabled: boolean;
   onConfirm: () => void;
 }) {
-  const { t } = useTranslation();
   return (
     <AlertDialog>
       <AlertDialogTrigger

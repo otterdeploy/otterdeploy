@@ -11,9 +11,8 @@
 import { useEffect } from "react";
 
 import { useLocation } from "@tanstack/react-router";
-import { toast } from "sonner";
-
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 
 import { orpc, queryClient } from "@/shared/server/orpc";
 

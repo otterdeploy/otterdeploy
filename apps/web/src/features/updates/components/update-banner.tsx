@@ -4,8 +4,8 @@
  * (the header button remains as the quiet, always-there affordance).
  */
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
-import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
@@ -15,9 +15,9 @@ import { useDismissUpdate, useUpdateStatus } from "../data/use-update-status";
 import { useUpdate } from "./update-provider";
 
 export function UpdateBanner() {
+  const { t } = useTranslation();
   const status = useUpdateStatus();
   const { openUpdate } = useUpdate();
-    const { t } = useTranslation();
   const dismiss = useDismissUpdate();
   // Suppress the loud banner during a user's first session — the quiet header
   // affordance (see the file doc comment) still surfaces the update either

@@ -6,11 +6,11 @@
  */
 
 import type { AnyFieldApi } from "@tanstack/react-form";
-import { useTranslation } from "react-i18next";
 
 import { SquareLockPasswordIcon } from "@hugeicons/core-free-icons";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
@@ -223,7 +223,6 @@ function PasswordField({
   disabled: boolean;
   field: AnyFieldApi;
 }) {
-  const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={id} className="text-[12px] text-muted-foreground">

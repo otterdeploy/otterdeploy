@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useTranslation } from "react-i18next";
 
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import type { DataGridCellProps, FileCellData } from "@/shared/components/data-grid/types";
@@ -60,7 +60,6 @@ export function ShortTextCell<TData>({
   isActiveSearchMatch,
   readOnly,
 }: DataGridCellProps<TData>) {
-  const { t } = useTranslation();
   const initialValue = cell.getValue() as string;
   const [value, setValue] = React.useState(initialValue);
   const cellRef = React.useRef<HTMLDivElement>(null);
@@ -424,7 +423,6 @@ export function NumberCell<TData>({
   isActiveSearchMatch,
   readOnly,
 }: DataGridCellProps<TData>) {
-  const { t } = useTranslation();
   const initialValue = cell.getValue() as number;
   const [value, setValue] = React.useState(String(initialValue ?? ""));
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -757,7 +755,6 @@ export function CheckboxCell<TData>({
   isActiveSearchMatch,
   readOnly,
 }: Omit<DataGridCellProps<TData>, "isEditing">) {
-  const { t } = useTranslation();
   const initialValue = cell.getValue() as boolean;
   const [value, setValue] = React.useState(Boolean(initialValue));
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -864,7 +861,6 @@ export function SelectCell<TData>({
   isActiveSearchMatch,
   readOnly,
 }: DataGridCellProps<TData>) {
-  const { t } = useTranslation();
   const initialValue = cell.getValue() as string;
   const [value, setValue] = React.useState(initialValue);
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -1282,7 +1278,6 @@ export function DateCell<TData>({
   isActiveSearchMatch,
   readOnly,
 }: DataGridCellProps<TData>) {
-  const { t } = useTranslation();
   const initialValue = cell.getValue() as string;
   const [value, setValue] = React.useState(initialValue ?? "");
   const containerRef = React.useRef<HTMLDivElement>(null);

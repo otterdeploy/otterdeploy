@@ -6,9 +6,9 @@
  */
 
 import { RocketIcon } from "@hugeicons/core-free-icons";
-import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { formatNumber } from "@otterdeploy/shared/format";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";

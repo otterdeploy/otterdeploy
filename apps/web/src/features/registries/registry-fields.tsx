@@ -1,7 +1,8 @@
 /** Presentational field primitives for the registry add/edit dialog. */
 
-import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 import { useTranslation } from "react-i18next";
+
+import { SvglLogo } from "@/shared/components/brand/svgl-logo";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import { cn } from "@/shared/lib/utils";

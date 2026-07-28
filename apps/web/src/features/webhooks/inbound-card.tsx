@@ -7,10 +7,10 @@
  * (server-flipped status) followed by a list refetch.
  */
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import { Copy01Icon, Delete01Icon, PencilEdit01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { relativeTime } from "@/features/notifications/shared";

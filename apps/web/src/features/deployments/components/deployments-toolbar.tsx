@@ -4,8 +4,9 @@
  * URL); this component is purely presentational.
  */
 
-import { NativeSelect, NativeSelectOption } from "@/shared/components/ui/native-select";
 import { useTranslation } from "react-i18next";
+
+import { NativeSelect, NativeSelectOption } from "@/shared/components/ui/native-select";
 import {
   Select,
   SelectContent,

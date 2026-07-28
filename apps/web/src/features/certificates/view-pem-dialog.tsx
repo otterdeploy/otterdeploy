@@ -1,7 +1,7 @@
 /** Read-only PEM viewer for a stored trusted CA — copy + download. */
 import { Copy01Icon, Download01Icon } from "@hugeicons/core-free-icons";
-import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";

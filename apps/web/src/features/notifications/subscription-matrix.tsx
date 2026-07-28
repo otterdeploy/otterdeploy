@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 /**
  * Event → channel routing grid. Rows are events (with a severity dot),
  * columns are channels; each cell is a Switch that toggles whether that event
@@ -7,7 +9,6 @@
  * server subscription matrix; paused / disconnected channels render disabled.
  */
 import { SvglLogo } from "@/shared/components/brand/svgl-logo";
-import { useTranslation } from "react-i18next";
 import { Switch } from "@/shared/components/ui/switch";
 
 import { type Channel, EVENTS, KIND_META, SEVERITY_DOT, channelTargetHint } from "./shared";
@@ -26,7 +27,9 @@ export function SubscriptionMatrix({ channels, subs, onToggle }: SubscriptionMat
   return (
     <div className="flex flex-col gap-2.5">
       <div>
-        <h2 className="text-[14px] font-semibold tracking-tight">{t("notifications.matrixTitle")}</h2>
+        <h2 className="text-[14px] font-semibold tracking-tight">
+          {t("notifications.matrixTitle")}
+        </h2>
         <p className="text-[12.5px] text-muted-foreground">
           Toggle which events deliver to which channel.
         </p>

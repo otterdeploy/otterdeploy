@@ -1,3 +1,5 @@
+import type { TFunction } from "i18next";
+
 /**
  * Create / edit an inbound trigger endpoint. Create is two-phase: the form
  * (name, action, target service, IP allowlist) then — because the HMAC secret
@@ -9,11 +11,10 @@
  * create response's one-time secret doesn't fit a collection mutation).
  */
 import { useState } from "react";
-import type { TFunction } from "i18next";
-import { useTranslation } from "react-i18next";
 
 import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -99,7 +100,6 @@ function AllowlistField({
   onBlur: () => void;
   onChange: (v: string) => void;
 }) {
-  const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-2">
       <Label htmlFor="inbound-allowlist">

@@ -1,5 +1,4 @@
 import { Fragment, useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -12,6 +11,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
  */
 import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 
 import { Badge } from "@/shared/components/ui/badge";
 import {

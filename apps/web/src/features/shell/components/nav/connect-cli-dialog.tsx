@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
 /**
  * Connect CLI — the device-authorization flow itself is already built (the
  * `otterdeploy login` command + the `/device` approval page via better-auth's
@@ -7,6 +6,7 @@ import { useTranslation } from "react-i18next";
  * login command for this control plane + a shortcut to the approval page.
  */
 import { useLoaderData, useNavigate, useRouteContext } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";

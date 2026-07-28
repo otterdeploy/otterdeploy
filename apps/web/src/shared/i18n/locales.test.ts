@@ -19,11 +19,13 @@
 
 import { describe, expect, it } from "vitest";
 
-import en from "../../../../../packages/i18n/src/locales/en.json";
 import de from "../../../../../packages/i18n/src/locales/de.json";
+import en from "../../../../../packages/i18n/src/locales/en.json";
 import es from "../../../../../packages/i18n/src/locales/es.json";
 
-type Tree = { [key: string]: string | Tree };
+interface Tree {
+  [key: string]: string | Tree;
+}
 
 /** Flatten to dotted paths so a diff names the exact missing key. */
 function paths(tree: Tree, prefix = ""): string[] {
@@ -95,9 +97,7 @@ describe.each(translations)("locale parity: $name", ({ tree }) => {
     // translated: it passes every parity check above while showing English.
     // Proper nouns and machine tokens legitimately match, so this only asserts
     // that the bulk of the bundle differs.
-    const identical = enPaths.filter(
-      (path) => valueAt(en as Tree, path) === valueAt(tree, path),
-    );
+    const identical = enPaths.filter((path) => valueAt(en as Tree, path) === valueAt(tree, path));
     expect(identical.length).toBeLessThan(enPaths.length / 2);
   });
 });

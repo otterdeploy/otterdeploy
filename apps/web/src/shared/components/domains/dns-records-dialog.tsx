@@ -237,9 +237,7 @@ export function DnsRecordsDialog({
         {info?.proxied === true ? <ProxiedWarning address={info.resolvedAddresses[0]} /> : null}
 
         {info?.lookupFailed ? (
-          <p className="text-[11px] text-muted-foreground">
-            {t("dns.lookupFailed")}
-          </p>
+          <p className="text-[11px] text-muted-foreground">{t("dns.lookupFailed")}</p>
         ) : null}
 
         <DialogFooter>

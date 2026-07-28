@@ -12,9 +12,9 @@
  */
 
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import { useForm } from "@tanstack/react-form";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { CopyLinkButton } from "@/features/team/components/copy-link-button";
@@ -66,7 +66,6 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
         organizationId,
       });
       if (res.error) {
-        const { t } = useTranslation();
         // Server is authoritative (e.g. already-a-member if the client list was
         // stale). Surface its message rather than a generic failure.
         toast.error(res.error.message ?? "Couldn't create the invitation");
@@ -111,7 +110,6 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
               const email = value.trim().toLowerCase();
               if (!email) return "Email is required";
               if ((members ?? []).some((m) => m.email.toLowerCase() === email)) {
-                const { t } = useTranslation();
                 return "This person is already a member of the organization";
               }
               if ((pending ?? []).some((i) => i.email.toLowerCase() === email)) {

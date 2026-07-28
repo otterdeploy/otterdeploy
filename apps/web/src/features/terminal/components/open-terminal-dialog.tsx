@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import { SearchIcon, TerminalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useLiveQuery } from "@tanstack/react-db";
 import { Command as CommandPrimitive } from "cmdk";
+import { useTranslation } from "react-i18next";
 
 import { serverCollection } from "@/features/servers/data/server";
 import {
@@ -75,7 +75,6 @@ export function OpenTerminalDialog({ open, onOpenChange, onPick, defaultProject 
   const openable = visible.filter((t) => t.unavailable === null).length;
 
   function pick(target: PickerTarget) {
-    const { t } = useTranslation();
     onPick(target.source);
     onOpenChange(false);
   }

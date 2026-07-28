@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { useStore } from "@tanstack/react-form";
 
@@ -147,21 +147,35 @@ export function useWizardForm({
 
   // The footer's "Required" strip only appears after the operator actually
   // tries to continue past an incomplete step — never preemptively on a
-  // pristine step (raw "kindId" strips on open were pure noise). Reset on
-  // every step change so each step starts quiet.
-  const [attempted, setAttempted] = useState(false);
-
-  // Keep form's __step in sync with the URL/local step.
-  useEffect(() => {
-    form.setFieldValue("__step", step);
-    setAttempted(false);
-  }, [step, form]);
+  // pristine step (raw "kindId" strips on open were pure noise).
+  //
+  // Stored as WHICH step was blocked, not a boolean, so "is the strip on"
+  // is derived during render. A boolean would need resetting whenever the
+  // step changed, which is what the effect here used to do — and an effect
+  // that exists only to reset state on a prop change is a render the user
+  // sees with the stale value still on screen.
+  const [attemptedStep, setAttemptedStep] = useState<Step | null>(null);
+  const attempted = attemptedStep === step;
 
   const kindId = useStore(form.store, (s) => s.values.kindId);
   const kind = SERVICE_KINDS.find((k) => k.id === kindId) ?? null;
   const isDb = !!kind && kind.group === "database";
   const isSourceBased = !!kind && kind.group === "source";
   const isDocker = !!kind && kind.id === "docker";
+
+  /**
+   * Move to another step.
+   *
+   * `__step` is the discriminator the schema union switches on, so it changes
+   * together with the step, in the handler that changes it. Every step change
+   * goes through here — `goTo` is the owner's `setStep`, and the stepper rail
+   * calls this same function — so there is no path that leaves the two out of
+   * step, which is what the old sync effect was compensating for.
+   */
+  const goToStep = (next: Step) => {
+    form.setFieldValue("__step", next);
+    goTo(next);
+  };
 
   const advancedSetup = useStore(form.store, (s) => s.values.advancedSetup);
   const setAdvanced = (next: boolean) => form.setFieldValue("advancedSetup", next);
@@ -187,9 +201,9 @@ export function useWizardForm({
 
   const handleContinue = async () => {
     // Validate against the CURRENT step's arm. __step is already set
-    // to the current step via the useEffect above, so the union
-    // validator runs the right arm. Don't preemptively bump __step —
-    // that'd check the next arm against fields the user hasn't filled.
+    // `__step` already names the current step (goToStep set it on the way
+    // in), so the union validator runs the right arm. Don't preemptively bump
+    // it — that'd check the next arm against fields the user hasn't filled.
     await form.validate("change");
     const allErrors = form.getAllErrors();
     const hasFormErrors = allErrors.form.errors.length > 0;
@@ -198,7 +212,7 @@ export function useWizardForm({
       // Surface the blockers: the footer strip turns on, and every failing
       // field is marked blurred so its inline error renders (fields stay
       // quiet until blurred or a continue is attempted — no premature red).
-      setAttempted(true);
+      setAttemptedStep(step);
       for (const [fieldName, f] of Object.entries(allErrors.fields)) {
         if (f.errors.length > 0) {
           form.setFieldMeta(fieldName as never, (meta) => ({
@@ -213,12 +227,12 @@ export function useWizardForm({
     if (isLast) {
       await form.handleSubmit();
     } else {
-      goTo(steps[idx + 1][0]);
+      goToStep(steps[idx + 1][0]);
     }
   };
 
   const goPrev = () => {
-    if (idx > 0) goTo(steps[idx - 1][0]);
+    if (idx > 0) goToStep(steps[idx - 1][0]);
   };
 
   return {
@@ -238,6 +252,7 @@ export function useWizardForm({
     attempted,
     handleContinue,
     goPrev,
+    goToStep,
     advancedSetup,
     setAdvanced,
   };

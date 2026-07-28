@@ -86,7 +86,6 @@ export function CreateKeyDialog({
 
   // Clear the form on close so the next open starts fresh.
   const setOpen = (next: boolean) => {
-    const { t } = useTranslation();
     if (!next) form.reset();
     onOpenChange(next);
   };

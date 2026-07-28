@@ -7,10 +7,10 @@
  * key; many also accept pasting the URI).
  */
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";

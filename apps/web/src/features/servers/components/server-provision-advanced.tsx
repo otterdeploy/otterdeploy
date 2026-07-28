@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import { Globe02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 
 import { Field, FieldLabel } from "@/shared/components/ui/field";
 import { Input } from "@/shared/components/ui/input";
@@ -111,7 +111,9 @@ export function ProvisionAdvancedSection({ form }: { form: ProvisionFormApi }) {
         {(field) => (
           <div className="flex items-center justify-between gap-3">
             <div className="flex flex-col">
-              <span className="text-sm font-medium text-foreground">{t("servers.advanced.buildNode")}</span>
+              <span className="text-sm font-medium text-foreground">
+                {t("servers.advanced.buildNode")}
+              </span>
               <span className="text-[12px] text-muted-foreground">
                 Labelled for build workloads. Requires a registry so deploy nodes can pull the
                 image.

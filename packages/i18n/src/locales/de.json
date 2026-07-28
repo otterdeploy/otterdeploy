@@ -585,7 +585,10 @@
       "acmeManaged": "Über ACME verwaltet",
       "expiringSoon": "Läuft ab in < 30 T.",
       "customUploads": "Eigene Uploads"
-    }
+    },
+    "removeCa": "{{name}} entfernen",
+    "removeCaConfirm": "„{{name}}“ aus dem CA-Speicher entfernen?",
+    "removeCaDescription": "Das gespeicherte PEM wird gelöscht. Alles, was darauf verweist (etwa eine eigene Caddy-Konfiguration eines Projekts, die auf eine heruntergeladene Kopie zeigt), bleibt unberührt — dies entfernt nur den Inventareintrag."
   },
   "webhooks": {
     "columns": {

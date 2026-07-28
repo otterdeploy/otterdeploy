@@ -5,9 +5,9 @@
  */
 
 import { DeviceAccessIcon } from "@hugeicons/core-free-icons";
-import { useTranslation } from "react-i18next";
 import { formatRelative } from "@otterdeploy/shared/format";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
@@ -96,7 +96,9 @@ export function SessionsCard() {
                       <span className="truncate text-[13px] font-medium">
                         {describeAgent(s.userAgent)}
                       </span>
-                      {isCurrent && <Badge variant="secondary">{t("account.sessions.thisDevice")}</Badge>}
+                      {isCurrent && (
+                        <Badge variant="secondary">{t("account.sessions.thisDevice")}</Badge>
+                      )}
                     </div>
                     <div className="truncate font-mono text-[11px] text-muted-foreground">
                       {s.ipAddress || "unknown IP"} · signed in {formatRelative(s.createdAt)} ·

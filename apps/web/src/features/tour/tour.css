@@ -132,7 +132,9 @@
   height: 1.5rem;
   padding: 0;
   border-radius: var(--radius-sm);
-  transition: color 150ms, background-color 150ms;
+  transition:
+    color 150ms,
+    background-color 150ms;
 }
 
 .driver-popover.otterdeploy-tour .driver-popover-close-btn:hover {

@@ -25,6 +25,7 @@ import { BlockAllButton } from "../../edge-logs/components/edge-logs-block-ip";
 import { useEdgeBans } from "../../edge-logs/data/use-edge-bans";
 
 export function FlaggedPanel() {
+  const { t } = useTranslation();
   const flagged = useQuery({
     ...orpc.firewall.flagged.queryOptions({ input: { windowMinutes: 60 } }),
     refetchInterval: 15_000,
@@ -32,7 +33,6 @@ export function FlaggedPanel() {
   // Active bans flip already-blocked rows to a passive "Blocked" state; the
   // hook refreshes both after each block.
   const { bannedIps, block, blockMany } = useEdgeBans(() => void flagged.refetch());
-    const { t } = useTranslation();
 
   const rows = flagged.data ?? [];
   const unblockedIps = (flagged.data ?? [])

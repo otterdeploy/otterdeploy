@@ -1,5 +1,4 @@
 import * as React from "react";
-import { useTranslation } from "react-i18next";
 
 import {
   type ColumnDef,
@@ -17,6 +16,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import type {

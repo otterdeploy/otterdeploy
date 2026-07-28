@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import { Download01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -24,6 +24,7 @@ import { HostFilter } from "./host-filter";
  * matching the design — sectioned by border-b separators.
  */
 export function EdgeLogsView({ projectId }: { projectId?: string }) {
+  const { t } = useTranslation();
   const [range, setRange] = useState<Range>("1h");
   const [methods, setMethods] = useState<Set<string>>(new Set());
   const [statuses, setStatuses] = useState<Set<string>>(new Set());
@@ -51,7 +52,6 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
   // Active CrowdSec bans + block actions (single from a row, bulk from the
   // suspicious filter). CrowdSec-enforced; reversible from the Firewall view.
   const { bannedIps, block, blockMany, canBlock } = useEdgeBans();
-    const { t } = useTranslation();
 
   const data = query.data;
   const allRows = data?.rows ?? [];

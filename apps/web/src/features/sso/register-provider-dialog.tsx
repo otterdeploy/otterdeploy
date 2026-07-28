@@ -189,12 +189,18 @@ export function RegisterProviderDialog({
           </form.Field>
 
           <form.Field name="domain">
-            {(field) => <ProviderField field={field} label={t("sso.emailDomain")} placeholder="acme.com" />}
+            {(field) => (
+              <ProviderField field={field} label={t("sso.emailDomain")} placeholder="acme.com" />
+            )}
           </form.Field>
 
           <form.Field name="issuer">
             {(field) => (
-              <ProviderField field={field} label={t("sso.issuerUrl")} placeholder="https://acme.okta.com" />
+              <ProviderField
+                field={field}
+                label={t("sso.issuerUrl")}
+                placeholder="https://acme.okta.com"
+              />
             )}
           </form.Field>
 

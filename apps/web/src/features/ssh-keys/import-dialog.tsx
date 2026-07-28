@@ -5,8 +5,8 @@
  */
 
 import { useForm } from "@tanstack/react-form";
-import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Badge } from "@/shared/components/ui/badge";
@@ -70,7 +70,6 @@ export function ImportKeyDialog({
   });
 
   const setOpen = (next: boolean) => {
-    const { t } = useTranslation();
     if (!next) form.reset();
     onOpenChange(next);
   };

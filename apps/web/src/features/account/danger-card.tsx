@@ -6,10 +6,10 @@
  */
 
 import { Alert02Icon } from "@hugeicons/core-free-icons";
-import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
@@ -57,7 +57,9 @@ export function DangerCard() {
     >
       <div className="flex items-center justify-between gap-4 px-4 py-3.5">
         <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="text-[13px] font-medium text-destructive">{t("account.danger.signOutEverywhere")}</span>
+          <span className="text-[13px] font-medium text-destructive">
+            {t("account.danger.signOutEverywhere")}
+          </span>
           <span className="max-w-md text-[12px] leading-relaxed text-muted-foreground">
             Revokes every session on every device — including this one. You'll be returned to the
             sign-in page.

@@ -4,10 +4,10 @@
  * Split out of `inbound-dialog.tsx` to keep the dialog file within budget.
  */
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import { Copy01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";

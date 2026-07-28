@@ -4,8 +4,9 @@
  * toggle so callers just pass the current map + an onChange.
  */
 
-import { Checkbox } from "@/shared/components/ui/checkbox";
 import { useTranslation } from "react-i18next";
+
+import { Checkbox } from "@/shared/components/ui/checkbox";
 import { Label } from "@/shared/components/ui/label";
 
 import { API_SCOPES } from "./shared";

@@ -10,11 +10,11 @@
  */
 
 import type { ProjectSlug } from "@otterdeploy/shared/id";
-import { useTranslation } from "react-i18next";
 
 import { Add01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/shared/components/ui/dropdown-menu";
 import { cn } from "@/shared/lib/utils";

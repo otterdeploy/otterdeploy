@@ -1,9 +1,9 @@
 import type { ServerId, SshKeyId } from "@otterdeploy/shared/id";
-import { useTranslation } from "react-i18next";
 
 import { useLiveQuery } from "@tanstack/react-db";
 import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Field, FieldError, FieldLabel } from "@/shared/components/ui/field";

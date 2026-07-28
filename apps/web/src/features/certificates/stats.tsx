@@ -1,5 +1,6 @@
-import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "react-i18next";
+
+import { cn } from "@/shared/lib/utils";
 
 /** Summary tiles above the certificate tables — computed from LIVE probe data
  *  plus the stored custom-cert rows; nothing here is synthesized. */

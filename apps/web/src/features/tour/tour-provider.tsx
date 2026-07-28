@@ -35,6 +35,7 @@ import { buildTourSteps, resolveRouteParams, type TourContext, type TourStep } f
 import { hasSeenTour, markTourCompleted, markTourDismissed } from "./storage";
 
 import "driver.js/dist/driver.css";
+
 import "./tour.css";
 
 interface TourApi {
@@ -90,9 +91,6 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   // The live driver instance. Held in a ref so `start` is stable and a
   // re-render mid-tour can't swap the engine out from under the user.
   const driverRef = useRef<Driver | null>(null);
-  // Latest context, read inside driver callbacks that outlive this render.
-  const ctxRef = useRef(ctx);
-  ctxRef.current = ctx;
 
   // Destroy an in-flight tour if the provider unmounts (sign-out, org switch)
   // — otherwise the overlay outlives the app tree that anchored it.
@@ -107,14 +105,17 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     // A second start while running would leave the first overlay orphaned.
     driverRef.current?.destroy();
 
-    const steps = buildTourSteps(ctxRef.current);
+    // Built from the context as it stands when the tour opens. The script
+    // is fixed for the run, so its steps and their route params must come
+    // from one consistent snapshot rather than drifting mid-tour.
+    const steps = buildTourSteps(ctx);
 
     /** Navigate to a step's route, when it names one and we aren't there. */
     const goToStepRoute = async (step: TourStep | undefined): Promise<void> => {
       if (step?.route === undefined) return;
       await navigate({
         to: step.route.to,
-        params: resolveRouteParams(step.route, ctxRef.current),
+        params: resolveRouteParams(step.route, ctx),
       });
     };
 
@@ -180,7 +181,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     // The first step may name a route too (the tour always opens on the org
     // index, wherever it was started from).
     void goToStepRoute(steps[0]).then(() => instance.drive());
-  }, [navigate, t]);
+  }, [ctx, navigate, t]);
 
   const api = useMemo<TourApi>(
     () => ({ start, isActive: () => driverRef.current?.isActive() ?? false }),

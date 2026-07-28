@@ -1,7 +1,7 @@
 import { Building02Icon } from "@hugeicons/core-free-icons";
-import { useTranslation } from "react-i18next";
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 import { authClient } from "@/lib/auth-client";
 import { invalidateAuth } from "@/lib/auth-queries";
@@ -23,7 +23,6 @@ export function OrganizationStep({ onComplete }: { onComplete: (org: CreatedOrg)
         organizationId: created.data.id,
       });
       if (activated.error) {
-        const { t } = useTranslation();
         throw new Error(
           `Could not activate organization: ${activated.error.message ?? "Unknown error"}`,
         );

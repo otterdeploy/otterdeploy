@@ -4,12 +4,12 @@
 // raw/prettify toggle.
 
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-client";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/shared/components/ui/button";
 import { JsonView } from "@/shared/components/ui/json-view";

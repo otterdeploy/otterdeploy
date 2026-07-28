@@ -4,8 +4,8 @@
  * instead. No private key is accepted here, ever.
  */
 import { useForm } from "@tanstack/react-form";
-import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";

@@ -5,12 +5,12 @@
  * rendering decorative toggles.
  */
 import { type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
 
 import { Delete02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ORPCError } from "@orpc/client";
 import { useForm } from "@tanstack/react-form";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -43,7 +43,6 @@ function Field({
   children: ReactNode;
   className?: string;
 }) {
-  const { t } = useTranslation();
   return (
     <label className={cn("flex flex-col gap-1.5", className)}>
       <span className="text-xs text-muted-foreground">{label}</span>
@@ -61,7 +60,6 @@ export function CreateVolumeDialog({
   onOpenChange: (open: boolean) => void;
   drivers: string[];
 }) {
-  const { t } = useTranslation();
   if (!open) return null;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

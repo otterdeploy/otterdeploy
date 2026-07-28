@@ -1,9 +1,9 @@
+import type { TranslationKey } from "@otterdeploy/i18n";
+
 import { useLayoutEffect, useRef, useState } from "react";
 
 import { Link, useParams } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-
-import type { TranslationKey } from "@otterdeploy/i18n";
 
 import type { RoutePath } from "@/features/shell/components/sidebar";
 

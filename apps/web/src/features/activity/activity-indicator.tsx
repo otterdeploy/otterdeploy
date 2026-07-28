@@ -16,9 +16,9 @@
  */
 
 import { Loading03Icon, Queue01Icon } from "@hugeicons/core-free-icons";
-import { useTranslation } from "react-i18next";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 
 import type { DeployActivityItem } from "@/features/activity/use-deploy-activity";
 

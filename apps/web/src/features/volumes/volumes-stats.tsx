@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 /**
  * Summary tiles above the volumes table. Only measured numbers: the `local`
  * driver has no provisioned/quota size, so there is no "provisioned" tile —
@@ -5,7 +7,6 @@
  * volumes went unmeasured instead of pretending they're zero bytes.
  */
 import { cn } from "@/shared/lib/utils";
-import { useTranslation } from "react-i18next";
 
 import type { VolumeRow } from "./shared";
 

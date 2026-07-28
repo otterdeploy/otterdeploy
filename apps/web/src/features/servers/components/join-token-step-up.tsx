@@ -12,8 +12,9 @@
  * owns the credential inputs and the manager confirmation, nothing else.
  */
 
-import { Button } from "@/shared/components/ui/button";
 import { useTranslation } from "react-i18next";
+
+import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 
 import type { JoinRole } from "./join-token-panel";
