@@ -163,6 +163,10 @@ function maskIgnoredRegions(source: string): string {
       .replace(/(^|\n)\s*\/\/[^\n]*/g, blank)
       // Imports — module specifiers are never copy.
       .replace(/^import[^;]+;/gm, blank)
+      // `throw new Error(...)` is addressed to whoever is reading a stack
+      // trace, not to a user. Translating an invariant message makes it
+      // harder to search for, not more accessible.
+      .replace(/throw new [A-Za-z]*Error\([^;]*?\);/gs, blank)
       // Anything already translated: t("…"), t('…'), i18nKey="…".
       .replace(/\bt\(\s*(["'`])[^"'`]*\1/g, blank)
       .replace(/i18nKey\s*=\s*(["'])[^"']*\1/g, blank)
@@ -180,77 +184,79 @@ function lineOf(source: string, index: number): number {
   return line;
 }
 
-function auditFile(path: string): Finding[] {
-  const raw = readFileSync(path, "utf8");
-  const masked = maskIgnoredRegions(raw);
-  const findings: Finding[] = [];
-  const rel = relative(join(import.meta.dir, "..", ".."), path);
-
-  // 1. Copy-bearing attributes with a plain string literal. Only in .tsx —
-  // in a .ts file an `aria-label="…"` is inside a CSS selector string (the
-  // tour's step list), not a JSX attribute.
+/** Copy-bearing attributes with a plain string literal. */
+function scanAttributes(masked: string, rel: string): Finding[] {
+  const out: Finding[] = [];
   const attrRe = /\b([a-zA-Z-]+)\s*=\s*(["'])([^"'\n]{2,})\2/g;
-  const scanAttrs = path.endsWith(".tsx");
-  for (const match of scanAttrs ? masked.matchAll(attrRe) : []) {
+  for (const match of masked.matchAll(attrRe)) {
     const [, attr, , text] = match;
     if (!COPY_ATTRS.has(attr)) continue;
     if (isTechnical(text)) continue;
-    findings.push({
-      file: rel,
-      line: lineOf(masked, match.index),
-      kind: "attribute",
-      attr,
-      text,
-    });
+    out.push({ file: rel, line: lineOf(masked, match.index), kind: "attribute", attr, text });
   }
+  return out;
+}
 
-  // 2. Toast and dialog copy passed as a bare literal.
+/** Toast and dialog copy passed as a bare literal. */
+function scanToasts(masked: string, rel: string): Finding[] {
+  const out: Finding[] = [];
   const toastRe = /\btoast(?:\.(?:success|error|warning|info|loading))?\(\s*(["'])([^"'\n]{2,})\1/g;
   for (const match of masked.matchAll(toastRe)) {
     const text = match[2];
     if (isTechnical(text)) continue;
-    findings.push({ file: rel, line: lineOf(masked, match.index), kind: "toast", text });
+    out.push({ file: rel, line: lineOf(masked, match.index), kind: "toast", text });
   }
+  return out;
+}
 
-  // 3. Template literals with prose in them. These are the audit's historic
-  // blind spot: `{`Pushes via ${name}`}` is neither a JSX text node nor an
-  // attribute, so the two scans above walk straight past it. Interpolated
-  // sentences are exactly the copy translators most need, and the ones a
-  // hand-review is least likely to spot.
+/**
+ * Template literals with prose in them — the audit's historic blind spot.
+ * `{`Pushes via ${name}`}` is neither a text node nor an attribute, so the
+ * other scans walk straight past it.
+ */
+function scanTemplates(masked: string, rel: string): Finding[] {
+  const out: Finding[] = [];
   const templateRe = /`([^`\\]*(?:\$\{[^}]*\}[^`\\]*)*)`/g;
   for (const match of masked.matchAll(templateRe)) {
-    // Reduce to the literal chunks; an all-interpolation template is a
-    // computed key or a class string, not a sentence.
     const prose = match[1].replace(/\$\{[^}]*\}/g, " ").trim();
     if (prose.length < 4) continue;
-    // A nested interpolation the strip above couldn't handle — the residue is
-    // expression source, not copy.
     if (prose.includes("${") || /[<>=?]{1,2}/.test(prose)) continue;
-    // Two real words is the bar for "sentence" — `${host}/${path}` and
-    // `bg-${tone}` never clear it.
     if ((prose.match(/[A-Za-z]{2,}/g) ?? []).length < 2) continue;
     if (isTechnical(prose) || isClassList(prose)) continue;
-    findings.push({
+    out.push({
       file: rel,
       line: lineOf(masked, match.index),
       kind: "template",
       text: prose.replace(/\s+/g, " "),
     });
   }
+  return out;
+}
 
-  // 4. JSX text nodes — text sitting directly between tags. Only in .tsx:
-  // in a .ts file every `>…<` is a generic, never markup.
-  if (!path.endsWith(".tsx")) return findings;
+/** Text sitting directly between tags. */
+function scanJsxText(masked: string, rel: string): Finding[] {
+  const out: Finding[] = [];
   const textRe = />([^<>{}\n]{2,})</g;
   for (const match of masked.matchAll(textRe)) {
     const text = match[1].trim();
     if (text.length < 2) continue;
     if (isTechnical(text)) continue;
-    // Punctuation-only separators and single symbols.
     if (!/[a-zA-Z]{2,}/.test(text)) continue;
-    findings.push({ file: rel, line: lineOf(masked, match.index), kind: "jsx-text", text });
+    out.push({ file: rel, line: lineOf(masked, match.index), kind: "jsx-text", text });
   }
+  return out;
+}
 
+function auditFile(path: string): Finding[] {
+  const raw = readFileSync(path, "utf8");
+  const masked = maskIgnoredRegions(raw);
+  const rel = relative(join(import.meta.dir, "..", ".."), path);
+  const findings = [...scanToasts(masked, rel), ...scanTemplates(masked, rel)];
+  // Attributes only in .tsx: in a .ts file an `aria-label="…"` is inside a CSS
+  // selector string (the tour's step list), not JSX.
+  if (path.endsWith(".tsx")) {
+    findings.push(...scanAttributes(masked, rel), ...scanJsxText(masked, rel));
+  }
   return findings;
 }
 

@@ -4,6 +4,8 @@ import type { ColumnSort, Header, SortDirection, SortingState, Table } from "@ta
 
 import * as React from "react";
 
+import { useTranslation } from "react-i18next";
+
 import { getColumnVariant } from "@/shared/components/data-grid/lib/data-grid";
 import {
   DropdownMenu,
@@ -225,6 +227,7 @@ function DataGridColumnResizerImpl<TData, TValue>({
   table,
   label,
 }: DataGridColumnResizerProps<TData, TValue>) {
+  const { t } = useTranslation();
   const defaultColumnDef = table._getDefaultColumnDef();
 
   const onDoubleClick = () => {
@@ -235,7 +238,7 @@ function DataGridColumnResizerImpl<TData, TValue>({
     <div
       role="separator"
       aria-orientation="vertical"
-      aria-label={`Resize ${label} column`}
+      aria-label={t("dataGrid.resizeColumn", { label })}
       aria-valuenow={header.column.getSize()}
       aria-valuemin={defaultColumnDef.minSize}
       aria-valuemax={defaultColumnDef.maxSize}

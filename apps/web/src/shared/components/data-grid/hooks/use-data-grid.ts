@@ -629,9 +629,7 @@ function useDataGrid<TData>({
       store.setState("cutCells", new Set());
     }
 
-    toast.success(
-      `${selectedCellsArray.length} cell${selectedCellsArray.length !== 1 ? "s" : ""} copied`,
-    );
+    toast.success(t("dataGrid.cellsCopied", { count: selectedCellsArray.length }));
   }, [store, serializeCellsToTsv]);
 
   const onCellsCut = React.useCallback(async () => {
@@ -649,9 +647,7 @@ function useDataGrid<TData>({
 
     store.setState("cutCells", new Set(selectedCellsArray));
 
-    toast.success(
-      `${selectedCellsArray.length} cell${selectedCellsArray.length !== 1 ? "s" : ""} cut`,
-    );
+    toast.success(t("dataGrid.cellsCut", { count: selectedCellsArray.length }));
   }, [store, propsRef, serializeCellsToTsv]);
 
   const restoreFocus = React.useCallback((element: HTMLDivElement | null) => {
@@ -970,12 +966,13 @@ function useDataGrid<TData>({
 
           if (cellsSkipped > 0) {
             toast.success(
-              `${cellsUpdated} cell${
-                cellsUpdated !== 1 ? "s" : ""
-              } pasted, ${cellsSkipped} skipped`,
+              t("dataGrid.cellsPastedPartial", {
+                count: cellsUpdated,
+                skipped: cellsSkipped,
+              }),
             );
           } else {
-            toast.success(`${cellsUpdated} cell${cellsUpdated !== 1 ? "s" : ""} pasted`);
+            toast.success(t("dataGrid.cellsPasted", { count: cellsUpdated }));
           }
 
           const endColumnId = navigableColumnIds[endColIndex];
@@ -991,9 +988,7 @@ function useDataGrid<TData>({
 
           restoreFocus(dataGridRef.current);
         } else if (cellsSkipped > 0) {
-          toast.error(
-            `${cellsSkipped} cell${cellsSkipped !== 1 ? "s" : ""} skipped pasting for invalid data`,
-          );
+          toast.error(t("dataGrid.cellsSkipped", { count: cellsSkipped }));
         }
 
         if (currentState.pasteDialog.open) {

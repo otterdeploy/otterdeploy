@@ -43,7 +43,8 @@
     "port": "Puerto",
     "password": "Contraseña",
     "slug": "Slug",
-    "more": "Más"
+    "more": "Más",
+    "typeToConfirm": "Escribe {{phrase}} para confirmar"
   },
   "auth": {
     "signIn": {
@@ -382,7 +383,36 @@
     },
     "invalidUrl": "URL no válida",
     "copyFailed": "No se pudo copiar al portapapeles",
-    "cutFailed": "No se pudo cortar al portapapeles"
+    "cutFailed": "No se pudo cortar al portapapeles",
+    "cellsCleared_one": "{{count}} celda vaciada",
+    "cellsCleared_other": "{{count}} celdas vaciadas",
+    "rowsDeleted_one": "{{count}} fila eliminada",
+    "rowsDeleted_other": "{{count}} filas eliminadas",
+    "cellsCopied_one": "{{count}} celda copiada",
+    "cellsCopied_other": "{{count}} celdas copiadas",
+    "cellsCut_one": "{{count}} celda cortada",
+    "cellsCut_other": "{{count}} celdas cortadas",
+    "cellsPasted_one": "{{count}} celda pegada",
+    "cellsPasted_other": "{{count}} celdas pegadas",
+    "cellsPastedPartial_one": "{{count}} celda pegada, {{skipped}} omitidas",
+    "cellsPastedPartial_other": "{{count}} celdas pegadas, {{skipped}} omitidas",
+    "cellsSkipped_one": "{{count}} celda omitida por datos no válidos",
+    "cellsSkipped_other": "{{count}} celdas omitidas por datos no válidos",
+    "resizeColumn": "Redimensionar la columna {{label}}",
+    "openReferenced": "Abrir {{table}} referenciada",
+    "file": {
+      "tooLarge": "El archivo supera {{max}}",
+      "tooMany_one": "Máximo {{count}} archivo permitido",
+      "tooMany_other": "Máximo {{count}} archivos permitidos",
+      "rejected": "«{{name}}» ha sido rechazado",
+      "rejectedMore_one": "«{{name}}» y {{count}} más rechazados",
+      "rejectedMore_other": "«{{name}}» y {{count}} más rechazados",
+      "uploadFailed_one": "No se pudo subir {{count}} archivo",
+      "uploadFailed_other": "No se pudieron subir {{count}} archivos",
+      "deleteFailed": "No se pudo eliminar {{name}}",
+      "maxFiles_one": "Máx. {{count}} archivo",
+      "maxFiles_other": "Máx. {{count}} archivos"
+    }
   },
   "onboarding": {
     "progress": "Progreso de la configuración",
@@ -672,7 +702,9 @@
       "onDisk": "En disco",
       "inUse": "En uso",
       "orphans": "Huérfanos"
-    }
+    },
+    "noun_one": "{{count}} volumen",
+    "noun_other": "{{count}} volúmenes"
   },
   "templates": {
     "search": "Buscar plantillas",
@@ -727,6 +759,21 @@
         "local": "local",
         "defaultBranch": "por defecto"
       }
+    }
+  },
+  "tableSelection": {
+    "genericFailure": "falló",
+    "removed": "{{items}} eliminados",
+    "removeFailed": "No se pudieron eliminar {{items}} — {{reason}}",
+    "removedPartial": "{{items}} eliminados · {{skipped}} omitidos — {{reason}}"
+  },
+  "docker": {
+    "someNotRemoved": "Algunas {{items}} no se pudieron eliminar",
+    "noun": {
+      "image_one": "{{count}} imagen",
+      "image_other": "{{count}} imágenes",
+      "network_one": "{{count}} red",
+      "network_other": "{{count}} redes"
     }
   }
 }

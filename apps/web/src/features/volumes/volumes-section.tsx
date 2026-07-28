@@ -130,7 +130,7 @@ export function VolumesSection({ orgSlug }: { orgSlug: string }) {
           flow and stays put while a long inventory scrolls. */}
       <SelectionBar
         selection={selection}
-        noun="volume"
+        nounKey="volumes.noun"
         actionLabel="Remove"
         onAction={() => setBulkOpen(true)}
         pending={bulkOpen}

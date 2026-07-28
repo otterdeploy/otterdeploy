@@ -21,6 +21,8 @@
 
 import { useState, type ReactElement, type ReactNode } from "react";
 
+import { useTranslation } from "react-i18next";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -69,6 +71,7 @@ export function TypedConfirmDialog({
   pending = false,
   onConfirm,
 }: TypedConfirmDialogProps) {
+  const { t } = useTranslation();
   const [typed, setTyped] = useState("");
   const phraseOk = confirmPhrase === undefined || typed.trim() === confirmPhrase;
 
@@ -101,7 +104,7 @@ export function TypedConfirmDialog({
               autoCapitalize="off"
               autoCorrect="off"
               spellCheck={false}
-              aria-label={`Type ${confirmPhrase} to confirm`}
+              aria-label={t("common.typeToConfirm", { phrase: confirmPhrase })}
             />
           </div>
         ) : null}

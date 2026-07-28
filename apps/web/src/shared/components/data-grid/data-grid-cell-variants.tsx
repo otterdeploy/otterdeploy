@@ -60,6 +60,7 @@ export function ShortTextCell<TData>({
   isActiveSearchMatch,
   readOnly,
 }: DataGridCellProps<TData>) {
+  const { t } = useTranslation();
   const initialValue = cell.getValue() as string;
   const [value, setValue] = React.useState(initialValue);
   const cellRef = React.useRef<HTMLDivElement>(null);
@@ -207,7 +208,7 @@ export function ShortTextCell<TData>({
         return (
           <button
             type="button"
-            aria-label={`Open referenced ${fk.table}`}
+            aria-label={t("dataGrid.openReferenced", { table: fk.table })}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
@@ -1441,7 +1442,7 @@ export function FileCell<TData>({
   const validateFile = React.useCallback(
     (file: File): string | null => {
       if (maxFileSize && file.size > maxFileSize) {
-        return `File size exceeds ${formatFileSize(maxFileSize)}`;
+        return t("dataGrid.file.tooLarge", { max: formatFileSize(maxFileSize) });
       }
       if (acceptedTypes) {
         const fileExtension = `.${file.name.split(".").pop()}`;
@@ -1470,7 +1471,7 @@ export function FileCell<TData>({
       setError(null);
 
       if (maxFiles && files.length + newFiles.length > maxFiles) {
-        const errorMessage = `Maximum ${maxFiles} files allowed`;
+        const errorMessage = t("dataGrid.file.tooMany", { count: maxFiles });
         setError(errorMessage);
         toast(errorMessage);
         setTimeout(() => {
@@ -1501,11 +1502,14 @@ export function FileCell<TData>({
 
           if (rejectedFiles.length === 1) {
             toast(firstError.reason, {
-              description: `"${truncatedName}" has been rejected`,
+              description: t("dataGrid.file.rejected", { name: truncatedName }),
             });
           } else {
             toast(firstError.reason, {
-              description: `"${truncatedName}" and ${rejectedFiles.length - 1} more rejected`,
+              description: t("dataGrid.file.rejectedMore", {
+                name: truncatedName,
+                count: rejectedFiles.length - 1,
+              }),
             });
           }
 
@@ -1543,7 +1547,7 @@ export function FileCell<TData>({
               toast.error(
                 error instanceof Error
                   ? error.message
-                  : `Failed to upload ${filesToValidate.length} file${filesToValidate.length !== 1 ? "s" : ""}`,
+                  : t("dataGrid.file.uploadFailed", { count: filesToValidate.length }),
               );
               setFiles((prev) => prev.filter((f) => !uploadingIds.has(f.id)));
               setUploadingFiles(new Set());
@@ -1611,7 +1615,9 @@ export function FileCell<TData>({
           });
         } catch (error) {
           toast.error(
-            error instanceof Error ? error.message : `Failed to delete ${fileToRemove.name}`,
+            error instanceof Error
+              ? error.message
+              : t("dataGrid.file.deleteFailed", { name: fileToRemove.name }),
           );
           setDeletingFiles((prev) => {
             const next = new Set(prev);
@@ -1904,7 +1910,7 @@ export function FileCell<TData>({
                   {maxFileSize
                     ? `Max size: ${formatFileSize(maxFileSize)}${maxFiles ? ` • Max ${maxFiles} files` : ""}`
                     : maxFiles
-                      ? `Max ${maxFiles} files`
+                      ? t("dataGrid.file.maxFiles", { count: maxFiles })
                       : "Select files to upload"}
                 </p>
               </div>

@@ -43,7 +43,8 @@
     "port": "Port",
     "password": "Password",
     "slug": "Slug",
-    "more": "More"
+    "more": "More",
+    "typeToConfirm": "Type {{phrase}} to confirm"
   },
   "auth": {
     "signIn": {
@@ -382,7 +383,36 @@
     },
     "invalidUrl": "Invalid URL",
     "copyFailed": "Failed to copy to clipboard",
-    "cutFailed": "Failed to cut to clipboard"
+    "cutFailed": "Failed to cut to clipboard",
+    "cellsCleared_one": "{{count}} cell cleared",
+    "cellsCleared_other": "{{count}} cells cleared",
+    "rowsDeleted_one": "{{count}} row deleted",
+    "rowsDeleted_other": "{{count}} rows deleted",
+    "cellsCopied_one": "{{count}} cell copied",
+    "cellsCopied_other": "{{count}} cells copied",
+    "cellsCut_one": "{{count}} cell cut",
+    "cellsCut_other": "{{count}} cells cut",
+    "cellsPasted_one": "{{count}} cell pasted",
+    "cellsPasted_other": "{{count}} cells pasted",
+    "cellsPastedPartial_one": "{{count}} cell pasted, {{skipped}} skipped",
+    "cellsPastedPartial_other": "{{count}} cells pasted, {{skipped}} skipped",
+    "cellsSkipped_one": "{{count}} cell skipped pasting for invalid data",
+    "cellsSkipped_other": "{{count}} cells skipped pasting for invalid data",
+    "resizeColumn": "Resize {{label}} column",
+    "openReferenced": "Open referenced {{table}}",
+    "file": {
+      "tooLarge": "File size exceeds {{max}}",
+      "tooMany_one": "Maximum {{count}} file allowed",
+      "tooMany_other": "Maximum {{count}} files allowed",
+      "rejected": "“{{name}}” has been rejected",
+      "rejectedMore_one": "“{{name}}” and {{count}} more rejected",
+      "rejectedMore_other": "“{{name}}” and {{count}} more rejected",
+      "uploadFailed_one": "Failed to upload {{count}} file",
+      "uploadFailed_other": "Failed to upload {{count}} files",
+      "deleteFailed": "Failed to delete {{name}}",
+      "maxFiles_one": "Max {{count}} file",
+      "maxFiles_other": "Max {{count}} files"
+    }
   },
   "onboarding": {
     "progress": "Setup progress",
@@ -672,7 +702,9 @@
       "onDisk": "On disk",
       "inUse": "In use",
       "orphans": "Orphans"
-    }
+    },
+    "noun_one": "{{count}} volume",
+    "noun_other": "{{count}} volumes"
   },
   "templates": {
     "search": "Search templates",
@@ -727,6 +759,21 @@
         "local": "local",
         "defaultBranch": "default"
       }
+    }
+  },
+  "tableSelection": {
+    "genericFailure": "failed",
+    "removed": "Removed {{items}}",
+    "removeFailed": "Couldn't remove {{items}} — {{reason}}",
+    "removedPartial": "Removed {{items}} · {{skipped}} skipped — {{reason}}"
+  },
+  "docker": {
+    "someNotRemoved": "Some {{items}} couldn't be removed",
+    "noun": {
+      "image_one": "{{count}} image",
+      "image_other": "{{count}} images",
+      "network_one": "{{count}} network",
+      "network_other": "{{count}} networks"
     }
   }
 }

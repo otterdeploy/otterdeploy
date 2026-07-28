@@ -43,7 +43,8 @@
     "port": "Port",
     "password": "Passwort",
     "slug": "Slug",
-    "more": "Mehr"
+    "more": "Mehr",
+    "typeToConfirm": "Tippe {{phrase}}, um zu bestätigen"
   },
   "auth": {
     "signIn": {
@@ -382,7 +383,36 @@
     },
     "invalidUrl": "Ungültige URL",
     "copyFailed": "Kopieren in die Zwischenablage fehlgeschlagen",
-    "cutFailed": "Ausschneiden in die Zwischenablage fehlgeschlagen"
+    "cutFailed": "Ausschneiden in die Zwischenablage fehlgeschlagen",
+    "cellsCleared_one": "{{count}} Zelle geleert",
+    "cellsCleared_other": "{{count}} Zellen geleert",
+    "rowsDeleted_one": "{{count}} Zeile gelöscht",
+    "rowsDeleted_other": "{{count}} Zeilen gelöscht",
+    "cellsCopied_one": "{{count}} Zelle kopiert",
+    "cellsCopied_other": "{{count}} Zellen kopiert",
+    "cellsCut_one": "{{count}} Zelle ausgeschnitten",
+    "cellsCut_other": "{{count}} Zellen ausgeschnitten",
+    "cellsPasted_one": "{{count}} Zelle eingefügt",
+    "cellsPasted_other": "{{count}} Zellen eingefügt",
+    "cellsPastedPartial_one": "{{count}} Zelle eingefügt, {{skipped}} übersprungen",
+    "cellsPastedPartial_other": "{{count}} Zellen eingefügt, {{skipped}} übersprungen",
+    "cellsSkipped_one": "{{count}} Zelle wegen ungültiger Daten nicht eingefügt",
+    "cellsSkipped_other": "{{count}} Zellen wegen ungültiger Daten nicht eingefügt",
+    "resizeColumn": "Spalte {{label}} in der Breite ändern",
+    "openReferenced": "Referenzierte {{table}} öffnen",
+    "file": {
+      "tooLarge": "Datei überschreitet {{max}}",
+      "tooMany_one": "Maximal {{count}} Datei erlaubt",
+      "tooMany_other": "Maximal {{count}} Dateien erlaubt",
+      "rejected": "„{{name}}“ wurde abgelehnt",
+      "rejectedMore_one": "„{{name}}“ und {{count}} weitere abgelehnt",
+      "rejectedMore_other": "„{{name}}“ und {{count}} weitere abgelehnt",
+      "uploadFailed_one": "{{count}} Datei konnte nicht hochgeladen werden",
+      "uploadFailed_other": "{{count}} Dateien konnten nicht hochgeladen werden",
+      "deleteFailed": "{{name}} konnte nicht gelöscht werden",
+      "maxFiles_one": "Max. {{count}} Datei",
+      "maxFiles_other": "Max. {{count}} Dateien"
+    }
   },
   "onboarding": {
     "progress": "Fortschritt der Einrichtung",
@@ -672,7 +702,9 @@
       "onDisk": "Auf der Festplatte",
       "inUse": "In Verwendung",
       "orphans": "Verwaist"
-    }
+    },
+    "noun_one": "{{count}} Volume",
+    "noun_other": "{{count}} Volumes"
   },
   "templates": {
     "search": "Vorlagen suchen",
@@ -727,6 +759,21 @@
         "local": "lokal",
         "defaultBranch": "Standard"
       }
+    }
+  },
+  "tableSelection": {
+    "genericFailure": "fehlgeschlagen",
+    "removed": "{{items}} entfernt",
+    "removeFailed": "{{items}} konnten nicht entfernt werden — {{reason}}",
+    "removedPartial": "{{items}} entfernt · {{skipped}} übersprungen — {{reason}}"
+  },
+  "docker": {
+    "someNotRemoved": "Einige {{items}} konnten nicht entfernt werden",
+    "noun": {
+      "image_one": "{{count}} Image",
+      "image_other": "{{count}} Images",
+      "network_one": "{{count}} Netzwerk",
+      "network_other": "{{count}} Netzwerke"
     }
   }
 }
