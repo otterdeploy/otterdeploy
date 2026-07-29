@@ -630,7 +630,7 @@ function useDataGrid<TData>({
     }
 
     toast.success(t("dataGrid.cellsCopied", { count: selectedCellsArray.length }));
-  }, [store, serializeCellsToTsv]);
+  }, [store, serializeCellsToTsv, t]);
 
   const onCellsCut = React.useCallback(async () => {
     if (propsRef.current.readOnly) return;
@@ -648,7 +648,7 @@ function useDataGrid<TData>({
     store.setState("cutCells", new Set(selectedCellsArray));
 
     toast.success(t("dataGrid.cellsCut", { count: selectedCellsArray.length }));
-  }, [store, propsRef, serializeCellsToTsv]);
+  }, [store, propsRef, serializeCellsToTsv, t]);
 
   const restoreFocus = React.useCallback((element: HTMLDivElement | null) => {
     if (element && document.activeElement !== element) {
@@ -1002,7 +1002,7 @@ function useDataGrid<TData>({
         toast.error(error instanceof Error ? error.message : "Failed to paste. Please try again.");
       }
     },
-    [store, navigableColumnIds, propsRef, onDataUpdate, selectRange, restoreFocus],
+    [store, navigableColumnIds, propsRef, onDataUpdate, selectRange, restoreFocus, t],
   );
 
   // Release focus guard after delay to allow async data re-renders to settle.
@@ -2066,7 +2066,13 @@ function useDataGrid<TData>({
     tableRef.current = table;
   }
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: columnSizingInfo + columnSizing drive the sizes; `columns` re-runs this when the column set itself changes (e.g. switching tables or applying column types), otherwise the size vars go stale/empty and cells collapse to content width.
+  // columnSizingInfo + columnSizing drive the sizes; read into locals so the
+  // dep array holds plain identifiers rather than call expressions.
+  const { columnSizingInfo, columnSizing } = table.getState();
+  // `columns` reads as redundant to exhaustive-deps but is not: it re-runs this
+  // when the column SET itself changes (switching tables, applying column
+  // types), and without it the size vars go stale/empty and cells collapse to
+  // content width.
   const columnSizeVars = React.useMemo(() => {
     const headers = table.getFlatHeaders();
     const colSizes: { [key: string]: number } = {};
@@ -2075,7 +2081,7 @@ function useDataGrid<TData>({
       colSizes[`--col-${header.column.id}-size`] = header.column.getSize();
     }
     return colSizes;
-  }, [columns, table.getState().columnSizingInfo, table.getState().columnSizing, table]);
+  }, [columns, columnSizingInfo, columnSizing, table]);
 
   const isFirefox = React.useSyncExternalStore(
     React.useCallback(() => () => {}, []),
@@ -2088,13 +2094,13 @@ function useDataGrid<TData>({
     React.useCallback(() => false, []),
   );
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: columnPinning is used for calculating the adjustLayout
-  const adjustLayout = React.useMemo(() => {
-    const columnPinning = table.getState().columnPinning;
-    return (
-      isFirefox && ((columnPinning.left?.length ?? 0) > 0 || (columnPinning.right?.length ?? 0) > 0)
-    );
-  }, [isFirefox, table.getState().columnPinning, table]);
+  const { columnPinning } = table.getState();
+  const adjustLayout = React.useMemo(
+    () =>
+      isFirefox &&
+      ((columnPinning.left?.length ?? 0) > 0 || (columnPinning.right?.length ?? 0) > 0),
+    [isFirefox, columnPinning],
+  );
 
   const rowVirtualizer = useVirtualizer({
     count: table.getRowModel().rows.length,

@@ -15,11 +15,8 @@ import { useEffect, useState } from "react";
  */
 import { env } from "@otterdeploy/env/web";
 import { useQuery } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
 
-import { LogLineRow, type LogLine } from "@/features/logs/components/log-viewer";
-import { Button } from "@/shared/components/ui/button";
+import type { LogLine } from "@/features/logs/components/log-viewer";
 
 import type { useCancelUpdate } from "../data/use-update-status";
 
@@ -80,7 +77,7 @@ function useSeen(pending: boolean): boolean {
   useEffect(() => {
     if (pending) setSeen(true);
   }, [pending]);
-  return seen;
+  return pending || seen;
 }
 
 /**

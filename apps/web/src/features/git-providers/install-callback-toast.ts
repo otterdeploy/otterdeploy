@@ -38,5 +38,5 @@ export function useInstallCallbackToast() {
     url.searchParams.delete("git_install");
     url.searchParams.delete("reason");
     window.history.replaceState({}, "", url);
-  }, [search.git_install, search.reason]);
+  }, [search.git_install, search.reason, t]);
 }

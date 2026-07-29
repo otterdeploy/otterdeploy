@@ -148,7 +148,7 @@ export function useProjectLogStream({
     },
     bufferSize,
     paused,
-    deps: [projectId, key, bufferSize],
+    key: `${projectId}|${key}|${bufferSize}`,
   });
 
   const lines = coalesceMultiline(rawLines);

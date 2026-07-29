@@ -54,7 +54,7 @@ export function UpdateProgress({
       return { id, ...toLogLine(e) };
     },
     onError: (err, id): LogLine => ({ id, ...toErrorLine(err) }),
-    deps: [target, dryRun],
+    key: `${target}|${dryRun}`,
   });
 
   const outcome = deriveOutcome(dryRun, streamStatus === "ended", runState.data?.status);
