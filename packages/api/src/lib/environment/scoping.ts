@@ -96,6 +96,17 @@ export function scopeSuffix(scope: ScopeLike): string {
 }
 
 /**
+ * The preview id a scope carries, or null for base/environment scopes. Deploy
+ * rows are keyed by preview, not by environment, so widening a call site from
+ * `PreviewScope` to `ScopeLike` must not start reading an environment's id as
+ * though it were a preview's.
+ */
+export function previewIdOf(scope: ScopeLike): PreviewId | null {
+  const s = normalize(scope);
+  return s.kind === "preview" ? s.id : null;
+}
+
+/**
  * Stable suffix identifying a preview. Kept as its own export because the DB
  * branch path names datasets and volumes from it directly.
  */

@@ -54,11 +54,11 @@ export function UpdateProgress({
       return { id, ...toLogLine(e) };
     },
     onError: (err, id): LogLine => ({ id, ...toErrorLine(err) }),
-    deps: [target, dryRun],
+    key: `${target}|${dryRun}`,
   });
 
   const outcome = deriveOutcome(dryRun, streamStatus === "ended", runState.data?.status);
-  useCutoverRecovery(target, outcome.recovering);
+  useCutoverRecovery(target, outcome);
 
   // Follow the tail: stick to the bottom as lines stream in.
   const scrollRef = useRef<HTMLDivElement>(null);

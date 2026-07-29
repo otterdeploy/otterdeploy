@@ -15,7 +15,13 @@
  */
 
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
-import type { GitRepoId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type {
+  EnvironmentId,
+  GitRepoId,
+  OrganizationId,
+  ProjectId,
+  ResourceId,
+} from "@otterdeploy/shared/id";
 import type * as z from "zod";
 
 import type { createServiceInput, updateServiceInput } from "./contract-inputs";
@@ -65,6 +71,9 @@ export interface CreateServiceInput extends Omit<
   "restart" | "resources"
 > {
   organizationId: OrgId;
+  /** Environment this service is created in. Omitted means the project's main
+   *  environment — names only collide within one environment. */
+  environmentId?: EnvironmentId;
   /**
    * Skip the up-front git build-binding gate (gitRepoId / containerRegistryId
    * / imageRepository). The manifest reconciler sets this: a git service
@@ -164,6 +173,7 @@ export function toCreateRecordPayload(
 ) {
   return {
     projectId: input.projectId,
+    environmentId: input.environmentId ?? null,
     name: input.name,
     status: "draft" as const,
     source: input.source ?? "image",

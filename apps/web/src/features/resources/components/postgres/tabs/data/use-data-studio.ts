@@ -14,7 +14,7 @@
  * consume the returned {@link DataStudioController}.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { useHotkey } from "@tanstack/react-hotkeys";
 
@@ -144,12 +144,15 @@ function useTableData(resource: Resource) {
 
   // Land on the first table's rows once the list loads (browse, not authored
   // SQL). Fires once so it never fights a manual SQL/snippet switch afterward.
+  // `openTable` is a fresh closure every render, so it reaches the effect as an
+  // effect event rather than a dependency that would re-run it constantly.
+  const autoOpen = useEffectEvent((t: TableRef) => openTable(t));
   useEffect(() => {
     if (!autoOpenedRef.current && !selected && tables[0]) {
       autoOpenedRef.current = true;
-      openTable(tables[0]);
+      autoOpen(tables[0]);
     }
-  }, [selected, tables, openTable]);
+  }, [selected, tables]);
 
   // Results pane source — see ./use-data-studio-console.
   const { result, hasNext, rowsQuery } = resolveStudioResults(mode, tableRowsQuery, run, startRead);

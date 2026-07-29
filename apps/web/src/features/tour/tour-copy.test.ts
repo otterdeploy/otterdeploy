@@ -5,7 +5,7 @@
  * out.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import en from "../../../../../packages/i18n/src/locales/en.json";
 import es from "../../../../../packages/i18n/src/locales/es.json";

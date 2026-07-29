@@ -154,7 +154,13 @@ export function UpdateOutcome({
     return (
       <div className="flex items-center justify-between gap-2">
         <span className="text-[12px] text-success">Update to {target} complete.</span>
-        <Button type="button" size="sm" variant="outline" onClick={onDone}>
+        {/* Reload, don't just close: this document was served by the PREVIOUS
+            version, so dismissing the dialog leaves the operator driving the new
+            control plane through the old bundle. `realDone` is real-cutover only
+            (a dry run never sets it), so this is never a gratuitous reload.
+            The auto-reload in useCutoverRecovery normally beats the operator
+            here — this is the path for when it was blocked or unmounted. */}
+        <Button type="button" size="sm" variant="outline" onClick={() => window.location.reload()}>
           Done
         </Button>
       </div>

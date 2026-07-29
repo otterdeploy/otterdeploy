@@ -61,9 +61,31 @@ describe("stack/render/applyEngineDefaults", () => {
     const testStr = Array.isArray(test) ? test.join(" ") : (test ?? "");
     expect(testStr).toContain("pg_isready");
 
-    const mount = service.volumes?.find((v) => v.target === "/var/lib/postgresql/data");
+    // The mount target FOLLOWS THE MAJOR VERSION, so this asserts the rule
+    // rather than a constant. From 18 the official image owns a
+    // version-specific subdirectory and takes the parent dir; 17 and earlier
+    // take `.../data`. Hard-coding either one made this test fail the moment
+    // the catalog default moved — which is the wrong signal, since the change
+    // in behaviour was intentional and correct.
+    const major = Number(/postgres:(\d+)/.exec(service.image ?? "")?.[1]);
+    const expected = major >= 18 ? "/var/lib/postgresql" : "/var/lib/postgresql/data";
+    const mount = service.volumes?.find((v) => v.target === expected);
     expect(mount).toBeDefined();
     expect(mount?.type).toBe("volume");
+  });
+
+  it("mounts the PARENT dir for postgres 18+ and `.../data` for 17", () => {
+    // The 18 image refuses to start when the volume sits directly at
+    // `.../data`; 17 refuses the parent. Getting this backwards is a
+    // crash-loop on deploy, so both directions are pinned.
+    const at = (image: string): string | undefined => {
+      const file = minimalPostgresFile();
+      const svc = file.services["primary"];
+      if (svc) svc.image = image;
+      return applyEngineDefaults(file).services["primary"]?.volumes?.[0]?.target;
+    };
+    expect(at("postgres:18-alpine")).toBe("/var/lib/postgresql");
+    expect(at("postgres:17-alpine")).toBe("/var/lib/postgresql/data");
   });
 
   it("leaves a fully-specified file untouched (image present, mount present)", () => {

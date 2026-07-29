@@ -3,7 +3,7 @@
  * Adapter only — pure diff logic lives in stack/manifest/diff.ts.
  */
 
-import type { EnvironmentId, ProjectId } from "@otterdeploy/shared/id";
+import type { ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { gitRepo } from "@otterdeploy/db/schema/git";
@@ -73,16 +73,22 @@ function toCurrentService(
  * Scoping is a safety property, not a nicety: an apply resolved for staging
  * that diffed against production's rows would see production's resources as
  * "current" for the staging manifest, and plan updates — or deletes — against
- * them. Passing no environment selects the main environment, which is
- * `environment_id IS NULL`, i.e. exactly the pre-environment behaviour.
+ * them.
+ *
+ * The scope is REQUIRED rather than an optional environment id. This used to
+ * take `environmentId?` and fall back to `IS NULL`, so a caller that forgot to
+ * pass one still got a plausible-looking diff — against the wrong rows. There
+ * is no safe default here, so there isn't one.
  */
+import type { EnvironmentScopeInput } from "./queries/resource";
+
 import { inEnvironmentScope } from "./queries/resource";
 
 export async function loadCurrentState(
   projectId: ProjectId,
-  environmentId?: EnvironmentId | null,
+  environmentScope: EnvironmentScopeInput,
 ): Promise<CurrentState> {
-  const inScope = inEnvironmentScope(environmentId);
+  const inScope = inEnvironmentScope(environmentScope);
   const [serviceRows, databaseRows, composeRows] = await Promise.all([
     db
       .select({ resource, service: serviceResource, repoFullName: gitRepo.fullName })

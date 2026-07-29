@@ -664,7 +664,7 @@ export function UrlCell<TData>({
       // Stop propagation to prevent grid from interfering with link navigation
       event.stopPropagation();
     },
-    [isEditing, value],
+    [isEditing, value, t],
   );
 
   React.useEffect(() => {
@@ -1462,7 +1462,7 @@ export function FileCell<TData>({
       }
       return null;
     },
-    [maxFileSize, acceptedTypes],
+    [maxFileSize, acceptedTypes, t],
   );
 
   const addFiles = React.useCallback(
@@ -1593,7 +1593,7 @@ export function FileCell<TData>({
         }
       }
     },
-    [files, maxFiles, validateFile, tableMeta, rowIndex, columnId, readOnly, isPending],
+    [files, maxFiles, validateFile, tableMeta, rowIndex, columnId, readOnly, isPending, t],
   );
 
   const removeFile = React.useCallback(
@@ -1641,7 +1641,7 @@ export function FileCell<TData>({
       });
       tableMeta?.onDataUpdate?.({ rowIndex, columnId, value: updatedFiles });
     },
-    [files, tableMeta, rowIndex, columnId, readOnly, isPending],
+    [files, tableMeta, rowIndex, columnId, readOnly, isPending, t],
   );
 
   const clearAll = React.useCallback(async () => {

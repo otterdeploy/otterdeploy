@@ -12,6 +12,8 @@ import { omitUndefined } from "@otterdeploy/shared/object";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { createError } from "evlog";
 
+import type { ResourceScope } from "../../project/queries/resource";
+
 import {
   type ServiceMountRow,
   type ServicePortRow,
@@ -19,6 +21,7 @@ import {
   type ServiceRecord,
   type ServiceResourceRow,
 } from ".";
+import { inEnvironmentScope } from "../../project/queries/resource";
 import { listServiceEnvVars } from "./env";
 import { listServiceMounts } from "./mounts";
 import { listServicePorts } from "./ports";
@@ -57,15 +60,27 @@ export async function getServiceRecord(
   return { resource: row.resource, service: row.service, ports, env, mounts };
 }
 
+/**
+ * Look up a service by name WITHIN an environment — names are unique per
+ * `(project, environment, name)`, so an unscoped check rejects a staging
+ * create because production owns the name.
+ */
 export async function getServiceRecordByName(
   projectId: ProjectId,
   name: string,
+  environmentScope: ResourceScope,
 ): Promise<ServiceRecord | undefined> {
   const [row] = await db
     .select({ resource, service: serviceResource })
     .from(resource)
     .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
-    .where(and(eq(resource.projectId, projectId), eq(resource.name, name)))
+    .where(
+      and(
+        eq(resource.projectId, projectId),
+        eq(resource.name, name),
+        inEnvironmentScope(environmentScope),
+      ),
+    )
     .limit(1);
 
   if (!row) return undefined;
@@ -117,6 +132,7 @@ export async function createServiceRecord(input: CreateServiceInput): Promise<Se
       .insert(resource)
       .values({
         projectId: input.projectId,
+        environmentId: input.environmentId ?? null,
         name: input.name,
         type: "service",
         status: input.status ?? "draft",

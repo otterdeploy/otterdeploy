@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Activity03Icon } from "@hugeicons/core-free-icons";
-import { eq, useLiveQuery } from "@tanstack/react-db";
-import { createFileRoute, useLoaderData } from "@tanstack/react-router";
+import { and, eq, useLiveQuery } from "@tanstack/react-db";
+import { createFileRoute, useLoaderData, useSearch } from "@tanstack/react-router";
 
 import { ProjectMetricsSection } from "@/features/resources/components/_shared/metrics/project-metrics-section";
 import { ResourceMetricsCard } from "@/features/resources/components/_shared/metrics/resource-metrics-card";
@@ -14,6 +14,7 @@ import {
 import type { ProjectResource } from "@/features/projects/components/graph/resource-to-node";
 import { projectIdBySlug } from "@/features/projects/data/project";
 import { resourceCollection } from "@/features/resources/data/resource";
+import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { orpc, queryClient } from "@/shared/server/orpc";
 import {
   ToggleGroup,
@@ -49,14 +50,17 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/metrics
 function RouteComponent() {
   const { orgSlug, projectSlug } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
+  const activeEnv = useActiveEnvironment(project.id);
 
   // Same source the graph reads from.
   const { data: resources } = useLiveQuery(
     (q) =>
       q
         .from({ r: resourceCollection })
-        .where(({ r }) => eq(r.projectId, project.id)),
-    [project.id],
+        .where(({ r }) =>
+          and(eq(r.projectId, project.id), eq(r.environmentId, activeEnv.id ?? "")),
+        ),
+    [project.id, activeEnv.id],
   );
 
   // Only resources that own a container are chartable. A compose stack is a

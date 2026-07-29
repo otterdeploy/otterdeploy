@@ -98,17 +98,13 @@ export function useStackPanelState(projectId: string, defaultOpen = true): Stack
   // Picking a tab always opens the drawer — a hidden tab switch is a no-op.
   const setTab = (tab: StackTab) => setState((s) => ({ ...s, tab, open: true }));
 
-  // Mirror of the current height for the drag closure (avoids re-creating the
-  // handler per resize tick).
-  const heightRef = useRef(state.height);
-  useEffect(() => {
-    heightRef.current = state.height;
-  }, [state.height]);
-
   const startDrag = (event: React.PointerEvent) => {
     event.preventDefault();
     const startY = event.clientY;
-    const startHeight = heightRef.current;
+    // `startDrag` is rebuilt every render, so `state.height` is already the
+    // current one — the ref that used to mirror it (and the effect keeping that
+    // ref in sync) was copying a value that was never stale.
+    const startHeight = state.height;
     setDragging(true);
     const onMove = (ev: PointerEvent) => {
       const dy = startY - ev.clientY;

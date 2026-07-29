@@ -18,7 +18,7 @@
  */
 
 import { createInstance } from "i18next";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { i18nOptions } from "../../../../../packages/i18n/src/config";
 

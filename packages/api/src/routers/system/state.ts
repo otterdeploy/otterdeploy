@@ -190,10 +190,14 @@ async function readPersistedSnapshot(): Promise<UpdateRunSnapshot | null> {
  * running+handedOff, compare the version we ACTUALLY booted as against the
  * target, restore the run in memory (so updateState/progress serve the real
  * outcome), and persist the terminal state.
+ *
+ * Returns true only when THIS call settled a handed-off run as succeeded — the
+ * one moment an update is known to be complete, which callers use to schedule
+ * post-update work. False on every subsequent boot, so that work runs once.
  */
-export async function finalizeHandedOffRun(bootedVersion: string): Promise<void> {
+export async function finalizeHandedOffRun(bootedVersion: string): Promise<boolean> {
   const snap = await readPersistedSnapshot();
-  if (!snap || snap.status !== "running" || !snap.handedOff || !snap.targetVersion) return;
+  if (!snap || snap.status !== "running" || !snap.handedOff || !snap.targetVersion) return false;
 
   const reachedTarget =
     snap.targetVersion === bootedVersion || isNewer(bootedVersion, snap.targetVersion);
@@ -211,4 +215,5 @@ export async function finalizeHandedOffRun(bootedVersion: string): Promise<void>
     reachedTarget,
     reachedTarget ? undefined : `Booted ${bootedVersion} instead of target ${snap.targetVersion}.`,
   );
+  return reachedTarget;
 }

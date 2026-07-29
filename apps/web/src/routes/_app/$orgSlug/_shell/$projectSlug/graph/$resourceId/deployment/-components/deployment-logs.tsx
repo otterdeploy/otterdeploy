@@ -41,7 +41,7 @@ export function DeploymentLogsBody({
       line: `Stream error: ${err instanceof Error ? err.message : String(err)}`,
       ts: new Date().toISOString(),
     }),
-    deps: [projectId, resourceId, deploymentId],
+    key: `${projectId}|${resourceId}|${deploymentId}`,
   });
 
   return (
@@ -97,7 +97,7 @@ export function BuildLogsBody({ deploymentId }: { deploymentId: string }) {
       line: `Build log stream error: ${err instanceof Error ? err.message : String(err)}`,
       ts: new Date().toISOString(),
     }),
-    deps: [deploymentId],
+    key: deploymentId,
   });
 
   return (

@@ -17,7 +17,7 @@
  * and broken to everyone else.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import de from "../../../../../packages/i18n/src/locales/de.json";
 import en from "../../../../../packages/i18n/src/locales/en.json";

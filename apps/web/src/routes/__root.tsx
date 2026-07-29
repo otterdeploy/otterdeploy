@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 
 import { HeadContent, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
+import * as z from "zod";
 
 import type { orpc } from "@/shared/server/orpc";
 
@@ -18,6 +19,16 @@ export interface RouterAppContext {
 
 export const Route = createRootRouteWithContext<RouterAppContext>()({
   component: RootComponent,
+  // The new-resource wizard's URL handoff (`?new=service`, or
+  // `?new=template&template=<id>`). Declared at the root because no single
+  // route owns it: it's produced from the templates gallery and the GitHub
+  // connect returnTo, and consumed by ResourceOverlayProvider up in `_app`.
+  // Declaring it is what lets that provider read and clear it through the
+  // typed search API instead of the raw history object.
+  validateSearch: z.object({
+    new: z.enum(["service", "template"]).optional(),
+    template: z.string().optional(),
+  }),
   // Fallback title only. Every route below sets its own, and the deepest match
   // wins — the product name is not repeated onto pages that have a real name of
   // their own. See docs: the tab should say where you are, not what app it is.

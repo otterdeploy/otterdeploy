@@ -6,7 +6,7 @@
  * keep importing it from here.
  */
 
-import type { ResourceId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, ResourceId } from "@otterdeploy/shared/id";
 
 import { Result } from "better-result";
 
@@ -22,6 +22,7 @@ import {
   getProjectInOrg,
   getResourceById,
   listProjectResources as listProjectResourcesQuery,
+  resolveEnvironmentScope,
 } from "./queries";
 import {
   mapComposeResource,
@@ -38,12 +39,13 @@ export { deleteProjectResource } from "./resource-delete";
  * Live name-availability check for the new-resource wizard. Returns
  * `{ available: true, suggestion: null }` when the name is free, or
  * `{ available: false, suggestion: "<base>-N" }` with the lowest free
- * suffix when taken. Names are unique per `(projectId, name)` via the
- * `resource_project_name_unique` index — this just lets the UI fail
- * fast on blur instead of after submit.
+ * suffix when taken. Names are unique per `(projectId, environmentId, name)`
+ * via `resource_project_name_env_unique` — so the check MUST be scoped to the
+ * same environment the create will land in, or `api` in staging reads as taken
+ * because production has one.
  */
 export async function checkResourceName(
-  input: ProjectRef & { name: string },
+  input: ProjectRef & { name: string; environmentId?: EnvironmentId },
 ): Promise<Result<{ available: boolean; suggestion: string | null }, ProjectNotFoundError>> {
   const project = await getProjectInOrg({
     projectId: input.projectId,
@@ -53,7 +55,10 @@ export async function checkResourceName(
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
 
-  const { databases, services } = await listProjectResourcesQuery(input.projectId);
+  const scope = resolveEnvironmentScope(project, input.environmentId);
+  const { databases, services } = scope
+    ? await listProjectResourcesQuery(input.projectId, scope)
+    : { databases: [], services: [] };
   const used = new Set<string>();
   for (const row of databases) used.add(row.resource.name);
   for (const row of services) used.add(row.resource.name);
@@ -113,7 +118,7 @@ export async function previewResourcePublicHost(
 }
 
 export async function listProjectResources(
-  input: ProjectRef,
+  input: ProjectRef & { environmentId?: EnvironmentId },
 ): Promise<Result<ProjectResource[], ProjectNotFoundError>> {
   const project = await getProjectInOrg({
     projectId: input.projectId,
@@ -123,7 +128,12 @@ export async function listProjectResources(
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
 
-  const { databases, services, composes } = await listProjectResourcesQuery(input.projectId);
+  // No environment pointer at all means the project predates environments and
+  // has nothing scoped to read — an empty list, not every row in the project.
+  const scope = resolveEnvironmentScope(project, input.environmentId);
+  if (!scope) return Result.ok([]);
+
+  const { databases, services, composes } = await listProjectResourcesQuery(input.projectId, scope);
 
   // Batch the per-resource reads the mappers would otherwise fire one-by-one:
   // the latest deployment for every service/compose, and env vars for every

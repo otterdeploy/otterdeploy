@@ -41,15 +41,23 @@ export function LogsHistogram({
   onSelectRange,
 }: LogsHistogramProps) {
   const { t } = useTranslation();
-  // `now` anchors the 30-bucket window. It's wall-clock, so reading it during
-  // render is impure — refresh it from an effect whenever `lines` change, the
-  // same cadence the live tail re-buckets at. `earliest` (and every bucket's
+  // `now` anchors the 30-bucket window. Wall-clock is impure to read during
+  // render, and the window only ever advanced when `lines` changed anyway — so
+  // derive it from the data instead of re-stamping it from an effect: the
+  // newest line's timestamp, floored at mount time so an idle tail keeps
+  // showing the last 30 real minutes rather than scrolling back to whenever
+  // the buffer's last line happened to land. `earliest` (and every bucket's
   // start timestamp, `earliest + i * HISTOGRAM_BUCKET_MS`) derive from it, so
   // the bars and their click windows always share one set of boundaries.
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    setNow(Date.now());
-  }, [lines]);
+  const [mountedAt] = useState(() => Date.now());
+  const now = useMemo(() => {
+    let latest = mountedAt;
+    for (const l of lines) {
+      const ms = l.tsIso ? new Date(l.tsIso).getTime() : Number.NaN;
+      if (!Number.isNaN(ms) && ms > latest) latest = ms;
+    }
+    return latest;
+  }, [lines, mountedAt]);
   const earliest = now - HISTOGRAM_BUCKETS * HISTOGRAM_BUCKET_MS;
 
   const buckets = useMemo(() => bucketize(lines, now), [lines, now]);

@@ -35,7 +35,7 @@ export function ProvisionProgress({
         { signal, context: { retry: Number.POSITIVE_INFINITY } },
       ),
     map: (raw, seq) => ({ seq, line: raw.line }),
-    deps: [serverId],
+    key: serverId,
     onError: (_err, seq) => ({ seq, line: "— stream disconnected —" }),
   });
 

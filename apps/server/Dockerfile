@@ -23,14 +23,14 @@
 ARG BUN_VERSION=1.3.14
 # Railpack CLI — kept in lockstep with the RAILPACK_FRONTEND tag in
 # apps/builder/src/railpack.ts (a CLI/frontend skew breaks builds).
-ARG RAILPACK_VERSION=0.26.1
+ARG RAILPACK_VERSION=0.35.0
 # rustic backup engine (Rust CLI) — vendored into the runtime stage; the server's
 # backup subsystem shells out to it. Pin + literal-hash so the layer is
 # reproducible. Bump both together with the upstream release SHA256.
 ARG RUSTIC_VERSION=0.11.3
 
 # ── build stage: full toolchain, discarded from the final image ───────────────
-FROM oven/bun:${BUN_VERSION}-debian AS build
+FROM oven/bun:${BUN_VERSION}-alpine AS build
 WORKDIR /app
 # COPY the whole repo so both the web (vite) and server (tsdown) builds resolve
 # every workspace package; .dockerignore keeps node_modules + build output out.
@@ -56,42 +56,55 @@ RUN find . -type d -name node_modules -prune -exec rm -rf {} + \
 RUN bun run scripts/prune-bun-store.ts /app
 
 # ── runtime stage: bun + docker CLI + buildx + railpack; serves BOTH roles ────
-FROM oven/bun:${BUN_VERSION}-debian AS runtime
+FROM oven/bun:${BUN_VERSION}-alpine AS runtime
 ARG RAILPACK_VERSION
-# curl: server healthcheck + railpack installer. git: builder clones repos.
+# curl: server healthcheck + the pinned railpack/rustic downloads below.
+# git: builder clones repos.
 # openssh-client: ssh-keygen + the in-app PTY. docker CLI + buildx: the builder
 # shells out to `docker buildx build` / `docker run` (helper containers) — the
 # server ignores them, driving docker over the socket via @otterdeploy/docker.
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-      ca-certificates curl git gnupg openssh-client \
- && install -m 0755 -d /etc/apt/keyrings \
- && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
- && chmod a+r /etc/apt/keyrings/docker.gpg \
- && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list \
- && apt-get update \
- && apt-get install -y --no-install-recommends docker-ce-cli docker-buildx-plugin \
- && rm -rf /var/lib/apt/lists/*
+#
+# Alpine carries the docker CLI and the buildx plugin in its community repo, so
+# this replaces the debian path's keyring + sources.list + second apt-get update
+# with one apk call and no network round-trip to Docker's own repo.
+RUN apk add --no-cache \
+      ca-certificates curl git openssh-client tar \
+      docker-cli docker-cli-buildx
 # Railpack CLI (builder role) — `railpack prepare` emits a BuildKit plan that
 # `docker buildx build` executes via the railpack-frontend image.
-RUN RAILPACK_VERSION="${RAILPACK_VERSION}" sh -c \
-    'curl -sSL https://railpack.com/install.sh | sh -s -- --yes --bin-dir /usr/local/bin' \
+#
+# Installed from the pinned tarball rather than `curl https://railpack.com/
+# install.sh | sh`: that installer is `#!/usr/bin/env bash`, and alpine ships
+# busybox ash with no bash at all. Fetching the asset directly also makes the
+# layer reproducible and checksum-verified, the same way rustic is handled
+# below — upstream only publishes MUSL builds, so alpine is its native target.
+ARG TARGETARCH
+RUN case "${TARGETARCH}" in \
+      amd64) RAILPACK_ARCH=x86_64 RAILPACK_SHA=d039785dd926ba059031c9c463c51f1462f344c844f828ac872c1f6d46fed7f1 ;; \
+      arm64) RAILPACK_ARCH=arm64  RAILPACK_SHA=ad147486812f2d17c7fd2a6965c580e5e1fa4f7e51f5c9e458ad2c3a5f6a3f79 ;; \
+      *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+ && curl -fsSL -o /tmp/railpack.tar.gz \
+      "https://github.com/railwayapp/railpack/releases/download/v${RAILPACK_VERSION}/railpack-v${RAILPACK_VERSION}-${RAILPACK_ARCH}-unknown-linux-musl.tar.gz" \
+ && echo "${RAILPACK_SHA}  /tmp/railpack.tar.gz" | sha256sum -c - \
+ && tar -xzf /tmp/railpack.tar.gz -C /tmp railpack \
+ && install -m 0755 /tmp/railpack /usr/local/bin/railpack \
+ && rm -f /tmp/railpack.tar.gz /tmp/railpack \
  && railpack --version
-# rustic backup engine — glibc asset, SHA256-verified, per-arch. The `rustic`
+# rustic backup engine — MUSL asset, SHA256-verified, per-arch. The `rustic`
 # binary sits at the archive root; install it to /usr/local/bin (matches the
-# runtime default RUSTIC_BIN). curl + ca-certificates come from the apt layer
+# runtime default RUSTIC_BIN). curl + ca-certificates come from the apk layer
 # above. TARGETARCH is provided by BuildKit (the images workflow builds each
 # arch natively), so we pick the matching rustic target + checksum — the old
 # hardcoded x86_64 asset installed a non-executable binary on arm64 (exit 126).
 ARG RUSTIC_VERSION
-ARG TARGETARCH
 RUN case "${TARGETARCH}" in \
-      amd64) RUSTIC_ARCH=x86_64  RUSTIC_SHA=3860383a38f5c717ff8302574d79a0581452361985346ed1d116216cdb1b04f8 ;; \
-      arm64) RUSTIC_ARCH=aarch64 RUSTIC_SHA=84c16234d4dabe8d52a0f6f1c7fe24101afc1d2eab681924be072666b1dc9b22 ;; \
+      amd64) RUSTIC_ARCH=x86_64  RUSTIC_SHA=3298555dc3da30d1cdf6775783e7c777ac4d148708721b3aecbe630ac827b3a9 ;; \
+      arm64) RUSTIC_ARCH=aarch64 RUSTIC_SHA=6727624891521af77ea9ffde8204db3e3bddd3e0bf6db2767ff788cb206ae704 ;; \
       *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
     esac \
  && curl -fsSL -o /tmp/rustic.tar.gz \
-      "https://github.com/rustic-rs/rustic/releases/download/v${RUSTIC_VERSION}/rustic-v${RUSTIC_VERSION}-${RUSTIC_ARCH}-unknown-linux-gnu.tar.gz" \
+      "https://github.com/rustic-rs/rustic/releases/download/v${RUSTIC_VERSION}/rustic-v${RUSTIC_VERSION}-${RUSTIC_ARCH}-unknown-linux-musl.tar.gz" \
  && echo "${RUSTIC_SHA}  /tmp/rustic.tar.gz" | sha256sum -c - \
  && tar -xzf /tmp/rustic.tar.gz -C /tmp rustic \
  && install -m 0755 /tmp/rustic /usr/local/bin/rustic \

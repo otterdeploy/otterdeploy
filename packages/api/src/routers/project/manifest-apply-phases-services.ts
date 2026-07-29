@@ -44,6 +44,7 @@ async function createOneService(
   const localSkipped = [...resolved.skipped];
   const created = await createServiceFromManifest({
     projectId: ctx.projectId,
+    environmentId: ctx.environmentId,
     organizationId: ctx.organizationId,
     name: change.name,
     spec,

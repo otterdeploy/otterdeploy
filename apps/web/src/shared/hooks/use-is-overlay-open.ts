@@ -1,9 +1,15 @@
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 const OPEN_OVERLAY_SELECTOR = '[role="dialog"], [role="alertdialog"]';
 
 function overlayIsOpen(): boolean {
   return typeof document !== "undefined" && document.querySelector(OPEN_OVERLAY_SELECTOR) !== null;
+}
+
+function subscribe(onChange: () => void): () => void {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.body, { childList: true, subtree: true });
+  return () => observer.disconnect();
 }
 
 /**
@@ -23,15 +29,8 @@ function overlayIsOpen(): boolean {
  * page out from under it.
  */
 export function useIsOverlayOpen(): boolean {
-  const [open, setOpen] = useState(overlayIsOpen);
-
-  useEffect(() => {
-    const check = () => setOpen(overlayIsOpen());
-    check();
-    const observer = new MutationObserver(check);
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, []);
-
-  return open;
+  // The DOM is the store here, so read it as one: no mirrored state to seed and
+  // then re-sync from an effect, and no window where the hook reports `false`
+  // because the observer hasn't been attached yet.
+  return useSyncExternalStore(subscribe, overlayIsOpen, () => false);
 }

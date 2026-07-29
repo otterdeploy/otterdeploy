@@ -5,10 +5,13 @@
  * from the orchestration.
  */
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
-import type { GitRepoId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, GitRepoId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 export interface CreateServiceInput {
   projectId: ProjectId;
+  /** Environment this service belongs to. Resources created before scoping
+   *  carry NULL and are owned by the project's main environment. */
+  environmentId?: EnvironmentId | null;
   name: string;
   status?: "draft" | "valid" | "invalid";
 

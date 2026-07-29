@@ -22,6 +22,7 @@ export const resourceRouter = {
     const result = await listProjectResources({
       projectId: input.projectId,
       organizationId: context.activeOrganizationId,
+      environmentId: input.environmentId,
     });
     if (result.isErr()) {
       throw matchError(result.error, {
@@ -37,6 +38,7 @@ export const resourceRouter = {
         projectId: input.projectId,
         organizationId: context.activeOrganizationId,
         name: input.name,
+        environmentId: input.environmentId,
       });
       if (result.isErr()) {
         throw matchError(result.error, {

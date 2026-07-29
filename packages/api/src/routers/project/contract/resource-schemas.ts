@@ -13,7 +13,7 @@ import { FRAMEWORK_KINDS } from "@otterdeploy/shared/framework";
 import * as z from "zod";
 
 import { buildSchema } from "../../../stack/manifest";
-import { projectIdField, resourceIdField } from "./shared";
+import { environmentIdField, projectIdField, resourceIdField } from "./shared";
 
 // Renamed conceptually from postgresResourceSchema to "database resource
 // schema" — the shape is the same across engines (a record with credentials
@@ -23,6 +23,9 @@ import { projectIdField, resourceIdField } from "./shared";
 const databaseResourceSchema = z.object({
   resourceId: resourceIdField,
   projectId: projectIdField,
+  /** Which environment owns this resource. Null on rows created before
+   *  environment scoping — those belong to the project's main environment. */
+  environmentId: environmentIdField.nullable(),
   name: z.string(),
   type: z.literal("database"),
   status: z.enum(["draft", "valid", "invalid"]),
@@ -98,6 +101,9 @@ export const postgresResourceSchema = databaseResourceSchema;
 export const serviceResourceSchema = z.object({
   resourceId: resourceIdField,
   projectId: projectIdField,
+  /** Which environment owns this resource. Null on rows created before
+   *  environment scoping — those belong to the project's main environment. */
+  environmentId: environmentIdField.nullable(),
   name: z.string(),
   type: z.literal("service"),
   status: z.enum(["draft", "valid", "invalid"]),
@@ -191,6 +197,9 @@ export const serviceResourceSchema = z.object({
 export const composeResourceSchema = z.object({
   resourceId: resourceIdField,
   projectId: projectIdField,
+  /** Which environment owns this resource. Null on rows created before
+   *  environment scoping — those belong to the project's main environment. */
+  environmentId: environmentIdField.nullable(),
   name: z.string(),
   type: z.literal("compose"),
   status: z.enum(["draft", "valid", "invalid"]),

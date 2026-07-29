@@ -171,7 +171,7 @@ sh_ "docker images --format '{{.Repository}}:{{.Tag}}' | grep -E 'ghcr.io/otterd
 sh_ "docker images -q --filter label=$MANAGED | xargs -r -n1 docker rmi -f 2>/dev/null || true"
 if $BASE_IMAGES; then
   say "removing base images"
-  run $SUDO docker rmi postgres:17-alpine redis:7-alpine 2>/dev/null || true
+  run $SUDO docker rmi postgres:18-alpine redis:7-alpine 2>/dev/null || true
 fi
 
 # ── 6. ZFS pool ───────────────────────────────────────────────────────────────

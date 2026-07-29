@@ -182,6 +182,7 @@ export function buildCreatedResourceView(
   return {
     resourceId: created.resource.id,
     projectId: created.resource.projectId,
+    environmentId: created.resource.environmentId,
     name: created.resource.name,
     type: "database" as const,
     status: created.resource.status,

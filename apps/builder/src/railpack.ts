@@ -49,7 +49,7 @@ import { runProcess } from "./run-process";
  *  in the Dockerfile (ARG RAILPACK_VERSION) — the plan format and the frontend
  *  that runs it must agree, or BuildKit fails with cryptic errors like
  *  "secret RAILPACK_SPA_OUTPUT_DIR: not found". Bump both together. */
-const RAILPACK_FRONTEND = "ghcr.io/railwayapp/railpack-frontend:v0.26.1";
+const RAILPACK_FRONTEND = "ghcr.io/railwayapp/railpack-frontend:v0.35.0";
 
 /** Vite's default output dir; overridable via `config.staticRoot` for
  *  frameworks that emit elsewhere (e.g. CRA's `build`). */

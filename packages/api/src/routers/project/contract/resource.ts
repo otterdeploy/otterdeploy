@@ -22,6 +22,9 @@ export {
 
 const listProjectResourcesInput = z.object({
   projectId: projectIdField,
+  /** Which environment's resources to return. Omitted means the project's main
+   *  environment — the same default the switcher opens on. */
+  environmentId: environmentIdField.optional(),
 });
 
 const getProjectResourceInput = z.object({
@@ -78,6 +81,9 @@ const resourceEnvBulkSetInput = z.object({
 const checkResourceNameInput = z.object({
   projectId: projectIdField,
   name: z.string().min(1),
+  /** Environment the resource will be created in — names collide per
+   *  (project, environment). Omitted means main. */
+  environmentId: environmentIdField.optional(),
 });
 
 const checkResourceNameSchema = z.object({
@@ -111,7 +117,7 @@ const publicHostPreviewSchema = z.object({
 
 // Imported by the slice below — see ./service-tasks for the schema definition.
 import { serviceTaskSchema } from "./service-tasks";
-import { projectIdField, resourceIdField } from "./shared";
+import { environmentIdField, projectIdField, resourceIdField } from "./shared";
 
 /**
  * Router slice for the generic resource endpoints — list, checkName, tasks,

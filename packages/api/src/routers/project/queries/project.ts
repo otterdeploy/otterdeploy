@@ -232,7 +232,17 @@ export async function createProjectRecord(input: {
           id: environmentId,
           projectId,
           name: "production",
-          slug: `${input.slug}-production`,
+          // NOT `<projectSlug>-production`. Environment slugs are unique per
+          // PROJECT (`environment_project_slug_unique`), so a project prefix
+          // buys no uniqueness — it only leaks the project name into the
+          // operator's URL (`?env=store-production`) for the one environment
+          // every project has. It also disagreed with the other two creation
+          // paths, which both write a bare `production`: the web onboarding
+          // pre-allocates the row via `env.create`, and the create dialog
+          // slugifies whatever the operator typed. Same concept, three code
+          // paths, two different slugs — and the `slug === "production"`
+          // lookups downstream silently missed the prefixed ones.
+          slug: "production",
         })
         .returning();
       createdEnvironment = inserted;

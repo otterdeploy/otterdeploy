@@ -5,7 +5,7 @@
  * orchestrator sums. Execution order is owned by applyManifest in
  * ./manifest-apply.
  */
-import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
@@ -23,6 +23,10 @@ type OrgId = OrganizationId;
 
 export interface ApplyContext {
   projectId: ProjectId;
+  /** Environment this apply targets. Every resource it CREATES is stamped with
+   *  it, and every name-uniqueness check is scoped to it — otherwise a staging
+   *  apply is rejected by production's names. */
+  environmentId: EnvironmentId;
   organizationId: OrgId;
   manifest: Manifest;
   current: CurrentState;
@@ -67,6 +71,7 @@ export async function runDatabaseCreates(
       return [
         createDatabase({
           projectId: ctx.projectId,
+          environmentId: ctx.environmentId,
           organizationId: ctx.organizationId,
           name: change.name,
           spec,
