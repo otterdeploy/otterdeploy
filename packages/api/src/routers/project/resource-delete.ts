@@ -20,8 +20,9 @@ import type { ResourceRef } from "../scopes";
 
 import { reconcile } from "../../caddy";
 import { deleteProxyRoutesByResource } from "../../caddy/queries";
+import { branchDependencyConflict } from "../../lib/environment/branch-dependents";
 import { reclaimDatabaseVolume, reclaimServiceHostArtifacts } from "../service/teardown";
-import { PostgresResourceNotFoundError } from "./errors";
+import { DatabaseHasBranchesError, PostgresResourceNotFoundError } from "./errors";
 import { removeDatabaseFromManifest, removeServiceFromManifest } from "./manifest";
 import { getDatabaseProvisioner } from "./provisioners";
 import { deleteResourceById, getProjectInOrg, getResourceById } from "./queries";
@@ -122,7 +123,7 @@ async function teardownDatabaseRuntime(
 export async function deleteProjectResource(
   input: ResourceRef,
   log: RequestLogger,
-): Promise<Result<{ ok: true }, PostgresResourceNotFoundError>> {
+): Promise<Result<{ ok: true }, PostgresResourceNotFoundError | DatabaseHasBranchesError>> {
   const project = await getProjectInOrg({
     projectId: input.projectId,
     organizationId: input.organizationId,
@@ -140,6 +141,23 @@ export async function deleteProjectResource(
 
   switch (found.kind) {
     case "database": {
+      // PRECONDITION, deliberately before the manifest strip below. That order
+      // is load-bearing: the strip runs first so a partial teardown diffs as a
+      // recoverable delete rather than a phantom create — but it also means a
+      // failure discovered later leaves the manifest entry gone while the data
+      // is still on disk. Under `zfs` the destroy WOULD fail there, because a
+      // clone pins its origin snapshot.
+      const branchConflict = await branchDependencyConflict(input.resourceId);
+      if (branchConflict) {
+        log.set({ resource: { outcome: "has_preview_branches" } });
+        return Result.err(
+          new DatabaseHasBranchesError({
+            resourceId: input.resourceId,
+            detail: branchConflict,
+          }),
+        );
+      }
+
       const { engine } = found.record.database;
       const projectSlug = sanitizeProjectSlug(project.slug);
       const serviceName = buildContainerName({

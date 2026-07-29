@@ -32,7 +32,11 @@ export const envRouter = {
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "environment" } });
       enforceProjectScope(context, input.projectId);
-      const result = await createEnv(input);
+      const result = await createEnv({
+        ...input,
+        // Needed to reach the project's manifest for the mirror overlay.
+        organizationId: context.activeOrganizationId,
+      });
       if (result.isErr()) {
         throw matchError(result.error, {
           EnvironmentConflictError: () => errors.CONFLICT(),
@@ -66,11 +70,13 @@ export const envRouter = {
       await enforceEnvScope(context, input.id);
       const result = await deleteEnv({
         id: input.id,
+        cascade: input.cascade,
         organizationId: context.activeOrganizationId,
       });
       if (result.isErr()) {
         throw matchError(result.error, {
           EnvironmentNotFoundError: () => errors.NOT_FOUND(),
+          EnvironmentNotEmptyError: () => errors.CONFLICT(),
         });
       }
       return result.value;

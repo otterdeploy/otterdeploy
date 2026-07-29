@@ -14,6 +14,23 @@ export class EnvironmentNotFoundError extends TaggedError("EnvironmentNotFoundEr
   }
 }
 
+/**
+ * The environment still owns resources and the caller did not ask to take them
+ * with it. Deleting anyway would leave rows whose `environment_id` resolves to
+ * nothing — invisible to every scope query while their containers keep running.
+ */
+export class EnvironmentNotEmptyError extends TaggedError("EnvironmentNotEmptyError")<{
+  message: string;
+  environmentId: EnvironmentId;
+}>() {
+  constructor(args: { environmentId: EnvironmentId }) {
+    super({
+      environmentId: args.environmentId,
+      message: `environment ${args.environmentId} still owns resources — confirm to delete them with it`,
+    });
+  }
+}
+
 export class EnvironmentConflictError extends TaggedError("EnvironmentConflictError")<{
   message: string;
   slug: string;

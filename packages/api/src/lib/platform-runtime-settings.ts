@@ -257,6 +257,12 @@ export async function previewIdleTeardownHours(): Promise<number> {
   return row?.previewIdleTeardownHours ?? env.PREVIEW_IDLE_TEARDOWN_HOURS;
 }
 
+/** Most previews one project may have open at once; 0 disables the cap. */
+export async function previewMaxPerProject(): Promise<number> {
+  const row = await loadRow();
+  return row?.previewMaxPerProject ?? env.PREVIEW_MAX_PER_PROJECT;
+}
+
 // ─── Edge logs ────────────────────────────────────────────────────────
 
 export const DEFAULT_EDGE_LOG_RETENTION_DAYS = 7;

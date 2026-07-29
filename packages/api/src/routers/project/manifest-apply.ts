@@ -19,7 +19,7 @@
  * live in the ./manifest-apply-{services,databases,refs,git} siblings.
  */
 
-import type { OrganizationId, ProjectId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { project } from "@otterdeploy/db/schema/project";
@@ -59,6 +59,11 @@ export interface ApplyInput {
   projectId: ProjectId;
   organizationId: OrganizationId;
   manifest: Manifest;
+  /** Environment this apply targets. Omitted/null = the project's main
+   *  environment, which is stored as `environment_id IS NULL`. The manifest
+   *  passed in has ALREADY been resolved for this environment; this is what
+   *  scopes the deployed state it gets diffed against, so the two agree. */
+  environmentId?: EnvironmentId | null;
   log: ApplyContext["log"];
 }
 
@@ -84,10 +89,10 @@ export function applyManifest(input: ApplyInput): Promise<ApplyResult> {
 }
 
 async function runApply(input: ApplyInput): Promise<ApplyResult> {
-  const { projectId, organizationId, manifest, log } = input;
+  const { projectId, organizationId, manifest, environmentId, log } = input;
   // Load state inside the queue slot — a snapshot taken while a prior apply
   // was still running would re-plan (and re-provision) its work.
-  const current = await loadCurrentState(projectId);
+  const current = await loadCurrentState(projectId, environmentId);
   const ctx: ApplyContext = { projectId, organizationId, manifest, current, log };
   // Plan with the same ref resolver the router's diff endpoint uses, so what
   // the user previewed is what executes. This table predates the DB-create

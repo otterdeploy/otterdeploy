@@ -1,6 +1,7 @@
 import { matchError } from "better-result";
 
 import { orgScopedProcedure, requirePermission } from "../../index";
+import { environmentIdForSlug } from "../../lib/environment/resolve-slug";
 import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { diffManifest, type Change, type Manifest } from "../../stack/manifest";
 import { renderProjectFromRows, toComposeYaml } from "../../stack/render";
@@ -88,8 +89,11 @@ export const manifestRouter = {
       });
     }
     if (!resolved.value) return { resolved: null, changes: [] };
+    // Same slug→id conversion the apply endpoint uses, so the plan the operator
+    // previews is scoped identically to the one that executes.
+    const environmentId = await environmentIdForSlug(input.projectId, input.environment);
     const [current, refTable] = await Promise.all([
-      loadCurrentState(input.projectId),
+      loadCurrentState(input.projectId, environmentId),
       loadRefTable(input.projectId),
     ]);
     // Resolve ${database:…}/${service:…} refs before comparing — apply stores
@@ -147,6 +151,7 @@ export const manifestRouter = {
         projectId: input.projectId,
         organizationId: context.activeOrganizationId,
         manifest: resolved.value,
+        environmentId: await environmentIdForSlug(input.projectId, input.environment),
         log: context.log,
       });
     },
@@ -227,6 +232,10 @@ export const manifestRouter = {
         projectId: input.projectId,
         organizationId: context.activeOrganizationId,
         manifest: resolved.value,
+        // Must match the environment the manifest was just resolved for. A
+        // manifest resolved for staging applied against production's rows
+        // would diff staging's desired state onto production's resources.
+        environmentId: await environmentIdForSlug(input.projectId, input.environment),
         log: context.log,
       });
       return { version: saved.value.version, ...applied };

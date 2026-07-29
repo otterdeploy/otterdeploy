@@ -1,0 +1,1880 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Environments, Previews &amp; DB Branching — otterdeploy</title>
+    <style>
+      :root {
+        --ink: #141412;
+        --canvas: #fbfbfa;
+        --card: #ffffff;
+        --muted: #6b6b64;
+        --line: rgba(20, 20, 18, 0.11);
+        --line-strong: rgba(20, 20, 18, 0.22);
+        --accent: oklch(0.623 0.214 259.815);
+        --accent-soft: oklch(0.623 0.214 259.815 / 0.1);
+        --warn: oklch(0.62 0.17 45);
+        --warn-soft: oklch(0.62 0.17 45 / 0.1);
+        --ok: oklch(0.6 0.14 155);
+        --radius: 8px;
+        --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+        --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --ink: #f2f2ef;
+          --canvas: #0c0c0b;
+          --card: #151513;
+          --muted: #8f8f86;
+          --line: rgba(242, 242, 239, 0.12);
+          --line-strong: rgba(242, 242, 239, 0.24);
+          --accent: oklch(0.7 0.17 259.815);
+          --accent-soft: oklch(0.7 0.17 259.815 / 0.14);
+          --warn: oklch(0.72 0.16 60);
+          --warn-soft: oklch(0.72 0.16 60 / 0.14);
+          --ok: oklch(0.7 0.14 155);
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--canvas);
+        color: var(--ink);
+        font-family: var(--sans);
+        font-size: 15px;
+        line-height: 1.62;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 0 24px 96px;
+      }
+      header.top {
+        padding: 64px 0 28px;
+        border-bottom: 1px solid var(--line);
+        margin-bottom: 8px;
+      }
+      h1 {
+        font-size: 30px;
+        line-height: 1.2;
+        letter-spacing: -0.02em;
+        margin: 0 0 10px;
+        font-weight: 640;
+      }
+      .sub {
+        color: var(--muted);
+        max-width: 68ch;
+        margin: 0;
+      }
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 18px;
+      }
+      .tag {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.02em;
+        padding: 3px 8px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--muted);
+      }
+      .tag.accent {
+        color: var(--accent);
+        border-color: var(--accent);
+        background: var(--accent-soft);
+      }
+      nav.toc {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background: var(--canvas);
+        border-bottom: 1px solid var(--line);
+        padding: 10px 0;
+        margin-bottom: 40px;
+        display: flex;
+        gap: 16px;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+      nav.toc a {
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 13px;
+      }
+      nav.toc a:hover {
+        color: var(--ink);
+      }
+      h2 {
+        font-size: 21px;
+        letter-spacing: -0.01em;
+        margin: 56px 0 12px;
+        font-weight: 620;
+        scroll-margin-top: 64px;
+      }
+      h3 {
+        font-size: 15px;
+        margin: 32px 0 8px;
+        font-weight: 620;
+      }
+      p {
+        margin: 0 0 14px;
+        max-width: 74ch;
+      }
+      code {
+        font-family: var(--mono);
+        font-size: 0.88em;
+        background: var(--accent-soft);
+        padding: 1px 5px;
+        border-radius: 4px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 18px 20px;
+        margin: 18px 0;
+      }
+      .callout {
+        border-left: 2px solid var(--accent);
+        background: var(--accent-soft);
+        padding: 14px 18px;
+        border-radius: 0 var(--radius) var(--radius) 0;
+        margin: 20px 0;
+      }
+      .callout.risk {
+        border-left-color: var(--warn);
+        background: var(--warn-soft);
+      }
+      .callout strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 18px 0;
+        font-size: 13.5px;
+      }
+      th {
+        text-align: left;
+        font-weight: 600;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--line-strong);
+        vertical-align: bottom;
+      }
+      td {
+        padding: 9px 10px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      td.mono,
+      th.mono {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .scroll {
+        overflow-x: auto;
+      }
+      .pill {
+        display: inline-block;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        padding: 2px 7px;
+        border-radius: 999px;
+        border: 1px solid var(--line-strong);
+        color: var(--muted);
+      }
+      .pill.err {
+        color: var(--warn);
+        border-color: var(--warn);
+      }
+      .pill.race {
+        color: var(--accent);
+        border-color: var(--accent);
+      }
+      .pill.edge {
+        color: var(--muted);
+      }
+      pre {
+        font-family: var(--mono);
+        font-size: 12.5px;
+        line-height: 1.6;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 14px 16px;
+        overflow-x: auto;
+        margin: 14px 0;
+      }
+      .note {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      /* layered resolution diagram */
+      .layers {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        margin: 20px 0;
+      }
+      .layer {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        border: 1px solid var(--line);
+        background: var(--card);
+        border-radius: var(--radius);
+        padding: 14px 16px;
+      }
+      .layer .lbl {
+        font-family: var(--mono);
+        font-size: 11px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--line-strong);
+        min-width: 96px;
+        text-align: center;
+      }
+      .layer .res {
+        font-weight: 600;
+        font-family: var(--mono);
+        font-size: 13px;
+      }
+      .layer .desc {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .fall {
+        color: var(--muted);
+        font-size: 12px;
+        padding: 6px 0 6px 30px;
+        font-family: var(--mono);
+      }
+
+      /* state machine */
+      .sm {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 10px;
+        margin: 18px 0;
+      }
+      .st {
+        border: 1px solid var(--line);
+        background: var(--card);
+        border-radius: var(--radius);
+        padding: 12px 14px;
+      }
+      .st b {
+        display: block;
+        font-size: 13.5px;
+      }
+      .st span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .st.blocked {
+        border-color: var(--warn);
+        background: var(--warn-soft);
+      }
+      .st.terminal {
+        border-style: dashed;
+      }
+
+      /* race panels */
+      .race {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 14px;
+        margin: 18px 0;
+        /* Size each panel to its own content — stretching leaves the shorter
+           one with a dead band under its last row. */
+        align-items: start;
+      }
+      @media (min-width: 820px) {
+        .race {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      .seq {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 14px 16px;
+        background: var(--card);
+      }
+      .seq.bad {
+        border-color: var(--warn);
+      }
+      .steps {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin: 10px 0 0;
+      }
+      /* An arrow must never be the last thing on a wrapped line — it travels
+         with the step it points at. */
+      .pair {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        white-space: nowrap;
+      }
+      .step {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        border: 1px solid var(--line-strong);
+        border-radius: 4px;
+        padding: 4px 8px;
+      }
+      .arrow {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      /* mockups */
+      .board {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 20px;
+        margin: 22px 0;
+      }
+      @media (min-width: 860px) {
+        .board {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      .mock {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        overflow: hidden;
+        background: var(--card);
+      }
+      .mock .chrome {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--line);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .mock .tabs {
+        display: flex;
+        gap: 12px;
+        padding: 7px 12px;
+        border-bottom: 1px solid var(--line);
+        font-size: 11.5px;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+      }
+      .mock .tabs b {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .mock .body {
+        padding: 12px;
+        display: grid;
+        gap: 10px;
+      }
+      .node {
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 10px;
+        display: grid;
+        gap: 5px;
+      }
+      .node .hd {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .node .ico {
+        width: 22px;
+        height: 22px;
+        border-radius: 5px;
+        background: var(--accent-soft);
+        flex: none;
+      }
+      .node .nm {
+        font-weight: 600;
+        font-size: 13px;
+      }
+      .node .ty {
+        font-family: var(--mono);
+        font-size: 9.5px;
+        color: var(--muted);
+        letter-spacing: 0.06em;
+      }
+      .node .st2 {
+        margin-left: auto;
+      }
+      .node .dsc {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .cap {
+        color: var(--muted);
+        font-size: 12.5px;
+        margin: 8px 0 0;
+      }
+      .mockwrap {
+        margin: 0;
+      }
+      .bar {
+        height: 7px;
+        border-radius: 999px;
+        background: var(--line-strong);
+        overflow: hidden;
+      }
+      .bar > i {
+        display: block;
+        height: 100%;
+        background: var(--accent);
+      }
+      ul {
+        margin: 0 0 14px;
+        padding-left: 20px;
+        max-width: 74ch;
+      }
+      li {
+        margin-bottom: 5px;
+      }
+      .q {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 16px 18px;
+        margin: 14px 0;
+        background: var(--card);
+      }
+      .q h4 {
+        margin: 0 0 10px;
+        font-size: 14.5px;
+        font-weight: 620;
+      }
+      .opt {
+        display: flex;
+        gap: 10px;
+        padding: 8px 0;
+        border-top: 1px solid var(--line);
+      }
+      .opt:first-of-type {
+        border-top: 0;
+      }
+      .opt .k {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--muted);
+        min-width: 92px;
+      }
+      .rec {
+        color: var(--accent);
+        font-family: var(--mono);
+        font-size: 10.5px;
+      }
+      footer {
+        margin-top: 72px;
+        padding-top: 20px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <h1>Environments, Previews &amp; DB Branching</h1>
+        <p class="sub">
+          Give environments real resource scoping, make preview provisioning durable, and finish
+          copy-on-write database branching.
+        </p>
+        <div class="meta">
+          <span class="tag accent">plan — not implemented</span>
+          <span class="tag">verified against code at 71e61110</span>
+          <span class="tag accent">all decisions settled</span>
+          <span class="tag">otterdeploy</span>
+        </div>
+      </header>
+
+      <nav class="toc">
+        <a href="#why">Why</a>
+        <a href="#model">Model</a>
+        <a href="#ui">What it looks like</a>
+        <a href="#state">Current state</a>
+        <a href="#lifecycle">Lifecycle</a>
+        <a href="#failures">Failures &amp; races</a>
+        <a href="#cow">Copy-on-write</a>
+        <a href="#naming">Naming</a>
+        <a href="#phases">Phases</a>
+        <a href="#verify">Verification</a>
+        <a href="#edges">Resolved edges</a>
+        <a href="#decided">Decided</a>
+        <a href="#open">Status</a>
+      </nav>
+
+      <h2 id="why">Why</h2>
+
+      <p>
+        Two things are wrong in the environment switcher today. The graph shows the same resources
+        whichever environment is selected, and the &ldquo;main&rdquo; environment behaves as though
+        it were the last one added.
+      </p>
+
+      <p>
+        The second was a genuine defect, and is <b>fixed</b> — it shipped as P0. The header nav
+        resolved the default environment by string-matching the slug <code>"production"</code> and
+        falling back to <code>environments[0]</code> from a live query with no
+        <code>.orderBy()</code>, while ignoring <code>project.environmentId</code>, the
+        main-environment pointer that already existed in the schema.
+        <code>variables.tsx:52</code> ran the same query <em>with</em> an explicit sort and
+        commented that &ldquo;the collection isn't intrinsically ordered&rdquo;; the header nav was
+        the one place that omitted it. Resolution is now authority-first — pointer, then the
+        <code>production</code> convention, then a deterministically sorted first row — in
+        <code>features/shell/environment-default.ts</code>, with thirteen tests whose load-bearing
+        assertions are about order independence: the same set in a different sequence must resolve
+        identically, and a new environment arriving at the front of the list must not change the
+        answer.
+      </p>
+
+      <p>
+        The first is not a defect — it is the absence of a feature. No resource table carries an
+        <code>environmentId</code>; only <code>project</code>, <code>serviceEnvVar</code> and
+        <code>projectEnvVar</code> do. Environments name a variable scope. The switcher sits in the
+        global breadcrumb and so implies a filter it never applies.
+      </p>
+
+      <div class="callout">
+        <strong>That scoping existed once and was deliberately removed.</strong>
+        PR #31 (<code>3678b0f3</code>, &ldquo;previews are resources, not environments&rdquo;) moved
+        previews out of the <code>environment</code> table because the env-as-scope model copied
+        every database per pull request, and produced four concrete failures: unscoped teardown
+        destroying other repos' same-numbered previews, closed PRs leaking containers and volumes,
+        preview migrations running against production databases, and preview builds superseding
+        production's running deployment row. What remains — <code>environment</code> as a variable
+        scope with a 1:1 project pointer — is the residue of that retreat, which is also why the
+        switcher looks like it should filter.
+      </div>
+
+      <p>
+        This plan re-introduces scoping for long-lived, operator-managed environments, reusing the
+        preview mechanism that survived rather than the model that was rolled back.
+      </p>
+
+      <h2 id="model">The model</h2>
+
+      <p>
+        A resource row carries an optional scope. Resolution prefers the narrowest scope that owns a
+        row and falls back outward, so an environment or a preview owns only what it actually
+        overrides. This is what keeps a pull request costing one container and one route by default
+        instead of a copy of every database in the project.
+      </p>
+
+      <div class="layers">
+        <div class="layer">
+          <span class="lbl" style="border-color: var(--accent); color: var(--accent)">preview</span>
+          <span class="res">postgres</span>
+          <span class="desc"><code>preview_id</code> set — a branch this PR owns</span>
+        </div>
+        <div class="fall">↓ no row — fall outward</div>
+        <div class="layer">
+          <span class="lbl">environment</span>
+          <span class="res">postgres</span>
+          <span class="desc"><code>environment_id</code> set — staging's own database</span>
+        </div>
+        <div class="fall">↓ no row — fall outward</div>
+        <div class="layer">
+          <span class="lbl">base</span>
+          <span class="res">postgres</span>
+          <span class="desc">both null — the project's original resource</span>
+        </div>
+      </div>
+
+      <p>
+        Because references are late-bound by resource <em>name</em> —
+        <code>DATABASE_URL = ${{postgres.DATABASE_URL}}</code> resolves at deploy time — the same
+        manifest produces different wiring per scope with no user-authored change. That property
+        already exists in <code>lib/variables/resolver.ts</code>; this plan widens it from two
+        levels to three.
+      </p>
+
+      <h3>Schema delta</h3>
+
+      <pre>
+resource
+  + environment_id  text  null  → environment.id
+    preview_id      text  null  → preview.id        (exists)
+
+preview
+  + base_environment_id  text  → environment.id</pre
+      >
+
+      <p>
+        <code>preview.base_environment_id</code> is what makes the intended mental model true: a
+        pull request into the branch that <code>staging</code> deploys produces a preview of
+        <em>staging</em>, and its database branch copies that environment's data. Today every
+        preview branches from production because there is nothing else it could branch from.
+      </p>
+
+      <h3>Mirroring — staging does not drift</h3>
+
+      <p>
+        Staging follows production. A change to production reaches staging too, and staging only
+        differs where the operator has deliberately made it differ. That is a standing relationship,
+        not a copy taken once at creation.
+      </p>
+
+      <div class="callout">
+        <strong>This is already the manifest's design, and it is already wired.</strong>
+        The manifest carries a top-level <code>environments.&lt;name&gt;</code> overlay that
+        deep-merges onto the base, and
+        <code>resolveEnvironment</code> (<code>stack/manifest/merge.ts</code>) implements exactly
+        the semantics above. Both <code>manifest.diff</code> and <code>manifest.apply</code> already
+        call it with the target environment (<code>router-manifest.ts:78,127,206</code>), and seven
+        tests pin the rules — including
+        <em>&ldquo;inherits unchanged when the env block is missing&rdquo;</em>, which is mirroring
+        stated as a test.
+      </div>
+
+      <p>
+        So the override mechanism does not need designing. The merge rules are settled and tested:
+      </p>
+
+      <div class="scroll">
+        <table>
+          <tr>
+            <th>In the overlay</th>
+            <th>Result</th>
+          </tr>
+          <tr>
+            <td>Key absent</td>
+            <td><b>Inherits base unchanged</b> — this is what &ldquo;mirrors&rdquo; means</td>
+          </tr>
+          <tr>
+            <td>Scalar present</td>
+            <td>Replaces the base value</td>
+          </tr>
+          <tr>
+            <td>Object present</td>
+            <td>Deep-merged, recursively</td>
+          </tr>
+          <tr>
+            <td>Array present</td>
+            <td>Replaces wholesale — no per-element merge</td>
+          </tr>
+          <tr>
+            <td>Value is <code>null</code></td>
+            <td>Deletes the key from the base</td>
+          </tr>
+          <tr>
+            <td>Discriminator differs (<code>source</code> / <code>engine</code>)</td>
+            <td>The override replaces the whole block; no cross-discriminator merge</td>
+          </tr>
+        </table>
+      </div>
+
+      <p>
+        What is actually missing is narrower than it first appears: apply resolves the manifest per
+        environment, but the resources it writes to are not environment-scoped, so a staging apply
+        lands on production's rows. Scoping the write target is the work — not building an override
+        system.
+      </p>
+
+      <p>
+        One consequence to decide deliberately: when production changes, staging should not silently
+        reconcile underneath a running system. The safe shape is that propagation lands in staging
+        as a <em>pending change</em> on the existing pending-changes bar, and the operator deploys
+        it — the same path every other manifest edit already takes. That keeps &ldquo;we should be
+        able to change it on staging as well&rdquo; true without turning a production edit into an
+        unattended staging deploy.
+      </p>
+
+      <h2 id="ui">What it looks like</h2>
+
+      <div class="board">
+        <figure class="mockwrap">
+          <div class="mock">
+            <div class="chrome">
+              <span>acme</span><span class="note">/</span><span>store</span
+              ><span class="note">/</span
+              ><span class="pill" style="color: var(--accent); border-color: var(--accent)"
+                >production</span
+              ><span style="margin-left: auto" class="note">＋ New</span>
+            </div>
+            <div class="tabs">
+              <b>Graph</b><span>Deployments</span><span>Logs</span><span>Metrics</span
+              ><span>Settings</span>
+            </div>
+            <div class="body">
+              <div class="node">
+                <div class="hd">
+                  <div class="ico"></div>
+                  <div>
+                    <div class="nm">postgres</div>
+                    <div class="ty">DATABASE</div>
+                  </div>
+                  <span class="pill st2">running</span>
+                </div>
+                <div class="dsc">primary store</div>
+              </div>
+              <div class="node">
+                <div class="hd">
+                  <div class="ico"></div>
+                  <div>
+                    <div class="nm">storefront</div>
+                    <div class="ty">SERVICE</div>
+                  </div>
+                  <span class="pill st2">running</span>
+                </div>
+                <div class="dsc">Next.js · built from source</div>
+              </div>
+            </div>
+          </div>
+          <p class="cap">
+            Production. Every resource that exists today lands here on migration, so the first
+            render after upgrade matches the last render before it.
+          </p>
+        </figure>
+
+        <figure class="mockwrap">
+          <div class="mock">
+            <div class="chrome">
+              <span>acme</span><span class="note">/</span><span>store</span
+              ><span class="note">/</span><span class="pill">staging</span
+              ><span style="margin-left: auto" class="note">＋ New</span>
+            </div>
+            <div class="tabs">
+              <b>Graph</b><span>Deployments</span><span>Logs</span><span>Metrics</span
+              ><span>Settings</span>
+            </div>
+            <div class="body">
+              <div style="display: flex; gap: 8px; align-items: center">
+                <span class="pill">mirrors production</span
+                ><span class="note" style="font-size: 11.5px">manifest in sync</span>
+              </div>
+              <div class="node">
+                <div class="hd">
+                  <div class="ico"></div>
+                  <div>
+                    <div class="nm">postgres</div>
+                    <div class="ty">DATABASE</div>
+                  </div>
+                  <span class="pill st2">running</span>
+                </div>
+                <div class="dsc">staging data — not production's</div>
+              </div>
+              <div class="node">
+                <div class="hd">
+                  <div class="ico"></div>
+                  <div>
+                    <div class="nm">storefront</div>
+                    <div class="ty">SERVICE</div>
+                  </div>
+                  <span class="pill st2">running</span>
+                </div>
+                <div class="dsc">Next.js · built from source</div>
+              </div>
+            </div>
+          </div>
+          <p class="cap">
+            Staging owns its own containers, volumes and routes under an environment-scoped name.
+            Same manifest, different data.
+          </p>
+        </figure>
+
+        <figure class="mockwrap">
+          <div class="mock">
+            <div class="chrome">
+              <span>acme</span><span class="note">/</span><span>store</span
+              ><span class="note">/</span
+              ><span class="pill" style="color: var(--accent); border-color: var(--accent)"
+                >production</span
+              >
+            </div>
+            <div class="body">
+              <div class="node">
+                <div class="hd">
+                  <div class="ico"></div>
+                  <div>
+                    <div class="nm">storefront</div>
+                    <div class="ty">SERVICE</div>
+                  </div>
+                  <span class="pill st2">running</span>
+                </div>
+              </div>
+              <div
+                style="
+                  display: grid;
+                  gap: 8px;
+                  padding-left: 16px;
+                  border-left: 1px dashed var(--line-strong);
+                "
+              >
+                <div class="node" style="padding: 8px">
+                  <div class="hd">
+                    <div style="font-family: var(--mono); font-size: 12px; font-weight: 600">
+                      PR 128
+                    </div>
+                    <span class="pill st2">running</span>
+                  </div>
+                  <div class="dsc">feat/checkout-v2 · branched postgres</div>
+                </div>
+                <div class="node" style="padding: 8px">
+                  <div class="hd">
+                    <div style="font-family: var(--mono); font-size: 12px; font-weight: 600">
+                      PR 131
+                    </div>
+                    <span class="pill st2">building</span>
+                  </div>
+                  <div class="dsc">fix/cart-total · shares postgres</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="cap">
+            Previews stay satellites of the service node. They are not environments and never enter
+            the switcher, the variables tabs, or the pickers.
+          </p>
+        </figure>
+
+        <figure class="mockwrap">
+          <div class="mock" style="border-color: var(--warn)">
+            <div class="chrome">
+              <b style="font-size: 13px">PR 131</b
+              ><span
+                class="pill st2"
+                style="margin-left: auto; color: var(--warn); border-color: var(--warn)"
+                >blocked</span
+              >
+            </div>
+            <div class="body">
+              <div class="node" style="border-color: var(--warn); background: var(--warn-soft)">
+                <div class="nm">Database branch failed</div>
+                <div class="dsc">postgres could not be copied: not enough disk on node-2.</div>
+                <div style="font-size: 12.5px">
+                  This preview is held. It will not start against the production database.
+                </div>
+              </div>
+              <div class="node" style="padding: 8px">
+                <div class="hd">
+                  <span style="font-size: 12.5px">postgres</span
+                  ><span class="pill st2">no branch</span>
+                </div>
+              </div>
+              <div class="node" style="padding: 8px">
+                <div class="hd">
+                  <span style="font-size: 12.5px">storefront</span
+                  ><span class="pill st2">not started</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="cap">
+            The most important state in the plan. Today this case silently resolves to the
+            production database instead.
+          </p>
+        </figure>
+      </div>
+
+      <h2 id="state">Current state</h2>
+
+      <p>Read from the code, not assumed.</p>
+
+      <div class="scroll">
+        <table>
+          <tr>
+            <th>Area</th>
+            <th>Today</th>
+            <th class="mono">File</th>
+          </tr>
+          <tr>
+            <td>Preview rows</td>
+            <td>
+              First-class; unique <code>(project, repo, pr)</code>; state / paused /
+              auto_teardown_at
+            </td>
+            <td class="mono">db/schema/project.ts:193</td>
+          </tr>
+          <tr>
+            <td>Resource scoping</td>
+            <td><code>preview_id</code> only, two partial unique indexes</td>
+            <td class="mono">db/schema/project.ts:268</td>
+          </tr>
+          <tr>
+            <td>Which databases branch</td>
+            <td>BFS over the <code>${{ref}}</code> graph from opted-in services</td>
+            <td class="mono">git/preview-db.ts:55</td>
+          </tr>
+          <tr>
+            <td>Teardown</td>
+            <td>Containers, branch volumes, routes, Caddy reconcile</td>
+            <td class="mono">git/preview-teardown.ts</td>
+          </tr>
+          <tr>
+            <td>Idle GC</td>
+            <td>Hourly reaper; NULL <code>auto_teardown_at</code> is pinned</td>
+            <td class="mono">git/preview-reaper.ts:84</td>
+          </tr>
+          <tr>
+            <td>Naming</td>
+            <td>
+              <code>runtimeServiceName</code> / <code>previewHostLabel</code> — preview scope only
+            </td>
+            <td class="mono">lib/environment/scoping.ts</td>
+          </tr>
+          <tr>
+            <td>ZFS pool</td>
+            <td>
+              <b>Provisioned by the installer</b> — installs <code>zfsutils</code>, creates a
+              sparse-image pool, sets <code>autotrim</code>, creates <code>&lt;pool&gt;/pg</code>,
+              writes <code>BRANCH_ZFS_POOL</code>
+            </td>
+            <td class="mono">install.sh:914-974</td>
+          </tr>
+          <tr>
+            <td>Pool lifecycle</td>
+            <td>
+              <b>Built</b> — health, trim, grow, and a pre-branch headroom guard already called on
+              the branch path
+            </td>
+            <td class="mono">system-health/branch-pool.ts</td>
+          </tr>
+          <tr>
+            <td>Host execution</td>
+            <td>
+              <b>Built</b> — <code>runOnHost</code> nsenters PID 1 via a privileged helper,
+              explicitly for <code>zpool</code>/<code>zfs</code>
+            </td>
+            <td class="mono">system-health/host-run.ts</td>
+          </tr>
+          <tr>
+            <td><b>ZFS driver</b></td>
+            <td>
+              <b>The one missing piece</b> — <code>resolveSnapshotDriver</code> carries a
+              <code>TODO(P3)</code> and returns <code>copyDriver</code> unconditionally, so
+              <code>auto</code> and explicit <code>zfs</code> both fall back
+            </td>
+            <td class="mono">runtime/snapshot/index.ts:35</td>
+          </tr>
+          <tr>
+            <td><b>Swarm branching</b></td>
+            <td>
+              <b>Throws 501</b> — because both branch transports are node-local (<code
+                >docker exec</code
+              >
+              on the local socket; <code>runOnHost</code> on the manager)
+            </td>
+            <td class="mono">runtime/swarm-driver.ts:50</td>
+          </tr>
+          <tr>
+            <td><b>Provisioning</b></td>
+            <td><b>Runs inline in the webhook</b>, against a ~10s timeout</td>
+            <td class="mono">git/preview-db.ts:14</td>
+          </tr>
+          <tr>
+            <td>Env-scoped resources</td>
+            <td>Do not exist</td>
+            <td class="mono">—</td>
+          </tr>
+        </table>
+      </div>
+
+      <p class="note">
+        The three bold rows are the real gaps behind &ldquo;branching isn't completely
+        implemented&rdquo;.
+      </p>
+
+      <h2 id="lifecycle">Preview lifecycle</h2>
+
+      <p>
+        The guards matter more than the happy path. Teardown is never gated on the opt-in — a
+        service that turned previews off after a preview was already running must still have it torn
+        down, or containers and branched databases leak. And a failed branch must never reach
+        <em>running</em>.
+      </p>
+
+      <div class="sm">
+        <div class="st"><b>Pending</b><span>PR opened</span></div>
+        <div class="st"><b>Provisioning</b><span>job claimed</span></div>
+        <div class="st"><b>Branching</b><span>opted-in DB referenced</span></div>
+        <div class="st blocked"><b>Blocked</b><span>branch failed — never falls back</span></div>
+        <div class="st"><b>Building</b><span>image build</span></div>
+        <div class="st"><b>Running</b><span>container healthy</span></div>
+        <div class="st"><b>Paused</b><span>idle, resumable</span></div>
+        <div class="st terminal"><b>Closing</b><span>PR closed or reaped</span></div>
+      </div>
+
+      <pre>
+Pending → Provisioning → Branching → Building → Running
+                      ↘ (no branch needed) ↗
+          Branching → Blocked → Branching        (explicit retry)
+                              → Closing          (give up / PR closed)
+          Running   → Building                   (new push)
+          Running   → Paused → Building          (idle pause / resume)
+          any       → Closing → destroyed</pre
+      >
+
+      <h2 id="failures">What goes wrong</h2>
+
+      <p>
+        The happy path is the small part. Each row is a state the implementation has to be designed
+        against, with what happens today and what must happen instead.
+      </p>
+
+      <div class="scroll">
+        <table>
+          <tr>
+            <th></th>
+            <th>Situation</th>
+            <th>Today</th>
+            <th>Target</th>
+          </tr>
+
+          <tr>
+            <td><span class="pill err">error</span></td>
+            <td>Database branch copy fails</td>
+            <td>
+              Branch row deleted to allow retry; resolver falls back to the <b>base</b> database, so
+              the preview can write to production
+            </td>
+            <td>Preview enters Blocked and refuses to start; retry is explicit</td>
+          </tr>
+          <tr>
+            <td><span class="pill err">error</span></td>
+            <td>Runtime is swarm</td>
+            <td>
+              <code>branchDatabase</code> throws 501; branch never created; preview falls through to
+              production
+            </td>
+            <td>
+              The throw is removed by pinning databases to the control-plane host, where both
+              transports already work. Blocked is reserved for a branch that genuinely fails, never
+              for &ldquo;you chose Swarm&rdquo;
+            </td>
+          </tr>
+          <tr>
+            <td><span class="pill edge">edge</span></td>
+            <td>Base database deleted while preview clones exist</td>
+            <td>Not reachable — a <code>copy</code> branch is an independent volume</td>
+            <td>
+              New under ZFS: a clone pins its origin snapshot. Refuse the delete while branches
+              exist, or <code>zfs promote</code> to reparent; teardown destroys clones before
+              origins
+            </td>
+          </tr>
+          <tr>
+            <td><span class="pill err">error</span></td>
+            <td>Copy doubles disk, node fills</td>
+            <td>No capacity precheck</td>
+            <td>Precheck free space against source size; refuse before starting, not halfway</td>
+          </tr>
+          <tr>
+            <td><span class="pill err">error</span></td>
+            <td>Service reads a raw <code>DATABASE_URL</code> with no ref</td>
+            <td>Invisible to the BFS, never branched, silently hits production</td>
+            <td>Detect unreferenced database env at open and warn on the PR comment</td>
+          </tr>
+
+          <tr>
+            <td><span class="pill edge">edge</span></td>
+            <td>Repo renamed between PR open and close</td>
+            <td>
+              <code>repoSlug</code> changes; teardown cannot resolve container and volume names;
+              resources leak
+            </td>
+            <td>Teardown uses the slug persisted on the preview row at create time</td>
+          </tr>
+          <tr>
+            <td><span class="pill edge">edge</span></td>
+            <td>Two repos in one project, same PR number</td>
+            <td>Handled by the <code>(project, repo, pr)</code> unique index</td>
+            <td>Keep; add a regression test</td>
+          </tr>
+          <tr>
+            <td><span class="pill edge">edge</span></td>
+            <td>Previews turned off while one is live</td>
+            <td>Teardown deliberately not gated, so it still runs</td>
+            <td>Keep — this is correct and must not regress</td>
+          </tr>
+          <tr>
+            <td><span class="pill edge">edge</span></td>
+            <td>Long-lived PR with no pushes</td>
+            <td>Reaped mid-review at <code>auto_teardown_at</code></td>
+            <td>Keep, with the pin control surfaced in the preview panel</td>
+          </tr>
+          <tr>
+            <td><span class="pill edge">edge</span></td>
+            <td>Environment deleted while it owns running resources</td>
+            <td>Not possible today</td>
+            <td>Refuse unless empty, or require an explicit destroy-resources confirmation</td>
+          </tr>
+
+          <tr>
+            <td><span class="pill race">race</span></td>
+            <td>Two <code>synchronize</code> events in flight</td>
+            <td>Two builds race; supersede decides the winner</td>
+            <td>Job keyed on <code>(preview, sha)</code>; newer push cancels the older build</td>
+          </tr>
+          <tr>
+            <td><span class="pill race">race</span></td>
+            <td>PR closed while a build runs</td>
+            <td>Teardown races the deploy; a container can start <em>after</em> teardown</td>
+            <td>
+              Teardown marks the preview closing first; the deploy job aborts on a closing preview
+            </td>
+          </tr>
+          <tr>
+            <td><span class="pill race">race</span></td>
+            <td>GitHub retries after the 10s timeout</td>
+            <td><code>branchExists</code> is idempotent, but the build trigger is not</td>
+            <td>Idempotency key on the provisioning job per <code>(preview, sha)</code></td>
+          </tr>
+          <tr>
+            <td><span class="pill race">race</span></td>
+            <td>Reaper fires while a push is handled</td>
+            <td>Teardown and provisioning can interleave</td>
+            <td>Reaper skips previews with an in-flight job; row-level claim</td>
+          </tr>
+          <tr>
+            <td><span class="pill race">race</span></td>
+            <td>Preview build supersedes production's deployment row</td>
+            <td>Fixed in #31 via base-scoped reads</td>
+            <td>Keep; regression test at the deployment-read boundary</td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="callout risk">
+        <strong>The silent fallback is the highest-severity defect in the system today.</strong>
+        <code>branchOne</code> deletes the branch resource when the copy fails so a retry is
+        possible (<code>git/preview-db.ts:277</code>), and <code>branchProjectDatabases</code> is
+        best-effort per database. Between the failure and a retry the preview has no scoped row, so
+        name-based resolution finds the base — and the preview's migrations and writes land on
+        production data. On swarm this is not a window but a permanent condition, because
+        <code>branchDatabase</code> throws. The fix is not better logging; it is that a preview with
+        a <em>required</em> branch must not reach a running state without it.
+      </div>
+
+      <h3>Race: teardown against an in-flight build</h3>
+
+      <div class="race">
+        <div class="seq">
+          <b style="font-size: 13px">Safe ordering</b>
+          <div class="steps">
+            <span class="step">PR closed</span>
+            <span class="pair"
+              ><span class="arrow">→</span><span class="step">mark closing</span></span
+            >
+            <span class="pair"
+              ><span class="arrow">→</span><span class="step">build aborts</span></span
+            >
+            <span class="pair"><span class="arrow">→</span><span class="step">destroy</span></span>
+          </div>
+          <p class="cap">
+            The claim is taken before anything is destroyed, so the build stops itself.
+          </p>
+        </div>
+        <div class="seq bad">
+          <b style="font-size: 13px">Leak</b>
+          <div class="steps">
+            <span class="step">PR closed</span>
+            <span class="pair"><span class="arrow">→</span><span class="step">destroy</span></span>
+            <span class="pair"
+              ><span class="arrow">meanwhile</span><span class="step">build finishes</span></span
+            >
+            <span class="pair"
+              ><span class="arrow">→</span><span class="step">container starts</span></span
+            >
+          </div>
+          <p class="cap">
+            Nothing is left to tear it down. It survives until the next manual sweep.
+          </p>
+        </div>
+      </div>
+
+      <p>
+        Both orderings are reachable today. A claim on the preview row is what makes the second one
+        impossible.
+      </p>
+
+      <h2 id="cow">Copy-on-write branching</h2>
+
+      <p>
+        The target is Neon's branching model: a branch is instant, shares blocks with its origin
+        until written to, and is cheap enough that every open pull request can have one. On
+        self-hosted Postgres in a container, the mechanism that gives that is a filesystem-level
+        snapshot and clone of PGDATA — <code>zfs snapshot</code> followed by <code>zfs clone</code>.
+      </p>
+
+      <p>
+        The seam for it already exists and is already specified. <code>SnapshotDriver</code> has
+        <code>branch()</code> / <code>destroy()</code> / <code>probe()</code>, and the
+        <code>copy</code> driver's own docstring states the intended asymmetry:
+        <em
+          >&ldquo;<code>zfs</code> clones the raw PGDATA volume at the volume layer, before the
+          branch container boots&rdquo;</em
+        >
+        — whereas <code>copy</code> must dump and restore a layer up, with both containers running.
+        Implementing the driver is the work; designing the interface is not.
+      </p>
+
+      <p>What copy-on-write actually needs, beyond the driver itself:</p>
+
+      <div class="scroll">
+        <table>
+          <tr>
+            <th>Requirement</th>
+            <th>Why it is not just a driver</th>
+          </tr>
+          <tr>
+            <td>PGDATA must live on a ZFS dataset</td>
+            <td>
+              Databases today get a plain Docker named volume
+              (<code>otterdeploy-pgdata-&lt;project&gt;-&lt;resource&gt;</code>,
+              <code>view-helpers.ts:79</code>). A volume that is not on ZFS cannot be cloned, so
+              provisioning has to create a dataset per database and bind it — a change to database
+              <em>creation</em>, not only to branching.
+            </td>
+          </tr>
+          <tr>
+            <td>Existing databases cannot be branched instantly</td>
+            <td>
+              Anything created before the change sits on a plain volume. It keeps working and keeps
+              using <code>copy</code>; moving it to ZFS is a data migration nobody should be forced
+              into.
+            </td>
+          </tr>
+          <tr>
+            <td>Driver selection becomes per-database</td>
+            <td>
+              <code>resolveSnapshotDriver()</code> is called once for the whole batch
+              (<code>preview-db.ts:144</code>). With mixed hosts — some databases on ZFS, some not —
+              it has to resolve per base database instead.
+            </td>
+          </tr>
+          <tr>
+            <td>Snapshot consistency</td>
+            <td>
+              A ZFS snapshot of a running Postgres is crash-consistent; the clone replays WAL on
+              first boot. Acceptable, and the same guarantee a power cut gives — but issue a
+              <code>CHECKPOINT</code> first so recovery is short rather than arbitrary.
+            </td>
+          </tr>
+          <tr>
+            <td>A clone pins its origin snapshot</td>
+            <td>
+              ZFS will not destroy a snapshot that a clone depends on. See below — this is the
+              teardown hazard the copy path does not have.
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <h3>Where ZFS gets provisioned</h3>
+
+      <p>
+        The installer. <code>scripts/install.sh</code> is already the one place that touches the
+        host as root — it installs packages across the debian, rhel and arch families, installs
+        Docker, and writes the compose stack. Adding ZFS packages and creating the dataset root
+        belongs there, not in the application, which never has host privileges and cannot create a
+        pool.
+      </p>
+
+      <div class="callout">
+        <strong>The control-plane database is not a branch source.</strong>
+        <code>install.sh</code> provisions otterdeploy's own Postgres —
+        <code>postgres:17-alpine</code> on the <code>otterdeploy-postgres-data</code> named volume,
+        pinned to 17 because 18+ rejects the data mount. That is the platform's internal database:
+        it holds projects, resources and deployments, it is never referenced by a
+        <code>${{…}}</code> ref, and it must never be snapshotted for a preview. User databases are
+        a different thing entirely, created by the runtime driver as
+        <code>otterdeploy-pgdata-&lt;project&gt;-&lt;resource&gt;</code>. Only those are branch
+        sources, and only those move onto datasets.
+      </div>
+
+      <p>
+        The installer can provision it, but what it can provision depends on the host, and that
+        determines what an operator actually gets:
+      </p>
+
+      <div class="scroll">
+        <table>
+          <tr>
+            <th>Host</th>
+            <th>Result</th>
+          </tr>
+          <tr>
+            <td>Spare block device</td>
+            <td>
+              A real pool. Instant branching with no meaningful overhead — the intended
+              configuration.
+            </td>
+          </tr>
+          <tr>
+            <td>No spare device, ZFS module available</td>
+            <td>
+              A file-backed vdev on the existing filesystem. Copy-on-write semantics are intact and
+              branching is still instant, at some I/O cost from the nesting. Acceptable for most
+              self-hosters, and worth offering rather than refusing.
+            </td>
+          </tr>
+          <tr>
+            <td>No ZFS kernel module</td>
+            <td>
+              Not possible at any level — some VPS kernels simply do not ship it.
+              <code>copy</code> remains, previews stay expensive on large databases, and nothing
+              breaks.
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <p>
+        Two consequences for the rollout. Upgrading an existing install must never require ZFS —
+        every database already on a plain volume keeps working on <code>copy</code>, which is
+        exactly why driver selection has to become per-database rather than per-host. And the
+        installer's ZFS step is opt-in and skippable, because an operator who declines it should get
+        a working platform with slower branching, not a failed install.
+      </p>
+
+      <h3>Preview limits and manual triggers</h3>
+
+      <p>
+        Two controls belong to the preview lifecycle rather than to branching, and both change what
+        P3 has to build.
+      </p>
+
+      <p>
+        <b>A cap on concurrent previews.</b> This is already a known gap —
+        <code>pr-previews.md</code> lists &ldquo;per-project preview caps&rdquo; as outstanding
+        alongside COW itself. Idle teardown bounds how <em>long</em> a preview lives; nothing bounds
+        how <em>many</em> exist, so a busy repository can open twenty pull requests and provision
+        twenty databases. The cap is enforced at preview creation, and the decision that matters is
+        what happens when it is hit: <b>refuse the new preview and say so on the pull request</b>,
+        rather than evicting the oldest. Eviction would tear down a preview someone is actively
+        reviewing to make room for one nobody has looked at yet. A refusal that names the cap is
+        honest and actionable; a silent eviction is neither. The same rule as idle GC applies —
+        never a silent cap.
+      </p>
+
+      <p>
+        <b>An on-demand trigger.</b> A repository with automatic previews turned off should still be
+        able to ask for one, by commenting <code>@otterdeploy preview</code> on the pull request.
+        Mechanically this is a new webhook path: the App currently subscribes to
+        <code>["push", "pull_request"]</code> only (<code>git/manifest.ts:128</code>), so
+        <code>issue_comment</code> has to be added to the event list and the handler switch, then
+        routed into the same provisioning job the <code>pull_request</code> path uses. Everything
+        downstream — branch, build, route, comment, teardown — is unchanged.
+      </p>
+
+      <div class="callout risk">
+        <strong>A comment trigger is an authorization boundary, not a convenience.</strong>
+        Anyone who can see a public repository can comment on its pull requests. Without an author
+        check, <code>@otterdeploy preview</code> is an unauthenticated request to provision compute
+        and clone a database on someone else's infrastructure. The trigger must verify the
+        commenter's association with the repository (<code>author_association</code>, or an explicit
+        permission lookup) before it does anything, and previews created this way still count
+        against the cap — otherwise the cap is bypassable by anyone with a keyboard.
+      </div>
+
+      <div class="callout">
+        <strong>Adding an event has an operational cost worth planning for.</strong>
+        Changing the GitHub App's subscribed events means every existing installation has to accept
+        the updated permissions before the new trigger works for them. The feature ships dark for
+        anyone who has not accepted, so the rollout needs to detect that state and say so rather
+        than appearing broken.
+      </div>
+
+      <h3>Branching under Swarm</h3>
+
+      <p>
+        The swarm driver throws <code>501</code> today because both branch transports assume the
+        database is on the control plane's own host. <code>copy</code> reaches it with a
+        <code>docker exec</code> over the local socket (<code
+          >pgDumpToBuffer(docker, containerId, …)</code
+        >, <code>backups/copy.ts</code>), and the ZFS path uses <code>runOnHost</code>, a privileged
+        helper that nsenters PID 1 of whichever machine the control plane runs on. Under Swarm a
+        database can be scheduled anywhere, so both reach the wrong machine.
+      </p>
+
+      <p>
+        <b>The fix is placement, not new transports.</b> Pin databases to the control-plane host and
+        both mechanisms are correct again, unchanged. Three facts about how otterdeploy is installed
+        make that hold:
+      </p>
+
+      <div class="scroll">
+        <table>
+          <tr>
+            <th>Fact</th>
+            <th>Consequence</th>
+          </tr>
+          <tr>
+            <td>
+              The installer runs <code>docker swarm init</code> on the install host
+              (<code>install.sh:654</code>)
+            </td>
+            <td>That machine is the manager, and it is where the platform already lives.</td>
+          </tr>
+          <tr>
+            <td>
+              The control plane is a plain <code>docker compose</code> stack, not
+              <code>docker stack deploy</code> — there is no <code>deploy:</code> or
+              <code>placement:</code> block in <code>docker-compose.prod.yml</code>
+            </td>
+            <td>
+              It is pinned to the install host by construction and cannot be rescheduled, even in a
+              multi-manager cluster. The host <code>runOnHost</code> reaches is therefore stable.
+            </td>
+          </tr>
+          <tr>
+            <td>The ZFS pool is provisioned on that same host (<code>install.sh:914-974</code>)</td>
+            <td>
+              Pinning databases there puts them on the machine that already has the pool. No
+              pool-per-node, and no cross-node execution.
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <p>
+        So Swarm needs no branching-specific work at all: services scale across the cluster,
+        databases stay on the manager, and the <code>501</code> is deleted because the case it
+        guarded against no longer occurs. <code>placementServerId</code> already exists and already
+        means exactly this — a hard placement constraint for a resource whose volume does not move
+        with it.
+      </p>
+
+      <div class="callout risk">
+        <strong>The one case this does not cover: a database pinned to a worker.</strong>
+        Placement is operator-controlled, so someone can pin a database to a node that is not the
+        control-plane host — and then neither transport can reach it. That is a configuration
+        conflict, and it should surface where the conflict is created rather than as a failed branch
+        hours later: refuse to enable preview branching on a database pinned off-host, and refuse to
+        move a branch-enabled database off-host. If it does slip through, Blocked catches it — the
+        preview refuses rather than falling back to production.
+      </div>
+
+      <p>
+        Making <code>copy</code> talk to the database over the overlay hostname instead of
+        <code>docker exec</code> would lift that restriction entirely, since the overlay reaches
+        every node. It is a genuine simplification and worth doing eventually, but it is no longer
+        on the critical path — it buys off-host databases, not Swarm support.
+      </p>
+
+      <h3>Clone lifetimes</h3>
+
+      <p>
+        Under <code>copy</code> a branch is an ordinary independent volume, so destroying a base
+        database is unaffected by any preview. Under ZFS it is not: every open preview's clone holds
+        its origin snapshot alive, and ZFS refuses to destroy a snapshot — or the dataset holding it
+        — while a clone depends on it. This is the one place where copy-on-write changes an
+        operation that has nothing to do with previews, so it gets designed rather than discovered.
+      </p>
+
+      <p>
+        The bookkeeping this needs already exists. <code>databaseResource</code> carries
+        <code>branch_strategy</code> and <code>branch_snapshot_ref</code>
+        (<code>schema/project.ts:363,366</code>), and teardown already passes the stored ref back to
+        the driver (<code>preview-teardown.ts:114</code>) rather than recomputing it — the same
+        record-it-don't-recompute lesson as the preview slug. What is missing is the guard and the
+        ordering.
+      </p>
+
+      <div class="scroll">
+        <table>
+          <tr>
+            <th>Rule</th>
+            <th>Where it goes, and why there</th>
+          </tr>
+          <tr>
+            <td><b>Deleting a base database refuses while live branches exist</b></td>
+            <td>
+              A precondition in <code>resource-delete.ts</code>, checked <em>before</em> anything is
+              stripped — not a failure handler. Today the flow removes the database from the
+              manifest first, on purpose, so that a partial teardown diffs as a recoverable delete
+              rather than a phantom create. If the ZFS destroy is instead allowed to fail at step
+              three, the manifest entry is already gone while the dataset is still on disk. The
+              query is cheap: resources whose <code>branched_from_resource_id</code> is this
+              database and whose <code>preview_id</code> is not null.
+            </td>
+          </tr>
+          <tr>
+            <td><b>The refusal names the previews, and flags pinned ones</b></td>
+            <td>
+              Ordinarily this heals itself — previews are reaped at
+              <code>auto_teardown_at</code>, so the block is temporary and waiting is a valid
+              action. A pinned preview (<code>auto_teardown_at</code> NULL) never expires and pins
+              the database indefinitely, so those must be named separately: they need a human, not
+              patience.
+            </td>
+          </tr>
+          <tr>
+            <td><b>Teardown destroys the clone before the snapshot</b></td>
+            <td>
+              Inside the <code>zfs</code> driver's <code>destroy()</code>. Reversing the order fails
+              on the first call. Both steps must tolerate the object already being gone, because a
+              teardown that dies between them otherwise leaves a snapshot that holds space and
+              blocks the base delete permanently.
+            </td>
+          </tr>
+          <tr>
+            <td><b>A failed branch teardown is recorded, not abandoned</b></td>
+            <td>
+              Reuse <code>recordOrphanedResource</code> / <code>orphan-gc.ts</code>, which already
+              does exactly this for a service container whose daemon was unreachable. Without it,
+              one failed teardown blocks base deletion forever with nothing tracking why.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <b>Never <code>zfs promote</code> a preview clone</b>
+            </td>
+            <td>
+              Promotion would reparent the clone so the base becomes deletable — and it is the wrong
+              answer here. It makes an ephemeral PR preview the origin holder of production's
+              blocks, inverting the lifetime relationship: the short-lived thing now pins the
+              long-lived one, and the preview cannot be torn down without another promotion. The
+              operation exists; it is not for this.
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="callout risk">
+        <strong>The failure mode to design against is an operator who cannot act.</strong>
+        &ldquo;Delete this database&rdquo; returning a filesystem error about dependent clones is
+        unactionable — nothing in the UI connects a ZFS dataset to someone's open pull request. A
+        refusal that says
+        <em
+          >&ldquo;3 preview branches depend on this database: PR 128, PR 131, PR 140
+          (pinned)&rdquo;</em
+        >
+        is an instruction. The rule is that the guard lives in the application layer, where preview
+        identity is known, and the filesystem error is never the thing the operator sees.
+      </div>
+
+      <h2 id="naming">Naming contract</h2>
+
+      <p>
+        Every scope must produce distinct container, volume, host and route names — and the base
+        scope must keep its current names byte-for-byte, or every existing deployment is recreated
+        on upgrade.
+      </p>
+
+      <pre>
+export type Scope =
+  | { kind: "base" }
+  | { kind: "environment"; slug: string }
+  | { kind: "preview"; slug: string; prNumber: number };
+
+export function scopeSuffix(scope: Scope): string {
+  switch (scope.kind) {
+    case "base":        return "";              // ← load-bearing
+    case "environment": return `-${scope.slug}`;
+    case "preview":     return `-pr-${scope.prNumber}`;
+  }
+}</pre
+      >
+
+      <ul>
+        <li>
+          <b>The empty string is load-bearing.</b> Any suffix on <code>base</code> renames every
+          running container on upgrade.
+        </li>
+        <li>
+          <b>Environment slugs need a reserved list.</b> An environment slugged
+          <code>pr-128</code> would collide with a preview suffix — reject at create time.
+        </li>
+        <li>
+          <b>Three partial unique indexes</b> replace the current two: base (<code>both null</code
+          >), environment (<code>env set, preview null</code>), preview (<code>preview set</code>).
+          Existing rows have both columns null, so the base index still matches them unchanged.
+        </li>
+      </ul>
+
+      <h2 id="phases">Phases</h2>
+
+      <p>Each phase is shippable alone and leaves the system consistent.</p>
+
+      <div class="card">
+        <p>
+          <b>P0 — Fix the default environment. <em>(shipped)</em></b> Resolve from
+          <code>project.environmentId</code>, then slug <code>production</code>, then a
+          deterministically sorted first row. Independent of everything else; ships now.
+        </p>
+        <p>
+          <b>P1 — Scope union and migration. <em>(in progress)</em></b> Generalize
+          <code>PreviewScope</code> to <code>Scope</code>, with the main environment rendering as
+          base so no running container is renamed; reserve slugs that would collide with a preview's
+          generated name; add <code>environment_id</code> to <code>resource</code> with the three
+          partial indexes. No backfill — see below.
+        </p>
+        <p>
+          <b>P2 — Environment-scoped resources and mirroring.</b> Scope-aware resource lists, graph,
+          reconcile and naming, so an apply resolved for staging writes to staging's rows. The
+          overlay and merge already exist; this phase points the write target at the right scope and
+          surfaces inherited changes on the pending-changes bar.
+        </p>
+        <p style="margin-bottom: 0">
+          <b>P3 — Previews that are cheap <em>and</em> reliable.</b> Shipped as one phase, because a
+          preview that is trustworthy but expensive still will not get used. Durable provisioning:
+          branching and teardown move out of the webhook into jobs keyed on
+          <code>(preview, sha)</code>, with the closing claim that makes teardown-vs-build
+          deterministic and the Blocked state that stops a failed branch reaching production.
+          Instant branching: ZFS-backed PGDATA on database creation, the copy-on-write driver behind
+          the existing <code>resolveSnapshotDriver</code> seam, per-database driver selection so ZFS
+          and non-ZFS databases coexist, and the clone-lifetime rules — delete guard,
+          clone-before-snapshot teardown, orphan recording. <code>copy</code> stays as the fallback
+          for every database not on a dataset. Runtime parity costs almost nothing: databases pin to
+          the control-plane host, both existing transports are then correct under Swarm unchanged,
+          and the <code>501</code> is deleted rather than documented.
+        </p>
+      </div>
+
+      <div class="callout risk">
+        <strong>There is no backfill, and that is a consequence of the naming rule.</strong>
+        Because the main environment renders as base, &ldquo;belongs to the main environment&rdquo;
+        and <code>environment_id IS NULL</code> are the same state. Every existing row is therefore
+        already correct the moment the column is added, and the migration is purely additive: one
+        nullable column, one narrowed partial index, two new indexes, and no <code>UPDATE</code>.
+        The earlier concern — a partial backfill leaving the graph reading empty, indistinguishable
+        from data loss — cannot occur because no rows are rewritten.
+      </div>
+
+      <p>
+        The one ordering detail that survives: the recreated base index is <em>narrower</em> than
+        the one it replaces (<code>preview_id is null</code> becomes
+        <code>preview_id is null and environment_id is null</code>), so it indexes a subset of the
+        same rows. If the old index held, the new one holds — the drop-and-recreate cannot fail on
+        pre-existing data. Reversing it still requires dropping the indexes before the column, or
+        uniqueness is transiently violated mid-migration.
+      </p>
+
+      <h2 id="verify">Verification</h2>
+
+      <p>
+        Typecheck and unit tests are necessary but not sufficient; the failures this plan targets
+        are ordering and cleanup failures that only appear against a real runtime.
+      </p>
+
+      <ul>
+        <li>
+          <code>bun run typecheck</code> and <code>bun run test</code> clean across the workspace.
+        </li>
+        <li>
+          <b>Unit:</b> <code>scopeSuffix</code> returns <code>""</code> for base — assert
+          byte-identical names against a fixture captured before the change.
+        </li>
+        <li>
+          <b>Unit:</b> resolver returns <code>null</code> rather than the base row when a required
+          branch is missing.
+        </li>
+        <li>
+          <b>Migration:</b> run P1 against a restored production dump and assert every project's
+          graph returns the <em>same</em> resource set as before, and that every pre-existing row
+          still has <code>environment_id IS NULL</code>. The assertion is deliberately the inverse
+          of what a backfill would want: nothing should have moved.
+        </li>
+        <li>
+          <b>Naming, byte-identical:</b> capture the container, volume and host names of a deployed
+          project before migrating, and assert they are unchanged after. This is what the
+          main-renders-as-base rule buys, and the only way to know it held.
+        </li>
+        <li>
+          <b>End-to-end, environments:</b> mirror production into staging, deploy, confirm distinct
+          containers and volumes and that production is untouched.
+        </li>
+        <li>
+          <b>End-to-end, previews:</b> open a PR against a repo with an opted-in database; confirm
+          the branch is a point-in-time copy of the <em>base environment's</em> data; push again and
+          confirm the branch is reused; close and confirm containers, volumes and routes are gone
+          while every base resource survives.
+        </li>
+        <li>
+          <b>Fault injection:</b> fill the disk on the target node so the branch copy fails; confirm
+          the preview reports Blocked and no container starts against the production database.
+        </li>
+        <li>
+          <b>Race:</b> close a PR while its build is running; confirm no container exists
+          afterwards.
+        </li>
+        <li>
+          <b>Clone lifetime:</b> with an open preview branched off it, attempt to delete the base
+          database. Confirm the refusal names the PR, that the manifest entry and the dataset are
+          both still intact afterwards, and that the same delete succeeds once the PR is closed.
+        </li>
+        <li>
+          <b>Clone lifetime, pinned:</b> pin the preview (<code>auto_teardown_at</code> NULL) and
+          confirm the refusal calls it out as pinned rather than implying it will expire.
+        </li>
+        <li>
+          <b>Clone lifetime, partial teardown:</b> kill teardown between destroying the clone and
+          destroying the snapshot; confirm a re-run completes rather than erroring on the missing
+          clone, and that the orphan record is what drives the retry.
+        </li>
+      </ul>
+
+      <h2 id="edges">Resolved edges</h2>
+
+      <p>
+        Specifications leak at the joints, not in the middle. Each of these was underspecified
+        enough that two people implementing it would have made different, both-defensible choices —
+        which is the definition of a gap worth closing before code.
+      </p>
+
+      <div class="scroll">
+        <table>
+          <tr>
+            <th>Gap</th>
+            <th>Resolution</th>
+          </tr>
+          <tr>
+            <td>A preview is already Running and a new push's re-branch fails</td>
+            <td>
+              The running container keeps serving its existing branch — that data is still valid —
+              and only the new rollout is withheld. Blocked applies to reaching a running state, not
+              to leaving one. Tearing down a working review environment because a later branch
+              failed is worse than the failure.
+            </td>
+          </tr>
+          <tr>
+            <td>Cap scope, default, and whether pinning bypasses it</td>
+            <td>
+              Per project, defaulting from an instance setting alongside
+              <code>PREVIEW_IDLE_TEARDOWN_HOURS</code>. <b>Pinned previews count against it</b> —
+              otherwise pinning is a silent bypass. Comment-triggered previews count too, for the
+              same reason.
+            </td>
+          </tr>
+          <tr>
+            <td>Which commenters may trigger a preview</td>
+            <td>
+              <code>OWNER</code>, <code>MEMBER</code>, <code>COLLABORATOR</code> — write access or
+              better. <code>CONTRIBUTOR</code> and <code>NONE</code> are refused, so a drive-by
+              commenter on a public repository cannot provision compute. A refusal
+              <b>reacts to the comment rather than replying</b>, so the bot cannot be made to spam a
+              thread.
+            </td>
+          </tr>
+          <tr>
+            <td>How per-database driver selection knows the substrate</td>
+            <td>
+              Recorded on the base database at creation, not probed at branch time. A probe races
+              with pool changes and would make branching non-deterministic —
+              <code>branchStrategy</code> already exists on the branch row; the base needs the
+              equivalent.
+            </td>
+          </tr>
+          <tr>
+            <td>What creating a mirrored environment actually writes</td>
+            <td>
+              The environment row plus an empty <code>environments.&lt;slug&gt;</code> block. Apply
+              already resolves per environment, so an empty overlay means &ldquo;identical to
+              base&rdquo; with no special-casing — inheritance is the absence of an override, not a
+              copy.
+            </td>
+          </tr>
+          <tr>
+            <td>Deleting an environment that still owns running resources</td>
+            <td>
+              A typed confirmation naming exactly what will be destroyed, then resources and
+              environment go together. Note this is deliberately <em>looser</em> than the
+              database-delete guard, which refuses outright: a database is depended on by things
+              outside its own scope, an environment is not.
+            </td>
+          </tr>
+          <tr>
+            <td>P1 down-migration ordering</td>
+            <td>
+              Drop the three partial unique indexes before dropping the column, so uniqueness is
+              never transiently violated mid-migration. Nulling the column alone is not a valid
+              reverse.
+            </td>
+          </tr>
+          <tr>
+            <td>Retention and rollback constrain each other, and neither plan owns it</td>
+            <td>
+              Assigned to whichever ships first: a retention count must mean &ldquo;N
+              rollback-capable deployments&rdquo;, never &ldquo;N rows&rdquo;, because pruning an
+              image silently destroys the rollback target that depends on it.
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <h2 id="decided">Decided</h2>
+
+      <div class="card">
+        <p>
+          <b>Mirroring is a standing relationship, not a copy.</b> Staging follows production and
+          only differs where the operator made it differ. Implemented as the manifest's
+          <code>environments.&lt;name&gt;</code> overlay, which already exists, is already resolved
+          by <code>diff</code> and <code>apply</code>, and is already tested.
+        </p>
+        <p>
+          <b>Environments are uncapped.</b> Operators self-host; the disk and the machine are
+          theirs, and capping a count they are already paying for buys nothing.
+        </p>
+        <p>
+          <b>A failed database branch blocks the preview.</b> No container starts, the PR comment
+          says why, and the retry is explicit. This is the fix for the silent fallback — a preview
+          must never reach a running state bound to production data.
+        </p>
+        <p>
+          <b>Branching works in Swarm too — the 501 goes away.</b> A runtime an operator can select
+          must not have a feature hole in it. Blocked stays as the guard for a branch that genuinely
+          fails, but &ldquo;you chose Swarm&rdquo; is not a failure and must never be the reason a
+          preview cannot branch.
+        </p>
+        <p>
+          <b>An inherited change lands on staging's pending-changes bar.</b> A production edit is
+          never an unattended staging deploy: the change propagates as pending and the operator
+          deploys it, on the same path every other manifest edit already takes. Staging still cannot
+          drift, because the pending change sits there until applied.
+        </p>
+        <p style="margin-bottom: 0">
+          <b>Durable provisioning and instant branching ship together as P3.</b> A preview that is
+          trustworthy but expensive still will not get used, so copy-on-write moves up rather than
+          trailing as a separate phase.
+        </p>
+      </div>
+
+      <h2 id="open">Status</h2>
+
+      <p>
+        No decisions. Every choice this plan depends on has been made, and the remaining unknown is
+        a property of the hosts rather than of the design: whether a given machine can carry a ZFS
+        pool at all. That is discovered by the installer at install time, not decided here — a host
+        with no ZFS module gets <code>copy</code> and a working platform, and nothing in the plan
+        waits on the answer.
+      </p>
+
+      <p>
+        One thing is deliberately deferred rather than open.
+        <b>Promotion of built images between environments</b> is named in the UI but not designed;
+        it needs an image-provenance story this plan does not settle.
+      </p>
+
+      <p>
+        Swarm is explicitly <em>not</em> deferred. Branching works on both runtimes or the runtime
+        switch is a trap — an operator who turns on Swarm to scale services should not silently lose
+        preview databases.
+      </p>
+
+      <footer>
+        Plan only — no source changes. Generated from a read of the codebase at
+        <code>71e61110</code>; every file reference above was verified, not inferred.
+      </footer>
+    </div>
+  </body>
+</html>

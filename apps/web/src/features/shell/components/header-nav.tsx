@@ -23,6 +23,7 @@ import {
   ProjectItems,
   type NavLists,
 } from "@/features/shell/components/header-nav-items";
+import { resolveDefaultEnvironment } from "@/features/shell/environment-default";
 import { authClient } from "@/lib/auth-client";
 import { invalidateAuth } from "@/lib/auth-queries";
 import {
@@ -91,15 +92,26 @@ export function HeaderNav() {
   // subscriptions rather than fetches. They live here (not in the individual
   // pickers) because the mobile menu renders all three lists at once.
   const { data: projects } = useLiveQuery((q) => q.from({ p: projectCollection }), []);
+  // Sorted here as well as in `resolveDefaultEnvironment` because this array is
+  // ALSO what renders the switcher list — an unordered collection would shuffle
+  // the menu between renders. Same reason variables.tsx sorts its copy.
   const { data: environments } = useLiveQuery(
-    (q) => q.from({ e: envCollection }).where(({ e }) => eq(e.projectId, project?.id ?? "")),
+    (q) =>
+      q
+        .from({ e: envCollection })
+        .where(({ e }) => eq(e.projectId, project?.id ?? ""))
+        .orderBy(({ e }) => e.createdAt),
     [project?.id],
   );
 
   // `strict: false` — this nav also renders on org-level routes, which have no
   // `env` search param in their schema at all.
   const search = useSearch({ strict: false }) as { env?: string };
-  const defaultEnv = environments.find((e) => e.slug === "production") ?? environments[0];
+  // The project's own pointer decides which environment is main. Deriving it
+  // from list position is what made a newly added environment look like the
+  // main one; see environment-default.ts.
+  const mainEnvironmentId = project?.environmentId ?? null;
+  const defaultEnv = resolveDefaultEnvironment(environments, mainEnvironmentId);
   const currentEnvSlug = search.env ?? defaultEnv?.slug;
   const currentEnv = environments.find((e) => e.slug === currentEnvSlug) ?? defaultEnv;
 
@@ -132,6 +144,7 @@ export function HeaderNav() {
     onCreateProject: () => setCreateProjectOpen(true),
     environments,
     currentEnvSlug,
+    mainEnvironmentId,
     onSelectEnv: selectEnv,
     onCreateEnv: () => setCreateEnvOpen(true),
   };

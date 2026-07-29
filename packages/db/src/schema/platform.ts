@@ -129,6 +129,15 @@ export const platformSettings = pgTable("platform_settings", {
   /** Hours of inactivity before an open preview is torn down; 0 disables
    *  idle teardown. null ⇒ PREVIEW_IDLE_TEARDOWN_HOURS. */
   previewIdleTeardownHours: integer("preview_idle_teardown_hours"),
+  /** Most previews a single project may have open at once; 0 disables the cap.
+   *  null ⇒ PREVIEW_MAX_PER_PROJECT.
+   *
+   *  Idle teardown bounds how LONG a preview lives; this bounds how MANY exist.
+   *  Without it a busy repository opens twenty pull requests and provisions
+   *  twenty databases. At the cap the next preview is refused and told why —
+   *  never evicted, because eviction would tear down a preview someone is
+   *  actively reviewing to make room for one nobody has opened yet. */
+  previewMaxPerProject: integer("preview_max_per_project"),
 
   // ─── Edge logs ──────────────────────────────────────────────────────
   /** Persist access logs to edge_log behind the live ring. null ⇒

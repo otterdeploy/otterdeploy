@@ -262,9 +262,15 @@ export const resource = pgTable(
     name: text("name").notNull(),
     type: resourceTypeEnum("type").notNull(),
     status: resourceStatusEnum("status").notNull().default("draft"),
+    // Environment scoping. NULL = base resource (and, after the backfill, the
+    // project's MAIN environment — main is represented as base so existing
+    // container/volume/host names never change; see lib/environment/scoping.ts).
+    // Set = a resource owned by a non-main environment such as staging.
+    environmentId: text("environment_id").$type<EnvId>(),
     // Preview scoping. NULL = base resource (the normal case); set = a
     // preview-scoped instance such as an opt-in DB branch. The variable
-    // resolver prefers the preview-scoped row and falls back to the base.
+    // resolver prefers the preview-scoped row, then the environment-scoped
+    // row, then falls back to the base — narrowest scope that owns a row wins.
     previewId: text("preview_id").$type<PreviewId>(),
     // Provenance for a branched resource (e.g. a COW db branch). Self-referential
     // FK enforced app-side (same idiom as project.gitRepoId).
@@ -283,19 +289,30 @@ export const resource = pgTable(
       .notNull(),
   },
   (table) => [
-    // A base resource (previewId IS NULL) is unique per (project, name).
-    // A preview-scoped branch shares its source's name but carries a non-null
-    // previewId, so it's uniqued per (project, preview, name) instead. Two
-    // partial uniques keep base uniqueness intact while letting a preview own
-    // a branch that reuses the base name (so name-based refs re-resolve).
+    // One partial unique per scope. A scoped row deliberately REUSES the base
+    // name — that is what makes a name-based `${{…}}` ref re-resolve to the
+    // scoped copy — so the three cannot share an index.
+    //
+    // Base: both scope columns null. Unchanged in meaning from before the
+    // environment column existed, because every pre-existing row has
+    // environment_id NULL; the added clause matches them all.
     uniqueIndex("resource_project_name_base_unique")
       .on(table.projectId, table.name)
-      .where(sql`preview_id is null`),
+      .where(sql`preview_id is null and environment_id is null`),
+    // Environment-scoped: unique per (project, environment, name).
+    uniqueIndex("resource_project_name_env_unique")
+      .on(table.projectId, table.environmentId, table.name)
+      .where(sql`environment_id is not null and preview_id is null`),
+    // Preview-scoped: unique per (project, preview, name). Keyed on the preview
+    // alone and not the environment, since a preview already belongs to exactly
+    // one — including the environment would allow two rows that the resolver
+    // could not choose between.
     uniqueIndex("resource_project_name_preview_unique")
       .on(table.projectId, table.previewId, table.name)
       .where(sql`preview_id is not null`),
     index("resource_project_id_idx").on(table.projectId),
     index("resource_preview_id_idx").on(table.previewId),
+    index("resource_environment_id_idx").on(table.environmentId),
   ],
 );
 

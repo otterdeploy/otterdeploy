@@ -10,7 +10,9 @@ import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/
 import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
+import { log } from "evlog";
 
+import { branchPlacementConflictForResource } from "../../lib/environment/branch-placement";
 import { destroySwarmDatabase } from "../../runtime/db";
 import { type DatabaseManifest } from "../../stack/manifest";
 import { ManifestApplySkipError } from "./errors";
@@ -201,6 +203,22 @@ export async function updateDatabaseFromManifest(
   // flag (no container roll), idempotent, applies to the next PR event.
   if (args.spec.previews !== undefined) {
     await setDatabaseResourcePreviewBranching(args.resourceId, args.spec.previews);
+    // Warn rather than refuse. A manifest apply that used to succeed must not
+    // start failing on upgrade just because Swarm is enabled — but the operator
+    // has to learn about the conflict when they create it, not when a pull
+    // request opens and the branch is refused. The hard stop is Blocked, which
+    // keeps the preview off production data either way.
+    const conflict = await branchPlacementConflictForResource({
+      organizationId: args.organizationId,
+      resourceId: args.resourceId,
+      previewBranching: args.spec.previews,
+    });
+    if (conflict) {
+      log.warn({
+        manifest: { step: "preview-branching", resourceId: args.resourceId },
+        msg: conflict,
+      });
+    }
   }
 
   // Same declared-only rule as publicEnabled above: only touch extraEnv when
