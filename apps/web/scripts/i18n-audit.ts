@@ -130,7 +130,7 @@ function isTechnical(value: string): boolean {
 function isClassList(text: string): boolean {
   const tokens = text.split(/\s+/).filter(Boolean);
   if (tokens.length === 0) return true;
-  const cssish = tokens.filter((tk) => /[-:/[\]]/.test(tk) || /^--/.test(tk)).length;
+  const cssish = tokens.filter((tk) => /[-:/[\]]/.test(tk) || tk.startsWith('--')).length;
   const words = tokens.filter((tk) => /^[A-Za-z]{2,}[.,!?;:]?$/.test(tk)).length;
   return cssish >= words;
 }

@@ -21,6 +21,7 @@ import { log } from "evlog";
 
 import { pullImage } from "../../runtime/docker-driver-helpers";
 import { ensureDiskHeadroom } from "../../system-health/disk-guard";
+import { reclaimSpace } from "../../system-health/reclaim";
 import { checkForUpdate, currentVersion, resolveDryRun } from "./check";
 import { isNewer } from "./compare";
 import * as state from "./state";
@@ -67,8 +68,37 @@ const UPDATE_DISK_RESERVE_BYTES = 2 * 1024 ** 3;
  * target and settles the snapshot. Call once during server bootstrap.
  */
 export async function finalizeUpdateRunOnBoot(): Promise<void> {
-  await state.finalizeHandedOffRun(currentVersion());
+  const succeeded = await state.finalizeHandedOffRun(currentVersion());
   await sweepUpdaterContainers();
+  if (succeeded) reclaimAfterUpdate(currentVersion());
+}
+
+/**
+ * Post-update image sweep. Every version bump leaves the previous release's
+ * server/builder/caddy images behind, and nothing ever collected them — a
+ * long-lived install accumulates a full ~1.4 GB image set per update until the
+ * disk guard trips or an operator runs a manual reclaim.
+ *
+ * Deliberately fire-and-forget: this runs during bootstrap, and an image prune
+ * on a busy daemon can take tens of seconds. Blocking here would delay the
+ * control plane coming back for no benefit — the space is not needed yet.
+ * Failures are logged and dropped; the disk guard remains the backstop.
+ *
+ * NOTE: `reclaimSpace(["images"])` prunes every image unused by any container,
+ * so the version you just upgraded FROM is removed too. Rollback re-pulls it
+ * from the registry rather than finding it locally.
+ */
+function reclaimAfterUpdate(version: string): void {
+  void reclaimSpace(["images"])
+    .then(({ reclaimedBytes }) => {
+      log.info({ update: { event: "post-update-reclaim", version, reclaimedBytes } });
+    })
+    .catch((cause: unknown) => {
+      log.warn({
+        update: { event: "post-update-reclaim", version, status: "failed" },
+        error: errText(cause),
+      });
+    });
 }
 
 /**

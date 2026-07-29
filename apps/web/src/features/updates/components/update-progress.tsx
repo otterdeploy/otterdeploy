@@ -58,7 +58,7 @@ export function UpdateProgress({
   });
 
   const outcome = deriveOutcome(dryRun, streamStatus === "ended", runState.data?.status);
-  useCutoverRecovery(target, outcome.recovering);
+  useCutoverRecovery(target, outcome);
 
   // Follow the tail: stick to the bottom as lines stream in.
   const scrollRef = useRef<HTMLDivElement>(null);

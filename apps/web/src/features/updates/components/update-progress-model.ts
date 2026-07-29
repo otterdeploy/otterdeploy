@@ -69,10 +69,54 @@ function useArmedAfter(enabled: boolean, delayMs: number): boolean {
   return enabled && elapsed;
 }
 
+/**
+ * Latches true once `pending` has been observed, and STAYS true after it goes
+ * false again — which is the whole point: the caller needs to distinguish "this
+ * run settled while I watched it" from "this run was already settled when I
+ * mounted", and by the time it can tell, `pending` is false in both cases.
+ */
+function useSeen(pending: boolean): boolean {
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    if (pending) setSeen(true);
+  }, [pending]);
+  return seen;
+}
+
+/**
+ * Has the new control plane arrived, i.e. should this page reload onto it?
+ *
+ * Two independent signals, because the /health probe usually LOSES the race
+ * that matters: `useUpdateState` polls every 2s while the probe waits out a 6s
+ * lead-in first. When updateState wins, the run reads `succeeded`, `recovering`
+ * goes false, the probe disarms — and the reload the operator was promised
+ * never fires, leaving `Done` to drop them back onto the OLD bundle.
+ *
+ * So a settled `succeeded` counts as arrival in its own right. It is sound
+ * evidence: the only writer is finalizeHandedOffRun() on the NEW server's boot
+ * (the old process can't reach it — its own currentVersion() never equals the
+ * target), so `realDone` on a real run means the cutover landed.
+ *
+ * `sawPending` gates that second signal on having actually observed the run in
+ * flight, so a pane mounted onto an already-settled run can't reload into
+ * itself forever.
+ */
+export function cutoverArrived(args: {
+  realDone: boolean;
+  sawPending: boolean;
+  armed: boolean;
+  healthVersion: string | undefined;
+  target: string;
+}): boolean {
+  const settled = args.realDone && args.sawPending;
+  return settled || (args.armed && args.healthVersion === args.target);
+}
+
 /** Poll the control plane until the new container reports the target version,
  *  then reload onto the updated dashboard. Real-cutover recovery only. */
-export function useCutoverRecovery(target: string, enabled: boolean): void {
-  const armed = useArmedAfter(enabled, 6000);
+export function useCutoverRecovery(target: string, outcome: Outcome): void {
+  const armed = useArmedAfter(outcome.recovering, 6000);
+  const sawPending = useSeen(outcome.recovering);
 
   const health = useQuery({
     queryKey: ["cutover-health", target],
@@ -99,7 +143,13 @@ export function useCutoverRecovery(target: string, enabled: boolean): void {
     gcTime: 0,
   });
 
-  const arrived = armed && health.data?.version === target;
+  const arrived = cutoverArrived({
+    realDone: outcome.realDone,
+    sawPending,
+    armed,
+    healthVersion: health.data?.version,
+    target,
+  });
   useEffect(() => {
     // Reloading is terminal, so it must not survive an unmount: closing the
     // pane while a probe is in flight has to abandon the reload, not perform
