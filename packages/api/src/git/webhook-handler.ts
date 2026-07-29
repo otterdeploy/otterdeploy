@@ -13,12 +13,14 @@ import type {
   GithubWebhookResult,
   InstallationEvent,
   InstallationReposEvent,
+  IssueCommentEvent,
   PullRequestEvent,
   PushEvent,
 } from "./types";
 
 import { handleInstallation } from "./handle-installation";
 import { handleInstallationRepos } from "./handle-installation-repos";
+import { handleIssueComment } from "./handle-issue-comment";
 import { handlePullRequest } from "./handle-pull-request";
 import { handlePush } from "./handle-push";
 
@@ -46,6 +48,8 @@ export async function handleGithubWebhook({
       return handlePush(payload as PushEvent, deliveryId);
     case "pull_request":
       return handlePullRequest(payload as PullRequestEvent, deliveryId);
+    case "issue_comment":
+      return handleIssueComment(payload as IssueCommentEvent, deliveryId);
     default:
       return { kind: "ignored", event };
   }

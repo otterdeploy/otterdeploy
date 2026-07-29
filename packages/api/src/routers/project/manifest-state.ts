@@ -3,7 +3,7 @@
  * Adapter only — pure diff logic lives in stack/manifest/diff.ts.
  */
 
-import type { ProjectId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { gitRepo } from "@otterdeploy/db/schema/git";
@@ -67,7 +67,22 @@ function toCurrentService(
   };
 }
 
-export async function loadCurrentState(projectId: ProjectId): Promise<CurrentState> {
+/**
+ * The deployed state a manifest is diffed against, within ONE environment.
+ *
+ * Scoping is a safety property, not a nicety: an apply resolved for staging
+ * that diffed against production's rows would see production's resources as
+ * "current" for the staging manifest, and plan updates — or deletes — against
+ * them. Passing no environment selects the main environment, which is
+ * `environment_id IS NULL`, i.e. exactly the pre-environment behaviour.
+ */
+import { inEnvironmentScope } from "./queries/resource";
+
+export async function loadCurrentState(
+  projectId: ProjectId,
+  environmentId?: EnvironmentId | null,
+): Promise<CurrentState> {
+  const inScope = inEnvironmentScope(environmentId);
   const [serviceRows, databaseRows, composeRows] = await Promise.all([
     db
       .select({ resource, service: serviceResource, repoFullName: gitRepo.fullName })
@@ -85,6 +100,7 @@ export async function loadCurrentState(projectId: ProjectId): Promise<CurrentSta
           eq(resource.projectId, projectId),
           isNull(serviceResource.stackId),
           isNull(resource.previewId),
+          inScope,
         ),
       ),
     db
@@ -93,12 +109,12 @@ export async function loadCurrentState(projectId: ProjectId): Promise<CurrentSta
       .innerJoin(databaseResource, eq(databaseResource.resourceId, resource.id))
       // Base rows only: a PR preview's branch DB reuses the base name and
       // would silently overwrite the base entry in the by-name map below.
-      .where(and(eq(resource.projectId, projectId), isNull(resource.previewId))),
+      .where(and(eq(resource.projectId, projectId), isNull(resource.previewId), inScope)),
     db
       .select({ name: resource.name })
       .from(resource)
       .innerJoin(composeResource, eq(composeResource.resourceId, resource.id))
-      .where(and(eq(resource.projectId, projectId), isNull(resource.previewId))),
+      .where(and(eq(resource.projectId, projectId), isNull(resource.previewId), inScope)),
   ]);
 
   const services: Record<string, CurrentService> = {};

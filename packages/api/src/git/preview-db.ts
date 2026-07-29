@@ -37,7 +37,7 @@ import {
 } from "../routers/project/queries";
 import { buildContainerName, buildVolumeName } from "../routers/project/view-helpers";
 import { runtime } from "../runtime";
-import { resolveSnapshotDriver } from "../runtime/snapshot";
+import { resolveSnapshotDriverFor } from "../runtime/snapshot";
 import { getEngineAdapter } from "../swarm";
 
 /**
@@ -141,7 +141,9 @@ export async function branchProjectDatabases(input: {
   force?: boolean;
   rlog?: RequestLogger;
 }): Promise<number> {
-  const driver = await resolveSnapshotDriver();
+  // Resolved per base database inside the loop below, not once here: whether
+  // ZFS is usable depends on the individual database's volume, so one host-wide
+  // answer would force every database onto the same tier.
   // Only DBs the preview's services connect to — never mint an orphan branch
   // for a database nothing in this preview references.
   const referenced = await referencedBaseDatabases({
@@ -157,6 +159,13 @@ export async function branchProjectDatabases(input: {
   for (const base of bases) {
     if (await branchExists(input.projectId, input.previewId, base.resource.name)) continue;
 
+    const driver = await resolveSnapshotDriverFor(
+      buildVolumeName({
+        engine: "postgres",
+        projectSlug: input.projectSlug,
+        resourceName: base.resource.name,
+      }),
+    );
     const done = await Result.tryPromise({
       try: () => branchOne(input, base, driver.kind),
       catch: (cause) => cause,

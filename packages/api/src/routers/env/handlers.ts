@@ -8,16 +8,21 @@
  * project claims them.
  */
 
-import type { EnvironmentId, ProjectId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 
 import { Result } from "better-result";
 
 import type { OrgRef } from "../scopes";
 
+import {
+  dropEnvironmentOverlay,
+  ensureEnvironmentOverlay,
+} from "../../lib/environment/mirror-apply";
 import { isUniqueViolation } from "../project/views";
 import {
   EnvironmentConflictError,
   EnvironmentDatabaseError,
+  EnvironmentNotEmptyError,
   EnvironmentNotFoundError,
 } from "./errors";
 import {
@@ -52,6 +57,8 @@ export async function createEnv(input: {
   name: string;
   slug: string;
   projectId?: ProjectId;
+  /** Needed to reach the project's manifest for the mirror overlay. */
+  organizationId?: OrganizationId;
 }): Promise<Result<EnvironmentRecord, EnvironmentConflictError | EnvironmentDatabaseError>> {
   // The catch handler MUST return an error, never throw. Better-result wraps
   // a throwing catch as a Panic, which surfaces to the operator as the
@@ -76,18 +83,57 @@ export async function createEnv(input: {
   if (!insert.value) {
     return Result.err(new EnvironmentConflictError({ slug: input.slug }));
   }
+  // Give the environment its mirror: an EMPTY `environments.<slug>` overlay,
+  // which resolves to a manifest identical to base and keeps tracking it. Only
+  // meaningful once the env is attached to a project — a standalone env has no
+  // manifest to overlay onto yet.
+  if (input.projectId && input.organizationId) {
+    await ensureEnvironmentOverlay(
+      { projectId: input.projectId, organizationId: input.organizationId },
+      input.slug,
+    );
+  }
   return Result.ok(insert.value);
 }
 
+/**
+ * Delete an environment.
+ *
+ * Refuses a non-empty environment unless `cascade` is set. The refusal is the
+ * point: a resource whose `environment_id` no longer resolves matches no scope
+ * query at all — not base, not any live environment — so it disappears from
+ * every list and graph while its container keeps running. The operator confirms
+ * what will be destroyed, and only then does the delete take the resources with
+ * it.
+ */
 export async function deleteEnv(
-  input: { id: EnvironmentId } & OrgRef,
-): Promise<Result<{ ok: true }, EnvironmentNotFoundError>> {
-  const deleted = await deleteEnvRecord({
+  input: { id: EnvironmentId; cascade?: boolean } & OrgRef,
+): Promise<Result<{ ok: true }, EnvironmentNotFoundError | EnvironmentNotEmptyError>> {
+  // Read the row BEFORE deleting: afterwards there is no way to learn its slug
+  // or project, and both are needed to find the overlay.
+  const owned = await getEnvInOrg({
     environmentId: input.id,
     organizationId: input.organizationId,
   });
-  if (!deleted) {
-    return Result.err(new EnvironmentNotFoundError({ environmentId: input.id }));
+  const deleted = await deleteEnvRecord({
+    environmentId: input.id,
+    organizationId: input.organizationId,
+    cascade: input.cascade,
+  });
+  if (!deleted.ok) {
+    return deleted.reason === "has-resources"
+      ? Result.err(new EnvironmentNotEmptyError({ environmentId: input.id }))
+      : Result.err(new EnvironmentNotFoundError({ environmentId: input.id }));
+  }
+  // Drop the overlay too. Left behind it is inert, but re-creating an
+  // environment with the same slug would silently inherit the deleted one's
+  // overrides — a "new" environment that is not a clean mirror, with nothing
+  // on screen explaining why.
+  if (owned?.projectId) {
+    await dropEnvironmentOverlay(
+      { projectId: owned.projectId, organizationId: input.organizationId },
+      owned.slug,
+    );
   }
   return Result.ok({ ok: true });
 }

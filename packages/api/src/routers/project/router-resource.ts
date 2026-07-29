@@ -215,6 +215,9 @@ export const resourceRouter = {
       if (result.isErr()) {
         throw matchError(result.error, {
           PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
+          // The message carries the PR numbers — surface it rather than the
+          // generic contract string, or the operator learns nothing actionable.
+          DatabaseHasBranchesError: (e) => errors.CONFLICT({ message: e.message }),
         });
       }
       return result.value;

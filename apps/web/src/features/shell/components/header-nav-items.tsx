@@ -16,6 +16,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
+import { isMainEnvironment } from "@/features/shell/environment-default";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/shared/components/ui/dropdown-menu";
 import { cn } from "@/shared/lib/utils";
 
@@ -31,6 +32,10 @@ export interface NavLists {
   onCreateProject: () => void;
   environments: { id: string; name: string; slug: string }[];
   currentEnvSlug?: string;
+  /** `project.environmentId` — the project's main environment, badged in the
+   *  list so "which one is production" is answerable without opening Settings.
+   *  Null for a project that has none. */
+  mainEnvironmentId?: string | null;
   onSelectEnv: (slug: string) => void;
   onCreateEnv: () => void;
 }
@@ -107,13 +112,24 @@ export function ProjectItems({ orgSlug, projects, activeProjectId, onCreateProje
   );
 }
 
-export function EnvItems({ environments, currentEnvSlug, onSelectEnv, onCreateEnv }: NavLists) {
+export function EnvItems({
+  environments,
+  currentEnvSlug,
+  mainEnvironmentId,
+  onSelectEnv,
+  onCreateEnv,
+}: NavLists) {
   return (
     <>
       {environments.map((e) => (
         <DropdownMenuItem key={e.id} onClick={() => onSelectEnv(e.slug)} className="gap-2">
           <EnvDot env={e} />
           <span className="truncate">{e.name}</span>
+          {isMainEnvironment(e, mainEnvironmentId) && (
+            <span className="rounded-full px-1.5 py-px font-mono text-[10px] text-muted-foreground ring-1 ring-foreground/10">
+              main
+            </span>
+          )}
           <ActiveCheck active={e.slug === currentEnvSlug} />
         </DropdownMenuItem>
       ))}

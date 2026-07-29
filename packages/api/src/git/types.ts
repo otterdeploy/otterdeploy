@@ -85,6 +85,27 @@ export interface PullRequestEvent {
   installation?: { id: number | string };
 }
 
+/**
+ * `issue_comment` — GitHub delivers PR comments as issue comments. The payload
+ * carries the ISSUE, not the pull request, so `issue.pull_request` is the only
+ * signal that it is a PR at all, and the head to build must be fetched.
+ */
+export interface IssueCommentEvent {
+  action: string;
+  issue: {
+    number: number;
+    /** Present only when the issue is a pull request. */
+    pull_request?: { url?: string } | null;
+  };
+  comment?: {
+    body?: string;
+    /** OWNER | MEMBER | COLLABORATOR | CONTRIBUTOR | NONE | … */
+    author_association?: string;
+  };
+  repository: GithubRepoPayload;
+  installation?: { id: number | string };
+}
+
 export type GithubWebhookResult =
   | { kind: "ignored"; event: string }
   | { kind: "installation"; action: string; installationId: string }

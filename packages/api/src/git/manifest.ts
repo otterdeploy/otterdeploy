@@ -119,13 +119,26 @@ export function buildManifestRequest(opts: {
       // permission from `checks`. Without it GitHub 403s the preview build
       // status ("Resource not accessible by integration").
       statuses: "write",
+      // `issue_comment` is delivered under the `issues` permission even when
+      // the comment is on a pull request — GitHub models PR conversation
+      // comments as issue comments. Read-only: the on-demand
+      // `@otterdeploy preview` trigger only needs to see the body and the
+      // author's association; it writes back through `pull_requests`.
+      issues: "read",
     },
     // Only permission-backed events go here. `installation` and
     // `installation_repositories` are App-lifecycle events GitHub delivers to
     // every App automatically — listing them in a manifest is rejected
     // ("Default events unsupported / not supported by permissions"). We still
     // receive them; the install handler (handle-installation.ts) processes them.
-    default_events: ["push", "pull_request"],
+    //
+    // `issue_comment` powers the on-demand `@otterdeploy preview` trigger for
+    // repositories that have not enabled automatic previews. NOTE: adding an
+    // event (and the `issues` permission above) means EXISTING installations
+    // must accept the updated permissions before the trigger works for them —
+    // GitHub does not grant them retroactively. The feature is dark on those
+    // installs until an owner approves, which is a rollout step, not a bug.
+    default_events: ["push", "pull_request", "issue_comment"],
   };
 
   // POST to the org-scoped URL when we know the operator wants this App

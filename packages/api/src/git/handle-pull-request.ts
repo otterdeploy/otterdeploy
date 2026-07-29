@@ -22,6 +22,7 @@ import { log } from "evlog";
 import type { GithubWebhookResult, PullRequestEvent } from "./types";
 
 import { reconcile } from "../caddy";
+import { checkPreviewCap, reportPreviewCapRefusal } from "./preview-cap";
 import { branchProjectDatabases } from "./preview-db";
 import { triggerPreviewBuild } from "./preview-deploy";
 import { ensurePreview, markPreviewsClosed } from "./preview-env";
@@ -165,7 +166,13 @@ async function closePreviews(
   };
 }
 
-async function deployPreviews(
+/**
+ * Provision (or refresh) previews for one PR across every project that opted
+ * in. Exported so the `issue_comment` trigger drives the SAME path rather than
+ * reimplementing branch → build → route → comment — a second copy would drift,
+ * and the cap and teardown rules only hold if there is one path.
+ */
+export async function deployPreviews(
   ev: PullRequestEvent,
   repo: RepoRow,
   projects: ProjectRow[],
@@ -175,6 +182,31 @@ async function deployPreviews(
   let environmentsTouched = 0;
   let routesChanged = false;
   for (const p of projects) {
+    // Checked BEFORE anything is created: the point of the cap is that no
+    // container, route or database branch is provisioned once the project is
+    // full. A push to an already-open PR always passes — see preview-cap.ts.
+    const cap = await checkPreviewCap({
+      projectId: p.id as ProjectId,
+      gitRepoId: repo.id as GitRepoId,
+      prNumber: pr.number,
+    });
+    if (!cap.allowed) {
+      // Never a silent cap — the same rule idle GC follows. Somebody opened a
+      // PR expecting a preview; they have to be able to find out why there
+      // isn't one, and what to do about it.
+      log.info({
+        github: { event: "pull_request", step: "preview-cap", prNumber: pr.number },
+        preview: { cap: cap.cap, active: cap.current, projectId: p.id },
+        msg: "preview refused — project at its concurrent-preview limit",
+      });
+      await reportPreviewCapRefusal({
+        gitRepoId: repo.id as GitRepoId,
+        prNumber: pr.number,
+        verdict: { cap: cap.cap, current: cap.current },
+      });
+      continue;
+    }
+
     const row = await ensurePreview({
       projectId: p.id as ProjectId,
       gitRepoId: repo.id as GitRepoId,

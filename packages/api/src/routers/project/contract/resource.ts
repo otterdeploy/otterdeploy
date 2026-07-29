@@ -192,7 +192,16 @@ export const resourceContractSlice = {
     .output(resourceSchema),
 
   delete: oc
-    .errors(resourceNotFoundErrors)
+    .errors({
+      ...resourceNotFoundErrors,
+      // 409: the request is well-formed, the database simply still has live
+      // preview branches. Closing them is the resolution — which is what a
+      // conflict means, as opposed to a malformed request.
+      CONFLICT: {
+        status: 409,
+        message: "Database still has preview branches" as const,
+      },
+    })
     .meta({
       path: `${basePath}/{projectId}/resources/{resourceId}`,
       tag,

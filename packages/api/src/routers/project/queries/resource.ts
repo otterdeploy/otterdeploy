@@ -1,4 +1,4 @@
-import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import {
@@ -30,30 +30,59 @@ export interface ComposeResourceJoined {
 }
 
 /**
- * Fetch every resource attached to a project. Returns the parent `resource`
- * row plus its type-specific extension joined. New `type` discriminators must
- * be added here when their tables ship.
+ * Rows owned by one environment scope.
+ *
+ * A NULL `environment_id` means the project's MAIN environment — main is
+ * represented as base so existing names never change (see
+ * lib/environment/scoping.ts). So "no environment selected" and "the main
+ * environment" are deliberately the same query, and passing null/undefined here
+ * is the pre-environment behaviour verbatim.
+ *
+ * This is what stops staging's resources appearing in production's graph and
+ * vice versa. Without it every environment renders every environment's
+ * resources — the symptom that started this work.
  */
-export async function listProjectResources(projectId: ProjectId) {
-  // Base resources only: preview-scoped rows (opt-in DB branches) belong to
+export function inEnvironmentScope(environmentId: EnvironmentId | null | undefined) {
+  return environmentId ? eq(resource.environmentId, environmentId) : isNull(resource.environmentId);
+}
+
+/**
+ * Every resource attached to a project, within one environment scope. Returns
+ * the parent `resource` row plus its type-specific extension joined. New `type`
+ * discriminators must be added here when their tables ship.
+ *
+ * Omitting `environmentId` selects the main environment, which is what every
+ * pre-environment caller wants and gets without changing.
+ */
+export async function listProjectResources(
+  projectId: ProjectId,
+  environmentId?: EnvironmentId | null,
+) {
+  // Base + one environment: preview-scoped rows (opt-in DB branches) belong to
   // their PR preview, not the project graph / resource lists.
+  const scope = and(
+    eq(resource.projectId, projectId),
+    isNull(resource.previewId),
+    inEnvironmentScope(environmentId),
+  );
+
   const databases = await db
     .select({ resource, database: databaseResource })
     .from(resource)
     .innerJoin(databaseResource, eq(databaseResource.resourceId, resource.id))
-    .where(and(eq(resource.projectId, projectId), isNull(resource.previewId)));
+    .where(scope);
 
   const services = await db
     .select({ resource, service: serviceResource })
     .from(resource)
     .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
-    .where(and(eq(resource.projectId, projectId), isNull(resource.previewId)));
+    .where(scope);
 
   const composes = await db
     .select({ resource, compose: composeResource })
     .from(resource)
     .innerJoin(composeResource, eq(composeResource.resourceId, resource.id))
-    .where(and(eq(resource.projectId, projectId), isNull(resource.previewId)));
+    .where(scope);
 
   return { databases, services, composes };
 }

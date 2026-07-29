@@ -94,6 +94,26 @@ export class PostgresResourceConflictError extends TaggedError("PostgresResource
 }
 
 /**
+ * Raised when a database still has live PR-preview branches.
+ *
+ * Under the `zfs` strategy a clone pins its origin snapshot, so the filesystem
+ * would refuse the destroy anyway — but a raw ZFS error is unactionable, since
+ * nothing in the UI connects a dataset to someone's open pull request. This
+ * carries the PR numbers so the operator knows exactly what to close.
+ */
+export class DatabaseHasBranchesError extends TaggedError("DatabaseHasBranchesError")<{
+  message: string;
+  resourceId: string;
+}>() {
+  constructor(args: { resourceId: string; detail: string }) {
+    super({
+      resourceId: args.resourceId,
+      message: args.detail,
+    });
+  }
+}
+
+/**
  * Raised when the requested extension set needs two different bundled
  * images (e.g. postgis + timescaledb) — a single service runs a single
  * image, so the combination is rejected rather than silently dropping one.

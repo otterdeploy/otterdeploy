@@ -197,6 +197,13 @@ export const env = createEnv({
     // it). 0 disables idle teardown entirely. Default 72h.
     PREVIEW_IDLE_TEARDOWN_HOURS: z.coerce.number().int().min(0).default(72),
 
+    // PR previews: most previews one project may have open at once. Idle
+    // teardown bounds how long a preview lives; this bounds how many exist, so
+    // a busy repository cannot provision a database per open pull request. 0
+    // disables the cap. Default 10 — high enough that a normal team never
+    // notices, low enough to stop a runaway.
+    PREVIEW_MAX_PER_PROJECT: z.coerce.number().int().min(0).default(10),
+
     // CrowdSec IP-reputation bouncer (deployment-protection.md §10). When
     // both are set, the Caddyfile gains the global `crowdsec` app + a
     // per-site `crowdsec` gate, and the Firewall page reads decisions from

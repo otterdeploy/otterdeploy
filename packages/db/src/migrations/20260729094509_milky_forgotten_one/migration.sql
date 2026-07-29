@@ -1,0 +1,1 @@
+ALTER TABLE "platform_settings" ADD COLUMN "preview_max_per_project" integer;
