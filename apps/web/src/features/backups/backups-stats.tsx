@@ -56,7 +56,7 @@ function Stat({
       <div
         className={cn(
           "text-2xl font-semibold tracking-tight",
-          tone === "warn" && "font-mono text-amber-500",
+          tone === "warn" && "font-mono text-warning",
         )}
       >
         {value}

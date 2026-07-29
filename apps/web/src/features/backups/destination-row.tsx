@@ -148,10 +148,7 @@ export function DestinationRow({
           {pct != null && (
             <div className="mt-1 h-1 w-36 rounded-full bg-muted">
               <div
-                className={cn(
-                  "h-full rounded-full",
-                  pct > 80 ? "bg-amber-500" : "bg-foreground/60",
-                )}
+                className={cn("h-full rounded-full", pct > 80 ? "bg-warning" : "bg-foreground/60")}
                 style={{ width: `${Math.min(100, pct)}%` }}
               />
             </div>

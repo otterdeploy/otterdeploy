@@ -1,6 +1,5 @@
-import { MoreVerticalIcon, RefreshIcon } from "@hugeicons/core-free-icons";
+import { MoreVerticalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { isDefinedError } from "@orpc/client";
 import { useMutation } from "@tanstack/react-query";
 import { Link, useParams, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
@@ -15,7 +14,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
-import { cn } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import {
