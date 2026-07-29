@@ -13,7 +13,10 @@ import { cn } from "@/shared/lib/utils";
 
 import { Field } from "./shared";
 
-export type RestoreMode = "download" | "in-place";
+/** `into` restores the snapshot into a DIFFERENT existing database rather than
+ *  over its own source — the API's `targetResourceId`. It is not a distinct
+ *  server mode: the request still goes as `in-place`, with a target attached. */
+export type RestoreMode = "download" | "in-place" | "into";
 export type Step = 0 | 1 | 2;
 
 const STEP_LABELS = ["Choose target", "Verify", "Confirm"] as const;

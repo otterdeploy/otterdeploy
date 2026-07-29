@@ -4,9 +4,14 @@
  * Each card lives in its own file so this orchestrator stays scannable.
  */
 
+import { useState } from "react";
+
 import { ArrowReloadHorizontalIcon, Key01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useLiveQuery } from "@tanstack/react-db";
 
+import { BackupNowDialog } from "@/features/backups/backup-now-dialog";
+import { destinationsCollection } from "@/features/backups/data/destinations";
 import {
   SettingsCard,
   SettingsRowReadOnly,
@@ -39,6 +44,9 @@ export function PostgresSettingsBody({
   pending = false,
   dbName,
 }: PostgresSettingsBodyProps) {
+  const [backupOpen, setBackupOpen] = useState(false);
+  const { data: destinations } = useLiveQuery((q) => q.from({ d: destinationsCollection }));
+
   if (pending) {
     return (
       <div className="flex flex-col gap-6">
@@ -95,13 +103,17 @@ export function PostgresSettingsBody({
 
       <SettingsCard
         title="Maintenance"
-        description="Rotation + backup procedures aren't wired yet — buttons are intentionally disabled rather than no-op stubs."
+        description="Run an on-demand backup, or rotate the database password."
       >
         <div className="flex items-center justify-between gap-3 border-b border-border/40 px-3 py-2.5">
           <div className="flex flex-col">
             <span className="text-[13px] font-medium">Rotate password</span>
+            {/* Still genuinely unimplemented — there is no rotate endpoint in
+                the API. Says so specifically, rather than the old shared blurb
+                that also claimed backups weren't wired (they are). */}
             <span className="text-[11px] text-muted-foreground">
-              Generates a new password and rolls connection strings.
+              Not available yet — rotating a password means rolling every connection string that
+              embeds it.
             </span>
           </div>
           <Button variant="outline" size="sm" disabled className="gap-1.5">
@@ -113,15 +125,36 @@ export function PostgresSettingsBody({
           <div className="flex flex-col">
             <span className="text-[13px] font-medium">Take backup</span>
             <span className="text-[11px] text-muted-foreground">
-              Snapshot the volume to off-cluster storage.
+              Dump this database to one of your storage destinations.
             </span>
           </div>
-          <Button variant="outline" size="sm" disabled className="gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            // `backups.run` has existed the whole time, and the dialog it
+            // needs already accepts `initialResourceId` for exactly this
+            // entry point — the button was disabled by a description written
+            // for the rotate row next to it.
+            onClick={() => {
+              // Warm the destinations on the click that needs them, not from a
+              // mount effect — this page has no other reason to load them.
+              void destinationsCollection.preload();
+              setBackupOpen(true);
+            }}
+          >
             <HugeiconsIcon icon={ArrowReloadHorizontalIcon} strokeWidth={2} className="size-3.5" />
             Snapshot now
           </Button>
         </div>
       </SettingsCard>
+
+      <BackupNowDialog
+        open={backupOpen}
+        onOpenChange={setBackupOpen}
+        destinations={destinations}
+        initialResourceId={resource.resourceId}
+      />
 
       <DangerZone resource={resource} onDeleted={onDeleted} />
     </div>
