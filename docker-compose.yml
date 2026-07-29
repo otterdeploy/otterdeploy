@@ -18,11 +18,7 @@ x-builder-image: &builder-image otterdeploy-builder:latest
 
 services:
   postgres:
-    # Pinned to 17 — postgres:18+ refuses our /var/lib/postgresql/data mount
-    # (the v18 image manages its own version/cluster subdir and treats a mount
-    # placed directly at .../data as an "unused volume"). Matches the pin in
-    # packages/api/src/constants.ts and the swarm database engines.
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     container_name: otterdeploy-postgres
     restart: unless-stopped
     environment:
@@ -32,7 +28,13 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - otterdeploy-postgres-data:/var/lib/postgresql/data
+      # PARENT dir, not `.../data`. From 18 the official image owns a
+      # version-specific subdirectory (`/var/lib/postgresql/18/docker`) so
+      # `pg_upgrade --link` can hard-link between majors on one volume. Mounting
+      # at the old `.../data` path makes 18+ refuse to start. Same rule the
+      # platform applies to user databases — see `resolveMount` in
+      # swarm/database-engines/postgres.ts.
+      - otterdeploy-postgres-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}"]
       interval: 5s
