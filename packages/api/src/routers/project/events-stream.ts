@@ -65,7 +65,10 @@ async function loadServiceNameMap(
 ): Promise<Map<string, ResourceId>> {
   const map = new Map<string, ResourceId>();
   const sanitizedSlug = sanitizeProjectSlug(projectSlug);
-  const { databases, services } = await listProjectResources(projectId);
+  // "all": this map is a reverse lookup from a container/service NAME back to
+  // a resource id, so it must span every environment — scoping it would leave a
+  // staging container's events unattributable.
+  const { databases, services } = await listProjectResources(projectId, "all");
   for (const row of databases) {
     const serviceName = buildContainerName({
       engine: row.database.engine,

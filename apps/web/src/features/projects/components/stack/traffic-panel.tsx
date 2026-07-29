@@ -9,11 +9,12 @@ import type { ProjectId } from "@otterdeploy/shared/id";
 
 import { useState } from "react";
 
-import { eq } from "@tanstack/db";
+import { and, eq } from "@tanstack/db";
 import { useLiveQuery } from "@tanstack/react-db";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { resourceCollection } from "@/features/resources/data/resource";
+import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
@@ -33,9 +34,13 @@ export function TrafficPanel({ projectId }: { projectId: ProjectId }) {
 
   // Owning resource names come from the already-cached resource collection —
   // no second fetch, and the graph keeps this warm.
+  const activeEnv = useActiveEnvironment(projectId);
   const { data: resources } = useLiveQuery(
-    (q) => q.from({ r: resourceCollection }).where(({ r }) => eq(r.projectId, projectId)),
-    [projectId],
+    (q) =>
+      q
+        .from({ r: resourceCollection })
+        .where(({ r }) => and(eq(r.projectId, projectId), eq(r.environmentId, activeEnv.id ?? ""))),
+    [projectId, activeEnv.id],
   );
   const nameByResourceId = new Map(resources.map((r) => [r.resourceId as string, r.name]));
 

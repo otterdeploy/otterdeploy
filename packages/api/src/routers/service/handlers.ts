@@ -6,7 +6,7 @@
  * Returns `Result<View, TaggedError>` so the oRPC handler layer can switch
  * on `result.error._tag` to translate to the right wire-level error code.
  */
-import type { ResourceId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
@@ -19,6 +19,7 @@ import { PLATFORM } from "../../constants";
 import { runtime } from "../../runtime";
 import { insertDeployment, markDeploymentFailed } from "../project/deployments";
 import { removeServiceFromManifest } from "../project/manifest";
+import { resolveEnvironmentScope } from "../project/queries/resource";
 import { loadProject, loadResource } from "./context";
 import {
   MissingServiceBuildBindingError,
@@ -101,6 +102,25 @@ export async function listEnv(input: ResourceRef): Promise<Result<EnvVarView[], 
   return Result.ok(ctx.value.record.env.map(mapEnvVar));
 }
 
+/**
+ * Is this service name already used IN THE TARGET ENVIRONMENT?
+ *
+ * Scoped deliberately: the unique index is (project, environment, name), so an
+ * unscoped check rejected `api` in staging because production owned the name —
+ * a collision the database would never have raised.
+ *
+ * A project with no environment pointer can't be scoped; nothing is "taken"
+ * there, and the insert's own unique constraint remains the backstop.
+ */
+async function serviceNameTaken(
+  project: { environmentId: EnvironmentId | null },
+  input: { projectId: ProjectId; name: string; environmentId?: EnvironmentId },
+): Promise<boolean> {
+  const scope = resolveEnvironmentScope(project, input.environmentId);
+  if (!scope) return false;
+  return (await getServiceRecordByName(input.projectId, input.name, scope)) !== undefined;
+}
+
 export async function createService(
   input: CreateServiceInput,
   log: RequestLogger,
@@ -118,8 +138,7 @@ export async function createService(
   if (projectResult.isErr()) return Result.err(projectResult.error);
   const project = projectResult.value;
 
-  const existing = await getServiceRecordByName(input.projectId, input.name);
-  if (existing) {
+  if (await serviceNameTaken(project, input)) {
     return Result.err(new ServiceConflictError({ name: input.name }));
   }
 

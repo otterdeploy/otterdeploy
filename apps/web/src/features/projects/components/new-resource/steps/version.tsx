@@ -6,6 +6,7 @@ import { useStore } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 
 import { type ServiceKind } from "@/features/projects/data/service-kinds";
+import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { DatabaseLogo } from "@/shared/components/brand/database-logo";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { cn } from "@/shared/lib/utils";
@@ -29,6 +30,7 @@ interface StepVersionProps {
 
 export function StepVersion({ kind, projectId }: StepVersionProps) {
   const form = useFormContext();
+  const activeEnv = useActiveEnvironment(projectId);
   const version = useStore(form.store, (s) => s.values.version);
   const name = useStore(form.store, (s) => s.values.name);
 
@@ -101,6 +103,10 @@ export function StepVersion({ kind, projectId }: StepVersionProps) {
                 const res = await existingName.mutateAsync({
                   projectId,
                   name: trimmed,
+                  // Names collide per (project, environment) — without this the
+                  // wizard renames `postgres` to `postgres-2` in staging just
+                  // because production has one.
+                  environmentId: activeEnv.id,
                 });
                 if (res.available) return undefined;
                 return res.suggestion

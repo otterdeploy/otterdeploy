@@ -11,6 +11,7 @@ import { applyManifest } from "./manifest-apply";
 import { loadRefTable, makeEnvRefResolver } from "./manifest-apply-refs";
 import { loadCurrentState } from "./manifest-state";
 import { deleteDraftCredentialsNotIn } from "./queries";
+import { resolveProjectEnvironmentScope } from "./queries/resource";
 
 /**
  * Attach a parsed service summary to each compose `create` change so the graph
@@ -92,8 +93,12 @@ export const manifestRouter = {
     // Same slug→id conversion the apply endpoint uses, so the plan the operator
     // previews is scoped identically to the one that executes.
     const environmentId = await environmentIdForSlug(input.projectId, input.environment);
+    const scope = await resolveProjectEnvironmentScope(input.projectId, environmentId);
+    // No environment pointer means nothing to diff against — an empty preview
+    // beats a plan that claims every resource is new.
+    if (!scope) return { resolved: resolved.value, changes: [] };
     const [current, refTable] = await Promise.all([
-      loadCurrentState(input.projectId, environmentId),
+      loadCurrentState(input.projectId, scope),
       loadRefTable(input.projectId),
     ]);
     // Resolve ${database:…}/${service:…} refs before comparing — apply stores

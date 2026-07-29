@@ -18,12 +18,13 @@ import {
   useChildMatches,
   useLoaderData,
 } from "@tanstack/react-router";
-import { eq, useLiveQuery } from "@tanstack/react-db";
+import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import * as z from "zod";
 
 import { AnimatePresence } from "motion/react";
 
 import { resourceCollection } from "@/features/resources/data/resource";
+import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { GraphPanelPending, useGraphPanelClose } from "../-components/panel-shell";
@@ -115,12 +116,15 @@ function RouteComponent() {
   // or `${kind}:${name}` (a staged-create ghost, and the URL that lingers
   // across the ghost→applied handover — same collection GraphCanvas loads, so
   // no extra fetch).
+  const activeEnv = useActiveEnvironment(project.id);
   const { data: resources, isLoading: resourcesLoading } = useLiveQuery(
     (q) =>
       q
         .from({ r: resourceCollection })
-        .where(({ r }) => eq(r.projectId, project.id)),
-    [project.id],
+        .where(({ r }) =>
+          and(eq(r.projectId, project.id), eq(r.environmentId, activeEnv.id ?? "")),
+        ),
+    [project.id, activeEnv.id],
   );
 
   const resource =

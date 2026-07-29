@@ -5,7 +5,7 @@
  * terminate the whole stream while still emitting partial progress. The derived
  * context + view-building live in ./create-stream-context.
  */
-import type { DeploymentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { DeploymentId, EnvironmentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { Docker } from "@otterdeploy/docker";
@@ -41,7 +41,7 @@ type ProvisionOutcome = { ok: true; healthy: boolean } | { ok: false };
 // to the resource page within milliseconds — image pulls, provisioning, and
 // caddy reconcile all keep streaming in the background.
 export async function* persistDbRecordStage(
-  input: { projectId: ProjectId; name: string },
+  input: { projectId: ProjectId; name: string; environmentId?: EnvironmentId | null },
   ctx: CreateContext,
 ): AsyncGenerator<CreatePostgresProgress, StageResult<CreatedRecord>, void> {
   yield { type: "step", step: "db-record", status: "start", message: null };
@@ -49,6 +49,7 @@ export async function* persistDbRecordStage(
   try {
     created = await createDatabaseResourceRecord({
       projectId: input.projectId,
+      environmentId: input.environmentId ?? null,
       name: input.name,
       engine: ctx.engine,
       status: "draft",

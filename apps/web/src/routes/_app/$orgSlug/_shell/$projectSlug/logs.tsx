@@ -12,8 +12,8 @@
  * redirect shim that keeps old links working.
  */
 
-import { eq, useLiveQuery } from "@tanstack/react-db";
-import { createFileRoute, useLoaderData } from "@tanstack/react-router";
+import { and, eq, useLiveQuery } from "@tanstack/react-db";
+import { createFileRoute, useLoaderData, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { EdgeLogsView } from "@/features/edge-logs/components/edge-logs-view";
@@ -34,6 +34,7 @@ import { LogsToolbar } from "@/features/logs/components/logs-toolbar";
 import { statusBadge } from "@/features/logs/components/logs-status";
 import { useLogsTable } from "@/features/logs/components/use-logs-table";
 import { resourceCollection } from "@/features/resources/data/resource";
+import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { useDebouncedCallback } from "@/shared/components/data-grid/hooks/use-debounced-callback";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { copyToClipboard } from "@/shared/lib/clipboard";
@@ -56,6 +57,7 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/logs")(
 
 function RouteComponent() {
   const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
+  const activeEnv = useActiveEnvironment(project.id);
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
 
@@ -75,8 +77,10 @@ function RouteComponent() {
     (q) =>
       q
         .from({ r: resourceCollection })
-        .where(({ r }) => eq(r.projectId, project.id)),
-    [project.id],
+        .where(({ r }) =>
+          and(eq(r.projectId, project.id), eq(r.environmentId, activeEnv.id ?? "")),
+        ),
+    [project.id, activeEnv.id],
   );
   const services = resources.flatMap((r) =>
     r.type === "service" ? [{ id: r.resourceId, name: r.name }] : [],

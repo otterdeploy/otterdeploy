@@ -11,6 +11,7 @@ import { Result } from "better-result";
 import type { SwarmServiceRuntime } from "../../swarm";
 
 import { loadPreviewScope } from "../../lib/environment/load";
+import { resolveRuntimeScope } from "../../lib/environment/runtime-scope";
 import { findTransitiveDependents, resolveServiceEnv } from "../../lib/variables";
 import { runtime } from "../../runtime";
 import { markDeploymentFailed, reconcileDeploySuccess } from "../project/deployments";
@@ -55,7 +56,12 @@ export async function provisionFresh(
     return Result.err(resolved.error);
   }
 
-  const swarmSpec = await buildSwarmSpec(record, resolved.value, sanitizeSlug(projectSlug));
+  const swarmSpec = await buildSwarmSpec(
+    record,
+    resolved.value,
+    sanitizeSlug(projectSlug),
+    await resolveRuntimeScope(record.resource),
+  );
   // provisionSwarmService THROWS on any Docker/Swarm infra error (no
   // reachable manager, network create failure, …). Letting that escape
   // would crash the whole `manifest.apply` (a single unreachable swarm →
@@ -135,7 +141,10 @@ export async function redeployOne(
     return Result.err(resolved.error);
   }
 
-  const previewScope = await loadPreviewScope(opts?.previewId);
+  // A preview already belongs to one environment, so it names itself; only a
+  // non-preview deploy falls through to the environment suffix.
+  const previewScope =
+    (await loadPreviewScope(opts?.previewId)) ?? (await resolveRuntimeScope(record.resource));
   const swarmSpec = await buildSwarmSpec(
     record,
     resolved.value,

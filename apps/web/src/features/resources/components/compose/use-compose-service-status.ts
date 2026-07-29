@@ -5,7 +5,7 @@
  * what's running. Extracted out of ComposeResourcePanel to keep that
  * component under the line/complexity caps.
  */
-import { eq, useLiveQuery } from "@tanstack/react-db";
+import { and, eq, useLiveQuery } from "@tanstack/react-db";
 
 import {
   childServiceStatus,
@@ -13,6 +13,7 @@ import {
 } from "@/features/projects/components/graph/build-live-nodes";
 import { resourceCollection } from "@/features/resources/data/resource";
 import { serviceTasksCollection } from "@/features/resources/data/service-tasks";
+import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 
 import { baseStatus, type StackServiceStatus } from "./panel-parts";
 
@@ -29,9 +30,15 @@ export function useComposeServiceStatus(resource: {
   // `stackId` lives only on the service variant, so we can't filter on it in
   // the typed where-clause — scope by projectId and narrow to this stack's
   // children in JS below.
+  const activeEnv = useActiveEnvironment(resource.projectId);
   const { data: projectResources } = useLiveQuery(
-    (q) => q.from({ r: resourceCollection }).where(({ r }) => eq(r.projectId, resource.projectId)),
-    [resource.projectId],
+    (q) =>
+      q
+        .from({ r: resourceCollection })
+        .where(({ r }) =>
+          and(eq(r.projectId, resource.projectId), eq(r.environmentId, activeEnv.id ?? "")),
+        ),
+    [resource.projectId, activeEnv.id],
   );
   const tasksByResourceId = (() => {
     const m = new Map<string, Task[]>();

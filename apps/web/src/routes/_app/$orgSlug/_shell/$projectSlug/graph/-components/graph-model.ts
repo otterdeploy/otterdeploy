@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { eq } from "@tanstack/db";
+import { and, eq } from "@tanstack/db";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useQuery } from "@tanstack/react-query";
 import type { Edge } from "@xyflow/react";
@@ -178,13 +178,20 @@ function computePendingByName(
  * + edge lists. Polls the diff on a 5s cadence (matching the pending-changes
  * bar) and bridges create-ghosts across the apply handover.
  */
-export function useGraphModel(project: { id: ProjectId }) {
+export function useGraphModel(
+  project: { id: ProjectId },
+  /** Environment whose resources the canvas renders. Passed in rather than
+   *  resolved here so the canvas and its parent layout can never disagree. */
+  activeEnv: { id: string | undefined },
+) {
   const { data: resources } = useLiveQuery(
     (q) =>
       q
         .from({ r: resourceCollection })
-        .where(({ r }) => eq(r.projectId, project.id)),
-    [project.id],
+        .where(({ r }) =>
+          and(eq(r.projectId, project.id), eq(r.environmentId, activeEnv.id ?? "")),
+        ),
+    [project.id, activeEnv.id],
   );
 
   // Edges come from parsing ${{Resource.VAR}} references in service env vars

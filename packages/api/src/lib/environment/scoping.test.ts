@@ -9,6 +9,7 @@ import {
   previewHostLabel,
   previewScope,
   previewSlug,
+  previewIdOf,
   runtimeServiceName,
   scopeSuffix,
   type PreviewScope,
@@ -99,5 +100,24 @@ describe("environment scoping", () => {
     const previewPr7 = runtimeServiceName("web", scope);
     expect(envPr7).toBe(previewPr7);
     expect(isEnvironmentSlugAllowed("pr-7")).toBe(false);
+  });
+});
+
+describe("previewIdOf", () => {
+  // Deployment rows are keyed by preview, never by environment. Widening the
+  // spec builder from PreviewScope to ScopeLike would have started reading an
+  // environment scope's fields as a preview's without this narrowing.
+  it("returns the id for a preview scope", () => {
+    expect(previewIdOf(scope)).toBe(scope.id);
+  });
+
+  it("returns null for an environment scope", () => {
+    expect(previewIdOf(environmentScope({ slug: "staging", isMain: false }))).toBeNull();
+  });
+
+  it("returns null for base and for no scope", () => {
+    expect(previewIdOf(BASE)).toBeNull();
+    expect(previewIdOf(null)).toBeNull();
+    expect(previewIdOf(undefined)).toBeNull();
   });
 });

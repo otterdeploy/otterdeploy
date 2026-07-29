@@ -11,7 +11,7 @@
  */
 import type { ProjectSlug } from "@otterdeploy/shared/id";
 
-import { eq, useLiveQuery } from "@tanstack/react-db";
+import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLoaderData } from "@tanstack/react-router";
 
@@ -22,6 +22,7 @@ import {
   type DomainStatusView,
 } from "@/features/resources/components/service/tabs/settings/domains-card-parts";
 import { resourceCollection } from "@/features/resources/data/resource";
+import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { buttonVariants } from "@/shared/components/ui/button";
 import { orpc } from "@/shared/server/orpc";
 
@@ -54,9 +55,13 @@ export function ComposeExposedSummary({
 }) {
   // Same on-demand collection the graph node + services tab read — a toggle
   // on the child's own Settings tab shows up here without a second fetch.
+  const activeEnv = useActiveEnvironment(projectId);
   const { data: projectResources } = useLiveQuery(
-    (q) => q.from({ r: resourceCollection }).where(({ r }) => eq(r.projectId, projectId)),
-    [projectId],
+    (q) =>
+      q
+        .from({ r: resourceCollection })
+        .where(({ r }) => and(eq(r.projectId, projectId), eq(r.environmentId, activeEnv.id ?? ""))),
+    [projectId, activeEnv.id],
   );
 
   const exposed = projectResources.filter(

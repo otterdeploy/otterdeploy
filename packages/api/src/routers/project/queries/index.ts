@@ -50,8 +50,10 @@ export {
   deleteResourceById,
   getResourceById,
   listProjectResources,
+  resolveEnvironmentScope,
   type ComposeResourceJoined,
   type DatabaseResourceJoined,
+  type EnvironmentScopeInput,
   type ServiceResourceJoined,
 } from "./resource";
 

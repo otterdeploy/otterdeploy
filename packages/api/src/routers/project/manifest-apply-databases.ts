@@ -6,7 +6,7 @@
  * container — the only follow-up is running CREATE EXTENSION against the
  * live database.
  */
-import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
@@ -31,6 +31,9 @@ type OrgId = OrganizationId;
 
 interface CreateDatabaseArgs {
   projectId: ProjectId;
+  /** Environment the database is created in — scopes the name check and gets
+   *  stamped on the row. */
+  environmentId: EnvironmentId;
   organizationId: OrgId;
   name: string;
   spec: DatabaseManifest;
@@ -68,6 +71,7 @@ export async function createDatabase(
     projectId: args.projectId,
     organizationId: args.organizationId,
     name: args.name,
+    environmentId: args.environmentId,
   });
   if (validation.isErr()) {
     return Result.err(

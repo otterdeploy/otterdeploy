@@ -1,5 +1,5 @@
 import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
-import { eq, useLiveQuery } from "@tanstack/react-db";
+import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import { createFileRoute, notFound, Outlet } from "@tanstack/react-router";
 import * as z from "zod";
 
@@ -7,6 +7,7 @@ import { useProjectDeployStatus } from "@/features/deployments/hooks/use-deploy-
 import { envCollection } from "@/features/projects/data/env";
 import { projectCollection } from "@/features/projects/data/project";
 import { resourceCollection } from "@/features/resources/data/resource";
+import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { useProjectEvents } from "@/features/projects/hooks/use-project-events";
 import { useProjectStatus } from "@/features/projects/hooks/use-project-status";
 import { PendingChangesBar } from "@/features/projects/components/pending-changes-bar";
@@ -66,6 +67,11 @@ function RouteComponent() {
     [projectSlug],
   );
 
+  // Resolve `?env=` to an environment ID once, here — every resource read in
+  // this subtree scopes on it, and they must all agree or the shared resource
+  // collection ends up holding two environments' rows at once.
+  const activeEnv = useActiveEnvironment(project?.id);
+
   // Open a single project-wide event stream while this layout is mounted.
   // The hook invalidates the matching React Query caches on every server
   // push, so the existing useLiveQuery / useQuery hooks across child
@@ -87,8 +93,10 @@ function RouteComponent() {
     (q) =>
       q
         .from({ r: resourceCollection })
-        .where(({ r }) => eq(r.projectId, project?.id ?? "")),
-    [project?.id],
+        .where(({ r }) =>
+          and(eq(r.projectId, project?.id ?? ""), eq(r.environmentId, activeEnv.id ?? "")),
+        ),
+    [project?.id, activeEnv.id],
   );
 
   const { data: environments } = useLiveQuery(

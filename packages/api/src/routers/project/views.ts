@@ -107,6 +107,7 @@ export async function mapServiceResource(
   return {
     resourceId: record.resource.id,
     projectId: record.resource.projectId,
+    environmentId: record.resource.environmentId,
     name: record.resource.name,
     type: "service" as const,
     status: record.resource.status,
@@ -140,6 +141,7 @@ export async function mapComposeResource(
   return {
     resourceId: record.resource.id,
     projectId: record.resource.projectId,
+    environmentId: record.resource.environmentId,
     name: record.resource.name,
     type: "compose" as const,
     status: record.resource.status,
@@ -170,6 +172,7 @@ export async function mapDatabaseResource(
   return {
     resourceId: record.resource.id,
     projectId: record.resource.projectId,
+    environmentId: record.resource.environmentId,
     name: record.resource.name,
     type: "database" as const,
     status: record.resource.status,

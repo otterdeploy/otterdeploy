@@ -12,7 +12,7 @@
  * service's container at deploy time via the resolver; the picker is
  * a discovery surface, not a viewer.
  */
-import type { OrganizationId, ProjectId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 
 import { Result } from "better-result";
 
@@ -20,7 +20,12 @@ import { listProxyRoutesByResourceId } from "../../caddy/queries";
 import { postgresExports, serviceExports } from "../../lib/variables/exporters";
 import { listServiceEnvVars, listServicePorts } from "../service/queries";
 import { ProjectNotFoundError } from "./errors";
-import { getProjectInOrg, getProjectRecord, loadProjectEnvBag } from "./queries";
+import {
+  getProjectInOrg,
+  getProjectRecord,
+  loadProjectEnvBag,
+  resolveEnvironmentScope,
+} from "./queries";
 import { listProjectResources } from "./queries/resource";
 
 type OrgId = OrganizationId;
@@ -41,6 +46,8 @@ export interface AvailableReference {
 interface Input {
   projectId: ProjectId;
   organizationId: OrgId;
+  /** Environment whose resources may be referenced. Omitted means main. */
+  environmentId?: EnvironmentId;
 }
 
 /** Keys whose value should be masked in any UI rendering. */
@@ -75,7 +82,12 @@ export async function listAvailableRefs(
   }
 
   const refs: AvailableReference[] = [];
-  const { databases, services } = await listProjectResources(input.projectId);
+  // Reference pickers offer what the CURRENT environment can actually reach:
+  // a staging service must not be offered production's database as a source.
+  const scope = resolveEnvironmentScope(project, input.environmentId);
+  const { databases, services } = scope
+    ? await listProjectResources(input.projectId, scope)
+    : { databases: [], services: [] };
 
   // ── Database resources: postgres exporter today; redis/mariadb/mongo
   // pick up their own exporter when we wire them. The exporter contract

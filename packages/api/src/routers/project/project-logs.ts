@@ -48,7 +48,9 @@ async function resolveTargets(
   projectId: ProjectId,
   resourceIds: ResourceId[] | undefined,
 ): Promise<TargetService[]> {
-  const { databases, services } = await listProjectResources(projectId);
+  // "all": targets are resolved from caller-supplied resource ids (or every
+  // service), and a log stream opened on a staging resource must still find it.
+  const { databases, services } = await listProjectResources(projectId, "all");
   const project = await getProjectRecord(projectId);
   const slug = project?.slug ?? projectId;
 

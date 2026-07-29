@@ -1,17 +1,33 @@
 import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
-import type { PreviewId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, PreviewId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { databaseResource, resource } from "@otterdeploy/db/schema/project";
 import { and, eq } from "drizzle-orm";
 import { createError } from "evlog";
 
+import type { ResourceScope } from "./resource";
+
+import { inEnvironmentScope } from "./resource";
+
 export interface DatabaseResourceRecord {
   resource: typeof resource.$inferSelect;
   database: typeof databaseResource.$inferSelect;
 }
 
-export async function getDatabaseResourceByProjectAndName(projectId: ProjectId, name: string) {
+/**
+ * Look up a database by name WITHIN an environment.
+ *
+ * Names are unique per `(project, environment, name)`, so this must be scoped
+ * or a create in staging is rejected because production already has a
+ * `postgres` — which is exactly what "already exists in this project" meant
+ * when it fired against a staging apply.
+ */
+export async function getDatabaseResourceByProjectAndName(
+  projectId: ProjectId,
+  name: string,
+  environmentScope: ResourceScope,
+) {
   const [record] = await db
     .select({
       resource,
@@ -19,7 +35,13 @@ export async function getDatabaseResourceByProjectAndName(projectId: ProjectId, 
     })
     .from(resource)
     .innerJoin(databaseResource, eq(databaseResource.resourceId, resource.id))
-    .where(and(eq(resource.projectId, projectId), eq(resource.name, name)))
+    .where(
+      and(
+        eq(resource.projectId, projectId),
+        eq(resource.name, name),
+        inEnvironmentScope(environmentScope),
+      ),
+    )
     .limit(1);
 
   return record;
@@ -52,6 +74,8 @@ export async function listDatabaseResourceRecords(projectId: ProjectId) {
 
 export async function createDatabaseResourceRecord(input: {
   projectId: ProjectId;
+  /** Environment this database belongs to; NULL is owned by main. */
+  environmentId?: EnvironmentId | null;
   name: string;
   /** Database engine. Defaults to postgres for back-compat with the
    *  original postgres-only call sites. New callers should always pass
@@ -87,6 +111,7 @@ export async function createDatabaseResourceRecord(input: {
       .insert(resource)
       .values({
         projectId: input.projectId,
+        environmentId: input.environmentId ?? null,
         name: input.name,
         type: "database",
         status: input.status ?? "valid",

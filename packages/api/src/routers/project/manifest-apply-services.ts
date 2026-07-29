@@ -4,6 +4,7 @@
  * clicks. The per-field patch builders are shared by create + update.
  */
 import type {
+  EnvironmentId,
   GitRepoId,
   OrganizationId,
   ProjectId,
@@ -59,6 +60,9 @@ function buildResourcesPatch(spec: ServiceManifest) {
 
 interface CreateServiceArgs {
   projectId: ProjectId;
+  /** Environment the service is created in — scopes the name check and gets
+   *  stamped on the row. */
+  environmentId: EnvironmentId;
   organizationId: OrgId;
   name: string;
   spec: ServiceManifest;
@@ -76,6 +80,7 @@ function buildCreateServiceInput(
   const image = args.spec.source === "image" ? args.spec.image : "pending:initial";
   return {
     projectId: args.projectId,
+    environmentId: args.environmentId,
     organizationId: args.organizationId,
     name: args.name,
     source: args.spec.source,

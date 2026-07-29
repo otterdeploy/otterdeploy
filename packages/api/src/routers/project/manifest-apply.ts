@@ -24,6 +24,7 @@ import type { EnvironmentId, OrganizationId, ProjectId } from "@otterdeploy/shar
 import { db } from "@otterdeploy/db";
 import { project } from "@otterdeploy/db/schema/project";
 import { and, eq } from "drizzle-orm";
+import { createError } from "evlog";
 
 import type { Manifest } from "../../stack/manifest";
 import type { ApplyContext, GitBuild, PhaseContribution } from "./manifest-apply-phases";
@@ -42,6 +43,7 @@ import { runServiceCreates, runServiceUpdates } from "./manifest-apply-phases-se
 import { loadRefTable, makeEnvRefResolver } from "./manifest-apply-refs";
 import { groupChanges } from "./manifest-apply-support";
 import { loadCurrentState } from "./manifest-state";
+import { resolveProjectEnvironmentScope } from "./queries/resource";
 
 export { enqueueGitBuild } from "./manifest-apply-git";
 
@@ -92,8 +94,26 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
   const { projectId, organizationId, manifest, environmentId, log } = input;
   // Load state inside the queue slot — a snapshot taken while a prior apply
   // was still running would re-plan (and re-provision) its work.
-  const current = await loadCurrentState(projectId, environmentId);
-  const ctx: ApplyContext = { projectId, organizationId, manifest, current, log };
+  // Resolve to a concrete scope before diffing. A project with no environment
+  // pointer cannot be diffed safely — every existing resource would look absent
+  // and the plan would be all-creates — so refuse rather than guess.
+  const scope = await resolveProjectEnvironmentScope(projectId, environmentId);
+  if (!scope) {
+    throw createError({
+      message: "Project has no environment to apply against",
+      status: 409,
+      why: `Project ${projectId} has no environment_id pointer, so the manifest cannot be scoped`,
+    });
+  }
+  const current = await loadCurrentState(projectId, scope);
+  const ctx: ApplyContext = {
+    projectId,
+    environmentId: scope.environmentId,
+    organizationId,
+    manifest,
+    current,
+    log,
+  };
   // Plan with the same ref resolver the router's diff endpoint uses, so what
   // the user previewed is what executes. This table predates the DB-create
   // phase on purpose: refs to a database created THIS apply stay unresolved in

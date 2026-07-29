@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  createFileRoute,
   Outlet,
+  createFileRoute,
   useChildMatches,
   useLoaderData,
   useNavigate,
   useRouter,
+  useSearch,
 } from "@tanstack/react-router";
-import { eq, useLiveQuery } from "@tanstack/react-db";
+import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import { AnimatePresence } from "motion/react";
 import { ReactFlowProvider, useReactFlow, type NodeChange } from "@xyflow/react";
 
@@ -21,6 +22,7 @@ import {
   useStackPanelState,
   type StackPanelState,
 } from "@/features/projects/components/stack";
+import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { resourceCollection } from "@/features/resources/data/resource";
 import { orpc } from "@/shared/server/orpc";
 
@@ -69,9 +71,15 @@ function RouteComponent() {
   // collapsed instead of covering the empty-state CTA. `status` guards the
   // cold-load window so an existing project's resources (not synced yet)
   // don't get misread as "empty" and wrongly seed a collapsed default.
+  const activeEnv = useActiveEnvironment(project.id);
   const { data: resourceRows, status: resourceStatus } = useLiveQuery(
-    (q) => q.from({ r: resourceCollection }).where(({ r }) => eq(r.projectId, project.id)),
-    [project.id],
+    (q) =>
+      q
+        .from({ r: resourceCollection })
+        .where(({ r }) =>
+          and(eq(r.projectId, project.id), eq(r.environmentId, activeEnv.id ?? "")),
+        ),
+    [project.id, activeEnv.id],
   );
   const hasResources = resourceStatus !== "loading" && resourceRows.length > 0;
 
@@ -123,10 +131,11 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
   const router = useRouter();
   const { orgSlug, projectSlug } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
+  const activeEnv = useActiveEnvironment(project.id);
   const { setCenter, fitView, getViewport } = useReactFlow();
   const overlay = useResourceOverlay();
 
-  const { liveNodes, liveEdges, traffic } = useGraphModel(project);
+  const { liveNodes, liveEdges, traffic } = useGraphModel(project, activeEnv);
 
   // Lay out with both nodes and edges so dagre ranks consumers above their
   // dependencies (routes → services → databases) — but only when the topology

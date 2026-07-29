@@ -8,9 +8,9 @@
  * 20s refetch while the tab is focused.
  */
 
-import { eq, useLiveQuery } from "@tanstack/react-db";
+import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { createFileRoute, useLoaderData, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useLoaderData, useNavigate, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { DeploymentsTableSection } from "@/features/deployments/components/deployments-table";
@@ -25,6 +25,7 @@ import {
 } from "@/features/deployments/data/deployments-search";
 import { projectIdBySlug } from "@/features/projects/data/project";
 import { resourceCollection } from "@/features/resources/data/resource";
+import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { Page, PageHeader } from "@/shared/components/page";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -68,6 +69,7 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/deploym
 
 function RouteComponent() {
   const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
+  const activeEnv = useActiveEnvironment(project.id);
   const { orgSlug, projectSlug } = Route.useParams();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
@@ -81,8 +83,13 @@ function RouteComponent() {
 
   // Resource filter options — same collection the graph and logs pages read.
   const { data: resources } = useLiveQuery(
-    (q) => q.from({ r: resourceCollection }).where(({ r }) => eq(r.projectId, project.id)),
-    [project.id],
+    (q) =>
+      q
+        .from({ r: resourceCollection })
+        .where(({ r }) =>
+          and(eq(r.projectId, project.id), eq(r.environmentId, activeEnv.id ?? "")),
+        ),
+    [project.id, activeEnv.id],
   );
   const resourceOptions = resources.map((r) => ({
     id: r.resourceId as string,

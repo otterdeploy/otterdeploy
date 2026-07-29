@@ -3,7 +3,7 @@ import type {
   ComposeFile,
   ComposeServiceSummary,
 } from "@otterdeploy/shared/compose";
-import type { GitRepoId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, GitRepoId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { composeResource, resource } from "@otterdeploy/db/schema/project";
@@ -71,6 +71,8 @@ export function friendlyServiceCollisionMessage(err: unknown, label: string): st
 
 export async function createComposeRecord(input: {
   projectId: ProjectId;
+  /** Environment this stack belongs to; NULL is owned by main. */
+  environmentId?: EnvironmentId | null;
   name: string;
   source: "inline" | "git";
   composeContent: string | null;
@@ -93,6 +95,7 @@ export async function createComposeRecord(input: {
         .insert(resource)
         .values({
           projectId: input.projectId,
+          environmentId: input.environmentId ?? null,
           name: input.name,
           type: "compose",
           status: "valid",

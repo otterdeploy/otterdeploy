@@ -3,7 +3,7 @@
  * provisioner-shaped `SwarmServiceSpec` consumed by `swarm/*`.
  */
 
-import { type PreviewScope, runtimeServiceName } from "../../lib/environment/scoping";
+import { previewIdOf, runtimeServiceName, type ScopeLike } from "../../lib/environment/scoping";
 import { materializeServiceMounts, type SpecMount, type SwarmServiceSpec } from "../../swarm";
 import { resolvePlacementForProject } from "../../swarm/resolve-placement";
 import { getLatestDeploymentForResource } from "../project/deployments";
@@ -14,10 +14,12 @@ export async function buildSwarmSpec(
   record: ServiceRecord,
   resolvedEnv: Record<string, string>,
   projectSlug: string,
-  // Optional preview scoping. Omitted → the base service name, so every
-  // production deploy is byte-identical. A preview runs the resource as a
-  // distinct container (`<base>-pr-<n>`).
-  preview?: PreviewScope | null,
+  // Runtime scope. Omitted → the base service name, so every production deploy
+  // is byte-identical. A preview runs as `<base>-pr-<n>`; a NON-main
+  // environment runs as `<base>-<envSlug>`, which is what lets staging's
+  // `postgres` and production's `postgres` share a name in the UI while
+  // remaining distinct containers.
+  preview?: ScopeLike,
   // Preview builds pass their freshly-built image here instead of writing it to
   // the shared serviceResource.image column (which would clobber production's
   // image pointer). Omitted → the resource's stored image.
@@ -38,7 +40,7 @@ export async function buildSwarmSpec(
   // task labels so the deployments tab can count tasks per deployment.
   const latestDeployment = await getLatestDeploymentForResource(
     record.service.resourceId,
-    preview?.id ?? null,
+    previewIdOf(preview),
   );
   // Materialize file-type mounts to disk before we ship the spec to swarm —
   // a bind-mount with no source on disk causes the container to fail to

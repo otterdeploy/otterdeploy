@@ -14,6 +14,20 @@ import { orpc, queryClient } from "@/shared/server/orpc";
  * filter as `loadSubsetOptions`, from which `queryKey` / `queryFn` recover the
  * `projectId` to fetch (and cache) the right subset.
  */
+/**
+ * Optional variant of {@link parseCol}. The environment filter is absent on a
+ * first render (the switcher hasn't resolved yet) and present immediately
+ * after, so its absence is a normal state, not a programming error.
+ */
+function parseOptionalCol<T extends z.ZodType>(
+  schema: T,
+  filters: SimpleComparison[],
+  field: string,
+): z.infer<T> | undefined {
+  const expr = filters.find((f) => f.field.at(-1) === field);
+  return expr === undefined ? undefined : schema.parse(expr.value);
+}
+
 function parseCol<T extends z.ZodType>(
   schema: T,
   filters: SimpleComparison[],
@@ -28,6 +42,7 @@ function parseCol<T extends z.ZodType>(
 }
 
 const projectIdSchema = zId("project");
+const environmentIdSchema = zId("env");
 
 /**
  * Namespace prefix for the on-demand resource collection's react-query cache
@@ -50,8 +65,13 @@ export const resourceCollection = createCollection(
       // return the prefix.
       if (!filters.at(0)) return baseQuery;
       const projectId = parseCol(projectIdSchema, filters, "projectId");
+      // The environment MUST be part of the key. Without it every environment
+      // shares one cache entry, so switching the switcher re-renders the
+      // previous environment's rows and never refetches — the switcher looked
+      // broken when in fact nothing had asked the server a new question.
+      const environmentId = parseOptionalCol(environmentIdSchema, filters, "environmentId");
       const subsetKey = orpc.project.resource.list.queryKey({
-        input: { projectId },
+        input: { projectId, environmentId },
       });
 
       return [...baseQuery, ...subsetKey];
@@ -60,7 +80,8 @@ export const resourceCollection = createCollection(
       const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
       if (!filters.at(0)) return [];
       const projectId = parseCol(projectIdSchema, filters, "projectId");
-      return orpc.project.resource.list.call({ projectId });
+      const environmentId = parseOptionalCol(environmentIdSchema, filters, "environmentId");
+      return orpc.project.resource.list.call({ projectId, environmentId });
     },
     onDelete: async ({ transaction }) => {
       await Promise.all(

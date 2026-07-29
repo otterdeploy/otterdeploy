@@ -1,11 +1,11 @@
+import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 /**
  * Postgres database-resource orchestration. Owns the create lifecycle for a
  * Postgres resource attached to a project — including the Swarm provision and
  * Caddy proxy-route bookkeeping. Read/delete are handled generically in
  * resources.ts. The per-stage implementations live in ./create-stream-stages.
  */
-
-import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
+import type { EnvironmentId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
@@ -15,6 +15,7 @@ import type { ProjectRef } from "../../scopes";
 import { PostgresResourceConflictError, ProjectNotFoundError } from "../errors";
 import {
   getDatabaseResourceByProjectAndName,
+  resolveEnvironmentScope,
   getProjectInOrg,
   updateDatabaseResourceStatus,
 } from "../queries";
@@ -61,7 +62,7 @@ export type CreatePostgresProgress =
  * this returns ok, the generator can safely start yielding step events.
  */
 export async function validatePostgresCreate(
-  input: ProjectRef & { name: string },
+  input: ProjectRef & { name: string; environmentId?: EnvironmentId },
 ): Promise<
   Result<
     { project: { id: string; slug: string } },
@@ -76,7 +77,13 @@ export async function validatePostgresCreate(
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
 
-  const existing = await getDatabaseResourceByProjectAndName(input.projectId, input.name);
+  // Same-environment names only. A `postgres` in production must not block a
+  // `postgres` in staging — they are different rows under
+  // resource_project_name_env_unique.
+  const environmentScope = resolveEnvironmentScope(project, input.environmentId);
+  const existing = environmentScope
+    ? await getDatabaseResourceByProjectAndName(input.projectId, input.name, environmentScope)
+    : undefined;
   if (existing) {
     return Result.err(new PostgresResourceConflictError({ name: input.name }));
   }
