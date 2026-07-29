@@ -111,12 +111,60 @@ export async function isReservedControlPlaneDomain(domain: string): Promise<bool
   return settings?.domain?.toLowerCase().replace(/\.$/, "") === domain;
 }
 
+/**
+ * Hosts no public CA will ever sign, whatever DNS says.
+ *
+ * Distinct from "DNS doesn't currently look right": this is a permanent
+ * property of the name, so it outranks the downgrade guard below — there is
+ * no certificate here worth protecting.
+ */
+function canHoldPublicCert(domain: string): boolean {
+  return !domain.endsWith(".localhost") && !domain.endsWith(".sslip.io");
+}
+
 /** ACME can only issue for a publicly resolvable name that points at us. A
  *  `.localhost`/sslip host can't get a real cert, and a proxied/unpointed
  *  host's challenge can't complete — all stay on `tls internal`. */
 export function acmeFor(domain: string, dnsState: DnsState): boolean {
-  if (domain.endsWith(".localhost") || domain.endsWith(".sslip.io")) return false;
+  if (!canHoldPublicCert(domain)) return false;
   return dnsState === "pointed";
+}
+
+/**
+ * The ACME decision for a route that ALREADY EXISTS, as opposed to
+ * {@link acmeFor}, which decides for a brand-new one.
+ *
+ * The difference is the one thing a re-evaluation must never do: take a site
+ * that is serving a trusted certificate and put it back on a self-signed one.
+ *
+ * That is not hypothetical. A generated route is born `dnsState: "pointed"`
+ * (see expose.ts) and gets a real certificate. Put Cloudflare's proxy in front
+ * of it afterwards — a supported, common, and usually *desirable* topology —
+ * and the next recheck reads the Cloudflare anycast addresses, calls the host
+ * `proxied`, and `acmeFor` returns false. The route flips to `tls internal`
+ * and Caddy replaces a valid Let's Encrypt certificate with a self-signed one,
+ * in the same second, with no warning. If the operator's Cloudflare SSL mode
+ * is Full (strict), their site goes down.
+ *
+ * So a downgrade needs more than a DNS heuristic disagreeing with the past: it
+ * needs evidence the certificate is not working. `certState === "valid"` is
+ * exactly that evidence, promoted from Caddy's own log plane — the edge is
+ * telling us it holds a good certificate. Upgrades are unaffected; only the
+ * valid → self-signed direction is refused.
+ */
+export function acmeForExistingRoute(args: {
+  domain: string;
+  dnsState: DnsState;
+  currentUsesAcme: boolean;
+  certState: "unknown" | "obtaining" | "valid" | "failed";
+}): boolean {
+  // Checked before the guard, not through acmeFor: a name that can never hold
+  // a public certificate has none to protect, so the guard must not resurrect
+  // ACME for it on the strength of stale flags.
+  if (!canHoldPublicCert(args.domain)) return false;
+  if (acmeFor(args.domain, args.dnsState)) return true;
+  // Refuse the downgrade while the edge reports a working certificate.
+  return args.currentUsesAcme && args.certState === "valid";
 }
 
 export async function serverIpFor(ref: ResourceRef): Promise<string | null> {
@@ -141,7 +189,18 @@ export function domainUpdatePatch(args: {
     source: "custom" as const,
     dnsState,
     dnsCheckedAt: new Date(),
-    usesAcme: requiresVerification ? false : acmeFor(domain, dnsState),
+    // Re-verification genuinely resets the decision — the host has to prove
+    // itself again. Otherwise this is an edit to a route that already exists
+    // (a port change, say), so the same rule as recheck applies: don't pull a
+    // working certificate out from under it. See acmeForExistingRoute.
+    usesAcme: requiresVerification
+      ? false
+      : acmeForExistingRoute({
+          domain,
+          dnsState,
+          currentUsesAcme: route.usesAcme,
+          certState: route.certState,
+        }),
     upstreamHost: serviceName,
     domainVerifyToken: requiresVerification
       ? randomBytes(24).toString("base64url")
