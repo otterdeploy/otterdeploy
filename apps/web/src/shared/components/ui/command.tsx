@@ -42,15 +42,22 @@ function CommandDialog({
   const { t } = useTranslation();
   return (
     <Dialog {...props}>
-      <DialogHeader className="sr-only">
-        <DialogTitle>{title ?? t("commandPalette.title")}</DialogTitle>
-        <DialogDescription>{description ?? t("commandPalette.description")}</DialogDescription>
-      </DialogHeader>
       <DialogContent
         className={cn("top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0", className)}
         showCloseButton={showCloseButton}
       >
-        {children}
+        {/* Inside DialogContent, not beside it: Radix labels the dialog by
+            pointing aria-labelledby at this title, which only works while the
+            title lives in the content it names. */}
+        <DialogHeader className="sr-only">
+          <DialogTitle>{title ?? t("commandPalette.title")}</DialogTitle>
+          <DialogDescription>{description ?? t("commandPalette.description")}</DialogDescription>
+        </DialogHeader>
+        {/* The dialog owns the cmdk root, as upstream does. Leaving it to each
+            caller meant a caller that forgot one rendered CommandInput/List/
+            Item against an undefined store context — a hard crash, not a
+            degraded list. */}
+        <Command>{children}</Command>
       </DialogContent>
     </Dialog>
   );

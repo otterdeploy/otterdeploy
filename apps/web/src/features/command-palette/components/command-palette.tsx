@@ -20,7 +20,6 @@ import { useResourceOverlay } from "@/features/projects/components/new-resource/
 import { envCollection } from "@/features/projects/data/env";
 import { projectCollection } from "@/features/projects/data/project";
 import {
-  Command,
   CommandDialog,
   CommandEmpty,
   CommandGroup,
@@ -137,7 +136,7 @@ export function CommandPalette() {
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen} className="gap-0 p-0 sm:max-w-xl">
-      <Command>
+      <>
         <div className="flex items-center gap-2 border-b px-3 py-2.5">
           <HugeiconsIcon icon={SearchIcon} strokeWidth={2} className="size-4 shrink-0 opacity-50" />
           <CommandPrimitive.Input
@@ -237,7 +236,7 @@ export function CommandPalette() {
         </CommandList>
 
         <PaletteFooter />
-      </Command>
+      </>
     </CommandDialog>
   );
 }
