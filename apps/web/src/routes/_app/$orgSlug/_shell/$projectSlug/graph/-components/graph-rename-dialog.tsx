@@ -112,7 +112,6 @@ export function GraphRenameDialog({
           }}
         >
           <Input
-            autoFocus
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder={from}

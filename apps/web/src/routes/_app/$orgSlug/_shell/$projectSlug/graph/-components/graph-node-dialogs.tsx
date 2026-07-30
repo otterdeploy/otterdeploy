@@ -18,31 +18,30 @@ import { GraphNodeDeleteDialog } from "./graph-node-delete";
 export function GraphNodeDialogs({
   projectId,
   nodes,
-  deleteTarget,
-  closeDelete,
-  cloneTarget,
-  closeClone,
-  renameTarget,
-  closeRename,
+  menu,
 }: {
   projectId: ProjectId;
   nodes: ResourceFlowNode[];
-  deleteTarget: ResourceFlowNode | null;
-  closeDelete: () => void;
-  cloneTarget: ResourceFlowNode | null;
-  closeClone: () => void;
-  renameTarget: ResourceFlowNode | null;
-  closeRename: () => void;
+  /** The context-menu hook's target/close pairs, passed as one object so the
+   *  canvas doesn't thread six props through for three dialogs. */
+  menu: {
+    deleteTarget: ResourceFlowNode | null;
+    closeDelete: () => void;
+    cloneTarget: ResourceFlowNode | null;
+    closeClone: () => void;
+    renameTarget: ResourceFlowNode | null;
+    closeRename: () => void;
+  };
 }) {
   return (
     <>
-      <GraphNodeDeleteDialog target={deleteTarget} projectId={projectId} onClose={closeDelete} />
-      <GraphRenameDialog target={renameTarget} projectId={projectId} onClose={closeRename} />
+      <GraphNodeDeleteDialog target={menu.deleteTarget} projectId={projectId} onClose={menu.closeDelete} />
+      <GraphRenameDialog target={menu.renameTarget} projectId={projectId} onClose={menu.closeRename} />
       <GraphCloneDialog
         projectId={projectId}
         nodes={nodes}
-        target={cloneTarget}
-        onClose={closeClone}
+        target={menu.cloneTarget}
+        onClose={menu.closeClone}
       />
     </>
   );
