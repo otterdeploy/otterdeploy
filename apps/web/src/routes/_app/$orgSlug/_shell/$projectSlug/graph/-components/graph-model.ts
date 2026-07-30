@@ -189,7 +189,9 @@ export function useGraphModel(
       q
         .from({ r: resourceCollection })
         .where(({ r }) =>
-          and(eq(r.projectId, project.id), eq(r.environmentId, activeEnv.id ?? "")),
+          activeEnv.id
+            ? and(eq(r.projectId, project.id), eq(r.environmentId, activeEnv.id))
+            : eq(r.projectId, project.id),
         ),
     [project.id, activeEnv.id],
   );

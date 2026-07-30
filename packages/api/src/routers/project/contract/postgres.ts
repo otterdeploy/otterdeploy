@@ -11,7 +11,7 @@ import { eventIterator, oc } from "@orpc/contract";
 import * as z from "zod";
 
 import { postgresResourceSchema } from "./resource";
-import { basePath, resourceNotFoundErrors, tag } from "./shared";
+import { basePath, environmentIdField, resourceNotFoundErrors, tag } from "./shared";
 import { projectIdField, resourceIdField } from "./shared";
 
 // Env-key shape — Postgres-image friendly (libc convention). The derived
@@ -47,6 +47,10 @@ const restartPostgresInput = z.object({
 
 const createPostgresDatabaseInput = z.object({
   projectId: projectIdField,
+  /** Environment the database is created in. Omitted means the project's main
+   *  environment, and the row is stamped with it rather than left NULL — an
+   *  unstamped row is invisible to a strict environment filter. */
+  environmentId: environmentIdField.optional(),
   name: z.string().min(1),
   /** Database engine to provision. Default is postgres for back-compat
    *  with the original postgres-only contract; the wizard sends the

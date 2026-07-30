@@ -169,7 +169,28 @@ export async function listProjectResources(
     ),
   ]);
 
-  return Result.ok([...databaseViews, ...serviceViews, ...composeViews]);
+  // Report the EFFECTIVE environment, never a raw NULL.
+  //
+  // "Unstamped means the main environment" is the rule, and it has to hold on
+  // the wire, not just in the WHERE clause. A row that arrives with
+  // environmentId: null forces every consumer to re-derive which environment
+  // owns it, and the client's live queries compare with a strict equality — so
+  // a null read as "belongs to no environment" and the resource vanished from
+  // every environment, including the one that owns it. That is the disappearing
+  // -resource bug: the row was fetched and then filtered out client-side.
+  //
+  // The scope guarantees this is always main: `inEnvironmentScope` only admits
+  // null rows when isMain, so a null here cannot have come from any other
+  // environment.
+  const withEffectiveEnvironment = <T extends { environmentId: EnvironmentId | null }>(
+    views: T[],
+  ): T[] => views.map((v) => (v.environmentId ? v : { ...v, environmentId: scope.environmentId }));
+
+  return Result.ok([
+    ...withEffectiveEnvironment(databaseViews),
+    ...withEffectiveEnvironment(serviceViews),
+    ...withEffectiveEnvironment(composeViews),
+  ]);
 }
 
 export async function getProjectResource(

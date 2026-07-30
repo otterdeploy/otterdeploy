@@ -36,7 +36,9 @@ export function useComposeServiceStatus(resource: {
       q
         .from({ r: resourceCollection })
         .where(({ r }) =>
-          and(eq(r.projectId, resource.projectId), eq(r.environmentId, activeEnv.id ?? "")),
+          activeEnv.id
+            ? and(eq(r.projectId, resource.projectId), eq(r.environmentId, activeEnv.id))
+            : eq(r.projectId, resource.projectId),
         ),
     [resource.projectId, activeEnv.id],
   );

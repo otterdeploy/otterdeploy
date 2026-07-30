@@ -42,6 +42,7 @@ export const postgresResourceRouter = {
         projectId: input.projectId,
         organizationId: context.activeOrganizationId,
         name: input.name,
+        environmentId: input.environmentId,
       });
       if (validation.isErr()) {
         throw matchError(validation.error, {

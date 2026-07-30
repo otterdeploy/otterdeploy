@@ -39,7 +39,11 @@ export function TrafficPanel({ projectId }: { projectId: ProjectId }) {
     (q) =>
       q
         .from({ r: resourceCollection })
-        .where(({ r }) => and(eq(r.projectId, projectId), eq(r.environmentId, activeEnv.id ?? ""))),
+        .where(({ r }) =>
+          activeEnv.id
+            ? and(eq(r.projectId, projectId), eq(r.environmentId, activeEnv.id))
+            : eq(r.projectId, projectId),
+        ),
     [projectId, activeEnv.id],
   );
   const nameByResourceId = new Map(resources.map((r) => [r.resourceId as string, r.name]));
