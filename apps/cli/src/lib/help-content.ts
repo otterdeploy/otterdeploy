@@ -68,7 +68,10 @@ export const EXAMPLES: Record<string, Example[]> = {
     { note: "open a shell in a running container", run: "exec web" },
     { note: "target one replica", run: "exec web --replica 2" },
   ],
-  restart: [{ note: "restart with the current image and env", run: "restart web" }],
+  restart: [
+    { note: "restart with the current image and env", run: "restart web" },
+    { note: "roll a database the same way", run: "restart postgres" },
+  ],
   build: [{ note: "build from the bound branch and wait", run: "build web --wait" }],
   redeploy: [{ note: "rebuild from the head of the bound branch", run: "redeploy web" }],
   metrics: [{ note: "cpu, memory and network for one resource", run: "metrics web" }],
