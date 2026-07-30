@@ -9,7 +9,7 @@ import { getProject } from "./handlers";
 import { discardManifest, loadManifest, resolvedManifest, saveManifest } from "./manifest";
 import { applyManifest } from "./manifest-apply";
 import { loadRefTable, makeEnvRefResolver } from "./manifest-apply-refs";
-import { renameResource } from "./manifest-rename";
+import { renameResource } from "./manifest-rename-apply";
 import { loadCurrentState } from "./manifest-state";
 import { deleteDraftCredentialsNotIn } from "./queries";
 import { resolveProjectEnvironmentScope } from "./queries/resource";
