@@ -51,12 +51,7 @@ export type Tone = "success" | "failed" | "active" | "neutral" | "degraded";
  *  (drawer card) can drive the stepper without a shared shape. */
 export type TimelineInput = Pick<
   DeploymentRow,
-  | "status"
-  | "errorMessage"
-  | "taskCount"
-  | "runningTaskCount"
-  | "completedAt"
-  | "createdAt"
+  "status" | "errorMessage" | "taskCount" | "runningTaskCount" | "completedAt" | "createdAt"
 >;
 
 /** What the phase stepper needs to render one deployment. */

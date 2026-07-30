@@ -1,12 +1,11 @@
 import type { DeploymentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
-import { COMPOSE_FILENAMES } from "@otterdeploy/shared/compose";
-
 import { deployCompose } from "@otterdeploy/api/routers/compose/deploy";
 import { parseCompose } from "@otterdeploy/api/stack/compose/parse";
 import { summarizeCompose } from "@otterdeploy/api/stack/compose/summary";
 import { db } from "@otterdeploy/db";
 import { composeResource, deployment, resource } from "@otterdeploy/db/schema";
+import { COMPOSE_FILENAMES } from "@otterdeploy/shared/compose";
 /**
  * Build path for `type: compose` resources with `build:` services.
  *

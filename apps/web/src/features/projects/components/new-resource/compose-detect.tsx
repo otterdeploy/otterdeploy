@@ -16,12 +16,12 @@
  */
 
 import { detectComposeFilenames } from "@otterdeploy/shared/compose";
-import { skipToken, useQuery } from "@tanstack/react-query";
 import { useStore } from "@tanstack/react-form";
+import { skipToken, useQuery } from "@tanstack/react-query";
 
 import { Input } from "@/shared/components/ui/input";
-import { orpc } from "@/shared/server/orpc";
 import { cn } from "@/shared/lib/utils";
+import { orpc } from "@/shared/server/orpc";
 
 import type { ComposeForm } from "./compose-wizard-shared";
 
@@ -74,7 +74,9 @@ function DetectionHint({
   if (detection.kind === "idle" || detection.kind === "loading") {
     return (
       <span className="text-[11px] text-muted-foreground">
-        {detection.kind === "loading" ? "Looking for a compose file…" : "Select a repository above."}
+        {detection.kind === "loading"
+          ? "Looking for a compose file…"
+          : "Select a repository above."}
       </span>
     );
   }

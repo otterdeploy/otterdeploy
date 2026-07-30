@@ -107,7 +107,9 @@ describe("assertProviderCanServeSpa", () => {
       assertProviderCanServeSpa({ layout: { spaOutputDir: "dist", infoPath: infoFile([]) } }),
     ).not.toThrow();
     expect(() =>
-      assertProviderCanServeSpa({ layout: { spaOutputDir: "dist", infoPath: infoFile(undefined) } }),
+      assertProviderCanServeSpa({
+        layout: { spaOutputDir: "dist", infoPath: infoFile(undefined) },
+      }),
     ).not.toThrow();
   });
 });
