@@ -91,8 +91,6 @@ function isSecretDomain(value: string): value is SecretDomain {
   return (SECRET_DOMAINS as readonly string[]).includes(value);
 }
 
-// ── Keyring ─────────────────────────────────────────────────────────────
-
 /**
  * Parses the optional `DATA_ENCRYPTION_KEYS` keyring env var
  * (`id:secret,id:secret,...`) and always guarantees a `"1"` entry — falling
@@ -256,22 +254,27 @@ async function getDomainKey(domain: SecretDomain, keyId: string): Promise<Crypto
   return key;
 }
 
-// ── v1 (legacy, unchanged) ──────────────────────────────────────────────
+// ── AES-GCM ─────────────────────────────────────────────────────────────
+//
+// The raw seal/open both envelope versions run. Only the key and the envelope
+// framing differ between v1 and v2 — the cipher, the nonce size, and the
+// "fresh nonce per call" rule must NOT, so they live in one place. Nonce reuse
+// under a single key is the failure mode that breaks GCM outright.
 
-export async function encryptSecret(plaintext: string): Promise<string> {
-  const key = await getLegacyKey();
+async function seal(
+  key: CryptoKey,
+  plaintext: string,
+): Promise<{ nonce: Uint8Array; ciphertext: Uint8Array }> {
   const nonce = crypto.getRandomValues(new Uint8Array(NONCE_BYTES));
   const ciphertext = await crypto.subtle.encrypt(
     { name: "AES-GCM", iv: nonce },
     key,
     new TextEncoder().encode(plaintext),
   );
-  return formatV1Envelope(nonce, new Uint8Array(ciphertext));
+  return { nonce, ciphertext: new Uint8Array(ciphertext) };
 }
 
-export async function decryptSecret(blob: string): Promise<string> {
-  const { nonce, ciphertext } = parseV1Envelope(blob);
-  const key = await getLegacyKey();
+async function open(key: CryptoKey, nonce: Uint8Array, ciphertext: Uint8Array): Promise<string> {
   const plaintext = await crypto.subtle.decrypt(
     { name: "AES-GCM", iv: nonce.buffer as ArrayBuffer },
     key,
@@ -280,18 +283,25 @@ export async function decryptSecret(blob: string): Promise<string> {
   return new TextDecoder().decode(plaintext);
 }
 
+// ── v1 (legacy, unchanged) ──────────────────────────────────────────────
+
+export async function encryptSecret(plaintext: string): Promise<string> {
+  const { nonce, ciphertext } = await seal(await getLegacyKey(), plaintext);
+  return formatV1Envelope(nonce, ciphertext);
+}
+
+export async function decryptSecret(blob: string): Promise<string> {
+  const { nonce, ciphertext } = parseV1Envelope(blob);
+  return open(await getLegacyKey(), nonce, ciphertext);
+}
+
 // ── v2 (domain-separated + versioned) ───────────────────────────────────
 
 /** Encrypt `plaintext` for `domain` under the current key id. */
 export async function encryptForDomain(plaintext: string, domain: SecretDomain): Promise<string> {
   const key = await getDomainKey(domain, CURRENT_KEY_ID);
-  const nonce = crypto.getRandomValues(new Uint8Array(NONCE_BYTES));
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv: nonce },
-    key,
-    new TextEncoder().encode(plaintext),
-  );
-  return formatV2Envelope(domain, CURRENT_KEY_ID, nonce, new Uint8Array(ciphertext));
+  const { nonce, ciphertext } = await seal(key, plaintext);
+  return formatV2Envelope(domain, CURRENT_KEY_ID, nonce, ciphertext);
 }
 
 /**
@@ -328,12 +338,7 @@ export async function decryptForDomain(blob: string, domain: SecretDomain): Prom
     throw new Error(`decryptForDomain: unknown domain "${parsed.domain}" in envelope`);
   }
   const key = await getDomainKey(parsed.domain, parsed.keyId);
-  const plaintext = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: parsed.nonce.buffer as ArrayBuffer },
-    key,
-    parsed.ciphertext.buffer as ArrayBuffer,
-  );
-  return new TextDecoder().decode(plaintext);
+  return open(key, parsed.nonce, parsed.ciphertext);
 }
 
 /** The key id a ciphertext was encrypted under. `"1"` for v1 (it predates
