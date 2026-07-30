@@ -25,6 +25,7 @@
 
 import type { GitProviderId } from "@otterdeploy/shared/id";
 
+import { base64UrlEncode } from "@otterdeploy/shared/crypto";
 import { egressFetch, EgressPolicyError } from "@otterdeploy/shared/egress-policy";
 import { TaggedError } from "better-result";
 import { createError } from "evlog";
@@ -546,14 +547,4 @@ export async function upsertPrComment(input: {
       why: body.slice(0, 500),
     });
   }
-}
-
-// ---------------------------------------------------------------------------
-// helpers
-// ---------------------------------------------------------------------------
-
-function base64UrlEncode(bytes: Uint8Array): string {
-  let bin = "";
-  for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
 }
