@@ -34,6 +34,22 @@ export interface TableRef {
   name: string;
 }
 
+/** A table plus the engine's own row estimate (`information_schema.table_rows`,
+ *  null when the storage engine doesn't report one). */
+export interface TableEntry extends TableRef {
+  estimatedRows?: number | null;
+}
+
+const COMPACT_COUNT_FORMAT = new Intl.NumberFormat("en", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+/** 1234 → "1.2K" — the rail is narrow, and the estimate is approximate anyway. */
+function compactCount(n: number): string {
+  return COMPACT_COUNT_FORMAT.format(n);
+}
+
 /** Left rail: schema-qualified table list with loading / error / empty states. */
 export function TablePicker({
   isLoading,
@@ -46,7 +62,7 @@ export function TablePicker({
   isLoading: boolean;
   isError: boolean;
   onRetry: () => void;
-  tables: TableRef[];
+  tables: TableEntry[];
   active: TableRef | null;
   onPick: (t: TableRef) => void;
 }) {
@@ -81,7 +97,15 @@ export function TablePicker({
                     strokeWidth={2}
                     className="size-3.5 shrink-0 opacity-60"
                   />
-                  <span className="truncate">{t.name}</span>
+                  <span className="min-w-0 flex-1 truncate" title={`${t.schema}.${t.name}`}>
+                    {t.name}
+                  </span>
+                  {/* Engine estimate (information_schema.table_rows) — never a count(*). */}
+                  {t.estimatedRows != null ? (
+                    <span className="shrink-0 text-[10px] text-muted-foreground/60">
+                      ~{compactCount(t.estimatedRows)}
+                    </span>
+                  ) : null}
                 </button>
               </li>
             );

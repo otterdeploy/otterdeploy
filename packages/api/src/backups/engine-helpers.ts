@@ -50,17 +50,25 @@ export function dumpCommand(ctx: DumpTarget): {
         ext: "dump.gz",
         method: "pg_dump --format=custom | gzip",
       };
-    case "mariadb":
+    case "mariadb": {
+      // The MariaDB Docker Official Image dropped the `mysql*` symlinks at 11.0
+      // (the dumper is `mariadb-dump` now) and we provision `mariadb:12` by
+      // default, so `mysqldump` is absent from every MariaDB we ship. Genuine
+      // `mysql:*` images map onto this same engine and have only `mysqldump`,
+      // so pick whichever the container actually has rather than renaming.
+      const args = `-u ${shellQuote(ctx.username)} ${shellQuote(ctx.databaseName)}`;
       return {
         cmd: [
           "sh",
           "-c",
-          `exec mysqldump -u ${shellQuote(ctx.username)} ${shellQuote(ctx.databaseName)}`,
+          `if command -v mariadb-dump >/dev/null 2>&1; then exec mariadb-dump ${args}; fi; ` +
+            `exec mysqldump ${args}`,
         ],
         env: [`MYSQL_PWD=${ctx.password}`],
         ext: "sql.gz",
-        method: "mysqldump | gzip",
+        method: "mariadb-dump | gzip",
       };
+    }
     case "mongodb":
       return {
         cmd: [

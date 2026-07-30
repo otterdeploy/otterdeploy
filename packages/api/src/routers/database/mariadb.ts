@@ -2,35 +2,55 @@
  * MariaDB/MySQL data-viewer engine. Like the Postgres viewer this is relational,
  * but to keep it strictly read-only with no client SQL it's a table BROWSER (not
  * a free-text console): list tables, then page through a table's rows. Every
- * statement is built server-side (information_schema list + `SELECT * FROM
- * <quoted> LIMIT/OFFSET`), so there is no injection surface and nothing can
- * write.
+ * statement is built server-side (see mariadb-shape.ts), so there is no
+ * injection surface and nothing can write.
  *
  * Runs inside the database's own task container via the same Docker exec channel
  * the backup engine + redis viewer use, so creds never touch the overlay network
- * (password via `MYSQL_PWD`, off argv). Output is `mysql --batch` (tab-delimited,
+ * (password via `MYSQL_PWD`, off argv). Output is `--batch` (tab-delimited,
  * NULL as `\N`, control chars backslash-escaped) which we parse + unescape.
+ *
+ * The client binary is PROBED, not assumed: the MariaDB Docker Official Image
+ * dropped the `mysql*` symlinks at 11.0 in favour of `mariadb*`, and we default
+ * to `mariadb:12` — so the old hardcoded `mysql` exec never found an executable
+ * and the whole Data tab surfaced as "Couldn't list tables". See
+ * CLIENT_CANDIDATES for why `mysql` is still a fallback.
  */
 import { Docker } from "@otterdeploy/docker";
 
+import type { MariadbGrid, MariadbTable } from "./mariadb-shape";
+
 import { execCapture, findResourceContainerId } from "../../backups/exec";
 import { buildContainerName } from "../project/views";
+import {
+  CLIENT_CANDIDATES,
+  CLIENT_PROBE_SCRIPT,
+  buildBrowseSql,
+  buildPrimaryKeySql,
+  buildTablesSql,
+  pickClientPath,
+  shapeGrid,
+  shapePrimaryKey,
+  shapeTables,
+} from "./mariadb-shape";
 import { type DbConnInfo, QueryError, UnsupportedEngineError } from "./query";
 
-export interface MariadbTable {
-  schema: string;
-  name: string;
-}
+export type { MariadbGrid, MariadbTable } from "./mariadb-shape";
 
-export interface MariadbGrid {
-  columns: string[];
-  rows: Array<Array<string | null>>;
-  /** True when another page exists (we fetched `limit + 1`). */
-  hasMore: boolean;
+/** Locate the client inside the container. One extra exec per `withMysql`
+ *  block, amortized across every statement that block runs. */
+async function resolveClientPath(docker: Docker, containerId: string): Promise<string> {
+  const probe = await execCapture(docker, containerId, ["sh", "-c", CLIENT_PROBE_SCRIPT], {
+    allowNonZero: true,
+  });
+  const path = pickClientPath(probe.stdout);
+  if (!path) {
+    throw new QueryError(
+      `no MariaDB/MySQL client in the container (looked for ${CLIENT_CANDIDATES.join(", ")})`,
+    );
+  }
+  return path;
 }
-
-/** System schemas hidden from the browser. */
-const SYSTEM_SCHEMAS = ["information_schema", "mysql", "performance_schema", "sys"];
 
 // Exported so the org-catalog stats collector can issue its own read-only
 // statements through the same exec channel (password via MYSQL_PWD, off argv).
@@ -50,18 +70,20 @@ export async function withMysql<T>(
     if (!containerId) {
       throw new QueryError(`mariadb container for ${serviceName} is not running`);
     }
+    const client = await resolveClientPath(docker, containerId);
     const run = async (sql: string) => {
-      // `mysql` (and the `mariadb` client alias) read the password from
-      // MYSQL_PWD, keeping it off argv. `--batch` gives parseable tab-delimited
-      // output; `-N` is NOT passed so the header row carries column names.
+      // Both clients read the password from MYSQL_PWD, keeping it off argv
+      // (MariaDB kept the MySQL-named env var when it renamed the binaries).
+      // `--batch` gives parseable tab-delimited output; `-N` is NOT passed so
+      // the header row carries column names.
       const result = await execCapture(
         docker,
         containerId,
-        ["mysql", "-u", conn.username, "--batch", "-e", sql],
+        [client, "-u", conn.username, "--batch", "-e", sql],
         { env: [`MYSQL_PWD=${conn.password}`], allowNonZero: true },
       );
       if (result.exitCode !== 0) {
-        throw new QueryError(result.stderr.trim() || "mysql command failed");
+        throw new QueryError(result.stderr.trim() || `${client} command failed`);
       }
       return result.stdout;
     };
@@ -71,64 +93,20 @@ export async function withMysql<T>(
   }
 }
 
-/** Quote a MySQL identifier with backticks (internal backticks doubled). */
-function quoteIdent(name: string): string {
-  return `\`${name.replace(/`/g, "``")}\``;
-}
-
-/** Parse `mysql --batch` output (tab-delimited, escaped) into a grid. */
-function parseBatch(out: string): { columns: string[]; rows: string[][] } {
-  const lines = out.replace(/\n$/, "").split("\n");
-  if (lines.length === 0 || (lines.length === 1 && lines[0] === "")) {
-    return { columns: [], rows: [] };
-  }
-  const split = (line: string) => line.split("\t");
-  const columns = split(lines[0] ?? "").map((c) => unescapeCell(c) ?? c);
-  const rows = lines.slice(1).map(split);
-  return { columns, rows: rows.map((r) => r.map((c) => c)) };
-}
-
-/** Unescape one `mysql --batch` field. `\N` (exactly) is SQL NULL; control
- *  chars are backslash-escaped (`\t` `\n` `\0` `\\`). */
-function unescapeCell(field: string): string | null {
-  if (field === "\\N") return null;
-  return field.replace(/\\([tn0\\])/g, (_, c: string) =>
-    c === "t" ? "\t" : c === "n" ? "\n" : c === "0" ? "\0" : "\\",
-  );
-}
-
-/** List user tables (excludes system schemas). */
+/** List user tables with the engine's row estimate (excludes system schemas). */
 export async function mariadbTables(conn: DbConnInfo): Promise<MariadbTable[]> {
-  return withMysql(conn, async (run) => {
-    const notIn = SYSTEM_SCHEMAS.map((s) => `'${s}'`).join(", ");
-    const out = await run(
-      `SELECT table_schema, table_name FROM information_schema.tables ` +
-        `WHERE table_schema NOT IN (${notIn}) AND table_type = 'BASE TABLE' ` +
-        `ORDER BY table_schema, table_name`,
-    );
-    const { rows } = parseBatch(out);
-    return rows.map((r) => ({
-      schema: unescapeCell(r[0] ?? "") ?? "",
-      name: unescapeCell(r[1] ?? "") ?? "",
-    }));
-  });
+  return withMysql(conn, async (run) => shapeTables(await run(buildTablesSql())));
 }
 
-/** Page through a table's rows (read-only `SELECT *`). */
+/** Page through a table's rows (read-only `SELECT *`, primary-key ordered). */
 export async function mariadbBrowse(
   conn: DbConnInfo,
   opts: { schema: string; table: string; limit: number; offset: number },
 ): Promise<MariadbGrid> {
   return withMysql(conn, async (run) => {
-    const target = `${quoteIdent(opts.schema)}.${quoteIdent(opts.table)}`;
-    // Fetch one extra to detect a next page without a COUNT(*).
-    const out = await run(`SELECT * FROM ${target} LIMIT ${opts.limit + 1} OFFSET ${opts.offset}`);
-    const { columns, rows } = parseBatch(out);
-    const hasMore = rows.length > opts.limit;
-    return {
-      columns,
-      rows: rows.slice(0, opts.limit).map((r) => r.map(unescapeCell)),
-      hasMore,
-    };
+    // Resolve the primary key first so paging is stable — see buildBrowseSql.
+    const pk = shapePrimaryKey(await run(buildPrimaryKeySql(opts.schema, opts.table)));
+    const out = await run(buildBrowseSql({ ...opts, pk }));
+    return shapeGrid(out, opts.limit);
   });
 }
