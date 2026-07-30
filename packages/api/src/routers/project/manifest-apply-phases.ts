@@ -59,7 +59,6 @@ function tallyResults(
   return { applied, skipped, gitBuilds: [] };
 }
 
-// ── 1. Database creates ────────────────────────────────────────────────
 export async function runDatabaseCreates(
   ctx: ApplyContext,
   changes: Change[],
@@ -83,7 +82,6 @@ export async function runDatabaseCreates(
   return tallyResults(results);
 }
 
-// ── 4b. Compose stack creates ──────────────────────────────────────────
 export async function runComposeCreates(
   ctx: ApplyContext,
   changes: Change[],
@@ -131,7 +129,6 @@ export async function runDatabaseUpdates(
   return tallyResults(results);
 }
 
-// ── 6. Service deletes ─────────────────────────────────────────────────
 export async function runServiceDeletes(
   ctx: ApplyContext,
   changes: Change[],
