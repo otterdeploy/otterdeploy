@@ -11,7 +11,7 @@ import { deployment, resource, serviceResource } from "@otterdeploy/db/schema";
 import { triggerDeploy } from "@otterdeploy/jobs";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 
-import { emitDeployStarted } from "../routers/project/deployments";
+import { emitDeployStarted } from "../routers/project/deployments-emit";
 
 export interface TriggerPreviewBuildInput {
   projectId: ProjectId;

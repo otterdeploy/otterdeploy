@@ -237,11 +237,3 @@ export async function getResourceDeploymentById(
     .limit(1);
   return row ?? null;
 }
-
-export { emitDeployStarted } from "./deployments-emit";
-export {
-  listResourceDeployments,
-  reconcileDeploySuccess,
-  type DeploymentWithStats,
-} from "./deployments-list";
-export { listTasksForDeployment, type DeploymentTaskInfo } from "./deployments-tasks";

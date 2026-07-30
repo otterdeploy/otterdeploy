@@ -21,7 +21,7 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { fetchBranchHead } from "../../git/github-app";
 import { type ServiceManifest } from "../../stack/manifest";
 import { inspectRepoTree } from "../git/inspect";
-import { emitDeployStarted } from "./deployments";
+import { emitDeployStarted } from "./deployments-emit";
 import { publishResourceChanged } from "./project-event-bus";
 
 export async function enqueueGitBuild(args: {

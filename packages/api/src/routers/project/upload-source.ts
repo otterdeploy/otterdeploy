@@ -20,7 +20,7 @@ import { triggerDeploy } from "@otterdeploy/jobs";
 import { Result } from "better-result";
 import { and, eq } from "drizzle-orm";
 
-import { emitDeployStarted } from "./deployments";
+import { emitDeployStarted } from "./deployments-emit";
 import { publishResourceChanged } from "./project-event-bus";
 
 export interface UploadDeploymentTarget {

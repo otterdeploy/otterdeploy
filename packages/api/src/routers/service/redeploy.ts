@@ -14,7 +14,8 @@ import { loadPreviewScope } from "../../lib/environment/load";
 import { resolveRuntimeScope } from "../../lib/environment/runtime-scope";
 import { findTransitiveDependents, resolveServiceEnv } from "../../lib/variables";
 import { runtime } from "../../runtime";
-import { markDeploymentFailed, reconcileDeploySuccess } from "../project/deployments";
+import { markDeploymentFailed } from "../project/deployments";
+import { reconcileDeploySuccess } from "../project/deployments-reconcile";
 import { ServiceNotFoundError, type ResolveError } from "./errors";
 import {
   bumpForceUpdateCounter,
