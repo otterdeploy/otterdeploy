@@ -144,7 +144,15 @@ export function UpdateOutcome({
         <span className="text-[12px] text-success">
           Simulated update complete. No containers were changed.
         </span>
-        <Button type="button" size="sm" variant="outline" onClick={onDone}>
+        {/* Reloads, like the real-cutover Done below it.
+            Nothing changed in a dry run, so a reload is not strictly needed —
+            but dev is dry-run by default (resolveDryRun: NODE_ENV !==
+            "production"), which makes this the ONLY Done anyone sees while
+            developing. Leaving it as close-only meant the reload could not be
+            observed in the one environment it was being tested in, and the
+            button read as broken. One behaviour for one label beats a
+            distinction the operator cannot see. */}
+        <Button type="button" size="sm" variant="outline" onClick={() => window.location.reload()}>
           Done
         </Button>
       </div>
