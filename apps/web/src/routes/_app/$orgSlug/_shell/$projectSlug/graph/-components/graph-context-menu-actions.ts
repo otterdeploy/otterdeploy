@@ -55,6 +55,7 @@ export function useGraphContextMenu({
   // Same reason as deleteTarget — the menu unmounts on click, so the dialog is
   // rendered as its sibling by GraphCanvas.
   const [cloneTarget, setCloneTarget] = useState<ResourceFlowNode | null>(null);
+  const [renameTarget, setRenameTarget] = useState<ResourceFlowNode | null>(null);
   const close = () => setTarget(null);
 
   const dbRestart = useMutation({
@@ -114,6 +115,10 @@ export function useGraphContextMenu({
       close();
       setDeleteTarget(node);
     },
+    onRename: (node) => {
+      close();
+      setRenameTarget(node);
+    },
     onClone: (node) => {
       close();
       // Seeds the dialog's selection; the operator widens it there. Cloning a
@@ -161,5 +166,7 @@ export function useGraphContextMenu({
     closeDelete: () => setDeleteTarget(null),
     cloneTarget,
     closeClone: () => setCloneTarget(null),
+    renameTarget,
+    closeRename: () => setRenameTarget(null),
   };
 }

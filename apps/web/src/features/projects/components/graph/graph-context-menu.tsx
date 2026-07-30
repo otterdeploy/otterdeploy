@@ -10,6 +10,7 @@ import {
   Cancel01Icon,
   Copy01Icon,
   Delete02Icon,
+  PencilEdit02Icon,
   Loading03Icon,
   PlayIcon,
   PlusSignIcon,
@@ -40,6 +41,7 @@ export interface GraphContextMenuActions {
   onCopyHostname: (node: ResourceFlowNode) => void;
   onDelete: (node: ResourceFlowNode) => void;
   onClone: (node: ResourceFlowNode) => void;
+  onRename: (node: ResourceFlowNode) => void;
   onNewService: () => void;
   onFitView: () => void;
 }
@@ -175,11 +177,21 @@ function NodeMenuItems({
           </DropdownMenuItem>
         </>
       )}
+      {/* Rename is offered ONLY while the resource is still pending. Once it's
+          deployed its container, swarm service and volume names are derived
+          from this name, so a rename would repoint the project at
+          infrastructure that doesn't exist. */}
       {!isReal && (
-        <DropdownMenuItem disabled>
-          <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
-          Not deployed yet
-        </DropdownMenuItem>
+        <>
+          <DropdownMenuItem onClick={() => actions.onRename(node)}>
+            <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} />
+            Rename…
+          </DropdownMenuItem>
+          <DropdownMenuItem disabled>
+            <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
+            Not deployed yet
+          </DropdownMenuItem>
+        </>
       )}
     </>
   );

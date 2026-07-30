@@ -372,6 +372,8 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
         closeDelete={contextMenu.closeDelete}
         cloneTarget={contextMenu.cloneTarget}
         closeClone={contextMenu.closeClone}
+        renameTarget={contextMenu.renameTarget}
+        closeRename={contextMenu.closeRename}
       />
     </>
   );
