@@ -30,11 +30,12 @@ import { customCertificate } from "@otterdeploy/db/schema/certificates";
 import { project } from "@otterdeploy/db/schema/project";
 import { DATA_ROOT } from "@otterdeploy/shared/paths";
 import { eq, inArray, ne } from "drizzle-orm";
-import { mkdir, rm, writeFile } from "node:fs/promises";
-import { join, resolve, sep } from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 
 import type { ProxyRouteInput } from "./builder";
 
+import { removeGuardedDir } from "../lib/data-dir";
 import { asStepLogger } from "../lib/logger";
 import { certCoversDomain } from "../lib/x509";
 
@@ -157,12 +158,9 @@ export async function materializeCustomCerts(rlog?: RequestLogger): Promise<Serv
 }
 
 /** Remove a deleted cert's files. Guarded to inside DATA_ROOT and to a path
- *  ending in the cert id (same insurance as data-dir.ts); best-effort. */
+ *  ending in the cert id by {@link removeGuardedDir}; best-effort. */
 export async function removeCustomCertFiles(id: CustomCertificateId): Promise<void> {
-  const dir = resolve(join(caddyCertsHostDir(), id));
-  const root = resolve(DATA_ROOT);
-  if (!dir.startsWith(root + sep) || !dir.endsWith(id)) return;
-  await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  await removeGuardedDir(join(caddyCertsHostDir(), id), id);
 }
 
 /** projectId → organizationId for the given projects (custom certs are
