@@ -112,6 +112,10 @@ export async function railpackBuild(opts: {
     throw new Error(`railpack prepare failed (exit ${prepared.exitCode})`);
   }
 
+  // The plan is now on disk and names the provider actually chosen. Check it
+  // against what we told railpack to serve BEFORE spending a build on it.
+  assertProviderCanServeSpa({ layout });
+
   opts.sink.system(`building image ${shaTag} with railpack`);
   const built = await runProcess({
     cmd: "docker",
@@ -302,6 +306,57 @@ function nodeBuildMaxOldSpaceMb(): number {
     // /proc unavailable (non-Linux, restricted) — fall through to the default.
   }
   return 2048;
+}
+
+/**
+ * Providers that ship files as-is: they run no build step, so whatever is in
+ * the repo is what gets served. Asking one of these to serve a build *output*
+ * directory is a contradiction — nothing will ever create it.
+ */
+const NON_BUILDING_PROVIDERS = new Set(["staticfile"]);
+
+/**
+ * Refuse a build whose declared SPA output directory the chosen provider can
+ * never produce.
+ *
+ * The incident: a service configured `spa` with output `dist` logged
+ * `SPA mode: serving "dist" via Caddy with history fallback`, and only
+ * afterwards did railpack report `↳ Detected Staticfile`. The Staticfile
+ * provider's entire build was `caddy fmt --overwrite Caddyfile` — it never runs
+ * a bundler — so the image shipped a Caddy rooted at a `dist/` that did not
+ * exist. Every request 404'd. The two log lines contradicted each other on
+ * screen, in order, and the build proceeded anyway.
+ *
+ * The mismatch is knowable the moment `prepare` writes its analysis, which is
+ * before a single layer is pulled. Fail there, with the fix in the message,
+ * rather than shipping an image that is guaranteed to serve nothing.
+ */
+export function assertProviderCanServeSpa(opts: {
+  layout: Pick<BuildLayout, "spaOutputDir" | "infoPath">;
+}): void {
+  const { spaOutputDir, infoPath } = opts.layout;
+  if (!spaOutputDir) return;
+
+  let providers: string[];
+  try {
+    const info = JSON.parse(readFileSync(infoPath, "utf8")) as { detectedProviders?: string[] };
+    providers = info.detectedProviders ?? [];
+  } catch {
+    // No analysis to read: don't invent a failure from a missing file. The
+    // build proceeds exactly as it did before this check existed.
+    return;
+  }
+
+  const offending = providers.filter((p) => NON_BUILDING_PROVIDERS.has(p.toLowerCase()));
+  if (offending.length === 0 || offending.length !== providers.length) return;
+
+  throw new Error(
+    `This service is set to serve the build output directory "${spaOutputDir}", but Railpack ` +
+      `detected only the ${offending.join(", ")} provider, which runs no build step and would ` +
+      `serve an empty directory. Railpack usually falls back to Staticfile when it cannot find a ` +
+      `project manifest — check that the root directory contains the package.json (or Dockerfile) ` +
+      `for this app.`,
+  );
 }
 
 function buildPrepareArgs(opts: {

@@ -48,3 +48,38 @@ export interface ComposeFile {
   path: string;
   content: string;
 }
+
+/**
+ * The filenames `docker compose` itself looks for, in its precedence order.
+ *
+ * This list lived in three places at once — the builder's clone probe, the api
+ * handler's inline-tree picker, and (implicitly) the wizard's "auto-detect"
+ * placeholder, which promised a detection it never performed. Three copies of
+ * a convention is three chances to disagree about what counts as a compose
+ * file, and the wizard's copy being *empty* is exactly how a repo with a
+ * perfectly valid `docker-compose.yml` reached the build step with nothing
+ * detected. One list, imported everywhere.
+ */
+export const COMPOSE_FILENAMES = [
+  "compose.yml",
+  "compose.yaml",
+  "docker-compose.yml",
+  "docker-compose.yaml",
+] as const;
+
+/**
+ * Pick the compose file out of a flat directory listing, honouring the
+ * precedence above. `names` is any set of filenames in a single directory
+ * (a git tree listing, a readdir); returns null when none qualifies.
+ */
+export function detectComposeFilename(names: Iterable<string>): string | null {
+  const present = new Set(names);
+  return COMPOSE_FILENAMES.find((name) => present.has(name)) ?? null;
+}
+
+/** Every compose-looking filename in a listing, in precedence order. Used by
+ *  the wizard to disambiguate when a repo ships more than one. */
+export function detectComposeFilenames(names: Iterable<string>): string[] {
+  const present = new Set(names);
+  return COMPOSE_FILENAMES.filter((name) => present.has(name));
+}

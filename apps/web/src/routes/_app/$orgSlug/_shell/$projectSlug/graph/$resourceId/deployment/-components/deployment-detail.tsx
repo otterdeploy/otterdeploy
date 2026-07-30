@@ -76,6 +76,8 @@ const TONE_STYLE: Record<Tone, { border: string; head: string; text: string }> =
   failed: { border: "border-destructive/30", head: "bg-destructive/[0.07]", text: "text-destructive" },
   active: { border: "border-warning/30", head: "bg-warning/[0.06]", text: "text-warning" },
   neutral: { border: "border-border", head: "bg-muted/40", text: "text-foreground/90" },
+  // Live, but not every replica is up — warning, not success and not error.
+  degraded: { border: "border-warning/30", head: "bg-warning/[0.06]", text: "text-warning" },
 };
 
 function DeploymentTimeline({ deployment }: { deployment: DeploymentRow }) {

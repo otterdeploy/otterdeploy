@@ -15,6 +15,7 @@
 import type { ProjectSlug } from "@otterdeploy/shared/id";
 
 import {
+  Alert02Icon,
   ArrowRight01Icon,
   Cancel01Icon,
   CheckmarkCircle02Icon,
@@ -43,6 +44,7 @@ const TONE_TEXT: Record<Tone, string> = {
   failed: "text-destructive",
   active: "text-warning",
   neutral: "text-foreground/90",
+  degraded: "text-warning",
 };
 
 const PHASE_TEXT: Record<PhaseState, string> = {
@@ -73,6 +75,7 @@ export function DeploymentTimelineView({
         className={cn(
           "flex items-center justify-between gap-3 px-4 py-2.5",
           tone === "failed" && "bg-destructive/[0.05]",
+          tone === "degraded" && "bg-warning/[0.06]",
         )}
       >
         <div className="flex items-center gap-2.5">
@@ -88,7 +91,7 @@ export function DeploymentTimelineView({
       {phases.map((phase) => (
         <PhaseRow key={phase.key} phase={phase} link={link} />
       ))}
-      {tone === "failed" && <DiagnoseRow link={link} />}
+      {(tone === "failed" || tone === "degraded") && <DiagnoseRow link={link} />}
     </div>
   );
 }
@@ -170,6 +173,10 @@ function DiagnoseRow({ link }: { link: LinkCtx }) {
 
 function ToneIcon({ tone }: { tone: Tone }) {
   if (tone === "active") return <Spinner className="size-4 text-warning" />;
+  // Not a spinner: nothing is still in progress. Not a green check either —
+  // the replicas are down. A static warning glyph is the honest middle.
+  if (tone === "degraded")
+    return <HugeiconsIcon icon={Alert02Icon} strokeWidth={2} className="size-4 text-warning" />;
   if (tone === "failed")
     return (
       <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2.5} className="size-4 text-destructive" />

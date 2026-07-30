@@ -95,6 +95,62 @@ function resolveRailpackPin(appDir: string, customPath: string): DockerfileResol
   return railpack();
 }
 
+/**
+ * Files that mark a directory as the root of something buildable. Not a
+ * detection list — railpack owns that — just "a human put a project here".
+ */
+const PROJECT_MANIFESTS = [
+  "package.json",
+  DEFAULT_DOCKERFILE,
+  "go.mod",
+  "Cargo.toml",
+  "pyproject.toml",
+  "requirements.txt",
+  "Gemfile",
+  "composer.json",
+  "pom.xml",
+  "build.gradle",
+  "mix.exs",
+  "deno.json",
+];
+
+/**
+ * Warn about a `sourceSubdir` that is probably not what the operator meant.
+ *
+ * Both checks come from one incident. A service was configured with root
+ * directory `client` — a folder holding `index.html` and `src/`, but no
+ * `package.json` (it sits at the repo root) and no Dockerfile (also at the
+ * repo root). Auto-resolution looked only inside `client`, found no Dockerfile,
+ * and handed off to railpack; railpack's node provider needs a `package.json`,
+ * so it fell through to the Staticfile provider, which matched on `index.html`
+ * and produced a Caddy image serving a `dist/` that nothing ever built. Every
+ * request 404'd, and the deployment was reported as successful.
+ *
+ * Every fact needed to catch that was on disk before the build started. The
+ * mirror case — railpack pinned while a Dockerfile is present — has warned all
+ * along (see resolveRailpackPin); a subdir *hiding* the Dockerfile was the gap.
+ */
+function diagnoseSubdir(workDir: string, subdir: string, appDir: string): string[] {
+  const warnings: string[] = [];
+
+  if (isFile(join(workDir, DEFAULT_DOCKERFILE))) {
+    warnings.push(
+      `Found a Dockerfile at the repository root, but the root directory is set to "${subdir}", ` +
+        `which has none — building with Railpack instead. Clear the root directory to use it.`,
+    );
+  }
+
+  if (!PROJECT_MANIFESTS.some((name) => isFile(join(appDir, name)))) {
+    warnings.push(
+      `Root directory "${subdir}" contains no project manifest ` +
+        `(${PROJECT_MANIFESTS.slice(0, 3).join(", ")}, …). ` +
+        `Railpack may not detect the right builder for it.`,
+    );
+  }
+
+  return warnings;
+}
+
 export function resolveDockerfileBuild(opts: {
   builder: Builder;
   dockerfilePath: string | null | undefined;
@@ -140,12 +196,17 @@ export function resolveDockerfileBuild(opts: {
         `Build method is set to Dockerfile, but ${relativePath} was not found in the repository.`,
       );
     }
+    // A subdir can hide the very Dockerfile that would have been chosen, so
+    // diagnose it on every fall-through to railpack — including the custom-path
+    // miss, where the wrong root directory is a likely cause of the miss.
+    const subdirWarnings = subdir ? diagnoseSubdir(opts.workDir, subdir, appDir) : [];
     if (customPath) {
       return railpack([
         `Custom Dockerfile path ${customPath} was not found; falling back to Railpack.`,
+        ...subdirWarnings,
       ]);
     }
-    return railpack();
+    return railpack(subdirWarnings);
   }
 
   return {
