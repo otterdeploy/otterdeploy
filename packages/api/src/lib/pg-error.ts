@@ -101,7 +101,7 @@ export function pgErrorInfo(error: unknown): PgErrorInfo | null {
 }
 
 /** True when `error` is the given SQLSTATE. */
-export function isPgError(error: unknown, code: PgErrorCode): boolean {
+function isPgError(error: unknown, code: PgErrorCode): boolean {
   return pgErrorCode(error) === code;
 }
 
@@ -115,10 +115,6 @@ export function isForeignKeyViolation(error: unknown): boolean {
 
 export function isNotNullViolation(error: unknown): boolean {
   return isPgError(error, PgErrorCode.NOT_NULL_VIOLATION);
-}
-
-export function isCheckViolation(error: unknown): boolean {
-  return isPgError(error, PgErrorCode.CHECK_VIOLATION);
 }
 
 /** Transient failures worth retrying rather than reporting. */

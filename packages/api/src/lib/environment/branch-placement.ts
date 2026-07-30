@@ -31,7 +31,7 @@ import { and, eq } from "drizzle-orm";
 import { isSwarmRuntime } from "../../runtime";
 
 /** The bootstrap row: the host running otterdeploy itself. */
-export async function controlPlaneServerId(
+async function controlPlaneServerId(
   organizationId: OrganizationId,
 ): Promise<ServerId | null> {
   const [row] = await db

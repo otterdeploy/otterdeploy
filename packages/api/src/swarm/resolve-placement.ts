@@ -87,7 +87,7 @@ async function resolve(input: {
  * Placement for a stateless resource. Never throws: an unresolvable pin
  * degrades to "schedule anywhere" with a warning the caller should surface.
  */
-export async function resolvePlacementNodeId(input: {
+async function resolvePlacementNodeId(input: {
   placementServerId: ServerId | string | null | undefined;
   organizationId: OrganizationId;
 }): Promise<PlacementOutcome> {
@@ -99,7 +99,7 @@ export async function resolvePlacementNodeId(input: {
  * Placement for a resource with a local volume. Throws rather than deploying
  * a stateful service away from its data — see the module note.
  */
-export async function requirePlacementNodeId(input: {
+async function requirePlacementNodeId(input: {
   placementServerId: ServerId | string | null | undefined;
   organizationId: OrganizationId;
   /** Named in the error so the operator knows which resource stalled. */

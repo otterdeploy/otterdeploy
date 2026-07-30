@@ -16,7 +16,7 @@ import type { ReviewModel } from "./review-model";
 
 import { I } from "../icons";
 
-export function ReviewRow({
+function ReviewRow({
   label,
   value,
   last,

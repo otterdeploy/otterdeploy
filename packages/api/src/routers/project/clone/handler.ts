@@ -30,7 +30,7 @@ import { getProjectInOrg } from "../queries";
 import { type CloneOutcome, executeClone } from "./execute";
 import { type CloneSource, type ClonePlan, planClone } from "./plan";
 
-export class CloneProjectNotFoundError extends TaggedError("CloneProjectNotFoundError")<{
+class CloneProjectNotFoundError extends TaggedError("CloneProjectNotFoundError")<{
   message: string;
 }>() {
   constructor() {
@@ -38,7 +38,7 @@ export class CloneProjectNotFoundError extends TaggedError("CloneProjectNotFound
   }
 }
 
-export class CloneEmptySelectionError extends TaggedError("CloneEmptySelectionError")<{
+class CloneEmptySelectionError extends TaggedError("CloneEmptySelectionError")<{
   message: string;
 }>() {
   constructor() {

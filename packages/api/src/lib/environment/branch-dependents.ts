@@ -35,7 +35,7 @@ export interface BranchDependent {
 }
 
 /** Live preview branches whose source is this database. */
-export async function branchDependentsOf(baseResourceId: ResourceId): Promise<BranchDependent[]> {
+async function branchDependentsOf(baseResourceId: ResourceId): Promise<BranchDependent[]> {
   const rows = await db
     .select({ prNumber: preview.prNumber, autoTeardownAt: preview.autoTeardownAt })
     .from(resource)

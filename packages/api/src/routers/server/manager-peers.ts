@@ -69,7 +69,7 @@ export function managerPeerScript(ips: readonly string[]): string {
  * determined (no `ip`, unparseable output, non-IPv4 path). Null is a soft
  * failure: the caller falls back to the SSH address and narrates it.
  */
-export async function resolveNodeEgressIp(
+async function resolveNodeEgressIp(
   session: SshSession,
   managerAddr: string,
   onLine: (line: string) => void,
@@ -108,7 +108,7 @@ export async function admitNodeToManager(
  * still lets the join proceed — it just fails later at the daemon, the same way
  * it did before this existed, and we say so rather than pretending it worked.
  */
-export async function allowPeersOnManager(
+async function allowPeersOnManager(
   ips: readonly string[],
   onLine: (line: string) => void,
 ): Promise<void> {
