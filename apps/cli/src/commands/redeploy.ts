@@ -152,9 +152,14 @@ export const redeployCommand = defineCommand({
     }
     // Previously this printed and then fell through with exit code 0, so a
     // no-op redeploy of a database looked like a success.
+    //
+    // A database runs a prebuilt engine image, so there is genuinely nothing to
+    // rebuild — but say what DOES work, the way the image-sourced service path
+    // above does. An error that only names the refusal is a dead end.
     abort(
-      `${ctx.resourceName} is a ${ctx.resourceType}.`,
-      "only services and compose stacks can be redeployed",
+      `${ctx.resourceName} is a ${ctx.resourceType} — redeploy rebuilds from source, and an engine image has none.`,
+      `run \`${cmd(`restart ${ctx.resourceName}`)}\` to roll it with the current image and env`,
+      "or change its engine version to move it to a new image",
     );
   },
 });

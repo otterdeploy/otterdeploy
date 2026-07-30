@@ -47,6 +47,10 @@ export interface ResourceContext extends ProjectContext {
   resourceId: string;
   resourceName: string;
   resourceType: string;
+  /** Engine for databases (`postgres`, `redis`, …); undefined for every other
+   *  kind. Carried here because "which database engine" decides which endpoint
+   *  a verb can call — `restart` has one for postgres and none for the rest. */
+  resourceEngine?: string;
 }
 
 interface ResourceRow {
@@ -108,5 +112,6 @@ export async function resolveResource(
     resourceId: match.resourceId,
     resourceName: match.name,
     resourceType: match.type,
+    resourceEngine: match.type === "database" ? match.engine : undefined,
   };
 }
