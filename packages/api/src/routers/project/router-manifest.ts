@@ -9,6 +9,7 @@ import { getProject } from "./handlers";
 import { discardManifest, loadManifest, resolvedManifest, saveManifest } from "./manifest";
 import { applyManifest } from "./manifest-apply";
 import { loadRefTable, makeEnvRefResolver } from "./manifest-apply-refs";
+import { renameResource } from "./manifest-rename";
 import { loadCurrentState } from "./manifest-state";
 import { deleteDraftCredentialsNotIn } from "./queries";
 import { resolveProjectEnvironmentScope } from "./queries/resource";
@@ -190,6 +191,19 @@ export const manifestRouter = {
         );
       }
       return result.value;
+    },
+  ),
+
+  rename: requirePermission({ project: ["update"] }).project.manifest.rename.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "project", id: input.projectId } });
+      const result = await renameResource(
+        { projectId: input.projectId, organizationId: context.activeOrganizationId },
+        { kind: input.resource, from: input.from, to: input.to },
+      );
+      if (result.ok) return { version: result.version };
+      if (result.code === "not-found") throw errors.NOT_FOUND();
+      throw errors.BAD_REQUEST({ message: result.message });
     },
   ),
 
