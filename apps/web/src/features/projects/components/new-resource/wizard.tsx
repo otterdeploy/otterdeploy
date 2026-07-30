@@ -81,6 +81,7 @@ function ResourceWizardBody({
     handleContinue,
     goPrev,
     goToStep,
+    advanceAfterKind,
     advancedSetup,
     setAdvanced,
   } = useWizardForm({
@@ -135,6 +136,7 @@ function ResourceWizardBody({
           projectId={projectId}
           dbView={dbEngineView}
           onDbViewChange={setDbEngineView}
+          onKindChosen={advanceAfterKind}
         />
 
         {attempted && currentStepIssues.length > 0 && <RequiredHint issues={currentStepIssues} />}

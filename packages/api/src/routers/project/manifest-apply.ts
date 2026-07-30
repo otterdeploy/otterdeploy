@@ -31,6 +31,7 @@ import type { ApplyContext, GitBuild, PhaseContribution } from "./manifest-apply
 
 import { writeProjectEscapeHatch } from "../../lib/escape-hatch";
 import { diffManifest } from "../../stack/manifest";
+import { snapshotAfterApply } from "./manifest-applied-snapshot";
 import {
   runComposeCreates,
   runDatabaseCreates,
@@ -164,9 +165,25 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
     skipped.push({ resource: e.resource, name: e.name, reason: e.reason });
   }
 
+  // Record what LANDED, not what was asked for. A resource in `skipped[]`
+  // never happened, and writing it here would bake it into the snapshot that
+  // `discard` reverts to — making a failed create both unappliable (its name
+  // collides with whatever did get created) and undiscardable, forever. See
+  // manifest-applied-snapshot.ts.
+  const [before] = await db
+    .select({ lastApplied: project.lastAppliedManifest })
+    .from(project)
+    .where(and(eq(project.id, projectId), eq(project.organizationId, organizationId)))
+    .limit(1);
+  const applied = snapshotAfterApply({
+    submitted: manifest,
+    previous: (before?.lastApplied as Manifest | null) ?? null,
+    skipped,
+  });
+
   await db
     .update(project)
-    .set({ lastAppliedManifest: manifest, lastManifestAppliedAt: new Date() })
+    .set({ lastAppliedManifest: applied, lastManifestAppliedAt: new Date() })
     .where(and(eq(project.id, projectId), eq(project.organizationId, organizationId)));
 
   // Refresh the project's DR escape hatch (rendered compose + JSON snapshot)

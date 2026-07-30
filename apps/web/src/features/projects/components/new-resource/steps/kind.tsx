@@ -12,6 +12,11 @@ import { resourceDefaults } from "../schemas";
 interface StepKindProps {
   dbView: boolean;
   onDbViewChange: (open: boolean) => void;
+  /** Called with the chosen kind AFTER its defaults are seeded, so the wizard
+   *  can advance. Takes the id because the flow (and therefore the next step)
+   *  is derived from it — reading the store here would still hold the previous
+   *  kind on this tick. */
+  onChosen: (kindId: string) => void;
 }
 
 // Only reseed the ports row on a kind switch while it's still pristine —
@@ -23,7 +28,7 @@ function isPristinePorts(ports: Port[]): boolean {
   );
 }
 
-export function StepKind({ dbView, onDbViewChange }: StepKindProps) {
+export function StepKind({ dbView, onDbViewChange, onChosen }: StepKindProps) {
   const form = useFormContext();
   const kindId = useStore(form.store, (s) => s.values.kindId as string);
 
@@ -57,6 +62,9 @@ export function StepKind({ dbView, onDbViewChange }: StepKindProps) {
             );
           }
         }
+        // Last: the defaults above must be seeded before the next step renders,
+        // or it reads the previous kind's values on its first paint.
+        onChosen(id);
       }}
     />
   );

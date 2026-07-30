@@ -35,6 +35,8 @@ import { Spinner } from "@/shared/components/ui/spinner";
 import { toastMessage } from "@/shared/lib/errors";
 import { orpc } from "@/shared/server/orpc";
 
+import type { GroupedChange } from "./pending-changes-groups";
+
 import { ChangeGroupCard, type DiffChange, groupChanges } from "./pending-changes-diff";
 
 interface PendingChangesBarProps {
@@ -106,7 +108,8 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
   });
 
   const discardMut = useMutation({
-    mutationFn: () => orpc.project.manifest.discard.call({ projectId }),
+    mutationFn: (only?: Array<{ resource: "service" | "database" | "compose"; name: string }>) =>
+      orpc.project.manifest.discard.call({ projectId, only }),
     // Clear the graph's ghost-bridge stores up front so a create-ghost recorded
     // by a prior Apply (whose resource never landed) vanishes THE INSTANT the
     // operator discards — otherwise `computePendingByName` keeps re-synthesizing
@@ -118,10 +121,14 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
       clearAppliedCreatesForProject(projectId);
       clearPendingFrameworksForProject(projectId);
     },
-    onSuccess: async () => {
-      toast.success("Pending changes discarded");
+    onSuccess: async (_res, only) => {
+      toast.success(
+        only?.length ? `Discarded the change to ${only[0].name}` : "Pending changes discarded",
+      );
       await refreshAll();
-      setExpanded(false);
+      // A single-change discard leaves the others staged, so keep the list
+      // open — collapsing it would hide the work still waiting to be applied.
+      if (!only?.length) setExpanded(false);
     },
     onError: (err) => toast.error(toastMessage(err, "Discard failed")),
   });
@@ -182,7 +189,7 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
             size="sm"
             variant="ghost"
             className="ml-auto shrink-0"
-            onClick={() => discardMut.mutate()}
+            onClick={() => discardMut.mutate(undefined)}
             disabled={busy}
           >
             Discard
@@ -210,23 +217,56 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
               className="overflow-hidden border-t bg-muted/30"
             >
               <div className="max-h-[60vh] overflow-auto">
-                <ul className="flex flex-col gap-3 p-3">
-                  {groups.map((g, i) => (
-                    <m.li
-                      key={`${g.resource}-${g.name}`}
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ ...morph, delay: reduce ? 0 : 0.03 + i * 0.04 }}
-                    >
-                      <ChangeGroupCard group={g} />
-                    </m.li>
-                  ))}
-                </ul>
+                <ChangeList
+                  groups={groups}
+                  morph={morph}
+                  reduce={reduce}
+                  busy={busy}
+                  discarding={discardMut.isPending}
+                  onDiscardOne={(g) => discardMut.mutate([{ resource: g.resource, name: g.name }])}
+                />
               </div>
             </m.div>
           )}
         </AnimatePresence>
       </m.div>
     </div>
+  );
+}
+
+/** The expanded per-resource change list. Split out of PendingChangesBar to
+ *  keep that function inside the length cap; purely presentational. */
+function ChangeList({
+  groups,
+  morph,
+  reduce,
+  busy,
+  discarding,
+  onDiscardOne,
+}: {
+  groups: GroupedChange[];
+  morph: Transition;
+  reduce: boolean | null;
+  busy: boolean;
+  discarding: boolean;
+  onDiscardOne: (group: GroupedChange) => void;
+}) {
+  return (
+    <ul className="flex flex-col gap-3 p-3">
+      {groups.map((g, i) => (
+        <m.li
+          key={`${g.resource}-${g.name}`}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ ...morph, delay: reduce ? 0 : 0.03 + i * 0.04 }}
+        >
+          <ChangeGroupCard
+            group={g}
+            discarding={discarding}
+            onDiscard={busy ? undefined : () => onDiscardOne(g)}
+          />
+        </m.li>
+      ))}
+    </ul>
   );
 }

@@ -81,6 +81,18 @@ const manifestApplyOutput = z.object({
 // and the pending-changes bar disappears.
 const manifestDiscardInput = z.object({
   projectId: getProjectInput.shape.id,
+  // Discard only these resources, leaving every other staged edit alone.
+  // Omitted = discard everything, the original behaviour. Lets the pending-
+  // changes bar drop one unwanted change without also throwing away the
+  // edits the operator still wants.
+  only: z
+    .array(
+      z.object({
+        resource: z.enum(["service", "database", "env", "compose"]),
+        name: z.string().min(1),
+      }),
+    )
+    .optional(),
 });
 
 const manifestDiscardOutput = z.object({

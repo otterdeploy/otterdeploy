@@ -165,10 +165,13 @@ export const manifestRouter = {
   discard: requirePermission({ project: ["update"] }).project.manifest.discard.handler(
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "project", id: input.projectId } });
-      const result = await discardManifest({
-        projectId: input.projectId,
-        organizationId: context.activeOrganizationId,
-      });
+      const result = await discardManifest(
+        {
+          projectId: input.projectId,
+          organizationId: context.activeOrganizationId,
+        },
+        input.only,
+      );
       if (result.isErr()) {
         throw matchError(result.error, {
           ProjectNotFoundError: () => errors.NOT_FOUND(),
