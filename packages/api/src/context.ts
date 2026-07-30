@@ -1,5 +1,7 @@
 import type { OrganizationId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
+
+import { resolveClient } from "./security/trusted-proxy";
 import type { Context as HonoContext } from "hono";
 
 import type { AuditDraft } from "./audit/changes";
@@ -22,6 +24,22 @@ export interface RequestContext {
   apiKey: ApiKeyActor | null;
   activeOrganizationId: OrgId | null;
   headers: Headers;
+  /**
+   * The request's real client address, resolved through the trusted-proxy
+   * rules — the SAME derivation the raw Hono handlers use via `resolveClient`.
+   *
+   * Resolved here, once, because the alternative is each handler re-deriving
+   * it from `headers` alone. That is what broke terminal tickets: mintTicket
+   * read `x-forwarded-for[0]` unconditionally while the `/pty` upgrade used
+   * the trusted-proxy resolver, so behind an untrusted proxy the two produced
+   * different addresses and the ticket's IP binding rejected every connection.
+   * A handler cannot resolve this correctly on its own — the peer address
+   * isn't in `headers` — so it has to arrive on the context.
+   *
+   * "unknown" when there is no peer (unix socket, test harness); callers that
+   * bind on it should treat that as "no address" rather than a value to match.
+   */
+  clientIp: string;
   log: RequestLogger;
   broadcast: (resource: string) => void;
   /**
@@ -38,6 +56,7 @@ export async function createContext({
   broadcast,
 }: CreateContextOptions): Promise<RequestContext> {
   const headers = context.req.raw.headers;
+  const clientIp = resolveClient(context).ip;
   const actor = await resolveRequestActor(headers);
   const session = actor?.kind === "session" ? actor : null;
   const apiKey = actor?.kind === "api-key" ? actor : null;
@@ -48,6 +67,7 @@ export async function createContext({
 
   return {
     actor,
+    clientIp,
     session,
     apiKey,
     // Active org: the session's for cookie/bearer actors, else the key's owning
