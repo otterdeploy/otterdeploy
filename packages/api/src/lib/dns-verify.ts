@@ -12,7 +12,7 @@
  * reasons (CDN, shared IP, etc.) and shouldn't grant publishing rights.
  */
 
-import { resolveTxtRobust } from "./dns-resolver";
+import { DnsRecordMissing, resolveTxtRobust } from "./dns-resolver";
 
 export const VERIFY_TXT_PREFIX = "_otterdeploy-verify";
 
@@ -48,41 +48,16 @@ export async function verifyDomainTxt(input: {
     };
   }
 
-  try {
-    // Query public resolvers (with system fallback) so a lagging or
-    // split-horizon local resolver doesn't report a live record as missing.
-    const found = await resolveTxtRobust(recordName);
-    if (found.length === 0) {
-      return {
-        ok: false,
-        recordName,
-        expected: input.expectedToken,
-        found,
-        reason: "no-record",
-      };
-    }
-    if (found.includes(input.expectedToken)) {
-      return {
-        ok: true,
-        recordName,
-        expected: input.expectedToken,
-        found,
-        reason: "ok",
-      };
-    }
-    return {
-      ok: false,
-      recordName,
-      expected: input.expectedToken,
-      found,
-      reason: "value-mismatch",
-    };
-  } catch (err) {
-    // ENOTFOUND, ENODATA, etc. all collapse to "we couldn't find the
-    // record yet". The caller surfaces this to the UI as "DNS hasn't
-    // propagated; try again in a minute."
-    const code = (err as { code?: string }).code;
-    if (code === "ENOTFOUND" || code === "ENODATA") {
+  // Query public resolvers (with system fallback) so a lagging or
+  // split-horizon local resolver doesn't report a live record as missing.
+  const lookup = await resolveTxtRobust(recordName);
+
+  if (lookup.isErr()) {
+    // An authoritative "no such record" collapses to "we couldn't find the
+    // record yet" — the caller surfaces it to the UI as "DNS hasn't
+    // propagated; try again in a minute." Anything else means we never got
+    // an answer at all, which is a different message.
+    if (DnsRecordMissing.is(lookup.error)) {
       return {
         ok: false,
         recordName,
@@ -91,13 +66,41 @@ export async function verifyDomainTxt(input: {
         reason: "no-record",
       };
     }
+    const cause = lookup.error.cause;
     return {
       ok: false,
       recordName,
       expected: input.expectedToken,
       found: [],
       reason: "lookup-failed",
-      errorMessage: err instanceof Error ? err.message : String(err),
+      errorMessage: cause instanceof Error ? cause.message : String(cause),
     };
   }
+
+  const found = lookup.value;
+  if (found.length === 0) {
+    return {
+      ok: false,
+      recordName,
+      expected: input.expectedToken,
+      found,
+      reason: "no-record",
+    };
+  }
+  if (found.includes(input.expectedToken)) {
+    return {
+      ok: true,
+      recordName,
+      expected: input.expectedToken,
+      found,
+      reason: "ok",
+    };
+  }
+  return {
+    ok: false,
+    recordName,
+    expected: input.expectedToken,
+    found,
+    reason: "value-mismatch",
+  };
 }
