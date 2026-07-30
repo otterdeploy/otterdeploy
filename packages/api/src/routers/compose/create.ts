@@ -9,7 +9,7 @@ import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
 
-import { fetchBranchHeadSha } from "../../git/github-app";
+import { fetchBranchHead } from "../../git/github-app";
 import { resolveRepoCloneBinding } from "../../git/repo-binding";
 import { getProjectInOrg, upsertProjectEnvVar } from "../project/queries";
 import { isUniqueViolation } from "../project/views";
@@ -124,13 +124,13 @@ async function createGitCompose(
   const name = input.name?.trim() || repoName;
   const stackName = stackNameFor(project.slug, name);
   const branch = input.gitRef?.trim() || "main";
-  const shaRes = await Result.tryPromise({
-    try: () => fetchBranchHeadSha(installationId, owner, repoName, branch),
+  const headRes = await Result.tryPromise({
+    try: () => fetchBranchHead(installationId, owner, repoName, branch),
     catch: (e) => (e instanceof Error ? e.message : String(e)),
   });
-  if (shaRes.isErr()) {
+  if (headRes.isErr()) {
     return Result.err(
-      invalid(`Couldn't resolve ${branch} on ${owner}/${repoName}: ${shaRes.error}`),
+      invalid(`Couldn't resolve ${branch} on ${owner}/${repoName}: ${headRes.error}`),
     );
   }
   const ref = `refs/heads/${branch}`;
@@ -168,7 +168,7 @@ async function createGitCompose(
     // null for a legacy public-URL stack.
     gitRepoId: gitRepoId as GitRepoId | null,
     reason: "create",
-    sha: shaRes.value,
+    head: headRes.value,
   });
 
   return Result.ok({

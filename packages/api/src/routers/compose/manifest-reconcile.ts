@@ -20,7 +20,7 @@ import { Result } from "better-result";
 
 import type { ComposeManifest } from "../../stack/manifest";
 
-import { fetchBranchHeadSha } from "../../git/github-app";
+import { fetchBranchHead } from "../../git/github-app";
 import { resolveRepoCloneBinding } from "../../git/repo-binding";
 import { parseCompose, summarizeCompose } from "../../stack/compose";
 import { ManifestApplySkipError } from "../project/errors";
@@ -114,13 +114,14 @@ async function createGitStackFromManifest(
   }
 
   const branch = spec.gitRef?.trim() || "main";
-  const shaRes = await Result.tryPromise({
-    try: () => fetchBranchHeadSha(installationId, owner, repoName, branch),
+  const headRes = await Result.tryPromise({
+    try: () => fetchBranchHead(installationId, owner, repoName, branch),
     catch: (e) => (e instanceof Error ? e.message : String(e)),
   });
-  if (shaRes.isErr()) {
-    return skip(name, `couldn't resolve ${branch} on ${owner}/${repoName}: ${shaRes.error}`);
+  if (headRes.isErr()) {
+    return skip(name, `couldn't resolve ${branch} on ${owner}/${repoName}: ${headRes.error}`);
   }
+  const head = headRes.value;
   const ref = `refs/heads/${branch}`;
 
   const created = await Result.tryPromise({
@@ -155,11 +156,14 @@ async function createGitStackFromManifest(
     .insert(deployment)
     .values({
       resourceId: created.value.resource.id,
-      image: `pending:${shaRes.value.slice(0, 12)}`,
+      image: `pending:${head.sha.slice(0, 12)}`,
       reason: "create",
       status: "pending",
-      gitSha: shaRes.value,
+      gitSha: head.sha,
       gitRef: ref,
+      gitCommitMessage: head.message,
+      gitCommitAuthor: head.authorName,
+      gitCommitAuthorAvatar: head.authorAvatar,
     })
     .returning({ id: deployment.id });
 
@@ -168,7 +172,7 @@ async function createGitStackFromManifest(
     // Real binding when picked (correlation); else the resource id.
     gitRepoId: gitRepoId ?? created.value.resource.id,
     ref,
-    sha: shaRes.value,
+    sha: head.sha,
     deploymentIds: [dep?.id ?? ""],
   });
   log.set({ manifestComposeBuild: { resourceId: created.value.resource.id, ref } });

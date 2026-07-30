@@ -81,6 +81,16 @@ export async function rollbackService(
       rolledBackToDeploymentId: target.id,
       previousImage,
     },
+    // Inherit the target's commit: this deploy re-launches the image that was
+    // built from it, so that commit is what the service is now running — and
+    // it's what the deployment card should name.
+    git: {
+      sha: target.gitSha,
+      ref: target.gitRef,
+      commitMessage: target.gitCommitMessage,
+      commitAuthor: target.gitCommitAuthor,
+      commitAuthorAvatar: target.gitCommitAuthorAvatar,
+    },
   });
 
   const redeployed = await redeployAndFanOut(

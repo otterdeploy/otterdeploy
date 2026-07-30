@@ -12,7 +12,7 @@ import { triggerDeploy } from "@otterdeploy/jobs";
 import { Result } from "better-result";
 import { createHash } from "node:crypto";
 
-import { fetchBranchHeadSha } from "../../git/github-app";
+import { type BranchHead, fetchBranchHead } from "../../git/github-app";
 import { resolveRepoCloneBinding } from "../../git/repo-binding";
 import { parseGitHubUrl } from "./util";
 
@@ -35,12 +35,12 @@ export async function enqueueComposeBuild(input: {
    *  back to the stack resource id). Null for legacy public-URL stacks. */
   gitRepoId: GitRepoId | null;
   reason: "create" | "redeploy";
-  /** Pre-resolved head SHA (create resolves it before inserting the row, to
+  /** Pre-resolved head commit (create resolves it before inserting the row, to
    *  fail fast on a bad branch); omitted on redeploy so we resolve it here. */
-  sha?: string;
+  head?: BranchHead;
 }): Promise<Result<{ sha: string }, string>> {
-  let sha = input.sha;
-  if (!sha) {
+  let head = input.head;
+  if (!head) {
     const branch = input.gitRef.replace(/^refs\/heads\//, "") || "main";
     // Bound repo → resolve owner/repo + installation so PRIVATE repos resolve
     // their head SHA authenticated; legacy public URL → anonymous.
@@ -51,9 +51,9 @@ export async function enqueueComposeBuild(input: {
         catch: (e) => (e instanceof Error ? e.message : String(e)),
       });
       if (bound.isErr()) return Result.err(bound.error);
-      const shaRes = await Result.tryPromise({
+      const headRes = await Result.tryPromise({
         try: () =>
-          fetchBranchHeadSha(
+          fetchBranchHead(
             bound.value.githubInstallationId,
             bound.value.owner,
             bound.value.repo,
@@ -61,23 +61,26 @@ export async function enqueueComposeBuild(input: {
           ),
         catch: (e) => (e instanceof Error ? e.message : String(e)),
       });
-      if (shaRes.isErr()) {
-        return Result.err(`Couldn't resolve ${branch} on ${bound.value.fullName}: ${shaRes.error}`);
+      if (headRes.isErr()) {
+        return Result.err(
+          `Couldn't resolve ${branch} on ${bound.value.fullName}: ${headRes.error}`,
+        );
       }
-      sha = shaRes.value;
+      head = headRes.value;
     } else {
       const gh = parseGitHubUrl(input.gitRepoUrl);
       if (!gh) return Result.err(`Not a cloneable GitHub URL: ${input.gitRepoUrl}`);
-      const shaRes = await Result.tryPromise({
-        try: () => fetchBranchHeadSha(null, gh.owner, gh.repo, branch),
+      const headRes = await Result.tryPromise({
+        try: () => fetchBranchHead(null, gh.owner, gh.repo, branch),
         catch: (e) => (e instanceof Error ? e.message : String(e)),
       });
-      if (shaRes.isErr()) {
-        return Result.err(`Couldn't resolve ${branch} on ${gh.owner}/${gh.repo}: ${shaRes.error}`);
+      if (headRes.isErr()) {
+        return Result.err(`Couldn't resolve ${branch} on ${gh.owner}/${gh.repo}: ${headRes.error}`);
       }
-      sha = shaRes.value;
+      head = headRes.value;
     }
   }
+  const sha = head.sha;
 
   const [dep] = await db
     .insert(deployment)
@@ -88,6 +91,11 @@ export async function enqueueComposeBuild(input: {
       status: "pending",
       gitSha: sha,
       gitRef: input.gitRef,
+      // Same provenance a push deploy carries, so a stack's card names the
+      // commit and its author instead of a bare "Initial deploy".
+      gitCommitMessage: head.message,
+      gitCommitAuthor: head.authorName,
+      gitCommitAuthorAvatar: head.authorAvatar,
     })
     .returning({ id: deployment.id });
 

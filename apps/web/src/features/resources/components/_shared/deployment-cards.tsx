@@ -47,7 +47,11 @@ export interface DeploymentInfo {
    *  = unlimited. */
   restartCount: number | null;
   restartMaxAttempts: number | null;
-  /** Commit author name + their GitHub avatar (git-push deploys only). */
+  /** Commit provenance — the change this deployment put into service. Present
+   *  for anything built from a repo (push, UI deploy, initial deploy) and
+   *  inherited by a rollback; null for image/database deploys. */
+  gitSha: string | null;
+  gitCommitMessage: string | null;
   gitCommitAuthor: string | null;
   gitCommitAuthorAvatar: string | null;
   completedAt: string | null;

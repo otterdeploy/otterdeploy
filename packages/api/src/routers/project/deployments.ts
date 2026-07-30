@@ -71,6 +71,18 @@ interface InsertInput {
   /** Snapshot the deployment is built from. Pass the resource's full
    *  current config so rollback can reapply it verbatim later. */
   snapshot: Record<string, unknown>;
+  /** Provenance of the commit this deployment puts (or re-puts) into service.
+   *  Builds resolve it from GitHub; a rollback inherits it from the deployment
+   *  it restores, because the image it re-launches WAS built from that commit.
+   *  Omitted for deploys with no commit behind them (databases, image pulls) —
+   *  the card then falls back to the resource's own mark. */
+  git?: {
+    sha?: string | null;
+    ref?: string | null;
+    commitMessage?: string | null;
+    commitAuthor?: string | null;
+    commitAuthorAvatar?: string | null;
+  };
 }
 
 export async function insertDeployment(input: InsertInput): Promise<DeploymentRow> {
@@ -83,6 +95,11 @@ export async function insertDeployment(input: InsertInput): Promise<DeploymentRo
       previewId: input.previewId,
       status: input.status ?? "building",
       snapshot: input.snapshot,
+      gitSha: input.git?.sha ?? null,
+      gitRef: input.git?.ref ?? null,
+      gitCommitMessage: input.git?.commitMessage ?? null,
+      gitCommitAuthor: input.git?.commitAuthor ?? null,
+      gitCommitAuthorAvatar: input.git?.commitAuthorAvatar ?? null,
     })
     .returning();
   if (!row) {
@@ -99,7 +116,7 @@ export async function insertDeployment(input: InsertInput): Promise<DeploymentRo
   // panel flip instantly (no 5s poll wait).
   void publishResourceChanged(input.resourceId);
 
-  return row as DeploymentRow;
+  return row;
 }
 
 /** Mark an existing deployment terminal (failed) — used when provisioning
@@ -179,7 +196,7 @@ export async function getLatestDeploymentForResource(
     )
     .orderBy(desc(deployment.createdAt))
     .limit(1);
-  return (row as DeploymentRow | undefined) ?? null;
+  return (row) ?? null;
 }
 
 /** Latest BASE deployment per resource for a SET of resources — one query
@@ -197,12 +214,12 @@ export async function getLatestDeploymentsForResources(
     .from(deployment)
     .where(
       and(
-        inArray(deployment.resourceId, resourceIds as ResourceId[]),
+        inArray(deployment.resourceId, resourceIds),
         isNull(deployment.previewId),
       ),
     )
     .orderBy(deployment.resourceId, desc(deployment.createdAt));
-  for (const row of rows) result.set(row.resourceId as ResourceId, row as DeploymentRow);
+  for (const row of rows) result.set(row.resourceId, row);
   return result;
 }
 
@@ -218,10 +235,9 @@ export async function getResourceDeploymentById(
     .from(deployment)
     .where(and(eq(deployment.id, deploymentId), eq(deployment.resourceId, resourceId)))
     .limit(1);
-  return (row as DeploymentRow | undefined) ?? null;
+  return row ?? null;
 }
 
-// ─── Re-exports — keep the deployments.* import surface stable ────────────
 export { emitDeployStarted } from "./deployments-emit";
 export {
   listResourceDeployments,
