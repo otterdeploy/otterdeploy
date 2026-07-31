@@ -1,13 +1,12 @@
 import type { OrganizationId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
-
-import { resolveClient } from "./security/trusted-proxy";
 import type { Context as HonoContext } from "hono";
 
 import type { AuditDraft } from "./audit/changes";
 import type { ApiKeyActor, ResolvedActor, SessionActor } from "./authz/actor";
 
 import { resolveRequestActor } from "./authz/actor";
+import { resolveClient } from "./security/trusted-proxy";
 
 export type { ApiKeyActor, ResolvedActor, SessionActor } from "./authz/actor";
 

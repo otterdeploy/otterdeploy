@@ -16,15 +16,7 @@ import type { ReviewModel } from "./review-model";
 
 import { I } from "../icons";
 
-function ReviewRow({
-  label,
-  value,
-  last,
-}: {
-  label: string;
-  value?: string;
-  last?: boolean;
-}) {
+function ReviewRow({ label, value, last }: { label: string; value?: string; last?: boolean }) {
   if (!value) return null;
   return (
     <div

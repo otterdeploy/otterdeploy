@@ -93,7 +93,7 @@ async function listDeploymentsByResource(
       ),
     )
     .orderBy(desc(deployment.createdAt));
-  return rows ;
+  return rows;
 }
 
 // Resolve the swarm service name backing a resource — postgres uses the

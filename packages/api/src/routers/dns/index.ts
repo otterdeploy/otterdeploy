@@ -12,9 +12,9 @@ import { db } from "@otterdeploy/db";
 import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
 import { eq } from "drizzle-orm";
 
-import { orgScopedProcedure } from "../../index";
 import type { CloudflareZone } from "../../lib/cloudflare";
 
+import { orgScopedProcedure } from "../../index";
 import { listCloudflareZones } from "../../lib/cloudflare";
 import { detectDnsProvider, detectProxied } from "../../lib/dns-detect";
 import { getOrganizationById } from "../organization/queries";

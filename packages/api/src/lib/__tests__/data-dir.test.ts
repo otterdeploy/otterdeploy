@@ -1,8 +1,7 @@
-import { beforeAll, describe, expect, it } from "vite-plus/test";
-
 import { mkdir, mkdtemp, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { beforeAll, describe, expect, it } from "vite-plus/test";
 
 /**
  * `removeGuardedDir` is the only thing standing between a bad path derivation

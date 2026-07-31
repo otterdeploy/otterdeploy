@@ -196,7 +196,7 @@ export async function getLatestDeploymentForResource(
     )
     .orderBy(desc(deployment.createdAt))
     .limit(1);
-  return (row) ?? null;
+  return row ?? null;
 }
 
 /** Latest BASE deployment per resource for a SET of resources — one query
@@ -212,12 +212,7 @@ export async function getLatestDeploymentsForResources(
   const rows = await db
     .selectDistinctOn([deployment.resourceId])
     .from(deployment)
-    .where(
-      and(
-        inArray(deployment.resourceId, resourceIds),
-        isNull(deployment.previewId),
-      ),
-    )
+    .where(and(inArray(deployment.resourceId, resourceIds), isNull(deployment.previewId)))
     .orderBy(deployment.resourceId, desc(deployment.createdAt));
   for (const row of rows) result.set(row.resourceId, row);
   return result;

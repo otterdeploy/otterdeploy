@@ -44,5 +44,5 @@ export async function environmentIdForSlug(
     .where(eq(project.id, projectId))
     .limit(1);
 
-  return proj?.environmentId === row.id ? null : (row.id);
+  return proj?.environmentId === row.id ? null : row.id;
 }
