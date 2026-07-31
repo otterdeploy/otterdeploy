@@ -1,10 +1,10 @@
 import type { TerminalTicketClaims } from "@otterdeploy/api/routers/terminal/tickets";
 import type { ServerWebSocket } from "bun";
-import type { Context, MiddlewareHandler } from "hono";
+import type { MiddlewareHandler } from "hono";
 import type { WSEvents } from "hono/ws";
 
 import { recordTerminalShellAudit } from "@otterdeploy/api/audit/terminal";
-import { consumeTerminalTicket } from "@otterdeploy/api/routers/terminal/tickets";
+import { consumeTerminalTicket, ticketBindingIp } from "@otterdeploy/api/routers/terminal/tickets";
 import { env } from "@otterdeploy/env/server";
 import { log } from "evlog";
 import { upgradeWebSocket } from "hono/bun";
@@ -37,17 +37,6 @@ import {
 // A denial at either step is a plain HTTP 401/403 — the socket never opens
 // and no backend is spawned.
 // ---------------------------------------------------------------------------
-
-/** First X-Forwarded-For hop, or null when unresolvable. Mirrors the
- *  extraction `terminal.mintTicket` used when it bound the ticket, so the
- *  two ends compare like for like (packages/api/src/routers/terminal/index.ts
- *  `clientIpFromHeaders`). Trusted-proxy validation of this header is the
- *  ingress layer's job (od-5j8.10) — here it's advisory binding on top of an
- *  already-authorized, already-single-use ticket. */
-function clientIpOf(c: Context): string | null {
-  const xff = c.req.header("x-forwarded-for");
-  return xff?.split(",")[0]?.trim() || null;
-}
 
 function targetLabel(target: Target): { kind: "container" | "host"; id: string } {
   return target.kind === "container"
@@ -235,7 +224,12 @@ export const terminalWebSocketHandler: MiddlewareHandler = async (c, next) => {
     return c.json({ message: "Missing ticket" }, 401);
   }
 
-  const consumed = await consumeTerminalTicket(ticket, { clientIp: clientIpOf(c) });
+  // Same derivation the mint side used — `ticketBindingIp` is deliberately the
+  // single source for both ends (see its doc comment for why X-Forwarded-For
+  // alone made every upgrade fail with ip_mismatch behind Cloudflare).
+  const consumed = await consumeTerminalTicket(ticket, {
+    clientIp: ticketBindingIp(c.req.raw.headers),
+  });
   if (consumed.isErr()) {
     log.warn({
       pty: { event: "ticket-rejected", reason: consumed.error.reason },

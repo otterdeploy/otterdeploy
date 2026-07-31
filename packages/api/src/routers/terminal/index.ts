@@ -2,17 +2,7 @@ import { orgScopedProcedure, requirePermission } from "../..";
 import { grantStepUp, hasRecentStepUp, verifyStepUpCredential } from "../../authz/step-up";
 import { authorizeTerminalTarget, type TerminalTarget } from "./authorize";
 import { listTerminalTargets } from "./handlers";
-import { mintTerminalTicket } from "./tickets";
-
-/** Best-effort client address for ticket IP-binding — same first-hop-of-XFF
- *  read `apps/server/src/handlers/deploy-protection/shared.tsx`'s
- *  `clientIpOf` uses. Trusted-proxy validation of this header is handled at
- *  the ingress layer (od-5j8.10); here it's advisory binding on top of an
- *  already-authorized, already-short-lived ticket, not the sole defense. */
-function clientIpFromHeaders(headers: Headers): string | null {
-  const xff = headers.get("x-forwarded-for");
-  return xff?.split(",")[0]?.trim() || null;
-}
+import { mintTerminalTicket, ticketBindingIp } from "./tickets";
 
 export const terminalRouter = {
   targets: requirePermission({ terminal: ["open"] }).terminal.targets.handler(
@@ -80,7 +70,7 @@ export const terminalRouter = {
       userId: context.session.user.id,
       organizationId: context.activeOrganizationId,
       target,
-      clientIp: clientIpFromHeaders(context.headers),
+      clientIp: ticketBindingIp(context.headers),
     });
 
     context.log.set({
