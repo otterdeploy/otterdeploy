@@ -282,3 +282,94 @@ describe("dockerfileBuildArgs", () => {
     expect(noBuilder).toEqual(dockerfileBuildArgs(cacheBase));
   });
 });
+
+// ────── Subdir diagnostics ──────
+// The `waves` incident: root directory `client` hid the repo-root Dockerfile,
+// railpack's node provider found no package.json there, and the Staticfile
+// provider matched `index.html` and shipped a Caddy image serving an unbuilt
+// `dist/`. Everything needed to warn was on disk before the build began.
+describe("resolveDockerfileBuild — subdir diagnostics", () => {
+  function wavesLayout(): string {
+    const workDir = tempDir();
+    writeFile(workDir, "Dockerfile");
+    writeFile(workDir, "package.json", '{"name":"iot"}');
+    writeFile(workDir, "client/index.html", "<!doctype html>");
+    writeFile(workDir, "client/src/main.ts", "");
+    return workDir;
+  }
+
+  test("warns that the root directory hides the repo's Dockerfile", () => {
+    const res = resolveDockerfileBuild({
+      builder: "auto",
+      dockerfilePath: null,
+      workDir: wavesLayout(),
+      sourceSubdir: "client",
+    });
+    expect(res.kind).toBe("railpack");
+    expect(res.warnings.join("\n")).toContain("Dockerfile at the repository root");
+    expect(res.warnings.join("\n")).toContain('"client"');
+  });
+
+  test("warns that the root directory has no project manifest", () => {
+    const res = resolveDockerfileBuild({
+      builder: "auto",
+      dockerfilePath: null,
+      workDir: wavesLayout(),
+      sourceSubdir: "client",
+    });
+    expect(res.warnings.join("\n")).toContain("no project manifest");
+  });
+
+  test("stays silent when the subdir is a real project root", () => {
+    const workDir = tempDir();
+    writeFile(workDir, "apps/web/package.json", '{"name":"web"}');
+    const res = resolveDockerfileBuild({
+      builder: "auto",
+      dockerfilePath: null,
+      workDir,
+      sourceSubdir: "apps/web",
+    });
+    expect(res.kind).toBe("railpack");
+    expect(res.warnings).toEqual([]);
+  });
+
+  test("no subdir → no subdir warnings", () => {
+    const workDir = tempDir();
+    writeFile(workDir, "index.html", "<!doctype html>");
+    const res = resolveDockerfileBuild({
+      builder: "auto",
+      dockerfilePath: null,
+      workDir,
+      sourceSubdir: null,
+    });
+    expect(res.kind).toBe("railpack");
+    expect(res.warnings).toEqual([]);
+  });
+
+  test("a Dockerfile IN the subdir is still chosen, with no warning", () => {
+    const workDir = tempDir();
+    writeFile(workDir, "Dockerfile");
+    writeFile(workDir, "client/Dockerfile");
+    const res = resolveDockerfileBuild({
+      builder: "auto",
+      dockerfilePath: null,
+      workDir,
+      sourceSubdir: "client",
+    });
+    expect(res.kind).toBe("dockerfile");
+    expect(res.warnings).toEqual([]);
+  });
+
+  test("a bad custom path in a suspect subdir reports both causes", () => {
+    const res = resolveDockerfileBuild({
+      builder: "auto",
+      dockerfilePath: "Dockerfile.prod",
+      workDir: wavesLayout(),
+      sourceSubdir: "client",
+    });
+    expect(res.kind).toBe("railpack");
+    const text = res.warnings.join("\n");
+    expect(text).toContain("Dockerfile.prod");
+    expect(text).toContain("Dockerfile at the repository root");
+  });
+});

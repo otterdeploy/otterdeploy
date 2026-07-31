@@ -31,7 +31,14 @@ const messageFor = (draft: typeof VALID_DRAFT, field: string): string | undefine
 
 describe("egressAllowlistField", () => {
   it("accepts bare IPs and CIDRs, v4 and v6", () => {
-    for (const ok of ["", "192.168.1.10", "10.0.0.0/24", "fd00::1", "fd00::/8", "1.2.3.4, ::1/128"]) {
+    for (const ok of [
+      "",
+      "192.168.1.10",
+      "10.0.0.0/24",
+      "fd00::1",
+      "fd00::/8",
+      "1.2.3.4, ::1/128",
+    ]) {
       expect(egressAllowlistField.safeParse(ok).success).toBe(true);
     }
   });
@@ -59,7 +66,10 @@ describe("egressAllowlistField", () => {
 
   it("points at the FIRST bad entry when good and bad are mixed", () => {
     expect(
-      messageFor({ ...VALID_DRAFT, egressAllowlist: "10.0.0.1, nope, 10.0.0.2" }, "egressAllowlist"),
+      messageFor(
+        { ...VALID_DRAFT, egressAllowlist: "10.0.0.1, nope, 10.0.0.2" },
+        "egressAllowlist",
+      ),
     ).toBe('"nope" is not a bare IP or CIDR — hostnames are not accepted here');
   });
 
@@ -75,9 +85,9 @@ describe("runtimeSettingsDraftSchema", () => {
   });
 
   it("tells the operator a bare host is not a URL", () => {
-    expect(messageFor({ ...VALID_DRAFT, edgeLogGeoipUrl: "cdn.jsdelivr.net" }, "edgeLogGeoipUrl")).toBe(
-      "must be a full URL, including https://",
-    );
+    expect(
+      messageFor({ ...VALID_DRAFT, edgeLogGeoipUrl: "cdn.jsdelivr.net" }, "edgeLogGeoipUrl"),
+    ).toBe("must be a full URL, including https://");
   });
 
   it("keys every issue to its own field, so each row can show its own message", () => {
@@ -94,11 +104,22 @@ describe("runtimeSettingsDraftSchema", () => {
   });
 
   it("enforces the documented bounds", () => {
-    expect(runtimeSettingsDraftSchema.safeParse({ ...VALID_DRAFT, builderConcurrency: 0 }).success).toBe(false);
-    expect(runtimeSettingsDraftSchema.safeParse({ ...VALID_DRAFT, builderConcurrency: 33 }).success).toBe(false);
-    expect(runtimeSettingsDraftSchema.safeParse({ ...VALID_DRAFT, edgeLogRetentionDays: 0 }).success).toBe(false);
-    expect(runtimeSettingsDraftSchema.safeParse({ ...VALID_DRAFT, previewIdleTeardownHours: -1 }).success).toBe(false);
+    expect(
+      runtimeSettingsDraftSchema.safeParse({ ...VALID_DRAFT, builderConcurrency: 0 }).success,
+    ).toBe(false);
+    expect(
+      runtimeSettingsDraftSchema.safeParse({ ...VALID_DRAFT, builderConcurrency: 33 }).success,
+    ).toBe(false);
+    expect(
+      runtimeSettingsDraftSchema.safeParse({ ...VALID_DRAFT, edgeLogRetentionDays: 0 }).success,
+    ).toBe(false);
+    expect(
+      runtimeSettingsDraftSchema.safeParse({ ...VALID_DRAFT, previewIdleTeardownHours: -1 })
+        .success,
+    ).toBe(false);
     // 0 hours is meaningful here: it disables idle teardown.
-    expect(runtimeSettingsDraftSchema.safeParse({ ...VALID_DRAFT, previewIdleTeardownHours: 0 }).success).toBe(true);
+    expect(
+      runtimeSettingsDraftSchema.safeParse({ ...VALID_DRAFT, previewIdleTeardownHours: 0 }).success,
+    ).toBe(true);
   });
 });
