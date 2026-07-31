@@ -21,6 +21,7 @@ import {
   type Manifest,
 } from "../../stack/manifest";
 import { ManifestVersionConflictError, ProjectNotFoundError } from "./errors";
+import { manifestAfterDiscard, type SkippedResource } from "./manifest-applied-snapshot";
 
 type OrgId = OrganizationId;
 
@@ -96,18 +97,26 @@ export async function saveManifest(
  */
 export async function discardManifest(
   scope: ProjectScope,
+  /** Discard only these; omitted = discard every pending change. */
+  only?: readonly SkippedResource[],
 ): Promise<Result<{ version: number }, ProjectNotFoundError>> {
   const [row] = await db
-    .select({ lastApplied: project.lastAppliedManifest })
+    .select({ manifest: project.manifest, lastApplied: project.lastAppliedManifest })
     .from(project)
     .where(and(eq(project.id, scope.projectId), eq(project.organizationId, scope.organizationId)))
     .limit(1);
   if (!row) return Result.err(new ProjectNotFoundError({ projectId: scope.projectId }));
 
+  const nextManifest = manifestAfterDiscard({
+    manifest: row.manifest as Manifest | null,
+    applied: row.lastApplied as Manifest | null,
+    only,
+  });
+
   const updated = await db
     .update(project)
     .set({
-      manifest: row.lastApplied ?? null,
+      manifest: nextManifest,
       manifestVersion: sql`${project.manifestVersion} + 1`,
     })
     .where(and(eq(project.id, scope.projectId), eq(project.organizationId, scope.organizationId)))

@@ -53,10 +53,13 @@ interface StepCtx {
   projectId: ProjectId;
   dbView: boolean;
   onDbViewChange: (open: boolean) => void;
+  /** Selecting a source IS the Source step's answer — advance on the click
+   *  rather than making the operator confirm it with a second one. */
+  onKindChosen: (kindId: string) => void;
 }
 const STEP_RENDERERS: Record<Step, (ctx: StepCtx) => React.ReactNode | null> = {
-  kind: ({ dbView, onDbViewChange }) => (
-    <StepKind dbView={dbView} onDbViewChange={onDbViewChange} />
+  kind: ({ dbView, onDbViewChange, onKindChosen }) => (
+    <StepKind dbView={dbView} onDbViewChange={onDbViewChange} onChosen={onKindChosen} />
   ),
   source: ({ kind, isSourceBased }) => (kind && isSourceBased ? <StepSource /> : null),
   builder: ({ kind, isSourceBased }) => (kind && isSourceBased ? <StepBuilder /> : null),
@@ -86,6 +89,7 @@ export function WizardStepBody({
   projectId,
   dbView,
   onDbViewChange,
+  onKindChosen,
 }: {
   step: Step;
   kind: ServiceKind | null;
@@ -95,6 +99,7 @@ export function WizardStepBody({
   projectId: ProjectId;
   dbView: boolean;
   onDbViewChange: (open: boolean) => void;
+  onKindChosen: (kindId: string) => void;
 }) {
   return (
     <div className="flex-1 overflow-y-auto p-4">
@@ -107,6 +112,7 @@ export function WizardStepBody({
           projectId,
           dbView,
           onDbViewChange,
+          onKindChosen,
         })}
       </div>
     </div>

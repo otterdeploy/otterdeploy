@@ -368,10 +368,7 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
       <GraphNodeDialogs
         projectId={project.id}
         nodes={liveNodes}
-        deleteTarget={contextMenu.deleteTarget}
-        closeDelete={contextMenu.closeDelete}
-        cloneTarget={contextMenu.cloneTarget}
-        closeClone={contextMenu.closeClone}
+        menu={contextMenu}
       />
     </>
   );

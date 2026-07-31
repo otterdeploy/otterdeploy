@@ -183,6 +183,24 @@ export function useWizardForm({
   const idx = steps.findIndex((s) => s[0] === step);
   const isLast = idx === steps.length - 1;
 
+  /**
+   * Advance off the Source step the moment a source is chosen — picking one IS
+   * the answer that step asks for, so making the operator confirm it with a
+   * second click is a step that exists only to be dismissed.
+   *
+   * Takes the id rather than reading `kind` from the store, and recomputes the
+   * flow from it. The two must not be separated: `flowFor` branches on the
+   * chosen kind, so step 1 is "source" for a git repo, "image" for Docker and
+   * "version" for a database. Advancing via the render-time `steps` would use
+   * the flow for the PREVIOUS kind — pick Docker after the default git flow and
+   * you would land on the repository step for an image-based service.
+   */
+  const advanceAfterKind = (nextKindId: string) => {
+    const nextKind = SERVICE_KINDS.find((k) => k.id === nextKindId) ?? null;
+    const next = flowFor(nextKind, advancedSetup)[1]?.[0];
+    if (next) goToStep(next);
+  };
+
   // Failing steps the user has PASSED (i < idx). The current step is
   // mid-edit; its blockers surface in the footer's "Required" line.
   const formValues = useStore(form.store, (s) => s.values);
@@ -253,6 +271,7 @@ export function useWizardForm({
     handleContinue,
     goPrev,
     goToStep,
+    advanceAfterKind,
     advancedSetup,
     setAdvanced,
   };

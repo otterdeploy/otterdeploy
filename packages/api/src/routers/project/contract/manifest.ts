@@ -81,9 +81,48 @@ const manifestApplyOutput = z.object({
 // and the pending-changes bar disappears.
 const manifestDiscardInput = z.object({
   projectId: getProjectInput.shape.id,
+  // Discard only these resources, leaving every other staged edit alone.
+  // Omitted = discard everything, the original behaviour. Lets the pending-
+  // changes bar drop one unwanted change without also throwing away the
+  // edits the operator still wants.
+  only: z
+    .array(
+      z.object({
+        resource: z.enum(["service", "database", "env", "compose"]),
+        name: z.string().min(1),
+      }),
+    )
+    .optional(),
 });
 
 const manifestDiscardOutput = z.object({
+  version: z.number().int().nonnegative(),
+});
+
+// The manifest's own key grammar, PLUS a trailing-hyphen ban.
+//
+// `resourceName` in stack/manifest/schema.ts accepts a trailing hyphen, and
+// that gap is how `mariadb-` entered a live manifest: the name validates here,
+// but `sanitizeDatabaseName` strips the hyphen when deriving Docker names, so
+// it collides with an existing `mariadb` and the create fails forever. A
+// rename must not be able to mint another one.
+const renameTarget = z
+  .string()
+  .regex(/^[a-z][a-z0-9-]{0,62}$/, {
+    message: "Use lowercase letters, digits and hyphens; start with a letter.",
+  })
+  .refine((name) => !name.endsWith("-"), {
+    message: "Names can't end with a hyphen.",
+  });
+
+const manifestRenameInput = z.object({
+  projectId: getProjectInput.shape.id,
+  resource: z.enum(["service", "database", "compose"]),
+  from: z.string().min(1),
+  to: renameTarget,
+});
+
+const manifestRenameOutput = z.object({
   version: z.number().int().nonnegative(),
 });
 
@@ -158,6 +197,22 @@ export const manifestContractSlice = {
     .meta({ path: `${basePath}/{projectId}/manifest/discard`, tag, method: "POST" })
     .input(manifestDiscardInput)
     .output(manifestDiscardOutput),
+  // rename — move a resource's manifest key and rewrite every ref that
+  // addressed it (`${database:old.url}` → `${database:new.url}`). Only for
+  // resources that are still PENDING: once deployed, the container, swarm
+  // service and volume names are derived from the resource name, so a rename
+  // would point the project at infrastructure that doesn't exist.
+  rename: oc
+    .errors({
+      ...projectNotFoundErrors,
+      // Every refusal a rename can hit is the operator's to fix: the resource
+      // is already deployed, the target name is taken, or the manifest moved
+      // under them. The handler supplies the specific message.
+      BAD_REQUEST: { status: 400, message: "Rename rejected" as const },
+    })
+    .meta({ path: `${basePath}/{projectId}/manifest/rename`, tag, method: "POST" })
+    .input(manifestRenameInput)
+    .output(manifestRenameOutput),
   // One-way render of the current resource graph as a deployable
   // docker-compose stack file. Disaster-recovery / local-dev / audit
   // escape hatch; not a roundtrip — secret values are resolved in the
