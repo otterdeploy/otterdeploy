@@ -5,6 +5,7 @@ import { parseCompose } from "@otterdeploy/api/stack/compose/parse";
 import { summarizeCompose } from "@otterdeploy/api/stack/compose/summary";
 import { db } from "@otterdeploy/db";
 import { composeResource, deployment, resource } from "@otterdeploy/db/schema";
+import { COMPOSE_FILENAMES } from "@otterdeploy/shared/compose";
 /**
  * Build path for `type: compose` resources with `build:` services.
  *
@@ -80,13 +81,9 @@ export async function runComposeBuild(
 
     // Resolve the compose file: the explicit path if set, else the common
     // names (compose.yml / docker-compose.yml / .yaml), relative to subdir.
-    const candidates = [
-      ctx.compose.composePath,
-      "compose.yml",
-      "compose.yaml",
-      "docker-compose.yml",
-      "docker-compose.yaml",
-    ].filter((p): p is string => !!p);
+    const candidates = [ctx.compose.composePath, ...COMPOSE_FILENAMES].filter(
+      (p): p is string => !!p,
+    );
     const found = candidates.find((p) => existsSync(join(workDir, subdir, p)));
     if (!found) {
       return Result.err(

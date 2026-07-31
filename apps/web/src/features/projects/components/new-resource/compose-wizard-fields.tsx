@@ -16,6 +16,7 @@ import { Input } from "@/shared/components/ui/input";
 
 import type { ComposeForm, DetectedService, Preview } from "./compose-wizard-shared";
 
+import { ComposeFileField } from "./compose-detect";
 import { ComposeExtraFiles } from "./compose-extra-files";
 import { ComposePreview } from "./compose-preview";
 import { editorExtensions } from "./compose-wizard-editor";
@@ -122,21 +123,7 @@ export function ComposeGitFields({
             </label>
           )}
         </form.Field>
-        <form.Field name="composePath">
-          {(field) => (
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs text-muted-foreground">
-                Compose file <span className="text-muted-foreground/60">(optional)</span>
-              </span>
-              <Input
-                value={field.state.value}
-                onChange={(e) => field.handleChange(e.target.value)}
-                placeholder="auto-detect"
-                className="font-mono"
-              />
-            </label>
-          )}
-        </form.Field>
+        <ComposeFileField form={form} />
       </div>
 
       <form.Field name="sourceSubdir">
