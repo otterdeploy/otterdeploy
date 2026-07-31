@@ -15,6 +15,7 @@ import { oc } from "@orpc/contract";
 import * as z from "zod";
 
 import { organizationIdField } from "../project/contract/shared";
+import { runtimeSettingsDraftSchema } from "./runtime-settings-schema";
 
 const tag = "organization";
 const basePath = "/organizations";
@@ -256,11 +257,6 @@ const setCrowdsecSettingsInput = z.object({
   bouncerKey: z.string().min(1).nullable().optional(),
 });
 
-// Bare IPs / CIDRs only — a hostname could itself be rebound, which is the
-// whole attack this allowlist has to not reopen. Same grammar as the env var.
-const IP_OR_CIDR_RE =
-  /^((\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?|[0-9a-fA-F:]*:[0-9a-fA-F:]*(\/\d{1,3})?)$/;
-
 const runtimeSettingsSchema = z.object({
   /** Comma-separated; empty string = explicitly allow nothing. */
   egressAllowlist: z.string(),
@@ -277,27 +273,13 @@ const runtimeSettingsSchema = z.object({
   edgeLogSinkConfigured: z.boolean(),
 });
 
-const setRuntimeSettingsInput = z.object({
+// The field rules live in ./runtime-settings-schema so the settings form can
+// import and run the SAME schema inline as the operator types, instead of
+// discovering a malformed IP only after a round trip returns "Input validation
+// failed". The server stays the authority; the client just stops being the
+// last to know.
+const setRuntimeSettingsInput = runtimeSettingsDraftSchema.extend({
   organizationId: organizationIdField,
-  egressAllowlist: z
-    .string()
-    .trim()
-    .refine(
-      (v) =>
-        v === "" ||
-        v
-          .split(",")
-          .map((e) => e.trim())
-          .filter((e) => e.length > 0)
-          .every((e) => IP_OR_CIDR_RE.test(e)),
-      { message: "must be a comma-separated list of bare IPs or CIDRs (no hostnames)" },
-    ),
-  previewIdleTeardownHours: z.number().int().min(0).max(8760),
-  edgeLogPersist: z.boolean(),
-  edgeLogRetentionDays: z.number().int().min(1).max(365),
-  edgeLogGeoipUrl: z.url(),
-  edgeLogGeoipAsnUrl: z.url(),
-  builderConcurrency: z.number().int().min(1).max(32),
 });
 
 // ─── Members + invitations (delegated to better-auth's org plugin) ────────

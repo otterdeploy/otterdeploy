@@ -10,7 +10,7 @@
  * PRODUCT.md.
  */
 
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 
 import type { OrganizationId } from "@otterdeploy/shared/id";
 import { Settings02Icon } from "@hugeicons/core-free-icons";
@@ -18,118 +18,19 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { SettingsFooter, SettingsRow, SettingsSection } from "@/shared/components/settings-section";
-import { Badge } from "@/shared/components/ui/badge";
+import {
+  EMPTY_DRAFT,
+  FieldError,
+  NumberRow,
+  TextRow,
+  validate,
+  type Draft,
+  type FieldErrors,
+} from "./instance-runtime-fields";
 import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
 import { Switch } from "@/shared/components/ui/switch";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { orpc, queryClient } from "@/shared/server/orpc";
-
-interface Draft {
-  egressAllowlist: string;
-  previewIdleTeardownHours: number;
-  edgeLogPersist: boolean;
-  edgeLogRetentionDays: number;
-  edgeLogGeoipUrl: string;
-  edgeLogGeoipAsnUrl: string;
-  builderConcurrency: number;
-}
-
-/** Placeholder shape for the pre-fetch render only — the server's values
- *  overwrite every field the moment the query resolves. */
-const EMPTY_DRAFT: Draft = {
-  egressAllowlist: "",
-  previewIdleTeardownHours: 72,
-  edgeLogPersist: false,
-  edgeLogRetentionDays: 7,
-  edgeLogGeoipUrl: "",
-  edgeLogGeoipAsnUrl: "",
-  builderConcurrency: 1,
-};
-
-/** A bounded integer setting with its unit — the shape four of these rows
- *  share, extracted so the card body stays readable. */
-function NumberRow({
-  title,
-  description,
-  unit,
-  badge,
-  value,
-  min,
-  max,
-  disabled,
-  onChange,
-}: {
-  title: string;
-  description: ReactNode;
-  unit?: string;
-  badge?: string;
-  value: number;
-  min: number;
-  max: number;
-  disabled: boolean;
-  onChange: (next: number) => void;
-}) {
-  return (
-    <SettingsRow
-      title={title}
-      description={description}
-      control={
-        <div className="flex items-center gap-2.5">
-          {badge && (
-            <Badge variant="outline" className="font-mono text-[10px]">
-              {badge}
-            </Badge>
-          )}
-          <Input
-            type="number"
-            min={min}
-            max={max}
-            value={value}
-            onChange={(e) => onChange(Number(e.target.value))}
-            className="w-24 font-mono text-[12.5px]"
-            disabled={disabled}
-          />
-          {unit && <span className="text-[12px] text-muted-foreground">{unit}</span>}
-        </div>
-      }
-    />
-  );
-}
-
-/** A full-width free-text setting (URLs, the allowlist). */
-function TextRow({
-  title,
-  description,
-  value,
-  placeholder,
-  disabled,
-  onChange,
-}: {
-  title: string;
-  description?: ReactNode;
-  value: string;
-  placeholder?: string;
-  disabled: boolean;
-  onChange: (next: string) => void;
-}) {
-  return (
-    <SettingsRow
-      stacked
-      title={title}
-      description={description}
-      control={
-        <Input
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="font-mono text-[12.5px]"
-          disabled={disabled}
-        />
-      }
-    />
-  );
-}
 
 export function RuntimeSettingsCard({ organizationId }: { organizationId: OrganizationId }) {
   const query = useQuery(
@@ -163,6 +64,12 @@ export function RuntimeSettingsCard({ organizationId }: { organizationId: Organi
 
   const patch = (next: Partial<Draft>) => setDraft({ ...value, ...next });
 
+  // Only surface errors once the operator has actually edited something —
+  // an untouched card must not open covered in red because the server's
+  // stored value predates a rule.
+  const errors: FieldErrors = draft === null ? {} : validate(draft);
+  const hasErrors = Object.keys(errors).length > 0;
+
   return (
     <SettingsSection
       icon={Settings02Icon}
@@ -184,14 +91,18 @@ export function RuntimeSettingsCard({ organizationId }: { organizationId: Organi
           </>
         }
         control={
-          <Textarea
-            value={value.egressAllowlist}
-            onChange={(e) => patch({ egressAllowlist: e.target.value })}
-            placeholder="192.168.1.10, 10.0.0.0/24"
-            rows={2}
-            className="font-mono text-[12.5px]"
-            disabled={busy}
-          />
+          <div>
+            <Textarea
+              value={value.egressAllowlist}
+              onChange={(e) => patch({ egressAllowlist: e.target.value })}
+              placeholder="192.168.1.10, 10.0.0.0/24"
+              rows={2}
+              aria-invalid={errors.egressAllowlist ? true : undefined}
+              className="font-mono text-[12.5px]"
+              disabled={busy}
+            />
+            <FieldError message={errors.egressAllowlist} />
+          </div>
         }
       />
 
@@ -203,6 +114,7 @@ export function RuntimeSettingsCard({ organizationId }: { organizationId: Organi
         min={0}
         max={8760}
         disabled={busy}
+        error={errors.previewIdleTeardownHours}
         onChange={(next) => patch({ previewIdleTeardownHours: next })}
       />
 
@@ -230,6 +142,7 @@ export function RuntimeSettingsCard({ organizationId }: { organizationId: Organi
         min={1}
         max={365}
         disabled={busy}
+        error={errors.edgeLogRetentionDays}
         onChange={(next) => patch({ edgeLogRetentionDays: next })}
       />
 
@@ -238,6 +151,7 @@ export function RuntimeSettingsCard({ organizationId }: { organizationId: Organi
         description="Source for the IP→country database downloaded on first use. Point at a mirror for an air-gapped install."
         value={value.edgeLogGeoipUrl}
         disabled={busy}
+        error={errors.edgeLogGeoipUrl}
         onChange={(next) => patch({ edgeLogGeoipUrl: next })}
       />
 
@@ -246,6 +160,7 @@ export function RuntimeSettingsCard({ organizationId }: { organizationId: Organi
         description="Companion IP→ASN database, same download semantics."
         value={value.edgeLogGeoipAsnUrl}
         disabled={busy}
+        error={errors.edgeLogGeoipAsnUrl}
         onChange={(next) => patch({ edgeLogGeoipAsnUrl: next })}
       />
 
@@ -257,17 +172,20 @@ export function RuntimeSettingsCard({ organizationId }: { organizationId: Organi
         min={1}
         max={32}
         disabled={busy}
+        error={errors.builderConcurrency}
         onChange={(next) => patch({ builderConcurrency: next })}
       />
 
       <SettingsFooter>
         {draft !== null && (
-          <span className="text-[11.5px] text-muted-foreground">Unsaved changes</span>
+          <span className="text-[11.5px] text-muted-foreground">
+            {hasErrors ? "Fix the highlighted fields to save" : "Unsaved changes"}
+          </span>
         )}
         <Button
           size="sm"
-          disabled={draft === null || save.isPending}
-          onClick={() => draft && save.mutate({ organizationId, ...draft })}
+          disabled={draft === null || hasErrors || save.isPending}
+          onClick={() => draft && !hasErrors && save.mutate({ organizationId, ...draft })}
         >
           {save.isPending ? "Saving…" : "Save"}
         </Button>
