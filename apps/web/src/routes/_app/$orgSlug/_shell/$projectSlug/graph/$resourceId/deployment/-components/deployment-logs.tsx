@@ -42,6 +42,10 @@ export function DeploymentLogsBody({
       ts: new Date().toISOString(),
     }),
     key: `${projectId}|${resourceId}|${deploymentId}`,
+    // A finished deployment's output is immutable, and this tab lives inside
+    // <Activity> — which unmounts effects when hidden. Without this, every
+    // return to the tab re-streams the whole log.
+    cacheCompleted: true,
   });
 
   return (
@@ -98,6 +102,9 @@ export function BuildLogsBody({ deploymentId }: { deploymentId: string }) {
       ts: new Date().toISOString(),
     }),
     key: deploymentId,
+    // Same as Deploy Logs: a completed build's log never changes, so replay it
+    // from memory rather than re-streaming on every tab switch.
+    cacheCompleted: true,
   });
 
   return (
