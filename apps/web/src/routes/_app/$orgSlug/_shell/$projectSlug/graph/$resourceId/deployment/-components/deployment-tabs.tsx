@@ -98,7 +98,7 @@ export function DeploymentTabs({
             className="flex h-full min-h-0 flex-col px-6 pt-5 pb-8"
           >
             <Activity mode={tab === "build-logs" ? "visible" : "hidden"}>
-              <BuildLogsBody deploymentId={deploymentId} />
+              <BuildLogsBody deploymentId={deploymentId} deploymentStatus={deployment?.status} />
             </Activity>
           </TabsContent>
           <TabsContent
@@ -111,6 +111,7 @@ export function DeploymentTabs({
                 projectId={projectId}
                 resourceId={resourceId}
                 deploymentId={deploymentId}
+                deploymentStatus={deployment?.status}
               />
             </Activity>
           </TabsContent>
