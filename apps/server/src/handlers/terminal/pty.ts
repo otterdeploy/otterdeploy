@@ -5,6 +5,8 @@ import type { Duplex } from "node:stream";
 import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
 import { log } from "evlog";
+import { env } from "@otterdeploy/env/server";
+import { existsSync, readFileSync } from "node:fs";
 import { env as nodeEnv } from "node:process";
 
 import {
@@ -15,7 +17,20 @@ import {
 } from "../../lib/errors";
 import { ClientMessage, type ServerMessage } from "../../messages";
 
-const SHELL = nodeEnv.SHELL || "bash";
+/** Pick an interactive shell that actually exists. $SHELL covers the dev
+ *  host (zsh/bash); the production image is oven/bun:alpine, which ships
+ *  neither bash nor a $SHELL env — there the POSIX sh fallback is the only
+ *  one that spawns, and without it the host terminal dies with
+ *  "Executable not found in $PATH: bash" on every connect. */
+function resolveShell(): string {
+  const fromEnv = nodeEnv.SHELL;
+  if (fromEnv && (fromEnv.includes("/") ? existsSync(fromEnv) : Bun.which(fromEnv))) {
+    return fromEnv;
+  }
+  return Bun.which("bash") ?? "/bin/sh";
+}
+
+const SHELL = resolveShell();
 const USR_HOME = nodeEnv.HOME || "/root";
 
 const docker = Docker.fromEnv();
@@ -29,7 +44,7 @@ function buildBaseEnv(userId: string | undefined): Record<string, string> {
     HOME: nodeEnv.HOME ?? "/root",
     USER: nodeEnv.USER ?? "root",
     LOGNAME: nodeEnv.LOGNAME ?? nodeEnv.USER ?? "root",
-    SHELL: nodeEnv.SHELL ?? "/bin/bash",
+    SHELL,
     LANG: nodeEnv.LANG ?? "C.UTF-8",
     LC_ALL: nodeEnv.LC_ALL ?? "C.UTF-8",
     TERM: "xterm-256color",
@@ -116,15 +131,94 @@ function killShell(proc: Subprocess): void {
   }, 250).unref?.();
 }
 
+/** True when this process is itself inside a container — in production the
+ *  control plane runs as `otterdeploy-server-1`, so spawning a shell here would
+ *  land in the CONTAINER (Alpine, no bash, none of the operator's files), not on
+ *  the machine the UI promises. Docker writes /.dockerenv into every container;
+ *  the cgroup check covers runtimes that don't. */
+function runningInContainer(): boolean {
+  if (existsSync("/.dockerenv")) return true;
+  return Result.try(() => readFileSync("/proc/1/cgroup", "utf8"))
+    .map((c) => /docker|containerd|kubepods/.test(c))
+    .unwrapOr(false);
+}
+
+/** Argv that re-enters PID 1's namespaces, giving a shell on the real host.
+ *  Requires --privileged --pid=host, which is why it runs as a throwaway helper
+ *  container rather than in-process (the control plane itself is deliberately
+ *  unprivileged). This grants no access the caller didn't already have: the
+ *  server mounts docker.sock, which is root-equivalent on the host by
+ *  definition — it only makes the advertised behaviour real. Still gated behind
+ *  the same step-up auth as before. `-w` inherits PID 1's cwd so the shell
+ *  starts at /, and login -f root gives the operator their real $SHELL, rc
+ *  files and $HOME instead of a bare sh. */
+/** Shell script run once inside the host's namespaces. Resolves root's real
+ *  login shell from /etc/passwd (bash on a normal box) rather than trusting
+ *  $SHELL, which nsenter does NOT inherit — the helper container's environment
+ *  is what survives, and there $SHELL is unset.
+ *
+ *  Deliberately NOT `exec login -f root`: once exec replaces this process any
+ *  `|| fallback` after it is dead code, so when login fails — which it does
+ *  here, exit 1, having no utmp/PAM context in this namespace — the session
+ *  dies with a bare "process exited with code 1" and no way to recover. Errors
+ *  are left on stderr so a future failure is visible in the terminal instead of
+ *  silent. */
+const HOST_LOGIN_SCRIPT = [
+  'SH=$(getent passwd root 2>/dev/null | cut -d: -f7)',
+  '[ -x "$SH" ] || SH=$(command -v bash || command -v sh)',
+  "export HOME=/root USER=root LOGNAME=root",
+  'cd "$HOME" 2>/dev/null || cd /',
+  'exec "$SH" -l',
+].join("; ");
+
+function hostShellArgv(): string[] {
+  return [
+    "docker",
+    "run",
+    "--rm",
+    "-i",
+    "-t",
+    // nsenter carries no environment across, so the helper's env is all the
+    // shell gets — without this the host shell comes up as a dumb terminal.
+    "-e",
+    "TERM=xterm-256color",
+    "--privileged",
+    "--pid=host",
+    "--net=host",
+    "--ipc=host",
+    "--uts=host",
+    "--label",
+    "otterdeploy.role=host-shell",
+    env.OTTERDEPLOY_HOST_SHELL_IMAGE,
+    "nsenter",
+    "-t",
+    "1",
+    "-m",
+    "-u",
+    "-i",
+    "-n",
+    "-p",
+    "-w",
+    "--",
+    "sh",
+    "-c",
+    HOST_LOGIN_SCRIPT,
+  ];
+}
+
 function startHostShell(
   args: StartArgs,
 ): Result<PtyBackend, PtySpawnError | PtyTerminalUnavailableError> {
   const childEnv = buildBaseEnv(args.userId);
+  const containerized = runningInContainer();
+  const argv = containerized ? hostShellArgv() : [SHELL];
 
   return Result.try({
     try: () =>
-      Bun.spawn([SHELL], {
-        cwd: USR_HOME,
+      Bun.spawn(argv, {
+        // The helper's cwd comes from nsenter -w; only the in-process shell
+        // needs one here, and $HOME may not exist inside the container.
+        cwd: containerized ? undefined : USR_HOME,
         env: childEnv,
         terminal: {
           cols: args.cols,
@@ -144,7 +238,11 @@ function startHostShell(
     catch: (cause) => new PtySpawnError({ cause }),
   }).andThen((proc) => {
     log.info({
-      pty: { event: "host-shell-spawned", pid: proc.pid, shell: SHELL },
+      pty: {
+        event: "host-shell-spawned",
+        pid: proc.pid,
+        shell: containerized ? "nsenter-host" : SHELL,
+      },
     });
     const term = proc.terminal;
     if (!term) return Result.err(new PtyTerminalUnavailableError());
