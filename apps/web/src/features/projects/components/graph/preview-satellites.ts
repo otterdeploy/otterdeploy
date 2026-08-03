@@ -15,6 +15,9 @@ export interface PreviewApiEntry {
   headSha: string;
   slug: string;
   state: "active" | "closed";
+  paused?: boolean;
+  /** NULL teardown clock = pinned with keep-alive, never auto-reaped. */
+  autoTeardownAt?: string | null;
   prTitle?: string | null;
   prAuthorLogin?: string | null;
   prAuthorAvatarUrl?: string | null;
@@ -74,6 +77,8 @@ export function buildPreviewSatellites(
             // pill on its own would imply the pushed commit is what you'd be
             // reviewing, which is exactly the case that misleads.
             stale: !!svc.deployedSha && svc.deployedSha !== p.headSha,
+            paused: p.paused ?? false,
+            pinned: p.autoTeardownAt == null,
             url: svc.url,
             parentId,
           },
