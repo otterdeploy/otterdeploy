@@ -8,10 +8,54 @@ import type { GitRepoId, PreviewId, ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { deployment, resource, serviceResource } from "@otterdeploy/db/schema";
+import { gitRepo } from "@otterdeploy/db/schema/git";
 import { triggerDeploy } from "@otterdeploy/jobs";
+import { Result } from "better-result";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 
 import { emitDeployStarted } from "../routers/project/deployments-emit";
+import { fetchBranchHead } from "./github-app";
+
+/**
+ * Commit provenance for the deployment rows a preview build creates.
+ *
+ * The same fields a push deploy records. Without them the deployment reads
+ * "Git deployment" with a bare ref and sha — no change described, no author —
+ * which is exactly as informative as nothing. The push and manifest-apply paths
+ * already capture this; preview builds were the one path that didn't.
+ *
+ * Resolved by SHA rather than branch: the branch may have moved on by the time
+ * this runs, and the row must describe the commit actually being built.
+ *
+ * Best-effort by design. Provenance is presentation, so a rate-limited or
+ * unreachable GitHub degrades the card, never the deploy — nulls here read the
+ * same as a preview created before this existed.
+ */
+async function commitProvenance(
+  gitRepoId: GitRepoId,
+  sha: string,
+): Promise<{ message: string | null; authorName: string | null; authorAvatar: string | null }> {
+  const empty = { message: null, authorName: null, authorAvatar: null };
+  const [repo] = await db
+    .select({ fullName: gitRepo.fullName, installationId: gitRepo.installationId })
+    .from(gitRepo)
+    .where(eq(gitRepo.id, gitRepoId))
+    .limit(1);
+  if (!repo) return empty;
+  const [owner, name] = repo.fullName.split("/");
+  if (!owner || !name) return empty;
+
+  const head = await Result.tryPromise({
+    try: () => fetchBranchHead(repo.installationId, owner, name, sha),
+    catch: (cause) => cause,
+  });
+  if (head.isErr()) return empty;
+  return {
+    message: head.value.message,
+    authorName: head.value.authorName,
+    authorAvatar: head.value.authorAvatar,
+  };
+}
 
 export interface TriggerPreviewBuildInput {
   projectId: ProjectId;
@@ -64,6 +108,7 @@ export async function triggerPreviewBuild(input: TriggerPreviewBuildInput): Prom
   if (pending.length === 0) return 0;
 
   const ref = `refs/heads/${input.branch}`;
+  const provenance = await commitProvenance(input.gitRepoId, input.sha);
   const inserted = await db
     .insert(deployment)
     .values(
@@ -75,6 +120,9 @@ export async function triggerPreviewBuild(input: TriggerPreviewBuildInput): Prom
         status: "pending" as const,
         gitSha: input.sha,
         gitRef: ref,
+        gitCommitMessage: provenance.message,
+        gitCommitAuthor: provenance.authorName,
+        gitCommitAuthorAvatar: provenance.authorAvatar,
       })),
     )
     .returning({ id: deployment.id });
