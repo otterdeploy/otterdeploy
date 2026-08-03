@@ -2,7 +2,7 @@
 import { BrandButton, EmailLayout, Footnote, Heading, LinkFallback, Muted, Para } from "./_layout";
 
 interface MagicLinkEmailProps {
-  loginUrl?: string;
+  loginUrl: string;
   expiresInMinutes?: number;
 }
 
@@ -11,7 +11,7 @@ interface MagicLinkEmailProps {
  * the link itself is the credential — the copy stresses not sharing it.
  */
 export function MagicLinkEmail({
-  loginUrl = "http://localhost:5173/magic",
+  loginUrl,
   expiresInMinutes = 10,
 }: MagicLinkEmailProps) {
   return (

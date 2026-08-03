@@ -3,7 +3,7 @@ import { BrandButton, EmailLayout, Footnote, Heading, LinkFallback, Muted, Para 
 
 interface DeleteAccountEmailProps {
   username?: string;
-  confirmUrl?: string;
+  confirmUrl: string;
   expiresInMinutes?: number;
 }
 
@@ -13,7 +13,7 @@ interface DeleteAccountEmailProps {
  */
 export function DeleteAccountEmail({
   username = "there",
-  confirmUrl = "http://localhost:5173/confirm-delete",
+  confirmUrl,
   expiresInMinutes = 60,
 }: DeleteAccountEmailProps) {
   return (

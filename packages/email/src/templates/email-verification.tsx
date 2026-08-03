@@ -3,7 +3,7 @@ import { BrandButton, EmailLayout, Footnote, Heading, LinkFallback, Muted, Para 
 
 interface EmailVerificationEmailProps {
   username?: string;
-  verifyUrl?: string;
+  verifyUrl: string;
   expiresInMinutes?: number;
 }
 
@@ -13,7 +13,7 @@ interface EmailVerificationEmailProps {
  */
 export function EmailVerificationEmail({
   username = "there",
-  verifyUrl = "http://localhost:5173/verify",
+  verifyUrl,
   expiresInMinutes = 60,
 }: EmailVerificationEmailProps) {
   return (
