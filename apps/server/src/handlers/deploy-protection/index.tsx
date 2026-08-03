@@ -45,7 +45,7 @@ import { log } from "evlog";
 import { getCookie, setCookie } from "hono/cookie";
 
 import { pinCookieAllows } from "./pin";
-import {
+import { authorizeBase,
   allow,
   authTargetDomain,
   BYPASS_HEADER,
@@ -193,10 +193,12 @@ export const deployAuthorizeHandler: Handler = guard(async (c) => {
   );
   if (!session) {
     // No master session → log in first, then come back to this authorize URL.
-    // Rebuild the *public* authorize URL from BETTER_AUTH_URL: behind a proxy
-    // (portless/Swarm) c.req.url is the internal address, which the browser
-    // can't reach after login — so the return-trip would break.
-    const self = new URL("/.well-known/otterdeploy/authorize", env.BETTER_AUTH_URL);
+    // Rebuild the *public* authorize URL rather than reusing c.req.url: behind
+    // a proxy (portless/Swarm) that is the internal address, which the browser
+    // can't reach after login — so the return-trip would break. It must also
+    // be the origin the session cookie was set on, or the hop back arrives
+    // without one; authorizeBase resolves both.
+    const self = new URL("/.well-known/otterdeploy/authorize", await authorizeBase());
     self.searchParams.set("domain", domain);
     self.searchParams.set("return", returnPath);
     const login = new URL("/sign-in", await webBase());

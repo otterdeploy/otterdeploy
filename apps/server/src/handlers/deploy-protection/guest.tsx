@@ -12,12 +12,11 @@ import { resolveProtectedDomainOrg } from "@otterdeploy/api/authz/membership";
 import { consumeOtp, generateOtp, storeOtp, underRateLimit } from "@otterdeploy/api/authz/otp";
 import { signGuestCookie } from "@otterdeploy/api/authz/tokens";
 import { AccessCodeEmail, sendEmail } from "@otterdeploy/email";
-import { env } from "@otterdeploy/env/server";
 import { Result } from "better-result";
 import { log } from "evlog";
 import { setCookie } from "hono/cookie";
 
-import {
+import { authorizeBase,
   cookieOptions,
   errorPage,
   guard,
@@ -47,7 +46,7 @@ export const deployAccessHandler: Handler = guard(async (c) => {
     );
 
   // "Continue with organization" → the existing master-session handoff.
-  const authorize = new URL("/.well-known/otterdeploy/authorize", env.BETTER_AUTH_URL);
+  const authorize = new URL("/.well-known/otterdeploy/authorize", await authorizeBase());
   authorize.searchParams.set("domain", host);
   authorize.searchParams.set("return", returnPath);
 

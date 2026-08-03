@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { sessionQuery } from "@/lib/auth-queries";
+import { useControlPlaneBaseUrl } from "@/features/shell/hooks/use-control-plane-base-url";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/components/ui/toggle-group";
@@ -123,11 +124,15 @@ export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
     }),
   );
 
+  // The enrollment command is pasted into a shell on a DIFFERENT machine, so
+  // it must not carry this browser's incidental address.
+  const baseUrl = useControlPlaneBaseUrl();
+
   const command = useMemo(() => {
     if (!created) return null;
-    const url = `${window.location.origin}/api/node-enrollments/${created.id}/redeem`;
+    const url = `${baseUrl}/api/node-enrollments/${created.id}/redeem`;
     return `( set -e; script="$(curl -fsS -X POST '${url}' -H 'Authorization: Bearer ${created.credential}')"; printf '%s\\n' "$script" | sudo sh )`;
-  }, [created]);
+  }, [created, baseUrl]);
 
   const stepUpInput = {
     role,

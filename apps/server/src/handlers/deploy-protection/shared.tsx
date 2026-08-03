@@ -47,6 +47,18 @@ export function clientIpOf(c: Context): string {
 export const webBase = (): Promise<string> =>
   resolveCanonicalWebOrigin(env.PUBLIC_WEB_URL ?? env.CORS_ORIGIN[0] ?? env.BETTER_AUTH_URL);
 
+/** Public origin of the control plane itself, for the browser-facing hop back
+ *  into `/.well-known/otterdeploy/authorize`.
+ *
+ *  Not cosmetic. The master session cookie belongs to the origin the operator
+ *  signed in on — the control-plane domain once one is verified. Building this
+ *  hop from BETTER_AUTH_URL sent the browser to `http://<server-ip>:3000`,
+ *  a different origin, which carries no session: the visitor arrives
+ *  unauthenticated at the endpoint whose entire job is to read that session.
+ *  Same fallback as before when no domain is configured. */
+export const authorizeBase = (): Promise<string> =>
+  resolveCanonicalWebOrigin(env.PUBLIC_API_URL ?? env.BETTER_AUTH_URL);
+
 /** Render a branded error page for a known, browser-facing failure (bad/expired
  *  link, unknown deployment). Never leaks internals — title/detail are fixed
  *  copy. Used in place of the old raw `c.text("…")` returns. */

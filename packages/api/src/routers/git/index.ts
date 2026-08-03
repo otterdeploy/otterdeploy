@@ -1,6 +1,7 @@
 import { ORPCError } from "@orpc/server";
 import { db } from "@otterdeploy/db";
 import { gitInstallation, gitProvider } from "@otterdeploy/db/schema";
+import { resolveCanonicalWebOrigin } from "@otterdeploy/auth/web-origin";
 import { env } from "@otterdeploy/env/server";
 import { matchError } from "better-result";
 import { and, eq } from "drizzle-orm";
@@ -103,10 +104,20 @@ export const gitRouter = {
     // operator's browser can reach — the local `.localhost` address in dev.
     // Only the webhook URL must be public (GitHub's servers POST it), so that
     // one gets the tunnel (PUBLIC_API_URL); prod is single-origin and falls back.
+    //
+    // Both resolve through the canonical origin first: these values are written
+    // into the GitHub App's own settings and GitHub keeps them forever. An App
+    // created against the raw server address goes on receiving webhooks over
+    // plaintext at an IP that changes if the box does, and verifying a
+    // control-plane domain later cannot rewrite them.
+    const canonicalBase = await resolveCanonicalWebOrigin(env.BETTER_AUTH_URL);
+    const canonicalWebhookBase = await resolveCanonicalWebOrigin(
+      env.PUBLIC_API_URL ?? env.BETTER_AUTH_URL,
+    );
     return buildManifestRequest({
       state,
-      baseUrl: env.BETTER_AUTH_URL,
-      webhookBaseUrl: env.PUBLIC_API_URL ?? env.BETTER_AUTH_URL,
+      baseUrl: canonicalBase,
+      webhookBaseUrl: canonicalWebhookBase,
       host,
       accountLogin: input.accountLogin ?? null,
       appName: input.appName,
