@@ -18,6 +18,7 @@ import {
   resource,
   serviceResource,
 } from "@otterdeploy/db/schema/project";
+import { resolveCanonicalWebOrigin } from "@otterdeploy/auth/web-origin";
 import { env as serverEnv } from "@otterdeploy/env/server";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 
@@ -41,8 +42,21 @@ export interface PreviewReportSnapshot {
 
 type PreviewRow = typeof preview.$inferSelect;
 
-function dashboardBase(): string {
-  return serverEnv.BETTER_AUTH_URL.replace(/\/+$/, "");
+/**
+ * Base URL for links we post to GitHub.
+ *
+ * BETTER_AUTH_URL is where the API is reached, which on a normal install is
+ * the host's raw address — so an Inspect link landed on `http://<ip>:3000`:
+ * plaintext, IP-shaped, and needlessly published in a public PR comment.
+ * `resolveCanonicalWebOrigin` is the shared answer to "what should an outbound
+ * link say": the operator's VERIFIED control-plane domain when there is one,
+ * this same env value when there isn't. Never throws.
+ */
+async function dashboardBase(): Promise<string> {
+  const origin = await resolveCanonicalWebOrigin(
+    serverEnv.BETTER_AUTH_URL.replace(/\/+$/, ""),
+  );
+  return origin.replace(/\/+$/, "");
 }
 
 /** One comment row per git service the PR rebuilds in this preview's project. */
@@ -90,7 +104,7 @@ async function loadPreviewRows(row: PreviewRow, repoId: GitRepoId): Promise<Prev
   }
 
   const routes = await listProxyRoutesByPreview(row.id);
-  const base = dashboardBase();
+  const base = await dashboardBase();
 
   return services.map((svc) => {
     const dep = latestByResource.get(svc.resourceId);
