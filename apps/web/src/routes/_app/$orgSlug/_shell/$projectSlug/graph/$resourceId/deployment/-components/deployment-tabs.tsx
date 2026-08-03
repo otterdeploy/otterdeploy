@@ -39,6 +39,7 @@ export function DeploymentTabs({
   projectId,
   resourceId,
   deploymentId,
+  previewUrl,
 }: {
   tab: DeploymentTab;
   onTabChange: (tab: DeploymentTab) => void;
@@ -47,6 +48,8 @@ export function DeploymentTabs({
   projectId: string;
   resourceId: string;
   deploymentId: string;
+  /** Preview host for this service, when the panel was opened from a preview. */
+  previewUrl?: string | null;
 }) {
   return (
     <Tabs
@@ -89,6 +92,7 @@ export function DeploymentTabs({
                 projectId={projectId}
                 resourceId={resourceId}
                 deploymentId={deploymentId}
+                previewUrl={previewUrl}
               />
             </Activity>
           </TabsContent>

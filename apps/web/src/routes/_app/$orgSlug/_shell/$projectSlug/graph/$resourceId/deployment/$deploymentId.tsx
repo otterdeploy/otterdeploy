@@ -12,6 +12,7 @@ import type { ProjectResource } from "@/features/projects/components/graph/resou
 
 import { deploymentsCollection } from "@/features/resources/data/deployments";
 import { orpc } from "@/shared/server/orpc";
+import { cn } from "@/shared/lib/utils";
 import { resourceCollection } from "@/features/resources/data/resource";
 
 import { CancelDeploymentButton } from "@/features/deployments/components/cancel-deployment-button";
@@ -114,6 +115,21 @@ function Subline({ text, href }: { text: string; href: string | null }) {
   );
 }
 
+/** Marks a build as belonging to a pull request rather than to production.
+ *  Dashed to match the graph's preview edges and the preview panel's chrome —
+ *  one vocabulary for "ephemeral, PR-scoped" wherever it appears. */
+function PreviewChip({ active }: { active: boolean }) {
+  if (!active) return null;
+  return (
+    <span
+      className="inline-flex shrink-0 items-center rounded-full border border-dashed border-border bg-muted/30 px-2 py-0.5 font-mono text-[10.5px] tracking-[0.14em] text-muted-foreground uppercase"
+      title="A pull-request preview build — temporary, and torn down with its PR"
+    >
+      preview
+    </span>
+  );
+}
+
 function RouteComponent() {
   const { orgSlug, projectSlug, resourceId, deploymentId } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
@@ -196,7 +212,12 @@ function RouteComponent() {
     >
       <div className="pointer-events-auto absolute inset-0 flex flex-col overflow-hidden bg-background">
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 px-6 pt-6">
+        <div
+          className={cn(
+            "flex items-start justify-between gap-4 px-6 pt-6",
+            previewId && "border-b border-dashed border-border bg-muted/20 pb-4",
+          )}
+        >
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2.5">
               <span className="text-[18px] font-semibold tracking-tight">
@@ -208,6 +229,12 @@ function RouteComponent() {
                   deploymentId.slice(0, 8)}
               </span>
               {deployment && <DeploymentStatusDot status={deployment.status} />}
+              {/* Same dashed vocabulary the graph uses for a preview's
+                  attachment, and the preview panel's own chrome: this build
+                  belongs to a pull request, not to production. Without it the
+                  panel is indistinguishable from a production deployment while
+                  showing an ephemeral one. */}
+              <PreviewChip active={!!previewId} />
             </div>
             <Subline text={subline} href={sublineHref} />
           </div>
@@ -249,6 +276,7 @@ function RouteComponent() {
           projectId={project.id}
           resourceId={resourceId}
           deploymentId={deploymentId}
+          previewUrl={previewUrl}
         />
       </div>
     </m.div>

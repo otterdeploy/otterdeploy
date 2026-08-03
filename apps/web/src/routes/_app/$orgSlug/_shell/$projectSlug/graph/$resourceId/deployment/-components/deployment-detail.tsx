@@ -37,12 +37,16 @@ export function DeploymentDetailsBody({
   projectId,
   resourceId,
   deploymentId,
+  previewUrl,
 }: {
   deployment: DeploymentRow | null;
   resource: ProjectResource | undefined;
   projectId: string;
   resourceId: string;
   deploymentId: string;
+  /** Set when this deployment belongs to a PR preview — the preview serves its
+   *  own host, so the base resource's domain is the wrong answer here. */
+  previewUrl?: string | null;
 }) {
   if (!deployment) {
     return (
@@ -56,7 +60,7 @@ export function DeploymentDetailsBody({
     <div className="flex flex-col gap-6">
       <DeploymentTimeline deployment={deployment} />
       <SourceBlock deployment={deployment} resource={resource} />
-      <ConfigurationSection deployment={deployment} resource={resource} />
+      <ConfigurationSection deployment={deployment} resource={resource} previewUrl={previewUrl} />
       {deployment.taskCount > 0 && (
         <DeploymentTasksList
           projectId={projectId}
@@ -238,9 +242,11 @@ function readBuilder(resource: ProjectResource | undefined): string | null {
 function ConfigurationSection({
   deployment,
   resource,
+  previewUrl,
 }: {
   deployment: DeploymentRow;
   resource: ProjectResource | undefined;
+  previewUrl?: string | null;
 }) {
   if (!resource) return null;
 
@@ -254,8 +260,12 @@ function ConfigurationSection({
     if (resource.framework) build.push({ label: "Framework", value: resource.framework });
 
     deploy.push({ label: "Replicas", value: String(resource.replicas) });
-    if (resource.publicEnabled && resource.publicDomain) {
-      deploy.push({ label: "Domain", value: resource.publicDomain });
+    // A preview deployment is not reachable at the base service's domain, so
+    // reporting that one here describes production while you are reading a pull
+    // request's build.
+    const domain = previewUrl?.replace(/^https?:\/\//, "") ?? resource.publicDomain;
+    if ((resource.publicEnabled || previewUrl) && domain) {
+      deploy.push({ label: "Domain", value: domain });
     }
   } else if (resource.type === "database") {
     build.push({ label: "Engine", value: resource.engine });
