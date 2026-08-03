@@ -20,6 +20,11 @@ import { apiBaseUrlForHost, getInstallationToken, ghFetch } from "./github-app";
  */
 const pullRequestHeadSchema = z.object({
   head: z.object({ ref: z.string().min(1), sha: z.string().min(1) }),
+  // Presentation only — `nullish` throughout so a missing field degrades the
+  // card, never the build.
+  title: z.string().nullish(),
+  html_url: z.string().nullish(),
+  user: z.object({ login: z.string().nullish(), avatar_url: z.string().nullish() }).nullish(),
   // Absent on some enterprise responses; the caller only refuses non-open PRs,
   // so defaulting to open preserves that behaviour without a second branch.
   state: z.string().default("open"),
@@ -31,6 +36,10 @@ export interface PullRequestHead {
   sha: string;
   state: string;
   nodeId: string | null;
+  title: string | null;
+  authorLogin: string | null;
+  authorAvatarUrl: string | null;
+  url: string | null;
 }
 
 /**
@@ -79,5 +88,9 @@ export async function fetchPullRequestHead(
     sha: parsed.data.head.sha,
     state: parsed.data.state,
     nodeId: parsed.data.node_id ?? null,
+    title: parsed.data.title ?? null,
+    authorLogin: parsed.data.user?.login ?? null,
+    authorAvatarUrl: parsed.data.user?.avatar_url ?? null,
+    url: parsed.data.html_url ?? null,
   };
 }

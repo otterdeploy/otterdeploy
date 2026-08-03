@@ -48,6 +48,12 @@ export interface EnsurePreviewInput {
   /** Plain head branch name (GitHub's pr.head.ref). */
   branch: string;
   headSha: string;
+  /** PR presentation metadata for the preview card. Optional and refreshed on
+   *  every event, so a payload that omits one simply leaves it as-is. */
+  prTitle?: string | null;
+  prAuthorLogin?: string | null;
+  prAuthorAvatarUrl?: string | null;
+  prUrl?: string | null;
 }
 
 /**
@@ -70,6 +76,10 @@ export async function ensurePreview(input: EnsurePreviewInput): Promise<PreviewR
       slug: `${input.repoSlug}-pr-${input.prNumber}`,
       state: "active",
       autoTeardownAt: teardownAt,
+      prTitle: input.prTitle ?? null,
+      prAuthorLogin: input.prAuthorLogin ?? null,
+      prAuthorAvatarUrl: input.prAuthorAvatarUrl ?? null,
+      prUrl: input.prUrl ?? null,
     })
     .onConflictDoUpdate({
       target: [preview.projectId, preview.gitRepoId, preview.prNumber],
@@ -77,6 +87,15 @@ export async function ensurePreview(input: EnsurePreviewInput): Promise<PreviewR
         branch: input.branch,
         headSha: input.headSha,
         state: "active",
+        // Refreshed every event so a retitled PR (or a first event that
+        // predates these columns) catches up. `?? null` would blank a known
+        // value when a payload omits the field, so only overwrite when present.
+        ...(input.prTitle != null ? { prTitle: input.prTitle } : {}),
+        ...(input.prAuthorLogin != null ? { prAuthorLogin: input.prAuthorLogin } : {}),
+        ...(input.prAuthorAvatarUrl != null
+          ? { prAuthorAvatarUrl: input.prAuthorAvatarUrl }
+          : {}),
+        ...(input.prUrl != null ? { prUrl: input.prUrl } : {}),
         // A push is an implicit resume — clear a stale pause so the rebuilt
         // containers aren't left flagged paused (and reaper-exempt) forever.
         paused: false,

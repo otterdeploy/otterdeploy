@@ -78,6 +78,10 @@ export interface PullRequestEvent {
     state: "open" | "closed";
     merged?: boolean;
     title?: string;
+    /** Author, for the preview card. Optional — never gate a preview on it. */
+    user?: { login?: string; avatar_url?: string } | null;
+    /** Canonical web URL of the PR. */
+    html_url?: string;
     head: { ref: string; sha: string };
     base: { ref: string };
   };

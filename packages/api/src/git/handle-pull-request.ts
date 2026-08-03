@@ -215,6 +215,10 @@ export async function deployPreviews(
       prNodeId: pr.node_id ?? null,
       branch: pr.head.ref,
       headSha: pr.head.sha,
+      prTitle: pr.title ?? null,
+      prAuthorLogin: pr.user?.login ?? null,
+      prAuthorAvatarUrl: pr.user?.avatar_url ?? null,
+      prUrl: pr.html_url ?? null,
     });
     if (!row) continue;
     environmentsTouched++;

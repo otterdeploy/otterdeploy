@@ -43,6 +43,12 @@ export interface PreviewEntry {
   prNumber: number;
   branch: string;
   headSha: string;
+  /** PR presentation metadata, null when the payload didn't carry it (or the
+   *  preview predates it being captured). */
+  prTitle: string | null;
+  prAuthorLogin: string | null;
+  prAuthorAvatarUrl: string | null;
+  prUrl: string | null;
   slug: string;
   state: "active" | "closed";
   paused: boolean;
@@ -146,6 +152,10 @@ export async function listProjectPreviews(
       prNumber: row.prNumber,
       branch: row.branch,
       headSha: row.headSha,
+      prTitle: row.prTitle,
+      prAuthorLogin: row.prAuthorLogin,
+      prAuthorAvatarUrl: row.prAuthorAvatarUrl,
+      prUrl: row.prUrl,
       slug: row.slug,
       state: row.state,
       paused: row.paused,

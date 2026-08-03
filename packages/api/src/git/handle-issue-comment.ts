@@ -27,7 +27,7 @@ import { log } from "evlog";
 import type { GithubWebhookResult, IssueCommentEvent, PullRequestEvent } from "./types";
 
 import { isAuthorizedCommenter, parseCommentCommand, refusalReason } from "./comment-command";
-import { fetchPullRequestHead } from "./github-pulls";
+import { fetchPullRequestHead, type PullRequestHead } from "./github-pulls";
 import { deployPreviews } from "./handle-pull-request";
 
 /**
@@ -83,6 +83,36 @@ async function projectsForRepo(repoId: GitRepoId) {
     );
 }
 
+/**
+ * The `issue_comment` payload has no pull request, so a comment-triggered
+ * preview runs off a synthetic `pull_request` event built from the PR lookup.
+ * Carried metadata included, so a `/preview` comment produces the same card as
+ * a webhook-opened PR rather than an anonymous one.
+ */
+function syntheticPullRequestEvent(
+  ev: IssueCommentEvent,
+  head: PullRequestHead,
+): PullRequestEvent {
+  return {
+    action: "synchronize",
+    number: ev.issue.number,
+    pull_request: {
+      number: ev.issue.number,
+      node_id: head.nodeId ?? undefined,
+      state: "open",
+      title: head.title ?? undefined,
+      user: {
+        login: head.authorLogin ?? undefined,
+        avatar_url: head.authorAvatarUrl ?? undefined,
+      },
+      html_url: head.url ?? undefined,
+      head: { ref: head.ref, sha: head.sha },
+      base: { ref: "" },
+    },
+    repository: ev.repository,
+  };
+}
+
 export async function handleIssueComment(
   ev: IssueCommentEvent,
   deliveryId: string,
@@ -129,18 +159,7 @@ export async function handleIssueComment(
   // Deliberately NOT filtered by `previewsEnabled`: the whole point of the
   // command is to get a preview for a repository that has not opted in. The
   // cap still applies, inside deployPreviews.
-  const synthetic: PullRequestEvent = {
-    action: "synchronize",
-    number: ev.issue.number,
-    pull_request: {
-      number: ev.issue.number,
-      node_id: head.value.nodeId ?? undefined,
-      state: "open",
-      head: { ref: head.value.ref, sha: head.value.sha },
-      base: { ref: "" },
-    },
-    repository: ev.repository,
-  };
+  const synthetic = syntheticPullRequestEvent(ev, head.value);
 
   log.info({
     github: {

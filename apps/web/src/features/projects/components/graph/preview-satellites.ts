@@ -15,6 +15,10 @@ export interface PreviewApiEntry {
   headSha: string;
   slug: string;
   state: "active" | "closed";
+  prTitle?: string | null;
+  prAuthorLogin?: string | null;
+  prAuthorAvatarUrl?: string | null;
+  prUrl?: string | null;
   services: {
     resourceId: string;
     serviceName: string;
@@ -59,6 +63,10 @@ export function buildPreviewSatellites(
             id: p.id,
             prNumber: p.prNumber,
             branch: p.branch,
+            title: p.prTitle ?? null,
+            authorLogin: p.prAuthorLogin ?? null,
+            authorAvatarUrl: p.prAuthorAvatarUrl ?? null,
+            prUrl: p.prUrl ?? null,
             status: svc.status,
             url: svc.url,
             parentId,

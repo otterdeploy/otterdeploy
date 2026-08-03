@@ -83,6 +83,13 @@ export interface PreviewInfo {
   prNumber: number;
   /** Plain head branch name (`feat/checkout-v2`). */
   branch: string;
+  /** PR presentation metadata. Null when GitHub didn't send it, or the preview
+   *  predates it being captured — the card degrades rather than hides. */
+  title: string | null;
+  authorLogin: string | null;
+  authorAvatarUrl: string | null;
+  /** Canonical PR page, for a one-click hop to GitHub. */
+  prUrl: string | null;
   /** Latest preview deployment status for this service, raw from the API. */
   status:
     | "pending"
