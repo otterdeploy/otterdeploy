@@ -49,6 +49,14 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/graph/p
  * previews created before that metadata was captured, and providers that omit
  * it, degrade to what they have rather than rendering blanks.
  */
+/** Spell the teardown clock out on hover — "temporary" alone doesn't say when,
+ *  and a preview quietly disappearing is the surprise worth pre-empting. */
+function expiryTitle(autoTeardownAt: string | null): string {
+  return autoTeardownAt
+    ? `Torn down automatically after ${new Date(autoTeardownAt).toLocaleString()} unless there is new activity`
+    : "Pinned with keep-alive — never torn down automatically";
+}
+
 function PreviewIdentity({ preview }: { preview: Preview | undefined }) {
   if (!preview) {
     return (
@@ -96,6 +104,12 @@ function PreviewIdentity({ preview }: { preview: Preview | undefined }) {
         {preview.prAuthorLogin ? <span className="shrink-0">{preview.prAuthorLogin}</span> : null}
         {preview.prAuthorLogin ? <span className="text-muted-foreground/40">·</span> : null}
         <span className="min-w-0 truncate font-mono">{preview.branch}</span>
+        {/* The defining property of a preview is that it goes away. Saying so
+            in the header is what separates it from a resource at a glance. */}
+        <span className="text-muted-foreground/40">·</span>
+        <span className="shrink-0" title={expiryTitle(preview.autoTeardownAt)}>
+          {preview.autoTeardownAt ? "temporary" : "pinned"}
+        </span>
         {preview.prUrl ? (
           <a
             href={preview.prUrl}
@@ -130,7 +144,12 @@ function PreviewPanel() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-        <header className="flex items-center gap-3 border-b border-border/60 px-6 py-4">
+        {/* Preview panels wear the same dashed edge the graph uses for a
+            preview's attachment to its service, so "this is ephemeral, and it
+            belongs to a PR rather than to production" is the same visual idea
+            in both places. Restrained on purpose: a tint and a dashed rule,
+            not a coloured chrome — it has to read as the same instrument. */}
+        <header className="flex items-center gap-3 border-b border-dashed border-border bg-muted/20 px-6 py-4">
           <div className="min-w-0 flex-1">
             <PreviewIdentity preview={preview} />
           </div>
