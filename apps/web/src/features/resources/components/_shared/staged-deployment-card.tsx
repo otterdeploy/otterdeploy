@@ -17,6 +17,7 @@ import { Link } from "@tanstack/react-router";
 
 import type { ResourceNodeData } from "@/features/projects/components/graph/resource-node";
 
+import { logTabForStatus } from "@/features/resources/lib/deployment-log-tab";
 import { cn } from "@/shared/lib/utils";
 
 import { PanelIcon } from "./atoms";
@@ -227,7 +228,10 @@ export function StagedDeploymentCard({
           <Link
             to="/$orgSlug/$projectSlug/graph/$resourceId/deployment/$deploymentId"
             params={{ orgSlug, projectSlug, resourceId, deploymentId: deployment.id }}
-            search={(prev) => ({ ...prev, deploymentTab: failed ? "build-logs" : "details" })}
+            search={(prev) => ({
+              ...prev,
+              deploymentTab: logTabForStatus(deployment.status),
+            })}
             className="rounded-md border border-border/60 px-2.5 py-1 text-[12px] text-foreground/80 transition-colors hover:bg-muted/50"
           >
             View logs
