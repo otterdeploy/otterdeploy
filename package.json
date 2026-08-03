@@ -46,6 +46,8 @@
   },
   "type": "module",
   "scripts": {
+    "audit": "bun scripts/audit/ratchet.ts",
+    "audit:triage": "bun scripts/audit/triage.ts",
     "build": "turbo build",
     "db:down": "turbo -F @otterdeploy/db db:down",
     "db:generate": "turbo -F @otterdeploy/db db:generate",

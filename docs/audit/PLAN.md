@@ -69,17 +69,46 @@ twice. Three dependencies drive it:
 Within phase 2 the layer order matters for the same reason: derive the database layer
 before the contract layer, or the contract work gets redone when the row types change.
 
-### Phase 0 — Stop the bleeding *(before any file work)*
+### Phase 0 — Stop the bleeding *(before any file work)* ✅
 
 Nothing below matters if new violations land while we sweep.
 
-- Record the baseline above in CI as a ratchet: new code may not increase cycle count,
-  clone percentage, or dead-code findings
-- `fallow audit --base <ref>` on every PR, failing on **new** findings only — a ratchet,
-  not a wall; the existing 177 findings do not block anyone
-- The rubric becomes the code-review checklist for new PRs
+```bash
+bun run audit                 # totals vs the committed baseline
+bun run audit --base <ref>    # + which findings this branch introduced
+bun run audit --update        # re-pin the baseline after a phase lands
+```
 
-**Done when** CI fails a PR that adds a cycle or raises the clone percentage.
+`scripts/audit/ratchet.ts` runs on every PR and every push to `main` (the `audit ratchet`
+job in `.github/workflows/ci.yml`). It fails on two things:
+
+1. **A tracked total going up**, compared against `docs/audit/baseline.json` — dead-code
+   findings, import cycles, clone groups, duplicated-lines percentage.
+2. **An introduced graph-shape finding** in a file the PR touched: a cycle, a re-export
+   cycle, an unresolved import, a duplicate export, a boundary violation. These are gated
+   separately because the totals net out — deleting an unused type elsewhere in the same
+   PR would otherwise hide a new cycle.
+
+Everything else it finds — new unused exports, new clone groups, complexity — is printed
+with the file and symbol name but does not fail the build. The existing 177 findings block
+nobody. Two deliberate exclusions:
+
+- **Complexity** is oxlint's job (`complexity: max 15`, already an error). fallow's CRAP
+  score assumes 0% coverage when no coverage file is passed, which makes every new
+  function above cyclomatic 6 "critical" — noise, not signal.
+- **`unlisted-dependencies`** is excluded because `vite-plus` is imported by ~40 test
+  files while declared only at the root (od-hml). fallow attributes a project-wide finding
+  to whichever file the changeset touched, so gating it would fail every PR that edits a
+  test until od-hml lands.
+
+The fallow version is pinned in `scripts/audit/fallow.ts`. Counts are not comparable
+across versions, so the ratchet refuses to run when the pin and the baseline disagree —
+bump both in the same commit.
+
+The rubric becomes the code-review checklist for new PRs.
+
+**Done when** CI fails a PR that adds a cycle or raises the clone percentage. *(Verified
+both ways against a synthetic cycle and a synthetic clone group before landing.)*
 
 ### Phase 1 — Module graph *(21 files)*
 
@@ -178,7 +207,13 @@ typecheck ☐   tests ☐   fallow: no new findings for this file ☐
 commit message naming any behaviour change and whether a test covers it.
 
 **Per phase** — the phase's exit metric above is met and the CI ratchet is tightened to
-the new number, so the phase cannot regress.
+the new number, so the phase cannot regress:
+
+```bash
+bun run audit --update   # re-pins docs/audit/baseline.json
+```
+
+Then update the baseline table at the top of this file to match, in the same commit.
 
 ## Rules for the sweep
 

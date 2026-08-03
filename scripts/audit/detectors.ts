@@ -65,7 +65,8 @@ export const HIGH_STAKES =
   /(crypto|secret|token|auth|authz|permission|capability|egress|firewall|backup|restore|delete|remove|guard|encrypt|decrypt|password|credential|session)/i;
 
 /** Generated or vendored — reviewing these is wasted effort. */
-export const EXCLUDED = /(\.gen\.ts|route-tree|\/__generated__\/|\/shared\/components\/ui\/|\.d\.ts$)/;
+export const EXCLUDED =
+  /(\.gen\.ts|route-tree|\/__generated__\/|\/shared\/components\/ui\/|\.d\.ts$)/;
 
 export function countSignals(source: string): Signals {
   const out = {} as Signals;
