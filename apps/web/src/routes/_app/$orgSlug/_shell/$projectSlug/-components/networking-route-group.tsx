@@ -171,7 +171,9 @@ export function RouteGroupRows({
                 <TableCell colSpan={COLUMN_COUNT} className="p-0">
                   <RouteDetailPanel
                     routeId={r.id}
+                    domain={r.domain}
                     isHttp={r.isHttp}
+                    isProtected={r.protected}
                     cert={cert}
                     certsLoading={certsLoading}
                   />
