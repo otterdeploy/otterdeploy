@@ -98,6 +98,16 @@ export function PreviewCardNode({ data, selected }: NodeProps<ResourceFlowNode>)
         ) : (
           <span className={cn(badgeBase, "bg-muted text-muted-foreground")}>{pill.label}</span>
         )}
+        {/* "running" means a container is up, not that it is running the commit
+            on the PR. Say so, rather than letting green imply it. */}
+        {preview.stale ? (
+          <span
+            className={cn(badgeBase, "bg-warning/12 text-warning")}
+            title="The running container predates this PR's head commit"
+          >
+            outdated
+          </span>
+        ) : null}
       </div>
       {/* Who opened it. An avatar makes several concurrent previews scannable in
           a way a PR number never is; the login is the tooltip so the row stays

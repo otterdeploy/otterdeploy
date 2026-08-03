@@ -33,6 +33,8 @@ export interface PreviewApiEntry {
       | "none"
       | "paused";
     url: string | null;
+    /** Commit currently RUNNING for this service; null before anything is live. */
+    deployedSha?: string | null;
   }[];
 }
 
@@ -68,6 +70,10 @@ export function buildPreviewSatellites(
             authorAvatarUrl: p.prAuthorAvatarUrl ?? null,
             prUrl: p.prUrl ?? null,
             status: svc.status,
+            // Serving a commit older than the PR's head. A green "running"
+            // pill on its own would imply the pushed commit is what you'd be
+            // reviewing, which is exactly the case that misleads.
+            stale: !!svc.deployedSha && svc.deployedSha !== p.headSha,
             url: svc.url,
             parentId,
           },

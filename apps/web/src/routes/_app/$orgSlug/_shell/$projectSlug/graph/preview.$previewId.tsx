@@ -26,7 +26,7 @@ import { GraphPanelPending, useGraphPanelClose } from "./-components/panel-shell
 import { DeploymentHistory } from "./-components/preview-panel/deployment-history";
 import { OverviewTab } from "./-components/preview-panel/overview-tab";
 import { SettingsTab } from "./-components/preview-panel/settings-tab";
-import { badgeBase, label } from "./-components/preview-panel/shared";
+import { badgeBase, label, type Preview } from "./-components/preview-panel/shared";
 import { VariablesTab } from "./-components/preview-panel/variables-tab";
 
 export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/graph/preview/$previewId")({
@@ -38,6 +38,79 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/graph/p
   pendingMinMs: 0,
   pendingComponent: GraphPanelPending,
 });
+
+/**
+ * Who and what this preview is: number, PR title, author, branch, and a hop to
+ * the pull request itself.
+ *
+ * A number and a branch name identify a preview to the machine; they say
+ * nothing about whose work is running or what it changes — which is what you
+ * need when several previews are open at once. Every PR field is optional:
+ * previews created before that metadata was captured, and providers that omit
+ * it, degrade to what they have rather than rendering blanks.
+ */
+function PreviewIdentity({ preview }: { preview: Preview | undefined }) {
+  if (!preview) {
+    return (
+      <div className="flex items-center gap-2.5">
+        <span className="font-mono text-[15px] font-semibold tabular-nums">…</span>
+        <span className={label}>preview</span>
+      </div>
+    );
+  }
+  return (
+    <>
+      <div className="flex items-center gap-2.5">
+        <span className="shrink-0 font-mono text-[15px] font-semibold tabular-nums">
+          #{preview.prNumber}
+        </span>
+        {preview.prTitle ? (
+          <span className="min-w-0 truncate text-[13.5px] text-foreground/90" title={preview.prTitle}>
+            {preview.prTitle}
+          </span>
+        ) : (
+          <span className={label}>preview</span>
+        )}
+        <span
+          className={cn(
+            badgeBase,
+            preview.paused
+              ? "bg-muted text-muted-foreground"
+              : preview.state === "active"
+                ? "bg-success/12 text-success"
+                : "bg-muted text-muted-foreground",
+          )}
+        >
+          {preview.paused ? "paused" : preview.state}
+        </span>
+      </div>
+      <div className="mt-0.5 flex items-center gap-2 text-[12.5px] text-muted-foreground">
+        {preview.prAuthorAvatarUrl ? (
+          <img
+            src={preview.prAuthorAvatarUrl}
+            alt=""
+            loading="lazy"
+            className="size-4 shrink-0 rounded-full ring-1 ring-border"
+          />
+        ) : null}
+        {preview.prAuthorLogin ? <span className="shrink-0">{preview.prAuthorLogin}</span> : null}
+        {preview.prAuthorLogin ? <span className="text-muted-foreground/40">·</span> : null}
+        <span className="min-w-0 truncate font-mono">{preview.branch}</span>
+        {preview.prUrl ? (
+          <a
+            href={preview.prUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 underline-offset-2 hover:text-foreground hover:underline"
+            title="Open the pull request on GitHub"
+          >
+            PR ↗
+          </a>
+        ) : null}
+      </div>
+    </>
+  );
+}
 
 function PreviewPanel() {
   const { orgSlug, projectSlug, previewId } = Route.useParams();
@@ -59,31 +132,7 @@ function PreviewPanel() {
     <div className="flex h-full flex-col overflow-hidden">
         <header className="flex items-center gap-3 border-b border-border/60 px-6 py-4">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2.5">
-              <span className="font-mono text-[15px] font-semibold tabular-nums">
-                {preview ? `#${preview.prNumber}` : "…"}
-              </span>
-              <span className={label}>preview</span>
-              {preview ? (
-                <span
-                  className={cn(
-                    badgeBase,
-                    preview.paused
-                      ? "bg-muted text-muted-foreground"
-                      : preview.state === "active"
-                        ? "bg-success/12 text-success"
-                        : "bg-muted text-muted-foreground",
-                  )}
-                >
-                  {preview.paused ? "paused" : preview.state}
-                </span>
-              ) : null}
-            </div>
-            {preview ? (
-              <div className="mt-0.5 truncate font-mono text-[12.5px] text-muted-foreground">
-                {preview.branch}
-              </div>
-            ) : null}
+            <PreviewIdentity preview={preview} />
           </div>
           {url ? (
             <Button

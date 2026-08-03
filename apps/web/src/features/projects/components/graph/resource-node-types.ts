@@ -103,6 +103,8 @@ export interface PreviewInfo {
     | "paused";
   /** Preview host URL — the card's click-through. Null until exposed. */
   url: string | null;
+  /** True when the running container predates the PR's head commit. */
+  stale?: boolean;
   /** React-Flow id of the service node this satellite hangs off
    *  (`service:<name>`) — drives manual right-of-parent placement. */
   parentId: string;
