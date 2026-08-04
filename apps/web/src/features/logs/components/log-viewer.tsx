@@ -8,8 +8,9 @@
  * "no logs match this filter", etc.) without forking the scroller.
  */
 
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { toast } from "sonner";
 
 import { copyToClipboard } from "@/shared/lib/clipboard";
@@ -29,14 +30,19 @@ export interface LogLine {
 export function LogLineRow({
   line,
   highlighted = false,
+  severity: precomputed,
 }: {
   line: LogLine;
   highlighted?: boolean;
+  /** Pass the severity when the caller already classified this line (the
+   *  viewer does, for its counts) so the row doesn't strip ANSI a second time
+   *  for every line it paints. */
+  severity?: ReturnType<typeof classifyLogSeverity>;
 }) {
   // Classify + search on ANSI-stripped text; render with the tool's own
   // colors via AnsiLine (a raw ESC byte is invisible in HTML, so untreated
   // lines would show literal `[32m✓[39m` garbage).
-  const severity = classifyLogSeverity(stripAnsi(line.line));
+  const severity = precomputed ?? classifyLogSeverity(stripAnsi(line.line));
   return (
     <div
       data-log-id={line.id}
@@ -80,6 +86,74 @@ function resolveNav(
   return { index, currentId };
 }
 
+/**
+ * Windowing for the log rows.
+ *
+ * Only the rows on screen are mounted, so a 50k-line build log costs the same
+ * to paint as a 50-line one. Heights vary — a long line wraps to several visual
+ * rows — so each row measures itself and `estimateSize` is only the
+ * single-line height used before the first measurement.
+ *
+ * Both scroll behaviours have to go through the virtualizer rather than the
+ * DOM: with rows unmounted, `scrollHeight` is an estimate and the element for a
+ * given line may not exist to be queried.
+ */
+function useLogRows({
+  scrollerRef,
+  visible,
+  autoScroll,
+  navActive,
+  currentMatchId,
+}: {
+  scrollerRef: React.RefObject<HTMLDivElement | null>;
+  visible: Classified[];
+  autoScroll: boolean;
+  navActive: boolean;
+  currentMatchId: number | null;
+}) {
+  const virtualizer = useVirtualizer({
+    count: visible.length,
+    getScrollElement: () => scrollerRef.current,
+    estimateSize: () => 18,
+    overscan: 24,
+    // Keyed by line id, so measurements survive rows shifting position as the
+    // stream appends or a search narrows the set.
+    getItemKey: (index) => visible[index]?.line.id ?? index,
+  });
+
+  // Stable ref callback — an inline arrow would hand every row a new ref on
+  // each render, forcing a detach/re-measure cycle per commit while streaming.
+  const measureRow = useCallback(
+    (el: HTMLDivElement | null) => virtualizer.measureElement(el),
+    [virtualizer],
+  );
+
+  // Pin to the bottom as new lines arrive, unless the user scrolled up or is
+  // stepping through matches (that owns the scroll position).
+  useEffect(() => {
+    if (!autoScroll || navActive || visible.length === 0) return;
+    virtualizer.scrollToIndex(visible.length - 1, { align: "end" });
+  }, [visible.length, autoScroll, navActive, virtualizer]);
+
+  // `visible` is read through a ref: depending on it directly would re-centre
+  // the view on every appended line while you're stepping through matches.
+  const visibleRef = useRef(visible);
+  useEffect(() => {
+    visibleRef.current = visible;
+  });
+  useEffect(() => {
+    if (currentMatchId == null) return;
+    const index = visibleRef.current.findIndex((c) => c.line.id === currentMatchId);
+    if (index >= 0) virtualizer.scrollToIndex(index, { align: "center" });
+  }, [currentMatchId, virtualizer]);
+
+  return {
+    virtualRows: virtualizer.getVirtualItems(),
+    totalSize: virtualizer.getTotalSize(),
+    measureRow,
+  };
+}
+
 export function LogViewer({
   lines,
   empty,
@@ -115,15 +189,25 @@ export function LogViewer({
   }, []);
 
   // Classify once, then reuse for the counts, the match lists, and the rows.
-  const classified = lines.map((line) => {
-    const text = stripAnsi(line.line);
-    return { line, text, severity: classifyLogSeverity(text) };
-  });
+  // Memoised on `lines`: this strips ANSI and runs the severity matcher for
+  // every line, so without it typing in the search box (or any unrelated state
+  // change) re-scans the whole log on each keystroke.
+  const classified = useMemo(
+    () =>
+      lines.map((line) => {
+        const text = stripAnsi(line.line);
+        return { line, text, severity: classifyLogSeverity(text) };
+      }),
+    [lines],
+  );
 
   const q = query.trim().toLowerCase();
   // Text search narrows the visible set; the level chips navigate *within*
   // whatever is currently shown.
-  const visible = classified.filter((c) => (q ? c.text.toLowerCase().includes(q) : true));
+  const visible = useMemo(
+    () => (q ? classified.filter((c) => c.text.toLowerCase().includes(q)) : classified),
+    [classified, q],
+  );
   // A thrown error spans a header + its stack frames + a `{ … }` object dump;
   // count and step through those *events*, not every line the trace paints red.
   const eventHeads = markEventHeads(visible);
@@ -134,20 +218,13 @@ export function LogViewer({
 
   const { index: navIndex, currentId: currentMatchId } = resolveNav(nav, errorMatches, warnMatches);
 
-  // Auto-scroll to bottom as new lines arrive — unless the user scrolled up,
-  // or is currently stepping through matches (that owns the scroll position).
-  useEffect(() => {
-    if (!autoScroll || nav) return;
-    const el = scrollerRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [visible.length, autoScroll, nav]);
-
-  // Bring the active match into view whenever it changes.
-  useEffect(() => {
-    if (currentMatchId == null) return;
-    const el = scrollerRef.current?.querySelector<HTMLElement>(`[data-log-id="${currentMatchId}"]`);
-    el?.scrollIntoView({ block: "center" });
-  }, [currentMatchId]);
+  const { virtualRows, totalSize, measureRow } = useLogRows({
+    scrollerRef,
+    visible,
+    autoScroll,
+    navActive: nav != null,
+    currentMatchId,
+  });
 
   const activateNav = (level: NavLevel) => {
     setAutoScroll(false);
@@ -211,7 +288,27 @@ export function LogViewer({
             No lines match your search.
           </div>
         ) : (
-          visible.map((c) => <LogLineRow key={c.line.id} line={c.line} />)
+          <div className="relative w-full" style={{ height: totalSize }}>
+            {virtualRows.map((v) => {
+              const c = visible[v.index];
+              if (!c) return null;
+              return (
+                <div
+                  key={v.key}
+                  data-index={v.index}
+                  ref={measureRow}
+                  className="absolute top-0 left-0 w-full"
+                  style={{ transform: `translateY(${v.start}px)` }}
+                >
+                  <LogLineRow
+                    line={c.line}
+                    severity={c.severity}
+                    highlighted={c.line.id === currentMatchId}
+                  />
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
     </div>

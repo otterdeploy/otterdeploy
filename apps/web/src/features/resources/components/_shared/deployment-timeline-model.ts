@@ -28,6 +28,9 @@ export interface DeploymentRow {
   gitRef: string | null;
   gitCommitMessage: string | null;
   gitCommitAuthor: string | null;
+  /** Avatar of the GitHub account the commit is attributed to; null when the
+   *  commit's email matches no user. */
+  gitCommitAuthorAvatar?: string | null;
   sourceSha: string | null;
   completedAt: string | null;
   createdAt: string;

@@ -20,6 +20,7 @@
 import { db } from "@otterdeploy/db";
 import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
 import { env } from "@otterdeploy/env/server";
+import { base64UrlDecode } from "@otterdeploy/shared/crypto";
 import { eq } from "drizzle-orm";
 import { log } from "evlog";
 
@@ -51,15 +52,6 @@ async function getKey(): Promise<CryptoKey> {
     ["encrypt", "decrypt"],
   );
   return cachedKey;
-}
-
-function base64UrlDecode(s: string): Uint8Array {
-  const padded = s.replace(/-/g, "+").replace(/_/g, "/");
-  const fill = padded.length % 4 ? 4 - (padded.length % 4) : 0;
-  const bin = atob(padded + "=".repeat(fill));
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
 }
 
 /** Null on any malformed/undecryptable blob. A provider whose secret can't be

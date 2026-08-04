@@ -3,13 +3,10 @@ import { BrandButton, EmailLayout, Footnote, Heading, Para } from "./_layout";
 
 interface WelcomeEmailProps {
   username?: string;
-  loginUrl?: string;
+  loginUrl: string;
 }
 
-export function WelcomeEmail({
-  username = "there",
-  loginUrl = "http://localhost:5173",
-}: WelcomeEmailProps) {
+export function WelcomeEmail({ username = "there", loginUrl }: WelcomeEmailProps) {
   return (
     <EmailLayout preview="Welcome to otterdeploy — deploy your first service.">
       <Heading>Welcome to otterdeploy</Heading>

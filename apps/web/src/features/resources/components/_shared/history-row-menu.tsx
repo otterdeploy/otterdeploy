@@ -14,6 +14,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
+import { logTabForStatus } from "@/features/resources/lib/deployment-log-tab";
 import { TypedConfirmDialog } from "@/shared/components/typed-confirm-dialog";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -103,7 +104,10 @@ export function HistoryRowMenu({
                   resourceId,
                   deploymentId,
                 },
-                search: (prev) => ({ ...prev, deploymentTab: "details" }),
+                search: (prev) => ({
+                  ...prev,
+                  deploymentTab: logTabForStatus(deployment.status),
+                }),
               })
             }
           >

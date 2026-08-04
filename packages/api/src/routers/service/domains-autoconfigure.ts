@@ -90,33 +90,31 @@ export async function autoConfigureServiceDomainDns(input: {
     zone: detected.zone,
   });
 
-  const written = await Result.tryPromise({
-    try: async () => {
-      const ids: string[] = [];
-      for (const record of records) {
-        const created = await upsertCloudflareDnsRecord({
-          token,
-          zoneId,
-          type: record.type,
-          name: record.name,
-          content: record.value,
-          // DNS-only. An orange-clouded A record terminates TLS at Cloudflare
-          // and breaks the ACME HTTP-01 challenge we are about to run, which
-          // is the exact failure detectProxied exists to warn about — so the
-          // one-click path must not create it.
-          proxied: false,
-        });
-        ids.push(created.id);
-      }
-      return ids;
-    },
-    catch: (err) =>
-      new DomainAutoConfigureError({
-        reason: "api",
-        message: err instanceof Error ? err.message : String(err),
-      }),
-  });
-  if (written.isErr()) return Result.err(written.error);
+  // Sequential and fail-fast: a partial write is fine to leave behind (the
+  // upsert is idempotent, so a retry converges), but pressing on after the
+  // first failure would just pile up more calls against a token or zone we
+  // already know is not working.
+  const ids: string[] = [];
+  for (const record of records) {
+    const created = await upsertCloudflareDnsRecord({
+      token,
+      zoneId,
+      type: record.type,
+      name: record.name,
+      content: record.value,
+      // DNS-only. An orange-clouded A record terminates TLS at Cloudflare
+      // and breaks the ACME HTTP-01 challenge we are about to run, which
+      // is the exact failure detectProxied exists to warn about — so the
+      // one-click path must not create it.
+      proxied: false,
+    });
+    if (created.isErr()) {
+      return Result.err(
+        new DomainAutoConfigureError({ reason: "api", message: created.error.message }),
+      );
+    }
+    ids.push(created.value.id);
+  }
 
-  return Result.ok({ recordIds: written.value });
+  return Result.ok({ recordIds: ids });
 }

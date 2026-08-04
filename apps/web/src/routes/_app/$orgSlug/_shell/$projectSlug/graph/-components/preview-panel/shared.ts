@@ -22,3 +22,27 @@ export const pillClass = (s: string) => STATUS_PILL[s] ?? "bg-muted text-muted-f
 
 export type Preview = Awaited<ReturnType<typeof orpc.project.previews.list.call>>[number];
 export type PreviewService = Preview["services"][number];
+
+/**
+ * What a service is actually SERVING, relative to the preview's head commit.
+ *
+ * A status pill alone is not honest here. `running` means "a container is up",
+ * not "the commit you just pushed is live" — so a preview whose newest build
+ * failed, or is still building, shows green while serving an older commit. That
+ * is precisely the state someone reviewing a PR must not be misled about: they
+ * click through, see the previous revision, and review the wrong thing.
+ *
+ *  - `none`    — nothing is serving yet
+ *  - `current` — serving the preview's head commit
+ *  - `stale`   — serving an OLDER commit than the head; `serving` is what's up
+ */
+export type Freshness =
+  | { kind: "none" }
+  | { kind: "current" }
+  | { kind: "stale"; serving: string };
+
+export function freshness(svc: PreviewService, headSha: string): Freshness {
+  if (!svc.deployedSha) return { kind: "none" };
+  if (svc.deployedSha === headSha) return { kind: "current" };
+  return { kind: "stale", serving: svc.deployedSha };
+}

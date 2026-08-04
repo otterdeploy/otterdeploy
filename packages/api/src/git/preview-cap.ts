@@ -38,22 +38,6 @@ export type PreviewCapVerdict =
   | { allowed: false; cap: number; current: number };
 
 /**
- * Previews currently occupying a slot in this project.
- *
- * `state = 'active'` is the occupancy test, not `paused`: a paused preview has
- * stopped containers but keeps its routes, volumes and any branched database,
- * so it is still consuming the disk the cap exists to bound. Closed previews
- * have been torn down and free their slot.
- */
-export async function countActivePreviews(projectId: ProjectId): Promise<number> {
-  const [row] = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(preview)
-    .where(and(eq(preview.projectId, projectId), eq(preview.state, "active")));
-  return row?.n ?? 0;
-}
-
-/**
  * May this project open ONE more preview for (repo, pr)?
  *
  * Existing previews for the same (repo, pr) are excluded from the count and
@@ -88,6 +72,10 @@ export async function checkPreviewCap(input: {
   // Already has a preview — this is a synchronize, not a new slot.
   if (existing.length > 0) return { allowed: true };
 
+  // `state = 'active'` is the occupancy test, not `paused`: a paused preview has
+  // stopped containers but keeps its routes, volumes and any branched database,
+  // so it is still consuming the disk the cap exists to bound. Closed previews
+  // have been torn down and free their slot.
   const [row] = await db
     .select({ n: sql<number>`count(*)::int` })
     .from(preview)

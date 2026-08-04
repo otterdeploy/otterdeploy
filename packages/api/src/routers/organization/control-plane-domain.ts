@@ -181,36 +181,31 @@ export async function autoConfigureControlPlaneDomain(
   const serverIp = row.serverIp;
   const cfToken = org.cloudflareApiToken;
   const cfZone = org.cloudflareZoneId;
-  const records = await Result.tryPromise({
-    try: async () => {
-      const txt = await upsertCloudflareDnsRecord({
-        token: cfToken,
-        zoneId: cfZone,
-        type: "TXT",
-        name: `${VERIFY_TXT_PREFIX}.${domain}`,
-        content: verifyToken,
-      });
-      const a = await upsertCloudflareDnsRecord({
-        token: cfToken,
-        zoneId: cfZone,
-        type: "A",
-        name: domain,
-        content: serverIp,
-      });
-      return { txt, a };
-    },
-    catch: (err) =>
-      new ControlPlaneDomainError("api", err instanceof Error ? err.message : String(err)),
+  const txt = await upsertCloudflareDnsRecord({
+    token: cfToken,
+    zoneId: cfZone,
+    type: "TXT",
+    name: `${VERIFY_TXT_PREFIX}.${domain}`,
+    content: verifyToken,
   });
-  if (records.isErr()) return Result.err(records.error);
+  if (txt.isErr()) return Result.err(new ControlPlaneDomainError("api", txt.error.message));
+
+  const a = await upsertCloudflareDnsRecord({
+    token: cfToken,
+    zoneId: cfZone,
+    type: "A",
+    name: domain,
+    content: serverIp,
+  });
+  if (a.isErr()) return Result.err(new ControlPlaneDomainError("api", a.error.message));
 
   // Cloudflare DNS typically propagates within ~10s; verify immediately and
   // let the operator retry from the card if the resolver hasn't caught up.
   const verified = await verifyControlPlaneDomain(rlog);
   return Result.ok({
     ok: verified.ok,
-    txtRecordId: records.value.txt.id,
-    aRecordId: records.value.a.id,
+    txtRecordId: txt.value.id,
+    aRecordId: a.value.id,
     verify: { ok: verified.ok, reason: verified.reason },
     settings: verified.settings,
   });

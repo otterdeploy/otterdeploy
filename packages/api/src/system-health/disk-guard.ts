@@ -21,7 +21,7 @@ const GB = 1024 ** 3;
  * Free bytes on the data-root filesystem (where docker images + volumes live),
  * or null if it can't be read — callers treat null as "don't block on a guess".
  */
-export async function freeDiskBytes(): Promise<number | null> {
+async function freeDiskBytes(): Promise<number | null> {
   const path = existsSync(DATA_ROOT) ? DATA_ROOT : "/";
   const stat = await Result.tryPromise({ try: () => statfs(path), catch: () => null });
   if (stat.isErr()) return null;

@@ -48,7 +48,11 @@ export function HostFilter({
           <Button
             variant="outline"
             size="sm"
-            className="h-8 w-[170px] justify-between gap-1.5 px-2.5 text-[12px] font-normal"
+            className="h-8 w-[210px] justify-between gap-1.5 px-2.5 text-[12px] font-normal"
+            // Deployment hostnames share a long prefix, so a truncated trigger
+            // can read identically for two different selections — the full
+            // value has to be recoverable without reopening the popover.
+            title={value.length ? value.join("\n") : "All hosts"}
           >
             <span className="truncate">{label}</span>
             <HugeiconsIcon
@@ -59,7 +63,9 @@ export function HostFilter({
           </Button>
         }
       />
-      <PopoverContent align="start" className="w-72 p-0">
+      {/* Wide enough for a real `<service>-pr-N-<project>.<ip>.sslip.io`, and
+          capped so it can't outgrow a narrow window. */}
+      <PopoverContent align="start" className="w-[min(30rem,calc(100vw-2rem))] p-0">
         <Command>
           <CommandInput placeholder={t("edgeLogs.searchHosts")} />
           <CommandList>
@@ -73,10 +79,17 @@ export function HostFilter({
                 key={host}
                 value={host}
                 onSelect={() => toggle(host)}
-                className="gap-2 font-mono text-[12px]"
+                className="items-start gap-2 font-mono text-[12px]"
+                title={host}
               >
-                <Checkbox checked={selected.has(host)} className="pointer-events-none" />
-                <span className="truncate">{host}</span>
+                <Checkbox
+                  checked={selected.has(host)}
+                  className="pointer-events-none mt-0.5 shrink-0"
+                />
+                {/* Wraps rather than truncates: these hostnames differ in the
+                    middle (pr-1 vs pr-2) and at the end, so clipping either end
+                    can leave two options looking the same. */}
+                <span className="min-w-0 break-all">{host}</span>
               </CommandItem>
             ))}
           </CommandList>

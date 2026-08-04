@@ -8,7 +8,7 @@ interface PasswordChangedEmailProps {
   ipAddress?: string;
   location?: string;
   /** Where to go if this wasn't them (reset / secure account). */
-  secureUrl?: string;
+  secureUrl: string;
 }
 
 /**
@@ -20,7 +20,7 @@ export function PasswordChangedEmail({
   changedAt = "just now",
   ipAddress,
   location,
-  secureUrl = "http://localhost:5173/reset-password",
+  secureUrl,
 }: PasswordChangedEmailProps) {
   const rows: [string, string][] = [["when", changedAt]];
   if (location) rows.push(["location", location]);

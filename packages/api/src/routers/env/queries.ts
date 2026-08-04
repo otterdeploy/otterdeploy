@@ -64,7 +64,7 @@ export async function createEnvRecord(input: {
 /** Resources still owned by an environment. The caller needs these BEFORE the
  *  row is deleted — afterwards there is no way to find them, because the id
  *  they carry no longer resolves to anything. */
-export async function listResourcesInEnvironment(
+async function listResourcesInEnvironment(
   environmentId: EnvironmentId,
 ): Promise<{ id: ResourceId; name: string; projectId: ProjectId }[]> {
   return db

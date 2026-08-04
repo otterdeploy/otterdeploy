@@ -13,7 +13,7 @@
  */
 
 import { env } from "@otterdeploy/env/server";
-import { timingSafeEqual } from "@otterdeploy/shared/crypto";
+import { base64UrlDecode, base64UrlEncode, timingSafeEqual } from "@otterdeploy/shared/crypto";
 
 const TTL_SECONDS = 15 * 60;
 
@@ -89,19 +89,4 @@ async function hmac(input: string): Promise<string> {
   );
   const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(input));
   return base64UrlEncode(new Uint8Array(sig));
-}
-
-function base64UrlEncode(bytes: Uint8Array): string {
-  let bin = "";
-  for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
-}
-
-function base64UrlDecode(s: string): Uint8Array {
-  const padded = s.replace(/-/g, "+").replace(/_/g, "/");
-  const fill = padded.length % 4 ? 4 - (padded.length % 4) : 0;
-  const bin = atob(padded + "=".repeat(fill));
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
 }

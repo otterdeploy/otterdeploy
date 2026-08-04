@@ -24,16 +24,27 @@
   "ignorePatterns": ["research/**", ".agents/**", ".claude/**", "brand/**"],
   // `collections/*` is the virtual module fumadocs-mdx generates at postinstall
   // for apps/www; it has no package.json entry to resolve against.
-  "ignoreDependencies": ["collections"],
+  //
+  // `maxmind` and `ssh2-sftp-client` are optional deps reached only through
+  // runtime-resolved dynamic imports (edge-logs/geo.ts builds the module name
+  // as a variable; db/storage.ts lazy-imports the sftp backend), so the static
+  // graph can never see them. Both package.jsons carry a note explaining why.
+  "ignoreDependencies": ["collections", "maxmind", "ssh2-sftp-client"],
   "workspaces": {
     "packages": ["apps/*", "packages/*"]
   },
   "duplicates": {
-    "minOccurrences": 3,
-    "ignore": ["apps/web-demo/**"]
+    "minOccurrences": 2
   },
   "rules": {},
   "ignoreExports": [
+    // In-flight branch-head/deployment-sha work (commit 48340ad6): defined and
+    // documented (see the `fetchPullRequestHead` doc in github-pulls.ts) but not
+    // yet wired to a caller. Not dead code — don't let `fix` unexport it.
+    {
+      "file": "packages/api/src/git/github-app.ts",
+      "exports": ["fetchBranchHeadSha"]
+    },
     {
       "file": "apps/web/src/features/projects/components/new-resource/form-primitives.tsx",
       "exports": ["*"]
@@ -152,6 +163,22 @@
     },
     {
       "file": "apps/web/src/shared/components/ui/tabs.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/features/updates/components/update-progress-model.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/features/updates/components/update-progress-parts.tsx",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/features/projects/components/new-resource/form-context.ts",
+      "exports": ["*"]
+    },
+    {
+      "file": "apps/web/src/features/projects/components/new-resource/form-hook-contexts.ts",
       "exports": ["*"]
     }
   ]

@@ -8,9 +8,10 @@
  */
 import type { GitRepoId, ProjectId } from "@otterdeploy/shared/id";
 
+import { resolveCanonicalWebOrigin } from "@otterdeploy/auth/web-origin";
 import { db } from "@otterdeploy/db";
 import { organization } from "@otterdeploy/db/schema/auth";
-import { gitInstallation, gitRepo } from "@otterdeploy/db/schema/git";
+import { gitRepo } from "@otterdeploy/db/schema/git";
 import {
   deployment,
   preview,
@@ -24,6 +25,7 @@ import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import type { PreviewCommentRow } from "./preview-comment";
 
 import { listProxyRoutesByPreview } from "../caddy/queries";
+import { resolveInstallationId } from "./installation-id";
 import { rowStatusFromDeployment } from "./preview-comment";
 
 export interface PreviewReportSnapshot {
@@ -41,8 +43,19 @@ export interface PreviewReportSnapshot {
 
 type PreviewRow = typeof preview.$inferSelect;
 
-function dashboardBase(): string {
-  return serverEnv.BETTER_AUTH_URL.replace(/\/+$/, "");
+/**
+ * Base URL for links we post to GitHub.
+ *
+ * BETTER_AUTH_URL is where the API is reached, which on a normal install is
+ * the host's raw address — so an Inspect link landed on `http://<ip>:3000`:
+ * plaintext, IP-shaped, and needlessly published in a public PR comment.
+ * `resolveCanonicalWebOrigin` is the shared answer to "what should an outbound
+ * link say": the operator's VERIFIED control-plane domain when there is one,
+ * this same env value when there isn't. Never throws.
+ */
+async function dashboardBase(): Promise<string> {
+  const origin = await resolveCanonicalWebOrigin(serverEnv.BETTER_AUTH_URL.replace(/\/+$/, ""));
+  return origin.replace(/\/+$/, "");
 }
 
 /** One comment row per git service the PR rebuilds in this preview's project. */
@@ -90,7 +103,7 @@ async function loadPreviewRows(row: PreviewRow, repoId: GitRepoId): Promise<Prev
   }
 
   const routes = await listProxyRoutesByPreview(row.id);
-  const base = dashboardBase();
+  const base = await dashboardBase();
 
   return services.map((svc) => {
     const dep = latestByResource.get(svc.resourceId);
@@ -116,17 +129,7 @@ export async function loadPreviewReportSnapshot(
   if (!repo) return null;
   const [owner, repoName] = repo.fullName.split("/");
 
-  // gitRepo.installationId is the INTERNAL `gitinst_` PK; GitHub's token API
-  // needs the numeric installation id off the gitInstallation row.
-  let installationId: string | null = null;
-  if (repo.installationId) {
-    const [inst] = await db
-      .select({ installationId: gitInstallation.installationId })
-      .from(gitInstallation)
-      .where(eq(gitInstallation.id, repo.installationId))
-      .limit(1);
-    installationId = inst?.installationId ?? null;
-  }
+  const installationId = await resolveInstallationId(repo.installationId);
 
   const previews = await db
     .select()

@@ -23,6 +23,7 @@ import { log } from "evlog";
 import type { EdgeEventLine } from "./types";
 
 import { emitPlatformEvent } from "../notifications/emit";
+import { publishRouteUpserted } from "../routers/project/project-event-bus";
 
 type CertState = "obtaining" | "valid" | "failed";
 
@@ -56,10 +57,10 @@ export async function promoteCertEvent(event: EdgeEventLine): Promise<void> {
           certCheckedAt: ts,
         })
         .where(inArray(proxyRoute.domain, domains))
-        .returning({
-          projectId: proxyRoute.projectId,
-          domain: proxyRoute.domain,
-        });
+        .returning();
+      // Certificate state changes with no user action and no docker event, so
+      // this push is the only signal the Networking view can react to.
+      for (const row of updated) publishRouteUpserted("updated", row);
       if (updated.length === 0 || state !== "valid") return;
 
       // Fan a `cert.renewed` out per affected org (a batch event can span

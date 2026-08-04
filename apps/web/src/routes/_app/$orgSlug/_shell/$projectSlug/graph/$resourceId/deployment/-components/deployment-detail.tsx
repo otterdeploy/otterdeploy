@@ -37,12 +37,16 @@ export function DeploymentDetailsBody({
   projectId,
   resourceId,
   deploymentId,
+  previewUrl,
 }: {
   deployment: DeploymentRow | null;
   resource: ProjectResource | undefined;
   projectId: string;
   resourceId: string;
   deploymentId: string;
+  /** Set when this deployment belongs to a PR preview — the preview serves its
+   *  own host, so the base resource's domain is the wrong answer here. */
+  previewUrl?: string | null;
 }) {
   if (!deployment) {
     return (
@@ -56,7 +60,7 @@ export function DeploymentDetailsBody({
     <div className="flex flex-col gap-6">
       <DeploymentTimeline deployment={deployment} />
       <SourceBlock deployment={deployment} resource={resource} />
-      <ConfigurationSection deployment={deployment} resource={resource} />
+      <ConfigurationSection deployment={deployment} resource={resource} previewUrl={previewUrl} />
       {deployment.taskCount > 0 && (
         <DeploymentTasksList
           projectId={projectId}
@@ -160,6 +164,65 @@ function PhaseIcon({ state }: { state: PhaseState }) {
 
 // ─── "Deployed from" (source provenance) ─────────────────────────────────────
 
+/** Plain branch name out of a ref (`refs/heads/x` → `x`). The qualified form
+ *  is an internal detail; nobody thinks of their branch as "refs/heads/main". */
+function branchOf(ref: string | null): string | null {
+  if (!ref) return null;
+  return ref.startsWith("refs/heads/") ? ref.slice("refs/heads/".length) : ref;
+}
+
+/**
+ * What was deployed, in the terms a person thinks in: the commit subject, and
+ * who wrote it.
+ *
+ * "Git deployment · refs/heads/artzkaizen-patch-1 · 277764a" named nothing —
+ * not the change, not the author. The subject is the headline; the author gets
+ * a face; the branch loses its `refs/heads/` noise and the sha stays as the
+ * precise-but-secondary detail it is.
+ */
+function GitProvenance({ deployment }: { deployment: DeploymentRow }) {
+  const branch = branchOf(deployment.gitRef);
+  const sha = deployment.gitSha;
+  const subject = deployment.gitCommitMessage?.split("\n")[0]?.trim();
+
+  return (
+    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+      <div className="flex min-w-0 items-center gap-2">
+        {deployment.gitCommitAuthorAvatar ? (
+          <img
+            src={deployment.gitCommitAuthorAvatar}
+            alt=""
+            loading="lazy"
+            className="size-4 shrink-0 rounded-full ring-1 ring-border"
+          />
+        ) : null}
+        <span
+          className="min-w-0 truncate text-[13px] text-foreground/90"
+          title={deployment.gitCommitMessage ?? undefined}
+        >
+          {/* Subject only — a commit body would swamp the row. */}
+          {subject || "Git deployment"}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[11.5px] text-muted-foreground">
+        {deployment.gitCommitAuthor ? (
+          <>
+            <span className="text-foreground/70">{deployment.gitCommitAuthor}</span>
+            <span className="text-muted-foreground/40">·</span>
+          </>
+        ) : null}
+        {branch ? <span>{branch}</span> : null}
+        {sha ? (
+          <>
+            {branch ? <span className="text-muted-foreground/40">·</span> : null}
+            <span title={sha}>{sha.slice(0, 7)}</span>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function SourceBlock({
   deployment,
   resource,
@@ -182,26 +245,7 @@ function SourceBlock({
           className="mt-0.5 size-4 shrink-0 text-muted-foreground"
         />
         {isGit ? (
-          <div className="flex min-w-0 flex-col gap-1">
-            <span className="truncate text-[13px] text-foreground/90">
-              {deployment.gitCommitMessage ?? "Git deployment"}
-            </span>
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[11.5px] text-muted-foreground">
-              {deployment.gitRef && <span>{deployment.gitRef}</span>}
-              {deployment.gitSha && (
-                <>
-                  <span className="text-muted-foreground/40">·</span>
-                  <span>{deployment.gitSha.slice(0, 7)}</span>
-                </>
-              )}
-              {deployment.gitCommitAuthor && (
-                <>
-                  <span className="text-muted-foreground/40">·</span>
-                  <span>{deployment.gitCommitAuthor}</span>
-                </>
-              )}
-            </div>
-          </div>
+          <GitProvenance deployment={deployment} />
         ) : deployment.sourceSha ? (
           <div className="flex min-w-0 flex-col gap-1">
             <span className="truncate font-mono text-[12.5px] text-foreground/90">
@@ -240,9 +284,11 @@ function readBuilder(resource: ProjectResource | undefined): string | null {
 function ConfigurationSection({
   deployment,
   resource,
+  previewUrl,
 }: {
   deployment: DeploymentRow;
   resource: ProjectResource | undefined;
+  previewUrl?: string | null;
 }) {
   if (!resource) return null;
 
@@ -256,8 +302,12 @@ function ConfigurationSection({
     if (resource.framework) build.push({ label: "Framework", value: resource.framework });
 
     deploy.push({ label: "Replicas", value: String(resource.replicas) });
-    if (resource.publicEnabled && resource.publicDomain) {
-      deploy.push({ label: "Domain", value: resource.publicDomain });
+    // A preview deployment is not reachable at the base service's domain, so
+    // reporting that one here describes production while you are reading a pull
+    // request's build.
+    const domain = previewUrl?.replace(/^https?:\/\//, "") ?? resource.publicDomain;
+    if ((resource.publicEnabled || previewUrl) && domain) {
+      deploy.push({ label: "Domain", value: domain });
     }
   } else if (resource.type === "database") {
     build.push({ label: "Engine", value: resource.engine });

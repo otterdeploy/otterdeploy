@@ -5,7 +5,7 @@
  * the header's runtime action cluster lives in `panel-header-actions.tsx`.
  */
 
-import { Cancel01Icon, PauseIcon } from "@hugeicons/core-free-icons";
+import { Cancel01Icon, LinkSquare02Icon, PauseIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import type { FrameworkKind } from "@/features/projects/components/framework-logo";
@@ -113,7 +113,27 @@ export function ServiceStatusBar({
       {paused ? <PausedBadge /> : <StatusBadge status={status} />}
       <span className="min-w-0 text-[13px] break-words text-muted-foreground">
         {replicaSummary({ replicas, pausedReplicas: pausedReplicas ?? null })}
-        {!paused && publicEnabled && publicDomain ? ` · public on ${publicDomain}` : ""}
+        {!paused && publicEnabled && publicDomain ? (
+          <>
+            {" · public on "}
+            {/* The domain is the one thing here anyone wants to click. */}
+            <a
+              href={`https://${publicDomain}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group inline-flex items-center gap-1 text-foreground/90 underline-offset-2 hover:underline"
+            >
+              {publicDomain}
+              <HugeiconsIcon
+                icon={LinkSquare02Icon}
+                strokeWidth={2}
+                className="size-3 opacity-0 transition-opacity group-hover:opacity-60"
+              />
+            </a>
+          </>
+        ) : (
+          ""
+        )}
       </span>
     </div>
   );

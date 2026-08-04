@@ -37,7 +37,7 @@ import { getDatabaseResourceRecord } from "./queries/postgres-resource";
  * A move was refused because the database has data on its current node. Not a
  * hard stop — the caller can acknowledge and proceed — but never implicit.
  */
-export class DatabaseMoveDataLossError extends TaggedError("DatabaseMoveDataLossError")<{
+class DatabaseMoveDataLossError extends TaggedError("DatabaseMoveDataLossError")<{
   message: string;
   resourceId: ResourceId;
 }>() {
@@ -52,7 +52,7 @@ export class DatabaseMoveDataLossError extends TaggedError("DatabaseMoveDataLoss
   }
 }
 
-export class DatabaseResourceNotFoundError extends TaggedError("DatabaseResourceNotFoundError")<{
+class DatabaseResourceNotFoundError extends TaggedError("DatabaseResourceNotFoundError")<{
   message: string;
   resourceId: ResourceId;
 }>() {

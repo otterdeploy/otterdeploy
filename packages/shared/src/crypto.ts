@@ -30,6 +30,33 @@ export function bytesToHex(bytes: Uint8Array): string {
 }
 
 /**
+ * URL-safe base64 (RFC 4648 §5), unpadded. The wire encoding for every
+ * secret-bearing token this codebase mints — signed auth tokens, git OAuth
+ * state, the health-agent token, and both AES-GCM envelope formats — so the
+ * alphabet and padding rules have to be identical on the signing and verifying
+ * side of each one. Kept here rather than reaching for `Buffer` so the browser
+ * bundle can use it too.
+ *
+ * Not `toString("base64url")`: these run in Workers and the browser as well as
+ * Node, where `Buffer` isn't guaranteed to exist.
+ */
+export function base64UrlEncode(bytes: Uint8Array): string {
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
+
+/** Inverse of {@link base64UrlEncode}. Re-pads before decoding. */
+export function base64UrlDecode(s: string): Uint8Array {
+  const padded = s.replace(/-/g, "+").replace(/_/g, "/");
+  const fill = padded.length % 4 ? 4 - (padded.length % 4) : 0;
+  const bin = atob(padded + "=".repeat(fill));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+/**
  * Cryptographically-strong random secret as a URL-safe base64 string (no
  * padding). Used to pre-fill secret-shaped template/compose variables (e.g.
  * `POSTGRES_PASSWORD`) so the operator never hand-types a password — the same
@@ -41,9 +68,7 @@ export function bytesToHex(bytes: Uint8Array): string {
 export function randomSecret(bytes = 24): string {
   const buf = new Uint8Array(bytes);
   crypto.getRandomValues(buf);
-  let bin = "";
-  for (const b of buf) bin += String.fromCharCode(b);
-  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return base64UrlEncode(buf);
 }
 
 /**

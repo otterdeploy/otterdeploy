@@ -12,7 +12,6 @@ import { Result, TaggedError } from "better-result";
 import { eq } from "drizzle-orm";
 
 import {
-  CloudflareError,
   listCloudflareZones,
   upsertCloudflareDnsRecord,
   verifyCloudflareToken,
@@ -102,19 +101,20 @@ export async function listZonesForToken(
   // error instead of "0 zones returned" if the operator pasted something
   // wrong (expired, wrong account, wrong scope).
   const verify = await verifyCloudflareToken(token);
-  if (!verify.ok) {
+  if (verify.isErr()) {
     return Result.err(
-      new CloudflareConfigError("token", `Cloudflare rejected token: ${verify.status}`),
+      new CloudflareConfigError("token", `Cloudflare rejected token: ${verify.error.message}`),
     );
   }
-  try {
-    const zones = await listCloudflareZones(token);
-    return Result.ok(zones);
-  } catch (err) {
+  if (!verify.value.active) {
     return Result.err(
-      new CloudflareConfigError("api", err instanceof Error ? err.message : String(err)),
+      new CloudflareConfigError("token", `Cloudflare rejected token: ${verify.value.status}`),
     );
   }
+
+  const zones = await listCloudflareZones(token);
+  if (zones.isErr()) return Result.err(new CloudflareConfigError("api", zones.error.message));
+  return Result.ok(zones.value);
 }
 
 export async function saveOrganizationCloudflareConfig(input: {
@@ -129,8 +129,15 @@ export async function saveOrganizationCloudflareConfig(input: {
     // been rotated since. Cheap (one HTTP call), prevents storing
     // already-dead credentials.
     const verify = await verifyCloudflareToken(input.token);
-    if (!verify.ok) {
-      return Result.err(new CloudflareConfigError("token", `Token rejected: ${verify.status}`));
+    if (verify.isErr()) {
+      return Result.err(
+        new CloudflareConfigError("token", `Token rejected: ${verify.error.message}`),
+      );
+    }
+    if (!verify.value.active) {
+      return Result.err(
+        new CloudflareConfigError("token", `Token rejected: ${verify.value.status}`),
+      );
     }
     if (!input.zoneId) {
       return Result.err(new CloudflareConfigError("zone", "Pick a Cloudflare zone before saving."));
@@ -196,57 +203,51 @@ export async function autoConfigureBaseDomainViaCloudflare(orgId: OrgId): Promis
     );
   }
 
-  try {
-    // TXT for verification + A for the apex itself. We don't create the
-    // `apps.<domain>` / `db.<domain>` records here — those are wildcards
-    // the operator can add manually for now (each resource lives at a
-    // unique subdomain so we'd otherwise be creating one A record per
-    // resource on every deploy, which gets noisy fast). A follow-up could
-    // create a `*.apps` / `*.db` wildcard CNAME and call it done.
-    const txt = await upsertCloudflareDnsRecord({
-      token: row.cloudflareApiToken,
-      zoneId: row.cloudflareZoneId,
-      type: "TXT",
-      name: `${VERIFY_TXT_PREFIX}.${row.baseDomain}`,
-      content: row.baseDomainVerifyToken,
-    });
-    const a = await upsertCloudflareDnsRecord({
-      token: row.cloudflareApiToken,
-      zoneId: row.cloudflareZoneId,
-      type: "A",
-      name: row.baseDomain,
-      content: settings.serverIp,
-    });
+  // TXT for verification + A for the apex itself. We don't create the
+  // `apps.<domain>` / `db.<domain>` records here — those are wildcards
+  // the operator can add manually for now (each resource lives at a
+  // unique subdomain so we'd otherwise be creating one A record per
+  // resource on every deploy, which gets noisy fast). A follow-up could
+  // create a `*.apps` / `*.db` wildcard CNAME and call it done.
+  const txt = await upsertCloudflareDnsRecord({
+    token: row.cloudflareApiToken,
+    zoneId: row.cloudflareZoneId,
+    type: "TXT",
+    name: `${VERIFY_TXT_PREFIX}.${row.baseDomain}`,
+    content: row.baseDomainVerifyToken,
+  });
+  if (txt.isErr()) return Result.err(new CloudflareConfigError("api", txt.error.message));
 
-    // Cloudflare-managed DNS typically propagates within ~10s. We
-    // attempt verification immediately; if it fails (record not yet
-    // visible from this node's resolver), the operator can hit Verify
-    // again in a moment.
-    const verifyResult = await verifyDomainTxt({
-      domain: row.baseDomain,
-      expectedToken: row.baseDomainVerifyToken,
-    });
-    let updated = row;
-    if (verifyResult.ok) {
-      const stamped = await markOrganizationBaseDomainVerified(orgId);
-      if (stamped) updated = stamped;
-    }
+  const a = await upsertCloudflareDnsRecord({
+    token: row.cloudflareApiToken,
+    zoneId: row.cloudflareZoneId,
+    type: "A",
+    name: row.baseDomain,
+    content: settings.serverIp,
+  });
+  if (a.isErr()) return Result.err(new CloudflareConfigError("api", a.error.message));
 
-    return Result.ok({
-      ok: verifyResult.ok,
-      txtRecordId: txt.id,
-      aRecordId: a.id,
-      verify: { ok: verifyResult.ok, reason: verifyResult.reason },
-      settings: toView(updated),
-    });
-  } catch (err) {
-    if (err instanceof CloudflareError) {
-      return Result.err(new CloudflareConfigError("api", err.message));
-    }
-    return Result.err(
-      new CloudflareConfigError("api", err instanceof Error ? err.message : String(err)),
-    );
+  // Cloudflare-managed DNS typically propagates within ~10s. We
+  // attempt verification immediately; if it fails (record not yet
+  // visible from this node's resolver), the operator can hit Verify
+  // again in a moment.
+  const verifyResult = await verifyDomainTxt({
+    domain: row.baseDomain,
+    expectedToken: row.baseDomainVerifyToken,
+  });
+  let updated = row;
+  if (verifyResult.ok) {
+    const stamped = await markOrganizationBaseDomainVerified(orgId);
+    if (stamped) updated = stamped;
   }
+
+  return Result.ok({
+    ok: verifyResult.ok,
+    txtRecordId: txt.value.id,
+    aRecordId: a.value.id,
+    verify: { ok: verifyResult.ok, reason: verifyResult.reason },
+    settings: toView(updated),
+  });
 }
 
 export async function verifyOrganizationBaseDomain(

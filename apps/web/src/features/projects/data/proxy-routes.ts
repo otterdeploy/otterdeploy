@@ -29,6 +29,15 @@ const routeIdSchema = zId("proxy_route");
  * rolls back and the caller can surface the inline parse error from the
  * rejection.
  */
+/** Namespace prefix every subset key extends — a bare orpc key never matches a
+ *  collection's prefixed key.
+ *
+ *  Local to this module now. It used to be exported for the project event
+ *  stream to invalidate on a route change; route events carry the row itself
+ *  and the hook applies it with writeUpsert/writeDelete, so there is no
+ *  invalidation left to key. */
+const PROXY_ROUTES_COLLECTION_KEY = ["proxyRoutes"] as const;
+
 export class RoutePolicyRejectedError extends Error {
   constructor(message: string) {
     super(message);
@@ -40,7 +49,7 @@ export const proxyRoutesCollection = createCollection(
   queryCollectionOptions({
     syncMode: "on-demand",
     queryKey: (opts) => {
-      const baseQuery = ["proxyRoutes"];
+      const baseQuery = [...PROXY_ROUTES_COLLECTION_KEY];
       const { filters } = parseLoadSubsetOptions(opts);
       // Startup base-key call: query-db-collection calls queryKey({}) once to
       // compute the prefix every subset key must extend. No filters yet.

@@ -52,6 +52,12 @@ const previewSchema = z.object({
   /** Plain head branch name (`feat/checkout-v2`). */
   branch: z.string(),
   headSha: z.string(),
+  /** PR presentation metadata — nullable so previews created before it was
+   *  captured (or payloads that omit it) still validate. */
+  prTitle: z.string().nullable(),
+  prAuthorLogin: z.string().nullable(),
+  prAuthorAvatarUrl: z.string().nullable(),
+  prUrl: z.string().nullable(),
   slug: z.string(),
   state: z.enum(["active", "closed"]),
   paused: z.boolean(),

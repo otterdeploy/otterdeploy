@@ -32,7 +32,7 @@ import { Button } from "@/shared/components/ui/button";
 import { orpc } from "@/shared/server/orpc";
 
 /** The control plane's own row — deleting it would orphan this install. */
-export function isControlPlaneRow(server: Server): boolean {
+function isControlPlaneRow(server: Server): boolean {
   return server.role === "manager" && (server.host === "127.0.0.1" || server.name === "localhost");
 }
 

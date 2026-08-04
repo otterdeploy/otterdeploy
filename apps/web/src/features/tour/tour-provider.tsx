@@ -204,5 +204,3 @@ export function useProductTour(): TourApi {
   }
   return api;
 }
-
-export { hasSeenTour };

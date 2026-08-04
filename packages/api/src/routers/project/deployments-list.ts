@@ -23,6 +23,7 @@ import type { DerivedDeploymentStatus, InstanceGlimpse } from "./deployments-der
 
 import { loadPreviewScope } from "../../lib/environment/load";
 import { runtimeServiceName } from "../../lib/environment/scoping";
+import { backfillCommitMeta } from "./deployment-commit-backfill";
 import { deriveDeploymentStatus, FAILED_TASK_COUNT_STATES } from "./deployments-derive";
 import {
   isBuildStillLogging,
@@ -93,7 +94,7 @@ async function listDeploymentsByResource(
       ),
     )
     .orderBy(desc(deployment.createdAt));
-  return rows as DeploymentRow[];
+  return rows;
 }
 
 // Resolve the swarm service name backing a resource — postgres uses the
@@ -253,6 +254,11 @@ export async function listResourceDeployments(
     ? await loadTaskStatesByDeployment(serviceName)
     : new Map<string, InstanceGlimpse[]>();
 
+  // Old rows have no commit provenance; resolve it now so the panel names the
+  // change and its author instead of "Git deployment", and persist so this is
+  // a one-time cost per commit rather than a lookup on every read.
+  const backfilled = await backfillCommitMeta(input.resourceId, rows);
+
   const latestId = rows[0]?.id;
   const latestBuildActive = await isBuildStillLogging(rows[0], tasksByDeployment);
   const restartMaxAttempts = resolveRestartMaxAttempts(found);
@@ -264,8 +270,11 @@ export async function listResourceDeployments(
   const justDied: DeploymentId[] = [];
   const result = rows.map((row) => {
     const states = tasksByDeployment.get(row.id) ?? [];
+    // Answer this request with what we just resolved — otherwise the reader has
+    // to refresh to see the result of their own read.
+    const meta = backfilled.get(row.id);
     const stats = toDeploymentWithStats(
-      row,
+      meta ? { ...row, ...meta } : row,
       input.projectId,
       row.id === latestId,
       states,

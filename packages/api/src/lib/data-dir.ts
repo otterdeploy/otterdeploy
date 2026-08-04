@@ -30,30 +30,37 @@ export function dataRootAvailable(): Promise<boolean> {
 }
 
 /**
- * Remove a resource's artifact dir on delete. No-op unless the resolved path
- * sits INSIDE `DATA_ROOT` *and* ends with the `resourceId` — cheap insurance
- * against a path bug nuking the wrong tree (borrowed from Coolify's
- * `endsWith(uuid)` guard). Best-effort: never throws, so it can't fail a delete.
+ * Recursively delete `path` — but ONLY if it resolves INSIDE `DATA_ROOT` *and*
+ * ends with `id`. Cheap insurance against a path bug nuking the wrong tree
+ * (borrowed from Coolify's `endsWith(uuid)` guard): a derivation that returns
+ * `""`, `"/"`, or someone else's directory fails one of the two checks and the
+ * call becomes a no-op instead of an `rm -rf`.
+ *
+ * This is the ONLY guarded-delete in the codebase on purpose. It used to be
+ * copy-pasted at each call site, which is how a guard quietly loses a clause —
+ * every new caller must go through here rather than re-spelling the check.
+ *
+ * `root + sep` (not bare `root`) is what stops `/data/otterdeploy-evil` from
+ * passing as a child of `/data/otterdeploy`. Best-effort: never throws, so a
+ * failed cleanup can't fail the delete that triggered it.
  */
-export async function removeResourceDir(projectId: ProjectId, id: ResourceId): Promise<void> {
-  if (!(await dataRootAvailable())) return;
-  const dir = resolve(resourceDir(projectId, id));
+export async function removeGuardedDir(path: string, id: string): Promise<void> {
+  const dir = resolve(path);
   const root = resolve(DATA_ROOT);
   if (!dir.startsWith(root + sep) || !dir.endsWith(id)) return;
   await rm(dir, { recursive: true, force: true }).catch(() => undefined);
 }
 
-/**
- * Remove a project's escape-hatch dir (`projects/<projectId>/`) on delete. Same
- * `endsWith(id)` + inside-`DATA_ROOT` guard as {@link removeResourceDir}.
- * Best-effort: never throws, so it can't fail a project teardown.
- */
+/** Remove a resource's artifact dir on delete. */
+export async function removeResourceDir(projectId: ProjectId, id: ResourceId): Promise<void> {
+  if (!(await dataRootAvailable())) return;
+  await removeGuardedDir(resourceDir(projectId, id), id);
+}
+
+/** Remove a project's escape-hatch dir (`projects/<projectId>/`) on delete. */
 export async function removeProjectDir(id: ProjectId): Promise<void> {
   if (!(await dataRootAvailable())) return;
-  const dir = resolve(projectDir(id));
-  const root = resolve(DATA_ROOT);
-  if (!dir.startsWith(root + sep) || !dir.endsWith(id)) return;
-  await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  await removeGuardedDir(projectDir(id), id);
 }
 
 /**

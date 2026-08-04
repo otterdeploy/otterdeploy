@@ -18,7 +18,7 @@ import { Button } from "@/shared/components/ui/button";
 import { orpc } from "@/shared/server/orpc";
 
 /** Carry over everything the operator typed except the secret. */
-export function reAddValuesOf(server: Server): ProvisionInitialValues {
+function reAddValuesOf(server: Server): ProvisionInitialValues {
   return {
     name: server.name,
     host: server.host,
@@ -31,7 +31,7 @@ export function reAddValuesOf(server: Server): ProvisionInitialValues {
 }
 
 /** True when the run stored a credential we can reconnect with. */
-export function canRetryInPlace(server: Server): boolean {
+function canRetryInPlace(server: Server): boolean {
   return server.sshKeyId != null && server.meshProvider === "none";
 }
 

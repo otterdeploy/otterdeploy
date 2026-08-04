@@ -39,7 +39,7 @@ export interface ComposeArgs {
 // Preview mirrors what actually deploys: a plain named volume (the
 // provisioner applies no size/driver_opts — see the Storage step) and the
 // hardcoded start-first/rollback update strategy from the swarm driver.
-export function generateComposeYaml(args: ComposeArgs): string {
+function generateComposeYaml(args: ComposeArgs): string {
   const { isDb, kindId, name, dbImage, isPg, extensions, cpu, mem, replicas } = args;
   const memStr = mem >= 1024 ? `${mem / 1024}G` : `${mem}M`;
   if (isDb) {

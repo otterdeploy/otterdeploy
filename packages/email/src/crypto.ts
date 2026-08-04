@@ -9,6 +9,7 @@
  */
 
 import { env } from "@otterdeploy/env/server";
+import { base64UrlDecode } from "@otterdeploy/shared/crypto";
 
 const FORMAT_VERSION = "v1";
 const HKDF_INFO = "otterdeploy/secret-encryption/v1";
@@ -58,13 +59,4 @@ export async function decryptSecret(blob: string): Promise<string> {
     ciphertext.buffer as ArrayBuffer,
   );
   return new TextDecoder().decode(plaintext);
-}
-
-function base64UrlDecode(s: string): Uint8Array {
-  const padded = s.replace(/-/g, "+").replace(/_/g, "/");
-  const fill = padded.length % 4 ? 4 - (padded.length % 4) : 0;
-  const bin = atob(padded + "=".repeat(fill));
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
 }

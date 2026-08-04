@@ -63,7 +63,7 @@ class StepUpVerificationError extends TaggedError("StepUpVerificationError")<{
  *  the session itself — `trustDevice: false`). Shared by node-enrollment
  *  step-up and terminal step-up so both go through the exact same
  *  authenticator verification, never a hand-rolled parallel check. */
-export async function verifyTotpCode(
+async function verifyTotpCode(
   context: { headers: Headers },
   code: string,
 ): Promise<Result<void, StepUpVerificationError>> {

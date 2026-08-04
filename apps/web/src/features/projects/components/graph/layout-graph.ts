@@ -15,7 +15,7 @@ import dagre from "dagre";
 // Exported so the collision/extent code and the tests measure the same card
 // instead of each carrying their own copy of the number.
 export const NODE_WIDTH = 388;
-export const NODE_HEIGHT = 220;
+const NODE_HEIGHT = 220;
 const RANK_SEP = 140;
 const NODE_SEP = 80;
 

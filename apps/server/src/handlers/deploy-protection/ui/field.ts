@@ -116,9 +116,6 @@ export function fieldScript(mood: FieldMood): string {
 })();`;
 }
 
-/** Canvas the renderer draws into. Sits under everything, never interactive. */
-export const FIELD_CANVAS = `<canvas id="field" class="bg-field" aria-hidden="true"></canvas>`;
-
 /** Styles for the canvas + the vignette that seats the card in the space. */
 export const fieldCss = `
       .bg-field {

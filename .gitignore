@@ -81,3 +81,6 @@ session.jsonl
 # brand asset toolchain (build-time only)
 brand/.venv/
 brand/node_modules/
+
+# Generated audit evidence — regenerate with `bun scripts/audit/triage.ts`
+.audit/

@@ -14,11 +14,33 @@
  * Token storage is the caller's problem — this module never touches the
  * database. The token is passed in per call so the DB layer can decide
  * about encryption-at-rest separately.
+ *
+ * Every operation returns `Result<_, CloudflareError>` rather than throwing.
+ * These calls fail routinely and unexceptionally — a rotated token, a zone the
+ * operator no longer has access to, a Cloudflare 5xx — and every caller is
+ * already Result-shaped, so a thrown error just meant a `try`/`catch` adapter
+ * at each site. Transport and body-parse failures are captured too, so nothing
+ * here rejects.
  */
 
-import { TaggedError } from "better-result";
+import { Result, TaggedError } from "better-result";
 
 const CLOUDFLARE_API = "https://api.cloudflare.com/client/v4";
+
+/** `code` for a failure that never reached the API (DNS, TLS, timeout,
+ *  unparseable body). Cloudflare's own error codes are positive, so 0 is
+ *  unambiguous. */
+export const CLOUDFLARE_TRANSPORT_CODE = 0;
+
+export class CloudflareError extends TaggedError("CloudflareError")<{
+  message: string;
+  code: number;
+  cause?: unknown;
+}>() {
+  constructor(message: string, code: number, cause?: unknown) {
+    super({ message, code, cause });
+  }
+}
 
 interface CFEnvelope<T> {
   success: boolean;
@@ -28,30 +50,68 @@ interface CFEnvelope<T> {
   result_info?: { page: number; per_page: number; total_pages: number };
 }
 
-async function cfFetch<T>(path: string, token: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${CLOUDFLARE_API}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      ...init.headers,
-    },
+/**
+ * One request, returning the WHOLE envelope — pagination needs `result_info`,
+ * which {@link cfFetch} discards. Both live here so the `success`/`errors`
+ * unwrapping is spelled exactly once.
+ */
+async function cfEnvelope<T>(
+  path: string,
+  token: string,
+  init: RequestInit = {},
+): Promise<Result<CFEnvelope<T>, CloudflareError>> {
+  const res = await Result.tryPromise({
+    try: () =>
+      fetch(`${CLOUDFLARE_API}${path}`, {
+        ...init,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          ...init.headers,
+        },
+      }),
+    catch: (cause) =>
+      new CloudflareError(
+        cause instanceof Error ? cause.message : String(cause),
+        CLOUDFLARE_TRANSPORT_CODE,
+        cause,
+      ),
   });
-  const body = (await res.json()) as CFEnvelope<T>;
-  if (!body.success) {
-    const msg = body.errors?.[0]?.message ?? `Cloudflare API ${res.status} ${res.statusText}`;
-    throw new CloudflareError(msg, body.errors?.[0]?.code ?? res.status);
+  if (res.isErr()) return Result.err(res.error);
+
+  // Cloudflare answers JSON even for its error responses, but an edge/proxy in
+  // front of it may not — an HTML error page here would otherwise surface as a
+  // raw SyntaxError from a module that promises not to throw.
+  const body = await Result.tryPromise({
+    try: () => res.value.json() as Promise<CFEnvelope<T>>,
+    catch: (cause) =>
+      new CloudflareError(
+        `Cloudflare API ${res.value.status} ${res.value.statusText}: unparseable response body`,
+        CLOUDFLARE_TRANSPORT_CODE,
+        cause,
+      ),
+  });
+  if (body.isErr()) return Result.err(body.error);
+
+  if (!body.value.success) {
+    return Result.err(
+      new CloudflareError(
+        body.value.errors?.[0]?.message ??
+          `Cloudflare API ${res.value.status} ${res.value.statusText}`,
+        body.value.errors?.[0]?.code ?? res.value.status,
+      ),
+    );
   }
-  return body.result;
+  return Result.ok(body.value);
 }
 
-export class CloudflareError extends TaggedError("CloudflareError")<{
-  message: string;
-  code: number;
-}>() {
-  constructor(message: string, code: number) {
-    super({ message, code });
-  }
+/** One request, unwrapped to its `result` payload. */
+async function cfFetch<T>(
+  path: string,
+  token: string,
+  init: RequestInit = {},
+): Promise<Result<T, CloudflareError>> {
+  return (await cfEnvelope<T>(path, token, init)).map((body) => body.result);
 }
 
 export interface CloudflareZone {
@@ -60,22 +120,26 @@ export interface CloudflareZone {
   status: string;
 }
 
-export async function verifyCloudflareToken(token: string): Promise<{
-  ok: boolean;
-  status: string;
-}> {
-  try {
-    const result = await cfFetch<{ id: string; status: string }>("/user/tokens/verify", token);
-    return { ok: result.status === "active", status: result.status };
-  } catch (err) {
-    if (err instanceof CloudflareError) {
-      return { ok: false, status: err.message };
-    }
-    throw err;
-  }
+/**
+ * Ask Cloudflare what it thinks of this token.
+ *
+ * An `Err` means Cloudflare rejected the request outright (or we couldn't
+ * reach it). An `Ok` means it answered — but the token is only usable when
+ * `active` is true; Cloudflare reports a disabled or expired token as a
+ * successful response carrying a non-`"active"` status. Callers must check
+ * both, which is why the status string is returned rather than folded into a
+ * bare boolean.
+ */
+export async function verifyCloudflareToken(
+  token: string,
+): Promise<Result<{ active: boolean; status: string }, CloudflareError>> {
+  const result = await cfFetch<{ id: string; status: string }>("/user/tokens/verify", token);
+  return result.map((r) => ({ active: r.status === "active", status: r.status }));
 }
 
-export async function listCloudflareZones(token: string): Promise<CloudflareZone[]> {
+export async function listCloudflareZones(
+  token: string,
+): Promise<Result<CloudflareZone[], CloudflareError>> {
   // The token may be scoped to a single zone — in which case `/zones`
   // still works and just returns that one zone. Iterate pages so a
   // multi-zone token returns the full list; per_page=50 is the upper
@@ -83,22 +147,15 @@ export async function listCloudflareZones(token: string): Promise<CloudflareZone
   const all: CloudflareZone[] = [];
   let page = 1;
   while (true) {
-    const res = await fetch(`${CLOUDFLARE_API}/zones?per_page=50&page=${page}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const body = (await res.json()) as CFEnvelope<CloudflareZone[]>;
-    if (!body.success) {
-      throw new CloudflareError(
-        body.errors?.[0]?.message ?? "listZones failed",
-        body.errors?.[0]?.code ?? res.status,
-      );
-    }
-    all.push(...body.result.map((z) => ({ id: z.id, name: z.name, status: z.status })));
-    const info = body.result_info;
+    const body = await cfEnvelope<CloudflareZone[]>(`/zones?per_page=50&page=${page}`, token);
+    if (body.isErr()) return Result.err(body.error);
+
+    all.push(...body.value.result.map((z) => ({ id: z.id, name: z.name, status: z.status })));
+    const info = body.value.result_info;
     if (!info || page >= info.total_pages) break;
     page += 1;
   }
-  return all;
+  return Result.ok(all);
 }
 
 interface DnsRecord {
@@ -125,14 +182,16 @@ export async function upsertCloudflareDnsRecord(input: {
    *  TXT records ignore this. */
   proxied?: boolean;
   ttl?: number;
-}): Promise<{ id: string }> {
+}): Promise<Result<{ id: string }, CloudflareError>> {
   const existing = await cfFetch<DnsRecord[]>(
     `/zones/${encodeURIComponent(input.zoneId)}/dns_records?type=${input.type}&name=${encodeURIComponent(input.name)}`,
     input.token,
   );
-  const target = existing[0];
+  if (existing.isErr()) return Result.err(existing.error);
+
+  const target = existing.value[0];
   if (target) {
-    await cfFetch<DnsRecord>(
+    const patched = await cfFetch<DnsRecord>(
       `/zones/${encodeURIComponent(input.zoneId)}/dns_records/${target.id}`,
       input.token,
       {
@@ -144,7 +203,7 @@ export async function upsertCloudflareDnsRecord(input: {
         }),
       },
     );
-    return { id: target.id };
+    return patched.map(() => ({ id: target.id }));
   }
   const created = await cfFetch<DnsRecord>(
     `/zones/${encodeURIComponent(input.zoneId)}/dns_records`,
@@ -160,5 +219,5 @@ export async function upsertCloudflareDnsRecord(input: {
       }),
     },
   );
-  return { id: created.id };
+  return created.map((r) => ({ id: r.id }));
 }

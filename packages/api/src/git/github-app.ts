@@ -25,6 +25,7 @@
 
 import type { GitProviderId } from "@otterdeploy/shared/id";
 
+import { base64UrlEncode } from "@otterdeploy/shared/crypto";
 import { egressFetch, EgressPolicyError } from "@otterdeploy/shared/egress-policy";
 import { TaggedError } from "better-result";
 import { createError } from "evlog";
@@ -312,24 +313,41 @@ export async function listInstallationRepos(
   return { repositories: out, totalCount };
 }
 
+/** The head commit of a branch — what a push payload would have told us. */
+export interface BranchHead {
+  sha: string;
+  /** Full commit message (subject + body). Null when GitHub omits it. */
+  message: string | null;
+  /** Commit author's display name (the git author, not the pusher). */
+  authorName: string | null;
+  /** Avatar of the GitHub account the commit is attributed to. Null when the
+   *  commit's email matches no GitHub user. */
+  authorAvatar: string | null;
+}
+
 /**
- * Resolve the head commit SHA of a branch via the installation token.
+ * Resolve the head commit of a branch via the installation token.
  * Used by the UI "Deploy" path (manifest apply) to mint a build the same
- * way a git push would — the push webhook gets the SHA from its payload,
+ * way a git push would — the push webhook gets the commit from its payload,
  * but a UI-triggered build has to ask GitHub for the branch head itself.
+ *
+ * Returns the whole commit, not just the SHA: the deployment card names the
+ * change and its author, and this response already carries both. Reading only
+ * `.sha` here is what left every non-push deployment with null provenance and
+ * a framework glyph where a face belongs.
  *
  * Throws (createError) on failure, matching this module's idiom; callers
  * in Result-returning code wrap with `Result.tryPromise`.
  */
-export async function fetchBranchHeadSha(
+export async function fetchBranchHead(
   installationId: string | null,
   owner: string,
   repo: string,
   branch: string,
-): Promise<string> {
-  // Public repos resolve their head SHA anonymously (no installation
-  // linked). GitHub's commits endpoint is readable without auth for public
-  // repos — rate-limited to 60/hr per IP, fine for the UI deploy path.
+): Promise<BranchHead> {
+  // Public repos resolve their head anonymously (no installation linked).
+  // GitHub's commits endpoint is readable without auth for public repos —
+  // rate-limited to 60/hr per IP, fine for the UI deploy path.
   // Private repos pass a real installation token.
   const token = installationId ? (await getInstallationToken(installationId)).token : null;
   const res = await ghFetch(
@@ -350,14 +368,36 @@ export async function fetchBranchHeadSha(
       why: body.slice(0, 500),
     });
   }
-  const json = (await res.json()) as { sha?: string };
+  // `commit.author` is the git trailer (always present); the top-level `author`
+  // is the GitHub ACCOUNT it maps to, which is absent for a commit whose email
+  // belongs to no user — hence the separate name/avatar sources.
+  const json = (await res.json()) as {
+    sha?: string;
+    commit?: { message?: string; author?: { name?: string } };
+    author?: { avatar_url?: string; login?: string };
+  };
   if (!json.sha) {
     throw createError({
       message: `GitHub returned no SHA for ${owner}/${repo}@${branch}`,
       status: 502,
     });
   }
-  return json.sha;
+  return {
+    sha: json.sha,
+    message: json.commit?.message ?? null,
+    authorName: json.commit?.author?.name ?? json.author?.login ?? null,
+    authorAvatar: json.author?.avatar_url ?? null,
+  };
+}
+
+/** Head SHA only — for callers that pin a build and don't render provenance. */
+export async function fetchBranchHeadSha(
+  installationId: string | null,
+  owner: string,
+  repo: string,
+  branch: string,
+): Promise<string> {
+  return (await fetchBranchHead(installationId, owner, repo, branch)).sha;
 }
 
 // ---------------------------------------------------------------------------
@@ -507,14 +547,4 @@ export async function upsertPrComment(input: {
       why: body.slice(0, 500),
     });
   }
-}
-
-// ---------------------------------------------------------------------------
-// helpers
-// ---------------------------------------------------------------------------
-
-function base64UrlEncode(bytes: Uint8Array): string {
-  let bin = "";
-  for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
 }

@@ -13,9 +13,9 @@ import { deployment } from "@otterdeploy/db/schema/project";
 import { inFlightDeploys } from "@otterdeploy/jobs";
 import { and, desc, eq, inArray } from "drizzle-orm";
 
-import type { DeploymentRow } from "./deployments";
 import type { InstanceGlimpse } from "./deployments-derive";
 
+import { type DeploymentRow, markDeploymentFailed } from "./deployments";
 import { BUILD_LOG_QUIET_MS, ZERO_TASK_STALE_MS } from "./deployments-derive";
 import { emitDeploySucceeded } from "./deployments-emit";
 import { publishResourceChanged } from "./project-event-bus";
@@ -59,7 +59,6 @@ const STALE_BUILD_MESSAGE =
  * double-fire, and a builder that grabs the row at the same moment wins.
  */
 export async function reconcileDeployFailure(deploymentIds: DeploymentId[]): Promise<void> {
-  const { markDeploymentFailed } = await import("./deployments");
   for (const id of deploymentIds) {
     const flipped = await db
       .update(deployment)

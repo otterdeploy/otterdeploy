@@ -12,6 +12,8 @@ import { db } from "@otterdeploy/db";
 import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
 import { eq } from "drizzle-orm";
 
+import type { CloudflareZone } from "../../lib/cloudflare";
+
 import { orgScopedProcedure } from "../../index";
 import { listCloudflareZones } from "../../lib/cloudflare";
 import { detectDnsProvider, detectProxied } from "../../lib/dns-detect";
@@ -20,7 +22,9 @@ import { getOrganizationById } from "../organization/queries";
 /** The zone on this token that covers `domain`, or null. Longest match wins so
  *  a delegated `dev.acme.com` zone beats `acme.com` when both are present. */
 async function matchingCloudflareZoneId(token: string, domain: string): Promise<string | null> {
-  const zones = await listCloudflareZones(token).catch(() => []);
+  // A failed listing degrades to "no matching zone", same as an empty one —
+  // the caller's next step is to ask the operator to pick a zone by hand.
+  const zones = (await listCloudflareZones(token)).unwrapOr<CloudflareZone[]>([]);
   const name = domain.toLowerCase().replace(/\.$/, "");
   const matches = zones
     .filter((z) => {

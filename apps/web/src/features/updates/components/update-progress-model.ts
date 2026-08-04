@@ -98,7 +98,7 @@ function useSeen(pending: boolean): boolean {
  * flight, so a pane mounted onto an already-settled run can't reload into
  * itself forever.
  */
-export function cutoverArrived(args: {
+function cutoverArrived(args: {
   realDone: boolean;
   sawPending: boolean;
   armed: boolean;

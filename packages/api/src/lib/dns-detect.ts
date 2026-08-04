@@ -17,7 +17,7 @@
  *      symptom points nowhere near the cause.
  */
 
-import { resolveAddressesRobust, resolveNsRobust } from "./dns-resolver";
+import { DnsRecordMissing, resolveAddressesRobust, resolveNsRobust } from "./dns-resolver";
 
 export type DnsProvider = "cloudflare" | "unknown";
 
@@ -84,20 +84,23 @@ export async function detectDnsProvider(domain: string): Promise<DnsProviderInfo
   let sawTransportError = false;
 
   for (const candidate of candidates) {
-    try {
-      const nameservers = await resolveNsRobust(candidate);
-      if (nameservers.length === 0) continue;
-      return {
-        provider: providerFromNameservers(nameservers),
-        zone: candidate,
-        nameservers,
-        lookupFailed: false,
-      };
-    } catch {
-      // Expected for every level below the apex. Remembered rather than
-      // returned so that "no level answered" can be reported honestly.
-      sawTransportError = true;
+    const lookup = await resolveNsRobust(candidate);
+    if (lookup.isErr()) {
+      // A definitive miss is EXPECTED for every level below the apex, so it
+      // is NOT a transport error — keep climbing. Only a resolver we couldn't
+      // reach makes "no level answered" untrustworthy, which is what
+      // `lookupFailed` reports.
+      if (!DnsRecordMissing.is(lookup.error)) sawTransportError = true;
+      continue;
     }
+    const nameservers = lookup.value;
+    if (nameservers.length === 0) continue;
+    return {
+      provider: providerFromNameservers(nameservers),
+      zone: candidate,
+      nameservers,
+      lookupFailed: false,
+    };
   }
 
   return {
@@ -128,7 +131,9 @@ export async function detectProxied(input: {
 }): Promise<{ proxied: boolean | null; resolved: string[] }> {
   if (!input.expectedOrigin) return { proxied: null, resolved: [] };
 
-  const resolved = await resolveAddressesRobust(input.domain).catch(() => [] as string[]);
+  // Either failure mode lands on "cannot tell": an empty list below returns
+  // `proxied: null`, which is exactly what a failed lookup should say.
+  const resolved = (await resolveAddressesRobust(input.domain)).unwrapOr<string[]>([]);
   if (resolved.length === 0) return { proxied: null, resolved };
 
   return { proxied: !resolved.includes(input.expectedOrigin), resolved };

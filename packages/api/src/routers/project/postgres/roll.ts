@@ -17,7 +17,8 @@ import type { RequestLogger } from "evlog";
 
 import { updateSwarmDatabase } from "../../../runtime/db";
 import { resolvePlacementForResource } from "../../../swarm/resolve-placement";
-import { insertDeployment, markDeploymentFailed, reconcileDeploySuccess } from "../deployments";
+import { insertDeployment, markDeploymentFailed } from "../deployments";
+import { reconcileDeploySuccess } from "../deployments-reconcile";
 import { type DatabaseResourceRecord } from "../queries";
 import { buildContainerName, buildVolumeName, sanitizeProjectSlug } from "../views";
 import { snapshotForPostgresCreate } from "./snapshot";

@@ -18,10 +18,10 @@ import { triggerDeploy } from "@otterdeploy/jobs";
 import { Result } from "better-result";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 
-import { fetchBranchHeadSha } from "../../git/github-app";
+import { fetchBranchHead } from "../../git/github-app";
 import { type ServiceManifest } from "../../stack/manifest";
 import { inspectRepoTree } from "../git/inspect";
-import { emitDeployStarted } from "./deployments";
+import { emitDeployStarted } from "./deployments-emit";
 import { publishResourceChanged } from "./project-event-bus";
 
 export async function enqueueGitBuild(args: {
@@ -80,16 +80,17 @@ export async function enqueueGitBuild(args: {
     return Result.err(`unexpected repo full name: ${repo.fullName}`);
   }
 
-  // fetchBranchHeadSha throws on failure (github-app.ts idiom); wrap it so
+  // fetchBranchHead throws on failure (github-app.ts idiom); wrap it so
   // GitHub/network errors fold into skipped[] rather than aborting apply.
-  const shaResult = await Result.tryPromise({
-    try: () => fetchBranchHeadSha(installationId, owner, repoName, branch),
+  const headResult = await Result.tryPromise({
+    try: () => fetchBranchHead(installationId, owner, repoName, branch),
     catch: (cause) => (cause instanceof Error ? cause.message : String(cause)),
   });
-  if (shaResult.isErr()) {
-    return Result.err(`could not resolve ${branch} head: ${shaResult.error}`);
+  if (headResult.isErr()) {
+    return Result.err(`could not resolve ${branch} head: ${headResult.error}`);
   }
-  const sha = shaResult.value;
+  const head = headResult.value;
+  const sha = head.sha;
 
   const ref = `refs/heads/${branch}`;
 
@@ -124,6 +125,12 @@ export async function enqueueGitBuild(args: {
       status: "pending" as const,
       gitSha: sha,
       gitRef: ref,
+      // The same provenance a push deploy carries. Without it the deployment
+      // card has no change to name and no face to show, so it falls back to
+      // the framework glyph — which says nothing about what was deployed.
+      gitCommitMessage: head.message,
+      gitCommitAuthor: head.authorName,
+      gitCommitAuthorAvatar: head.authorAvatar,
     })
     .returning({ id: deployment.id });
   if (!row) return Result.err("failed to insert deployment row");

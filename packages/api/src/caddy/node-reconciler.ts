@@ -57,7 +57,7 @@ export interface NodeReconcileOptions {
  * Render the Caddyfile for one node. Exported so the UI can show an operator
  * exactly what a given node is serving without pushing anything.
  */
-export function renderNodeCaddyfile(
+function renderNodeCaddyfile(
   placed: readonly PlacedRoute[],
   serverId: ServerId,
   opts: { adminBind: string; buildOptions: Parameters<typeof buildCaddyfile>[2] },

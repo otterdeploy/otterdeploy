@@ -15,6 +15,13 @@ export interface PreviewApiEntry {
   headSha: string;
   slug: string;
   state: "active" | "closed";
+  paused?: boolean;
+  /** NULL teardown clock = pinned with keep-alive, never auto-reaped. */
+  autoTeardownAt?: string | null;
+  prTitle?: string | null;
+  prAuthorLogin?: string | null;
+  prAuthorAvatarUrl?: string | null;
+  prUrl?: string | null;
   services: {
     resourceId: string;
     serviceName: string;
@@ -29,6 +36,8 @@ export interface PreviewApiEntry {
       | "none"
       | "paused";
     url: string | null;
+    /** Commit currently RUNNING for this service; null before anything is live. */
+    deployedSha?: string | null;
   }[];
 }
 
@@ -59,7 +68,17 @@ export function buildPreviewSatellites(
             id: p.id,
             prNumber: p.prNumber,
             branch: p.branch,
+            title: p.prTitle ?? null,
+            authorLogin: p.prAuthorLogin ?? null,
+            authorAvatarUrl: p.prAuthorAvatarUrl ?? null,
+            prUrl: p.prUrl ?? null,
             status: svc.status,
+            // Serving a commit older than the PR's head. A green "running"
+            // pill on its own would imply the pushed commit is what you'd be
+            // reviewing, which is exactly the case that misleads.
+            stale: !!svc.deployedSha && svc.deployedSha !== p.headSha,
+            paused: p.paused ?? false,
+            pinned: p.autoTeardownAt == null,
             url: svc.url,
             parentId,
           },

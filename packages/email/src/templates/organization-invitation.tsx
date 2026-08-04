@@ -4,14 +4,14 @@ import { Badge, BrandButton, EmailLayout, Footnote, Heading, LinkFallback, Para 
 interface OrganizationInvitationEmailProps {
   organizationName?: string;
   inviterName?: string;
-  inviteUrl?: string;
+  inviteUrl: string;
   role?: string;
 }
 
 export function OrganizationInvitationEmail({
   organizationName = "the workspace",
   inviterName = "A teammate",
-  inviteUrl = "http://localhost:5173",
+  inviteUrl,
   role = "member",
 }: OrganizationInvitationEmailProps) {
   return (

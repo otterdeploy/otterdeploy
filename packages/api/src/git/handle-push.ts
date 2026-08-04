@@ -18,7 +18,8 @@ import { log } from "evlog";
 
 import type { GithubWebhookResult, PushEvent } from "./types";
 
-import { emitDeployStarted, markDeploymentFailed } from "../routers/project/deployments";
+import { markDeploymentFailed } from "../routers/project/deployments";
+import { emitDeployStarted } from "../routers/project/deployments-emit";
 import { detectAndPersistFramework } from "../routers/project/manifest-apply-git";
 import { changedPathsFromPush, matchesWatchPatterns } from "./watch-match";
 

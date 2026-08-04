@@ -14,10 +14,9 @@ import {
   getLatestDeploymentForResource,
   insertDeployment,
   markDeploymentFailed,
-  reconcileDeploySuccess,
 } from "./deployments";
 import { ZERO_TASK_STALE_MS } from "./deployments-derive";
-import { isBuildStillLogging } from "./deployments-list";
+import { isBuildStillLogging, reconcileDeploySuccess } from "./deployments-reconcile";
 import {
   updateDatabaseResourceRuntime,
   updateDatabaseResourceStatus,

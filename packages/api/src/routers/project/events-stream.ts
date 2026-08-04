@@ -20,6 +20,12 @@
  */
 import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
+import type { ProxyRouteRecord } from "../../caddy/queries";
+
+/** A route as it may cross the event bus: never the PIN hash or the domain
+ *  verification token. */
+export type PublishableRoute = Omit<ProxyRouteRecord, "accessPinHash" | "domainVerifyToken">;
+
 import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
 
@@ -34,6 +40,20 @@ type OrgId = OrganizationId;
 
 export type ProjectStreamEvent =
   | { kind: "resource"; action: "created" | "updated" | "removed"; resourceId: ResourceId }
+  | {
+      kind: "route";
+      action: "created" | "updated";
+      /** The row itself, minus the two secret columns — see the contract for
+       *  why routes push rows and deployments don't. */
+      route: PublishableRoute;
+    }
+  | {
+      kind: "route";
+      action: "removed";
+      routeId: string;
+      /** Null when the route wasn't bound to a resource. */
+      resourceId: ResourceId | null;
+    }
   | {
       kind: "task";
       action: string;

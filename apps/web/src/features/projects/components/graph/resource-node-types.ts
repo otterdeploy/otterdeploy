@@ -83,6 +83,13 @@ export interface PreviewInfo {
   prNumber: number;
   /** Plain head branch name (`feat/checkout-v2`). */
   branch: string;
+  /** PR presentation metadata. Null when GitHub didn't send it, or the preview
+   *  predates it being captured — the card degrades rather than hides. */
+  title: string | null;
+  authorLogin: string | null;
+  authorAvatarUrl: string | null;
+  /** Canonical PR page, for a one-click hop to GitHub. */
+  prUrl: string | null;
   /** Latest preview deployment status for this service, raw from the API. */
   status:
     | "pending"
@@ -96,6 +103,12 @@ export interface PreviewInfo {
     | "paused";
   /** Preview host URL — the card's click-through. Null until exposed. */
   url: string | null;
+  /** True when the running container predates the PR's head commit. */
+  stale?: boolean;
+  /** Containers stopped to free resources; routes and the row are kept. */
+  paused?: boolean;
+  /** Keep-alive pin — exempt from idle teardown. */
+  pinned?: boolean;
   /** React-Flow id of the service node this satellite hangs off
    *  (`service:<name>`) — drives manual right-of-parent placement. */
   parentId: string;

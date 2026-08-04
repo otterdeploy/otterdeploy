@@ -17,7 +17,7 @@
  */
 
 import { isCloudflareIp } from "./cloudflare-ips";
-import { resolveAddressesRobust } from "./dns-resolver";
+import { DnsRecordMissing, resolveAddressesRobust } from "./dns-resolver";
 
 export type DnsState = "pointed" | "proxied" | "unpointed" | "unknown";
 
@@ -34,17 +34,15 @@ export async function checkDomainReachability(input: {
    *  falls back to "unknown" rather than a misleading "unpointed". */
   serverIp: string | null;
 }): Promise<ReachabilityResult> {
-  let addresses: string[];
-  try {
-    addresses = await resolveAddressesRobust(input.domain);
-  } catch (err) {
-    const code = (err as { code?: string }).code;
-    // Authoritative "no such record" ⇒ definitely not pointed here.
-    if (code === "ENOTFOUND" || code === "ENODATA" || code === "NXDOMAIN") {
-      return { state: "unpointed", addresses: [] };
-    }
-    return { state: "unknown", addresses: [] };
+  const lookup = await resolveAddressesRobust(input.domain);
+  if (lookup.isErr()) {
+    // Authoritative "no such record" ⇒ definitely not pointed here. Anything
+    // else means we never got an answer, which is not evidence of absence.
+    return DnsRecordMissing.is(lookup.error)
+      ? { state: "unpointed", addresses: [] }
+      : { state: "unknown", addresses: [] };
   }
+  const addresses = lookup.value;
 
   if (addresses.length === 0) return { state: "unpointed", addresses };
 

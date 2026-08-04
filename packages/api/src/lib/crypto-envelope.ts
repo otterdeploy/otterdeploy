@@ -1,6 +1,8 @@
 /**
  * The on-the-wire ciphertext envelope: the two layouts we write, how to build
- * one, how to read one back, and the base64url codec both are spelled in.
+ * one, and how to read one back. The base64url codec both are spelled in is
+ * `@otterdeploy/shared/crypto` — shared with the token signers, which have to
+ * agree with it byte-for-byte.
  *
  *     v1.<nonce>.<ciphertext_with_tag>
  *     v2:<domain>:<keyId>:<nonce>:<ciphertext_with_tag>
@@ -13,6 +15,7 @@
  * key material, so it is safe to read in isolation when reasoning about a
  * stored blob.
  */
+import { base64UrlDecode, base64UrlEncode } from "@otterdeploy/shared/crypto";
 
 const V1_FORMAT = "v1";
 const V2_FORMAT = "v2";
@@ -76,21 +79,4 @@ export function parseV2Envelope(blob: string): ParsedV2Envelope {
     nonce: base64UrlDecode(nonceB64),
     ciphertext: base64UrlDecode(cipherB64),
   };
-}
-
-// ── base64url helpers ────────────────────────────────────────────────────
-
-function base64UrlEncode(bytes: Uint8Array): string {
-  let bin = "";
-  for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
-}
-
-function base64UrlDecode(s: string): Uint8Array {
-  const padded = s.replace(/-/g, "+").replace(/_/g, "/");
-  const fill = padded.length % 4 ? 4 - (padded.length % 4) : 0;
-  const bin = atob(padded + "=".repeat(fill));
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
 }
