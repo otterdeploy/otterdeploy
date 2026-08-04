@@ -163,6 +163,10 @@ export function resourceToNode(r: ProjectResource): ResourceFlowNode {
           // for build failures, which never schedule tasks) this is what
           // surfaces — so a failed build shows "error" instead of nothing.
           status: serviceDeploymentStatus(r.latestDeploymentStatus),
+          // Gated on publicEnabled, not just a non-null domain: a service can
+          // retain the host it used to serve on after being unexposed, and
+          // offering "Visit" for that would link to a 404.
+          publicUrl: r.publicEnabled ? r.publicDomain : null,
           latestDeploymentStartedAt: r.latestDeploymentStartedAt,
           latestDeploymentFinishedAt: r.latestDeploymentFinishedAt,
         },

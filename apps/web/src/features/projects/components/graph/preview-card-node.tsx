@@ -10,7 +10,6 @@
  */
 import type { NodeProps } from "@xyflow/react";
 
-import { LinkSquare02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Handle, Position } from "@xyflow/react";
 
@@ -19,6 +18,7 @@ import { cn } from "@/shared/lib/utils";
 import type { ResourceFlowNode, ResourceStatus } from "./resource-node-types";
 
 import { kindMeta, statusMeta } from "./resource-node-meta";
+import { VisitPill } from "./visit-pill";
 
 const badgeBase =
   "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] leading-none font-medium";
@@ -151,21 +151,7 @@ export function PreviewCardNode({ data, selected }: NodeProps<ResourceFlowNode>)
           {preview.branch}
         </span>
         {preview.url ? (
-          <a
-            href={preview.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            // `nodrag`/`nopan` keep React Flow from treating the click as a
-            // canvas gesture; stopPropagation keeps it from also selecting the
-            // node and sliding the detail panel over the tab you just opened.
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-            className="nodrag nopan inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1 text-[11.5px] font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-            title={`Open ${preview.url}`}
-          >
-            Visit
-            <HugeiconsIcon icon={LinkSquare02Icon} strokeWidth={2} className="size-3" />
-          </a>
+          <VisitPill url={preview.url} />
         ) : (
           // Honest about state: a preview with no URL yet hasn't been exposed,
           // which is different from a broken link.

@@ -17,6 +17,7 @@ import type { ReplicaInfo, ResourceNodeData, VolumeAttachment } from "./resource
 
 import { engineLogos, kindMeta, statusMeta } from "./resource-node-meta";
 import { MountRow, ReplicaRow } from "./resource-node-parts";
+import { VisitPill } from "./visit-pill";
 
 const badgeBase =
   "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] leading-none font-medium";
@@ -115,7 +116,9 @@ export function ResourceCardHeader({ data }: { data: ResourceNodeData }) {
 /** Footer — muted strip with the runtime tech label and (for source-based
  *  resources) the deployed commit. Renders nothing when neither is present. */
 export function ResourceCardFooter({ data }: { data: ResourceNodeData }) {
-  if (!data.tech && !data.git) return null;
+  // Visit alone is reason enough to render the footer — a pulled-image service
+  // has neither a tech label nor a commit, and used to show no way in at all.
+  if (!data.tech && !data.git && !data.publicUrl) return null;
   return (
     <div className="flex flex-col gap-1.5 border-t bg-muted/50 px-5 py-3">
       {data.tech && (
@@ -148,6 +151,14 @@ export function ResourceCardFooter({ data }: { data: ResourceNodeData }) {
           <span className="truncate text-muted-foreground/90">{data.git.message}</span>
         </div>
       )}
+      {data.publicUrl ? (
+        <div className="flex min-w-0 items-center gap-2 pt-0.5">
+          <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-muted-foreground/80">
+            {data.publicUrl}
+          </span>
+          <VisitPill url={data.publicUrl} />
+        </div>
+      ) : null}
     </div>
   );
 }
