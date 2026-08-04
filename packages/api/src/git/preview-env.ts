@@ -92,9 +92,7 @@ export async function ensurePreview(input: EnsurePreviewInput): Promise<PreviewR
         // value when a payload omits the field, so only overwrite when present.
         ...(input.prTitle != null ? { prTitle: input.prTitle } : {}),
         ...(input.prAuthorLogin != null ? { prAuthorLogin: input.prAuthorLogin } : {}),
-        ...(input.prAuthorAvatarUrl != null
-          ? { prAuthorAvatarUrl: input.prAuthorAvatarUrl }
-          : {}),
+        ...(input.prAuthorAvatarUrl != null ? { prAuthorAvatarUrl: input.prAuthorAvatarUrl } : {}),
         ...(input.prUrl != null ? { prUrl: input.prUrl } : {}),
         // A push is an implicit resume — clear a stale pause so the rebuilt
         // containers aren't left flagged paused (and reaper-exempt) forever.

@@ -147,9 +147,7 @@ function PreviewMenuItems({
         Open details
       </DropdownMenuItem>
       {preview.url ? (
-        <DropdownMenuItem
-          onClick={() => window.open(preview.url as string, "_blank", "noopener")}
-        >
+        <DropdownMenuItem onClick={() => window.open(preview.url as string, "_blank", "noopener")}>
           <HugeiconsIcon icon={SquareArrowExpand01Icon} strokeWidth={2} />
           Visit preview
         </DropdownMenuItem>

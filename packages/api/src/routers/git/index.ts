@@ -1,7 +1,7 @@
 import { ORPCError } from "@orpc/server";
+import { resolveCanonicalWebOrigin } from "@otterdeploy/auth/web-origin";
 import { db } from "@otterdeploy/db";
 import { gitInstallation, gitProvider } from "@otterdeploy/db/schema";
-import { resolveCanonicalWebOrigin } from "@otterdeploy/auth/web-origin";
 import { env } from "@otterdeploy/env/server";
 import { matchError } from "better-result";
 import { and, eq } from "drizzle-orm";

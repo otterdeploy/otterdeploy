@@ -45,7 +45,8 @@ import { log } from "evlog";
 import { getCookie, setCookie } from "hono/cookie";
 
 import { pinCookieAllows } from "./pin";
-import { authorizeBase,
+import {
+  authorizeBase,
   allow,
   authTargetDomain,
   BYPASS_HEADER,

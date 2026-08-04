@@ -11,7 +11,6 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useVirtualizer } from "@tanstack/react-virtual";
-
 import { toast } from "sonner";
 
 import { copyToClipboard } from "@/shared/lib/clipboard";

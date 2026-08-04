@@ -22,12 +22,13 @@
 import type { DeploymentId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
+import { gitRepo } from "@otterdeploy/db/schema/git";
 import { deployment, serviceResource } from "@otterdeploy/db/schema/project";
-import { gitInstallation, gitRepo } from "@otterdeploy/db/schema/git";
 import { Result } from "better-result";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 
 import { fetchBranchHead } from "../../git/github-app";
+import { resolveInstallationId } from "../../git/installation-id";
 
 /** Most commits to resolve in one pass. A panel shows a page of history; the
  *  rest fill in as they're viewed. */
@@ -75,21 +76,7 @@ export async function backfillCommitMeta(
   if (!repo) return filled;
   const [owner, name] = repo.fullName.split("/");
   if (!owner || !name) return filled;
-  // gitRepo.installationId is the INTERNAL `gitinst_` PK; GitHub's token API
-  // wants the NUMERIC installation id off the gitInstallation row. Passing the
-  // PK straight through 404s the token request, and because provenance failures
-  // are silent by design that shows up as "nothing was ever backfilled" rather
-  // than as an error.
-  let installationId: string | null = null;
-  if (repo.installationId) {
-    const [inst] = await db
-      .select({ installationId: gitInstallation.installationId })
-      .from(gitInstallation)
-      .where(eq(gitInstallation.id, repo.installationId))
-      .limit(1);
-    installationId = inst?.installationId ?? null;
-  }
-
+  const installationId = await resolveInstallationId(repo.installationId);
 
   // One lookup per distinct commit, not per deployment.
   const shas = [...new Set(missing.map((r) => r.gitSha as string))].slice(0, MAX_LOOKUPS);

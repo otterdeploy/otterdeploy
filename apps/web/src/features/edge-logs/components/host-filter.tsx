@@ -65,10 +65,7 @@ export function HostFilter({
       />
       {/* Wide enough for a real `<service>-pr-N-<project>.<ip>.sslip.io`, and
           capped so it can't outgrow a narrow window. */}
-      <PopoverContent
-        align="start"
-        className="w-[min(30rem,calc(100vw-2rem))] p-0"
-      >
+      <PopoverContent align="start" className="w-[min(30rem,calc(100vw-2rem))] p-0">
         <Command>
           <CommandInput placeholder={t("edgeLogs.searchHosts")} />
           <CommandList>

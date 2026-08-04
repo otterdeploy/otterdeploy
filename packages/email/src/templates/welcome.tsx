@@ -6,10 +6,7 @@ interface WelcomeEmailProps {
   loginUrl: string;
 }
 
-export function WelcomeEmail({
-  username = "there",
-  loginUrl,
-}: WelcomeEmailProps) {
+export function WelcomeEmail({ username = "there", loginUrl }: WelcomeEmailProps) {
   return (
     <EmailLayout preview="Welcome to otterdeploy — deploy your first service.">
       <Heading>Welcome to otterdeploy</Heading>

@@ -10,10 +10,7 @@ interface MagicLinkEmailProps {
  * Passwordless sign-in link (better-auth `magicLink` plugin). No password, so
  * the link itself is the credential — the copy stresses not sharing it.
  */
-export function MagicLinkEmail({
-  loginUrl,
-  expiresInMinutes = 10,
-}: MagicLinkEmailProps) {
+export function MagicLinkEmail({ loginUrl, expiresInMinutes = 10 }: MagicLinkEmailProps) {
   return (
     <EmailLayout preview="Your sign-in link for otterdeploy." footnote={null}>
       <Heading>Sign in to otterdeploy</Heading>

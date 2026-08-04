@@ -11,8 +11,8 @@
  */
 
 import { RouteAccessButton } from "@/features/projects/components/networking/route-access-dialog";
-import { cn } from "@/shared/lib/utils";
 import { Skeleton } from "@/shared/components/ui/skeleton";
+import { cn } from "@/shared/lib/utils";
 
 import type { RouteCertificate } from "./certificate-status";
 
@@ -61,8 +61,7 @@ function CertificateBlock({
         <Label>TLS certificate</Label>
         {/* No probe result is not the same as "no certificate" — say which. */}
         <p className="text-[12.5px] text-muted-foreground">
-          Not probed yet. Caddy issues a certificate the first time the domain is
-          served.
+          Not probed yet. Caddy issues a certificate the first time the domain is served.
         </p>
       </div>
     );
@@ -85,7 +84,10 @@ function CertificateBlock({
           <Fact k="issuer" v={cert.issuer ?? "—"} />
           <Fact k="expires" v={certExpiryLabel(cert)} />
           <Fact k="subject" v={cert.subject ?? "—"} />
-          <Fact k="valid from" v={cert.notBefore ? new Date(cert.notBefore).toLocaleString() : "—"} />
+          <Fact
+            k="valid from"
+            v={cert.notBefore ? new Date(cert.notBefore).toLocaleString() : "—"}
+          />
           <Fact k="self-signed" v={cert.selfSigned ? "yes" : "no"} />
           <Fact k="serial" v={cert.serial ?? "—"} />
           {/* Full-width: these are long single tokens, and a half-width track
@@ -118,8 +120,8 @@ export function RouteDetailPanel({
   if (!isHttp) {
     return (
       <div className="px-6 py-3 text-[12.5px] text-muted-foreground">
-        Layer-4 (TCP) route — passed straight through to the upstream, so it
-        carries no edge certificate and no access wall.
+        Layer-4 (TCP) route — passed straight through to the upstream, so it carries no edge
+        certificate and no access wall.
       </div>
     );
   }

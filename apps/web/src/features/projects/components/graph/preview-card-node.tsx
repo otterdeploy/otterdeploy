@@ -79,7 +79,10 @@ export function PreviewCardNode({ data, selected }: NodeProps<ResourceFlowNode>)
               #{preview.prNumber}
             </span>
             {preview.title ? (
-              <span className="min-w-0 truncate text-[12px] text-foreground/80" title={preview.title}>
+              <span
+                className="min-w-0 truncate text-[12px] text-foreground/80"
+                title={preview.title}
+              >
                 {preview.title}
               </span>
             ) : null}

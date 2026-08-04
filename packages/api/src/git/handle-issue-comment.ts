@@ -89,10 +89,7 @@ async function projectsForRepo(repoId: GitRepoId) {
  * Carried metadata included, so a `/preview` comment produces the same card as
  * a webhook-opened PR rather than an anonymous one.
  */
-function syntheticPullRequestEvent(
-  ev: IssueCommentEvent,
-  head: PullRequestHead,
-): PullRequestEvent {
+function syntheticPullRequestEvent(ev: IssueCommentEvent, head: PullRequestHead): PullRequestEvent {
   return {
     action: "synchronize",
     number: ev.issue.number,

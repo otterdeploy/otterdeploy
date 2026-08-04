@@ -16,7 +16,8 @@ import { Result } from "better-result";
 import { log } from "evlog";
 import { setCookie } from "hono/cookie";
 
-import { authorizeBase,
+import {
+  authorizeBase,
   cookieOptions,
   errorPage,
   guard,

@@ -6,8 +6,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
-import { sessionQuery } from "@/lib/auth-queries";
 import { useControlPlaneBaseUrl } from "@/features/shell/hooks/use-control-plane-base-url";
+import { sessionQuery } from "@/lib/auth-queries";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/components/ui/toggle-group";

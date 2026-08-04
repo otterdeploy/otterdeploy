@@ -23,6 +23,7 @@ import type { DerivedDeploymentStatus, InstanceGlimpse } from "./deployments-der
 
 import { loadPreviewScope } from "../../lib/environment/load";
 import { runtimeServiceName } from "../../lib/environment/scoping";
+import { backfillCommitMeta } from "./deployment-commit-backfill";
 import { deriveDeploymentStatus, FAILED_TASK_COUNT_STATES } from "./deployments-derive";
 import {
   isBuildStillLogging,
@@ -30,7 +31,6 @@ import {
   reconcileDeploySuccess,
 } from "./deployments-reconcile";
 import { PostgresResourceNotFoundError, ProjectNotFoundError } from "./errors";
-import { backfillCommitMeta } from "./deployment-commit-backfill";
 import { getProjectInOrg, getProjectRecord } from "./queries";
 import { getResourceById } from "./queries/resource";
 import { listResourceInstances } from "./resource-instances";

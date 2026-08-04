@@ -8,6 +8,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
+import { useControlPlaneBaseUrl } from "@/features/shell/hooks/use-control-plane-base-url";
 import { Button } from "@/shared/components/ui/button";
 import {
   Dialog,
@@ -18,7 +19,6 @@ import {
   DialogTitle,
 } from "@/shared/components/ui/dialog";
 import { copyToClipboard } from "@/shared/lib/clipboard";
-import { useControlPlaneBaseUrl } from "@/features/shell/hooks/use-control-plane-base-url";
 
 export function ConnectCliDialog({
   open,

@@ -8,13 +8,14 @@ import type { GitRepoId, PreviewId, ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { deployment, resource, serviceResource } from "@otterdeploy/db/schema";
-import { gitInstallation, gitRepo } from "@otterdeploy/db/schema/git";
+import { gitRepo } from "@otterdeploy/db/schema/git";
 import { triggerDeploy } from "@otterdeploy/jobs";
 import { Result } from "better-result";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 
 import { emitDeployStarted } from "../routers/project/deployments-emit";
 import { fetchBranchHead } from "./github-app";
+import { resolveInstallationId } from "./installation-id";
 
 /**
  * Commit provenance for the deployment rows a preview build creates.
@@ -44,21 +45,7 @@ async function commitProvenance(
   if (!repo) return empty;
   const [owner, name] = repo.fullName.split("/");
   if (!owner || !name) return empty;
-  // gitRepo.installationId is the INTERNAL `gitinst_` PK; GitHub's token API
-  // wants the NUMERIC installation id off the gitInstallation row. Passing the
-  // PK straight through 404s the token request, and because provenance failures
-  // are silent by design that shows up as "nothing was ever backfilled" rather
-  // than as an error.
-  let installationId: string | null = null;
-  if (repo.installationId) {
-    const [inst] = await db
-      .select({ installationId: gitInstallation.installationId })
-      .from(gitInstallation)
-      .where(eq(gitInstallation.id, repo.installationId))
-      .limit(1);
-    installationId = inst?.installationId ?? null;
-  }
-
+  const installationId = await resolveInstallationId(repo.installationId);
 
   const head = await Result.tryPromise({
     try: () => fetchBranchHead(installationId, owner, name, sha),

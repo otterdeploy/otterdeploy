@@ -1,4 +1,5 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "vite-plus/test";
+
 import { repoWebUrl } from "@/features/resources/lib/repo-url";
 
 describe("repoWebUrl", () => {
