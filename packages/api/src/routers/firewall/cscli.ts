@@ -69,14 +69,62 @@ async function execInCrowdsec(
     timer = setTimeout(() => resolve(null), timeoutMs);
   });
   try {
-    return await Promise.race([timedOut, run(docker, cmd, input)]);
+    return await Promise.race([timedOut, run(docker, cmd, input, timeoutMs)]);
   } finally {
     if (timer) clearTimeout(timer);
     docker.destroy();
   }
 }
 
-async function run(docker: Docker, cmd: string[], input?: string): Promise<string | null> {
+/**
+ * Run a command in the crowdsec container with data on STDIN, via the docker
+ * CLI rather than the Docker HTTP API.
+ *
+ * The API path (exec + AttachStdin + a hijacked duplex) delivers the payload —
+ * cscli genuinely imports the decisions — but the response stream comes back
+ * EMPTY and `exec.inspect()` reports a null exit code, so the caller cannot
+ * tell success from failure. That made every managed-blocklist import look
+ * rejected while its decisions were live in CrowdSec, and the caller then
+ * deleted the blocklist row (od bead: blocklist enable false failure).
+ *
+ * Reads and non-stdin execs over the API are unaffected, so only this one shape
+ * is routed around it. The CLI ships in the server image (it is how the builder
+ * drives buildx) and speaks the same socket.
+ */
+async function runViaCli(
+  containerId: string,
+  cmd: string[],
+  input: string,
+  timeoutMs: number,
+): Promise<string | null> {
+  const proc = Bun.spawn(["docker", "exec", "-i", containerId, ...cmd], {
+    stdin: new TextEncoder().encode(input),
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const timer = setTimeout(() => proc.kill(), timeoutMs);
+  try {
+    // stdout+stderr merged: callers match on cscli's result text, which it
+    // writes across both.
+    const [out, err] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
+    await proc.exited;
+    return `${out}${err}`;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function run(
+  docker: Docker,
+  cmd: string[],
+  input: string | undefined,
+  timeoutMs: number,
+): Promise<string | null> {
   const list = await docker.containers.list({ filters: { name: ["crowdsec"] } });
   const container = list.isOk()
     ? list.value.find(
@@ -84,6 +132,8 @@ async function run(docker: Docker, cmd: string[], input?: string): Promise<strin
       )
     : undefined;
   if (!container) return null;
+  // Anything with stdin goes through the CLI — see runViaCli for why.
+  if (input !== undefined) return runViaCli(container.Id, cmd, input, timeoutMs);
   const exec = await docker.containers.getContainer(container.Id).exec({
     Cmd: cmd,
     AttachStdin: input !== undefined,

@@ -206,6 +206,15 @@ export const preview = pgTable(
     gitRepoId: text("git_repo_id").notNull().$type<GitRepoId>(),
     prNumber: integer("pr_number").notNull(),
     prNodeId: text("pr_node_id"),
+    // PR presentation metadata, refreshed on every pull_request event. All
+    // nullable: previews created before this existed (and any provider whose
+    // payload omits a field) simply render without it rather than blocking the
+    // preview. Never used for identity or routing — that stays (repo, number).
+    prTitle: text("pr_title"),
+    prAuthorLogin: text("pr_author_login"),
+    prAuthorAvatarUrl: text("pr_author_avatar_url"),
+    /** Canonical web URL of the PR itself, for a one-click hop to GitHub. */
+    prUrl: text("pr_url"),
     /** Plain head branch name (`feat/checkout-v2`) — GitHub's pr.head.ref. */
     branch: text("branch").notNull(),
     headSha: text("head_sha").notNull(),

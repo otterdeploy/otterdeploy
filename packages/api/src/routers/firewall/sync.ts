@@ -55,6 +55,63 @@ function nextScenario(row: BlocklistRow): string {
     : slotScenario(row.id, "a");
 }
 
+/** How many decisions currently exist for a scenario. Used to tell "the import
+ *  worked but we could not read the confirmation" apart from a real failure —
+ *  the two are indistinguishable from empty output alone. Returns 0 when the
+ *  agent can't be reached, which keeps the caller on the failure path. */
+async function countScenarioDecisions(scenario: string): Promise<number> {
+  const out = await cscliRun(
+    `cscli decisions list --scenario "$1" --output json --limit 1 2>/dev/null || true`,
+    [scenario],
+  );
+  if (!out) return 0;
+  const text = out.trim();
+  // cscli prints `null` (or nothing) when a scenario has no decisions.
+  if (!text || text === "null") return 0;
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (!Array.isArray(parsed)) return 0;
+    // One alert row carries the decisions it created.
+    return parsed.reduce<number>((total, alert) => {
+      const decisions = (alert as { decisions?: unknown[] }).decisions;
+      return total + (Array.isArray(decisions) ? decisions.length : 0);
+    }, 0);
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * cscli produced no parseable result. Decide what actually happened by asking
+ * the agent, rather than assuming the worst: an import whose confirmation we
+ * could not read still applied its decisions, and reporting that as a rejection
+ * (which deletes the blocklist upstream) leaves enforcement live with no record
+ * of it.
+ */
+async function unreadableImport(
+  row: BlocklistRow,
+  scenario: string,
+  out: string,
+): Promise<SyncResult> {
+  const landed = out.trim() === "" ? await countScenarioDecisions(scenario) : 0;
+  if (landed > 0) {
+    await setBlocklistSyncResult(row.id, {
+      status: "ok",
+      count: landed,
+      activeScenario: scenario,
+    });
+    const previous = row.activeScenario ?? legacyScenario(row.id);
+    if (previous !== scenario) await clearScenario(previous);
+    return { ok: true, count: landed };
+  }
+  const error = lastOutput(
+    out,
+    "CrowdSec did not report a result for this import — no decisions were applied.",
+  );
+  await setBlocklistSyncResult(row.id, { status: "error", error });
+  return { ok: false, count: 0, error };
+}
+
 export async function syncBlocklist(
   row: BlocklistRow,
   prefetchedEntries?: string[],
@@ -90,9 +147,13 @@ export async function syncBlocklist(
 
   const match = out.match(/Imported\s+(\d+)/i) ?? out.match(/(\d+)\s+decision/i);
   if (!match || /error|invalid|failed|denied|unable|timed out/i.test(out)) {
-    const error = lastOutput(out, "CrowdSec rejected the validated blocklist.");
-    await setBlocklistSyncResult(row.id, { status: "error", error });
-    return { ok: false, count: 0, error };
+    // Silence is not a rejection. cscli prints "Imported N decisions" on
+    // success, so empty output means we could not READ the result — not that
+    // CrowdSec refused it. Ask the agent what actually landed before calling
+    // this a failure: reporting a rejection here (and deleting the blocklist
+    // upstream) while the decisions are live is how enforcement and the UI
+    // drifted apart.
+    return unreadableImport(row, scenario, out);
   }
 
   const count = Number(match[1]);

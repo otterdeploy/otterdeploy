@@ -13,7 +13,7 @@ import {
 interface EmailChangeEmailProps {
   username?: string;
   newEmail?: string;
-  confirmUrl?: string;
+  confirmUrl: string;
   expiresInMinutes?: number;
 }
 
@@ -24,7 +24,7 @@ interface EmailChangeEmailProps {
 export function EmailChangeEmail({
   username = "there",
   newEmail = "new@example.com",
-  confirmUrl = "http://localhost:5173/confirm-email",
+  confirmUrl,
   expiresInMinutes = 60,
 }: EmailChangeEmailProps) {
   return (

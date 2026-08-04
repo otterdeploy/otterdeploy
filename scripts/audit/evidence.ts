@@ -7,7 +7,7 @@
  * per-file lookups.
  */
 
-import { execFileSync } from "node:child_process";
+import { fallowJson } from "./fallow";
 
 export interface CrossFileEvidence {
   /** Files participating in at least one import cycle. */
@@ -25,32 +25,11 @@ const DEAD_CODE_KEYS = [
   "unused_class_members",
 ] as const;
 
-/** Run one fallow analysis and parse its JSON, or null if unavailable. */
-function fallowJson(command: string, cwd: string): Record<string, unknown> | null {
-  const read = (raw: string): Record<string, unknown> | null => {
-    try {
-      return JSON.parse(raw) as Record<string, unknown>;
-    } catch {
-      return null;
-    }
-  };
-  try {
-    return read(
-      execFileSync("bunx", ["fallow", command, "--format", "json", "--quiet"], {
-        cwd,
-        encoding: "utf8",
-        maxBuffer: 256 * 1024 * 1024,
-        stdio: ["ignore", "pipe", "ignore"],
-      }),
-    );
-  } catch (err) {
-    // fallow exits non-zero whenever it finds issues, which is the normal
-    // case — its stdout is still the report we want.
-    const stdout = (err as { stdout?: string }).stdout;
-    const parsed = stdout ? read(stdout) : null;
-    if (!parsed) console.warn(`  ! fallow ${command} unavailable — cross-file signals skipped`);
-    return parsed;
-  }
+/** Run one fallow analysis, warning rather than aborting when it cannot run. */
+function analysis(command: string, cwd: string): Record<string, unknown> | null {
+  const parsed = fallowJson([command], cwd);
+  if (!parsed) console.warn(`  ! fallow ${command} unavailable — cross-file signals skipped`);
+  return parsed;
 }
 
 function parseDeadCode(dc: Record<string, unknown>, out: CrossFileEvidence): void {
@@ -78,9 +57,9 @@ function parseDupes(dup: Record<string, unknown>, out: CrossFileEvidence): void 
 
 export function collectEvidence(cwd: string): CrossFileEvidence {
   const out: CrossFileEvidence = { cycles: new Set(), clones: new Map(), dead: new Map() };
-  const dc = fallowJson("dead-code", cwd);
+  const dc = analysis("dead-code", cwd);
   if (dc) parseDeadCode(dc, out);
-  const dup = fallowJson("dupes", cwd);
+  const dup = analysis("dupes", cwd);
   if (dup) parseDupes(dup, out);
   return out;
 }

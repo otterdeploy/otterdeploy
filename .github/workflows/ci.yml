@@ -63,6 +63,41 @@ jobs:
         if: matrix.task == 'test'
         run: bun run test --cache-dir=.turbo
 
+  # Phase 0 of the codebase vetting sweep (od-l90, docs/audit/PLAN.md).
+  #
+  # A ratchet, not a wall: the 177 dead-code findings, 18 cycles and 356 clone
+  # groups the sweep is working through block nobody. This fails only when one
+  # of those numbers goes UP, or when a PR introduces a cycle in a file it
+  # touched. Outside the `check` matrix because it needs full git history and
+  # no turbo cache.
+  audit:
+    name: audit ratchet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # `fallow audit` materialises the base ref in a temporary worktree to
+          # tell introduced findings from inherited ones, so the base commit has
+          # to actually be in the clone.
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.10
+
+      # fallow resolves imports through the real dependency tree. Without
+      # node_modules every workspace import reads as unresolved and the counts
+      # this gate compares are meaningless.
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      # On a PR: totals vs docs/audit/baseline.json, plus per-finding
+      # attribution against the PR base. On a push to main: totals only.
+      - name: Ratchet
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: bun scripts/audit/ratchet.ts ${BASE:+--base "$BASE"}
+
   # Separate from the `check` matrix: this is the only job carrying service
   # containers, so it owns every test that needs real infrastructure.
   #

@@ -3,7 +3,7 @@ import { BrandButton, EmailLayout, Footnote, Heading, LinkFallback, Muted, Para 
 
 interface PasswordResetEmailProps {
   username?: string;
-  resetUrl?: string;
+  resetUrl: string;
   expiresInMinutes?: number;
 }
 
@@ -13,7 +13,7 @@ interface PasswordResetEmailProps {
  */
 export function PasswordResetEmail({
   username = "there",
-  resetUrl = "http://localhost:5173/reset-password",
+  resetUrl,
   expiresInMinutes = 60,
 }: PasswordResetEmailProps) {
   return (

@@ -120,7 +120,12 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
   // Installations + repos for the pickers (same endpoints the wizard uses).
   const providersQuery = useQuery(orpc.git.list.queryOptions({ input: undefined }));
   const installations = (providersQuery.data ?? []).flatMap((p) =>
-    p.installations.map((inst) => ({ id: inst.id, label: `${p.kind}: ${inst.accountLogin}` })),
+    p.installations.map((inst) => ({
+      id: inst.id,
+      label: `${p.kind}: ${inst.accountLogin}`,
+      // Carried so the repository field can link out to the right provider.
+      kind: p.kind as string,
+    })),
   );
   const [activeInstallationId, setActiveInstallationId] = useActiveInstallation(installations);
 
@@ -216,6 +221,9 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
             {(field) => (
               <RepositoryField
                 activeInstallationId={activeInstallationId}
+                installationKind={
+                  installations.find((i) => i.id === activeInstallationId)?.kind ?? null
+                }
                 isLoading={reposQuery.isLoading}
                 options={options}
                 value={field.state.value}

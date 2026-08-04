@@ -6,16 +6,40 @@ import { LogViewer, type LogLine } from "@/features/logs/components/log-viewer";
 import { useLogStream } from "@/features/logs/data/use-log-stream";
 import { orpc } from "@/shared/server/orpc";
 
+/** True once the build has stopped producing output. Anything that isn't
+ *  actively building has a build log that can no longer change — including a
+ *  running deployment, whose build completed to get there. Unknown/absent
+ *  status is treated as still-building: re-streaming is merely wasteful, while
+ *  caching a live log shows a stalled one. */
+function isBuildFinished(status: string | null | undefined): boolean {
+  return status != null && status !== "pending" && status !== "building";
+}
+
+/** True once this deployment's container can no longer emit anything — it has
+ *  been replaced, removed, or never ran. A "running" deployment is excluded on
+ *  purpose: its tail is live. */
+function isSupersededDeployment(status: string | null | undefined): boolean {
+  return (
+    status === "failed" ||
+    status === "cancelled" ||
+    status === "superseded" ||
+    status === "removed"
+  );
+}
+
 // ─── Deploy Logs tab ──────────────────────────────────────────────────────
 
 export function DeploymentLogsBody({
   projectId,
   resourceId,
   deploymentId,
+  deploymentStatus,
 }: {
   projectId: string;
   resourceId: string;
   deploymentId: string;
+  /** Deployment status — decides whether this tail is replayable. */
+  deploymentStatus?: string | null;
 }) {
   const { lines, status } = useLogStream({
     open: (signal) =>
@@ -42,6 +66,11 @@ export function DeploymentLogsBody({
       ts: new Date().toISOString(),
     }),
     key: `${projectId}|${resourceId}|${deploymentId}`,
+    // Replay from memory ONLY once this deployment can no longer produce
+    // output. A running container's tail ends whenever the container stops,
+    // and it must re-attach when it comes back — caching that would pin the
+    // view to the last thing it happened to print.
+    cacheCompleted: isSupersededDeployment(deploymentStatus),
   });
 
   return (
@@ -73,7 +102,15 @@ export function DeploymentLogsBody({
 
 // ─── Build logs tab ───────────────────────────────────────────────────────
 
-export function BuildLogsBody({ deploymentId }: { deploymentId: string }) {
+export function BuildLogsBody({
+  deploymentId,
+  deploymentStatus,
+}: {
+  deploymentId: string;
+  /** Deployment status — the build log is only replayable once the build is
+   *  over. */
+  deploymentStatus?: string | null;
+}) {
   // Build pipeline logs come from apps/builder via Redis pub/sub +
   // deployment_log, streamed over the oRPC event-iterator
   // (project.resource.deployments.buildLogs.stream). `context.retry` opts
@@ -98,6 +135,11 @@ export function BuildLogsBody({ deploymentId }: { deploymentId: string }) {
       ts: new Date().toISOString(),
     }),
     key: deploymentId,
+    // A finished build's log never changes, so replay it instead of
+    // re-streaming on every tab switch. While the build is still running the
+    // stream is live: caching it would freeze a build in progress at whatever
+    // had been printed when you last looked, which reads as a stuck build.
+    cacheCompleted: isBuildFinished(deploymentStatus),
   });
 
   return (

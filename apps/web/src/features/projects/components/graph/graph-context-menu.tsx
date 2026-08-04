@@ -9,6 +9,8 @@
 import {
   Cancel01Icon,
   Copy01Icon,
+  PauseIcon,
+  PinIcon,
   Delete02Icon,
   Loading03Icon,
   PlayIcon,
@@ -35,6 +37,14 @@ export type GraphContextMenuTarget =
 
 export interface GraphContextMenuActions {
   onOpen: (node: ResourceFlowNode) => void;
+  /** Preview lifecycle, reachable without opening the panel's Settings tab.
+   *  Teardown is deliberately absent — it is destructive and keeps its
+   *  type-to-confirm surface in the panel. */
+  onPreviewRebuild: (previewId: string) => void;
+  onPreviewPause: (previewId: string) => void;
+  onPreviewResume: (previewId: string) => void;
+  onPreviewKeepAlive: (previewId: string, pinned: boolean) => void;
+  onCopyUrl: (url: string) => void;
   onLogs: (node: ResourceFlowNode) => void;
   onRestart: (node: ResourceFlowNode) => void;
   onCopyHostname: (node: ResourceFlowNode) => void;
@@ -111,6 +121,75 @@ function PaneMenuItems({
   );
 }
 
+/**
+ * A preview's own actions. These all existed already — buried in the panel's
+ * Settings tab, three clicks and a tab-switch from the graph — so the satellite
+ * offered nothing but "Open" on right-click.
+ *
+ * Teardown is deliberately NOT here. It destroys an environment and keeps its
+ * type-to-confirm dialog in the panel; a destructive action one careless click
+ * from a right-click menu is a different risk from a convenient one.
+ */
+function PreviewMenuItems({
+  preview,
+  node,
+  actions,
+}: {
+  preview: NonNullable<ResourceFlowNode["data"]["preview"]>;
+  node: ResourceFlowNode;
+  actions: GraphContextMenuActions;
+}) {
+  const pinned = preview.pinned === true;
+  return (
+    <>
+      <DropdownMenuItem onClick={() => actions.onOpen(node)}>
+        <HugeiconsIcon icon={SquareArrowExpand01Icon} strokeWidth={2} />
+        Open details
+      </DropdownMenuItem>
+      {preview.url ? (
+        <DropdownMenuItem onClick={() => window.open(preview.url as string, "_blank", "noopener")}>
+          <HugeiconsIcon icon={SquareArrowExpand01Icon} strokeWidth={2} />
+          Visit preview
+        </DropdownMenuItem>
+      ) : null}
+      {preview.prUrl ? (
+        <DropdownMenuItem
+          onClick={() => window.open(preview.prUrl as string, "_blank", "noopener")}
+        >
+          <HugeiconsIcon icon={SquareArrowExpand01Icon} strokeWidth={2} />
+          Open pull request
+        </DropdownMenuItem>
+      ) : null}
+      {preview.url ? (
+        <DropdownMenuItem onClick={() => actions.onCopyUrl(preview.url as string)}>
+          <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
+          Copy preview URL
+        </DropdownMenuItem>
+      ) : null}
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={() => actions.onPreviewRebuild(preview.id)}>
+        <HugeiconsIcon icon={Loading03Icon} strokeWidth={2} />
+        Rebuild from latest commit
+      </DropdownMenuItem>
+      {preview.paused ? (
+        <DropdownMenuItem onClick={() => actions.onPreviewResume(preview.id)}>
+          <HugeiconsIcon icon={PlayIcon} strokeWidth={2} />
+          Resume
+        </DropdownMenuItem>
+      ) : (
+        <DropdownMenuItem onClick={() => actions.onPreviewPause(preview.id)}>
+          <HugeiconsIcon icon={PauseIcon} strokeWidth={2} />
+          Pause (free resources)
+        </DropdownMenuItem>
+      )}
+      <DropdownMenuItem onClick={() => actions.onPreviewKeepAlive(preview.id, !pinned)}>
+        <HugeiconsIcon icon={PinIcon} strokeWidth={2} />
+        {pinned ? "Allow idle teardown" : "Keep alive (pin)"}
+      </DropdownMenuItem>
+    </>
+  );
+}
+
 function NodeMenuItems({
   node,
   actions,
@@ -119,6 +198,9 @@ function NodeMenuItems({
   actions: GraphContextMenuActions;
 }) {
   const { data } = node;
+  if (data.kind === "preview" && data.preview) {
+    return <PreviewMenuItems preview={data.preview} node={node} actions={actions} />;
+  }
   if (!isActionableKind(data.kind)) {
     return (
       <DropdownMenuItem onClick={() => actions.onOpen(node)}>

@@ -22,12 +22,9 @@ import { log } from "evlog";
 import type { GithubWebhookResult, PullRequestEvent } from "./types";
 
 import { reconcile } from "../caddy";
-import { checkPreviewCap, reportPreviewCapRefusal } from "./preview-cap";
-import { branchProjectDatabases } from "./preview-db";
-import { triggerPreviewBuild } from "./preview-deploy";
-import { ensurePreview, markPreviewsClosed } from "./preview-env";
+import { markPreviewsClosed } from "./preview-env";
+import { deployPreviewForProject } from "./preview-provision";
 import { report } from "./preview-report";
-import { ensurePreviewRoutes } from "./preview-routes";
 import { teardownPreview } from "./preview-teardown";
 
 const PREVIEW_ACTIONS = new Set(["opened", "reopened", "synchronize"]);
@@ -124,13 +121,6 @@ export async function handlePullRequest(
 
 /** Sanitized `owner-repo` slug — qualifies preview env slugs/DB branch names so
  *  two repos in one project never collide on the same PR number. */
-function repoSlug(repo: RepoRow): string {
-  return repo.fullName
-    .replace(/[^a-z0-9-]+/gi, "-")
-    .replace(/^-+|-+$/g, "")
-    .toLowerCase();
-}
-
 async function closePreviews(
   ev: PullRequestEvent,
   repo: RepoRow,
@@ -182,92 +172,10 @@ export async function deployPreviews(
   let environmentsTouched = 0;
   let routesChanged = false;
   for (const p of projects) {
-    // Checked BEFORE anything is created: the point of the cap is that no
-    // container, route or database branch is provisioned once the project is
-    // full. A push to an already-open PR always passes — see preview-cap.ts.
-    const cap = await checkPreviewCap({
-      projectId: p.id as ProjectId,
-      gitRepoId: repo.id as GitRepoId,
-      prNumber: pr.number,
-    });
-    if (!cap.allowed) {
-      // Never a silent cap — the same rule idle GC follows. Somebody opened a
-      // PR expecting a preview; they have to be able to find out why there
-      // isn't one, and what to do about it.
-      log.info({
-        github: { event: "pull_request", step: "preview-cap", prNumber: pr.number },
-        preview: { cap: cap.cap, active: cap.current, projectId: p.id },
-        msg: "preview refused — project at its concurrent-preview limit",
-      });
-      await reportPreviewCapRefusal({
-        gitRepoId: repo.id as GitRepoId,
-        prNumber: pr.number,
-        verdict: { cap: cap.cap, current: cap.current },
-      });
-      continue;
-    }
-
-    const row = await ensurePreview({
-      projectId: p.id as ProjectId,
-      gitRepoId: repo.id as GitRepoId,
-      repoSlug: repoSlug(repo),
-      prNumber: pr.number,
-      prNodeId: pr.node_id ?? null,
-      branch: pr.head.ref,
-      headSha: pr.head.sha,
-    });
-    if (!row) continue;
-    environmentsTouched++;
-    // Branch the project's OPT-IN databases into this preview BEFORE the
-    // services deploy, so their ${{<db>.DATABASE_URL}} resolves to the
-    // isolated branch. Databases without previewBranching are shared with the
-    // base (the resolver falls back). Best-effort: a branch failure must not
-    // strand the whole preview.
-    const branched = await Result.tryPromise({
-      try: () =>
-        branchProjectDatabases({
-          projectId: p.id as ProjectId,
-          projectSlug: p.slug,
-          previewId: row.id,
-          previewSlug: row.slug,
-          gitRepoId: repo.id as GitRepoId,
-        }),
-      catch: (cause) => cause,
-    });
-    if (branched.isErr()) {
-      log.warn({
-        github: { event: "pull_request", step: "branch-db", prNumber: pr.number },
-        err: branched.error,
-      });
-    }
-    // Mint the preview hosts up front — the container 502s until the build
-    // converges, which the PR comment reflects as "Building". Best-effort:
-    // a routing failure must not strand the build itself.
-    const routes = await Result.tryPromise({
-      try: () =>
-        ensurePreviewRoutes({
-          projectId: p.id as ProjectId,
-          projectSlug: p.slug,
-          gitRepoId: repo.id as GitRepoId,
-          preview: { id: row.id, slug: row.slug, prNumber: row.prNumber },
-        }),
-      catch: (cause) => cause,
-    });
-    if (routes.isErr()) {
-      log.warn({
-        github: { event: "pull_request", step: "preview-routes", prNumber: pr.number },
-        err: routes.error,
-      });
-    } else if (routes.value) {
-      routesChanged = true;
-    }
-    deploymentsCreated += await triggerPreviewBuild({
-      projectId: p.id as ProjectId,
-      gitRepoId: repo.id as GitRepoId,
-      previewId: row.id,
-      sha: pr.head.sha,
-      branch: pr.head.ref,
-    });
+    const outcome = await deployPreviewForProject(p, pr, repo);
+    if (outcome.touched) environmentsTouched++;
+    deploymentsCreated += outcome.deployments;
+    routesChanged ||= outcome.routesChanged;
   }
 
   if (routesChanged) {

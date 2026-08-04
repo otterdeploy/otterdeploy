@@ -29,7 +29,11 @@ import { copyToClipboard } from "@/shared/lib/clipboard";
 import { toastMessage } from "@/shared/lib/errors";
 import { orpc } from "@/shared/server/orpc";
 
+import { usePreviewActions } from "./preview-panel/use-preview-actions";
+
 export interface UseGraphContextMenuArgs {
+  /** Needed for the preview lifecycle mutations, which are project-scoped. */
+  projectId: string;
   orgSlug: string;
   projectSlug: ProjectSlug;
   navigate: ReturnType<typeof useNavigate>;
@@ -40,6 +44,7 @@ export interface UseGraphContextMenuArgs {
 }
 
 export function useGraphContextMenu({
+  projectId,
   orgSlug,
   projectSlug,
   navigate,
@@ -56,6 +61,7 @@ export function useGraphContextMenu({
   // rendered as its sibling by GraphCanvas.
   const [cloneTarget, setCloneTarget] = useState<ResourceFlowNode | null>(null);
   const close = () => setTarget(null);
+  const previewActions = usePreviewActions(projectId);
 
   const dbRestart = useMutation({
     ...orpc.project.resource.database.postgres.restart.mutationOptions(),
@@ -102,6 +108,31 @@ export function useGraphContextMenu({
       if (node.data.kind === "database") dbRestart.mutate(args);
       else if (node.data.kind === "service") serviceRestart.mutate(args);
       else if (node.data.kind === "compose") composeRedeploy.mutate(args);
+    },
+    // Preview lifecycle. Reuses the panel's own mutations rather than
+    // re-implementing them, so a rebuild from the graph and a rebuild from
+    // Settings are literally the same call with the same toasts.
+    onPreviewRebuild: (previewId: string) => {
+      close();
+      previewActions.rebuild.mutate({ projectId, previewId });
+    },
+    onPreviewPause: (previewId: string) => {
+      close();
+      previewActions.pause.mutate({ projectId, previewId });
+    },
+    onPreviewResume: (previewId: string) => {
+      close();
+      previewActions.resume.mutate({ projectId, previewId });
+    },
+    onPreviewKeepAlive: (previewId: string, pinned: boolean) => {
+      close();
+      previewActions.keepAlive.mutate({ projectId, previewId, keepAlive: pinned });
+    },
+    onCopyUrl: (url: string) => {
+      close();
+      void copyToClipboard(url).then((ok) => {
+        if (ok) toast.success("Copied preview URL");
+      });
     },
     onCopyHostname: (node) => {
       close();

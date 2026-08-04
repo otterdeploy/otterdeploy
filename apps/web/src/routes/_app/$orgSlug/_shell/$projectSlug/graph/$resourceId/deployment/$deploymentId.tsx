@@ -5,13 +5,14 @@ import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Cancel01Icon } from "@hugeicons/core-free-icons";
+import { Cancel01Icon, LinkSquare02Icon } from "@hugeicons/core-free-icons";
 import * as m from "motion/react-client";
 
 import type { ProjectResource } from "@/features/projects/components/graph/resource-to-node";
 
 import { deploymentsCollection } from "@/features/resources/data/deployments";
 import { orpc } from "@/shared/server/orpc";
+import { cn } from "@/shared/lib/utils";
 import { resourceCollection } from "@/features/resources/data/resource";
 
 import { CancelDeploymentButton } from "@/features/deployments/components/cancel-deployment-button";
@@ -43,7 +44,15 @@ export const Route = createFileRoute(
   component: RouteComponent,
 });
 
-function getSubline(resource?: ProjectResource): string {
+/** The address this deployment is actually reachable at.
+ *
+ *  A preview deployment does NOT serve the base service's domain — it has its
+ *  own `<service>-pr-N-<project>` host. Showing `resource.publicDomain` in a
+ *  preview panel pointed at production while you were looking at a pull
+ *  request's build, which is a confusing thing to hand someone and a dangerous
+ *  one to click. `previewUrl` wins whenever we're in a preview. */
+function getSubline(resource?: ProjectResource, previewUrl?: string | null): string {
+  if (previewUrl) return previewUrl.replace(/^https?:\/\//, "");
   if (resource?.type === "database") return resource.internalHostname;
   if (resource?.type === "service") return resource.publicDomain ?? "";
   if (resource?.type === "compose")
@@ -51,6 +60,74 @@ function getSubline(resource?: ProjectResource): string {
       ? "1 service"
       : `${resource.services.length} services`;
   return "";
+}
+
+/** The preview's own host for THIS service. Null outside a preview, so the
+ *  panel falls back to the resource's own address. */
+function usePreviewServiceUrl(
+  projectId: string,
+  previewId: string | undefined,
+  resourceId: string,
+): string | null {
+  const previews = useQuery(
+    orpc.project.previews.list.queryOptions({
+      input: { projectId },
+      enabled: !!previewId,
+    }),
+  );
+  if (!previewId) return null;
+  return (
+    previews.data
+      ?.find((p) => p.id === previewId)
+      ?.services.find((s) => s.resourceId === resourceId)?.url ?? null
+  );
+}
+
+/** The address a browser can actually open, or null. A database's internal
+ *  hostname is reachable only inside the mesh, so it stays plain text. */
+function reachableUrl(resource: ProjectResource | undefined, previewUrl: string | null) {
+  if (previewUrl) return previewUrl;
+  if (resource?.type === "service" && resource.publicEnabled && resource.publicDomain) {
+    return `https://${resource.publicDomain}`;
+  }
+  return null;
+}
+
+/** The deployment's address. A link when a browser can open it — that is the
+ *  one thing anyone wants from this line — plain text otherwise. */
+function Subline({ text, href }: { text: string; href: string | null }) {
+  if (!text) return null;
+  if (!href) return <div className="font-mono text-[12px] text-muted-foreground/80">{text}</div>;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group inline-flex w-fit items-center gap-1 font-mono text-[12px] text-muted-foreground/80 underline-offset-2 hover:text-foreground hover:underline"
+    >
+      {text}
+      <HugeiconsIcon
+        icon={LinkSquare02Icon}
+        strokeWidth={2}
+        className="size-3 opacity-0 transition-opacity group-hover:opacity-60"
+      />
+    </a>
+  );
+}
+
+/** Marks a build as belonging to a pull request rather than to production.
+ *  Dashed to match the graph's preview edges and the preview panel's chrome —
+ *  one vocabulary for "ephemeral, PR-scoped" wherever it appears. */
+function PreviewChip({ active }: { active: boolean }) {
+  if (!active) return null;
+  return (
+    <span
+      className="inline-flex shrink-0 items-center rounded-full border border-dashed border-border bg-muted/30 px-2 py-0.5 font-mono text-[10.5px] tracking-[0.14em] text-muted-foreground uppercase"
+      title="A pull-request preview build — temporary, and torn down with its PR"
+    >
+      preview
+    </span>
+  );
 }
 
 function RouteComponent() {
@@ -105,7 +182,9 @@ function RouteComponent() {
     [project.id, resourceId],
   );
 
-  const subline = getSubline(resource);
+  const previewUrl = usePreviewServiceUrl(project.id, previewId, resourceId);
+  const subline = getSubline(resource, previewUrl);
+  const sublineHref = reachableUrl(resource, previewUrl);
 
   return (
     <m.div
@@ -133,7 +212,12 @@ function RouteComponent() {
     >
       <div className="pointer-events-auto absolute inset-0 flex flex-col overflow-hidden bg-background">
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 px-6 pt-6">
+        <div
+          className={cn(
+            "flex items-start justify-between gap-4 px-6 pt-6",
+            previewId && "border-b border-dashed border-border bg-muted/20 pb-4",
+          )}
+        >
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2.5">
               <span className="text-[18px] font-semibold tracking-tight">
@@ -145,12 +229,14 @@ function RouteComponent() {
                   deploymentId.slice(0, 8)}
               </span>
               {deployment && <DeploymentStatusDot status={deployment.status} />}
+              {/* Same dashed vocabulary the graph uses for a preview's
+                  attachment, and the preview panel's own chrome: this build
+                  belongs to a pull request, not to production. Without it the
+                  panel is indistinguishable from a production deployment while
+                  showing an ephemeral one. */}
+              <PreviewChip active={!!previewId} />
             </div>
-            {subline && (
-              <div className="font-mono text-[12px] text-muted-foreground/80">
-                {subline}
-              </div>
-            )}
+            <Subline text={subline} href={sublineHref} />
           </div>
           <div className="flex items-center gap-3">
             {/* Renders itself away unless this deployment is still in flight. */}
@@ -190,6 +276,7 @@ function RouteComponent() {
           projectId={project.id}
           resourceId={resourceId}
           deploymentId={deploymentId}
+          previewUrl={previewUrl}
         />
       </div>
     </m.div>

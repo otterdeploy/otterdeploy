@@ -286,6 +286,7 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
   // Right-click menus (node + empty canvas) — state/mutations live in a
   // sibling hook so this component stays under the line/complexity caps.
   const contextMenu = useGraphContextMenu({
+    projectId: project.id,
     orgSlug,
     projectSlug,
     navigate,

@@ -5,8 +5,6 @@
 
 import type { ProjectId } from "@otterdeploy/shared/id";
 
-import { db } from "@otterdeploy/db";
-import { edgeLog } from "@otterdeploy/db/schema/edge-log";
 import { Result } from "better-result";
 import { log } from "evlog";
 
@@ -31,29 +29,16 @@ export const edgeLogsRouter = {
     // `input.hosts` is the user-selected subset; `hosts` is the org scope
     // (the visibility guard). Keep them distinct in the filter.
     const { hosts: selectedHosts, ...rest } = input;
+    // NOTE: never pass `hosts` (or any object used after this point) into a
+    // log call here — evlog's redaction mutates the event IN PLACE, and its
+    // ipv4 masker rewrites sslip.io-style hosts (`x.65.108.240.250.sslip.io` →
+    // `x.***.***.***.250.sslip.io`) inside the live array, silently emptying
+    // every result. A "temporary" diagnostic that logged `resolvedHosts: hosts`
+    // did exactly that and broke this endpoint in production (od bead: edge
+    // logs query returns 0). Log a copy (`[...hosts]`) if it's ever needed.
     const hosts = await resolveHosts(orgId, input.projectId);
     const filter = { ...rest, hosts, selectedHosts };
     const now = Date.now();
-
-    // TEMP diagnostic: the project edge-logs view comes back empty. Compare the
-    // domains we resolved for this project against the distinct hosts actually
-    // present in edge_log — a mismatch (or empty resolvedHosts) is the cause.
-    {
-      const distinct = await Result.tryPromise({
-        try: () => db.selectDistinct({ host: edgeLog.host }).from(edgeLog).limit(50),
-        catch: (cause) => cause,
-      });
-      log.info({
-        edgeLog: {
-          diag: "query-scope",
-          projectId: input.projectId ?? null,
-          resolvedHosts: hosts,
-          loggedHosts: distinct.isOk()
-            ? distinct.value.map((r) => r.host)
-            : "distinct-query-failed",
-        },
-      });
-    }
 
     // DB-backed when persistence is on (covers 24h/7d + survives restarts);
     // otherwise the in-memory ring. Fall back to the ring if the DB query

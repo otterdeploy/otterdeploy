@@ -1,14 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
 /**
  * Connect CLI — the device-authorization flow itself is already built (the
  * `otterdeploy login` command + the `/device` approval page via better-auth's
  * deviceAuthorization plugin). This dialog just gets the user there: the exact
  * login command for this control plane + a shortcut to the approval page.
  */
-import { useLoaderData, useNavigate, useRouteContext } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
+import { useControlPlaneBaseUrl } from "@/features/shell/hooks/use-control-plane-base-url";
 import { Button } from "@/shared/components/ui/button";
 import {
   Dialog,
@@ -19,7 +19,6 @@ import {
   DialogTitle,
 } from "@/shared/components/ui/dialog";
 import { copyToClipboard } from "@/shared/lib/clipboard";
-import { orpc } from "@/shared/server/orpc";
 
 export function ConnectCliDialog({
   open,
@@ -30,29 +29,10 @@ export function ConnectCliDialog({
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
-
-  const isInstallAdmin = useRouteContext({ from: "/_app", select: (c) => c.isInstallAdmin });
-
-  // Prefer the verified control-plane FQDN over the browser's current origin.
-  // Operators often reach the dashboard by public IP (or <ip>.sslip.io) before
-  // DNS is fully wired up; handing the CLI that origin pins it to an address
-  // that can rotate. The configured FQDN is the stable, correct endpoint.
-  //
-  // Admins only: `organization.controlPlaneDomain` is install-scoped, so asking
-  // as an ordinary member 403s on every open of this dialog. Everyone else
-  // falls through to `origin` below — which is the same answer they got before
-  // the query resolved, and the same one an admin gets when no FQDN is
-  // configured, so nothing is lost but the noise.
-  const domainQuery = useQuery({
-    ...orpc.organization.controlPlaneDomain.queryOptions({
-      input: { organizationId: organization.id },
-    }),
-    enabled: isInstallAdmin,
-  });
-  const fqdn = domainQuery.data;
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const baseUrl = fqdn?.domain && fqdn.verifiedAt ? `https://${fqdn.domain}` : origin;
+  // Prefer the verified control-plane FQDN over the browser's current origin:
+  // operators often reach the dashboard by public IP before DNS is wired up,
+  // and handing the CLI that origin pins it to an address that can rotate.
+  const baseUrl = useControlPlaneBaseUrl();
   const cmd = `otterdeploy login ${baseUrl}`;
 
   const copy = () => {

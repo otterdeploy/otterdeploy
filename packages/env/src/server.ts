@@ -315,6 +315,11 @@ export const env = createEnv({
     // Image the detached update helper container runs (needs docker CLI + the
     // compose plugin). Override if `docker:28-cli` isn't available to you.
     OTTERDEPLOY_UPDATE_HELPER_IMAGE: z.string().min(1).default("docker:28-cli"),
+    // Image the host-terminal helper runs. Only needs `nsenter` (busybox has
+    // it), and it is started --privileged --pid=host purely to re-enter PID 1's
+    // namespaces — see apps/server/src/handlers/terminal/pty.ts. Keep it tiny;
+    // it must already be pullable on the box.
+    OTTERDEPLOY_HOST_SHELL_IMAGE: z.string().min(1).default("alpine:3"),
     // Force dry-run apply (simulate the whole update, touch no containers).
     // Unset ⇒ defaults to ON in dev / OFF in production (resolved in the API).
     OTTERDEPLOY_UPDATE_DRY_RUN: z

@@ -6,6 +6,10 @@
  * installation, a searchable Combobox for the repository.
  */
 
+import { GithubIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+
+import { repoWebUrl } from "@/features/resources/lib/repo-url";
 import {
   Combobox,
   ComboboxContent,
@@ -62,14 +66,37 @@ export function InstallationField({
 }
 
 /** Repository picker — a searchable Combobox, mirroring the deploy wizard. */
+/** Opens the selected repository on its provider. Rendered beside the picker so
+ *  "which repo does this build from?" and "take me to it" are the same glance —
+ *  previously the name was shown but there was no way through to the source. */
+function RepoSourceLink({ kind, fullName }: { kind: string | null; fullName: string }) {
+  const href = repoWebUrl(kind, fullName);
+  if (!href) return null;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`Open ${fullName} on ${kind}`}
+      aria-label={`Open ${fullName} on ${kind}`}
+      className="group inline-flex size-8 shrink-0 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+    >
+      <HugeiconsIcon icon={GithubIcon} strokeWidth={1.8} className="size-4" />
+    </a>
+  );
+}
+
 export function RepositoryField({
   activeInstallationId,
+  installationKind,
   isLoading,
   options,
   value,
   onChange,
 }: {
   activeInstallationId: string | null;
+  /** Provider of the selected installation ("github"), for the source link. */
+  installationKind: string | null;
   isLoading: boolean;
   options: string[];
   value: string;
@@ -94,19 +121,27 @@ export function RepositoryField({
     );
   }
   return (
-    <Combobox items={options} value={value} onValueChange={(v) => v && onChange(v)}>
-      <ComboboxInput placeholder="Search repositories…" className="h-8 font-mono text-[12.5px]" />
-      <ComboboxContent>
-        <ComboboxEmpty>No matching repositories.</ComboboxEmpty>
-        <ComboboxList>
-          {(fullName: string) => (
-            <ComboboxItem key={fullName} value={fullName} className="font-mono text-[12.5px]">
-              {fullName}
-            </ComboboxItem>
-          )}
-        </ComboboxList>
-      </ComboboxContent>
-    </Combobox>
+    <div className="flex items-center gap-2">
+      <div className="min-w-0 flex-1">
+        <Combobox items={options} value={value} onValueChange={(v) => v && onChange(v)}>
+          <ComboboxInput
+            placeholder="Search repositories…"
+            className="h-8 font-mono text-[12.5px]"
+          />
+          <ComboboxContent>
+            <ComboboxEmpty>No matching repositories.</ComboboxEmpty>
+            <ComboboxList>
+              {(fullName: string) => (
+                <ComboboxItem key={fullName} value={fullName} className="font-mono text-[12.5px]">
+                  {fullName}
+                </ComboboxItem>
+              )}
+            </ComboboxList>
+          </ComboboxContent>
+        </Combobox>
+      </div>
+      <RepoSourceLink kind={installationKind} fullName={value} />
+    </div>
   );
 }
 
