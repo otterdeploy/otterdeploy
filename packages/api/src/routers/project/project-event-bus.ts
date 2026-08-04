@@ -23,6 +23,7 @@ import { db } from "@otterdeploy/db";
 import { resource } from "@otterdeploy/db/schema";
 import { eq } from "drizzle-orm";
 
+import type { ProxyRouteRecord } from "../../caddy/queries";
 import type { ProjectStreamEvent } from "./events-stream";
 
 import { createRedis } from "../../lib/redis";
@@ -65,26 +66,42 @@ export async function publishResourceChanged(resourceId: ResourceId): Promise<vo
 }
 
 /**
- * Publish a "route changed" event for a project.
+ * Publish a route row to its project's channel.
  *
- * Proxy routes are written from places the browser never calls: the Caddy
- * reconciler, and cert/ACME promotion driven off the edge log. The Networking
- * view had no poll and no push for those, so a renewed certificate or a
- * reconciler-flipped route could sit stale on screen until something unrelated
- * invalidated the collection.
+ * Carries the ROW, not an id — the client applies it directly instead of
+ * refetching. That is only sound because a proxy route is a plain select:
+ * `proxyRoute.list` returns the stored row, so the writer already holds
+ * exactly what every reader would compute. (Deployments deliberately do NOT
+ * work this way; their status is derived from live docker task state, so a
+ * pushed row would be stale on arrival.)
  *
- * Takes the projectId directly — the caller already knows it, and a route's
- * resource is nullable, so resolving the project from the resource (the way
- * publishResourceChanged does) wouldn't work for every route.
+ * Preview routes are skipped: the project collection lists base routes only,
+ * so pushing a preview row would insert something no reader asked for.
  *
  * Best-effort, like every publish here: never throws into a write path.
  */
-export function publishRouteChanged(
+export function publishRouteUpserted(
+  action: "created" | "updated",
+  route: ProxyRouteRecord,
+): void {
+  if (route.previewId != null) return;
+  // NEVER put these on the bus. Every route output schema omits the access-PIN
+  // hash and the domain-verification token so no endpoint can leak them; a
+  // pub/sub channel is a wider audience than an authorized HTTP response, not a
+  // narrower one, so the same rule has to hold here — and it has to hold at the
+  // PUBLISHER, because output validation downstream would strip them from the
+  // response while they sat in Redis regardless.
+  const { accessPinHash: _pin, domainVerifyToken: _token, ...safe } = route;
+  publishProjectEvent(route.projectId, { kind: "route", action, route: safe });
+}
+
+/** Announce a removed route. No row survives a delete, so this carries keys. */
+export function publishRouteRemoved(
   projectId: ProjectId | string,
-  action: "created" | "updated" | "removed",
+  routeId: string,
   resourceId: ResourceId | null,
 ): void {
-  publishProjectEvent(projectId, { kind: "route", action, resourceId });
+  publishProjectEvent(projectId, { kind: "route", action: "removed", routeId, resourceId });
 }
 
 /** Subscribe to a project's channel. Returns a `close()` to tear down the

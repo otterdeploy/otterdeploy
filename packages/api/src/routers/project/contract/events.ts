@@ -19,8 +19,9 @@ import * as z from "zod";
 
 import { basePath, projectNotFoundErrors, tag } from "./shared";
 import { projectIdField, resourceIdField } from "./shared";
+import { proxyRouteSchema } from "./proxy";
 
-const projectEventSchema = z.discriminatedUnion("kind", [
+const projectEventSchema = z.union([
   z.object({
     kind: z.literal("resource"),
     /** `created`, `updated`, `removed`. Matches the docker `service.*` action
@@ -42,14 +43,36 @@ const projectEventSchema = z.discriminatedUnion("kind", [
   }),
   z.object({
     kind: z.literal("route"),
-    /** A proxy route was created, updated (enabled, protection, policy, cert
-     *  state, DNS verification) or removed. Routes change from places the UI
-     *  never touches — the reconciler, and cert/ACME promotion off the edge
-     *  log — so without this the Networking view only refreshed when something
-     *  else happened to invalidate it. */
-    action: z.enum(["created", "updated", "removed"]),
-    /** Owning resource, when the route has one. Null for routes not bound to a
-     *  resource, so consumers must not assume a resource to refresh. */
+    /** A proxy route was created or updated (enabled, protection, policy, cert
+     *  state, DNS verification). Routes change from places the UI never
+     *  touches — the reconciler, and cert/ACME promotion off the edge log — so
+     *  without this the Networking view only refreshed when something else
+     *  happened to invalidate it.
+     *
+     *  Unlike every other event here, this one carries the ROW rather than an
+     *  id. Route rows are exactly what `proxyRoute.list` returns — a plain
+     *  select, no runtime derivation — so the writer already holds the truth
+     *  and the client can apply it without a round trip. Deployments cannot do
+     *  this: their status is derived from live docker task state per read, so
+     *  a pushed row would be stale the moment it was sent. */
+    action: z.enum(["created", "updated"]),
+    /** Dates are coerced because this row crossed a JSON boundary: the bus
+     *  publishes with JSON.stringify, so every timestamp arrives as a string
+     *  and a plain z.date() would reject the event — silently, since a failed
+     *  output validation ends the stream rather than logging a bad row. */
+    route: proxyRouteSchema.extend({
+      createdAt: z.coerce.date(),
+      updatedAt: z.coerce.date(),
+      dnsCheckedAt: z.coerce.date().nullable(),
+      certCheckedAt: z.coerce.date().nullable(),
+      domainVerifiedAt: z.coerce.date().nullable(),
+    }),
+  }),
+  z.object({
+    kind: z.literal("route"),
+    action: z.literal("removed"),
+    /** Deletes carry the key only — there is no row left to describe. */
+    routeId: z.string(),
     resourceId: resourceIdField.nullable(),
   }),
   z.object({
