@@ -33,16 +33,12 @@ import {
 import { insertDeployment, markDeploymentFailed } from "../project/deployments";
 import { deleteResourceById } from "../project/queries";
 import { exposeService } from "../service/expose";
-import {
-  bulkReplaceServiceMounts,
-  createServiceRecord,
-  getServiceRecord,
-  updateServiceRecord,
-} from "../service/queries";
+import { getServiceRecord } from "../service/queries";
 import { provisionFresh, redeployOne } from "../service/redeploy";
 import { interpolate } from "./env";
 import { friendlyServiceCollisionMessage } from "./queries";
-import { pickResourceName, toServiceFields } from "./reconcile-map";
+import { toServiceFields } from "./reconcile-map";
+import { materializeServiceRow } from "./reconcile-materialize";
 
 export interface StackReconcileContext {
   projectId: ProjectId;
@@ -131,56 +127,6 @@ async function seedServiceExposure(
 }
 
 /**
- * Bring ONE compose service's `service_resource` row in line with the file:
- * update the existing row's structure, or create it (plus its one-time seeds)
- * the first time the service is materialized.
- *
- * Split out of {@link reconcileStackServices} because the create/update fork
- * and the two "seeded once on create, user-owned from then on" rules that hang
- * off it (env, bind mounts) are a self-contained decision — the reconcile loop
- * only needs the resulting `(resourceId, isCreate)` pair, and every branch kept
- * inline there competes for attention with the per-service crash tolerance the
- * loop itself exists to provide.
- */
-async function materializeServiceRow(input: {
-  ctx: StackReconcileContext;
-  composeServiceName: string;
-  mapped: ReturnType<typeof toServiceFields>;
-  existingResourceId: ResourceId | undefined;
-}): Promise<{ resourceId: ResourceId; isCreate: boolean }> {
-  const { ctx, mapped } = input;
-  if (input.existingResourceId) {
-    // Structure (image/command/replicas/healthcheck/resources) tracks the
-    // file. Env + ports + name are left alone — the user owns env post-create.
-    await updateServiceRecord(input.existingResourceId, mapped.fields);
-    return { resourceId: input.existingResourceId, isCreate: false };
-  }
-
-  const name = await pickResourceName(ctx.projectId, input.composeServiceName);
-  const created = await createServiceRecord({
-    projectId: ctx.projectId,
-    name,
-    status: "draft",
-    source: "image",
-    internalHostname: mapped.internalHostname,
-    serviceName: mapped.serviceName,
-    networkName: mapped.networkName,
-    stackId: ctx.stackResourceId,
-    ports: mapped.ports,
-    env: mapped.env,
-    ...mapped.fields,
-  });
-  const resourceId = created.resource.id;
-  // Seed bind mounts (multi-file inline stacks) ONCE, on create — mirroring
-  // the env "user owns it post-create" convention, so a later compose edit
-  // never clobbers user-managed mounts and existing stacks are untouched.
-  if (mapped.mounts.length > 0) {
-    await bulkReplaceServiceMounts(resourceId, mapped.mounts);
-  }
-  return { resourceId, isCreate: true };
-}
-
-/**
  * Settle one service's deployment row from its rollout outcome and report
  * whether it came up. Returns `true` only for a service that actually reached
  * a running state; every failure path marks the deployment failed and writes
@@ -242,6 +188,16 @@ export async function reconcileStackServices(
     .where(eq(serviceResource.stackId, ctx.stackResourceId));
   const existingByName = new Map(existingRows.map((r) => [r.service.serviceName, r] as const));
 
+  // The stack's own environment. Children inherit it: an unstamped child is
+  // visible only because MAIN additionally owns NULL rows (a legacy allowance
+  // in inEnvironmentScope), so it would vanish from any non-main environment.
+  const [stackRow] = await db
+    .select({ environmentId: resource.environmentId })
+    .from(resource)
+    .where(eq(resource.id, ctx.stackResourceId))
+    .limit(1);
+  const environmentId = stackRow?.environmentId ?? null;
+
   const resolveImage = (svc: ParsedComposeService): string | null => {
     const raw = svc.image ?? ctx.builtImages[svc.name] ?? null;
     return raw ? interpolate(raw, ctx.projectVars) : null;
@@ -285,6 +241,7 @@ export async function reconcileStackServices(
         composeServiceName: svc.name,
         mapped,
         existingResourceId: existingByName.get(mapped.serviceName)?.resource.id,
+        environmentId,
       });
 
       // One deployment row per service per reconcile → its own build/deploy
