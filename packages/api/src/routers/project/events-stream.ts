@@ -35,6 +35,12 @@ type OrgId = OrganizationId;
 export type ProjectStreamEvent =
   | { kind: "resource"; action: "created" | "updated" | "removed"; resourceId: ResourceId }
   | {
+      kind: "route";
+      action: "created" | "updated" | "removed";
+      /** Null when the route isn't bound to a resource. */
+      resourceId: ResourceId | null;
+    }
+  | {
       kind: "task";
       action: string;
       resourceId: ResourceId;

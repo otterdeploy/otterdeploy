@@ -1,6 +1,8 @@
 import type { OrganizationId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
+
+import { publishRouteChanged } from "../routers/project/project-event-bus";
 import { project } from "@otterdeploy/db/schema/project";
 import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
 import { Result } from "better-result";
@@ -59,7 +61,13 @@ export async function promoteCertEvent(event: EdgeEventLine): Promise<void> {
         .returning({
           projectId: proxyRoute.projectId,
           domain: proxyRoute.domain,
+          resourceId: proxyRoute.resourceId,
         });
+      // Certificate state changes with no user action and no docker event, so
+      // this is the only signal the Networking view can react to.
+      for (const projectId of new Set(updated.map((r) => r.projectId))) {
+        publishRouteChanged(projectId, "updated", null);
+      }
       if (updated.length === 0 || state !== "valid") return;
 
       // Fan a `cert.renewed` out per affected org (a batch event can span

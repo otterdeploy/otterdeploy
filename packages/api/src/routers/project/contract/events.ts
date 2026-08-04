@@ -41,6 +41,18 @@ const projectEventSchema = z.discriminatedUnion("kind", [
     state: z.string().nullable(),
   }),
   z.object({
+    kind: z.literal("route"),
+    /** A proxy route was created, updated (enabled, protection, policy, cert
+     *  state, DNS verification) or removed. Routes change from places the UI
+     *  never touches — the reconciler, and cert/ACME promotion off the edge
+     *  log — so without this the Networking view only refreshed when something
+     *  else happened to invalidate it. */
+    action: z.enum(["created", "updated", "removed"]),
+    /** Owning resource, when the route has one. Null for routes not bound to a
+     *  resource, so consumers must not assume a resource to refresh. */
+    resourceId: resourceIdField.nullable(),
+  }),
+  z.object({
     kind: z.literal("container"),
     /** `start`, `die`, `kill`, `health_status: healthy`, … */
     action: z.string(),

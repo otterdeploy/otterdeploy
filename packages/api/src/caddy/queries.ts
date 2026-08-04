@@ -1,3 +1,4 @@
+import { publishRouteChanged } from "../routers/project/project-event-bus";
 import type { PreviewId, ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
 import type { InferSelectModel } from "drizzle-orm";
 
@@ -155,6 +156,7 @@ export async function insertProxyRoute(input: {
     });
   }
 
+  publishRouteChanged(record.projectId, "created", record.resourceId ?? null);
   return record;
 }
 
@@ -183,14 +185,30 @@ export async function updateProxyRoute(
     .where(eq(proxyRoute.id, id))
     .returning();
 
+  // The Networking view has no poll; without this a change made anywhere but
+  // the current tab stays invisible until something else invalidates.
+  if (record) publishRouteChanged(record.projectId, "updated", record.resourceId ?? null);
   return record;
+}
+
+/** Announce a bulk route write once per affected project. These helpers touch
+ *  every route of a resource, so publishing per row would fan out N identical
+ *  events for one logical change. */
+function publishForRows(
+  rows: Array<{ projectId: string }>,
+  action: "created" | "updated" | "removed",
+  resourceId: ResourceId | null,
+): void {
+  for (const projectId of new Set(rows.map((r) => r.projectId))) {
+    publishRouteChanged(projectId, action, resourceId);
+  }
 }
 
 /** Clear the primary flag on every route of a resource. Used before
  *  promoting a new primary so the (resourceId, isPrimary=true) invariant
  *  stays at most one. */
 export async function clearPrimaryForResource(resourceId: ResourceId): Promise<void> {
-  await db
+  const rows = await db
     .update(proxyRoute)
     .set({ isPrimary: false, updatedAt: new Date() })
     .where(
@@ -199,7 +217,9 @@ export async function clearPrimaryForResource(resourceId: ResourceId): Promise<v
         eq(proxyRoute.isPrimary, true),
         isNull(proxyRoute.previewId),
       ),
-    );
+    )
+    .returning({ projectId: proxyRoute.projectId });
+  publishForRows(rows, "updated", resourceId);
 }
 
 /** Flip the live state of every route on a resource. expose enables them;
@@ -211,7 +231,7 @@ export async function setRoutesEnabledForResource(
   resourceId: ResourceId,
   enabled: boolean,
 ): Promise<void> {
-  await db
+  const rows = await db
     .update(proxyRoute)
     .set({ enabled, updatedAt: new Date() })
     .where(
@@ -222,13 +242,23 @@ export async function setRoutesEnabledForResource(
           ? or(eq(proxyRoute.source, "generated"), isNotNull(proxyRoute.domainVerifiedAt))
           : undefined,
       ),
-    );
+    )
+    .returning({ projectId: proxyRoute.projectId });
+  publishForRows(rows, "updated", resourceId);
 }
 
 export async function deleteProxyRoute(id: ProxyRouteId): Promise<void> {
-  await db.delete(proxyRoute).where(eq(proxyRoute.id, id));
+  const rows = await db
+    .delete(proxyRoute)
+    .where(eq(proxyRoute.id, id))
+    .returning({ projectId: proxyRoute.projectId, resourceId: proxyRoute.resourceId });
+  for (const row of rows) publishRouteChanged(row.projectId, "removed", row.resourceId ?? null);
 }
 
 export async function deleteProxyRoutesByResource(resourceId: ResourceId): Promise<void> {
-  await db.delete(proxyRoute).where(eq(proxyRoute.resourceId, resourceId));
+  const rows = await db
+    .delete(proxyRoute)
+    .where(eq(proxyRoute.resourceId, resourceId))
+    .returning({ projectId: proxyRoute.projectId });
+  publishForRows(rows, "removed", resourceId);
 }

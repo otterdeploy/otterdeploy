@@ -25,6 +25,7 @@ import { type ProjectId, type ResourceId } from "@otterdeploy/shared/id";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { DEPENDENCIES_COLLECTION_KEY } from "@/features/projects/data/dependencies";
+import { PROXY_ROUTES_COLLECTION_KEY } from "@/features/projects/data/proxy-routes";
 import {
   DEPLOYMENT_TASKS_COLLECTION_KEY,
   DEPLOYMENTS_COLLECTION_KEY,
@@ -65,6 +66,15 @@ export function useProjectEvents(projectId?: ProjectId | null): void {
         );
         for await (const event of stream) {
           if (ctrl.signal.aborted) break;
+
+          // A route change is the one event that can carry no resource — a
+          // route need not be bound to one — and it refreshes a different
+          // collection, so it's handled before the resource fan-out below.
+          if (event.kind === "route") {
+            void qc.invalidateQueries({ queryKey: PROXY_ROUTES_COLLECTION_KEY });
+            if (event.resourceId) bumpResource(event.resourceId);
+            continue;
+          }
 
           bumpResource(event.resourceId);
 

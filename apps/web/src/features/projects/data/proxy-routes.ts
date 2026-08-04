@@ -29,6 +29,12 @@ const routeIdSchema = zId("proxy_route");
  * rolls back and the caller can surface the inline parse error from the
  * rejection.
  */
+/** Namespace prefix for the routes collection — what the project event stream
+ *  invalidates when a route changes. Exported for the same reason
+ *  DEPLOYMENTS_COLLECTION_KEY is: a bare orpc key never matches a collection's
+ *  prefixed key, so the events hook has to invalidate the prefix. */
+export const PROXY_ROUTES_COLLECTION_KEY = ["proxyRoutes"] as const;
+
 export class RoutePolicyRejectedError extends Error {
   constructor(message: string) {
     super(message);
@@ -40,7 +46,7 @@ export const proxyRoutesCollection = createCollection(
   queryCollectionOptions({
     syncMode: "on-demand",
     queryKey: (opts) => {
-      const baseQuery = ["proxyRoutes"];
+      const baseQuery = [...PROXY_ROUTES_COLLECTION_KEY];
       const { filters } = parseLoadSubsetOptions(opts);
       // Startup base-key call: query-db-collection calls queryKey({}) once to
       // compute the prefix every subset key must extend. No filters yet.

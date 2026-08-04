@@ -64,6 +64,29 @@ export async function publishResourceChanged(resourceId: ResourceId): Promise<vo
   }
 }
 
+/**
+ * Publish a "route changed" event for a project.
+ *
+ * Proxy routes are written from places the browser never calls: the Caddy
+ * reconciler, and cert/ACME promotion driven off the edge log. The Networking
+ * view had no poll and no push for those, so a renewed certificate or a
+ * reconciler-flipped route could sit stale on screen until something unrelated
+ * invalidated the collection.
+ *
+ * Takes the projectId directly — the caller already knows it, and a route's
+ * resource is nullable, so resolving the project from the resource (the way
+ * publishResourceChanged does) wouldn't work for every route.
+ *
+ * Best-effort, like every publish here: never throws into a write path.
+ */
+export function publishRouteChanged(
+  projectId: ProjectId | string,
+  action: "created" | "updated" | "removed",
+  resourceId: ResourceId | null,
+): void {
+  publishProjectEvent(projectId, { kind: "route", action, resourceId });
+}
+
 /** Subscribe to a project's channel. Returns a `close()` to tear down the
  *  dedicated subscriber connection. */
 export function subscribeProjectEvents(
