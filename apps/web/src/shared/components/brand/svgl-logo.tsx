@@ -5,12 +5,17 @@ import { Authentik } from "@/shared/components/ui/svgs/authentik";
 import { AwsDark } from "@/shared/components/ui/svgs/aws-dark";
 import { AwsLight } from "@/shared/components/ui/svgs/aws-light";
 import { Azure } from "@/shared/components/ui/svgs/azure";
+import { Baserow } from "@/shared/components/ui/svgs/baserow";
 import { Bitbucket } from "@/shared/components/ui/svgs/bitbucket";
+import { Dbeaver } from "@/shared/components/ui/svgs/dbeaver";
 import { Directus } from "@/shared/components/ui/svgs/directus";
 import { Discord } from "@/shared/components/ui/svgs/discord";
 import { Docker } from "@/shared/components/ui/svgs/docker";
+import { Drizzle } from "@/shared/components/ui/svgs/drizzle";
+import { EclipseMosquitto } from "@/shared/components/ui/svgs/eclipse-mosquitto";
 import { Excalidraw } from "@/shared/components/ui/svgs/excalidraw";
 import { Firebase } from "@/shared/components/ui/svgs/firebase";
+import { Forgejo } from "@/shared/components/ui/svgs/forgejo";
 import { Ghost } from "@/shared/components/ui/svgs/ghost";
 import { Gitea } from "@/shared/components/ui/svgs/gitea";
 import { Github } from "@/shared/components/ui/svgs/github";
@@ -18,18 +23,35 @@ import { Gitlab } from "@/shared/components/ui/svgs/gitlab";
 import { GoogleCloud } from "@/shared/components/ui/svgs/google-cloud";
 import { Grafana } from "@/shared/components/ui/svgs/grafana";
 import { Harbor } from "@/shared/components/ui/svgs/harbor";
+import { Hasura } from "@/shared/components/ui/svgs/hasura";
+import { Hoppscotch } from "@/shared/components/ui/svgs/hoppscotch";
+import { Jaeger } from "@/shared/components/ui/svgs/jaeger";
+import { Keycloak } from "@/shared/components/ui/svgs/keycloak";
+import { Libretranslate } from "@/shared/components/ui/svgs/libretranslate";
+import { Listmonk } from "@/shared/components/ui/svgs/listmonk";
+import { Matomo } from "@/shared/components/ui/svgs/matomo";
+import { Meilisearch } from "@/shared/components/ui/svgs/meilisearch";
 import { Metabase } from "@/shared/components/ui/svgs/metabase";
 import { Minio } from "@/shared/components/ui/svgs/minio";
 import { N8n } from "@/shared/components/ui/svgs/n8n";
+import { Nats } from "@/shared/components/ui/svgs/nats";
 import { Nocodb } from "@/shared/components/ui/svgs/nocodb";
+import { Ntfy } from "@/shared/components/ui/svgs/ntfy";
+import { Ollama } from "@/shared/components/ui/svgs/ollama";
 import { Pagerduty } from "@/shared/components/ui/svgs/pagerduty";
 import { Plausible } from "@/shared/components/ui/svgs/plausible";
+import { Pocketbase } from "@/shared/components/ui/svgs/pocketbase";
+import { Rabbitmq } from "@/shared/components/ui/svgs/rabbitmq";
+import { Rustfs } from "@/shared/components/ui/svgs/rustfs";
 import { Slack } from "@/shared/components/ui/svgs/slack";
 import { Telegram } from "@/shared/components/ui/svgs/telegram";
+import { Temporal } from "@/shared/components/ui/svgs/temporal";
 import { Twenty } from "@/shared/components/ui/svgs/twenty";
 import { Umami } from "@/shared/components/ui/svgs/umami";
 import { UptimeKuma } from "@/shared/components/ui/svgs/uptime-kuma";
 import { Vaultwarden } from "@/shared/components/ui/svgs/vaultwarden";
+import { Verdaccio } from "@/shared/components/ui/svgs/verdaccio";
+import { Wordpress } from "@/shared/components/ui/svgs/wordpress";
 
 type BrandKey =
   | "GitHub"
@@ -60,7 +82,30 @@ type BrandKey =
   | "Vaultwarden"
   | "Excalidraw"
   | "Authentik"
-  | "Twenty";
+  | "Twenty"
+  // Second wave of stack-template brands (Simple Icons marks).
+  | "Baserow"
+  | "DBeaver"
+  | "Drizzle"
+  | "Eclipse Mosquitto"
+  | "Forgejo"
+  | "Hasura"
+  | "Hoppscotch"
+  | "Jaeger"
+  | "Keycloak"
+  | "LibreTranslate"
+  | "Listmonk"
+  | "Matomo"
+  | "Meilisearch"
+  | "NATS"
+  | "Ollama"
+  | "PocketBase"
+  | "RabbitMQ"
+  | "RustFS"
+  | "Temporal"
+  | "Verdaccio"
+  | "WordPress"
+  | "ntfy";
 
 interface Props {
   search: string;
@@ -92,6 +137,28 @@ const themedBrands: Record<
  * `currentColor` (GitHub) so they inherit the tile's `color`.
  */
 const staticBrands: Record<Exclude<BrandKey, "AWS">, SvgComponent> = {
+  Baserow: Baserow,
+  DBeaver: Dbeaver,
+  Drizzle: Drizzle,
+  "Eclipse Mosquitto": EclipseMosquitto,
+  Forgejo: Forgejo,
+  Hasura: Hasura,
+  Hoppscotch: Hoppscotch,
+  Jaeger: Jaeger,
+  Keycloak: Keycloak,
+  LibreTranslate: Libretranslate,
+  Listmonk: Listmonk,
+  Matomo: Matomo,
+  Meilisearch: Meilisearch,
+  NATS: Nats,
+  Ollama: Ollama,
+  PocketBase: Pocketbase,
+  RabbitMQ: Rabbitmq,
+  RustFS: Rustfs,
+  Temporal: Temporal,
+  Verdaccio: Verdaccio,
+  WordPress: Wordpress,
+  ntfy: Ntfy,
   GitHub: Github,
   GitLab: Gitlab,
   Gitea,
