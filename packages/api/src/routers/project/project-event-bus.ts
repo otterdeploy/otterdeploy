@@ -80,10 +80,7 @@ export async function publishResourceChanged(resourceId: ResourceId): Promise<vo
  *
  * Best-effort, like every publish here: never throws into a write path.
  */
-export function publishRouteUpserted(
-  action: "created" | "updated",
-  route: ProxyRouteRecord,
-): void {
+export function publishRouteUpserted(action: "created" | "updated", route: ProxyRouteRecord): void {
   if (route.previewId != null) return;
   // NEVER put these on the bus. Every route output schema omits the access-PIN
   // hash and the domain-verification token so no endpoint can leak them; a

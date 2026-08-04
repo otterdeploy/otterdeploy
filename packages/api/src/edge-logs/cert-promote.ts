@@ -1,8 +1,6 @@
 import type { OrganizationId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
-
-import { publishRouteUpserted } from "../routers/project/project-event-bus";
 import { project } from "@otterdeploy/db/schema/project";
 import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
 import { Result } from "better-result";
@@ -25,6 +23,7 @@ import { log } from "evlog";
 import type { EdgeEventLine } from "./types";
 
 import { emitPlatformEvent } from "../notifications/emit";
+import { publishRouteUpserted } from "../routers/project/project-event-bus";
 
 type CertState = "obtaining" | "valid" | "failed";
 

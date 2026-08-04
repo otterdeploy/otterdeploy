@@ -1,4 +1,3 @@
-import { publishRouteRemoved, publishRouteUpserted } from "../routers/project/project-event-bus";
 import type { PreviewId, ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
 import type { InferSelectModel } from "drizzle-orm";
 
@@ -7,6 +6,8 @@ import { resource } from "@otterdeploy/db/schema/project";
 import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
 import { and, asc, desc, eq, isNotNull, isNull, or } from "drizzle-orm";
 import { createError } from "evlog";
+
+import { publishRouteRemoved, publishRouteUpserted } from "../routers/project/project-event-bus";
 export type ProxyRouteRecord = InferSelectModel<typeof proxyRoute>;
 
 export async function listEnabledProxyRoutes(): Promise<ProxyRouteRecord[]> {
@@ -245,25 +246,19 @@ export async function setRoutesEnabledForResource(
 }
 
 export async function deleteProxyRoute(id: ProxyRouteId): Promise<void> {
-  const rows = await db
-    .delete(proxyRoute)
-    .where(eq(proxyRoute.id, id))
-    .returning({
-      id: proxyRoute.id,
-      projectId: proxyRoute.projectId,
-      resourceId: proxyRoute.resourceId,
-    });
+  const rows = await db.delete(proxyRoute).where(eq(proxyRoute.id, id)).returning({
+    id: proxyRoute.id,
+    projectId: proxyRoute.projectId,
+    resourceId: proxyRoute.resourceId,
+  });
   publishRemovedRows(rows);
 }
 
 export async function deleteProxyRoutesByResource(resourceId: ResourceId): Promise<void> {
-  const rows = await db
-    .delete(proxyRoute)
-    .where(eq(proxyRoute.resourceId, resourceId))
-    .returning({
-      id: proxyRoute.id,
-      projectId: proxyRoute.projectId,
-      resourceId: proxyRoute.resourceId,
-    });
+  const rows = await db.delete(proxyRoute).where(eq(proxyRoute.resourceId, resourceId)).returning({
+    id: proxyRoute.id,
+    projectId: proxyRoute.projectId,
+    resourceId: proxyRoute.resourceId,
+  });
   publishRemovedRows(rows);
 }

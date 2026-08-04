@@ -6,8 +6,8 @@
  * "a human should look here, and this is what to look at".
  */
 
-import type { CrossFileEvidence } from "./evidence";
 import type { Signals } from "./detectors";
+import type { CrossFileEvidence } from "./evidence";
 
 import { countSignals, HIGH_STAKES } from "./detectors";
 
