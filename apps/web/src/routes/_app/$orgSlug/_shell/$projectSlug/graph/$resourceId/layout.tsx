@@ -12,6 +12,8 @@
  * `/deployment/$deploymentId` child route mounts.
  */
 
+import { useEffect, useRef } from "react";
+
 import {
   createFileRoute,
   Outlet,
@@ -89,6 +91,45 @@ export const Route = createFileRoute(
   },
 });
 
+/**
+ * Close the panel when the resource it is showing gets deleted.
+ *
+ * Deleting from inside the panel (or from the graph's context menu while it is
+ * open) drops the row from the collection, `resource` goes null, and the panel
+ * used to sit there rendering NotFound — telling the operator the thing they
+ * just deleted cannot be found, which reads as an error rather than a result.
+ *
+ * Two things stop this from firing when it shouldn't. It only closes a panel
+ * that HAD a resource: a genuinely bad URL was never showing one, so it still
+ * gets NotFound, which is the honest answer there. And it waits a beat before
+ * closing, because a staged-create ghost (`compose:rustfs`) is a client-side
+ * row that is removed when apply lands the real one — if those two do not
+ * happen in the same commit, the resource is briefly absent mid-handover and
+ * closing on that would yank the panel out from under a deploy the operator is
+ * watching. Reappearing inside the window cancels the close.
+ */
+function useCloseOnDelete(input: {
+  resource: boolean;
+  resourcesLoading: boolean;
+  close: () => void;
+}) {
+  const { resource, resourcesLoading, close } = input;
+  const everSeen = useRef(false);
+
+  useEffect(() => {
+    // The "have we ever shown this?" mark is set HERE rather than during
+    // render: a ref write in the render body runs on every re-render including
+    // discarded ones, which the hooks lint rightly rejects.
+    if (resource) {
+      everSeen.current = true;
+      return;
+    }
+    if (resourcesLoading || !everSeen.current) return;
+    const t = setTimeout(close, 400);
+    return () => clearTimeout(t);
+  }, [resource, resourcesLoading, close]);
+}
+
 function RouteComponent() {
   const { orgSlug, projectSlug, resourceId } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
@@ -132,6 +173,8 @@ function RouteComponent() {
       (r) =>
         r.resourceId === resourceId || `${r.type}:${r.name}` === resourceId,
     ) ?? null;
+
+  useCloseOnDelete({ resource: resource !== null, resourcesLoading, close });
 
   return (
     <>
