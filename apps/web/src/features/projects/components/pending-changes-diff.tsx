@@ -18,7 +18,17 @@ import { clip, renderValue } from "./pending-changes-groups";
 
 export { groupChanges, type DiffChange } from "./pending-changes-groups";
 
-export function ChangeGroupCard({ group }: { group: GroupedChange }) {
+export function ChangeGroupCard({
+  group,
+  onDiscard,
+  discarding,
+}: {
+  group: GroupedChange;
+  /** Drop just this change, keeping the rest staged. Omitted = no control
+   *  (the card stays read-only wherever discard isn't available). */
+  onDiscard?: () => void;
+  discarding?: boolean;
+}) {
   const verb = {
     create: "will be created",
     update: "will be updated",
@@ -41,11 +51,27 @@ export function ChangeGroupCard({ group }: { group: GroupedChange }) {
           <span className="font-mono font-medium text-foreground">{group.name}</span>
           <span className={tint}>{verb}</span>
         </div>
-        {group.kind === "update" && changeCount > 0 && (
-          <span className="text-xs text-muted-foreground">
-            {changeCount} {changeCount === 1 ? "change" : "changes"}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {group.kind === "update" && changeCount > 0 && (
+            <span className="text-xs text-muted-foreground">
+              {changeCount} {changeCount === 1 ? "change" : "changes"}
+            </span>
+          )}
+          {onDiscard && (
+            <button
+              type="button"
+              onClick={onDiscard}
+              disabled={discarding}
+              // "Discard", not a bare ✕: on a delete card the row already says
+              // "will be deleted", and an unlabelled cross there reads as
+              // "delete it now" rather than "drop this pending change".
+              title={`Discard this change to ${group.name}`}
+              className="rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+            >
+              {discarding ? "Discarding…" : "Discard"}
+            </button>
+          )}
+        </div>
       </div>
       {hasBody && (
         <div className="flex flex-col gap-2 border-t px-3 py-2">

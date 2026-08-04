@@ -14,8 +14,8 @@ Measured at the start of the sweep. These are the numbers the sweep has to move.
 | Source files in scope (excl. tests, generated, vendored) | 1626 |
 | Import cycles / files involved | 18 / 21 |
 | Clone groups / files touched | 356 / 338 |
-| fallow dead-code findings | 177 |
-| oxlint warnings | 196 |
+| fallow dead-code findings | 183 |
+| oxlint warnings | 197 |
 | Files with `try`/`catch` | 209 |
 | `as` assertions / `as unknown as` | 940 / 72 |
 | Re-export lines / files | 159 / 58 |
@@ -90,7 +90,7 @@ job in `.github/workflows/ci.yml`). It fails on two things:
    PR would otherwise hide a new cycle.
 
 Everything else it finds — new unused exports, new clone groups, complexity — is printed
-with the file and symbol name but does not fail the build. The existing 177 findings block
+with the file and symbol name but does not fail the build. The existing 183 findings block
 nobody. Two deliberate exclusions:
 
 - **Complexity** is oxlint's job (`complexity: max 15`, already an error). fallow's CRAP

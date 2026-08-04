@@ -6,12 +6,7 @@
 
 import type { ComposeFile } from "@otterdeploy/shared/compose";
 
-const COMPOSE_FILENAMES = [
-  "compose.yml",
-  "compose.yaml",
-  "docker-compose.yml",
-  "docker-compose.yaml",
-];
+import { detectComposeFilename } from "@otterdeploy/shared/compose";
 
 /**
  * Pick the designated compose file out of a multi-file inline tree. Preference:
@@ -30,7 +25,11 @@ export function pickComposeFile(
     const hit = files.find((f) => f.path === want);
     if (hit) return { content: hit.content, path: hit.path };
   }
-  const byName = files.find((f) => COMPOSE_FILENAMES.includes(f.path));
+  // Precedence comes from the shared list, not from the order the files happen
+  // to arrive in: a tree carrying both compose.yml and docker-compose.yml must
+  // resolve the same way here as it does in the builder's clone probe.
+  const conventional = detectComposeFilename(files.map((f) => f.path));
+  const byName = conventional ? files.find((f) => f.path === conventional) : undefined;
   if (byName) return { content: byName.content, path: byName.path };
   const first = files[0];
   return first ? { content: first.content, path: first.path } : null;

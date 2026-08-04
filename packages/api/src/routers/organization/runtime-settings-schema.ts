@@ -30,11 +30,11 @@ import * as z from "zod";
  * (../../security/trusted-proxy.ts). An allowlist that appears to grant
  * something it doesn't is worse than one that rejects the typo up front.
  */
-const ipOrCidrField = z.union([z.ipv4(), z.ipv6(), z.cidrv4(), z.cidrv6()]);
+export const ipOrCidrField = z.union([z.ipv4(), z.ipv6(), z.cidrv4(), z.cidrv6()]);
 
 /** The entries of a comma-separated allowlist, blanks dropped. Exported so the
  *  form can point at the FIRST bad entry instead of rejecting the whole line. */
-function allowlistEntries(raw: string): string[] {
+export function allowlistEntries(raw: string): string[] {
   return raw
     .split(",")
     .map((entry) => entry.trim())
@@ -62,10 +62,10 @@ export const egressAllowlistField = z
     });
   });
 
-const previewIdleTeardownHoursField = z.number().int().min(0).max(8760);
-const edgeLogRetentionDaysField = z.number().int().min(1).max(365);
-const geoipUrlField = z.url({ message: "must be a full URL, including https://" });
-const builderConcurrencyField = z.number().int().min(1).max(32);
+export const previewIdleTeardownHoursField = z.number().int().min(0).max(8760);
+export const edgeLogRetentionDaysField = z.number().int().min(1).max(365);
+export const geoipUrlField = z.url({ message: "must be a full URL, including https://" });
+export const builderConcurrencyField = z.number().int().min(1).max(32);
 
 /** The operator-editable half of the Runtime card — everything the Save button
  *  sends, minus the organization id the contract adds. The web form validates

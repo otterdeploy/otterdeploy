@@ -68,6 +68,38 @@ export function setTicketStoreForTests(store: TicketStore | null): void {
 
 const ticketKey = (token: string) => `terminal:ticket:${token}`;
 
+/**
+ * The address a ticket binds to — derived by ONE function so the mint side and
+ * the consume side can never drift apart. They previously each extracted it,
+ * and a binding that compares two independent derivations of "the client" is a
+ * bug waiting on a deployment topology to expose it.
+ *
+ * `x-forwarded-for` is the LAST resort, because it is not stable per client:
+ * it accumulates a hop per proxy, so which entry means "the browser" depends on
+ * the chain, and an edge may rewrite it differently for long-lived connections
+ * than for short ones. On the otterdeploy deployment behind Cloudflare, every
+ * ordinary request arrived with `X-Forwarded-For: <browser>`, while each
+ * long-lived `/rpc/project/events/stream` arrived with `X-Forwarded-For:
+ * <cloudflare-edge>` — same browser, same session, `Cf-Connecting-Ip` pinned to
+ * the real address throughout. A `/pty` upgrade is exactly such a long-lived
+ * connection: the short mint POST bound the browser's address, the upgrade
+ * presented the edge's, and the comparison rejected it. Unrecoverably, too —
+ * `consumeTerminalTicket` burns the ticket with GETDEL *before* the IP check,
+ * so every retry minted a fresh ticket and failed identically.
+ *
+ * `cf-connecting-ip` / `x-real-ip` each carry a SINGLE edge-set address that
+ * doesn't vary with connection lifetime, so they win when present. Trusting
+ * them unconditionally is safe *here* specifically because this binding is not
+ * an authorization boundary: the ticket is already user-authenticated,
+ * step-up-verified, origin-checked, single-use and ~20s-lived. Forging the
+ * header only lets a caller match a ticket it minted and already owns.
+ */
+export function ticketBindingIp(headers: Headers): string | null {
+  const edgeSet = headers.get("cf-connecting-ip") ?? headers.get("x-real-ip");
+  if (edgeSet?.trim()) return edgeSet.trim();
+  return headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
+}
+
 export interface TerminalTicketClaims {
   userId: string;
   organizationId: string;

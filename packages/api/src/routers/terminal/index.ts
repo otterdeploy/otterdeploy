@@ -2,22 +2,7 @@ import { orgScopedProcedure, requirePermission } from "../..";
 import { grantStepUp, hasRecentStepUp, verifyStepUpCredential } from "../../authz/step-up";
 import { authorizeTerminalTarget, type TerminalTarget } from "./authorize";
 import { listTerminalTargets } from "./handlers";
-import { mintTerminalTicket } from "./tickets";
-
-/** The ticket's bound address, taken from the context's already-resolved
- *  `clientIp` so it matches what the `/pty` upgrade computes.
- *
- *  This used to read `x-forwarded-for[0]` straight off the headers. Behind a
- *  proxy that ISN'T in TRUSTED_PROXIES that yielded the browser's address,
- *  while the upgrade's `resolveClient` correctly distrusted the header and
- *  yielded the proxy's — so the binding compared two different things and
- *  rejected every ticket with `ip_mismatch`.
- *
- *  "unknown" means no peer was resolvable; bind on null instead, since the
- *  consume side only enforces when BOTH ends have an address. */
-function bindableClientIp(clientIp: string): string | null {
-  return clientIp === "unknown" ? null : clientIp;
-}
+import { mintTerminalTicket, ticketBindingIp } from "./tickets";
 
 export const terminalRouter = {
   targets: requirePermission({ terminal: ["open"] }).terminal.targets.handler(
@@ -85,7 +70,7 @@ export const terminalRouter = {
       userId: context.session.user.id,
       organizationId: context.activeOrganizationId,
       target,
-      clientIp: bindableClientIp(context.clientIp),
+      clientIp: ticketBindingIp(context.headers),
     });
 
     context.log.set({

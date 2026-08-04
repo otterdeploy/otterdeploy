@@ -29,11 +29,14 @@ const routeIdSchema = zId("proxy_route");
  * rolls back and the caller can surface the inline parse error from the
  * rejection.
  */
-/** Namespace prefix for the routes collection — what the project event stream
- *  invalidates when a route changes. Exported for the same reason
- *  DEPLOYMENTS_COLLECTION_KEY is: a bare orpc key never matches a collection's
- *  prefixed key, so the events hook has to invalidate the prefix. */
-export const PROXY_ROUTES_COLLECTION_KEY = ["proxyRoutes"] as const;
+/** Namespace prefix every subset key extends — a bare orpc key never matches a
+ *  collection's prefixed key.
+ *
+ *  Local to this module now. It used to be exported for the project event
+ *  stream to invalidate on a route change; route events carry the row itself
+ *  and the hook applies it with writeUpsert/writeDelete, so there is no
+ *  invalidation left to key. */
+const PROXY_ROUTES_COLLECTION_KEY = ["proxyRoutes"] as const;
 
 export class RoutePolicyRejectedError extends Error {
   constructor(message: string) {
