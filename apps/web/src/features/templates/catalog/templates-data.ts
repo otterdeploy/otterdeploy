@@ -108,7 +108,7 @@ volumes:
     id: "rustfs",
     name: "RustFS",
     description:
-      "High-performance, S3-compatible object storage written in Rust — a MinIO alternative. Serves the S3 API on 9000 with a web console on 9001; objects persist to a named volume.",
+      "High-performance, S3-compatible object storage written in Rust — a MinIO alternative. S3 API on 9000; the web console is on 9001 at /rustfs/console. Objects persist to a named volume.",
     category: "data",
     includes: ["rustfs"],
     requiredEnv: [
