@@ -15,6 +15,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { resourceCollection } from "@/features/resources/data/resource";
 import { useActiveEnvironment } from "@/features/shell/use-active-environment";
+import { PublicHostLink } from "@/shared/components/public-host-link";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
@@ -103,7 +104,7 @@ export function TrafficPanel({ projectId }: { projectId: ProjectId }) {
               key={r.host}
               className="flex items-center gap-3 border-b border-border/40 px-4 py-2 font-mono text-[11.5px]"
             >
-              <span className="min-w-0 flex-[2] truncate text-foreground/85">{r.host}</span>
+              <PublicHostLink host={r.host} className="min-w-0 flex-[2] text-foreground/85" />
               <span className="min-w-0 flex-1 truncate text-muted-foreground">
                 {resourceName ?? "—"}
               </span>

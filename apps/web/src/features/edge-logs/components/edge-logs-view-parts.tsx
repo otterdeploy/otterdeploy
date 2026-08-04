@@ -1,3 +1,4 @@
+import { PublicHostLink } from "@/shared/components/public-host-link";
 import {
   Table,
   TableBody,
@@ -143,23 +144,37 @@ export function LogTable({
   );
 }
 
-/** Per-host footer — request rate and latency percentiles. */
+/**
+ * Per-host footer — request rate and latency percentiles.
+ *
+ * One row per host, columns aligned. This used to be `flex flex-wrap gap-x-8`,
+ * which packed as many hosts per line as fitted and let every number land at a
+ * different x — so a host with a long name pushed its own figures somewhere no
+ * other row's figures were, and two hosts sharing a line read as one sentence.
+ * At four public hosts it was already unreadable.
+ *
+ * The host is a link: a domain shown to an operator is a domain they want to
+ * open, and this was previously inert text they had to select and paste.
+ */
 export function HostFooter({ data }: { data: EdgeLogsData | undefined }) {
   const hostStats = data?.hostStats ?? [];
   if (hostStats.length === 0) return null;
   return (
-    <div className="flex flex-wrap gap-x-8 gap-y-2 border-t px-4 py-3 font-mono text-[11px] text-muted-foreground">
+    <div className="border-t font-mono text-[11px] text-muted-foreground">
       {hostStats.map((s) => (
-        <div key={s.host} className="flex items-center gap-2">
-          <span className="text-foreground/80">{s.host}</span>
-          <span>{s.rps} rps</span>
+        <div
+          key={s.host}
+          className="flex items-center gap-3 border-b border-border/40 px-4 py-1.5 last:border-b-0"
+        >
+          <PublicHostLink host={s.host} className="min-w-0 flex-1 text-foreground/80" />
+          <span className="w-20 shrink-0 text-right tabular-nums">{s.rps} rps</span>
           {/* Two-tier tint per the demo: ≥2% red, ≥0.5% amber. */}
-          <span className={cn(errRateClass(s.errorRate))}>
+          <span className={cn("w-20 shrink-0 text-right tabular-nums", errRateClass(s.errorRate))}>
             {(s.errorRate * 100).toFixed(1)}% err
           </span>
-          <span>p50 {s.p50}ms</span>
-          <span>p95 {s.p95}ms</span>
-          <span>p99 {s.p99}ms</span>
+          <span className="w-24 shrink-0 text-right tabular-nums">p50 {s.p50}ms</span>
+          <span className="w-24 shrink-0 text-right tabular-nums">p95 {s.p95}ms</span>
+          <span className="w-24 shrink-0 text-right tabular-nums">p99 {s.p99}ms</span>
         </div>
       ))}
     </div>
