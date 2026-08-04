@@ -31,8 +31,16 @@ const deploymentIdSchema = zId("deployment");
  * live query. TanStack DB forwards those as `loadSubsetOptions`, from which
  * `queryKey` / `queryFn` recover both ids to fetch (and cache) the right subset.
  *
- * 5s refetchInterval: status is derived from underlying tasks every time we
- * list, so we poll to catch state transitions on running tasks.
+ * Polling is a FALLBACK, not the transport. Build and runtime transitions are
+ * pushed over the project event stream (`useProjectEvents` →
+ * `project-event-bus`), which invalidates this collection the moment the
+ * builder or the docker event bus reports a change. Status is still derived
+ * from live task state on every list, so a poll remains the safety net for a
+ * change no event covers — but it does not need to run at build cadence while
+ * nothing is building.
+ *
+ * Hence the adaptive interval below: a project sitting idle used to re-derive
+ * every deployment's status every 5 seconds, per mounted view, forever.
  */
 /** Namespace prefix for the deployments collection — the single source of truth
  *  the project event stream invalidates when a docker deploy event lands. See
@@ -66,7 +74,15 @@ export const deploymentsCollection = createCollection(
         resourceId,
       });
     },
-    refetchInterval: 5000,
+    // 5s while anything is in flight (a build's phase transitions are what
+    // people watch), 30s otherwise — the push stream is what makes an idle
+    // project current, so the slow tick only exists to survive a stream that
+    // silently died.
+    refetchInterval: (query) => {
+      const rows = query.state.data as { status?: string }[] | undefined;
+      const inFlight = rows?.some((d) => d.status === "pending" || d.status === "building");
+      return inFlight ? 5000 : 30_000;
+    },
     queryClient,
     getKey: (d) => d.id,
   }),
@@ -117,7 +133,16 @@ export const deploymentTasksCollection = createCollection(
       };
       return orpc.project.resource.deployments.tasks.call(input);
     },
-    refetchInterval: 5000,
+    // Same reasoning as the deployments collection: fast only while the tasks
+    // are still settling. A converged task set changes on a docker event, which
+    // the project stream already pushes.
+    refetchInterval: (query) => {
+      const rows = query.state.data as { state?: string }[] | undefined;
+      const settling = rows?.some(
+        (t) => t.state !== "running" && t.state !== "complete" && t.state !== "shutdown",
+      );
+      return settling ? 5000 : 30_000;
+    },
     queryClient,
     getKey: (t) => t.id,
   }),

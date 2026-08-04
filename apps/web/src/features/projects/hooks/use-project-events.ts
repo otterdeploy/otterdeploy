@@ -25,6 +25,7 @@ import { type ProjectId, type ResourceId } from "@otterdeploy/shared/id";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { DEPENDENCIES_COLLECTION_KEY } from "@/features/projects/data/dependencies";
+import { proxyRoutesCollection } from "@/features/projects/data/proxy-routes";
 import {
   DEPLOYMENT_TASKS_COLLECTION_KEY,
   DEPLOYMENTS_COLLECTION_KEY,
@@ -65,6 +66,26 @@ export function useProjectEvents(projectId?: ProjectId | null): void {
         );
         for await (const event of stream) {
           if (ctrl.signal.aborted) break;
+
+          // Routes are the one collection whose rows arrive whole, so they are
+          // APPLIED rather than invalidated — no refetch, no round trip. That
+          // is sound only because `proxyRoute.list` is a plain select: the row
+          // the writer published is exactly what a reader would fetch. Every
+          // other event carries ids and triggers a refetch, because its data is
+          // derived server-side and a pushed copy would be stale.
+          if (event.kind === "route") {
+            if (event.action === "removed") {
+              proxyRoutesCollection.utils.writeDelete(event.routeId);
+              if (event.resourceId) bumpResource(event.resourceId);
+            } else {
+              // Upsert, not insert-or-update: a created row may already be
+              // present from an optimistic write, and an updated row may be
+              // absent if this tab never loaded that subset.
+              proxyRoutesCollection.utils.writeUpsert(event.route);
+              if (event.route.resourceId) bumpResource(event.route.resourceId as ResourceId);
+            }
+            continue;
+          }
 
           bumpResource(event.resourceId);
 

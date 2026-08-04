@@ -6,6 +6,8 @@ import { resource } from "@otterdeploy/db/schema/project";
 import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
 import { and, asc, desc, eq, isNotNull, isNull, or } from "drizzle-orm";
 import { createError } from "evlog";
+
+import { publishRouteRemoved, publishRouteUpserted } from "../routers/project/project-event-bus";
 export type ProxyRouteRecord = InferSelectModel<typeof proxyRoute>;
 
 export async function listEnabledProxyRoutes(): Promise<ProxyRouteRecord[]> {
@@ -155,6 +157,7 @@ export async function insertProxyRoute(input: {
     });
   }
 
+  publishRouteUpserted("created", record);
   return record;
 }
 
@@ -183,14 +186,27 @@ export async function updateProxyRoute(
     .where(eq(proxyRoute.id, id))
     .returning();
 
+  // The Networking view has no poll; without this a change made anywhere but
+  // the current tab stays invisible until something else invalidates.
+  if (record) publishRouteUpserted("updated", record);
   return record;
+}
+
+/** Announce removed rows. Unlike an upsert there is no row to carry, so each
+ *  delete is announced by key — the client drops exactly those. */
+function publishRemovedRows(
+  rows: Array<{ id: string; projectId: string; resourceId: string | null }>,
+): void {
+  for (const row of rows) {
+    publishRouteRemoved(row.projectId, row.id, (row.resourceId as ResourceId | null) ?? null);
+  }
 }
 
 /** Clear the primary flag on every route of a resource. Used before
  *  promoting a new primary so the (resourceId, isPrimary=true) invariant
  *  stays at most one. */
 export async function clearPrimaryForResource(resourceId: ResourceId): Promise<void> {
-  await db
+  const rows = await db
     .update(proxyRoute)
     .set({ isPrimary: false, updatedAt: new Date() })
     .where(
@@ -199,7 +215,9 @@ export async function clearPrimaryForResource(resourceId: ResourceId): Promise<v
         eq(proxyRoute.isPrimary, true),
         isNull(proxyRoute.previewId),
       ),
-    );
+    )
+    .returning();
+  for (const row of rows) publishRouteUpserted("updated", row);
 }
 
 /** Flip the live state of every route on a resource. expose enables them;
@@ -211,7 +229,7 @@ export async function setRoutesEnabledForResource(
   resourceId: ResourceId,
   enabled: boolean,
 ): Promise<void> {
-  await db
+  const rows = await db
     .update(proxyRoute)
     .set({ enabled, updatedAt: new Date() })
     .where(
@@ -222,13 +240,25 @@ export async function setRoutesEnabledForResource(
           ? or(eq(proxyRoute.source, "generated"), isNotNull(proxyRoute.domainVerifiedAt))
           : undefined,
       ),
-    );
+    )
+    .returning();
+  for (const row of rows) publishRouteUpserted("updated", row);
 }
 
 export async function deleteProxyRoute(id: ProxyRouteId): Promise<void> {
-  await db.delete(proxyRoute).where(eq(proxyRoute.id, id));
+  const rows = await db.delete(proxyRoute).where(eq(proxyRoute.id, id)).returning({
+    id: proxyRoute.id,
+    projectId: proxyRoute.projectId,
+    resourceId: proxyRoute.resourceId,
+  });
+  publishRemovedRows(rows);
 }
 
 export async function deleteProxyRoutesByResource(resourceId: ResourceId): Promise<void> {
-  await db.delete(proxyRoute).where(eq(proxyRoute.resourceId, resourceId));
+  const rows = await db.delete(proxyRoute).where(eq(proxyRoute.resourceId, resourceId)).returning({
+    id: proxyRoute.id,
+    projectId: proxyRoute.projectId,
+    resourceId: proxyRoute.resourceId,
+  });
+  publishRemovedRows(rows);
 }
