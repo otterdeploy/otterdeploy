@@ -125,11 +125,19 @@ export function GraphFlow({
           nodeBorderRadius={3}
         />
       ) : null}
+      {/* Solid, with an edge that can actually be seen. This was
+          `bg-background/80` + `backdrop-blur` over a `border-border/40`
+          hairline: on the dark canvas that surface resolves to 1.08:1 and the
+          border to 3% alpha (1.16:1), so the whole cluster read as a smudge
+          floating over the dots. The card surface cannot carry this on its own
+          — the border has to, which is why this is foreground/35 and not a
+          token hairline. The icons were never the problem (muted-foreground is
+          already 4.19:1 here). */}
       <Controls
         showInteractive={false}
         position="bottom-right"
         style={{ bottom: bottomInset }}
-        className="rounded-md! border! border-border/40! bg-background/80! shadow-sm! backdrop-blur! transition-[bottom]! duration-200! [&_button]:border-border/40! [&_button]:bg-transparent! [&_button]:text-muted-foreground! hover:[&_button]:text-foreground!"
+        className="rounded-md! border! border-foreground/35! bg-card! shadow-sm! transition-[bottom]! duration-200! [&_button]:border-foreground/20! [&_button]:bg-transparent! [&_button]:text-muted-foreground! hover:[&_button]:bg-muted/60! hover:[&_button]:text-foreground!"
       />
       {/* Re-run layout — clears the persisted arrangement and hands placement
           back to dagre. Sits just above the Controls stack. */}
@@ -143,7 +151,9 @@ export function GraphFlow({
           onClick={onRelayout}
           title="Re-run layout"
           aria-label="Re-run layout — reset saved node positions"
-          className="grid size-[26px] place-items-center rounded-md border border-border/40 bg-background/80 text-muted-foreground shadow-sm backdrop-blur transition-colors hover:text-foreground"
+          // Same treatment as the Controls cluster below it — these two read
+          // as one piece of chrome and must not disagree about how solid they are.
+          className="grid size-[26px] place-items-center rounded-md border border-foreground/35 bg-card text-muted-foreground shadow-sm transition-colors hover:bg-muted/60 hover:text-foreground"
         >
           <HugeiconsIcon icon={RefreshIcon} strokeWidth={2} className="size-3.5" />
         </button>
