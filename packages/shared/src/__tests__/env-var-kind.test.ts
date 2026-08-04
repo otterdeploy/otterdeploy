@@ -61,6 +61,16 @@ describe("classifyEnvVar", () => {
     }
   });
 
+  test("password spellings the main pattern misses", () => {
+    for (const key of ["GATEWAY_MASTERPASS", "DB_PASS", "PASSPHRASE"]) {
+      expect(classifyEnvVar(key), key).toBe("secret");
+    }
+    // Word-bounded — these merely contain the letters.
+    for (const key of ["BYPASS_CACHE", "COMPASS_MODE"]) {
+      expect(classifyEnvVar(key), key).toBe("plain");
+    }
+  });
+
   test("everything else is plain", () => {
     for (const key of ["TZ", "NODE_ENV", "LOG_LEVEL", "POSTGRES_DB", "REPLICAS"]) {
       expect(classifyEnvVar(key), key).toBe("plain");

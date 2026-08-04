@@ -35,6 +35,12 @@ const SECRET_RE =
  * least tells the truth.
  */
 const KEY_RE = /(^|_)KEY($|_)|[A-Z0-9]_KEY$/i;
+
+/**
+ * Password spellings the main pattern misses — `MASTERPASS`, `DB_PASS`,
+ * `PASSPHRASE`. Word-bounded so `BYPASS` and `COMPASS` stay plain.
+ */
+const PASS_RE = /(^|_)(PASS|MASTERPASS|PASSPHRASE)($|_)/i;
 const NOT_A_GENERATED_KEY_RE = /(LICENSE|LICENCE|PUBLIC|SSH|HOST|PGP|GPG|DEPLOY)_?KEY/i;
 
 /**
@@ -68,6 +74,7 @@ export function classifyEnvVar(key: string): EnvVarKind {
   if (HOST_RE.test(key)) return "host";
   if (SECRET_RE.test(key)) return "secret";
   if (KEY_RE.test(key) && !NOT_A_GENERATED_KEY_RE.test(key)) return "secret";
+  if (PASS_RE.test(key)) return "secret";
   return "plain";
 }
 

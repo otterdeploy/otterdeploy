@@ -6,6 +6,7 @@
 import type { StackTemplate, TemplateCategoryId } from "./types";
 
 import { AI_TEMPLATES } from "./templates-ai";
+import { AI_APPS_TEMPLATES } from "./templates-ai-apps";
 import { ANALYTICS_TEMPLATES } from "./templates-analytics";
 import { APPSTACK_TEMPLATES } from "./templates-appstack";
 import { CMS_TEMPLATES } from "./templates-cms";
@@ -18,6 +19,7 @@ import { OPS_TEMPLATES } from "./templates-ops";
 import { PLATFORM_ID_TEMPLATES } from "./templates-platform-id";
 import { PLATFORM_OPS_TEMPLATES } from "./templates-platform-ops";
 import { PUBLISHING_TEMPLATES } from "./templates-publishing";
+import { SERVICES_TEMPLATES } from "./templates-services";
 
 export type { StackTemplate, TemplateCategoryId, TemplateEnvVar } from "./types";
 export { TEMPLATE_CATEGORIES } from "./types";
@@ -27,6 +29,7 @@ export const TEMPLATES: StackTemplate[] = [
   ...CRM_TEMPLATES,
   ...ANALYTICS_TEMPLATES,
   ...AI_TEMPLATES,
+  ...AI_APPS_TEMPLATES,
   ...OPS_TEMPLATES,
   ...PLATFORM_OPS_TEMPLATES,
   ...PLATFORM_ID_TEMPLATES,
@@ -36,6 +39,7 @@ export const TEMPLATES: StackTemplate[] = [
   ...DEVKIT_TEMPLATES,
   ...APPSTACK_TEMPLATES,
   ...PUBLISHING_TEMPLATES,
+  ...SERVICES_TEMPLATES,
 ];
 
 export function getTemplateById(id: string): StackTemplate | undefined {
