@@ -271,7 +271,7 @@ Do this as its own change, on the current synchronous catalog, so the refactor i
 2. **Ship count in the image** — bundle all templates as fallback, or a curated subset to keep the image small? At Coolify's 1 MB, all of them is fine.
 3. **Per-instance opt-out** — should an operator be able to pin to bundled-only (no outbound fetch)? Air-gapped installs and some compliance postures want this. Cheap to add now (`TEMPLATE_REGISTRY=bundled|remote`), awkward later.
 4. **Telemetry** — `apps/get`'s README is explicit that a stable URL doubles as the only signal of how many people run otterdeploy. A catalog poll is the same kind of signal. If we want it, say so out loud in the docs rather than acquiring it as a side effect.
-5. **Do we adopt Coolify's magic variables?** (`SERVICE_PASSWORD_X`, `SERVICE_FQDN_X_PORT`.) They auto-generate secrets and FQDNs, which is why their templates need so little user input. Ours ask the user for every `${VAR}`. That is a real UX gap, and a separate design — but it is the reason their one-click is genuinely one click.
+5. **The deploy-time FQDN ref** — see §7. The only genuinely missing piece of the "one-click" story.
 
 ---
 
@@ -280,3 +280,81 @@ Do this as its own change, on the current synchronous catalog, so the refactor i
 Serving 335 templates does not make them *good*. Coolify's catalog contains templates that fail to deploy, because nothing validates them. Our gate means our count grows more slowly and every entry works.
 
 That is the right trade, and it should stay the trade after this lands. The goal is not to match 335 — it is to stop the delivery model being the reason we have 18.
+
+---
+
+## 7. Magic variables — we already have them
+
+An earlier draft of this doc listed "adopt Coolify's magic variables
+(`SERVICE_PASSWORD_X`, `SERVICE_FQDN_X_PORT`)" as an open question, on the
+assumption that we ask the user for every `${VAR}`. **That was wrong.** Both
+halves exist; they are spelled differently and live in two different layers.
+
+| Coolify | otterdeploy | Where |
+| --- | --- | --- |
+| `SERVICE_PASSWORD_X` | `SECRETISH` key heuristic → `randomSecret()` | `compose-wizard-parse.ts:95`, `shared/src/crypto.ts:68` |
+| `SERVICE_FQDN_X` / `_PORT` | `${{svc.PUBLIC_URL}}` / `.DOMAIN` / `.DOMAINS` / `.HOST` / `.PORT` | `lib/variables/exporters.ts:55`, `:83` |
+| DB credential wiring | `${{db.DATABASE_URL}}`, `PGHOST`/`PGPORT`/`PGUSER`/`PGPASSWORD`/`PGDATABASE` | `lib/variables/exporters.ts:27` |
+| — (no equivalent) | `${secret}`, `${database:<n>.<field>}`, `${service:<n>.host\|port>}` | `stack/manifest/refs.ts` |
+
+Secret generation is real and unconditional:
+
+```ts
+const secret = SECRETISH.test(ref.name);
+return { key: ref.name, value: ref.default ?? (secret ? randomSecret() : ""), secret, required };
+```
+
+`SECRETISH` matches `SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|API_?KEY|ACCESS_?KEY|CREDENTIAL|DSN|AUTH|SALT|WEBHOOK|SIGNING`; `randomSecret()` is 24 bytes of `crypto.getRandomValues`, base64url.
+
+**Ours is arguably the better half of the trade.** Coolify's only fires when the
+template author wrote the magic prefix, so a pasted third-party compose file
+gets nothing. Ours is a heuristic on the key name, so it works on **any**
+compose file with zero template authoring. The cost is that a heuristic can
+miss (`ROOT_PW`, `PGPASS`) or over-fire on something that isn't a credential.
+
+### 7.1 What is actually missing: a fill-time FQDN
+
+Twenty, our one CRM template, declares three required vars:
+
+| Var | Today |
+| --- | --- |
+| `APP_SECRET` | matches `SECRET` → auto-generated |
+| `POSTGRES_PASSWORD` | matches `PASSWORD` → auto-generated |
+| `SERVER_URL` | no match → **operator must type it** |
+
+So it is already one field, not three. The single remaining gap is that
+`SERVER_URL` needs *the domain the stack is about to be given*. We do generate
+that domain (`service.domains.generate` mints the platform/sslip host, and the
+compose reconcile seeds exposure — `routers/compose/reconcile.ts:128`), but
+only **after** deploy. The template needs it **before**.
+
+That is the exact chicken-and-egg `SERVICE_FQDN_X` solves by minting the FQDN at
+instantiation time and injecting it. It is one ref resolvable at variable-fill
+time — not a missing system.
+
+Sketch, deliberately not designed here: the wizard can compute the sslip host
+for `(project, service)` deterministically before staging, and expose it as a
+fill-time ref (`${{self.PUBLIC_URL}}` or similar) that seeds the field the way
+`randomSecret()` seeds a password. The operator can still overwrite it with a
+custom domain. Needs its own design — the naming has to reconcile with the
+existing `${{Resource.VAR}}` grammar, and a *generated* value that the user
+then overrides has to not fight the reconcile rules in `architecture-decision
+-2026-07-25` (service settings own exposure; reconciles must not wipe
+imperative changes).
+
+### 7.2 A bug this surfaced
+
+`StackTemplate.requiredEnv[].generateHint` carries strings like
+`openssl rand -base64 32`, and the detail dialog renders them
+(`template-detail-sections.tsx:84`). So the modal instructs the operator to
+generate `APP_SECRET` by hand — **a value the wizard auto-fills two clicks
+later**, on a step whose own copy reads "secrets are auto-generated, defaults
+pre-filled" (`compose-wizard-body.tsx:34`).
+
+Two surfaces, contradicting each other, about the same value. The fix is
+probably to drop `generateHint` for anything `SECRETISH` matches and say
+"generated for you" instead — but that couples template metadata to a frontend
+heuristic, which is an argument for moving the heuristic somewhere both can
+read. Worth settling as part of the registry work, since `requiredEnv` becomes
+generator-derived (§3.1) and the generator could mark each var
+`autofilled: true|false` from the same regex.
