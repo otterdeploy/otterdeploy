@@ -64,10 +64,6 @@ export interface ComposePrefill {
   logoBrand?: string;
 }
 
-// Credential-looking keys get the secret lock on by default.
-export const SECRETISH =
-  /(SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|API_?KEY|ACCESS_?KEY|CREDENTIAL|DSN|AUTH|SALT|WEBHOOK|SIGNING)/i;
-
 /** Coerce a display name into a valid manifest resource key
  *  (`^[a-z][a-z0-9-]{0,62}$`): lowercase, non-alnum → dash, trim dashes, and
  *  prefix a letter if it would otherwise start with a digit. */

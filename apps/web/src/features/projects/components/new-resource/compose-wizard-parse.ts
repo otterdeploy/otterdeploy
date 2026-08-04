@@ -12,12 +12,41 @@ import { useState } from "react";
 
 import { type Diagnostic, setDiagnostics } from "@codemirror/lint";
 import { randomSecret } from "@otterdeploy/shared/crypto";
+import { autofillValue, isSecretKey } from "@otterdeploy/shared/env-var-kind";
 
 import { orpc } from "@/shared/server/orpc";
 
 import type { Var } from "./form-fields/variables-field";
 
-import { type ComposeForm, type Preview, SECRETISH } from "./compose-wizard-shared";
+import { type ComposeForm, type Preview } from "./compose-wizard-shared";
+
+/**
+ * The FQDN a stack's address variables should point at, or null when there is
+ * nothing to point them at yet.
+ *
+ * A compose stack has many services but one *front door* — the thing a
+ * `SERVER_URL` means. We take the first service that publishes a port, which
+ * is what the exposure step defaults to and what a template's app service
+ * always is (its database and worker declare none). Guessing wrong costs an
+ * edit on a pre-filled field; guessing nothing costs the operator a hostname
+ * they cannot know before deploying.
+ *
+ * The name→FQDN step goes through `project.resource.publicHostPreview`, the
+ * same resolver chain `exposeService` walks (project custom domain → org base
+ * → local dev base → sslip fallback), so this is a preview of the real value
+ * rather than a client-side reconstruction that could drift from it.
+ */
+async function previewStackHost(
+  projectId: ProjectId,
+  preview: { services: { name: string; ports: number[] }[] },
+): Promise<string | null> {
+  const front = preview.services.find((s) => s.ports.length > 0);
+  if (!front) return null;
+  const resolved = await orpc.project.resource.publicHostPreview
+    .call({ projectId, name: front.name })
+    .catch(() => null);
+  return resolved?.fqdn ?? null;
+}
 
 export function useComposeParse(
   projectId: ProjectId,
@@ -76,12 +105,17 @@ export function useComposeParse(
     }
     setPreview(res);
     applyDiagnostics(res);
+    // The public FQDN this stack will publish at, resolved by the SAME server
+    // chain the expose path walks — so an address we seed is the address the
+    // service actually gets, not a guess. Best-effort: a failure just leaves
+    // address vars blank, exactly as before.
+    const publicHost = await previewStackHost(projectId, res);
     // Seed the variables editor with the file's `${VAR}` refs, preserving any
     // rows the user already added/edited. A credential-looking key with no
-    // `:-default` is AUTO-GENERATED (strong random, locked) rather than left
-    // blank — the operator never has to hand-type a password, mirroring how the
-    // Postgres provisioner mints its own credentials. It stays editable, so they
-    // can override or regenerate.
+    // `:-default` is AUTO-GENERATED (strong random, locked) and an address-
+    // looking key is filled with the resolved public URL — the operator never
+    // has to hand-type a password or paste back a hostname they can't know
+    // yet. Both stay editable, so they can override or regenerate.
     const current = form.state.values.variables;
     const seeded: Var[] = res.vars.map((ref) => {
       // No `:-default` in the compose → the operator MUST supply a value (we
@@ -92,11 +126,10 @@ export function useComposeParse(
       // `required` from the current parse — otherwise a row seeded before this
       // flag existed keeps `required: undefined` and never shows its marker.
       if (existing) return existing.required === required ? existing : { ...existing, required };
-      const secret = SECRETISH.test(ref.name);
       return {
         key: ref.name,
-        value: ref.default ?? (secret ? randomSecret() : ""),
-        secret,
+        value: ref.default ?? autofillValue(ref.name, { randomSecret, publicHost }) ?? "",
+        secret: isSecretKey(ref.name),
         required,
       };
     });

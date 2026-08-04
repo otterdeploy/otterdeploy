@@ -1,5 +1,6 @@
 import { useRef } from "react";
 
+import { isSecretKey } from "@otterdeploy/shared/env-var-kind";
 import { frameworkDefaultPort, isSpaFramework } from "@otterdeploy/shared/framework";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -7,7 +8,6 @@ import { orpc } from "@/shared/server/orpc";
 
 import type { useFormContext } from "../form-context";
 
-import { SECRETISH } from "../compose-wizard-shared";
 import { AUTO_WRITE } from "../form-context";
 import { frameworkDefaultServiceType, pickDefaultMonorepoApp } from "../frameworks";
 import { deriveServiceName } from "./source-pickers";
@@ -120,7 +120,7 @@ export function useSourceDefaults(form: WizardForm): SourceDefaults {
     if (keys.length === 0) return;
     form.setFieldValue(
       "variables",
-      keys.map((k) => ({ key: k, value: "", secret: SECRETISH.test(k) })),
+      keys.map((k) => ({ key: k, value: "", secret: isSecretKey(k) })),
       AUTO_WRITE,
     );
   };
