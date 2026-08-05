@@ -14,6 +14,8 @@
 
 import { useEffect, useRef } from "react";
 
+import { useEscapeKey } from "@/shared/hooks/use-escape-key";
+
 import {
   createFileRoute,
   Outlet,
@@ -175,6 +177,9 @@ function RouteComponent() {
     ) ?? null;
 
   useCloseOnDelete({ resource: resource !== null, resourcesLoading, close });
+  // Only when nothing is stacked on top — the deployment overlay answers
+  // Escape itself, and both firing would skip a level.
+  useEscapeKey(deploymentKey === null, close);
 
   return (
     <>

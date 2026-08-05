@@ -176,6 +176,16 @@ export async function serverIpFor(ref: ResourceRef): Promise<string | null> {
  * to unverified-and-disabled: a host that has to prove itself again must not
  * keep serving, or keep its old ACME decision, in the meantime.
  */
+/**
+ * DNS that already resolves to this server is proof of control — the same
+ * thing the TXT challenge exists to establish, and the same thing ACME's
+ * HTTP-01 would conclude. Lives here with the other domain decisions so all
+ * three call sites (add, recheck, update) read one rule.
+ */
+export function provenByDns(state: DnsState): boolean {
+  return state === "pointed";
+}
+
 export function domainUpdatePatch(args: {
   domain: string;
   route: ProxyRouteRecord;
@@ -184,6 +194,15 @@ export function domainUpdatePatch(args: {
   requiresVerification: boolean;
 }) {
   const { domain, route, serviceName, dnsState, requiresVerification } = args;
+  // A re-verification that the DNS has ALREADY satisfied is not a
+  // verification, it is a formality. This branch used to reset ownership to
+  // null and disable the route without ever consulting dnsState — even though
+  // it is measured immediately before the call and passed in right here. Point
+  // a host at this server and rename a route onto it and you were told to add
+  // a TXT record to prove something the resolver had just proven. Worst on
+  // sslip.io hosts, where the IP is encoded in the name and no other party can
+  // ever claim it.
+  const proven = requiresVerification && provenByDns(dnsState);
   return {
     domain,
     source: "custom" as const,
@@ -194,7 +213,7 @@ export function domainUpdatePatch(args: {
     // (a port change, say), so the same rule as recheck applies: don't pull a
     // working certificate out from under it. See acmeForExistingRoute.
     usesAcme: requiresVerification
-      ? false
+      ? proven && acmeFor(domain, dnsState)
       : acmeForExistingRoute({
           domain,
           dnsState,
@@ -205,7 +224,7 @@ export function domainUpdatePatch(args: {
     domainVerifyToken: requiresVerification
       ? randomBytes(24).toString("base64url")
       : route.domainVerifyToken,
-    domainVerifiedAt: requiresVerification ? null : route.domainVerifiedAt,
-    enabled: requiresVerification ? false : route.enabled,
+    domainVerifiedAt: requiresVerification ? (proven ? new Date() : null) : route.domainVerifiedAt,
+    enabled: requiresVerification ? proven : route.enabled,
   };
 }

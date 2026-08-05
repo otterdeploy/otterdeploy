@@ -9,7 +9,6 @@
 
 import { Result } from "better-result";
 
-import type { DnsState } from "../../lib/domain-reachability";
 import type { ProjectNotFoundError } from "../project/errors";
 
 import { getProxyRouteByDomain, listProxyRoutesByResourceId } from "../../caddy/queries";
@@ -62,9 +61,7 @@ export function resolveUpstreamPort(
  * shared by millions of zones, so resolving into one says nothing about who
  * owns the name — those keep the TXT ownership gate.
  */
-export function provenByDns(state: DnsState): boolean {
-  return state === "pointed";
-}
+export { provenByDns } from "./domain-rules";
 
 /**
  * Is this host well-formed, free, and ours to take? Answers the add form's

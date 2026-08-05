@@ -16,6 +16,7 @@ import { cn } from "@/shared/lib/utils";
 import { resourceCollection } from "@/features/resources/data/resource";
 
 import { CancelDeploymentButton } from "@/features/deployments/components/cancel-deployment-button";
+import { useEscapeKey } from "@/shared/hooks/use-escape-key";
 import { DeploymentStatusDot } from "./-components/deployment-detail";
 import { DeploymentTabs, type DeploymentTab, DEPLOYMENT_TABS } from "./-components/deployment-tabs";
 
@@ -140,6 +141,10 @@ function RouteComponent() {
   // nothing to animate and the overlay just vanishes. Animate to x:"100%" on
   // `closing`, then navigate when it finishes (see onAnimationComplete below).
   const [closing, setClosing] = useState(false);
+  // Escape closes the overlay the same way its X does — set `closing`, let the
+  // slide-out finish, then navigate back to the resource panel. Guarded on
+  // `closing` so a second press mid-animation is not a second close.
+  useEscapeKey(!closing, () => setClosing(true));
   const setTab = (next: DeploymentTab) =>
     void navigate({ search: (prev) => ({ ...prev, deploymentTab: next }), replace: true });
 
