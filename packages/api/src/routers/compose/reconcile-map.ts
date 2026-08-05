@@ -7,6 +7,7 @@ import type { ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { resource } from "@otterdeploy/db/schema/project";
+import { isSecretKey } from "@otterdeploy/shared/env-var-kind";
 import { and, eq } from "drizzle-orm";
 
 import type { StackReconcileContext } from "./reconcile";
@@ -155,7 +156,7 @@ export function toServiceFields(
     | "memoryLimitMb"
   >;
   ports: CreateServiceInput["ports"];
-  env: Array<{ key: string; value: string }>;
+  env: Array<{ key: string; value: string; isSecret: boolean }>;
   /** Bind mounts for a multi-file inline stack (source → materialized host
    *  path). Empty for single-file / git stacks. Seeded on create only. */
   mounts: MappedMount[];
@@ -164,7 +165,16 @@ export function toServiceFields(
   // Interpolate compose env against the project bag, then flatten to the
   // {key,value} rows createServiceRecord seeds.
   const { env: resolvedEnv } = substituteComposeEnv(svc.env, ctx.projectVars);
-  const env = Object.entries(resolvedEnv).map(([key, value]) => ({ key, value }));
+  // Flag credentials as they are written. Nothing on the compose path ever set
+  // this, so every child service stored its secrets unflagged and any UI that
+  // trusts the flag rendered AUTHENTIK_SECRET_KEY and POSTGRES_PASSWORD in the
+  // clear. Same classifier the wizard and the template modal use, so all three
+  // agree on what counts as a secret.
+  const env = Object.entries(resolvedEnv).map(([key, value]) => ({
+    key,
+    value,
+    isSecret: isSecretKey(key),
+  }));
   // First http-ish port (tcp) is the primary — the one a public domain fronts.
   const seenPorts = new Set<number>();
   let primaryAssigned = false;

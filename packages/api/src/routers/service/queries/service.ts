@@ -200,6 +200,7 @@ export async function createServiceRecord(input: CreateServiceInput): Promise<Se
                 serviceResourceId: createdService.resourceId,
                 key: e.key,
                 value: e.value,
+                isSecret: e.isSecret ?? false,
               })),
             )
             .returning();

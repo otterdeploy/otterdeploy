@@ -72,7 +72,9 @@ export interface CreateServiceInput {
     isPrimary?: boolean;
   }>;
 
-  env?: Array<{ key: string; value: string }>;
+  /** `isSecret` is a display flag (values travel in plaintext either way) —
+   *  but an unset one means the UI shows a password in the clear. */
+  env?: Array<{ key: string; value: string; isSecret?: boolean }>;
 }
 
 export function serviceCoreColumns(input: CreateServiceInput) {
