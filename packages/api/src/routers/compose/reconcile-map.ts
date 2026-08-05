@@ -170,17 +170,34 @@ export function toServiceFields(
   };
 }
 
-/** Pick a project-unique resource name for a new stack service. Prefers the
- *  bare compose key (e.g. "web"); if another resource already owns that name,
- *  suffix until free. The common collision is the stack's OWN resource (a
- *  single-service stack named after its service, e.g. stack "uptime-kuma" with
- *  service "uptime-kuma"), so the first fallback is a descriptive `-service`
- *  rather than a `-2` that implies a phantom sibling. Matching on re-reconcile
- *  keys off serviceName, so a suffixed display name stays stable. */
-export async function pickResourceName(projectId: ProjectId, composeName: string): Promise<string> {
-  const base = composeName.slice(0, 60);
-  const candidateAt = (i: number) =>
-    i === 0 ? base : i === 1 ? `${base}-service` : `${base}-${i}`;
+/**
+ * Project-unique resource name for a new stack service, namespaced by its stack.
+ *
+ * `authentik` + `server` → `authentik-server`, not `server`. Compose service
+ * keys are written for the file's own scope, so half the catalog names its main
+ * container `server`, `web`, `app` or `db`. Those became the resource name AND,
+ * through it, the generated host — so Authentik's UI landed on
+ * `server-store.<ip>.sslip.io`, which says nothing about what it serves and
+ * collides with the next stack that also has a `server`.
+ *
+ * The exception is the namesake: a single-service stack named after its service
+ * (`rustfs` containing `rustfs`) would otherwise become `rustfs-rustfs`. There
+ * the stack's own name IS the answer, so the child takes it — and the stack
+ * resource already owns that name, which is what the numeric fallback below is
+ * for. This replaces the old `-service` suffix, which put a disambiguator the
+ * operator never chose into every URL.
+ *
+ * Forward-only: reconcile matches existing children on `serviceName` (derived
+ * from stackName + compose key, never renamed), so stacks deployed before this
+ * keep the names they have.
+ */
+export async function pickResourceName(
+  projectId: ProjectId,
+  composeName: string,
+  stackName: string,
+): Promise<string> {
+  const base = (composeName === stackName ? stackName : `${stackName}-${composeName}`).slice(0, 60);
+  const candidateAt = (i: number) => (i === 0 ? base : `${base}-${i + 1}`);
   for (let i = 0; i < 50; i++) {
     const candidate = candidateAt(i);
     const [exists] = await db

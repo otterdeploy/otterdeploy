@@ -4,6 +4,33 @@ import type { StackTemplate } from "./types";
 
 export const DEVKIT_TEMPLATES: StackTemplate[] = [
   {
+    id: "dozzle",
+    name: "Dozzle",
+    description:
+      "Live log viewer for every container on the host — tail, search and follow without SSH. Reads the Docker socket, so anyone who reaches it can read every container's logs: keep it behind Require login in the service's Deployment protection.",
+    category: "devtools",
+    includes: ["dozzle"],
+    requiredEnv: [],
+    logoBrand: "Docker",
+    docsUrl: "https://dozzle.dev/guide/getting-started",
+    compose: `name: dozzle
+services:
+  dozzle:
+    image: amir20/dozzle:latest
+    environment:
+      DOZZLE_LEVEL: info
+      DOZZLE_NO_ANALYTICS: "true"
+    ports:
+      - "8080"
+    volumes:
+      # Read-only, and read-only matters: the socket is root-equivalent on the
+      # host, so :ro is the difference between "can read logs" and "can start a
+      # privileged container". Dozzle only ever reads.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: always
+`,
+  },
+  {
     id: "verdaccio",
     name: "Verdaccio",
     description:

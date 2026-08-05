@@ -1,4 +1,10 @@
-import type { DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type {
+  DeploymentId,
+  EnvironmentId,
+  OrganizationId,
+  ProjectId,
+  ResourceId,
+} from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
@@ -173,6 +179,27 @@ async function settleServiceRollout<E>(input: {
  * Reconcile the stack's service rows + deploy each. Returns how many deployed
  * and which compose services failed to roll out.
  */
+/**
+ * The two facts every child inherits from its stack: which environment it
+ * belongs to, and the name it is namespaced under. Read from the stack row
+ * rather than threaded through StackReconcileContext, so they cannot go
+ * missing on one of the several construction paths.
+ */
+async function loadStackIdentity(
+  ctx: StackReconcileContext,
+): Promise<{ environmentId: EnvironmentId | null; stackResourceName: string }> {
+  const [row] = await db
+    .select({ environmentId: resource.environmentId, name: resource.name })
+    .from(resource)
+    .where(eq(resource.id, ctx.stackResourceId))
+    .limit(1);
+  return {
+    environmentId: row?.environmentId ?? null,
+    // The stack's RESOURCE name (`authentik`), not its swarm name.
+    stackResourceName: row?.name ?? ctx.stackName,
+  };
+}
+
 export async function reconcileStackServices(
   parsed: ParsedCompose,
   ctx: StackReconcileContext,
@@ -191,12 +218,7 @@ export async function reconcileStackServices(
   // The stack's own environment. Children inherit it: an unstamped child is
   // visible only because MAIN additionally owns NULL rows (a legacy allowance
   // in inEnvironmentScope), so it would vanish from any non-main environment.
-  const [stackRow] = await db
-    .select({ environmentId: resource.environmentId })
-    .from(resource)
-    .where(eq(resource.id, ctx.stackResourceId))
-    .limit(1);
-  const environmentId = stackRow?.environmentId ?? null;
+  const { environmentId, stackResourceName } = await loadStackIdentity(ctx);
 
   const resolveImage = (svc: ParsedComposeService): string | null => {
     const raw = svc.image ?? ctx.builtImages[svc.name] ?? null;
@@ -242,6 +264,7 @@ export async function reconcileStackServices(
         mapped,
         existingResourceId: existingByName.get(mapped.serviceName)?.resource.id,
         environmentId,
+        stackResourceName,
       });
 
       // One deployment row per service per reconcile → its own build/deploy

@@ -40,6 +40,8 @@ async function materializeServiceRow(input: {
    *  construction site, so it cannot go missing on one path and it follows the
    *  stack if that ever moves. */
   environmentId: EnvironmentId | null;
+  /** Owning stack's resource name — children are namespaced by it. */
+  stackResourceName: string;
 }): Promise<{ resourceId: ResourceId; isCreate: boolean }> {
   const { ctx, mapped } = input;
   if (input.existingResourceId) {
@@ -49,7 +51,11 @@ async function materializeServiceRow(input: {
     return { resourceId: input.existingResourceId, isCreate: false };
   }
 
-  const name = await pickResourceName(ctx.projectId, input.composeServiceName);
+  const name = await pickResourceName(
+    ctx.projectId,
+    input.composeServiceName,
+    input.stackResourceName,
+  );
   const created = await createServiceRecord({
     projectId: ctx.projectId,
     environmentId: input.environmentId,
