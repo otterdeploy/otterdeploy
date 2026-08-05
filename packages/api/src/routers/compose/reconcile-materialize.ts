@@ -11,12 +11,47 @@ import type { StackReconcileContext } from "./reconcile";
 
 // Via the barrel, as reconcile.ts did before the split — importing the deep
 // paths instead orphans the re-exports and trips the dead-code ratchet.
+import { allowedHostBind } from "../../lib/host-binds";
 import {
   bulkReplaceServiceMounts,
   createServiceRecord,
   updateServiceRecord,
+  upsertServiceMount,
 } from "../service/queries";
 import { pickResourceName, type toServiceFields } from "./reconcile-map";
+
+/**
+ * Re-apply allowlisted host binds on UPDATE, not just on create.
+ *
+ * Mounts are otherwise a create-time seed that the user owns afterwards, and
+ * that rule is right for the mounts a user can actually manage. An allowlisted
+ * host bind is not one of those: it is a platform grant (see lib/host-binds.ts)
+ * that the compose file requests and the platform decides to honour. Leaving it
+ * create-only meant every stack deployed before the grant existed stayed broken
+ * through any number of redeploys — the Dozzle stacks already out there would
+ * have needed deleting and re-adding to pick up their socket.
+ *
+ * Additive on purpose: each bind is upserted on its own `(service, target)` key,
+ * so mounts the user added in the Settings tab are untouched. Only paths the
+ * file asks for AND the allowlist grants are written, so this can never mount
+ * something the compose did not name.
+ */
+async function ensureGrantedHostBinds(
+  resourceId: ResourceId,
+  mounts: ReturnType<typeof toServiceFields>["mounts"],
+): Promise<void> {
+  for (const m of mounts) {
+    if (m.type !== "bind" || !m.source || !allowedHostBind(m.source)) continue;
+    await upsertServiceMount({
+      serviceResourceId: resourceId,
+      type: "bind",
+      target: m.target,
+      source: m.source,
+      content: null,
+      readOnly: m.readOnly,
+    });
+  }
+}
 
 export /**
  * Bring ONE compose service's `service_resource` row in line with the file:
@@ -48,6 +83,7 @@ async function materializeServiceRow(input: {
     // Structure (image/command/replicas/healthcheck/resources) tracks the
     // file. Env + ports + name are left alone — the user owns env post-create.
     await updateServiceRecord(input.existingResourceId, mapped.fields);
+    await ensureGrantedHostBinds(input.existingResourceId, mapped.mounts);
     return { resourceId: input.existingResourceId, isCreate: false };
   }
 

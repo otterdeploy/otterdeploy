@@ -14,6 +14,7 @@ import type { SpecMount, SwarmServiceRestart, SwarmServiceSpec } from "../../swa
 import type { ParsedComposeService } from "./types";
 
 import { PLATFORM } from "../../constants";
+import { allowedHostBind } from "../../lib/host-binds";
 
 export interface ComposeSpecContext {
   resourceId: string;
@@ -116,11 +117,25 @@ function toRestart(r: ParsedComposeService["restart"]): SwarmServiceRestart {
   return { condition, maxAttempts: null, delayMs: 5_000 };
 }
 
-/** Volume mounts only — binds were dropped at parse, tmpfs is dropped here.
- *  Named volumes get the stack prefix; anonymous ones a stable derived name. */
+/** Named volumes plus allowlisted host binds; tmpfs and every other bind are
+ *  dropped here. Named volumes get the stack prefix; anonymous ones a stable
+ *  derived name. Kept in step with `routers/compose/reconcile-map.ts#toMounts`
+ *  — the two compose paths must agree on what a stack is allowed to mount. */
 function toMounts(svc: ParsedComposeService, volumeBase: string, stackName: string): SpecMount[] {
   const out: SpecMount[] = [];
   for (const v of svc.volumes) {
+    if (v.type === "bind" && v.source) {
+      const granted = allowedHostBind(v.source);
+      if (granted) {
+        out.push({
+          Type: "bind",
+          Source: granted.source,
+          Target: v.target,
+          ReadOnly: granted.readOnly,
+        });
+      }
+      continue;
+    }
     if (v.type !== "volume") continue;
     const source = v.source
       ? `${stackName}-${v.source}`

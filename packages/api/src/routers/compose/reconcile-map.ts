@@ -14,6 +14,7 @@ import type { StackReconcileContext } from "./reconcile";
 
 import { PLATFORM } from "../../constants";
 import { resolveBindSource } from "../../lib/compose-materialize";
+import { allowedHostBind } from "../../lib/host-binds";
 import {
   composeSwarmServiceName,
   durationMs,
@@ -110,6 +111,13 @@ export function composeVolumeName(stackName: string, volumeName: string): string
  * Bind mounts still need a materialized file tree (`stackDir`, multi-file
  * inline stacks); named volumes need nothing — docker creates them on first
  * use, and a deterministic name means a redeploy reattaches the same data.
+ *
+ * ALLOWLISTED HOST BINDS are checked before the `stackDir` guard, and that
+ * order is the whole fix. A single-file stack (every catalog template) has no
+ * materialized tree, so the guard dropped its binds outright — the Dozzle
+ * template asked for the docker socket, silently got no mount at all, and
+ * crash-looped on "Could not connect to any Docker Engine". See ../../lib/
+ * host-binds.ts for what is listed and why the list is short.
  */
 function toMounts(svc: ParsedComposeService, ctx: StackReconcileContext): MappedMount[] {
   const out: MappedMount[] = [];
@@ -124,7 +132,21 @@ function toMounts(svc: ParsedComposeService, ctx: StackReconcileContext): Mapped
       });
       continue;
     }
-    if (v.type !== "bind" || !v.source || !ctx.stackDir) continue;
+    if (v.type !== "bind" || !v.source) continue;
+    const granted = allowedHostBind(v.source);
+    if (granted) {
+      out.push({
+        type: "bind",
+        target: v.target,
+        source: granted.source,
+        content: null,
+        // The grant decides, not the file: a compose asking for the socket
+        // read-write does not get to widen what the allowlist handed out.
+        readOnly: granted.readOnly,
+      });
+      continue;
+    }
+    if (!ctx.stackDir) continue;
     const abs = resolveBindSource(v.source, ctx.stackDir);
     if (!abs) continue;
     out.push({ type: "bind", target: v.target, source: abs, content: null, readOnly: v.readOnly });
@@ -157,8 +179,9 @@ export function toServiceFields(
   >;
   ports: CreateServiceInput["ports"];
   env: Array<{ key: string; value: string; isSecret: boolean }>;
-  /** Bind mounts for a multi-file inline stack (source → materialized host
-   *  path). Empty for single-file / git stacks. Seeded on create only. */
+  /** Named volumes, allowlisted host binds, and — for a multi-file inline stack
+   *  — binds resolved into the materialized tree. Seeded on create; only the
+   *  allowlisted host binds are re-applied on update (reconcile-materialize). */
   mounts: MappedMount[];
 } {
   const projectSlug = sanitizeSlug(ctx.projectSlug);

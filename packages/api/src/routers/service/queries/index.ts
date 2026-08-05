@@ -68,4 +68,4 @@ export {
   upsertPreviewServiceEnvVar,
 } from "./env-preview";
 
-export { bulkReplaceServiceMounts } from "./mounts";
+export { bulkReplaceServiceMounts, upsertServiceMount } from "./mounts";
