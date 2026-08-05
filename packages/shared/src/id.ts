@@ -22,20 +22,19 @@ import * as z from "zod";
 
 export const ID_PREFIX = {
   // auth
-  user: "user",
-  session: "session",
-  account: "account",
-  verification: "verification",
+  user: "usr",
+  session: "sess",
+  account: "acct",
+  verification: "vrf",
   // organizations
   organization: "org",
-  member: "member",
-  invitation: "invite",
+  member: "mbr",
+  invitation: "inv",
   // api keys (better-auth apiKey plugin — table name is `apikey`)
-  apiKey: "apikey",
-
-  project: "project",
-  resource: "resource",
-  deployment: "deployment",
+  apiKey: "ak",
+  project: "prj",
+  resource: "res",
+  deployment: "dep",
   servicePort: "port",
   serviceMount: "mnt",
   serviceEnvVar: "senv",
@@ -43,67 +42,115 @@ export const ID_PREFIX = {
   projectEnvSubscription: "psub",
   environment: "env",
   preview: "prev",
-  proxyRoute: "proxy_route",
-  deploymentGuest: "guest",
-  server: "server",
-  nodeEnrollment: "enroll",
+  proxyRoute: "rt",
+  deploymentGuest: "gst",
+  server: "srv",
+  nodeEnrollment: "enr",
   // workspace: "workspace",
   workspace: "wksp",
-
   // git source connections
-  gitProvider: "gitprov",
-  gitInstallation: "gitinst",
-  gitRepo: "gitrepo",
-
+  gitProvider: "gitp",
+  gitInstallation: "giti",
+  gitRepo: "gitr",
   // build pipeline
-  containerRegistry: "regcred",
+  containerRegistry: "reg",
   deploymentLog: "dlog",
-
   // backups
   backup: "bak",
-  backupSchedule: "baksched",
-  backupDestination: "bakdest",
+  backupSchedule: "bsch",
+  backupDestination: "bdst",
   backupLog: "blog",
-
   // audit trail
-  auditLog: "audit",
-
+  auditLog: "aud",
   // in-app notifications
-  notification: "notif",
-
+  notification: "ntf",
   // notification channels (routing config + delivery log)
-  notificationChannel: "notifchan",
-  notificationSubscription: "notifsub",
-  notificationDelivery: "notifdlv",
-
+  notificationChannel: "ntfc",
+  notificationSubscription: "ntfs",
+  notificationDelivery: "ntfd",
   // firewall — managed IP blocklists synced into CrowdSec
-  blocklist: "blocklist",
-
+  blocklist: "blk",
   // SSH keys — org-scoped keypairs for Git auth + node management
-  sshKey: "sshkey",
-
+  sshKey: "ssh",
   // TLS — operator-uploaded custom certificates + trusted CA inventory
   customCertificate: "cert",
   trustedCa: "ca",
-
   // ephemeral database credentials — short-lived, auto-disposed DB roles
   databaseEphemeralCredential: "dbeph",
-
   // webhooks — outbound event subscriptions + delivery log + inbound trigger
   // endpoints
   webhook: "wh",
-  webhookDelivery: "whdlv",
+  webhookDelivery: "whd",
   inboundEndpoint: "inhk",
-
   // orphaned remote resources awaiting GC (teardown couldn't reach the daemon)
-  orphanedResource: "orphres",
-
+  orphanedResource: "orph",
   // private networking — the org's connected VPN/mesh account (NetBird,
   // Tailscale). One row per org. Design: docs/designs/vpn-mesh.md
   meshNetwork: "mesh",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
+
+/**
+ * The prefix each entity used BEFORE they were shortened, for the entities
+ * that changed.
+ *
+ * The database rows were rewritten in place by
+ * `packages/db/scripts/shorten-id-prefixes.sql`. This table remains because
+ * plenty of long-form IDs live where that migration could not reach:
+ *
+ *  - Docker labels (`otterdeploy.resource.id`), fixed at container creation and
+ *    only replaced when the container is recreated.
+ *  - IDs inside stored JSON — deployment snapshots, audit payloads, manifests.
+ *  - Bookmarked URLs and already-open browser tabs.
+ *
+ * `zId` translates those to the current spelling via `canonicalId` on the way
+ * in, so callers downstream only ever see the short form.
+ *
+ * `createId` only ever mints the SHORT form. An entity absent from this map
+ * never changed prefix.
+ */
+export const LEGACY_ID_PREFIX = {
+  account: "account",
+  apiKey: "apikey",
+  auditLog: "audit",
+  backupDestination: "bakdest",
+  backupSchedule: "baksched",
+  blocklist: "blocklist",
+  containerRegistry: "regcred",
+  deployment: "deployment",
+  deploymentGuest: "guest",
+  gitInstallation: "gitinst",
+  gitProvider: "gitprov",
+  gitRepo: "gitrepo",
+  invitation: "invite",
+  member: "member",
+  nodeEnrollment: "enroll",
+  notification: "notif",
+  notificationChannel: "notifchan",
+  notificationDelivery: "notifdlv",
+  notificationSubscription: "notifsub",
+  orphanedResource: "orphres",
+  project: "project",
+  proxyRoute: "proxy_route",
+  resource: "resource",
+  server: "server",
+  session: "session",
+  sshKey: "sshkey",
+  user: "user",
+  verification: "verification",
+  webhookDelivery: "whdlv",
+} as const satisfies Partial<Record<keyof typeof ID_PREFIX, string>>;
+
+/** Old spelling for a current prefix, when it had one. */
+function legacyFor(prefix: IdPrefix): string | null {
+  for (const [key, current] of Object.entries(ID_PREFIX)) {
+    if (current !== prefix) continue;
+    const old = (LEGACY_ID_PREFIX as Record<string, string | undefined>)[key];
+    return old ?? null;
+  }
+  return null;
+}
 
 /**
  * Branded string ID with a known prefix.
@@ -150,7 +197,42 @@ export function idPrefix(id: string): string | null {
  *   hasPrefix("project_clx1abc", "project") // true
  */
 export function hasPrefix<P extends string>(id: string, prefix: P): id is Id<P> {
-  return id.startsWith(`${prefix}_`);
+  if (id.startsWith(`${prefix}_`)) return true;
+  // An ID minted before the prefixes were shortened is still that entity.
+  const legacy = legacyFor(prefix as IdPrefix);
+  return legacy != null && id.startsWith(`${legacy}_`);
+}
+
+/**
+ * Reverse of LEGACY_ID_PREFIX -- old spelling to current one, longest first.
+ *
+ * Longest first because one old prefix (`proxy_route`) contains an underscore,
+ * so a plain split on the first `_` would read it as `proxy` and miss it. That
+ * is the same trap that had `idPrefix("proxy_route_...")` returning `proxy`.
+ */
+const CURRENT_FOR_LEGACY: ReadonlyArray<readonly [string, string]> = Object.entries(
+  LEGACY_ID_PREFIX,
+)
+  .map(([key, old]) => [old, ID_PREFIX[key as keyof typeof ID_PREFIX]] as const)
+  .sort(([a], [b]) => b.length - a.length);
+
+/**
+ * Rewrite an ID minted before the prefixes were shortened into its current
+ * spelling. Anything already current, or carrying no prefix we know, is
+ * returned untouched.
+ *
+ * Needed wherever an ID arrives from somewhere the migration could not reach.
+ * Docker labels are the case that matters: `otterdeploy.resource.id` is stamped
+ * when a container is created and is immutable thereafter, so every container
+ * running from before the rename still reports the long form. The metrics
+ * sampler keys rows on that label, so without this the samples land under an
+ * ID no resource has and quietly vanish from that resource's charts.
+ */
+export function canonicalId(id: string): string {
+  for (const [old, current] of CURRENT_FOR_LEGACY) {
+    if (id.startsWith(`${old}_`)) return `${current}${id.slice(old.length)}`;
+  }
+  return id;
 }
 
 /**
@@ -160,15 +242,28 @@ export function hasPrefix<P extends string>(id: string, prefix: P): id is Id<P> 
  * and outputs `Id<P>` (which extends `string`, so it works with Drizzle).
  *
  * @example
- *   z.object({ projectId: zId("project") })
+ *   z.object({ projectId: zId("prj") })
  */
 export function zId<P extends IdPrefix>(
   prefix: P,
 ): z.ZodPipe<z.ZodString, z.ZodTransform<Id<P>, string>> {
-  return z
-    .string()
-    .regex(new RegExp(`^${prefix}_`), `ID must start with "${prefix}_"`)
-    .transform((s) => s as Id<P>);
+  const legacy = legacyFor(prefix);
+  // Accept the pre-shortening spelling too — see LEGACY_ID_PREFIX. Anchored and
+  // built from a fixed table, never from user input, so there is nothing to
+  // escape.
+  const pattern = legacy ? `^(?:${prefix}|${legacy})_` : `^${prefix}_`;
+  const expected = legacy ? `"${prefix}_" (or legacy "${legacy}_")` : `"${prefix}_"`;
+  return (
+    z
+      .string()
+      .regex(new RegExp(pattern), `ID must start with ${expected}`)
+      // Rewrite to the current spelling here, at the edge, so nothing downstream
+      // has to know the old one existed. Accepting a legacy ID without
+      // translating it would only move the failure: it passes validation and then
+      // matches no row, which is what a bookmarked URL or an already-open tab
+      // sends after the prefixes were shortened.
+      .transform((s) => canonicalId(s) as Id<P>)
+  );
 }
 
 /** Per-entity zId schema, keyed by `ID_PREFIX` name. */

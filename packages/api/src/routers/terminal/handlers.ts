@@ -18,6 +18,7 @@ import type { OrganizationId, ProjectId, ProjectSlug, ResourceId } from "@otterd
 import { db } from "@otterdeploy/db";
 import { databaseResource, project, resource } from "@otterdeploy/db/schema/project";
 import { type ContainerSummary, Docker } from "@otterdeploy/docker";
+import { canonicalId } from "@otterdeploy/shared/id";
 import { and, eq, isNull } from "drizzle-orm";
 type OrgId = OrganizationId;
 
@@ -99,7 +100,9 @@ function toTerminalContainer(
 
   const rawName = c.Names?.[0] ?? c.Id;
   const { serviceName, slot } = splitTaskName(rawName);
-  const labelResourceId = labels["otterdeploy.resource.id"];
+  const rawLabelResourceId = labels["otterdeploy.resource.id"];
+  // Old prefix on pre-rename containers; callers match this against DB ids.
+  const labelResourceId = rawLabelResourceId ? canonicalId(rawLabelResourceId) : rawLabelResourceId;
 
   return {
     containerId: c.Id,

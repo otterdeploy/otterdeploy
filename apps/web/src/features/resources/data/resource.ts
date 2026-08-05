@@ -41,7 +41,7 @@ function parseCol<T extends z.ZodType>(
   return schema.parse(expr.value);
 }
 
-const projectIdSchema = zId("project");
+const projectIdSchema = zId("prj");
 const environmentIdSchema = zId("env");
 
 /**

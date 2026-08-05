@@ -201,7 +201,40 @@ interface UpdateServiceArgs {
   log: RequestLogger;
 }
 
-function buildUpdateServiceInput(
+/**
+ * The git-binding half of an update patch, declared-only throughout: a key the
+ * manifest omits is live-managed and must not be written, or every apply of a
+ * manifest that simply doesn't mention it would clear the column.
+ *
+ * Every gate here mirrors one in `stack/manifest/diff-source.ts` diffGitBinding.
+ * Keep them in lockstep — a gate that diffs but doesn't apply is invisible at
+ * runtime: the pending bar shows the change, Apply reports success, and the
+ * identical change is back on the next diff.
+ */
+function buildGitBindingPatch(spec: ServiceManifest, gitRepoId: GitRepoId | null) {
+  if (spec.source !== "git") return {};
+  return {
+    // `repo` gates the binding triple only. A pre-migration manifest (repo was
+    // project-level) omits it and must not clobber the row to null.
+    ...(spec.repo !== undefined
+      ? {
+          gitRepoId,
+          branch: spec.branch ?? null,
+          imageRepository: spec.imageRepository ?? null,
+        }
+      : {}),
+    ...(spec.previews !== undefined ? { previewsEnabled: spec.previews } : {}),
+    // Root directory is gated on its own, NOT behind `repo`: the Source card
+    // can move a service between folders in the same repo, and that edit has to
+    // apply without a rebinding.
+    ...(spec.sourceSubdir !== undefined ? { sourceSubdir: spec.sourceSubdir } : {}),
+    ...(spec.build !== undefined ? { buildConfig: spec.build } : {}),
+  };
+}
+
+/** Exported for tests — see {@link buildGitBindingPatch} on why the gates here
+ *  have to match the diff's. */
+export function buildUpdateServiceInput(
   args: UpdateServiceArgs,
   gitRepoId: GitRepoId | null,
 ): Parameters<typeof updateService>[0] {
@@ -216,22 +249,7 @@ function buildUpdateServiceInput(
     organizationId: args.organizationId,
     resourceId: args.resourceId,
     ...patch,
-    // Only rewrite the git binding when the manifest actually declares `repo`.
-    // An omitted repo means "leave the existing binding alone" — a pre-migration
-    // manifest (repo was project-level) must not clobber the row to null. Matches
-    // the diff gate in diff-helpers.ts diffSourceFields.
-    ...(args.spec.source === "git" && args.spec.repo !== undefined
-      ? {
-          gitRepoId,
-          branch: args.spec.branch ?? null,
-          imageRepository: args.spec.imageRepository ?? null,
-        }
-      : {}),
-    // Declared-only, matching the diff gate: an omitted `previews` leaves the
-    // live toggle alone.
-    ...(args.spec.source === "git" && args.spec.previews !== undefined
-      ? { previewsEnabled: args.spec.previews }
-      : {}),
+    ...buildGitBindingPatch(args.spec, gitRepoId),
     command: args.spec.startCommand ?? undefined,
     entrypoint: args.spec.entrypoint ?? undefined,
     replicas: args.spec.replicas,

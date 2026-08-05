@@ -7,6 +7,7 @@ import type { ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { resource } from "@otterdeploy/db/schema/project";
+import { isSecretKey } from "@otterdeploy/shared/env-var-kind";
 import { and, eq } from "drizzle-orm";
 
 import type { StackReconcileContext } from "./reconcile";
@@ -81,17 +82,50 @@ interface MappedMount {
   readOnly: boolean;
 }
 
-/** Bind mounts only, and only when the stack materialized its file tree
- *  (multi-file inline). Each bind source resolves to an absolute path under
- *  `stackDir`; the runtime bind-mounts it (materializeServiceMounts already
- *  supports type:"bind"). Named volumes + tmpfs are left as-is (unchanged from
- *  today) to avoid touching how every existing compose stack deploys. */
-function toBindMounts(svc: ParsedComposeService, stackDir: string | undefined): MappedMount[] {
-  if (!stackDir) return [];
+/**
+ * The docker volume backing a compose named volume, scoped to its stack.
+ *
+ * Compose volume names are file-local (`data`, `db-data`), so two stacks in a
+ * project would otherwise share one docker volume and each other's data. Same
+ * `od-<stack>-<name>` shape as composeSwarmServiceName, for the same reason.
+ */
+export function composeVolumeName(stackName: string, volumeName: string): string {
+  return `${PLATFORM.service.serviceNamePrefix}${stackName}-${volumeName}`
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .slice(0, 63);
+}
+
+/**
+ * Compose mounts → the runtime's mount records.
+ *
+ * NAMED VOLUMES were previously dropped here — the loop skipped everything that
+ * was not a bind, and the comment claimed they were "left as-is". They were not
+ * left anywhere. Nothing mounted them, so a service either fell back to an
+ * ANONYMOUS volume created by its image's own VOLUME directive (a fresh, empty
+ * one on every redeploy — silent data loss for rustfs and every bundled
+ * Postgres) or got no persistence at all. Vaultwarden is the only reason this
+ * surfaced: it refuses to start without a real mount at /data and said so.
+ *
+ * Bind mounts still need a materialized file tree (`stackDir`, multi-file
+ * inline stacks); named volumes need nothing — docker creates them on first
+ * use, and a deterministic name means a redeploy reattaches the same data.
+ */
+function toMounts(svc: ParsedComposeService, ctx: StackReconcileContext): MappedMount[] {
   const out: MappedMount[] = [];
   for (const v of svc.volumes) {
-    if (v.type !== "bind" || !v.source) continue;
-    const abs = resolveBindSource(v.source, stackDir);
+    if (v.type === "volume" && v.source) {
+      out.push({
+        type: "volume",
+        target: v.target,
+        source: composeVolumeName(ctx.stackName, v.source),
+        content: null,
+        readOnly: v.readOnly,
+      });
+      continue;
+    }
+    if (v.type !== "bind" || !v.source || !ctx.stackDir) continue;
+    const abs = resolveBindSource(v.source, ctx.stackDir);
     if (!abs) continue;
     out.push({ type: "bind", target: v.target, source: abs, content: null, readOnly: v.readOnly });
   }
@@ -122,7 +156,7 @@ export function toServiceFields(
     | "memoryLimitMb"
   >;
   ports: CreateServiceInput["ports"];
-  env: Array<{ key: string; value: string }>;
+  env: Array<{ key: string; value: string; isSecret: boolean }>;
   /** Bind mounts for a multi-file inline stack (source → materialized host
    *  path). Empty for single-file / git stacks. Seeded on create only. */
   mounts: MappedMount[];
@@ -131,7 +165,16 @@ export function toServiceFields(
   // Interpolate compose env against the project bag, then flatten to the
   // {key,value} rows createServiceRecord seeds.
   const { env: resolvedEnv } = substituteComposeEnv(svc.env, ctx.projectVars);
-  const env = Object.entries(resolvedEnv).map(([key, value]) => ({ key, value }));
+  // Flag credentials as they are written. Nothing on the compose path ever set
+  // this, so every child service stored its secrets unflagged and any UI that
+  // trusts the flag rendered AUTHENTIK_SECRET_KEY and POSTGRES_PASSWORD in the
+  // clear. Same classifier the wizard and the template modal use, so all three
+  // agree on what counts as a secret.
+  const env = Object.entries(resolvedEnv).map(([key, value]) => ({
+    key,
+    value,
+    isSecret: isSecretKey(key),
+  }));
   // First http-ish port (tcp) is the primary — the one a public domain fronts.
   const seenPorts = new Set<number>();
   let primaryAssigned = false;
@@ -166,19 +209,41 @@ export function toServiceFields(
     },
     ports,
     env,
-    mounts: toBindMounts(svc, ctx.stackDir),
+    mounts: toMounts(svc, ctx),
   };
 }
 
-/** Pick a project-unique resource name for a new stack service. Prefers the
- *  bare compose key (e.g. "web"); if another resource already owns that name,
- *  suffix until free. The common collision is the stack's OWN resource (a
- *  single-service stack named after its service, e.g. stack "uptime-kuma" with
- *  service "uptime-kuma"), so the first fallback is a descriptive `-service`
- *  rather than a `-2` that implies a phantom sibling. Matching on re-reconcile
- *  keys off serviceName, so a suffixed display name stays stable. */
-export async function pickResourceName(projectId: ProjectId, composeName: string): Promise<string> {
-  const base = composeName.slice(0, 60);
+/**
+ * Project-unique resource name for a new stack service, namespaced by its stack.
+ *
+ * `authentik` + `server` → `authentik-server`, not `server`. Compose service
+ * keys are written for the file's own scope, so half the catalog names its main
+ * container `server`, `web`, `app` or `db`. Those became the resource name AND,
+ * through it, the generated host — so Authentik's UI landed on
+ * `server-store.<ip>.sslip.io`, which says nothing about what it serves and
+ * collides with the next stack that also has a `server`.
+ *
+ * The exception is the namesake: a single-service stack named after its service
+ * (`rustfs` containing `rustfs`) would otherwise become `rustfs-rustfs`. There
+ * the stack's own name IS the answer, so the child takes it — and the stack
+ * resource already owns that name, which is what the numeric fallback below is
+ * for. This replaces the old `-service` suffix, which put a disambiguator the
+ * operator never chose into every URL.
+ *
+ * Forward-only: reconcile matches existing children on `serviceName` (derived
+ * from stackName + compose key, never renamed), so stacks deployed before this
+ * keep the names they have.
+ */
+export async function pickResourceName(
+  projectId: ProjectId,
+  composeName: string,
+  stackName: string,
+): Promise<string> {
+  const base = (composeName === stackName ? stackName : `${stackName}-${composeName}`).slice(0, 60);
+  // The namesake case ALWAYS lands here: the stack resource already owns that
+  // exact name, so candidate 0 can never be free for it. `-service` says what
+  // the row is; `-2` implies a sibling that does not exist (and is what shipped
+  // for a moment — `vaultwarden-2`).
   const candidateAt = (i: number) =>
     i === 0 ? base : i === 1 ? `${base}-service` : `${base}-${i}`;
   for (let i = 0; i < 50; i++) {

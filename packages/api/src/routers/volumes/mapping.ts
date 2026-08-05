@@ -22,6 +22,8 @@
  * daemon or database.
  */
 
+import { canonicalId } from "@otterdeploy/shared/id";
+
 export interface VolumeContainerRef {
   id: string;
   name: string;
@@ -145,7 +147,9 @@ export function mapVolume(
 
   // 1 + 2: live container mounts, resolved through labels.
   for (const c of containers) {
-    const resourceId = c.labels[RESOURCE_ID_LABEL];
+    // Pre-shortening containers carry the old prefix on this label.
+    const labelled = c.labels[RESOURCE_ID_LABEL];
+    const resourceId = labelled ? canonicalId(labelled) : labelled;
     const resource = resourceId ? index.resourcesById.get(resourceId) : undefined;
     if (resource) {
       byResource.set(resource.resourceId, {

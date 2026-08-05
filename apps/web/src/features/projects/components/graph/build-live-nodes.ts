@@ -220,6 +220,9 @@ export const buildLiveNodes = (
           volumes,
           // Real resource id → the card opens that service's full panel.
           resourceId: c.resourceId,
+          // The stack has no single host — each member answers for itself, so
+          // the Visit affordance lives on the member row.
+          publicUrl: c.publicEnabled ? c.publicDomain : null,
           status: childServiceStatus(c, live.length > 0 ? live : all),
           ...(restarts > 0 ? { restarts } : {}),
         };

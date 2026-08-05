@@ -5,7 +5,7 @@ import { parseLoadSubsetOptions, queryCollectionOptions } from "@tanstack/query-
 import { parseCol, projectIdSchema } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-const routeIdSchema = zId("proxy_route");
+const routeIdSchema = zId("rt");
 
 /**
  * Caddy proxy routes for the active project, sourced from

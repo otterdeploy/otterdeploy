@@ -25,9 +25,10 @@ import type { ComposeService } from "./panel-parts";
 import { resolvePanelTab } from "../_shared/panel-tab";
 import { ComposePanelHeader, ComposeStatusBar } from "./panel-parts";
 import { ComposeFileTab, ComposeServicesTab, ComposeSettingsTab } from "./panel-tabs";
+import { StackVariablesTab } from "./stack-variables-tab";
 import { useComposeServiceStatus } from "./use-compose-service-status";
 
-type ComposeTab = "deployments" | "services" | "file" | "settings";
+type ComposeTab = "deployments" | "services" | "file" | "settings" | "variables";
 
 interface ComposeResourcePanelProps {
   resource: {
@@ -70,7 +71,13 @@ interface ComposeResourcePanelProps {
   onTabChange: (tab: string) => void;
 }
 
-const COMPOSE_TABS: readonly ComposeTab[] = ["deployments", "services", "file", "settings"];
+const COMPOSE_TABS: readonly ComposeTab[] = [
+  "deployments",
+  "services",
+  "variables",
+  "file",
+  "settings",
+];
 
 // The only tab that means anything for a staged-create ghost: the stack isn't
 // parsed or deployed yet, so deployments/file/settings are disabled below and a
@@ -167,6 +174,9 @@ export function ComposeResourcePanel({
             <TabsTrigger value="services" className="px-2.5 py-2.5">
               Services
             </TabsTrigger>
+            <TabsTrigger value="variables" className="px-2.5 py-2.5" disabled={pending}>
+              Variables
+            </TabsTrigger>
             <TabsTrigger value="file" className="px-2.5 py-2.5" disabled={pending}>
               Compose
             </TabsTrigger>
@@ -193,6 +203,13 @@ export function ComposeResourcePanel({
                   services={resource.services}
                   source={resource.source}
                   serviceStatus={serviceStatus}
+                />
+              </TabsContent>
+
+              <TabsContent value="variables" className="px-4 pt-5 pb-6 sm:px-6">
+                <StackVariablesTab
+                  projectId={resource.projectId}
+                  stackResourceId={resource.resourceId}
                 />
               </TabsContent>
 

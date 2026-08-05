@@ -57,6 +57,10 @@ export interface ComposeServiceInfo {
   hasBuild: boolean;
   /** Named-volume sources the service mounts — rendered as chips. */
   volumes: string[];
+  /** Public host this service is reachable at, when it has one. Drives the
+   *  card's Visit affordance — a running service with a domain is something
+   *  the operator wants to open from the graph, not hunt for in a panel. */
+  publicUrl?: string | null;
   /** This service's own runtime state. Undefined → treated as offline. */
   status?: StackServiceStatus;
   /** Real service resource id — present once the stack is deployed, so the
@@ -165,6 +169,9 @@ export interface ResourceNodeData extends Record<string, unknown> {
    *  reduced opacity + a dashed border so it's visually distinct from
    *  an applied resource. */
   pending?: "create" | "update" | "delete";
+  /** Public host for a service node, when exposed. See ComposeServiceInfo's
+   *  field of the same name — a stack's members carry their own. */
+  publicUrl?: string | null;
   /** Preview-only (kind="preview"): the satellite card's payload. */
   preview?: PreviewInfo;
 }

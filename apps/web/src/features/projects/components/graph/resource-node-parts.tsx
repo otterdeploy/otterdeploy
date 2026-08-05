@@ -21,6 +21,7 @@ import { cn } from "@/shared/lib/utils";
 import type { ComposeServiceInfo, ReplicaInfo, VolumeAttachment } from "./resource-node-types";
 
 import { stackStatusMeta, statusMeta } from "./resource-node-meta";
+import { VisitPill } from "./visit-pill";
 
 /** Comet border — a light travels the edge while a resource has a staged
  *  change. Blue for a pending create (new resource), yellow for a pending
@@ -248,6 +249,9 @@ export function StackServiceCard({
             build
           </span>
         ) : null}
+        {/* Icon-only: the member row already carries a name, a build chip and
+            a status line — the word "Visit" would push one of them off. */}
+        {service.publicUrl ? <VisitPill url={service.publicUrl} compact /> : null}
       </div>
       <StackServiceStatusLine service={service} />
       <StackVolumeChips volumes={service.volumes} />

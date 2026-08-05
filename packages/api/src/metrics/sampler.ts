@@ -13,6 +13,7 @@ import type { Readable } from "node:stream";
 import { db } from "@otterdeploy/db";
 import { resourceMetric } from "@otterdeploy/db/schema";
 import { Docker } from "@otterdeploy/docker";
+import { canonicalId } from "@otterdeploy/shared/id";
 import { log } from "evlog";
 
 import { healthFromStatus, recordHealthObservations } from "./health-detector";
@@ -133,8 +134,13 @@ export async function sampleAllContainers(): Promise<void> {
     const rows: Array<typeof resourceMetric.$inferInsert> = [];
     const healthObserved: Array<{ resourceId: ResourceId; health: "healthy" | "unhealthy" }> = [];
     for (const container of list.value) {
-      const resourceId = container.Labels?.[RESOURCE_ID_LABEL];
-      if (!resourceId) continue; // only chart label-tagged resources
+      const labelled = container.Labels?.[RESOURCE_ID_LABEL];
+      if (!labelled) continue; // only chart label-tagged resources
+      // A container created before the ID prefixes were shortened carries the
+      // old spelling, and a label can't be rewritten without recreating the
+      // container. Left as-is, its samples key to an ID no resource has and
+      // drop off that resource's charts.
+      const resourceId = canonicalId(labelled);
 
       // Observe health BEFORE the (fallible) stats read so a stats hiccup never
       // hides a health transition. Only healthcheck-bearing containers signal.

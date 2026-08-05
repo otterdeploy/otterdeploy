@@ -200,6 +200,7 @@ export async function createServiceRecord(input: CreateServiceInput): Promise<Se
                 serviceResourceId: createdService.resourceId,
                 key: e.key,
                 value: e.value,
+                isSecret: e.isSecret ?? false,
               })),
             )
             .returning();
@@ -228,10 +229,15 @@ export async function updateServiceRecord(
   // path — strip them out, then drop undefined so only explicitly-provided
   // spec fields land in the SET list (every remaining key maps 1:1 to a
   // serviceResource column).
+  //
+  // `sourceSubdir` is deliberately NOT in this list: it's a build input (which
+  // directory in the repo the builder hands to nixpacks), not identity, and the
+  // manifest diffs it as one. Stripping it here made a staged root-directory
+  // change un-appliable — the diff surfaced it, apply silently dropped it, and
+  // the same pending change came straight back on the next diff.
   const {
     status: _status,
     source: _source,
-    sourceSubdir: _sourceSubdir,
     internalHostname: _internalHostname,
     serviceName: _serviceName,
     networkName: _networkName,

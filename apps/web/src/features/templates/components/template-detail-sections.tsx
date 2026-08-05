@@ -4,6 +4,7 @@
  */
 import type { ParsedCompose } from "@otterdeploy/api/stack/compose/types";
 
+import { classifyEnvVar } from "@otterdeploy/shared/env-var-kind";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -16,6 +17,34 @@ import {
 } from "@/shared/components/ui/table";
 
 import type { TemplateEnvVar } from "../catalog";
+
+/**
+ * What the operator will actually have to type for this variable.
+ *
+ * This column used to print `generateHint` — strings like
+ * `openssl rand -base64 32` — which told them to hand-generate a value the
+ * wizard fills in two clicks later, on a step whose own copy says secrets are
+ * auto-generated. Two surfaces contradicting each other about one value.
+ *
+ * Both now read `classifyEnvVar`, so this table promises exactly what the
+ * seeding code does. `generateHint` survives only as the fallback for keys the
+ * platform genuinely cannot fill.
+ */
+function SuppliedBy({ varKey, generateHint }: { varKey: string; generateHint?: string }) {
+  const kind = classifyEnvVar(varKey);
+  if (kind === "plain") {
+    return (
+      <span className="font-mono text-muted-foreground">
+        {generateHint ?? "a value you choose"}
+      </span>
+    );
+  }
+  return (
+    <span className="text-muted-foreground">
+      {kind === "secret" ? "Generated for you" : "Filled with this stack's address"}
+    </span>
+  );
+}
 
 export function IncludedServicesTable({ parsed }: { parsed: ParsedCompose }) {
   const { t } = useTranslation();
@@ -72,7 +101,7 @@ export function RequiredEnvTable({ requiredEnv }: { requiredEnv: TemplateEnvVar[
           <TableRow>
             <TableHead>Key</TableHead>
             <TableHead>{t("templates.description")}</TableHead>
-            <TableHead>{t("templates.suggestedValue")}</TableHead>
+            <TableHead>You supply</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -80,8 +109,8 @@ export function RequiredEnvTable({ requiredEnv }: { requiredEnv: TemplateEnvVar[
             <TableRow key={v.key}>
               <TableCell className="font-mono text-xs font-medium">{v.key}</TableCell>
               <TableCell className="text-xs text-muted-foreground">{v.description}</TableCell>
-              <TableCell className="font-mono text-[11px] text-muted-foreground">
-                {v.generateHint ?? "—"}
+              <TableCell className="text-[11px]">
+                <SuppliedBy varKey={v.key} generateHint={v.generateHint} />
               </TableCell>
             </TableRow>
           ))}

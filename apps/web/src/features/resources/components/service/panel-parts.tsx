@@ -5,12 +5,13 @@
  * the header's runtime action cluster lives in `panel-header-actions.tsx`.
  */
 
-import { Cancel01Icon, LinkSquare02Icon, PauseIcon } from "@hugeicons/core-free-icons";
+import { Cancel01Icon, PauseIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
 import type { FrameworkKind } from "@/features/projects/components/framework-logo";
 
 import { PanelIcon } from "@/features/resources/components/_shared/atoms";
+import { PublicHostLink } from "@/shared/components/public-host-link";
 import { Button } from "@/shared/components/ui/button";
 import { shortImageRef } from "@/shared/lib/image-ref";
 
@@ -117,19 +118,7 @@ export function ServiceStatusBar({
           <>
             {" · public on "}
             {/* The domain is the one thing here anyone wants to click. */}
-            <a
-              href={`https://${publicDomain}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group inline-flex items-center gap-1 text-foreground/90 underline-offset-2 hover:underline"
-            >
-              {publicDomain}
-              <HugeiconsIcon
-                icon={LinkSquare02Icon}
-                strokeWidth={2}
-                className="size-3 opacity-0 transition-opacity group-hover:opacity-60"
-              />
-            </a>
+            <PublicHostLink host={publicDomain} className="text-foreground/90" />
           </>
         ) : (
           ""

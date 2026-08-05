@@ -81,7 +81,7 @@ async function persistManifestEnv(
 async function createGitStackFromManifest(
   args: CreateComposeArgs,
   spec: GitManifest,
-  _project: ManifestProject,
+  project: ManifestProject,
   exposed: ExposedSeed[],
   stackName: string,
 ): Promise<CreateResult> {
@@ -128,6 +128,11 @@ async function createGitStackFromManifest(
     try: () =>
       createComposeRecord({
         projectId,
+        // Stamp the environment like every other create path. Unstamped rows
+        // are only visible because MAIN additionally owns NULL (a legacy
+        // allowance in inEnvironmentScope) — a non-main environment would
+        // never see this stack.
+        environmentId: project.environmentId,
         name,
         source: "git",
         composeContent: null,
@@ -183,6 +188,7 @@ async function createGitStackFromManifest(
 async function createInlineStackFromManifest(
   args: CreateComposeArgs,
   spec: InlineManifest,
+  project: ManifestProject,
   exposed: ExposedSeed[],
   stackName: string,
 ): Promise<CreateResult> {
@@ -200,6 +206,8 @@ async function createInlineStackFromManifest(
     try: () =>
       createComposeRecord({
         projectId,
+        // See the git branch above — same reason.
+        environmentId: project.environmentId,
         name,
         source: "inline",
         composeContent,
@@ -267,5 +275,5 @@ export async function createComposeFromManifest(args: CreateComposeArgs): Promis
 
   return spec.source === "git"
     ? createGitStackFromManifest(args, spec, project, exposed, stackName)
-    : createInlineStackFromManifest(args, spec, exposed, stackName);
+    : createInlineStackFromManifest(args, spec, project, exposed, stackName);
 }

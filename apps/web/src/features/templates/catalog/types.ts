@@ -12,6 +12,7 @@ export type TemplateCategoryId =
   | "cms"
   | "crm"
   | "analytics"
+  | "ai"
   | "automation"
   | "observability"
   | "data"
@@ -22,6 +23,7 @@ export const TEMPLATE_CATEGORIES: { id: TemplateCategoryId; label: string }[] = 
   { id: "cms", label: "CMS" },
   { id: "crm", label: "CRM" },
   { id: "analytics", label: "Analytics" },
+  { id: "ai", label: "AI" },
   { id: "automation", label: "Automation" },
   { id: "observability", label: "Observability" },
   { id: "data", label: "Data & storage" },

@@ -11,7 +11,8 @@
  *      so it's never part of the public input.
  *   2. internal-caller-only fields (set by the manifest reconciler, not
  *      exposed on the HTTP contract): `skipBuildBindingCheck`, the extra
- *      `restart`/`resources` knobs, `preDeploy`, `buildConfig`.
+ *      `restart`/`resources` knobs, `preDeploy`, `buildConfig`, and the git
+ *      binding (`gitRepoId`/`branch`/`sourceSubdir`/`imageRepository`).
  */
 
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
@@ -109,6 +110,10 @@ export interface UpdateServiceInput extends Omit<
   buildConfig?: BuildConfigInput | null;
   gitRepoId?: GitRepoId | null;
   branch?: string | null;
+  /** Root directory in the repo the builder builds from. Internal-caller-only
+   *  like the rest of the git binding — the Source card edits it by staging a
+   *  manifest, and the reconciler brings it here. */
+  sourceSubdir?: string | null;
   imageRepository?: string | null;
   previewsEnabled?: boolean;
 }
@@ -249,6 +254,7 @@ export function toUpdateRecordPatch(input: UpdateServiceInput) {
     // updateServiceRecord); an explicit value/null sets or clears the binding.
     gitRepoId: input.gitRepoId,
     branch: input.branch,
+    sourceSubdir: input.sourceSubdir,
     imageRepository: input.imageRepository,
     previewsEnabled: input.previewsEnabled,
   };

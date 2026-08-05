@@ -108,9 +108,20 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         exact: true,
         tourId: "nav-projects",
       },
-      // No "Templates" slot (od-u63.2) — it's a creation path (the + New
-      // service wizard's "From template" source), not a destination. The
-      // gallery page + its palette entry stay reachable via PALETTE_EXTRA_NAV.
+      {
+        // od-u63.2 removed this slot on the reasoning that Templates is a
+        // creation path, not a destination — true of an 18-entry list that
+        // existed to seed the wizard. The catalog is now 54 entries across 9
+        // categories with search and category filters, i.e. something you
+        // browse before you know what you want, which is what a destination
+        // is. Palette-only discovery does not serve that: you cannot search a
+        // catalog by name when the point is that you do not know the name.
+        title: "Templates",
+        i18nKey: "nav.templates",
+        to: "/$orgSlug/templates",
+        icon: PackageIcon,
+        keywords: ["gallery", "stacks", "deploy", "catalog", "marketplace"],
+      },
       {
         title: "Terminal",
         i18nKey: "nav.terminal",
@@ -242,20 +253,16 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
 ];
 
 /**
- * Destinations that are reachable (palette, deep link) but intentionally NOT
- * sidebar slots — creation paths rather than places you "go" (od-u63.2).
- * Merged into the palette only; see `ORG_NAV_GROUPS` in
+ * Destinations reachable from the palette and by deep link but deliberately
+ * absent from the sidebar — creation paths rather than places you "go"
+ * (od-u63.2). Merged into the palette's first group; see `ORG_NAV_GROUPS` in
  * `command-palette/components/nav-items.tsx`.
+ *
+ * Empty since Templates graduated to a real sidebar slot. Kept because the
+ * seam is the useful part: the next creation path that needs palette reach
+ * without a sidebar row belongs here, and the palette already spreads it.
  */
-export const PALETTE_EXTRA_NAV: readonly NavManifestItem[] = [
-  {
-    title: "Templates",
-    i18nKey: "nav.templates",
-    to: "/$orgSlug/templates",
-    icon: PackageIcon,
-    keywords: ["gallery", "stacks", "deploy", "catalog"],
-  },
-];
+export const PALETTE_EXTRA_NAV: readonly NavManifestItem[] = [];
 
 /** Pinned entry at the bottom of the operational sidebar — enters the zone. */
 export const SETTINGS_ENTRY: NavManifestItem = {

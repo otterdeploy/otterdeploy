@@ -29,7 +29,7 @@ process.env.RESEND_API_KEY ??= "test-resend-key";
 
 const orgA = "org_a" as OrganizationId;
 const orgB = "org_b" as OrganizationId;
-const victimRepoId = "gitrepo_victim" as GitRepoId;
+const victimRepoId = "gitr_victim" as GitRepoId;
 
 // getRepoForOrg is exercised directly (with real db-shaped mocks) in
 // repo-scope.test.ts; here we only need it to behave like "org B's private

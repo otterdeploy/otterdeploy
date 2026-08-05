@@ -6,7 +6,10 @@
 import type { ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
+import { db } from "@otterdeploy/db";
+import { resource } from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
+import { eq } from "drizzle-orm";
 
 import type { ProjectNotFoundError } from "../project/errors";
 
@@ -55,12 +58,49 @@ async function refreshRouteUpstreams(
  *  chain resource-override → project → org → local → sslip fallback. Kept
  *  separate from the insert so the caller can inspect `source` (and refuse the
  *  sslip fallback) before anything is written. */
+/**
+ * The label a generated host is built from.
+ *
+ * Normally the resource name. For a compose stack's NAMESAKE service it is the
+ * stack's name instead, because the resource name carries a dedup suffix the
+ * operator never chose: a stack and its main service almost always share a name
+ * (`drizzle-gateway` containing service `drizzle-gateway` — true of 51 of the
+ * 54 catalog templates), names are unique per project, so the child lands as
+ * `drizzle-gateway-service` and the URL became
+ * `drizzle-gateway-service-store.…`.
+ *
+ * Using the stack's name is safe rather than clever: it is itself a resource
+ * name in this project, so it is already unique, and the platform ALREADY
+ * treats the compose key as canonical for addressing — `internal_hostname` on
+ * that same row is the un-suffixed `drizzle-gateway`. This makes the public
+ * name agree with the internal one instead of exposing a disambiguator.
+ *
+ * Deliberately narrow: only the child whose compose key equals its stack's
+ * name. A sibling like `db` keeps its own label, so two stacks that each
+ * contain a `db` cannot collide on one domain.
+ */
+async function generatedHostLabel(record: ServiceRecord): Promise<string> {
+  const stackId = record.service.stackId;
+  if (!stackId) return sanitizeSlug(record.resource.name);
+  const [stack] = await db
+    .select({ name: resource.name })
+    .from(resource)
+    .where(eq(resource.id, stackId))
+    .limit(1);
+  if (!stack) return sanitizeSlug(record.resource.name);
+  const stackSlug = sanitizeSlug(stack.name);
+  // `internalHostname` IS the compose service key for a stack child.
+  return record.service.internalHostname === stackSlug
+    ? stackSlug
+    : sanitizeSlug(record.resource.name);
+}
+
 async function resolveGeneratedDomain(
   input: ResourceRef,
   record: ServiceRecord,
   projectSlug: string,
 ): Promise<ResolvedDomain> {
-  const resourceSlug = sanitizeSlug(record.resource.name);
+  const resourceSlug = await generatedHostLabel(record);
   // Walk the chain (resource override → project → org → sslip). The
   // per-resource `publicDomain` column on serviceResource is what feeds
   // resourceOverride — operators who already typed a literal FQDN in

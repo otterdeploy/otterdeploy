@@ -31,8 +31,13 @@ services:
       MINIO_ROOT_USER: \${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: \${MINIO_ROOT_PASSWORD}
     ports:
-      - "9000"
+      # Console FIRST: the primary port is what the generated domain routes to,
+      # and a person clicking Visit wants the UI. Port 9000 is the S3 API — a
+      # browser GET on it correctly answers AccessDenied, which reads as a
+      # broken deploy. SDKs reach the API with an explicit endpoint + creds and
+      # do not depend on which port the platform made primary.
       - "9001"
+      - "9000"
     volumes:
       - minio-data:/data
     healthcheck:
@@ -103,7 +108,7 @@ volumes:
     id: "rustfs",
     name: "RustFS",
     description:
-      "High-performance, S3-compatible object storage written in Rust — a MinIO alternative. Serves the S3 API on 9000 with a web console on 9001; objects persist to a named volume.",
+      "High-performance, S3-compatible object storage written in Rust — a MinIO alternative. S3 API on 9000; the web console is on 9001 at /rustfs/console. Objects persist to a named volume.",
     category: "data",
     includes: ["rustfs"],
     requiredEnv: [
@@ -131,8 +136,13 @@ services:
       RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
       RUSTFS_CONSOLE_ENABLE: "true"
     ports:
-      - "9000"
+      # Console FIRST: the primary port is what the generated domain routes to,
+      # and a person clicking Visit wants the UI. Port 9000 is the S3 API — a
+      # browser GET on it correctly answers AccessDenied, which reads as a
+      # broken deploy. SDKs reach the API with an explicit endpoint + creds and
+      # do not depend on which port the platform made primary.
       - "9001"
+      - "9000"
     volumes:
       - rustfs-data:/data
     restart: always

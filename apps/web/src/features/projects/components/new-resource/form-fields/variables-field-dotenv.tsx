@@ -11,6 +11,8 @@
 
 import { useState } from "react";
 
+import { isSecretKey } from "@otterdeploy/shared/env-var-kind";
+
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
 import { Textarea } from "@/shared/components/ui/textarea";
@@ -19,10 +21,6 @@ import { cn } from "@/shared/lib/utils";
 import type { Var } from "./variables-field";
 
 import { I } from "../icons";
-
-// Keys that look like credentials get the secret lock on by default.
-const SECRETISH =
-  /(SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|API_?KEY|ACCESS_?KEY|CREDENTIAL|DSN|AUTH|SALT|WEBHOOK|SIGNING)/i;
 
 /** Parse a dotenv block into rows. Ignores blanks/comments, strips quotes. */
 export function parseEnvText(text: string): Var[] {
@@ -39,7 +37,7 @@ export function parseEnvText(text: string): Var[] {
       .slice(eq + 1)
       .trim()
       .replace(/^(['"])(.*)\1$/, "$2");
-    out.push({ key, value, secret: SECRETISH.test(key) });
+    out.push({ key, value, secret: isSecretKey(key) });
   }
   return out;
 }

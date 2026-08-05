@@ -139,6 +139,11 @@ async function createGitCompose(
     try: () =>
       createComposeRecord({
         projectId: input.projectId,
+        // Stamp the environment like every other create path. Unstamped rows
+        // are only visible because MAIN additionally owns NULL (a legacy
+        // allowance in inEnvironmentScope) — a non-main environment would
+        // never see this stack.
+        environmentId: project.environmentId,
         name,
         source: "git",
         composeContent: null,

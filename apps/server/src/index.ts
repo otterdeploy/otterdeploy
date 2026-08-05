@@ -71,6 +71,42 @@ initLogger({
 
 const app = new Hono<EvlogVariables>();
 
+// Cache policy, set HERE rather than left to the edge or the browser's
+// heuristics. Vite content-hashes every asset filename, so those are immutable
+// and can be cached for a year — but `index.html` is the mutable pointer AT
+// them, and it shipped with no cache directives at all. A browser then applies
+// heuristic caching to it, keeps the old index, and the old index keeps naming
+// the old hashed bundle (itself cached). The result: an operator ran the
+// PREVIOUS build for hours after a deploy, saw a fixed bug still reproducing,
+// and had no way to tell the difference from the fix not working.
+app.use("/*", async (c, next) => {
+  await next();
+  if (c.req.method !== "GET" || c.res.status !== 200) return;
+  // Mutate the response's own headers rather than calling `c.header()`: by the
+  // time this runs, serveStatic has already produced the Response, and
+  // `c.header()` only feeds headers into a response Hono has yet to build. The
+  // difference is silent — it set the asset header (served by the first
+  // handler) and dropped it on index.html (served by the deep-link fallback),
+  // which is the one that actually needed it.
+  const set = (v: string) => {
+    try {
+      c.res.headers.set("Cache-Control", v);
+    } catch {
+      // An immutable Headers (some upstream Responses) — nothing to do, and a
+      // cache hint is never worth failing a request over.
+    }
+  };
+  // Content-hashed build output — the name changes when the bytes do.
+  if (c.req.path.startsWith("/assets/")) {
+    set("public, max-age=31536000, immutable");
+    return;
+  }
+  // Everything else the SPA serves is a mutable entry point (index.html and
+  // the deep-link fallback below). `no-cache` still allows a 304 — it means
+  // "revalidate", not "never store".
+  if (!c.res.headers.get("Cache-Control")) set("no-cache");
+});
+
 // od-5j8.10 — trusted-proxy + body-limit gates. Both run FIRST, ahead of
 // every other middleware (including evlog): sanitizing X-Forwarded-*
 // against the trusted-proxy list before evlog's auditEnricher reads

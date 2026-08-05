@@ -18,9 +18,9 @@ function parseCol<T extends z.ZodType>(
   return schema.parse(expr.value);
 }
 
-const projectIdSchema = zId("project");
-const resourceIdSchema = zId("resource");
-const deploymentIdSchema = zId("deployment");
+const projectIdSchema = zId("prj");
+const resourceIdSchema = zId("res");
+const deploymentIdSchema = zId("dep");
 
 /**
  * Deployment history — each row is one logical push to swarm (see
