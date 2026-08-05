@@ -16,7 +16,7 @@
  * Best-effort by design: publishing must never throw into the deploy path.
  */
 
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
 import type { RedisClient } from "bun";
 
 import { db } from "@otterdeploy/db";
@@ -95,7 +95,7 @@ export function publishRouteUpserted(action: "created" | "updated", route: Proxy
 /** Announce a removed route. No row survives a delete, so this carries keys. */
 export function publishRouteRemoved(
   projectId: ProjectId | string,
-  routeId: string,
+  routeId: ProxyRouteId,
   resourceId: ResourceId | null,
 ): void {
   publishProjectEvent(projectId, { kind: "route", action: "removed", routeId, resourceId });

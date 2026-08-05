@@ -198,7 +198,11 @@ function publishRemovedRows(
   rows: Array<{ id: string; projectId: string; resourceId: string | null }>,
 ): void {
   for (const row of rows) {
-    publishRouteRemoved(row.projectId, row.id, (row.resourceId as ResourceId | null) ?? null);
+    publishRouteRemoved(
+      row.projectId,
+      row.id as ProxyRouteId,
+      (row.resourceId as ResourceId | null) ?? null,
+    );
   }
 }
 
