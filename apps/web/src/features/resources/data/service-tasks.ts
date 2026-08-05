@@ -13,7 +13,11 @@ export const SERVICE_TASKS_COLLECTION_KEY = ["service-tasks"] as const;
 export const serviceTasksCollection = createCollection(
   queryCollectionOptions({
     syncMode: "on-demand",
-    refetchInterval: 5000,
+    // Repair backstop — task transitions push through the project-events
+    // stream and invalidate this collection (see useProjectEvents), so the
+    // poll only covers a missed event. Keep in step with the resource
+    // collection's interval ([[RESOURCE_COLLECTION_KEY]]).
+    refetchInterval: 30_000,
     queryKey: (opts) => {
       const baseQuery = [...SERVICE_TASKS_COLLECTION_KEY];
       const { filters } = parseLoadSubsetOptions(opts);

@@ -93,13 +93,14 @@ export const resourceCollection = createCollection(
         }),
       );
     },
-    // Poll on the same 5s cadence as the task / deployment / serviceTasks
-    // collections. The list now carries `latestDeploymentStatus`, which the
-    // graph node renders — and build-time transitions (building → failed)
-    // schedule no swarm tasks, so they emit no docker event for the
-    // project-events stream to invalidate on. Without polling, a failed build
-    // would leave the node stale until the next navigation.
-    refetchInterval: 5000,
+    // Repair backstop, not the freshness mechanism. Live changes arrive as
+    // pushes: docker transitions via the project-events stream, and
+    // build-time transitions (building → failed schedule no swarm tasks, so
+    // no docker event) via publishResourceChanged on the Redis event bus —
+    // both invalidate this collection through useProjectEvents. The poll
+    // only covers a missed/dropped event. At 5s it multiplied with the
+    // event-driven refetches into ~100 list calls/min on an idle tab.
+    refetchInterval: 30_000,
     queryClient,
     getKey: (item) => item.resourceId,
   }),

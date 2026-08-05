@@ -15,6 +15,7 @@ import type {
   ParsedRestart,
 } from "./types";
 
+import { allowedHostBind, allowedHostBindPaths } from "../../lib/host-binds";
 import { splitCommandString } from "./command-string";
 
 export type Obj = Record<string, unknown>;
@@ -37,7 +38,7 @@ export function normalizeService(name: string, svc: Obj, warnings: string[]): Pa
     env: normalizeEnv(svc.environment),
     envFile: normalizeEnvFile(svc.env_file),
     ports: normalizePorts(svc.ports, name, warnings),
-    volumes: normalizeVolumes(svc.volumes),
+    volumes: normalizeVolumes(svc.volumes, name, warnings),
     networks: toNameList(svc.networks),
     healthcheck: normalizeHealthcheck(svc.healthcheck),
     replicas: typeof deploy.replicas === "number" ? deploy.replicas : 1,
@@ -159,7 +160,26 @@ function parsePortString(raw: string, service: string, warnings: string[]): Pars
   };
 }
 
-function normalizeVolumes(v: unknown): ParsedMount[] {
+/**
+ * Warn when a bind names a host path the platform will not mount.
+ *
+ * A denied bind used to disappear in silence: the stack applied "successfully"
+ * and the container then failed for a reason that pointed at the image rather
+ * than at us (Dozzle: "Could not connect to any Docker Engine"). The mount is
+ * still dropped — this only makes the drop say so, at parse time, where the
+ * wizard already renders warnings.
+ */
+function warnUnmountableBind(mount: ParsedMount, service: string, warnings: string[]): void {
+  if (mount.type !== "bind" || !mount.source) return;
+  if (!mount.source.startsWith("/")) return;
+  if (allowedHostBind(mount.source)) return;
+  warnings.push(
+    `service "${service}": host path "${mount.source}" is not mounted — compose stacks are ` +
+      `confined to their own files. Permitted host paths: ${allowedHostBindPaths().join(", ")}`,
+  );
+}
+
+function normalizeVolumes(v: unknown, service: string, warnings: string[]): ParsedMount[] {
   if (!Array.isArray(v)) return [];
   const out: ParsedMount[] = [];
   for (const entry of v) {
@@ -168,18 +188,23 @@ function normalizeVolumes(v: unknown): ParsedMount[] {
       if (!target) continue;
       const type = entry.type === "bind" || entry.type === "tmpfs" ? entry.type : "volume";
       // Bind sources (host paths) are recorded as-is; the deploy-time compiler
-      // resolves them against the materialized stack tree (see reconcile-map).
-      out.push({
+      // resolves them against the materialized stack tree (see reconcile-map),
+      // or mounts them for real when the path is allowlisted (lib/host-binds).
+      const mount: ParsedMount = {
         type,
         ...(typeof entry.source === "string" ? { source: entry.source } : {}),
         target,
         readOnly: entry.read_only === true,
-      });
+      };
+      warnUnmountableBind(mount, service, warnings);
+      out.push(mount);
       continue;
     }
     if (typeof entry !== "string") continue;
     const mount = parseVolumeString(entry);
-    if (mount) out.push(mount);
+    if (!mount) continue;
+    warnUnmountableBind(mount, service, warnings);
+    out.push(mount);
   }
   return out;
 }

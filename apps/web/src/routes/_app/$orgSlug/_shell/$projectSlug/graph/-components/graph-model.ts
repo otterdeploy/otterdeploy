@@ -182,7 +182,7 @@ export function useGraphModel(
   project: { id: ProjectId },
   /** Environment whose resources the canvas renders. Passed in rather than
    *  resolved here so the canvas and its parent layout can never disagree. */
-  activeEnv: { id: string | undefined },
+  activeEnv: { id: string | undefined; slug: string | undefined },
 ) {
   const { data: resources } = useLiveQuery(
     (q) =>
@@ -214,12 +214,16 @@ export function useGraphModel(
   );
 
   // Pending manifest changes — overlay as ghost nodes for creates and markers
-  // on existing nodes for updates/deletes. Polled on the same 5s cadence as the
-  // pending-changes bar.
+  // on existing nodes for updates/deletes. The input MUST match the
+  // pending-changes bar's (`{ projectId, environment }`) — oRPC derives the
+  // query key from the input, so a mismatched input is a second cache entry
+  // polling the same procedure in parallel. Staging/applying invalidates this
+  // key explicitly (invalidateManifestConsumers), so the interval is only a
+  // repair backstop.
   const diff = useQuery(
     orpc.project.manifest.diff.queryOptions({
-      input: { projectId: project.id },
-      refetchInterval: 5_000,
+      input: { projectId: project.id, environment: activeEnv.slug },
+      refetchInterval: 15_000,
     }),
   );
 
@@ -245,22 +249,23 @@ export function useGraphModel(
   }, [appliedCreates, pendingFrameworks, resources, project.id]);
 
   // Open PR previews — satellite cards hanging off the service they preview.
-  // Same 5s cadence as the manifest diff; previews change on webhook events,
-  // not user interaction, so polling is the honest refresh model.
+  // Previews change on webhook events, not user interaction, so a slow poll
+  // is the honest refresh model — and 30s is plenty for "a PR opened".
   const previews = useQuery(
     orpc.project.previews.list.queryOptions({
       input: { projectId: project.id },
-      refetchInterval: 5_000,
+      refetchInterval: 30_000,
     }),
   );
 
-  // Per-host traffic stats over the last 5m, ~10s cadence — feeds the corner
-  // rollup chip only. Domains themselves live in the Networking tab, not on
-  // the graph.
+  // Per-host traffic stats over the last 5m — feeds the corner rollup chip
+  // only, so a slow cadence is fine. Domains themselves live in the
+  // Networking tab, not on the graph. (The traffic drawer keeps its own
+  // faster query while open.)
   const routeStats = useQuery(
     orpc.edgeLogs.routeStats.queryOptions({
       input: { projectId: project.id, range: "5m" },
-      refetchInterval: 10_000,
+      refetchInterval: 30_000,
     }),
   );
 

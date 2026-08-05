@@ -9,12 +9,14 @@
  *      auto-reconnect — so this matches every other live stream in the
  *      app instead of being the one bespoke EventSource holdout.
  *   3. `upsert` and `delete` apply authoritative rows directly. `resync`
- *      asks the named collection to run its own queryFn again.
+ *      asks the named collection to run its own queryFn again — batched,
+ *      see RESYNC_BATCH_MS.
  */
 
 import { useEffect } from "react";
 
 import { type ProjectId } from "@otterdeploy/shared/id";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { dependenciesCollection } from "@/features/projects/data/dependencies";
 import { proxyRoutesCollection } from "@/features/projects/data/proxy-routes";
@@ -26,11 +28,38 @@ import { resourceCollection } from "@/features/resources/data/resource";
 import { serviceTasksCollection } from "@/features/resources/data/service-tasks";
 import { orpc } from "@/shared/server/orpc";
 
+/** Trailing window over which resync refetches are coalesced. A deploy emits
+ *  docker events in bursts (create/start/die per container), and every event
+ *  fans out to several collection resyncs — each an immediate round trip.
+ *  Without batching, a burst of N events cost N× `resource.list` +
+ *  N× `serviceTasks` refetches within a second (the request storm of
+ *  2026-08-05, ~200 req/min idle). One flush per window per collection caps
+ *  that at 1/s while keeping the UI effectively live. Pushed rows
+ *  (upsert/delete) are NOT batched — a direct write is free and carries the
+ *  authoritative data. */
+const RESYNC_BATCH_MS = 1_000;
+
 export function useProjectEvents(projectId?: ProjectId | null): void {
+  const qc = useQueryClient();
+
   useEffect(() => {
     if (!projectId) return;
 
     const ctrl = new AbortController();
+
+    // Keyed by a stable string so repeat events for the same collection
+    // collapse to one refetch per flush.
+    const pending = new Map<string, () => void>();
+    let flushTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleResync = (key: string, refetch: () => void) => {
+      pending.set(key, refetch);
+      flushTimer ??= setTimeout(() => {
+        flushTimer = null;
+        const batch = [...pending.values()];
+        pending.clear();
+        for (const run of batch) run();
+      }, RESYNC_BATCH_MS);
+    };
 
     void (async () => {
       try {
@@ -52,20 +81,44 @@ export function useProjectEvents(projectId?: ProjectId | null): void {
           }
 
           switch (event.collection) {
-            case "resources":
-              void resourceCollection.utils.refetch();
+            case "resources": {
+              scheduleResync("resources", () => {
+                void resourceCollection.utils.refetch();
+              });
+              // The detail panel's `project.resource.get` is a plain useQuery
+              // outside any collection — keep it live for the affected
+              // resource until it too rides a pushed-row collection.
+              const resourceId = event.scope.resourceId;
+              if (resourceId) {
+                scheduleResync(`resource-get:${resourceId}`, () => {
+                  void qc.invalidateQueries({
+                    queryKey: orpc.project.resource.get.queryKey({
+                      input: { projectId, resourceId },
+                    }),
+                  });
+                });
+              }
               break;
+            }
             case "deployments":
-              void deploymentsCollection.utils.refetch();
+              scheduleResync("deployments", () => {
+                void deploymentsCollection.utils.refetch();
+              });
               break;
             case "deployment-tasks":
-              void deploymentTasksCollection.utils.refetch();
+              scheduleResync("deployment-tasks", () => {
+                void deploymentTasksCollection.utils.refetch();
+              });
               break;
             case "service-tasks":
-              void serviceTasksCollection.utils.refetch();
+              scheduleResync("service-tasks", () => {
+                void serviceTasksCollection.utils.refetch();
+              });
               break;
             case "dependencies":
-              void dependenciesCollection.utils.refetch();
+              scheduleResync("dependencies", () => {
+                void dependenciesCollection.utils.refetch();
+              });
               break;
           }
         }
@@ -80,6 +133,7 @@ export function useProjectEvents(projectId?: ProjectId | null): void {
 
     return () => {
       ctrl.abort();
+      if (flushTimer) clearTimeout(flushTimer);
     };
-  }, [projectId]);
+  }, [projectId, qc]);
 }
