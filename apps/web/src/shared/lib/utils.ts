@@ -20,4 +20,4 @@ export function parseCol<T extends z.ZodType>(
   return schema.parse(expr.value);
 }
 
-export const projectIdSchema = zId("project");
+export const projectIdSchema = zId("prj");

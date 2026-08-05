@@ -31,6 +31,7 @@ import { db } from "@otterdeploy/db";
 import { deploymentLog } from "@otterdeploy/db/schema/build";
 import { deployment, project, resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { Docker } from "@otterdeploy/docker";
+import { canonicalId } from "@otterdeploy/shared/id";
 import { eq } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { log } from "evlog";
@@ -212,8 +213,13 @@ function isManagedDie(event: DockerEvent): event is ContainerEvent {
 }
 
 async function handleDie(event: ContainerEvent): Promise<void> {
-  const deploymentId = event.labels["otterdeploy.deployment.id"];
-  const resourceId = event.labels["otterdeploy.resource.id"];
+  // Labels are stamped at container creation and never rewritten, so a
+  // container predating the ID-prefix shortening still reports the old
+  // spelling; canonicalise before either is used to look anything up.
+  const rawDeploymentId = event.labels["otterdeploy.deployment.id"];
+  const rawResourceId = event.labels["otterdeploy.resource.id"];
+  const deploymentId = rawDeploymentId ? canonicalId(rawDeploymentId) : rawDeploymentId;
+  const resourceId = rawResourceId ? canonicalId(rawResourceId) : rawResourceId;
   if (!deploymentId || !resourceId) return;
 
   const rawExit = (event.raw.Actor?.Attributes as Record<string, string> | undefined)?.exitCode;

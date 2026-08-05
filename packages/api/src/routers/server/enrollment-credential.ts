@@ -1,6 +1,6 @@
 import type { NodeEnrollmentId } from "@otterdeploy/shared/id";
 
-import { ID_PREFIX } from "@otterdeploy/shared/id";
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { createHash } from "node:crypto";
 
 export type EnrollmentRole = "worker" | "manager";
@@ -17,9 +17,11 @@ export function parseEnrollmentCredential(credential: string): { id: NodeEnrollm
   // createId uses a 24-character lowercase cuid2; randomBytes(32) produces
   // exactly 43 base64url characters. Exact bounds prevent oversized bearer
   // inputs from becoming DB/rate-limit-map keys.
-  if (!/^enroll_[a-z0-9]{24}$/.test(id) || !id.startsWith(`${ID_PREFIX.nodeEnrollment}_`)) {
-    return null;
-  }
+  // `hasPrefix` rather than a literal: it tracks ID_PREFIX and still accepts the
+  // pre-shortening spelling, so a node enrolled before the rename keeps its
+  // working credential.
+  if (!hasPrefix(id, ID_PREFIX.nodeEnrollment)) return null;
+  if (!/^[a-z0-9]+_[a-z0-9]{24}$/.test(id)) return null;
   if (!/^[A-Za-z0-9_-]{43}$/.test(secret)) return null;
   return { id: id as NodeEnrollmentId };
 }

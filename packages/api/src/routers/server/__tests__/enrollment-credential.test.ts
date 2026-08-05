@@ -8,10 +8,16 @@ import {
 
 describe("node enrollment credentials", () => {
   test("accepts only an enrollment id followed by a high-entropy base64url secret", () => {
-    const id = "enroll_abcdefghijkmnpqrstuvwxyz";
+    const id = "enr_abcdefghijkmnpqrstuvwxyz";
     const credential = `${id}.${"a".repeat(43)}`;
     expect(parseEnrollmentCredential(credential)).toEqual({ id });
 
+    // A node enrolled before the prefixes were shortened still holds an
+    // `enroll_` credential and must keep authenticating.
+    const legacy = "enroll_abcdefghijkmnpqrstuvwxyz";
+    expect(parseEnrollmentCredential(`${legacy}.${"a".repeat(43)}`)).toEqual({ id: legacy });
+
+    expect(parseEnrollmentCredential("srv_abcdefghijkmnpqrstuvwxyz." + "a".repeat(43))).toBeNull();
     expect(
       parseEnrollmentCredential("server_abcdefghijkmnpqrstuvwxyz." + "a".repeat(43)),
     ).toBeNull();

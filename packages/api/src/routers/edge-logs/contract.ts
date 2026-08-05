@@ -37,7 +37,7 @@ const statusBucket = z.enum(["2xx", "3xx", "4xx", "5xx"]);
 
 const edgeLogQueryInput = z.object({
   /** Restrict to one project's domains; omitted ⇒ all the org's domains. */
-  projectId: zId("project").optional(),
+  projectId: zId("prj").optional(),
   range: timeRange.default("1h"),
   /** Multi-select method/status/host filters; empty/omitted ⇒ no filter. */
   methods: z.array(z.string()).optional(),
@@ -48,7 +48,7 @@ const edgeLogQueryInput = z.object({
 });
 
 const edgeLogTailInput = z.object({
-  projectId: zId("project").optional(),
+  projectId: zId("prj").optional(),
   host: z.string().optional(),
 });
 
@@ -83,7 +83,7 @@ const edgeLogQueryResultSchema = z.object({
 const routeStatsRange = z.enum(["5m", "1h"]);
 
 const routeStatsInput = z.object({
-  projectId: zId("project"),
+  projectId: zId("prj"),
   range: routeStatsRange.default("5m"),
 });
 
@@ -94,7 +94,7 @@ const routeStatSchema = z.object({
   /** Canonical host (lowercase, no port) — matches serviceResource.publicDomain. */
   host: z.string(),
   /** Owning resource (service/database) — null for routes without one. */
-  resourceId: zId("resource").nullable(),
+  resourceId: zId("res").nullable(),
   /** True for the resource's canonical host (mirrors publicDomain). */
   isPrimary: z.boolean(),
   rps: z.number(),
@@ -110,7 +110,7 @@ const routeStatSchema = z.object({
  *  partitions after RETENTION_DAYS = 7); when persistence is off the ring
  *  holds far less, which `source: "ring"` lets the UI label honestly. */
 const requestSeriesInput = z.object({
-  projectId: zId("project"),
+  projectId: zId("prj"),
   windowMinutes: z.number().int().positive().max(10080).default(60),
 });
 
@@ -158,7 +158,7 @@ const edgeEventLineSchema = z.object({
 });
 
 const edgeEventQueryInput = z.object({
-  projectId: zId("project").optional(),
+  projectId: zId("prj").optional(),
   range: timeRange.default("1h"),
   categories: z.array(eventCategory).optional(),
   levels: z.array(eventLevel).optional(),
@@ -168,7 +168,7 @@ const edgeEventQueryInput = z.object({
 });
 
 const edgeEventTailInput = z.object({
-  projectId: zId("project").optional(),
+  projectId: zId("prj").optional(),
   host: z.string().optional(),
 });
 

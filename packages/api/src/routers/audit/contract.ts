@@ -83,7 +83,7 @@ const distinctAuditOutput = z.object({
  *  whose target IS the project or whose target carries the project id (the
  *  `{ type: "resource", id, projectId }` shape most resource mutations set). */
 const listForProjectInput = z.object({
-  projectId: zId("project"),
+  projectId: zId("prj"),
   limit: z.number().int().min(1).max(200).default(50),
   offset: z.number().int().min(0).default(0),
 });
