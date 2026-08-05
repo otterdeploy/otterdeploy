@@ -41,8 +41,9 @@ type InboxItem = InboxData["items"][number];
 const inboxInput = { input: {} } as const;
 
 /** Idle cadence. A build's terminal notification is worth having promptly, so
- *  the poll tightens while work is in flight (see {@link useInbox}). */
-const INBOX_POLL_IDLE_MS = 30_000;
+ *  the poll tightens while work is in flight (see {@link useInbox}); with
+ *  nothing building there is nothing imminent to announce, so idle is slow. */
+const INBOX_POLL_IDLE_MS = 60_000;
 const INBOX_POLL_ACTIVE_MS = 5_000;
 
 function useInbox(busy: boolean) {

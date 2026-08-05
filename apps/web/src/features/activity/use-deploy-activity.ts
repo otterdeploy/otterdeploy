@@ -15,9 +15,12 @@ import { orpc } from "@/shared/server/orpc";
 const PAGE = 20;
 
 /** Tight while work is in flight, lazy when the workspace is quiet. A queue you
- *  are watching drain is exactly when a stale number is most annoying. */
+ *  are watching drain is exactly when a stale number is most annoying — but a
+ *  quiet workspace flips to busy the moment YOU deploy (apply/cancel paths
+ *  invalidate this query — see invalidateManifestConsumers), so the idle tick
+ *  only covers deploys started elsewhere and can afford to be slow. */
 const POLL_ACTIVE_MS = 5_000;
-const POLL_IDLE_MS = 20_000;
+const POLL_IDLE_MS = 60_000;
 
 const activityInput = { input: { limit: PAGE } } as const;
 

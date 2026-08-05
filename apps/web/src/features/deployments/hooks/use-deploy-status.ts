@@ -63,9 +63,11 @@ const STRANDED_AFTER_MS = 45 * 60_000;
 /** Enough to see the current wave of activity without pulling real history. */
 const PAGE = 10;
 
-/** Tight while something is in flight; back off when the project is quiet. */
+/** Tight while something is in flight; back off hard when the project is
+ *  quiet — the event stream carries transitions, so idle polling is only a
+ *  dead-stream backstop. */
 const POLL_ACTIVE_MS = 5_000;
-const POLL_IDLE_MS = 20_000;
+const POLL_IDLE_MS = 60_000;
 
 interface DeployRow {
   status: string;
@@ -108,6 +110,10 @@ export function useProjectDeployStatus(projectId: ProjectId | null | undefined):
     // carries the user's filters and window, which would silently scope what the
     // tab is allowed to notice.
     queryKey: [...orpc.deployment.listByProject.key(), projectId ?? "none", "app-status", PAGE],
+    // Fast only while a deploy is in flight. Idle is a slow backstop: real
+    // transitions arrive over the project event stream (which also runs in
+    // hidden tabs), so this poll exists to survive a silently dead stream,
+    // not to deliver freshness.
     refetchInterval: (q) =>
       (q.state.data?.items ?? []).some((row) => IN_FLIGHT.has(row.status))
         ? POLL_ACTIVE_MS

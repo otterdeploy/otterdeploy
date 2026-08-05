@@ -17,9 +17,11 @@ export const serverCollection = createCollection(
     // This collection carries `status` and `provisionStatus` — the badge in the
     // servers table. Without a poll it only changed on a manual reload, so a
     // node going down (or a provision finishing) sat visibly wrong until the
-    // operator happened to refresh. 10s matches the swarm collection, which is
-    // the same underlying truth this status is derived from.
-    refetchInterval: 10_000,
+    // operator happened to refresh. Servers change on the order of minutes,
+    // the sidebar (which mounts this everywhere, so this poll is app-wide
+    // ambient traffic) only renders a count, and an active provision has its
+    // own fast poller (server-provision-progress) — 60s is plenty here.
+    refetchInterval: 60_000,
     onInsert: async ({ transaction }) => {
       await Promise.all(
         transaction.mutations.map((m) =>

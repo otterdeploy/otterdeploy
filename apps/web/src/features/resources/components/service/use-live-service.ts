@@ -34,8 +34,10 @@ export function useLiveService({
     }),
     enabled,
     // Runtime status/pause can change under us (webhooks, other operators).
-    // 10s keeps the header honest without hammering docker inspect.
-    refetchInterval: 10_000,
+    // Container transitions push through the project event stream, so this
+    // poll is a repair tick — 30s keeps the header honest without hammering
+    // docker inspect.
+    refetchInterval: 30_000,
   });
   return query.data;
 }

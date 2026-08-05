@@ -68,6 +68,11 @@ export async function invalidateManifestConsumers(projectId: ProjectId) {
     queryClient.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY }),
     queryClient.invalidateQueries({ queryKey: DEPENDENCIES_COLLECTION_KEY }),
     queryClient.invalidateQueries({ queryKey: SERVICE_TASKS_COLLECTION_KEY }),
+    // The header activity pill idles at a slow tick (it's a dead-stream
+    // backstop, see use-deploy-activity) — an apply is the moment it must
+    // flip to "building" NOW, so refresh it explicitly rather than waiting
+    // out the idle interval.
+    queryClient.invalidateQueries({ queryKey: orpc.deployment.activity.key() }),
   ]);
 }
 
