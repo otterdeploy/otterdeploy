@@ -18,8 +18,15 @@
  * `templateId` column), so this list cannot distinguish "the Dozzle template we
  * ship" from "a compose file a user pasted". Every entry here is granted to
  * every compose stack on the install.
+ *
+ * THIS MODULE MUST STAY BROWSER-SAFE — no `node:` imports. The compose parser
+ * reaches it (parse → normalize → here), and the parser runs in the SPA: the
+ * template detail dialog parses a template's compose client-side to render it.
+ * Importing `node:path` here for one `normalize()` call shipped a bundle whose
+ * shim has no such export, and every template dialog died on
+ * "Ur.normalize is not a function" — the whole template catalog, not just the
+ * stacks that bind a host path.
  */
-import { normalize } from "node:path";
 
 interface HostBindGrant {
   /** Forced onto the mount regardless of what the compose file asked for. */
@@ -49,6 +56,28 @@ export interface AllowedHostBind {
 }
 
 /**
+ * Collapse `//`, `.` and `..` in an absolute POSIX path.
+ *
+ * Hand-rolled rather than `node:path` — see the module note above. It is also
+ * the more correct choice for the job: this normalizes a path that will be
+ * handed to the DOCKER DAEMON, which is POSIX regardless of what the API
+ * process runs on, so platform-dependent separator handling would be wrong.
+ * `..` at the root is dropped, matching POSIX (`/..` is `/`).
+ */
+function normalizeAbsolute(source: string): string {
+  const out: string[] = [];
+  for (const seg of source.split("/")) {
+    if (seg === "" || seg === ".") continue;
+    if (seg === "..") {
+      out.pop();
+      continue;
+    }
+    out.push(seg);
+  }
+  return `/${out.join("/")}`;
+}
+
+/**
  * The grant for a compose bind `source`, or null when the path is not listed
  * and the caller should fall back to jailing it inside the stack directory.
  *
@@ -58,7 +87,7 @@ export interface AllowedHostBind {
  */
 export function allowedHostBind(source: string): AllowedHostBind | null {
   if (!source.startsWith("/")) return null;
-  const path = normalize(source);
+  const path = normalizeAbsolute(source);
   const grant = HOST_BIND_ALLOWLIST.get(path);
   if (!grant) return null;
   return { source: path, readOnly: grant.readOnly };
