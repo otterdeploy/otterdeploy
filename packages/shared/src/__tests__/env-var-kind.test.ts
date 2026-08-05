@@ -113,3 +113,22 @@ describe("isAutofilledKey", () => {
     expect(isAutofilledKey("TZ")).toBe(false);
   });
 });
+
+test("a product with `auth` in its name does not make every key a secret", () => {
+  // Authentik's stack masked its own database name and username: `AUTH` was a
+  // bare substring, so the prefix alone was enough to classify.
+  expect(classifyEnvVar("AUTHENTIK_POSTGRESQL__NAME")).toBe("plain");
+  expect(classifyEnvVar("AUTHENTIK_POSTGRESQL__USER")).toBe("plain");
+  expect(isSecretKey("AUTHENTIK_POSTGRESQL__USER")).toBe(false);
+});
+
+test("the credentials of that same stack are still secrets", () => {
+  expect(isSecretKey("AUTHENTIK_SECRET_KEY")).toBe(true);
+  expect(isSecretKey("AUTHENTIK_POSTGRESQL__PASSWORD")).toBe(true);
+});
+
+test("`AUTH` as a whole word still counts", () => {
+  expect(isSecretKey("AUTH")).toBe(true);
+  expect(isSecretKey("BASIC_AUTH")).toBe(true);
+  expect(isSecretKey("AUTH_TOKEN")).toBe(true);
+});

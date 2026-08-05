@@ -21,7 +21,20 @@
 
 /** Credential-looking keys — filled with a strong random value, masked. */
 const SECRET_RE =
-  /(SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|API_?KEY|ACCESS_?KEY|CREDENTIAL|DSN|AUTH|SALT|WEBHOOK|SIGNING)/i;
+  /(SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|API_?KEY|ACCESS_?KEY|CREDENTIAL|DSN|SALT|WEBHOOK|SIGNING)/i;
+
+/**
+ * `AUTH` is a credential only as a WHOLE WORD.
+ *
+ * It used to sit in `SECRET_RE` as a bare substring, which made every key of
+ * any product with "auth" in its name a secret: Authentik's stack masked
+ * `AUTHENTIK_POSTGRESQL__NAME` and `__USER` — a database name and a username —
+ * while the URL-precedence rule below existed only to rescue `NEXTAUTH_URL`
+ * from the same over-match. Bounding the token fixes the cause; the real
+ * credentials still match on their own terms (`AUTHENTIK_SECRET_KEY` via
+ * SECRET, `AUTH_TOKEN` via TOKEN, `BASIC_AUTH_PASSWORD` via PASSWORD).
+ */
+const AUTH_RE = /(^|_)AUTH($|_)/i;
 
 /**
  * `…_KEY` is a credential too — `N8N_ENCRYPTION_KEY`, `MEILI_MASTER_KEY`,
@@ -72,7 +85,7 @@ export type EnvVarKind = "secret" | "url" | "host" | "plain";
 export function classifyEnvVar(key: string): EnvVarKind {
   if (URL_RE.test(key)) return "url";
   if (HOST_RE.test(key)) return "host";
-  if (SECRET_RE.test(key)) return "secret";
+  if (SECRET_RE.test(key) || AUTH_RE.test(key)) return "secret";
   if (KEY_RE.test(key) && !NOT_A_GENERATED_KEY_RE.test(key)) return "secret";
   if (PASS_RE.test(key)) return "secret";
   return "plain";
