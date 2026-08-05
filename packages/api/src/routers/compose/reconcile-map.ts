@@ -81,17 +81,50 @@ interface MappedMount {
   readOnly: boolean;
 }
 
-/** Bind mounts only, and only when the stack materialized its file tree
- *  (multi-file inline). Each bind source resolves to an absolute path under
- *  `stackDir`; the runtime bind-mounts it (materializeServiceMounts already
- *  supports type:"bind"). Named volumes + tmpfs are left as-is (unchanged from
- *  today) to avoid touching how every existing compose stack deploys. */
-function toBindMounts(svc: ParsedComposeService, stackDir: string | undefined): MappedMount[] {
-  if (!stackDir) return [];
+/**
+ * The docker volume backing a compose named volume, scoped to its stack.
+ *
+ * Compose volume names are file-local (`data`, `db-data`), so two stacks in a
+ * project would otherwise share one docker volume and each other's data. Same
+ * `od-<stack>-<name>` shape as composeSwarmServiceName, for the same reason.
+ */
+export function composeVolumeName(stackName: string, volumeName: string): string {
+  return `${PLATFORM.service.serviceNamePrefix}${stackName}-${volumeName}`
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .slice(0, 63);
+}
+
+/**
+ * Compose mounts → the runtime's mount records.
+ *
+ * NAMED VOLUMES were previously dropped here — the loop skipped everything that
+ * was not a bind, and the comment claimed they were "left as-is". They were not
+ * left anywhere. Nothing mounted them, so a service either fell back to an
+ * ANONYMOUS volume created by its image's own VOLUME directive (a fresh, empty
+ * one on every redeploy — silent data loss for rustfs and every bundled
+ * Postgres) or got no persistence at all. Vaultwarden is the only reason this
+ * surfaced: it refuses to start without a real mount at /data and said so.
+ *
+ * Bind mounts still need a materialized file tree (`stackDir`, multi-file
+ * inline stacks); named volumes need nothing — docker creates them on first
+ * use, and a deterministic name means a redeploy reattaches the same data.
+ */
+function toMounts(svc: ParsedComposeService, ctx: StackReconcileContext): MappedMount[] {
   const out: MappedMount[] = [];
   for (const v of svc.volumes) {
-    if (v.type !== "bind" || !v.source) continue;
-    const abs = resolveBindSource(v.source, stackDir);
+    if (v.type === "volume" && v.source) {
+      out.push({
+        type: "volume",
+        target: v.target,
+        source: composeVolumeName(ctx.stackName, v.source),
+        content: null,
+        readOnly: v.readOnly,
+      });
+      continue;
+    }
+    if (v.type !== "bind" || !v.source || !ctx.stackDir) continue;
+    const abs = resolveBindSource(v.source, ctx.stackDir);
     if (!abs) continue;
     out.push({ type: "bind", target: v.target, source: abs, content: null, readOnly: v.readOnly });
   }
@@ -166,7 +199,7 @@ export function toServiceFields(
     },
     ports,
     env,
-    mounts: toBindMounts(svc, ctx.stackDir),
+    mounts: toMounts(svc, ctx),
   };
 }
 
