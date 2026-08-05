@@ -10,7 +10,7 @@ import { canonicalId } from "@otterdeploy/shared/id";
 
 import type { OrgRef } from "../scopes";
 
-import { listServiceResourceRefsByOrg } from "./queries/project";
+import { listServiceResourceRefsByOrg } from "./queries";
 
 /**
  * How many service/compose resources per project have a live container right
