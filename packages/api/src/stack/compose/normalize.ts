@@ -15,6 +15,8 @@ import type {
   ParsedRestart,
 } from "./types";
 
+import { splitCommandString } from "./command-string";
+
 export type Obj = Record<string, unknown>;
 
 export const isObj = (v: unknown): v is Obj => !!v && typeof v === "object" && !Array.isArray(v);
@@ -56,10 +58,23 @@ function normalizeBuild(v: unknown): ParsedBuild | null {
   return out;
 }
 
-/** command/entrypoint: array → as-is; string → shell form (mirrors Docker). */
+/**
+ * command/entrypoint: array → as-is; string → split into argv.
+ *
+ * NOT `/bin/sh -c <string>`. That is DOCKERFILE shell-form semantics; the
+ * Compose spec says a string command is word-split into a list, the same shape
+ * as the array form. Wrapping it broke every image with an ENTRYPOINT of its
+ * own, because the wrapper became the entrypoint's first argument: Authentik
+ * (`command: server`, entrypoint `dumb-init -- ak`) ran
+ * `ak /bin/sh -c server` and died on "Unknown command: '/bin/sh'", restarting
+ * forever. MinIO and Plausible were mis-assembled the same way.
+ */
 function toExecArray(v: unknown): string[] | null {
   if (Array.isArray(v)) return v.map(String);
-  if (typeof v === "string" && v.trim()) return ["/bin/sh", "-c", v];
+  if (typeof v === "string" && v.trim()) {
+    const argv = splitCommandString(v);
+    return argv.length > 0 ? argv : null;
+  }
   return null;
 }
 

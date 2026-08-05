@@ -75,7 +75,7 @@ services:
     expect(c.warnings.some((w) => w.includes("host IP"))).toBe(true);
   });
 
-  it("classifies build services and shell-wraps string command", () => {
+  it("classifies build services and word-splits a string command", () => {
     const c = ok(`
 services:
   web:
@@ -92,7 +92,10 @@ services:
     if (!web) throw new Error("expected a web service");
     expect(web.image).toBeNull();
     expect(web.build).toEqual({ context: "./web" });
-    expect(web.command).toEqual(["/bin/sh", "-c", "node server.js"]);
+    // Word-split, NOT `/bin/sh -c` — see command-string.ts. This assertion
+    // used to encode the wrapper, which is how the Authentik restart loop
+    // shipped with a green suite.
+    expect(web.command).toEqual(["node", "server.js"]);
     const api = c.services.find((s) => s.name === "api");
     if (!api) throw new Error("expected an api service");
     expect(api.build).toEqual({
