@@ -21,6 +21,7 @@ import { dnsContract } from "./routers/dns/contract";
 import { dockerContract } from "./routers/docker/contract";
 import { edgeLogsContract } from "./routers/edge-logs/contract";
 import { envContract } from "./routers/env/contract";
+import { eventsContract } from "./routers/events/contract";
 import { firewallContract } from "./routers/firewall/contract";
 import { gitContract } from "./routers/git/contract";
 import { meshContract } from "./routers/mesh/contract";
@@ -51,6 +52,7 @@ export const publicProcedure = implement({
   docker: dockerContract,
   edgeLogs: edgeLogsContract,
   env: envContract,
+  events: eventsContract,
   firewall: firewallContract,
   git: gitContract,
   mesh: meshContract,

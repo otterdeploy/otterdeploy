@@ -11,6 +11,7 @@ import { dnsRouter } from "./dns";
 import { dockerRouter } from "./docker";
 import { edgeLogsRouter } from "./edge-logs";
 import { envRouter } from "./env";
+import { eventsRouter } from "./events";
 import { firewallRouter } from "./firewall";
 import { gitRouter } from "./git";
 import { meshRouter } from "./mesh";
@@ -41,6 +42,7 @@ export const appRouter = {
   docker: dockerRouter,
   edgeLogs: edgeLogsRouter,
   env: envRouter,
+  events: eventsRouter,
   firewall: firewallRouter,
   git: gitRouter,
   mesh: meshRouter,

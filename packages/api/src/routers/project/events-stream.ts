@@ -18,7 +18,7 @@
  * directly, but they invalidate the cache so the next event from the
  * affected service gets resolved fresh.
  */
-import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { OrganizationId, ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
 
 import type { ProxyRouteRecord } from "../../caddy/queries";
 
@@ -50,7 +50,7 @@ export type ProjectStreamEvent =
   | {
       kind: "route";
       action: "removed";
-      routeId: string;
+      routeId: ProxyRouteId;
       /** Null when the route wasn't bound to a resource. */
       resourceId: ResourceId | null;
     }
