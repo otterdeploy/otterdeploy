@@ -48,6 +48,28 @@ async function previewStackHost(
   return resolved?.fqdn ?? null;
 }
 
+/**
+ * Pre-select public exposure for services that publish a port.
+ *
+ * Declaring `ports:` in a compose file IS the statement "this one is meant to
+ * be reached"; leaving the exposure list empty made every stack deploy private
+ * and silent about it. Authentik declares `ports: 9000` on its server, deployed
+ * clean, and then had no public route and an Exposed Services panel reading
+ * "No public routes" — with nothing saying the operator had to go and ask.
+ *
+ * Seeded, not forced: this only ever runs when the operator has not touched the
+ * list, so unticking a service sticks and a re-parse (every keystroke in the
+ * editor) cannot re-tick it. Services with no published port — databases,
+ * caches, workers — are never selected, because they never asked to be.
+ */
+function seedExposure(form: ComposeForm, preview: Preview): void {
+  if (form.state.values.exposed.length > 0) return;
+  const seeds = preview.services.flatMap((svc) =>
+    svc.ports.length > 0 ? [`${svc.name}:${svc.ports[0]}`] : [],
+  );
+  if (seeds.length > 0) form.setFieldValue("exposed", seeds);
+}
+
 export function useComposeParse(
   projectId: ProjectId,
   editorRef: React.RefObject<ReactCodeMirrorRef | null>,
@@ -105,6 +127,7 @@ export function useComposeParse(
     }
     setPreview(res);
     applyDiagnostics(res);
+    seedExposure(form, res);
     // The public FQDN this stack will publish at, resolved by the SAME server
     // chain the expose path walks — so an address we seed is the address the
     // service actually gets, not a guess. Best-effort: a failure just leaves
