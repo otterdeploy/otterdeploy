@@ -369,16 +369,29 @@ app.post("/.well-known/otterdeploy/pin/verify", deployPinVerifyHandler);
 app.use("/*", async (c, next) => {
   await next();
   if (c.req.method !== "GET" || c.res.status !== 200) return;
-  const path = c.req.path;
+  // Mutate the response's own headers rather than calling `c.header()`: by the
+  // time this runs, serveStatic has already produced the Response, and
+  // `c.header()` only feeds headers into a response Hono has yet to build. The
+  // difference is silent — it set the asset header (served by the first
+  // handler) and dropped it on index.html (served by the deep-link fallback),
+  // which is the one that actually needed it.
+  const set = (v: string) => {
+    try {
+      c.res.headers.set("Cache-Control", v);
+    } catch {
+      // An immutable Headers (some upstream Responses) — nothing to do, and a
+      // cache hint is never worth failing a request over.
+    }
+  };
   // Content-hashed build output — the name changes when the bytes do.
-  if (path.startsWith("/assets/")) {
-    c.header("Cache-Control", "public, max-age=31536000, immutable");
+  if (c.req.path.startsWith("/assets/")) {
+    set("public, max-age=31536000, immutable");
     return;
   }
   // Everything else the SPA serves is a mutable entry point (index.html and
   // the deep-link fallback below). `no-cache` still allows a 304 — it means
   // "revalidate", not "never store".
-  if (!c.res.headers.get("Cache-Control")) c.header("Cache-Control", "no-cache");
+  if (!c.res.headers.get("Cache-Control")) set("no-cache");
 });
 app.use("/*", serveStatic({ root: "./public" }));
 app.get("/*", serveStatic({ path: "index.html", root: "./public" }));
