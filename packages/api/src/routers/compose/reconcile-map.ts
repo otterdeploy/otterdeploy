@@ -230,7 +230,12 @@ export async function pickResourceName(
   stackName: string,
 ): Promise<string> {
   const base = (composeName === stackName ? stackName : `${stackName}-${composeName}`).slice(0, 60);
-  const candidateAt = (i: number) => (i === 0 ? base : `${base}-${i + 1}`);
+  // The namesake case ALWAYS lands here: the stack resource already owns that
+  // exact name, so candidate 0 can never be free for it. `-service` says what
+  // the row is; `-2` implies a sibling that does not exist (and is what shipped
+  // for a moment — `vaultwarden-2`).
+  const candidateAt = (i: number) =>
+    i === 0 ? base : i === 1 ? `${base}-service` : `${base}-${i}`;
   for (let i = 0; i < 50; i++) {
     const candidate = candidateAt(i);
     const [exists] = await db
