@@ -156,6 +156,13 @@ export async function* streamProjectEvents(
 
   const sub = subscribeDockerEvents((raw) => {
     if (aborted) return;
+    // Healthcheck probes surface as exec_* container events — an
+    // exec_create/exec_start/exec_die triple per probe, per container,
+    // forever. They change nothing the dashboard shows, but forwarded they
+    // made every idle browser refetch the resource list on each probe
+    // (~200 req/min per tab). health_status is NOT filtered: docker emits
+    // it only on an actual healthy/unhealthy transition.
+    if (raw.kind === "container" && raw.action.startsWith("exec_")) return;
     const serviceName = eventServiceName(raw);
     if (!serviceName) return;
 

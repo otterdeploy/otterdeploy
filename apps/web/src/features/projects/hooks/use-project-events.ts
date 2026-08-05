@@ -34,6 +34,14 @@ import { RESOURCE_COLLECTION_KEY } from "@/features/resources/data/resource";
 import { SERVICE_TASKS_COLLECTION_KEY } from "@/features/resources/data/service-tasks";
 import { orpc } from "@/shared/server/orpc";
 
+/** Trailing window over which event-driven invalidations are coalesced.
+ *  A deploy emits docker events in bursts (create/start/die per container),
+ *  and every invalidation of an ACTIVE query refetches immediately — so
+ *  without batching, a burst of N events cost N× `resource.list` +
+ *  N× `serviceTasks` round trips within a second. One flush per window per
+ *  key caps that at 1/s while keeping the UI effectively live. */
+const INVALIDATE_BATCH_MS = 1_000;
+
 export function useProjectEvents(projectId?: ProjectId | null): void {
   const qc = useQueryClient();
 
@@ -42,6 +50,20 @@ export function useProjectEvents(projectId?: ProjectId | null): void {
 
     const ctrl = new AbortController();
 
+    // Keyed by a stable string so repeat events for the same cache entry
+    // collapse to one invalidation per flush.
+    const pending = new Map<string, () => void>();
+    let flushTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleInvalidate = (key: string, invalidate: () => void) => {
+      pending.set(key, invalidate);
+      flushTimer ??= setTimeout(() => {
+        flushTimer = null;
+        const batch = [...pending.values()];
+        pending.clear();
+        for (const run of batch) run();
+      }, INVALIDATE_BATCH_MS);
+    };
+
     // Per-resource invalidations. `resource.get` is a plain useQuery, so its
     // exact key works. The deployment history + per-deployment task views are
     // TanStack DB collections keyed by a PREFIX (["deployments"] /
@@ -49,13 +71,19 @@ export function useProjectEvents(projectId?: ProjectId | null): void {
     // key, so invalidate the prefix to actually refetch. Each call is a no-op
     // if no consumer is mounted.
     const bumpResource = (resourceId: ResourceId) => {
-      void qc.invalidateQueries({
-        queryKey: orpc.project.resource.get.queryKey({
-          input: { projectId, resourceId },
-        }),
+      scheduleInvalidate(`resource-get:${resourceId}`, () => {
+        void qc.invalidateQueries({
+          queryKey: orpc.project.resource.get.queryKey({
+            input: { projectId, resourceId },
+          }),
+        });
       });
-      void qc.invalidateQueries({ queryKey: DEPLOYMENTS_COLLECTION_KEY });
-      void qc.invalidateQueries({ queryKey: DEPLOYMENT_TASKS_COLLECTION_KEY });
+      scheduleInvalidate("deployments", () => {
+        void qc.invalidateQueries({ queryKey: DEPLOYMENTS_COLLECTION_KEY });
+      });
+      scheduleInvalidate("deployment-tasks", () => {
+        void qc.invalidateQueries({ queryKey: DEPLOYMENT_TASKS_COLLECTION_KEY });
+      });
     };
 
     void (async () => {
@@ -93,17 +121,23 @@ export function useProjectEvents(projectId?: ProjectId | null): void {
           // project-wide collections (["resource"], ["service-tasks"]), which
           // are prefix-keyed. Invalidate their prefixes on EVERY resource event
           // — not just create/remove — so a live status or framework change
-          // refreshes the node immediately instead of waiting for the 30s poll.
+          // refreshes the node without waiting for the repair poll.
           // (Bare orpc keys never match a collection's ["resource", …] key.)
-          void qc.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY });
-          void qc.invalidateQueries({ queryKey: SERVICE_TASKS_COLLECTION_KEY });
+          scheduleInvalidate("resource", () => {
+            void qc.invalidateQueries({ queryKey: RESOURCE_COLLECTION_KEY });
+          });
+          scheduleInvalidate("service-tasks", () => {
+            void qc.invalidateQueries({ queryKey: SERVICE_TASKS_COLLECTION_KEY });
+          });
 
           // Membership change also reshapes the dependency edges.
           if (
             event.kind === "resource" &&
             (event.action === "created" || event.action === "removed")
           ) {
-            void qc.invalidateQueries({ queryKey: DEPENDENCIES_COLLECTION_KEY });
+            scheduleInvalidate("dependencies", () => {
+              void qc.invalidateQueries({ queryKey: DEPENDENCIES_COLLECTION_KEY });
+            });
           }
         }
       } catch (err) {
@@ -117,6 +151,7 @@ export function useProjectEvents(projectId?: ProjectId | null): void {
 
     return () => {
       ctrl.abort();
+      if (flushTimer) clearTimeout(flushTimer);
     };
   }, [projectId, qc]);
 }
