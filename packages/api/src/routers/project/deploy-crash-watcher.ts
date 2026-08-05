@@ -29,9 +29,10 @@ import type { DeploymentId, OrganizationId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { deploymentLog } from "@otterdeploy/db/schema/build";
-import { deployment, project, resource } from "@otterdeploy/db/schema/project";
+import { deployment, project, resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { Docker } from "@otterdeploy/docker";
 import { eq } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { log } from "evlog";
 
 import type { ContainerEvent, DockerEvent } from "../../swarm";
@@ -161,26 +162,39 @@ async function notifyCrashed(
   phase: "looping" | "gave-up",
 ): Promise<void> {
   if (!markNotified(ctx.deploymentId, phase)) return;
+  // The owning stack, when this resource is a compose member. Without it the
+  // alert reads `server: container exited` — and "server" is what Authentik,
+  // Supabase and half the catalog call their main container, so the one thing
+  // the operator needs (WHICH stack) is the one thing missing.
+  const stack = alias(resource, "stack");
   const [info] = await db
     .select({
       organizationId: project.organizationId,
       resourceName: resource.name,
       projectName: project.name,
+      stackName: stack.name,
     })
     .from(deployment)
     .innerJoin(resource, eq(resource.id, deployment.resourceId))
     .innerJoin(project, eq(project.id, resource.projectId))
+    // Left joins: a standalone service has no serviceResource stackId, and a
+    // database has no serviceResource row at all. Neither may drop the alert.
+    .leftJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
+    .leftJoin(stack, eq(stack.id, serviceResource.stackId))
     .where(eq(deployment.id, ctx.deploymentId as DeploymentId));
   if (!info) return;
+  // `authentik / server` for a stack member, plain `web` for a standalone one.
+  const label = info.stackName ? `${info.stackName} / ${info.resourceName}` : info.resourceName;
   await emitPlatformEvent({
     organizationId: info.organizationId as OrganizationId,
     eventId: "deploy.crashed",
     title: "Service crashed",
-    message: `${info.resourceName}: ${detail}`,
+    message: `${label}: ${detail}`,
     data: {
       deploymentId: ctx.deploymentId,
-      resource: info.resourceName,
+      resource: label,
       project: info.projectName,
+      ...(info.stackName ? { stack: info.stackName } : {}),
       exitCode: ctx.exitCode == null ? "unknown" : String(ctx.exitCode),
       restartAttempts: String(ctx.attemptsSoFar),
     },

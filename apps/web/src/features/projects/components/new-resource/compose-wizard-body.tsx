@@ -112,7 +112,18 @@ function ComposeFooter({
         Cancel
       </Button>
       {showNext ? (
-        <Button size="sm" type="button" onClick={() => setStep("vars")}>
+        // Submit, with NO onClick — the form's onSubmit owns the file→vars
+        // transition (it guards on `showNext` precisely so Enter and this
+        // button behave the same).
+        //
+        // This used to also call setStep("vars") on click, and the two raced:
+        // React flushes state updates before the browser performs the click's
+        // default action, so by the time onSubmit ran, `showNext` was already
+        // false and it fell through to `if (canCreate) stageStack()`. The
+        // wizard staged the stack and closed on the very click meant to open
+        // the variables step — so the operator never got to review or edit a
+        // single value, on any template.
+        <Button size="sm" type="submit">
           {/* The vars step always runs (even with nothing to fill — see
               deriveComposeFlags), but "Next: variables" over-promises when
               the file declares none: nothing there to review. */}
