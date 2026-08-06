@@ -127,14 +127,17 @@ export function useProjectLogStream({
   const key = resourceIds ? resourceIds.toSorted().join(",") : "";
 
   const { lines: rawLines, status } = useLogStream({
-    open: (signal) =>
+    // No client retry plugin here — useLogStream owns reconnects so a reopen
+    // keeps the buffer intact and requests NO backfill (tail: 0), instead of
+    // the plugin's transparent re-invoke duplicating 50 lines per service.
+    open: (signal, initial) =>
       orpc.project.logs.tail.call(
         {
           projectId,
           resourceIds: resourceIds ?? undefined,
-          tail: 50,
+          tail: initial ? 50 : 0,
         },
-        { signal, context: { retry: Number.POSITIVE_INFINITY } },
+        { signal },
       ),
     map: (ev, id): LogLine => {
       const tsMs = ev.ts ? Date.parse(ev.ts) : NaN;

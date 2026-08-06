@@ -165,7 +165,11 @@ class StreamBuffer<TLine> {
 export interface UseLogStreamOptions<TRaw, TLine> {
   /** Open the oRPC event-iterator. Wire `signal` into the call options and,
    *  for auto-reconnect, pass `context: { retry: Number.POSITIVE_INFINITY }`. */
-  open: (signal: AbortSignal) => Promise<AsyncIterable<TRaw>>;
+  /** Open the stream. `initial` is true for the first connection of this key
+   *  and false for the hook's own reconnects — a live tail should request its
+   *  backfill only on `initial`, so reconnects append seamlessly instead of
+   *  duplicating history. */
+  open: (signal: AbortSignal, initial: boolean) => Promise<AsyncIterable<TRaw>>;
   /** Map one raw event to a rendered line. `seq` is a monotonic id, handy as
    *  a React key. */
   map: (raw: TRaw, seq: number) => TLine;
@@ -224,25 +228,45 @@ export function useLogStream<TRaw, TLine>(
     seqRef.current = 0;
 
     void (async () => {
-      try {
-        const stream = await optsRef.current.open(ctrl.signal);
-        buffer.setStatus("live");
-        for await (const raw of stream) {
-          if (ctrl.signal.aborted) break;
-          if (optsRef.current.paused) continue;
-          buffer.push(optsRef.current.map(raw, ++seqRef.current), bufferSize);
+      // The hook owns its reconnect loop — deliberately NOT the client retry
+      // plugin. A plugin reconnect transparently re-invokes the call with the
+      // same input, so a live tail re-received its whole backfill as
+      // duplicates; and any reconnect that resets the buffer collapses the
+      // row count under a reader scrolled up in history, which tears the
+      // virtualized table. Here a reconnect keeps every line on screen and
+      // reopens with `initial: false` so nothing duplicates.
+      let initial = true;
+      while (!ctrl.signal.aborted) {
+        try {
+          const stream = await optsRef.current.open(ctrl.signal, initial);
+          buffer.setStatus("live");
+          for await (const raw of stream) {
+            if (ctrl.signal.aborted) break;
+            if (optsRef.current.paused) continue;
+            buffer.push(optsRef.current.map(raw, ++seqRef.current), bufferSize);
+          }
+          if (ctrl.signal.aborted) return;
+          if (cacheCompleted) {
+            // A completed immutable stream (finished build) ends for good and
+            // is worth replaying. Only a run that finished is remembered — a
+            // tail cut short by navigation is partial by definition.
+            buffer.setStatus("ended");
+            remember(key, buffer.snapshotNow());
+            return;
+          }
+          // A live tail that ends cleanly is a disconnect, not a conclusion.
+        } catch (err) {
+          if (ctrl.signal.aborted) return;
+          // Announce the failure once per outage, not once per retry tick.
+          if (buffer.getSnapshot().status !== "error") {
+            buffer.setStatus("error");
+            const errLine = optsRef.current.onError?.(err, ++seqRef.current);
+            if (errLine != null) buffer.push(errLine, bufferSize);
+          }
+          if (cacheCompleted) return;
         }
-        if (!ctrl.signal.aborted) {
-          buffer.setStatus("ended");
-          // Only a stream that ran to completion is worth replaying. A tail cut
-          // short by navigation is partial by definition.
-          if (cacheCompleted) remember(key, buffer.snapshotNow());
-        }
-      } catch (err) {
-        if (ctrl.signal.aborted) return;
-        buffer.setStatus("error");
-        const errLine = optsRef.current.onError?.(err, ++seqRef.current);
-        if (errLine != null) buffer.push(errLine, bufferSize);
+        initial = false;
+        await new Promise<void>((resolve) => setTimeout(resolve, 1_500));
       }
     })();
 
