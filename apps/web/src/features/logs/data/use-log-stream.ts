@@ -69,7 +69,12 @@ function remember<TLine>(key: string, snapshot: StreamSnapshot<TLine>): void {
  * body is the cascading-render anti-pattern.
  */
 class StreamBuffer<TLine> {
+  // MUTABLE working array — push appends in place, and the immutable copy
+  // happens once per commit (one rAF), not once per line. The old
+  // copy-on-push made a burst of N lines against a full buffer O(N × buffer)
+  // in element copies inside a single tick.
   #lines: TLine[] = [];
+  #bufferSize: number | undefined;
   #status: LogStreamStatus = "connecting";
   // Cached so repeat reads are referentially equal — useSyncExternalStore
   // re-renders forever if getSnapshot returns a fresh object every call.
@@ -85,7 +90,13 @@ class StreamBuffer<TLine> {
   getSnapshot = (): StreamSnapshot<TLine> => this.#snapshot;
 
   #commit() {
-    this.#snapshot = { lines: this.#lines, status: this.#status };
+    // Exact cap enforced here (push only bounds growth at 2×), then a shallow
+    // copy so the snapshot the UI holds is immutable while #lines keeps
+    // mutating underneath it.
+    if (this.#bufferSize != null && this.#lines.length > this.#bufferSize) {
+      this.#lines = this.#lines.slice(-this.#bufferSize);
+    }
+    this.#snapshot = { lines: this.#lines.slice(), status: this.#status };
     for (const listener of this.#listeners) listener();
   }
 
@@ -117,7 +128,8 @@ class StreamBuffer<TLine> {
   /** Adopt a previously completed stream without re-fetching it. */
   restore(snapshot: StreamSnapshot<TLine>) {
     this.#cancelPending();
-    this.#lines = snapshot.lines;
+    // Own a mutable copy — the cached snapshot must stay frozen.
+    this.#lines = snapshot.lines.slice();
     this.#status = snapshot.status;
     this.#commit();
   }
@@ -131,14 +143,18 @@ class StreamBuffer<TLine> {
   }
 
   push(line: TLine, bufferSize?: number) {
-    const next = [...this.#lines, line];
-    this.#lines =
-      bufferSize != null && next.length > bufferSize ? next.slice(next.length - bufferSize) : next;
+    this.#bufferSize = bufferSize;
+    this.#lines.push(line);
+    // Amortized trim: only stop unbounded growth during a burst — the exact
+    // cap is applied once at commit time.
+    if (bufferSize != null && this.#lines.length > bufferSize * 2) {
+      this.#lines = this.#lines.slice(-bufferSize);
+    }
     this.#scheduleCommit();
   }
 
   snapshotNow(): StreamSnapshot<TLine> {
-    return { lines: this.#lines, status: this.#status };
+    return { lines: this.#lines.slice(), status: this.#status };
   }
 
   dispose() {

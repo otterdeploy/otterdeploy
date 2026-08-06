@@ -59,18 +59,18 @@ export function useLogsTable({
   // stay visible (and clickable) even when one is selected.
   const filteredByMeta = useMemo(() => {
     const needle = query.trim().toLowerCase();
+    // msgLower is precomputed at ingest — no per-pass string allocation.
     return lines.filter(
-      (l) => lvlFilter.has(l.level) && (!needle || l.msg.toLowerCase().includes(needle)),
+      (l) => lvlFilter.has(l.level) && (!needle || l.msgLower.includes(needle)),
     );
   }, [lines, lvlFilter, query]);
 
   // The table additionally honors the selected histogram bucket.
   const filtered = useMemo(() => {
     if (!timeRange) return filteredByMeta;
-    return filteredByMeta.filter((l) => {
-      const ms = l.tsIso ? Date.parse(l.tsIso) : NaN;
-      return !Number.isNaN(ms) && ms >= timeRange.from && ms < timeRange.to;
-    });
+    return filteredByMeta.filter(
+      (l) => l.tsMs != null && l.tsMs >= timeRange.from && l.tsMs < timeRange.to,
+    );
   }, [filteredByMeta, timeRange]);
 
   const table = useReactTable({
@@ -103,9 +103,18 @@ export function useLogsTable({
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 28,
+    // Real row height: py-1 (8px) + text-xs line height (16px) + border-b
+    // (1px) = 25px. The old 28px estimate left ~3px of phantom height per
+    // unmeasured row — at a few hundred rows that's a visible blank band the
+    // follow-scroll landed inside, since scrollToIndex targets the
+    // virtualizer's (overestimated) offsets.
+    estimateSize: () => 25,
     overscan: 24,
     getItemKey,
+    // The sticky 32px <thead> lives INSIDE the scroll element, above the
+    // <tbody> rows are positioned against. Without declaring it, every
+    // virtual offset (and scrollToIndex target) is off by one header height.
+    scrollMargin: 32,
   });
 
   // Sorting fights live tailing — pause follow while a sort is active. Adjust
