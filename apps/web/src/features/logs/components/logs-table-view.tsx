@@ -7,7 +7,7 @@
 
 import type { Virtualizer } from "@tanstack/react-virtual";
 
-import type { RefObject } from "react";
+import type { Ref } from "react";
 
 import { ArrowDown01Icon, ArrowUp01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -30,7 +30,7 @@ interface LogsTableViewProps {
   table: Table<LogLine>;
   rows: Row<LogLine>[];
   virtualizer: Virtualizer<HTMLDivElement, Element>;
-  scrollRef: RefObject<HTMLDivElement | null>;
+  scrollRef: Ref<HTMLDivElement | null>;
   status: LogStreamStatus;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
