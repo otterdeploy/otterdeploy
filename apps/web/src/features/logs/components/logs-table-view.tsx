@@ -3,7 +3,14 @@
  * windowed rows and the "jump to latest" pill. Split out of the logs route so
  * the route's component stays small; all live-tail wiring (table instance,
  * virtualizer, follow state) is owned by the route and threaded in as props.
+ *
+ * MODULE-LEVEL React Compiler opt-out, load-bearing together with the same
+ * directive in the logs route: every component here reads mutable state off
+ * the referentially-stable virtualizer instance (getVirtualItems,
+ * getTotalSize), which the compiler would cache on first render — see the
+ * comment in the route component for the observed production failure.
  */
+"use no memo";
 
 import type { Virtualizer } from "@tanstack/react-virtual";
 
