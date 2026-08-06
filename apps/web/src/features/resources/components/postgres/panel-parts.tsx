@@ -110,12 +110,16 @@ export function DatabaseStatusBar({
   pending,
   runtime,
   latestDeploymentStatus,
+  trailing,
 }: {
   pending: boolean;
   /** Absent on a staged create — no container (and so no runtime) exists
    *  until the first apply, so this must never be read in pending mode. */
   runtime: DbResource["runtime"] | undefined;
   latestDeploymentStatus?: DbResource["latestDeploymentStatus"];
+  /** Right-edge extras (e.g. the live connections chip). Only rendered for a
+   *  provisioned database — a staged create has nothing to connect to. */
+  trailing?: React.ReactNode;
 }) {
   return (
     // flex-wrap: the badge + explanatory sentence is ~420px and must be allowed
@@ -131,7 +135,10 @@ export function DatabaseStatusBar({
           </span>
         </>
       ) : (
-        <ProvisionedStatus runtime={runtime} latestDeploymentStatus={latestDeploymentStatus} />
+        <>
+          <ProvisionedStatus runtime={runtime} latestDeploymentStatus={latestDeploymentStatus} />
+          {trailing && <span className="ml-auto">{trailing}</span>}
+        </>
       )}
     </div>
   );
