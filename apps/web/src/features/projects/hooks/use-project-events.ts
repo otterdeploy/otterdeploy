@@ -26,6 +26,7 @@ import {
 } from "@/features/resources/data/deployments";
 import { resourceCollection } from "@/features/resources/data/resource";
 import { serviceTasksCollection } from "@/features/resources/data/service-tasks";
+import { createResyncBatcher } from "@/shared/lib/resync-batcher";
 import { orpc } from "@/shared/server/orpc";
 
 /** Trailing window over which resync refetches are coalesced. A deploy emits
@@ -47,19 +48,8 @@ export function useProjectEvents(projectId?: ProjectId | null): void {
 
     const ctrl = new AbortController();
 
-    // Keyed by a stable string so repeat events for the same collection
-    // collapse to one refetch per flush.
-    const pending = new Map<string, () => void>();
-    let flushTimer: ReturnType<typeof setTimeout> | null = null;
-    const scheduleResync = (key: string, refetch: () => void) => {
-      pending.set(key, refetch);
-      flushTimer ??= setTimeout(() => {
-        flushTimer = null;
-        const batch = [...pending.values()];
-        pending.clear();
-        for (const run of batch) run();
-      }, RESYNC_BATCH_MS);
-    };
+    const batcher = createResyncBatcher(RESYNC_BATCH_MS);
+    const scheduleResync = batcher.schedule;
 
     void (async () => {
       try {
@@ -165,7 +155,7 @@ export function useProjectEvents(projectId?: ProjectId | null): void {
 
     return () => {
       ctrl.abort();
-      if (flushTimer) clearTimeout(flushTimer);
+      batcher.cancel();
     };
   }, [projectId, qc]);
 }

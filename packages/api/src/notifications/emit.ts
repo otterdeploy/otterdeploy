@@ -26,8 +26,8 @@ import type { OrganizationId } from "@otterdeploy/shared/id";
 import { triggerPlatformEvent } from "@otterdeploy/jobs";
 import { Result } from "better-result";
 
-import { publishOrgEvent } from "../routers/project/project-event-bus";
 import { eventSeverity } from "../routers/notifications/events";
+import { publishOrgEvent } from "../routers/project/project-event-bus";
 
 export interface EmitInput {
   organizationId: OrganizationId;

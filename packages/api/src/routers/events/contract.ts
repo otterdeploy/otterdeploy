@@ -33,7 +33,7 @@ const resyncCollectionSchema = z.enum([
   "previews",
 ]);
 
-export const collectionEventSchema = z.discriminatedUnion("op", [
+const collectionEventSchema = z.discriminatedUnion("op", [
   z.object({
     protocol: z.literal(1),
     collection: z.literal("proxy-routes"),
@@ -93,8 +93,7 @@ export const eventsContract = {
     .errors({
       FORBIDDEN: {
         status: 403,
-        message:
-          "Project-scoped API keys cannot subscribe to organization-wide streams",
+        message: "Project-scoped API keys cannot subscribe to organization-wide streams",
       },
     })
     .meta({

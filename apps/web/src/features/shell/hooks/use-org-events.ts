@@ -19,6 +19,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 
 import { serverCollection } from "@/features/servers/data/server";
+import { createResyncBatcher } from "@/shared/lib/resync-batcher";
 import { orpc } from "@/shared/server/orpc";
 
 /** Keep in step with useProjectEvents' INVALIDATE_BATCH_MS. */
@@ -34,17 +35,8 @@ export function useOrgEvents(): void {
 
     const ctrl = new AbortController();
 
-    const pending = new Map<string, () => void>();
-    let flushTimer: ReturnType<typeof setTimeout> | null = null;
-    const scheduleResync = (key: string, refetch: () => void) => {
-      pending.set(key, refetch);
-      flushTimer ??= setTimeout(() => {
-        flushTimer = null;
-        const batch = [...pending.values()];
-        pending.clear();
-        for (const run of batch) run();
-      }, RESYNC_BATCH_MS);
-    };
+    const batcher = createResyncBatcher(RESYNC_BATCH_MS);
+    const scheduleResync = batcher.schedule;
 
     void (async () => {
       try {
@@ -88,7 +80,7 @@ export function useOrgEvents(): void {
 
     return () => {
       ctrl.abort();
-      if (flushTimer) clearTimeout(flushTimer);
+      batcher.cancel();
     };
   }, [orgSlug, qc]);
 }

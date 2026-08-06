@@ -9,15 +9,13 @@
  */
 import type { ProjectSlug, ResourceId } from "@otterdeploy/shared/id";
 
-import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+
+import { Link } from "@tanstack/react-router";
 
 import type { CatalogDatabase } from "@/features/databases/data";
 
-import {
-  ConnectionsPopoverBody,
-  useDbConnections,
-} from "@/features/databases/connections-popover";
+import { ConnectionsPopoverBody, useDbConnections } from "@/features/databases/connections-popover";
 import { useDatabaseCatalog } from "@/features/databases/data";
 import { fmtBytes, relTime, StatusPill } from "@/features/databases/shared";
 import { DatabaseLogo } from "@/shared/components/brand/database-logo";
@@ -154,7 +152,7 @@ function ConnectionsStat({ resourceId, count }: { resourceId: ResourceId; count:
           e.stopPropagation();
           setOpen((v) => !v);
         }}
-        className="hidden min-w-24 cursor-pointer flex-col items-end gap-0 rounded-sm px-1 -mx-1 hover:bg-muted/60 sm:flex"
+        className="-mx-1 hidden min-w-24 cursor-pointer flex-col items-end gap-0 rounded-sm px-1 hover:bg-muted/60 sm:flex"
       >
         <span className="font-mono text-xs underline decoration-dotted underline-offset-2">
           {count}

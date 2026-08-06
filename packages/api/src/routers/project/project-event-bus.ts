@@ -20,10 +20,9 @@ import type { ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id
 import type { OrgBusEvent, OrgStreamCollection } from "@otterdeploy/shared/org-events";
 import type { RedisClient } from "bun";
 
-import { orgEventsChannel } from "@otterdeploy/shared/org-events";
-
 import { db } from "@otterdeploy/db";
 import { resource } from "@otterdeploy/db/schema";
+import { orgEventsChannel } from "@otterdeploy/shared/org-events";
 import { eq } from "drizzle-orm";
 
 import type { ProxyRouteRecord } from "../../caddy/queries";
