@@ -97,6 +97,16 @@ export function useProjectEvents(projectId?: ProjectId | null): void {
                     }),
                   });
                 });
+                // The service header's live view (use-live-service) is a plain
+                // useQuery too — keep it fresh from the stream so its poll can
+                // stay a slow backstop. No-op for non-service resources.
+                scheduleResync(`service-get:${resourceId}`, () => {
+                  void qc.invalidateQueries({
+                    queryKey: orpc.service.get.queryKey({
+                      input: { projectId, resourceId },
+                    }),
+                  });
+                });
               }
               break;
             }
@@ -118,6 +128,28 @@ export function useProjectEvents(projectId?: ProjectId | null): void {
             case "dependencies":
               scheduleResync("dependencies", () => {
                 void dependenciesCollection.utils.refetch();
+              });
+              break;
+            case "manifest":
+              // Partial-input key ({projectId} only) matches both the graph's
+              // and the pending-changes bar's diff cache entries.
+              scheduleResync("manifest", () => {
+                void qc.invalidateQueries({
+                  queryKey: orpc.project.manifest.diff.queryKey({ input: { projectId } }),
+                });
+                void qc.invalidateQueries({
+                  queryKey: orpc.project.manifest.get.queryKey({ input: { id: projectId } }),
+                });
+                void qc.invalidateQueries({
+                  queryKey: orpc.project.stack.diff.queryKey({ input: { projectId } }),
+                });
+              });
+              break;
+            case "previews":
+              scheduleResync("previews", () => {
+                void qc.invalidateQueries({
+                  queryKey: orpc.project.previews.list.queryKey({ input: { projectId } }),
+                });
               });
               break;
           }

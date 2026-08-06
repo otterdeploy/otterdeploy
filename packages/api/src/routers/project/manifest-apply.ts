@@ -43,6 +43,7 @@ import {
 import { runServiceCreates, runServiceUpdates } from "./manifest-apply-phases-services";
 import { loadRefTable, makeEnvRefResolver } from "./manifest-apply-refs";
 import { groupChanges } from "./manifest-apply-support";
+import { publishManifestChanged } from "./project-event-bus";
 import { loadCurrentState } from "./manifest-state";
 import { resolveProjectEnvironmentScope } from "./queries/resource";
 
@@ -190,6 +191,11 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
   // from the now-current rows. Best-effort — it never throws, never blocks the
   // apply result, and no-ops when the data folder isn't writable.
   await writeProjectEscapeHatch(projectId);
+
+  // lastAppliedManifest just moved, so every open tab's pending-changes diff
+  // is stale — announce it so the stream resyncs them now instead of at the
+  // slow poll backstop.
+  publishManifestChanged(projectId);
 
   return {
     appliedCount,

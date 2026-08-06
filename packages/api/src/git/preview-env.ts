@@ -14,6 +14,7 @@ import { preview } from "@otterdeploy/db/schema/project";
 import { and, eq, sql } from "drizzle-orm";
 
 import { previewIdleTeardownHours } from "../lib/platform-runtime-settings";
+import { publishPreviewsChanged } from "../routers/project/project-event-bus";
 
 /** Idle-teardown instant for a freshly opened preview, or null when idle
  *  teardown is disabled (the window set to 0 in Settings → Instance, seeded
@@ -111,6 +112,7 @@ export async function ensurePreview(input: EnsurePreviewInput): Promise<PreviewR
       },
     })
     .returning();
+  if (row) publishPreviewsChanged(input.projectId);
   return row;
 }
 
@@ -124,7 +126,7 @@ export async function markPreviewsClosed(
   gitRepoId: GitRepoId,
   prNumber: number,
 ): Promise<PreviewRow[]> {
-  return db
+  const rows = await db
     .update(preview)
     .set({ state: "closed", paused: false, updatedAt: new Date() })
     .where(
@@ -135,4 +137,6 @@ export async function markPreviewsClosed(
       ),
     )
     .returning();
+  if (rows.length > 0) publishPreviewsChanged(projectId);
+  return rows;
 }

@@ -216,10 +216,19 @@ export const projectRouter = {
           PostgresResourceNotFoundError: () => errors.NOT_FOUND(),
         });
       }
-      return streamProjectEvents({
+      const stream = streamProjectEvents({
         projectId: input.projectId,
         organizationId: context.activeOrganizationId,
       });
+      // Kinds added after #95 ride only the collection stream — clients of
+      // THIS legacy endpoint were compiled against a contract without them,
+      // and an unknown discriminant fails their zod parse mid-stream.
+      return (async function* () {
+        for await (const event of stream) {
+          if (event.kind === "manifest" || event.kind === "previews") continue;
+          yield event;
+        }
+      })();
     }),
   },
 
