@@ -6,6 +6,8 @@ import { project, resource } from "@otterdeploy/db/schema/project";
 import { server } from "@otterdeploy/db/schema/server";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import os from "node:os";
+
+import { publishOrgEvent } from "../project/project-event-bus";
 type OrgId = OrganizationId;
 
 export type ServerRecord = InferSelectModel<typeof server>;
@@ -67,6 +69,7 @@ export async function createServerRecord(input: {
       memTotalGb: input.memTotalGb ?? 0,
     })
     .returning();
+  if (row) publishOrgEvent(input.organizationId, "servers");
   return row;
 }
 
@@ -97,6 +100,7 @@ export async function insertProvisioningServer(input: {
       provisionStatus: "pending",
     })
     .returning();
+  if (row) publishOrgEvent(input.organizationId, "servers");
   return row;
 }
 
@@ -117,6 +121,7 @@ export async function patchServerProvision(input: {
     .set(set)
     .where(and(eq(server.id, serverId), eq(server.organizationId, organizationId)))
     .returning();
+  if (row) publishOrgEvent(organizationId, "servers");
   return row;
 }
 
@@ -143,6 +148,7 @@ export async function patchServerFirewall(input: {
     })
     .where(and(eq(server.id, serverId), eq(server.organizationId, organizationId)))
     .returning();
+  if (row) publishOrgEvent(organizationId, "servers");
   return row;
 }
 
@@ -157,6 +163,7 @@ export async function updateServerRoleRecord(input: {
     .set({ role: input.role })
     .where(and(eq(server.id, input.serverId), eq(server.organizationId, input.organizationId)))
     .returning();
+  if (row) publishOrgEvent(input.organizationId, "servers");
   return row;
 }
 
@@ -171,6 +178,7 @@ export async function updateServerAvailabilityRecord(input: {
     .set({ availability: input.availability })
     .where(and(eq(server.id, input.serverId), eq(server.organizationId, input.organizationId)))
     .returning();
+  if (row) publishOrgEvent(input.organizationId, "servers");
   return row;
 }
 
@@ -213,6 +221,7 @@ export async function deleteServerRecord(input: {
       tx.rollback();
       return undefined;
     }
+    publishOrgEvent(input.organizationId, "servers");
     return { id: deleted.id, unpinnedResources: unpinned.length };
   });
 }

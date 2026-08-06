@@ -14,14 +14,13 @@ export const serverCollection = createCollection(
     ...orpc.server.list.queryOptions(),
     queryKey: orpc.server.list.queryKey(),
     queryFn: async () => orpc.server.list.call(),
-    // This collection carries `status` and `provisionStatus` — the badge in the
-    // servers table. Without a poll it only changed on a manual reload, so a
-    // node going down (or a provision finishing) sat visibly wrong until the
-    // operator happened to refresh. Servers change on the order of minutes,
-    // the sidebar (which mounts this everywhere, so this poll is app-wide
-    // ambient traffic) only renders a count, and an active provision has its
-    // own fast poller (server-provision-progress) — 60s is plenty here.
-    refetchInterval: 60_000,
+    // This collection carries `status` and `provisionStatus` — the badge in
+    // the servers table. Every server-row write publishes a `servers` resync
+    // over the org event stream (use-org-events refetches this collection),
+    // so the poll is only a dead-stream backstop — and the sidebar mounts
+    // this app-wide, so its cadence is ambient traffic on every page. An
+    // active provision has its own fast poller (server-provision-progress).
+    refetchInterval: 300_000,
     onInsert: async ({ transaction }) => {
       await Promise.all(
         transaction.mutations.map((m) =>

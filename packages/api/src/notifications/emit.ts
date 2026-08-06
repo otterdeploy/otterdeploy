@@ -26,6 +26,7 @@ import type { OrganizationId } from "@otterdeploy/shared/id";
 import { triggerPlatformEvent } from "@otterdeploy/jobs";
 import { Result } from "better-result";
 
+import { publishOrgEvent } from "../routers/project/project-event-bus";
 import { eventSeverity } from "../routers/notifications/events";
 
 export interface EmitInput {
@@ -51,4 +52,13 @@ export async function emitPlatformEvent(input: EmitInput): Promise<void> {
       }),
     catch: (cause) => cause,
   });
+
+  // Every deploy lifecycle notification is also the moment the org's
+  // building/queued counts changed — announce it so the header activity pill
+  // resyncs over the org stream instead of waiting out its idle poll.
+  // (Inbox resync is published by the notification-inbox job, AFTER the rows
+  // actually exist — publishing it here would race the async write.)
+  if (input.eventId.startsWith("deploy.")) {
+    publishOrgEvent(input.organizationId, "activity");
+  }
 }

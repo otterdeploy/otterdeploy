@@ -29,6 +29,8 @@ import { db } from "@otterdeploy/db";
 import { member, notification } from "@otterdeploy/db/schema";
 import { eq, sql } from "drizzle-orm";
 
+import { publishOrgEvent } from "../org-events";
+
 export interface InboxFanoutEvent {
   organizationId: string;
   eventId: string;
@@ -108,5 +110,8 @@ export async function writeInboxRows(
     occurrenceKey,
   );
   await db.insert(notification).values(rows);
+  // Rows exist now — announce so open tabs resync the bell instead of
+  // waiting out the inbox poll backstop.
+  publishOrgEvent(event.organizationId, "inbox");
   return rows.length;
 }

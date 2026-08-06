@@ -3,6 +3,7 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
 import { CommandPalette } from "@/features/command-palette";
 import { useInstallCallbackToast } from "@/features/git-providers/install-callback-toast";
+import { useOrgEvents } from "@/features/shell/hooks/use-org-events";
 import { ResourceOverlayProvider } from "@/features/projects/components/new-resource/overlay-provider";
 import { TourProvider } from "@/features/tour";
 import { decideAuthGate } from "@/lib/auth-gate";
@@ -114,6 +115,9 @@ function RouteComponent() {
   // than at the root so the sign-in and device-approval pages keep the plain
   // static icon — they have no system state to report.
   useFaviconStatus();
+  // One org-stream subscription for the whole signed-in app — resyncs the
+  // activity pill, inbox, and servers collection on push instead of polls.
+  useOrgEvents();
   return (
     <ResourceOverlayProvider>
       {/* Inside the auth gate (org + user context resolved) and above both
