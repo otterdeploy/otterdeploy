@@ -1,6 +1,14 @@
 import { describe, expect, test } from "bun:test";
 
-import { base64UrlDecode, base64UrlEncode, randomSecret } from "../crypto";
+import { base64UrlDecode, base64UrlEncode, randomSecret, sha256Hex } from "../crypto";
+
+describe("sha256Hex", () => {
+  test("matches the frozen SHA-256 test vector", async () => {
+    expect(await sha256Hex("abc")).toBe(
+      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+    );
+  });
+});
 
 describe("base64url codec", () => {
   test("round-trips arbitrary bytes", () => {

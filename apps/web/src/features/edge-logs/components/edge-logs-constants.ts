@@ -2,6 +2,7 @@ import { orpc } from "@/shared/server/orpc";
 
 export type EdgeLogsData = Awaited<ReturnType<typeof orpc.edgeLogs.query.call>>;
 export type EdgeLog = EdgeLogsData["rows"][number];
+export type EdgeHostStat = EdgeLogsData["hostStats"][number];
 
 export const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
 export const BUCKETS = ["2xx", "3xx", "4xx", "5xx"] as const;

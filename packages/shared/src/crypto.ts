@@ -30,6 +30,19 @@ export function bytesToHex(bytes: Uint8Array): string {
 }
 
 /**
+ * SHA-256 of a UTF-8 string as lowercase hex.
+ *
+ * Keep this isomorphic: API cache identities are generated in the server
+ * today, but the same canonical scope may also be identified by browser and
+ * worker transports without pulling in Node's `crypto` module.
+ */
+export async function sha256Hex(value: string): Promise<string> {
+  const data = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return bytesToHex(new Uint8Array(digest));
+}
+
+/**
  * URL-safe base64 (RFC 4648 §5), unpadded. The wire encoding for every
  * secret-bearing token this codebase mints — signed auth tokens, git OAuth
  * state, the health-agent token, and both AES-GCM envelope formats — so the
