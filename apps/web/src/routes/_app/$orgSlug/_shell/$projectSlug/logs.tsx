@@ -14,7 +14,7 @@
 
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import { createFileRoute, useLoaderData, useSearch } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { EdgeLogsView } from "@/features/edge-logs/components/edge-logs-view";
 import {
@@ -82,18 +82,32 @@ function RouteComponent() {
         ),
     [project.id, activeEnv.id],
   );
-  const services = resources.flatMap((r) =>
-    r.type === "service" ? [{ id: r.resourceId, name: r.name }] : [],
+  const services = useMemo(
+    () =>
+      resources.flatMap((r) =>
+        r.type === "service" ? [{ id: r.resourceId, name: r.name }] : [],
+      ),
+    [resources],
   );
 
   // Filters live in the URL (shareable / reproducible). Service is keyed by
   // resource id — names collide across forks/renames, ids are stable.
   const svcFilter = search.service ?? "all";
-  const lvlFilter: Set<LogLevel> = new Set(search.levels ?? LOG_LEVELS);
-  const timeRange: TimeRange | null =
-    search.from != null && search.to != null
-      ? { from: search.from, to: search.to }
-      : null;
+  // Memoized: an inline `new Set(...)` was a fresh identity every render,
+  // which invalidated the filter memos downstream on every tail frame and
+  // forced a full re-filter (and react-table row-model rebuild) of the
+  // whole buffer.
+  const searchLevels = search.levels;
+  const lvlFilter: Set<LogLevel> = useMemo(
+    () => new Set(searchLevels ?? LOG_LEVELS),
+    [searchLevels],
+  );
+  const timeFrom = search.from;
+  const timeTo = search.to;
+  const timeRange: TimeRange | null = useMemo(
+    () => (timeFrom != null && timeTo != null ? { from: timeFrom, to: timeTo } : null),
+    [timeFrom, timeTo],
+  );
 
   // Search text stays local for input responsiveness and is debounced into the
   // URL so we don't navigate on every keystroke. Debounced from the change
@@ -133,7 +147,10 @@ function RouteComponent() {
     paused,
   });
 
-  const selectedLine = t.filtered.find((l) => l.id === selectedId) ?? null;
+  // Guard before scanning: with nothing selected (the common case, every tail
+  // frame) this must cost nothing.
+  const selectedLine =
+    selectedId == null ? null : (t.filtered.find((l) => l.id === selectedId) ?? null);
 
   const badge = statusBadge(t.status, paused);
 

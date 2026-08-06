@@ -53,8 +53,7 @@ export function LogsHistogram({
   const now = useMemo(() => {
     let latest = mountedAt;
     for (const l of lines) {
-      const ms = l.tsIso ? new Date(l.tsIso).getTime() : Number.NaN;
-      if (!Number.isNaN(ms) && ms > latest) latest = ms;
+      if (l.tsMs != null && l.tsMs > latest) latest = l.tsMs;
     }
     return latest;
   }, [lines, mountedAt]);

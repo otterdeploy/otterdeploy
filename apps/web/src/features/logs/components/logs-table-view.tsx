@@ -167,7 +167,12 @@ function LogsTableBody({ rows, virtualizer, selectedId, onSelect }: LogsTableBod
             ref={virtualizer.measureElement}
             data-state={selectedId === row.id ? "selected" : undefined}
             onClick={() => onSelect(row.id)}
-            style={{ transform: `translateY(${vi.start}px)` }}
+            // vi.start includes the virtualizer's scrollMargin (the sticky
+            // header above the tbody); rows are positioned relative to the
+            // tbody itself, so subtract it back out.
+            style={{
+              transform: `translateY(${vi.start - virtualizer.options.scrollMargin}px)`,
+            }}
             className="absolute flex w-full cursor-pointer border-b font-mono"
           >
             {row.getVisibleCells().map((cell, i) => {

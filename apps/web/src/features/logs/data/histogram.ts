@@ -23,7 +23,9 @@ export function bucketize(lines: LogLine[], now = Date.now()): HistogramBucket[]
   }));
   const earliest = now - HISTOGRAM_BUCKETS * HISTOGRAM_BUCKET_MS;
   for (const l of lines) {
-    const ms = l.tsIso ? new Date(l.tsIso).getTime() : NaN;
+    // tsMs is parsed once at ingest — this loop runs over the whole buffer
+    // on every appended frame, so it must not allocate Dates.
+    const ms = l.tsMs ?? NaN;
     if (Number.isNaN(ms) || ms < earliest || ms > now) continue;
     const idx = Math.min(HISTOGRAM_BUCKETS - 1, Math.floor((ms - earliest) / HISTOGRAM_BUCKET_MS));
     const b = buckets[idx];

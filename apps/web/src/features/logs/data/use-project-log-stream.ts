@@ -8,6 +8,8 @@
 // Transport + buffering are the shared `useLogStream`; this hook only adds the
 // project-fan-in line shape (service/level/resource) and level inference.
 
+import { useMemo } from "react";
+
 import { displayServiceName } from "@/shared/lib/service-name";
 import { orpc } from "@/shared/server/orpc";
 
@@ -37,11 +39,18 @@ export interface LogLine {
   id: string;
   ts: string;
   tsIso: string | null;
+  /** Epoch ms of `tsIso`, parsed ONCE at ingest — the time-range filter and
+   *  histogram bucketing run over the whole buffer per frame while tailing,
+   *  and re-parsing ISO strings there dominated the profile. */
+  tsMs: number | null;
   level: LogLevel;
   svc: string;
   resourceId: string;
   stream: "stdout" | "stderr" | "system";
   msg: string;
+  /** Lowercased `msg`, computed once at ingest for the same reason: the text
+   *  filter otherwise allocated a lowercased copy of every message per pass. */
+  msgLower: string;
 }
 
 interface UseProjectLogStreamArgs {
@@ -82,7 +91,11 @@ function coalesceMultiline(lines: LogLine[]): LogLine[] {
   for (const ln of lines) {
     const head = out.length ? out[out.length - 1] : null;
     if (head && head.resourceId === ln.resourceId && isContinuationLine(ln.msg)) {
-      out[out.length - 1] = { ...head, msg: `${head.msg}\n${ln.msg}` };
+      out[out.length - 1] = {
+        ...head,
+        msg: `${head.msg}\n${ln.msg}`,
+        msgLower: `${head.msgLower}\n${ln.msgLower}`,
+      };
     } else {
       out.push(ln);
     }
@@ -123,27 +136,35 @@ export function useProjectLogStream({
         },
         { signal, context: { retry: Number.POSITIVE_INFINITY } },
       ),
-    map: (ev, id): LogLine => ({
-      id: String(id),
-      ts: shortTs(ev.ts),
-      tsIso: ev.ts,
-      level: inferLevel(ev.stream, ev.line),
-      svc: ev.serviceName ? displayServiceName(ev.serviceName) : "system",
-      resourceId: ev.resourceId,
-      stream: ev.stream,
-      msg: ev.line,
-    }),
+    map: (ev, id): LogLine => {
+      const tsMs = ev.ts ? Date.parse(ev.ts) : NaN;
+      return {
+        id: String(id),
+        ts: shortTs(ev.ts),
+        tsIso: ev.ts,
+        tsMs: Number.isNaN(tsMs) ? null : tsMs,
+        level: inferLevel(ev.stream, ev.line),
+        svc: ev.serviceName ? displayServiceName(ev.serviceName) : "system",
+        resourceId: ev.resourceId,
+        stream: ev.stream,
+        msg: ev.line,
+        msgLower: ev.line.toLowerCase(),
+      };
+    },
     onError: (err, id): LogLine => {
-      const iso = new Date().toISOString();
+      const now = new Date();
+      const msg = `Log stream error: ${err instanceof Error ? err.message : String(err)}`;
       return {
         id: `err-${id}`,
-        ts: shortTs(iso),
-        tsIso: iso,
+        ts: shortTs(now.toISOString()),
+        tsIso: now.toISOString(),
+        tsMs: now.getTime(),
         level: "error",
         svc: "system",
         resourceId: "",
         stream: "system",
-        msg: `Log stream error: ${err instanceof Error ? err.message : String(err)}`,
+        msg,
+        msgLower: msg.toLowerCase(),
       };
     },
     bufferSize,
@@ -151,6 +172,11 @@ export function useProjectLogStream({
     key: `${projectId}|${key}|${bufferSize}`,
   });
 
-  const lines = coalesceMultiline(rawLines);
+  // Memoized on the buffer snapshot — without this, every render (frame,
+  // during tail) allocated a fresh array + fresh folded objects, which broke
+  // referential identity for EVERY downstream useMemo (filters, react-table
+  // row models, histogram buckets) and re-processed the whole 5k buffer 4-5
+  // times per frame.
+  const lines = useMemo(() => coalesceMultiline(rawLines), [rawLines]);
   return { lines, status };
 }
