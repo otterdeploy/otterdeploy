@@ -60,9 +60,7 @@ export function useLogsTable({
   const filteredByMeta = useMemo(() => {
     const needle = query.trim().toLowerCase();
     // msgLower is precomputed at ingest — no per-pass string allocation.
-    return lines.filter(
-      (l) => lvlFilter.has(l.level) && (!needle || l.msgLower.includes(needle)),
-    );
+    return lines.filter((l) => lvlFilter.has(l.level) && (!needle || l.msgLower.includes(needle)));
   }, [lines, lvlFilter, query]);
 
   // The table additionally honors the selected histogram bucket.
