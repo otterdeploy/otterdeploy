@@ -43,8 +43,8 @@ import {
 import { runServiceCreates, runServiceUpdates } from "./manifest-apply-phases-services";
 import { loadRefTable, makeEnvRefResolver } from "./manifest-apply-refs";
 import { groupChanges } from "./manifest-apply-support";
-import { publishManifestChanged } from "./project-event-bus";
 import { loadCurrentState } from "./manifest-state";
+import { publishManifestChanged } from "./project-event-bus";
 import { resolveProjectEnvironmentScope } from "./queries/resource";
 
 export { enqueueGitBuild } from "./manifest-apply-git";

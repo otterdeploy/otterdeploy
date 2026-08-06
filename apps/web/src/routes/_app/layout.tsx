@@ -3,8 +3,8 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
 import { CommandPalette } from "@/features/command-palette";
 import { useInstallCallbackToast } from "@/features/git-providers/install-callback-toast";
-import { useOrgEvents } from "@/features/shell/hooks/use-org-events";
 import { ResourceOverlayProvider } from "@/features/projects/components/new-resource/overlay-provider";
+import { useOrgEvents } from "@/features/shell/hooks/use-org-events";
 import { TourProvider } from "@/features/tour";
 import { decideAuthGate } from "@/lib/auth-gate";
 import { organizationsQuery, sessionQuery } from "@/lib/auth-queries";

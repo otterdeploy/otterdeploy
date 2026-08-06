@@ -7,8 +7,9 @@
 
 import type { ResourceId } from "@otterdeploy/shared/id";
 
-import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+
+import { useQuery } from "@tanstack/react-query";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
 import { Skeleton } from "@/shared/components/ui/skeleton";

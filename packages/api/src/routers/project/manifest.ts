@@ -56,7 +56,7 @@ export async function saveManifest(
   scope: ProjectScope,
   input: { manifest: Manifest; expectedVersion: number },
 ): Promise<Result<{ version: number }, ProjectNotFoundError | ManifestVersionConflictError>> {
-  const updated = await db
+  const [updatedRow] = await db
     .update(project)
     .set({
       manifest: input.manifest,
@@ -71,7 +71,6 @@ export async function saveManifest(
     )
     .returning({ version: project.manifestVersion });
 
-  const [updatedRow] = updated;
   if (updatedRow) {
     publishManifestChanged(scope.projectId);
     return Result.ok({ version: updatedRow.version });
@@ -115,7 +114,7 @@ export async function discardManifest(
     only,
   });
 
-  const updated = await db
+  const [updatedRow] = await db
     .update(project)
     .set({
       manifest: nextManifest,
@@ -124,7 +123,6 @@ export async function discardManifest(
     .where(and(eq(project.id, scope.projectId), eq(project.organizationId, scope.organizationId)))
     .returning({ version: project.manifestVersion });
 
-  const [updatedRow] = updated;
   if (!updatedRow) {
     return Result.err(new ProjectNotFoundError({ projectId: scope.projectId }));
   }

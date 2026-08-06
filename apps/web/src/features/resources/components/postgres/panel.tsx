@@ -13,6 +13,7 @@ import { Activity } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { DbConnectionsChip } from "@/features/databases/connections-popover";
 import { MetricsTab } from "@/features/resources/components/_shared/metrics/metrics-tab";
 import { ResourceTasksTab } from "@/features/resources/components/_shared/resource-tasks-tab";
 import { ResourceTerminal } from "@/features/resources/components/_shared/resource-terminal";
@@ -22,8 +23,6 @@ import { orpc } from "@/shared/server/orpc";
 import type { PostgresBodyProps } from "./types";
 
 import { resolvePanelTab } from "../_shared/panel-tab";
-import { DbConnectionsChip } from "@/features/databases/connections-popover";
-
 import { DatabaseDataTab, DatabasePanelHeader, DatabaseStatusBar } from "./panel-parts";
 import { PostgresSettingsBody } from "./tabs/settings";
 import { PostgresVariablesTabBody } from "./tabs/variables";
