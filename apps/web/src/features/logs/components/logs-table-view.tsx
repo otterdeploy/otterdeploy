@@ -155,6 +155,14 @@ interface LogsTableBodyProps {
 }
 
 function LogsTableBody({ rows, virtualizer, selectedId, onSelect }: LogsTableBodyProps) {
+  // React Compiler opt-out, and it is LOAD-BEARING: the compiler memoizes
+  // `virtualizer.getTotalSize()` / `getVirtualItems()` on their only visible
+  // dependency — the referentially-stable virtualizer instance — so it cached
+  // the FIRST render's values forever (observed in prod: tbody committed at
+  // 25px, one row's height, while the instance reported 5950). TanStack
+  // Virtual mutates interior state and notifies via its own rerender; the
+  // compiler cannot see that, so this component must not be auto-memoized.
+  "use no memo";
   return (
     <TableBody className="relative grid" style={{ height: virtualizer.getTotalSize() }}>
       {virtualizer.getVirtualItems().map((vi) => {
