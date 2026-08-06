@@ -97,10 +97,20 @@ export function useLogsTable({
   rowsRef.current = rows;
   const getItemKey = useCallback((index: number) => rowsRef.current[index]?.id ?? index, []);
 
-  const scrollRef = useRef<HTMLDivElement | null>(null);
+  // The scroll element lives in STATE, not a ref, and reaches the view as a
+  // callback ref. This is the deterministic-attach pattern for a scroll
+  // container that mounts AFTER the virtualizer hook runs (ours renders
+  // inside a Tabs panel): a plain useRef populates without re-rendering, so
+  // whether the virtualizer ever re-observed the element depended on an
+  // unrelated render happening at the right moment — when it lost that race
+  // its scroll listener stayed dead and it rendered the range for offset 0
+  // forever (the "blank table, everything at the top" wedge). A state setter
+  // forces the re-render, and the null→element transition makes the
+  // virtualizer re-observe every time.
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
   const virtualizer = useVirtualizer({
     count: rows.length,
-    getScrollElement: () => scrollRef.current,
+    getScrollElement: () => scrollEl,
     // Real row height: py-1 (8px) + text-xs line height (16px) + border-b
     // (1px) = 25px. The old 28px estimate left ~3px of phantom height per
     // unmeasured row — a visible blank band at a few hundred rows.
@@ -131,9 +141,10 @@ export function useLogsTable({
   // model is in.
   useEffect(() => {
     if (!follow || !isDefaultSort || paused || timeRange || rows.length === 0) return;
-    const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [rows.length, follow, isDefaultSort, paused, timeRange]);
+    // scrollEl in the deps also makes this fire when the element mounts, so
+    // the very first paint of a fresh page lands at the bottom.
+    if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
+  }, [rows.length, follow, isDefaultSort, paused, timeRange, scrollEl]);
 
   const selectedCount = Object.keys(rowSelection).length;
 
@@ -141,7 +152,8 @@ export function useLogsTable({
     table,
     rows,
     virtualizer,
-    scrollRef,
+    // Callback ref — the view attaches it to the scroll div (see scrollEl).
+    scrollRef: setScrollEl,
     status,
     lines,
     filteredByMeta,
