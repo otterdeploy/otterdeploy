@@ -9,18 +9,20 @@
  */
 import type { ProjectSlug, ResourceId } from "@otterdeploy/shared/id";
 
-import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import type { CatalogDatabase } from "@/features/databases/data";
 
+import {
+  ConnectionsPopoverBody,
+  useDbConnections,
+} from "@/features/databases/connections-popover";
 import { useDatabaseCatalog } from "@/features/databases/data";
 import { fmtBytes, relTime, StatusPill } from "@/features/databases/shared";
 import { DatabaseLogo } from "@/shared/components/brand/database-logo";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
 import { Skeleton } from "@/shared/components/ui/skeleton";
-import { orpc } from "@/shared/server/orpc";
 
 import { SectionH } from "./shared";
 
@@ -135,18 +137,14 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 /**
- * The connections number, expandable into a who-is-connected breakdown from
- * pg_stat_activity (grouped by origin). Fetched only when opened — the row
- * itself never pays for it. Lives inside the row's <Link>, so the trigger
- * must swallow the click instead of navigating.
+ * The connections number, expandable into a who-is-connected breakdown
+ * (shared body — see features/databases/connections-popover). Fetched only
+ * when opened — the row itself never pays for it. Lives inside the row's
+ * <Link>, so the trigger must swallow the click instead of navigating.
  */
 function ConnectionsStat({ resourceId, count }: { resourceId: ResourceId; count: number }) {
   const [open, setOpen] = useState(false);
-  const breakdown = useQuery({
-    ...orpc.database.connections.queryOptions({ input: { resourceId } }),
-    enabled: open,
-    staleTime: 5_000,
-  });
+  const breakdown = useDbConnections(resourceId, open);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -171,43 +169,7 @@ function ConnectionsStat({ resourceId, count }: { resourceId: ResourceId; count:
           e.stopPropagation();
         }}
       >
-        <div className="border-b px-3 py-2 text-xs font-medium">
-          Client connections
-          {breakdown.data?.maxConnections != null && (
-            <span className="ml-1 font-normal text-muted-foreground">
-              · {count} of {breakdown.data.maxConnections} max
-            </span>
-          )}
-        </div>
-        {breakdown.isPending ? (
-          <div className="space-y-2 p-3">
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-2/3" />
-          </div>
-        ) : breakdown.isError ? (
-          <p className="p-3 text-xs text-muted-foreground">
-            Couldn't read pg_stat_activity — the database may be unreachable.
-          </p>
-        ) : breakdown.data.groups.length === 0 ? (
-          <p className="p-3 text-xs text-muted-foreground">No client connections right now.</p>
-        ) : (
-          <div className="max-h-64 overflow-y-auto">
-            {breakdown.data.groups.map((g, i) => (
-              <div
-                key={`${g.clientAddr}-${g.user}-${g.applicationName}-${g.state}-${i}`}
-                className={`flex items-baseline gap-2 px-3 py-1.5 text-xs ${i > 0 ? "border-t" : ""}`}
-              >
-                <span className="shrink-0 font-mono">{g.clientAddr}</span>
-                <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                  {g.user}
-                  {g.applicationName && ` · ${g.applicationName}`}
-                  {g.state && ` · ${g.state}`}
-                </span>
-                <span className="shrink-0 font-mono">{g.count}</span>
-              </div>
-            ))}
-          </div>
-        )}
+        <ConnectionsPopoverBody query={breakdown} total={count} />
       </PopoverContent>
     </Popover>
   );

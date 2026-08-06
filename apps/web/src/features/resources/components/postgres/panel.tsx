@@ -22,6 +22,8 @@ import { orpc } from "@/shared/server/orpc";
 import type { PostgresBodyProps } from "./types";
 
 import { resolvePanelTab } from "../_shared/panel-tab";
+import { DbConnectionsChip } from "@/features/databases/connections-popover";
+
 import { DatabaseDataTab, DatabasePanelHeader, DatabaseStatusBar } from "./panel-parts";
 import { PostgresSettingsBody } from "./tabs/settings";
 import { PostgresVariablesTabBody } from "./tabs/variables";
@@ -113,6 +115,11 @@ export function RealResourcePanel({
         pending={pending}
         runtime={resource.runtime}
         latestDeploymentStatus={resource.latestDeploymentStatus}
+        trailing={
+          resource.engine === "postgres" ? (
+            <DbConnectionsChip resourceId={resource.resourceId} />
+          ) : undefined
+        }
       />
 
       <Tabs
