@@ -7,16 +7,20 @@
  * separate route. Data + formatters are reused as-is from features/databases/
  * (same polled catalog query, same "—" degrade-when-unmeasured rule).
  */
-import type { ProjectSlug } from "@otterdeploy/shared/id";
+import type { ProjectSlug, ResourceId } from "@otterdeploy/shared/id";
 
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { useState } from "react";
 
 import type { CatalogDatabase } from "@/features/databases/data";
 
 import { useDatabaseCatalog } from "@/features/databases/data";
 import { fmtBytes, relTime, StatusPill } from "@/features/databases/shared";
 import { DatabaseLogo } from "@/shared/components/brand/database-logo";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
 import { Skeleton } from "@/shared/components/ui/skeleton";
+import { orpc } from "@/shared/server/orpc";
 
 import { SectionH } from "./shared";
 
@@ -106,10 +110,14 @@ function DatabaseStatsRow({
       </div>
 
       <Stat label="Storage" value={fmtBytes(db.stats?.sizeBytes ?? null)} />
-      <Stat
-        label="Connections"
-        value={db.stats?.connections != null ? String(db.stats.connections) : "—"}
-      />
+      {db.engine === "postgres" && db.stats?.connections != null ? (
+        <ConnectionsStat resourceId={db.resourceId} count={db.stats.connections} />
+      ) : (
+        <Stat
+          label="Connections"
+          value={db.stats?.connections != null ? String(db.stats.connections) : "—"}
+        />
+      )}
       <Stat label="Last backup" value={relTime(db.lastBackupAt)} />
 
       <StatusPill status={db.runtimeStatus} />
@@ -123,5 +131,84 @@ function Stat({ label, value }: { label: string; value: string }) {
       <span className="font-mono text-xs">{value}</span>
       <span className="text-[10px] text-muted-foreground">{label}</span>
     </div>
+  );
+}
+
+/**
+ * The connections number, expandable into a who-is-connected breakdown from
+ * pg_stat_activity (grouped by origin). Fetched only when opened — the row
+ * itself never pays for it. Lives inside the row's <Link>, so the trigger
+ * must swallow the click instead of navigating.
+ */
+function ConnectionsStat({ resourceId, count }: { resourceId: ResourceId; count: number }) {
+  const [open, setOpen] = useState(false);
+  const breakdown = useQuery({
+    ...orpc.database.connections.queryOptions({ input: { resourceId } }),
+    enabled: open,
+    staleTime: 5_000,
+  });
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        className="hidden min-w-24 cursor-pointer flex-col items-end gap-0 rounded-sm px-1 -mx-1 hover:bg-muted/60 sm:flex"
+      >
+        <span className="font-mono text-xs underline decoration-dotted underline-offset-2">
+          {count}
+        </span>
+        <span className="text-[10px] text-muted-foreground">Connections</span>
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        className="w-96 p-0"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+      >
+        <div className="border-b px-3 py-2 text-xs font-medium">
+          Client connections
+          {breakdown.data?.maxConnections != null && (
+            <span className="ml-1 font-normal text-muted-foreground">
+              · {count} of {breakdown.data.maxConnections} max
+            </span>
+          )}
+        </div>
+        {breakdown.isPending ? (
+          <div className="space-y-2 p-3">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-2/3" />
+          </div>
+        ) : breakdown.isError ? (
+          <p className="p-3 text-xs text-muted-foreground">
+            Couldn't read pg_stat_activity — the database may be unreachable.
+          </p>
+        ) : breakdown.data.groups.length === 0 ? (
+          <p className="p-3 text-xs text-muted-foreground">No client connections right now.</p>
+        ) : (
+          <div className="max-h-64 overflow-y-auto">
+            {breakdown.data.groups.map((g, i) => (
+              <div
+                key={`${g.clientAddr}-${g.user}-${g.applicationName}-${g.state}-${i}`}
+                className={`flex items-baseline gap-2 px-3 py-1.5 text-xs ${i > 0 ? "border-t" : ""}`}
+              >
+                <span className="shrink-0 font-mono">{g.clientAddr}</span>
+                <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                  {g.user}
+                  {g.applicationName && ` · ${g.applicationName}`}
+                  {g.state && ` · ${g.state}`}
+                </span>
+                <span className="shrink-0 font-mono">{g.count}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
