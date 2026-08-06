@@ -66,6 +66,24 @@ const queryResultSchema = z.object({
 
 const tablesInput = z.object({ resourceId: resourceIdField });
 
+/** One group of live client sessions sharing an origin. `clientAddr` is the
+ *  raw address postgres sees — a container/overlay IP for in-cluster
+ *  clients, so `applicationName` (when the client sets it) is often the more
+ *  human column. */
+const connectionGroupSchema = z.object({
+  clientAddr: z.string(),
+  user: z.string(),
+  applicationName: z.string(),
+  state: z.string(),
+  count: z.number().int(),
+});
+
+const connectionsResultSchema = z.object({
+  /** current_setting('max_connections'); null when unparseable. */
+  maxConnections: z.number().int().nullable(),
+  groups: z.array(connectionGroupSchema),
+});
+
 const tablesResultSchema = z.object({
   tables: z.array(
     z.object({
@@ -240,6 +258,15 @@ export const databaseContract = {
     .meta({ path: `${basePath}/{resourceId}/tables`, tag, method: "GET" })
     .input(tablesInput)
     .output(tablesResultSchema),
+
+  // Live client sessions from pg_stat_activity, grouped by origin — who is
+  // connected, from where, in what state. Background workers and the probe's
+  // own session are excluded, matching the catalog card's honest count.
+  connections: oc
+    .errors(notDatabase)
+    .meta({ path: `${basePath}/{resourceId}/connections`, tag, method: "GET" })
+    .input(tablesInput)
+    .output(connectionsResultSchema),
 
   // Run a read-only SQL statement and return the grid.
   query: oc

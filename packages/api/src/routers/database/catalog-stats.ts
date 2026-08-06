@@ -27,9 +27,15 @@ import { mongoEvalJson } from "./mongo";
 import { runReadOnlyQuery } from "./query";
 import { redisInfoRaw } from "./redis";
 
+// Unfiltered pg_stat_activity counts postgres's own background workers
+// (autovacuum launcher, checkpointer, walwriter, …) plus this probe's own
+// session — reporting ~5 phantom "connections" on an idle database. Client
+// backends minus ourselves is the number an operator actually means.
 const POSTGRES_STATS_SQL = `
   SELECT pg_database_size(current_database())::text AS size_bytes,
-         (SELECT count(*) FROM pg_stat_activity)::text AS connections,
+         (SELECT count(*) FROM pg_stat_activity
+           WHERE backend_type = 'client backend'
+             AND pid <> pg_backend_pid())::text AS connections,
          current_setting('max_connections') AS max_connections,
          current_setting('server_version') AS server_version
 `;

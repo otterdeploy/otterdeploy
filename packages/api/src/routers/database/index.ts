@@ -37,6 +37,22 @@ function parseEstimatedRows(cell: string | null | undefined): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
+// Client backends only, minus this probe's own session — the same filter the
+// catalog count uses, so the breakdown always sums to the number on the card.
+// `max_connections` rides along in the same round trip.
+const CONNECTIONS_SQL = `
+  SELECT coalesce(host(client_addr), 'local socket') AS client_addr,
+         coalesce(usename, '') AS usename,
+         coalesce(application_name, '') AS application_name,
+         coalesce(state, '') AS state,
+         count(*)::text AS sessions,
+         current_setting('max_connections') AS max_connections
+  FROM pg_stat_activity
+  WHERE backend_type = 'client backend' AND pid <> pg_backend_pid()
+  GROUP BY 1, 2, 3, 4
+  ORDER BY count(*) DESC, 1, 2
+`;
+
 export const databaseRouter = {
   tables: requirePermission({ database: ["read"] }).database.tables.handler(
     async ({ input, context, errors }) => {
@@ -56,6 +72,39 @@ export const databaseRouter = {
             schema: r[0] ?? "",
             name: r[1] ?? "",
             estimatedRows: parseEstimatedRows(r[2]),
+          })),
+        };
+      } catch (cause) {
+        if (cause instanceof UnsupportedEngineError) throw errors.UNSUPPORTED();
+        throw errors.QUERY_FAILED({
+          data: { reason: cause instanceof Error ? cause.message : String(cause) },
+        });
+      }
+    },
+  ),
+
+  connections: requirePermission({ database: ["read"] }).database.connections.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "resource", id: input.resourceId } });
+      await enforceResourceScope(context, input.resourceId);
+      const conn = await getDatabaseConnInfo({
+        organizationId: context.activeOrganizationId,
+        resourceId: input.resourceId,
+      });
+      if (!conn) throw errors.NOT_FOUND();
+      if (conn.engine !== "postgres") throw errors.UNSUPPORTED();
+
+      try {
+        const grid = await runReadOnlyQuery(conn, CONNECTIONS_SQL, 500);
+        const maxRaw = Number.parseInt(grid.rows[0]?.[5] ?? "", 10);
+        return {
+          maxConnections: Number.isFinite(maxRaw) ? maxRaw : null,
+          groups: grid.rows.map((r) => ({
+            clientAddr: r[0] ?? "",
+            user: r[1] ?? "",
+            applicationName: r[2] ?? "",
+            state: r[3] ?? "",
+            count: Number.parseInt(r[4] ?? "0", 10) || 0,
           })),
         };
       } catch (cause) {
