@@ -17,7 +17,10 @@
  */
 
 import type { ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
+import type { OrgBusEvent, OrgStreamCollection } from "@otterdeploy/shared/org-events";
 import type { RedisClient } from "bun";
+
+import { orgEventsChannel } from "@otterdeploy/shared/org-events";
 
 import { db } from "@otterdeploy/db";
 import { resource } from "@otterdeploy/db/schema";
@@ -115,6 +118,42 @@ export function publishRouteRemoved(
   resourceId: ResourceId | null,
 ): void {
   publishProjectEvent(projectId, { kind: "route", action: "removed", routeId, resourceId });
+}
+
+/**
+ * Publish an org-scoped, payload-free change announcement (activity counts,
+ * inbox, servers). Same best-effort rules as the project channel. The jobs
+ * workers publish to the same channel with their own client — the wire shape
+ * lives in @otterdeploy/shared/org-events so the two can't drift.
+ */
+export function publishOrgEvent(organizationId: string, kind: OrgStreamCollection): void {
+  const event: OrgBusEvent = { kind };
+  void Promise.resolve()
+    .then(() => getPublisher().publish(orgEventsChannel(organizationId), JSON.stringify(event)))
+    .catch(() => undefined);
+}
+
+/** Subscribe to an organization's channel. Same contract as
+ *  {@link subscribeProjectEvents}: dedicated connection, `close()` to stop. */
+export function subscribeOrgEvents(
+  organizationId: string,
+  onEvent: (event: OrgBusEvent) => void,
+): { close: () => void } {
+  const sub = createRedis();
+  const ch = orgEventsChannel(organizationId);
+  void sub.subscribe(ch, (payload) => {
+    try {
+      onEvent(JSON.parse(payload) as OrgBusEvent);
+    } catch {
+      // ignore malformed payloads
+    }
+  });
+  return {
+    close: () => {
+      void sub.unsubscribe(ch).catch(() => undefined);
+      sub.close();
+    },
+  };
 }
 
 /** Subscribe to a project's channel. Returns a `close()` to tear down the

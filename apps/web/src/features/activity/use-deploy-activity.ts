@@ -14,13 +14,12 @@ import { orpc } from "@/shared/server/orpc";
 /** Enough rows to see the shape of a backlog; the counts are never truncated. */
 const PAGE = 20;
 
-/** Tight while work is in flight, lazy when the workspace is quiet. A queue you
- *  are watching drain is exactly when a stale number is most annoying — but a
- *  quiet workspace flips to busy the moment YOU deploy (apply/cancel paths
- *  invalidate this query — see invalidateManifestConsumers), so the idle tick
- *  only covers deploys started elsewhere and can afford to be slow. */
+/** Tight while work is in flight, lazy when the workspace is quiet. Deploy
+ *  lifecycle transitions push an `activity` resync over the org event stream
+ *  (use-org-events), and apply/cancel paths invalidate this query directly —
+ *  the idle tick is only a dead-stream backstop. */
 const POLL_ACTIVE_MS = 5_000;
-const POLL_IDLE_MS = 60_000;
+const POLL_IDLE_MS = 180_000;
 
 const activityInput = { input: { limit: PAGE } } as const;
 

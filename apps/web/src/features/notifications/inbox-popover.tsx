@@ -40,10 +40,11 @@ type InboxItem = InboxData["items"][number];
 
 const inboxInput = { input: {} } as const;
 
-/** Idle cadence. A build's terminal notification is worth having promptly, so
- *  the poll tightens while work is in flight (see {@link useInbox}); with
- *  nothing building there is nothing imminent to announce, so idle is slow. */
-const INBOX_POLL_IDLE_MS = 60_000;
+/** Idle cadence. The notification-inbox job pushes an `inbox` resync over the
+ *  org event stream the moment rows land (use-org-events), so the idle tick
+ *  is only a dead-stream backstop; the poll still tightens while work is in
+ *  flight (see {@link useInbox}) for the terminal-notification case. */
+const INBOX_POLL_IDLE_MS = 180_000;
 const INBOX_POLL_ACTIVE_MS = 5_000;
 
 function useInbox(busy: boolean) {

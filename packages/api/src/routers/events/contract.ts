@@ -62,6 +62,17 @@ const eventsStreamInputSchema = z.object({
   projectId: projectIdField,
 });
 
+/** Org-wide surfaces that resync over the org stream. Payload-free by design
+ *  — see @otterdeploy/shared/org-events for the bus side of this contract. */
+const orgCollectionEventSchema = z.object({
+  protocol: z.literal(1),
+  collection: z.enum(["activity", "inbox", "servers"]),
+  scope: z.object({ organizationId: organizationIdField }),
+  op: z.literal("resync"),
+});
+
+export type OrgCollectionEvent = z.infer<typeof orgCollectionEventSchema>;
+
 export const eventsContract = {
   stream: oc
     .errors({
@@ -77,4 +88,20 @@ export const eventsContract = {
     })
     .input(eventsStreamInputSchema)
     .output(eventIterator(collectionEventSchema)),
+
+  orgStream: oc
+    .errors({
+      FORBIDDEN: {
+        status: 403,
+        message:
+          "Project-scoped API keys cannot subscribe to organization-wide streams",
+      },
+    })
+    .meta({
+      path: "/events/org",
+      tag: "events",
+      method: "GET",
+    })
+    .input(z.object({}))
+    .output(eventIterator(orgCollectionEventSchema)),
 };

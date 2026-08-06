@@ -64,10 +64,11 @@ const STRANDED_AFTER_MS = 45 * 60_000;
 const PAGE = 10;
 
 /** Tight while something is in flight; back off hard when the project is
- *  quiet — the event stream carries transitions, so idle polling is only a
- *  dead-stream backstop. */
+ *  quiet — deploy transitions push an `activity` resync over the org event
+ *  stream (use-org-events invalidates this query's prefix), so idle polling
+ *  is only a dead-stream backstop. */
 const POLL_ACTIVE_MS = 5_000;
-const POLL_IDLE_MS = 60_000;
+const POLL_IDLE_MS = 180_000;
 
 interface DeployRow {
   status: string;
