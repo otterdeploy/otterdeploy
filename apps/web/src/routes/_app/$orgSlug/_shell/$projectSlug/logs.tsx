@@ -56,6 +56,17 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/logs")(
 });
 
 function RouteComponent() {
+  // React Compiler opt-out — LOAD-BEARING, do not remove. This component
+  // owns useVirtualizer (via useLogsTable); TanStack Virtual re-renders it
+  // to publish scroll-driven state that lives INSIDE the stable virtualizer
+  // instance. The compiler can't see that interior mutation: it cached the
+  // route's child JSX on unchanged prop identities, so a scroll-only update
+  // re-rendered the route but React bailed out before LogsTableView — rows
+  // and the tbody height froze at whatever the last append happened to
+  // paint (prod symptom: blank table wherever you scrolled). The opt-out
+  // must live HERE, at the hook owner, so the rerender actually reaches the
+  // components that read the virtualizer.
+  "use no memo";
   const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
   const activeEnv = useActiveEnvironment(project.id);
   const search = Route.useSearch();
