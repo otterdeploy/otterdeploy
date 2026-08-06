@@ -163,12 +163,17 @@ function LogsTableBody({ rows, virtualizer, selectedId, onSelect }: LogsTableBod
         return (
           <TableRow
             key={row.id}
-            data-index={vi.index}
-            ref={virtualizer.measureElement}
+            // Deliberately NOT measureElement: every row is a fixed 25px
+            // (single truncated line), so offsets are pure arithmetic from
+            // estimateSize. Dynamic measurement fed virtual-core's
+            // incremental flat-measurements cache, which under live count
+            // changes could tear (observed: getTotalSize() collapsed to one
+            // row's 25px while items stayed correct, freezing the scroll
+            // range). No measurement, no cache, no tear.
             data-state={selectedId === row.id ? "selected" : undefined}
             onClick={() => onSelect(row.id)}
             style={{ transform: `translateY(${vi.start}px)` }}
-            className="absolute flex w-full cursor-pointer border-b font-mono"
+            className="absolute flex h-[25px] w-full cursor-pointer border-b font-mono"
           >
             {row.getVisibleCells().map((cell, i) => {
               const isMsg = cell.column.id === "message";
