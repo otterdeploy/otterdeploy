@@ -29,6 +29,8 @@ const resyncCollectionSchema = z.enum([
   "deployment-tasks",
   "service-tasks",
   "dependencies",
+  "manifest",
+  "previews",
 ]);
 
 export const collectionEventSchema = z.discriminatedUnion("op", [

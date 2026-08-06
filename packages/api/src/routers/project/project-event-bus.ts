@@ -66,6 +66,22 @@ export async function publishResourceChanged(resourceId: ResourceId): Promise<vo
 }
 
 /**
+ * Announce that the project's staged manifest changed (save / apply /
+ * discard / git apply). Carries no payload — the collection stream turns it
+ * into a `manifest` resync and consumers refetch diff/manifest/stack reads,
+ * which lets those queries idle at a slow backstop instead of polling.
+ */
+export function publishManifestChanged(projectId: ProjectId | string): void {
+  publishProjectEvent(projectId, { kind: "manifest", action: "changed" });
+}
+
+/** Announce a preview lifecycle change (PR opened / updated / closed). Same
+ *  contract as manifest: no payload, consumers resync `previews.list`. */
+export function publishPreviewsChanged(projectId: ProjectId | string): void {
+  publishProjectEvent(projectId, { kind: "previews", action: "changed" });
+}
+
+/**
  * Publish a route row to its project's channel.
  *
  * Carries the ROW, not an id — the client applies it directly instead of

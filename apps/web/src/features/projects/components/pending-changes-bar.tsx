@@ -52,15 +52,15 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
   const reduce = useReducedMotion();
   const morph: Transition = reduce ? { duration: 0 } : { duration: 0.28, ease: [0.2, 0.7, 0.2, 1] };
 
-  // Staging/applying invalidates this key explicitly via
-  // invalidateManifestConsumers, so the interval is only a repair backstop.
-  // Input + interval MUST stay in sync with the graph's diff query
-  // (graph-model.ts) — same input means one shared cache entry instead of
-  // two parallel pollers.
+  // Manifest writes push a `manifest` resync over the event stream, and local
+  // staging invalidates via invalidateManifestConsumers — the interval is only
+  // a dead-stream backstop. Input + interval MUST stay in sync with the
+  // graph's diff query (graph-model.ts) — same input means one shared cache
+  // entry instead of two parallel pollers.
   const diff = useQuery(
     orpc.project.manifest.diff.queryOptions({
       input: { projectId, environment },
-      refetchInterval: 15_000,
+      refetchInterval: 60_000,
     }),
   );
 

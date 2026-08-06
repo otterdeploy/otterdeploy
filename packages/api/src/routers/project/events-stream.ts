@@ -61,6 +61,12 @@ export type ProjectStreamEvent =
       taskId: string;
       state: string | null;
     }
+  /** Staged manifest changed (save/apply/discard, UI or git). No payload —
+   *  consumers resync diff/manifest reads. NOT forwarded on the legacy
+   *  per-project stream, whose deployed clients predate the kind. */
+  | { kind: "manifest"; action: "changed" }
+  /** Preview lifecycle changed (PR opened/updated/closed). Same rules. */
+  | { kind: "previews"; action: "changed" }
   | {
       kind: "container";
       action: string;

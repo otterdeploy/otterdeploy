@@ -22,6 +22,7 @@ import {
 } from "../../stack/manifest";
 import { ManifestVersionConflictError, ProjectNotFoundError } from "./errors";
 import { manifestAfterDiscard, type SkippedResource } from "./manifest-applied-snapshot";
+import { publishManifestChanged } from "./project-event-bus";
 
 type OrgId = OrganizationId;
 
@@ -72,6 +73,7 @@ export async function saveManifest(
 
   const [updatedRow] = updated;
   if (updatedRow) {
+    publishManifestChanged(scope.projectId);
     return Result.ok({ version: updatedRow.version });
   }
 
@@ -126,6 +128,7 @@ export async function discardManifest(
   if (!updatedRow) {
     return Result.err(new ProjectNotFoundError({ projectId: scope.projectId }));
   }
+  publishManifestChanged(scope.projectId);
   return Result.ok({ version: updatedRow.version });
 }
 

@@ -55,6 +55,12 @@ export function toCollectionEvents(
     ];
   }
 
+  // Payload-free write announcements: one resync for exactly the collection
+  // named by the event, no per-resource fan-out.
+  if (event.kind === "manifest" || event.kind === "previews") {
+    return [{ protocol: 1, collection: event.kind, scope: baseScope, op: "resync" }];
+  }
+
   const eventScope = { ...baseScope, resourceId: event.resourceId };
   const events: CollectionEvent[] = [
     { protocol: 1, collection: "resources", scope: eventScope, op: "resync" },

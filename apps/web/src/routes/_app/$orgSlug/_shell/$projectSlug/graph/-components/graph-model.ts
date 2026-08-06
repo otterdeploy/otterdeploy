@@ -217,13 +217,14 @@ export function useGraphModel(
   // on existing nodes for updates/deletes. The input MUST match the
   // pending-changes bar's (`{ projectId, environment }`) — oRPC derives the
   // query key from the input, so a mismatched input is a second cache entry
-  // polling the same procedure in parallel. Staging/applying invalidates this
-  // key explicitly (invalidateManifestConsumers), so the interval is only a
-  // repair backstop.
+  // polling the same procedure in parallel. Manifest writes push a `manifest`
+  // resync over the event stream (and local staging invalidates via
+  // invalidateManifestConsumers), so the interval is only a dead-stream
+  // backstop.
   const diff = useQuery(
     orpc.project.manifest.diff.queryOptions({
       input: { projectId: project.id, environment: activeEnv.slug },
-      refetchInterval: 15_000,
+      refetchInterval: 60_000,
     }),
   );
 
@@ -249,12 +250,12 @@ export function useGraphModel(
   }, [appliedCreates, pendingFrameworks, resources, project.id]);
 
   // Open PR previews — satellite cards hanging off the service they preview.
-  // Previews change on webhook events, not user interaction, so a slow poll
-  // is the honest refresh model — and 30s is plenty for "a PR opened".
+  // The PR webhook handlers push a `previews` resync over the event stream,
+  // so this poll is only the backstop for a missed event.
   const previews = useQuery(
     orpc.project.previews.list.queryOptions({
       input: { projectId: project.id },
-      refetchInterval: 30_000,
+      refetchInterval: 120_000,
     }),
   );
 

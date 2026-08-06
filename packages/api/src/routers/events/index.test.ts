@@ -49,6 +49,18 @@ describe("toCollectionEvents", () => {
     expect(toCollectionEvents(event, scope).every((item) => item.op === "resync")).toBe(true);
   });
 
+  it("maps write announcements to a single resync of exactly that collection", () => {
+    const manifest: ProjectStreamEvent = { kind: "manifest", action: "changed" };
+    const previews: ProjectStreamEvent = { kind: "previews", action: "changed" };
+
+    expect(toCollectionEvents(manifest, scope)).toEqual([
+      { protocol: 1, collection: "manifest", scope, op: "resync" },
+    ]);
+    expect(toCollectionEvents(previews, scope)).toEqual([
+      { protocol: 1, collection: "previews", scope, op: "resync" },
+    ]);
+  });
+
   it("also resyncs dependencies when resource membership changes", () => {
     const event: ProjectStreamEvent = {
       kind: "resource",
