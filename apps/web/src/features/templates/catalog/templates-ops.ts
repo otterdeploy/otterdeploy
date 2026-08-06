@@ -67,6 +67,36 @@ volumes:
 `,
   },
   {
+    id: "beszel",
+    name: "Beszel",
+    description:
+      "Lightweight monitoring hub — CPU, memory, disk, network and per-container stats, with history and alerts, in one small Go binary. The hub only displays data: each machine you want charted runs a Beszel agent, and the hub hands you its install command when you add the system.",
+    category: "observability",
+    includes: ["beszel"],
+    requiredEnv: [
+      {
+        key: "APP_URL",
+        description: "Public base URL of the hub — used in alert emails and OAuth redirects.",
+      },
+    ],
+    logoBrand: "Beszel",
+    docsUrl: "https://beszel.dev/guide/getting-started",
+    compose: `name: beszel
+services:
+  beszel:
+    image: henrygd/beszel:0.18.7
+    environment:
+      APP_URL: \${APP_URL}
+    ports:
+      - "8090"
+    volumes:
+      - beszel-data:/beszel_data
+    restart: always
+volumes:
+  beszel-data:
+`,
+  },
+  {
     id: "grafana-prometheus",
     name: "Grafana + Prometheus",
     description:

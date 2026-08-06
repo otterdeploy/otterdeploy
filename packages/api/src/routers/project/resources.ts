@@ -169,7 +169,8 @@ export async function listProjectResources(
     ),
   ]);
 
-  return Result.ok([...databaseViews, ...serviceViews, ...composeViews]);
+  const rows = [...databaseViews, ...serviceViews, ...composeViews];
+  return Result.ok(rows);
 }
 
 export async function getProjectResource(

@@ -18,6 +18,6 @@ import { RedisClient } from "bun";
  * issue normal commands, so publish + subscribe in the same process
  * need two clients (call `createRedis()` twice or use `.duplicate()`).
  */
-export function createRedis(): RedisClient {
-  return new RedisClient(env.REDIS_URL);
+export function createRedis(options?: ConstructorParameters<typeof RedisClient>[1]): RedisClient {
+  return new RedisClient(env.REDIS_URL, options);
 }

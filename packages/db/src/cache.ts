@@ -4,12 +4,18 @@ import { env } from "@otterdeploy/env/server";
 import { Result } from "better-result";
 import { Table, getTableName } from "drizzle-orm";
 import { Cache, type MutationOption } from "drizzle-orm/cache/core";
-import { entityKind, is } from "drizzle-orm/entity";
+import { entityKind } from "drizzle-orm/entity";
 import { log as globalLog } from "evlog";
 
 const KEY_PREFIX = "drizzle:cache:";
 const TABLE_SET_PREFIX = "drizzle:cache:tables:";
 const TAG_PREFIX = "drizzle:cache:tag:";
+const API_TABLE_SET_PREFIX = "api:cache:tables:";
+
+/** Redis set used by endpoint caches which depend on a Drizzle table. */
+export function apiCacheTableSetKey(tableName: string): string {
+  return API_TABLE_SET_PREFIX + tableName;
+}
 
 // JSON can't represent every value the driver hands back, so we tag the
 // problem types on the way out and rebuild them on the way in — keeping the
@@ -30,7 +36,7 @@ const TAG_PREFIX = "drizzle:cache:tag:";
 const DATE_TAG = "__otterCacheDate__";
 const BIGINT_TAG = "__otterCacheBigInt__";
 
-function tagRichValues(this: Record<string, unknown>, key: string, value: unknown): unknown {
+export function tagRichValues(this: Record<string, unknown>, key: string, value: unknown): unknown {
   // Date has a `toJSON`, so by the time the replacer sees `value` it's already
   // an ISO string — reach for the untouched original on `this`. BigInt has no
   // `toJSON`, so `value` is still the raw BigInt here.
@@ -44,7 +50,7 @@ function tagRichValues(this: Record<string, unknown>, key: string, value: unknow
   return value;
 }
 
-function reviveRichValues(_key: string, value: unknown): unknown {
+export function reviveRichValues(_key: string, value: unknown): unknown {
   if (value !== null && typeof value === "object") {
     const date = (value as Record<string, unknown>)[DATE_TAG];
     if (typeof date === "string") {
@@ -173,9 +179,17 @@ export class RedisCache extends Cache {
         ? [params.tables]
         : [];
 
-    const tableNames = tableInputs.map((t) => (is(t, Table) ? getTableName(t) : String(t)));
+    const tableNames = tableInputs.map((tableInput) =>
+      typeof tableInput === "string" ? tableInput : getTableName(tableInput as Table),
+    );
 
-    const setKeys = tableNames.map((t) => TABLE_SET_PREFIX + t);
+    // Endpoint-level API caches register themselves under the same dependency
+    // tables. A Drizzle write therefore evicts both the SQL fragments and the
+    // complete API response assembled from them.
+    const setKeys = tableNames.flatMap((tableName) => [
+      TABLE_SET_PREFIX + tableName,
+      apiCacheTableSetKey(tableName),
+    ]);
     const keysToDelete: string[] = [];
 
     if (setKeys.length > 0) {

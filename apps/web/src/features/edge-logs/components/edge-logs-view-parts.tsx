@@ -1,3 +1,5 @@
+import { useMemo, useState } from "react";
+
 import { PublicHostLink } from "@/shared/components/public-host-link";
 import {
   Table,
@@ -9,7 +11,13 @@ import {
 } from "@/shared/components/ui/table";
 import { cn } from "@/shared/lib/utils";
 
-import { BUCKET_BG, type EdgeLog, type EdgeLogsData, errRateClass } from "./edge-logs-constants";
+import {
+  BUCKET_BG,
+  type EdgeHostStat,
+  type EdgeLog,
+  type EdgeLogsData,
+  errRateClass,
+} from "./edge-logs-constants";
 import { EdgeRow } from "./edge-logs-row";
 
 function Bar({ n, total, cls }: { n: number; total: number; cls: string }) {
@@ -144,6 +152,39 @@ export function LogTable({
   );
 }
 
+/** Hosts shown before the footer folds the remainder into one summary row. */
+const HOST_FOOTER_VISIBLE = 2;
+
+/**
+ * Worst first: any host serving errors outranks any healthy one, then busiest,
+ * then name (stable — `hostStats` arrives in first-seen order, which reshuffles
+ * on every 2s poll). The two rows that survive the fold are the two an operator
+ * would have scanned for anyway.
+ */
+function byUrgency(a: EdgeHostStat, b: EdgeHostStat): number {
+  return b.errorRate - a.errorRate || b.rps - a.rps || a.host.localeCompare(b.host);
+}
+
+/** Numbers row, shared by a host row and the folded remainder. */
+function HostStatCells({
+  s,
+}: {
+  s: Pick<EdgeHostStat, "rps" | "errorRate" | "p50" | "p95" | "p99">;
+}) {
+  return (
+    <>
+      <span className="w-20 shrink-0 text-right tabular-nums">{s.rps} rps</span>
+      {/* Two-tier tint per the demo: ≥2% red, ≥0.5% amber. */}
+      <span className={cn("w-20 shrink-0 text-right tabular-nums", errRateClass(s.errorRate))}>
+        {(s.errorRate * 100).toFixed(1)}% err
+      </span>
+      <span className="w-24 shrink-0 text-right tabular-nums">p50 {s.p50}ms</span>
+      <span className="w-24 shrink-0 text-right tabular-nums">p95 {s.p95}ms</span>
+      <span className="w-24 shrink-0 text-right tabular-nums">p99 {s.p99}ms</span>
+    </>
+  );
+}
+
 /**
  * Per-host footer — request rate and latency percentiles.
  *
@@ -153,32 +194,85 @@ export function LogTable({
  * other row's figures were, and two hosts sharing a line read as one sentence.
  * At four public hosts it was already unreadable.
  *
+ * The list is capped at two rows because it grows with the org's public hosts
+ * (preview deploys mint one per PR) and it is a sibling of the scrolling log
+ * table — every extra row is a row taken off the table. The rest fold into one
+ * summary row that expands.
+ *
+ * The summary is **worst-case, not averaged**: percentiles cannot be pooled
+ * without the underlying samples, and a mean would hide the one bad host, which
+ * is the only reason to look at this footer. `rps` sums (that one is additive),
+ * everything else is a max — labelled `worst of` so the numbers aren't read as
+ * one host's.
+ *
  * The host is a link: a domain shown to an operator is a domain they want to
  * open, and this was previously inert text they had to select and paste.
  */
 export function HostFooter({ data }: { data: EdgeLogsData | undefined }) {
-  const hostStats = data?.hostStats ?? [];
+  const [expanded, setExpanded] = useState(false);
+  const hostStats = useMemo(() => [...(data?.hostStats ?? [])].sort(byUrgency), [data?.hostStats]);
+
   if (hostStats.length === 0) return null;
+
+  // Folding one host away costs a click and saves nothing — the summary row
+  // occupies the height the host row would have.
+  const folded = !expanded && hostStats.length > HOST_FOOTER_VISIBLE + 1;
+  const shown = folded ? hostStats.slice(0, HOST_FOOTER_VISIBLE) : hostStats;
+  const rest = folded ? hostStats.slice(HOST_FOOTER_VISIBLE) : [];
+
   return (
     <div className="border-t font-mono text-[11px] text-muted-foreground">
-      {hostStats.map((s) => (
-        <div
-          key={s.host}
-          className="flex items-center gap-3 border-b border-border/40 px-4 py-1.5 last:border-b-0"
+      <div className={cn(expanded && "max-h-[30vh] overflow-y-auto")}>
+        {shown.map((s) => (
+          <div
+            key={s.host}
+            className="flex items-center gap-3 border-b border-border/40 px-4 py-1.5 last:border-b-0"
+          >
+            <PublicHostLink host={s.host} className="min-w-0 flex-1 text-foreground/80" />
+            <HostStatCells s={s} />
+          </div>
+        ))}
+      </div>
+
+      {rest.length > 0 ? (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          aria-expanded={false}
+          title={rest.map((s) => s.host).join("\n")}
+          className="flex w-full items-center gap-3 border-t border-border/40 px-4 py-1.5 text-left hover:bg-muted/40 focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
         >
-          <PublicHostLink host={s.host} className="min-w-0 flex-1 text-foreground/80" />
-          <span className="w-20 shrink-0 text-right tabular-nums">{s.rps} rps</span>
-          {/* Two-tier tint per the demo: ≥2% red, ≥0.5% amber. */}
-          <span className={cn("w-20 shrink-0 text-right tabular-nums", errRateClass(s.errorRate))}>
-            {(s.errorRate * 100).toFixed(1)}% err
+          <span className="min-w-0 flex-1 truncate">
+            +{rest.length} more hosts
+            <span className="ml-1.5 text-muted-foreground/60">worst of</span>
           </span>
-          <span className="w-24 shrink-0 text-right tabular-nums">p50 {s.p50}ms</span>
-          <span className="w-24 shrink-0 text-right tabular-nums">p95 {s.p95}ms</span>
-          <span className="w-24 shrink-0 text-right tabular-nums">p99 {s.p99}ms</span>
-        </div>
-      ))}
+          <HostStatCells s={worstOf(rest)} />
+        </button>
+      ) : null}
+
+      {expanded && hostStats.length > HOST_FOOTER_VISIBLE + 1 ? (
+        <button
+          type="button"
+          onClick={() => setExpanded(false)}
+          aria-expanded={true}
+          className="w-full border-t border-border/40 px-4 py-1.5 text-left hover:bg-muted/40 focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+        >
+          Show top {HOST_FOOTER_VISIBLE}
+        </button>
+      ) : null}
     </div>
   );
+}
+
+/** Additive for rate, max for everything else — see `HostFooter`. */
+function worstOf(stats: EdgeHostStat[]) {
+  return {
+    rps: +stats.reduce((n, s) => n + s.rps, 0).toFixed(2),
+    errorRate: Math.max(...stats.map((s) => s.errorRate)),
+    p50: Math.max(...stats.map((s) => s.p50)),
+    p95: Math.max(...stats.map((s) => s.p95)),
+    p99: Math.max(...stats.map((s) => s.p99)),
+  };
 }
 
 export function exportCsv(rows: EdgeLog[]) {

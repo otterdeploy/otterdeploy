@@ -13,24 +13,30 @@ import {
   tailResourceLogs,
   tailTaskLogs,
 } from "./handlers";
+import {
+  invalidateResourceListAfterDelete,
+  resourceListCacheMiddleware,
+} from "./resource-list-cache";
 import { cloneHandler, clonePreviewHandler } from "./router-resource-clone";
 import { deploymentsResourceRouter } from "./router-resource-deployments";
 import { postgresResourceRouter } from "./router-resource-postgres";
 
 export const resourceRouter = {
-  list: orgScopedProcedure.project.resource.list.handler(async ({ input, context, errors }) => {
-    const result = await listProjectResources({
-      projectId: input.projectId,
-      organizationId: context.activeOrganizationId,
-      environmentId: input.environmentId,
-    });
-    if (result.isErr()) {
-      throw matchError(result.error, {
-        ProjectNotFoundError: () => errors.NOT_FOUND(),
+  list: orgScopedProcedure.project.resource.list
+    .use(resourceListCacheMiddleware)
+    .handler(async ({ input, context, errors }) => {
+      const result = await listProjectResources({
+        projectId: input.projectId,
+        organizationId: context.activeOrganizationId,
+        environmentId: input.environmentId,
       });
-    }
-    return result.value;
-  }),
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
+      return result.value;
+    }),
 
   checkName: orgScopedProcedure.project.resource.checkName.handler(
     async ({ input, context, errors }) => {
@@ -201,8 +207,9 @@ export const resourceRouter = {
     return result.value;
   }),
 
-  delete: requirePermission({ service: ["delete"] }).project.resource.delete.handler(
-    async ({ input, context, errors }) => {
+  delete: requirePermission({ service: ["delete"] })
+    .project.resource.delete.use(invalidateResourceListAfterDelete)
+    .handler(async ({ input, context, errors }) => {
       context.log.set({
         target: { type: "resource", id: input.resourceId, projectId: input.projectId },
       });
@@ -223,8 +230,7 @@ export const resourceRouter = {
         });
       }
       return result.value;
-    },
-  ),
+    }),
 
   clonePreview: clonePreviewHandler,
   clone: cloneHandler,
