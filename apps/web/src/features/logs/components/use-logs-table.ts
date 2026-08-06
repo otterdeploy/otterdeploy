@@ -105,16 +105,10 @@ export function useLogsTable({
     getScrollElement: () => scrollRef.current,
     // Real row height: py-1 (8px) + text-xs line height (16px) + border-b
     // (1px) = 25px. The old 28px estimate left ~3px of phantom height per
-    // unmeasured row — at a few hundred rows that's a visible blank band the
-    // follow-scroll landed inside, since scrollToIndex targets the
-    // virtualizer's (overestimated) offsets.
+    // unmeasured row — a visible blank band at a few hundred rows.
     estimateSize: () => 25,
     overscan: 24,
     getItemKey,
-    // The sticky 32px <thead> lives INSIDE the scroll element, above the
-    // <tbody> rows are positioned against. Without declaring it, every
-    // virtual offset (and scrollToIndex target) is off by one header height.
-    scrollMargin: 32,
   });
 
   // Sorting fights live tailing — pause follow while a sort is active. Adjust
@@ -127,10 +121,21 @@ export function useLogsTable({
 
   // Stick to bottom on new rows while following the live tail. A time-window
   // filter means we're inspecting history, so don't yank to the bottom.
+  //
+  // Deliberately NOT virtualizer.scrollToIndex: that writes the element's
+  // scrollTop through the virtualizer's own model, and on first mount (or a
+  // Tabs remount of the scroll div under a surviving virtualizer instance)
+  // the model can lag the element — it kept rendering the range for offset 0
+  // while its own scroll write parked the viewport at the bottom, leaving the
+  // whole viewport row-free ("blank space above the rows"). Setting scrollTop
+  // from the element's real scrollHeight is self-healing: the resulting
+  // scroll event feeds the virtualizer the truth no matter what state its
+  // model is in.
   useEffect(() => {
     if (!follow || !isDefaultSort || paused || timeRange || rows.length === 0) return;
-    virtualizer.scrollToIndex(rows.length - 1, { align: "end" });
-  }, [rows.length, follow, isDefaultSort, paused, timeRange, virtualizer]);
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [rows.length, follow, isDefaultSort, paused, timeRange]);
 
   const selectedCount = Object.keys(rowSelection).length;
 
