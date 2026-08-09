@@ -15,7 +15,7 @@ import {
 } from "@otterdeploy/api/routers/system/compat";
 import { bodyLimitMiddleware } from "@otterdeploy/api/security/body-limit";
 import { sanitizeForwardingHeaders } from "@otterdeploy/api/security/trusted-proxy";
-import { agentHealthIngestHandler } from "@otterdeploy/api/system-health";
+import { agentHealthIngestHandler, checkReadiness } from "@otterdeploy/api/system-health";
 import { auth, enabledSocialProviderIds, getRegistrationMode } from "@otterdeploy/auth";
 import { BOOTSTRAP_TOKEN_HEADER } from "@otterdeploy/auth/registration-policy";
 import { env } from "@otterdeploy/env/server";
@@ -312,18 +312,30 @@ app.get(
   })),
 );
 
-// Liveness + version. `/health` is what the prod compose healthcheck probes;
-// `/api/health` (already auth-excluded) is what the browser polls to detect the
-// new container after a self-update cutover, then reloads. Reports the running
-// image tag so the updater UI can confirm the version actually changed, and the
-// CLI floor alongside it so support can read both off one unauthenticated curl
-// without decoding an RPC response's headers.
+// Health, in two grades. Reports the running image tag so the updater UI can
+// confirm the version actually changed, and the CLI floor alongside it so
+// support can read both off one unauthenticated curl.
+//
+// `/health` (prod compose healthcheck) is a READINESS probe: it runs a real
+// query through the same cache→Postgres path product reads use. During the
+// od-664 wedge this exact process served a static 200 here for three days
+// while every projects-page query hung — a healthcheck that touches nothing
+// certifies nothing. 503 on failure so `docker ps` shows (unhealthy) and
+// monitoring can alert or restart.
+//
+// `/api/health` (browser poll during self-update cutover, auth-excluded) stays
+// a static LIVENESS payload on purpose — mid-cutover the new container may
+// answer before its dependencies do, and the updater only needs "process up,
+// which version", not "fully ready".
 const healthPayload = {
   ok: true,
   version: env.OTTERDEPLOY_VERSION,
   minCliVersion: MIN_CLI_VERSION,
 };
-app.get("/health", (c) => c.json(healthPayload));
+app.get("/health", async (c) => {
+  const readiness = await checkReadiness();
+  return c.json({ ...healthPayload, ...readiness }, readiness.ok ? 200 : 503);
+});
 app.get("/api/health", (c) => c.json(healthPayload));
 
 // ─── Workbench: BullMQ dashboard (dev only) ────────────────────────
@@ -395,6 +407,13 @@ app.post("/.well-known/otterdeploy/pin/verify", deployPinVerifyHandler);
 // to index.html so client-side (TanStack Router) deep links resolve. In dev the
 // web app is served by Vite and ./public simply doesn't exist (these no-op).
 app.use("/*", serveStatic({ root: "./public" }));
+// A build asset that doesn't exist must 404, not fall through to index.html:
+// the SPA fallback otherwise answers `/assets/whatever.wasm` with HTML and a
+// 200, which turns "file missing from the image" into a silent runtime
+// failure three layers away (a worker parsing HTML as wasm) instead of a
+// visible fetch error. Assets are content-hashed and referenced only by built
+// code, so no deep link ever legitimately lands here.
+app.get("/assets/*", (c) => c.notFound());
 app.get("/*", serveStatic({ path: "index.html", root: "./public" }));
 
 // Live streams (deployment build logs, project events, container/task log

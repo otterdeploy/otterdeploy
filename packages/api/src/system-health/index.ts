@@ -14,6 +14,7 @@ export {
   type ReclaimTarget,
 } from "./host-health";
 export { agentHealthIngestHandler, HEALTH_SAMPLE_INTERVAL_MS } from "./agent-ingest";
+export { checkReadiness, type ReadinessResult } from "./readiness";
 export { startHealthAgentReconciler, startLocalHealthSampler } from "./agent-service";
 export { startHostHealthMonitor } from "./monitor";
 export {

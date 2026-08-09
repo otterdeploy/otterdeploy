@@ -136,6 +136,7 @@ function eventServiceName(event: DockerEvent): string | null {
 
 export async function* streamProjectEvents(
   input: StreamInput,
+  signal?: AbortSignal,
 ): AsyncGenerator<ProjectStreamEvent, void, void> {
   const project = await getProjectInOrg({
     projectId: input.projectId,
@@ -159,6 +160,22 @@ export async function* streamProjectEvents(
   const MAX_QUEUE = 200;
   let resolveNext: (() => void) | null = null;
   let aborted = false;
+
+  // Same disconnect discipline as streamOrgCollectionEvents (events/index.ts):
+  // the loop parks in an `await` between events and `generator.return()` can't
+  // interrupt an await, so without this wake-up a disconnected client's Redis
+  // subscriber + docker-bus subscription + refresh timer linger until the next
+  // event happens to arrive (od-664 leaked ~145 subscriber connections).
+  const onAbort = () => {
+    aborted = true;
+    if (resolveNext) {
+      const r = resolveNext;
+      resolveNext = null;
+      r();
+    }
+  };
+  if (signal?.aborted) aborted = true;
+  signal?.addEventListener("abort", onAbort);
 
   const sub = subscribeDockerEvents((raw) => {
     if (aborted) return;
@@ -248,8 +265,7 @@ export async function* streamProjectEvents(
   refreshTimer.unref?.();
 
   try {
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
+    while (!aborted) {
       if (queue.length > 0) {
         const next = queue.shift();
         if (next) yield next;
@@ -261,6 +277,7 @@ export async function* streamProjectEvents(
     }
   } finally {
     aborted = true;
+    signal?.removeEventListener("abort", onAbort);
     clearInterval(refreshTimer);
     sub.close();
     projectSub.close();

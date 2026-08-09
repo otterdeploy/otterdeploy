@@ -82,13 +82,16 @@ export const deploymentsResourceRouter = {
   // the whole log on reconnect. Live lines (seq null) ship without an id.
   buildLogs: {
     stream: orgScopedProcedure.project.resource.deployments.buildLogs.stream.handler(
-      async function* ({ input, context, lastEventId }) {
+      async function* ({ input, context, lastEventId, signal }) {
         context.log.set({ deploymentId: input.deploymentId });
-        const generator = streamDeploymentLogs({
-          deploymentId: input.deploymentId,
-          organizationId: context.activeOrganizationId,
-          afterSeq: lastEventId != null ? Number(lastEventId) : null,
-        });
+        const generator = streamDeploymentLogs(
+          {
+            deploymentId: input.deploymentId,
+            organizationId: context.activeOrganizationId,
+            afterSeq: lastEventId != null ? Number(lastEventId) : null,
+          },
+          signal,
+        );
         for await (const line of generator) {
           yield line.seq != null ? withEventMeta(line, { id: String(line.seq) }) : line;
         }

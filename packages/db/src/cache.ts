@@ -1,6 +1,7 @@
 import type { CacheConfig } from "drizzle-orm/cache/core/types";
 
 import { env } from "@otterdeploy/env/server";
+import { withTimeout } from "@otterdeploy/shared/promise";
 import { Result } from "better-result";
 import { Table, getTableName } from "drizzle-orm";
 import { Cache, type MutationOption } from "drizzle-orm/cache/core";
@@ -35,6 +36,15 @@ export function apiCacheTableSetKey(tableName: string): string {
 //     the value stays exact and drizzle's column mapper still applies on read.
 const DATE_TAG = "__otterCacheDate__";
 const BIGINT_TAG = "__otterCacheBigInt__";
+
+// Hard ceiling on every Redis round-trip the cache makes. `enableOfflineQueue:
+// false` rejects commands while DISCONNECTED, but a command already in flight
+// when the connection wedges can leave a promise that never settles — and
+// because the cache sits in front of every query (global: true), one such
+// promise silently hangs the query, the request, and the page awaiting it
+// (od-664). A cache that answers slower than this is worse than no cache;
+// degrade to a miss and let Postgres answer.
+const REDIS_OP_TIMEOUT_MS = 2_000;
 
 export function tagRichValues(this: Record<string, unknown>, key: string, value: unknown): unknown {
   // Date has a `toJSON`, so by the time the replacer sees `value` it's already
@@ -109,7 +119,9 @@ export class RedisCache extends Cache {
   ): Promise<unknown[] | undefined> {
     const fullKey = (isTag ? TAG_PREFIX : KEY_PREFIX) + key;
 
-    const result = await Result.tryPromise(() => this.client.get(fullKey));
+    const result = await Result.tryPromise(() =>
+      withTimeout(this.client.get(fullKey), REDIS_OP_TIMEOUT_MS, "cache GET"),
+    );
     if (result.isErr()) {
       globalLog.warn({
         message: "[cache] Redis GET failed; treating as cache miss",
@@ -144,7 +156,9 @@ export class RedisCache extends Cache {
     const fullKey = (isTag ? TAG_PREFIX : KEY_PREFIX) + key;
     const value = JSON.stringify(response, tagRichValues);
 
-    const setResult = await Result.tryPromise(() => this.client.set(fullKey, value, "EX", ttl));
+    const setResult = await Result.tryPromise(() =>
+      withTimeout(this.client.set(fullKey, value, "EX", ttl), REDIS_OP_TIMEOUT_MS, "cache SET"),
+    );
     if (setResult.isErr()) {
       globalLog.warn({
         message: "[cache] Redis SET failed; skipping put",
@@ -156,10 +170,16 @@ export class RedisCache extends Cache {
 
     for (const table of tables) {
       const setKey = TABLE_SET_PREFIX + table;
-      const indexResult = await Result.tryPromise(async () => {
-        await this.client.sadd(setKey, fullKey);
-        await this.client.expire(setKey, ttl * 2);
-      });
+      const indexResult = await Result.tryPromise(() =>
+        withTimeout(
+          (async () => {
+            await this.client.sadd(setKey, fullKey);
+            await this.client.expire(setKey, ttl * 2);
+          })(),
+          REDIS_OP_TIMEOUT_MS,
+          "cache table-index update",
+        ),
+      );
       if (indexResult.isErr()) {
         globalLog.warn({
           message: "[cache] Redis table-index update failed",
@@ -194,7 +214,9 @@ export class RedisCache extends Cache {
 
     if (setKeys.length > 0) {
       const [first, ...rest] = setKeys;
-      const sunionResult = await Result.tryPromise(() => this.client.sunion(first ?? "", ...rest));
+      const sunionResult = await Result.tryPromise(() =>
+        withTimeout(this.client.sunion(first ?? "", ...rest), REDIS_OP_TIMEOUT_MS, "cache SUNION"),
+      );
       if (sunionResult.isErr()) {
         globalLog.warn({
           message: "[cache] Redis SUNION failed; skipping invalidation",
@@ -211,7 +233,9 @@ export class RedisCache extends Cache {
     }
 
     if (keysToDelete.length > 0) {
-      const delResult = await Result.tryPromise(() => this.client.del(...keysToDelete));
+      const delResult = await Result.tryPromise(() =>
+        withTimeout(this.client.del(...keysToDelete), REDIS_OP_TIMEOUT_MS, "cache DEL"),
+      );
       if (delResult.isErr()) {
         globalLog.warn({
           message: "[cache] Redis DEL failed during invalidation",

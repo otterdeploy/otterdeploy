@@ -7,6 +7,7 @@ import type { ProjectId } from "@otterdeploy/shared/id";
 
 import { Docker } from "@otterdeploy/docker";
 import { canonicalId } from "@otterdeploy/shared/id";
+import { withTimeout } from "@otterdeploy/shared/promise";
 
 import type { OrgRef } from "../scopes";
 
@@ -34,10 +35,24 @@ export async function countRunningServicesByProject(
   } catch {
     return null;
   }
-  const list = await docker.containers.list({
-    all: false, // running only
-    filters: { label: ["otterdeploy.managed=true"] },
-  });
+  // This sits on the projects-page critical path (project.list awaits it), so
+  // it gets the same treatment as an unreachable daemon: answer late → answer
+  // null, and the UI hides the running fraction. A healthy daemon responds in
+  // tens of milliseconds; five seconds is already pathological.
+  let list;
+  try {
+    list = await withTimeout(
+      docker.containers.list({
+        all: false, // running only
+        filters: { label: ["otterdeploy.managed=true"] },
+      }),
+      5_000,
+      "docker containers.list",
+    );
+  } catch {
+    docker.destroy();
+    return null;
+  }
   docker.destroy();
   if (list.isErr()) return null;
 

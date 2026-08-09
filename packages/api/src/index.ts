@@ -9,6 +9,7 @@ import type { Context } from "./context";
 import { requireProjectScope } from "./authz/api-key-scope";
 import { authorizeCapability } from "./authz/capability";
 import { isReadAction, isReadMethod } from "./authz/procedure-mode";
+import { procedureTimeout } from "./authz/procedure-timeout";
 import { traceProcedure } from "./authz/procedure-trace";
 import { apiKeysContract } from "./routers/apiKeys/contract";
 import { auditContract } from "./routers/audit/contract";
@@ -70,7 +71,10 @@ export const publicProcedure = implement({
   webhooks: webhooksContract,
 })
   .$context<Context>()
-  .use(traceProcedure);
+  .use(traceProcedure)
+  // Inside the trace so a timeout is recorded as a failure with a duration,
+  // not as a request that simply never produced a wide event (od-664).
+  .use(procedureTimeout);
 
 const authMiddleware = orpc
   .$context<Context>()

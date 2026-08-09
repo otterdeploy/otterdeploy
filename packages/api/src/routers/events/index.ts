@@ -82,11 +82,14 @@ export function toCollectionEvents(
   return events;
 }
 
-async function* streamCollectionEvents(input: {
-  organizationId: OrganizationId;
-  projectId: ProjectId;
-}): AsyncGenerator<CollectionEvent, void, void> {
-  for await (const event of streamProjectEvents(input)) {
+async function* streamCollectionEvents(
+  input: {
+    organizationId: OrganizationId;
+    projectId: ProjectId;
+  },
+  signal?: AbortSignal,
+): AsyncGenerator<CollectionEvent, void, void> {
+  for await (const event of streamProjectEvents(input, signal)) {
     for (const collectionEvent of toCollectionEvents(event, input)) {
       yield collectionEvent;
     }
@@ -100,11 +103,35 @@ async function* streamCollectionEvents(input: {
  */
 async function* streamOrgCollectionEvents(
   organizationId: OrganizationId,
+  signal?: AbortSignal,
 ): AsyncGenerator<OrgCollectionEvent, void, void> {
   const queue: OrgCollectionEvent[] = [];
   const MAX_QUEUE = 50;
   let resolveNext: (() => void) | null = null;
   let aborted = false;
+
+  const wake = () => {
+    if (resolveNext) {
+      const r = resolveNext;
+      resolveNext = null;
+      r();
+    }
+  };
+
+  // The loop below parks in an `await` between events, and `generator.return()`
+  // — what the transport calls on client disconnect — cannot interrupt an
+  // await: it only takes effect at the next `yield`, which in a quiet org
+  // never comes. Every closed orgStream therefore parked its dedicated Redis
+  // subscriber connection forever (~145 leaked clients over three days of
+  // prod, od-664). The abort signal is the one notification that fires on
+  // disconnect, so it must wake the parked loop; the `finally` then closes
+  // the subscriber.
+  const onAbort = () => {
+    aborted = true;
+    wake();
+  };
+  if (signal?.aborted) aborted = true;
+  signal?.addEventListener("abort", onAbort);
 
   const sub = subscribeOrgEvents(organizationId, (event) => {
     if (aborted) return;
@@ -115,16 +142,11 @@ async function* streamOrgCollectionEvents(
       op: "resync",
     });
     if (queue.length > MAX_QUEUE) queue.splice(0, queue.length - MAX_QUEUE);
-    if (resolveNext) {
-      const r = resolveNext;
-      resolveNext = null;
-      r();
-    }
+    wake();
   });
 
   try {
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
+    while (!aborted) {
       if (queue.length > 0) {
         const next = queue.shift();
         if (next) yield next;
@@ -136,12 +158,13 @@ async function* streamOrgCollectionEvents(
     }
   } finally {
     aborted = true;
+    signal?.removeEventListener("abort", onAbort);
     sub.close();
   }
 }
 
 export const eventsRouter = {
-  orgStream: orgScopedProcedure.events.orgStream.handler(async ({ context, errors }) => {
+  orgStream: orgScopedProcedure.events.orgStream.handler(async ({ context, errors, signal }) => {
     // Security rule 3 of the sync design: an actor whose visibility is
     // narrower than the stream key is refused, not filtered. A
     // projectScope:"selected" key would otherwise learn about org-wide
@@ -149,10 +172,10 @@ export const eventsRouter = {
     if (context.apiKey?.projectScope === "selected") {
       throw errors.FORBIDDEN();
     }
-    return streamOrgCollectionEvents(context.activeOrganizationId);
+    return streamOrgCollectionEvents(context.activeOrganizationId, signal);
   }),
 
-  stream: orgScopedProcedure.events.stream.handler(async ({ input, context, errors }) => {
+  stream: orgScopedProcedure.events.stream.handler(async ({ input, context, errors, signal }) => {
     const scope = {
       projectId: input.projectId,
       organizationId: context.activeOrganizationId,
@@ -167,6 +190,6 @@ export const eventsRouter = {
       });
     }
 
-    return streamCollectionEvents(scope);
+    return streamCollectionEvents(scope, signal);
   }),
 };

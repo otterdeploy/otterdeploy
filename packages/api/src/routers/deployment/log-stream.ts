@@ -121,8 +121,17 @@ async function currentStatus(deploymentId: DeploymentId): Promise<string | null>
   return row?.status ?? null;
 }
 
+/** A disconnected client can't stop the poll loop through `generator.return()`
+ *  until the next yield — and a quiet tail may never yield. Without this check
+ *  a deployment stuck in a non-terminal status keeps the poll (two uncached
+ *  queries a second) alive forever per abandoned tab (od-664). */
+function clientGone(signal?: AbortSignal): boolean {
+  return signal?.aborted === true;
+}
+
 export async function* streamDeploymentLogs(
   input: StreamInput,
+  signal?: AbortSignal,
 ): AsyncGenerator<DeploymentLogLine, void, undefined> {
   const auth = await authorizeDeployment(input);
   if (!auth) return;
@@ -144,8 +153,9 @@ export async function* streamDeploymentLogs(
   // Live-tail by polling for newly-inserted rows until terminal. On the poll
   // that observes a terminal status, drain once more so lines flushed right at
   // completion aren't dropped.
-  while (true) {
+  while (!clientGone(signal)) {
     await sleep(POLL_INTERVAL_MS);
+    if (clientGone(signal)) return;
     for (const line of await fetchLogsAfter(input.deploymentId, lastSeq, "build")) {
       if (line.seq != null) lastSeq = line.seq;
       yield line;
