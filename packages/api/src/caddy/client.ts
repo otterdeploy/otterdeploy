@@ -68,21 +68,45 @@ async function requestAdmin(adminUrl: string, path: string, body: string): Promi
   const options = requestOptions(target, path, body);
   const request = target.protocol === "https:" ? httpsRequest : httpRequest;
   return new Promise((resolve, reject) => {
+    // Wall-clock deadline, not just `req.setTimeout`: the socket-idle timeout
+    // demonstrably did NOT fire when Caddy's admin endpoint accepted the
+    // request and then never answered (its config mutex was held by a stuck
+    // apply for three days — od-664). That silent hang blocked every route
+    // apply AND server bootstrap's caddy-reconcile step, which runs before
+    // the job workers start. The timer rejects unconditionally so no
+    // transport quirk can turn "Caddy is stuck" back into "wait forever".
+    let settled = false;
+    const settle = <T extends AdminResponse>(fn: (v: T) => void, value: T): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn(value);
+    };
+    const fail = (error: unknown): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(error instanceof Error ? error : new Error(String(error)));
+    };
+    const timer = setTimeout(() => {
+      fail(new Error(`Caddy admin ${path} timed out after ${CADDY_ADMIN_TIMEOUT_MS}ms.`));
+      req.destroy();
+    }, CADDY_ADMIN_TIMEOUT_MS);
     const req = request(options, (response) => {
       void collectResponse(response).then(
         (responseBody) =>
-          resolve({
+          settle(resolve, {
             ok: (response.statusCode ?? 0) >= 200 && (response.statusCode ?? 0) < 300,
             status: response.statusCode ?? 0,
             body: responseBody,
           }),
-        reject,
+        fail,
       );
     });
     req.setTimeout(CADDY_ADMIN_TIMEOUT_MS, () => {
       req.destroy(new Error("Caddy admin request timed out."));
     });
-    req.on("error", reject);
+    req.on("error", fail);
     req.end(body);
   });
 }

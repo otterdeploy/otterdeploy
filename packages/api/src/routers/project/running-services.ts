@@ -14,6 +14,40 @@ import type { OrgRef } from "../scopes";
 import { listServiceResourceRefsByOrg } from "./queries";
 
 /**
+ * The docker round-trip below is the long pole of project.list (~60-80ms of a
+ * ~90ms handler; everything else rides the Redis query cache). Running counts
+ * are display data the UI already treats as eventually-consistent — it
+ * refreshes them via polling and org-stream resyncs — so a 3s memo keeps the
+ * projects page comfortably under 100ms server-side without changing what any
+ * reader can observe for more than one refresh cycle. Failures (null) are
+ * evicted immediately so an unreachable daemon is retried on the next call,
+ * not remembered for the TTL.
+ */
+const RUNNING_COUNT_TTL_MS = 3_000;
+const runningCountCache = new Map<
+  string,
+  { expires: number; value: Promise<Map<ProjectId, number> | null> }
+>();
+
+export function countRunningServicesByProject(
+  organizationId: OrgRef["organizationId"],
+): Promise<Map<ProjectId, number> | null> {
+  const now = Date.now();
+  const hit = runningCountCache.get(organizationId);
+  if (hit && hit.expires > now) return hit.value;
+
+  const value = countRunningServicesUncached(organizationId);
+  runningCountCache.set(organizationId, { expires: now + RUNNING_COUNT_TTL_MS, value });
+  value.then(
+    (counts) => {
+      if (counts === null) runningCountCache.delete(organizationId);
+    },
+    () => runningCountCache.delete(organizationId),
+  );
+  return value;
+}
+
+/**
  * How many service/compose resources per project have a live container right
  * now — one grouped `docker ps` over managed containers, matched to the org's
  * service/compose resources by the `otterdeploy.resource.id` label. A compose
@@ -21,7 +55,7 @@ import { listServiceResourceRefsByOrg } from "./queries";
  * once (the running set is de-duped by resource id). Returns `null` if the
  * runtime can't be reached, so the caller shows configured totals only.
  */
-export async function countRunningServicesByProject(
+async function countRunningServicesUncached(
   organizationId: OrgRef["organizationId"],
 ): Promise<Map<ProjectId, number> | null> {
   const refs = await listServiceResourceRefsByOrg(organizationId);
