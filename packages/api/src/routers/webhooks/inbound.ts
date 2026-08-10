@@ -1,4 +1,5 @@
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { JsonObject } from "@otterdeploy/shared/json";
 import type { RequestLogger } from "evlog";
 
 import { decryptSecret } from "@otterdeploy/jobs/delivery/secret-crypto";
@@ -51,7 +52,7 @@ function deny(
   log: RequestLogger,
   status: InboundResponse["status"],
   reason: string,
-  fields: Record<string, unknown>,
+  fields: JsonObject,
 ): InboundResponse {
   log.set({ webhookInbound: { outcome: "denied", reason, ...fields } });
   // Inbound calls carry no session — the actor is the external caller,

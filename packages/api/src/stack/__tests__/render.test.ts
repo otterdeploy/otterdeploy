@@ -1,3 +1,4 @@
+import type { JsonObject } from "@otterdeploy/shared/json";
 import { describe, expect, it } from "vite-plus/test";
 
 import { STACK_FILE_SCHEMA_VERSION, stackFileSchema, type StackFile } from "../schema";
@@ -134,13 +135,13 @@ describe("stack/render/applyEngineDefaults", () => {
 describe("stack/render/toComposeYaml", () => {
   it("emits parseable YAML with required compose fields", () => {
     const yaml = toComposeYaml(applyEngineDefaults(minimalPostgresFile()));
-    const parsed = parse(yaml) as Record<string, unknown>;
-    const services = parsed["services"] as Record<string, unknown> | undefined;
+    const parsed = parse(yaml) as JsonObject;
+    const services = parsed["services"] as JsonObject | undefined;
     expect(services).toBeDefined();
-    const primary = services?.["primary"] as Record<string, unknown> | undefined;
+    const primary = services?.["primary"] as JsonObject | undefined;
     expect(primary?.["image"]).toMatch(/^postgres:/);
     expect(primary?.["environment"]).toBeDefined();
-    const env = primary?.["environment"] as Record<string, unknown>;
+    const env = primary?.["environment"] as JsonObject;
     expect(env["POSTGRES_USER"]).toBe("owner");
   });
 
@@ -174,11 +175,11 @@ describe("stack/render/toComposeYaml", () => {
     // labels (the string form is covered by the projection test above).
     const file = applyEngineDefaults(minimalPostgresFile());
     const yaml = toComposeYaml(file);
-    const parsed = parse(yaml) as { services: Record<string, unknown> };
-    const primary = parsed.services["primary"] as Record<string, unknown>;
+    const parsed = parse(yaml) as { services: JsonObject };
+    const primary = parsed.services["primary"] as JsonObject;
     expect(primary["x-otterdeploy"]).toBeUndefined();
-    const deploy = primary["deploy"] as Record<string, unknown>;
-    const labels = deploy["labels"] as Record<string, unknown>;
+    const deploy = primary["deploy"] as JsonObject;
+    const labels = deploy["labels"] as JsonObject;
     expect(labels["otterdeploy.kind"]).toBe("database");
     expect(labels["otterdeploy.engine"]).toBe("postgres");
     expect(labels["otterdeploy.resource.id"]).toBe("resource_test_pg");

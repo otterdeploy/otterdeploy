@@ -19,18 +19,16 @@
  * structurally-equal inputs always produce byte-identical output.
  */
 
+import type { JsonObject, JsonValue } from "@otterdeploy/shared/json";
+
 import type { StackFile, StackOtterdeployExtension, StackService } from "../schema";
 
-type SortableObject = Record<string, unknown>;
-type SortableValue = unknown;
-
-function sortDeep(value: SortableValue): SortableValue {
+function sortDeep(value: JsonValue): JsonValue {
   if (Array.isArray(value)) return value.map(sortDeep);
   if (value === null || typeof value !== "object") return value;
-  const obj = value as SortableObject;
-  const out: SortableObject = {};
-  for (const key of Object.keys(obj).sort()) {
-    const v = obj[key];
+  const out: JsonObject = {};
+  for (const key of Object.keys(value).sort()) {
+    const v = value[key];
     if (v === undefined) continue;
     out[key] = sortDeep(v);
   }
@@ -47,7 +45,7 @@ function identityLabels(x: StackOtterdeployExtension): Record<string, string> {
   return labels;
 }
 
-function prepareService(service: StackService): SortableObject {
+function prepareService(service: StackService): JsonObject {
   const labels = identityLabels(service["x-otterdeploy"]);
   const deploy = service.deploy ? { ...service.deploy } : {};
   deploy.labels = { ...labels, ...deploy.labels };
@@ -61,7 +59,7 @@ function prepareService(service: StackService): SortableObject {
   }));
 
   const volumes = service.volumes?.map((v) => {
-    const out: SortableObject = {
+    const out: JsonObject = {
       type: v.type,
       target: v.target,
       read_only: v.read_only,
@@ -87,12 +85,12 @@ function prepareService(service: StackService): SortableObject {
 }
 
 export function toComposeYaml(file: StackFile): string {
-  const services: SortableObject = {};
+  const services: JsonObject = {};
   for (const [name, service] of Object.entries(file.services)) {
     services[name] = prepareService(service);
   }
 
-  const doc: SortableObject = {
+  const doc: JsonObject = {
     services,
     networks: file.networks,
     volumes: file.volumes,

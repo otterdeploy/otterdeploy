@@ -8,9 +8,11 @@
  * route resolves to the real resource panel automatically.
  */
 
+import type { JsonObject } from "@otterdeploy/shared/json";
+
 export interface StagedCreate {
   kind: "create";
   resource: "service" | "database";
   name: string;
-  details?: Record<string, unknown>;
+  details?: JsonObject;
 }

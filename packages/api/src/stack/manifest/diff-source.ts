@@ -6,11 +6,25 @@
  */
 
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
+import type { JsonValue } from "@otterdeploy/shared/json";
 
 import type { CurrentService } from "./diff";
 import type { ServiceManifest } from "./schema";
 
-export type FieldChanges = Record<string, { from: unknown; to: unknown }>;
+/**
+ * A value carried on a field diff's `from`/`to` side. JSON-shaped — the diff
+ * rides oRPC to the web UI — with `BuildConfig` admitted explicitly: its
+ * variants are declared as interfaces (no implicit index signature), so they
+ * don't assign to `JsonValue` structurally even though they are plain JSON.
+ */
+export type FieldChangeValue = JsonValue | BuildConfig | undefined;
+
+// Type alias, not interface: aliases keep the implicit index signature that
+// makes this assignable to JsonObject/JsonValue (jsonb columns, log events).
+// oxlint-disable-next-line typescript/consistent-type-definitions
+export type FieldChange = { from: FieldChangeValue; to: FieldChangeValue };
+
+export type FieldChanges = Record<string, FieldChange>;
 
 function diffImageSource(
   desired: ServiceManifest,
@@ -98,9 +112,8 @@ function sameBuildConfig(a: BuildConfig | null, b: BuildConfig | null): boolean 
 function canonicalJson(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value) ?? "null";
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
-  const obj = value as Record<string, unknown>;
-  const keys = Object.keys(obj)
-    .filter((k) => obj[k] !== undefined)
-    .sort();
-  return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJson(obj[k])}`).join(",")}}`;
+  const entries = Object.entries(value)
+    .filter(([, v]) => v !== undefined)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(",")}}`;
 }

@@ -9,6 +9,7 @@
  * ../../backups/managed-destination.ts for why it exists at all.
  */
 import type { BackupDestinationId } from "@otterdeploy/shared/id";
+import type { JsonObject } from "@otterdeploy/shared/json";
 
 import { Result } from "better-result";
 
@@ -113,7 +114,7 @@ export async function createDestination(
   input: OrgRef & {
     name: string;
     type: DestinationType;
-    config: Record<string, unknown>;
+    config: JsonObject;
     secret?: Record<string, string>;
   },
 ): Promise<Result<DestinationResult, DestinationConfigInvalidError>> {
@@ -143,7 +144,7 @@ export async function updateDestination(
   input: OrgRef & {
     id: BackupDestinationId;
     name?: string;
-    config?: Record<string, unknown>;
+    config?: JsonObject;
     secret?: Record<string, string>;
   },
 ): Promise<

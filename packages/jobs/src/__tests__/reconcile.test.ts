@@ -11,6 +11,8 @@
  *   - update().set().where().returning()            → status flips
  *   - insert().values()                             → deployment_log line
  */
+import type { UnknownRecord } from "@otterdeploy/shared/json";
+
 import { beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
 
 // Resolved in beforeAll AFTER the mock.module() calls below register, so the
@@ -81,10 +83,13 @@ function makeDb(rows: Row[], joins: Record<string, JoinInfo> = {}) {
   // We infer query intent from the predicate shape produced by the stubbed
   // drizzle-orm: { __allowed } = inArray (orphans), { __eq } = eq status
   // (running), { __id } = eq id (join).
-  const select = (projection: Record<string, unknown>) => {
+  // UnknownRecord: the projection's values are drizzle column objects and the
+  // builder is a heterogeneous bag of chainable methods — runtime values, not
+  // JSON.
+  const select = (projection: UnknownRecord) => {
     const isJoinSelect = "organizationId" in projection;
     let joined = false;
-    const builder: Record<string, unknown> = {
+    const builder: UnknownRecord = {
       from: () => builder,
       innerJoin: () => {
         joined = true;
@@ -114,7 +119,7 @@ function makeDb(rows: Row[], joins: Record<string, JoinInfo> = {}) {
   const update = () => {
     let nextStatus: Status = "failed";
     let setFields: Partial<Row> = {};
-    const builder: Record<string, unknown> = {
+    const builder: UnknownRecord = {
       set: (fields: Partial<Row>) => {
         setFields = fields;
         nextStatus = (fields.status as Status) ?? "failed";
@@ -160,8 +165,9 @@ void mock.module("drizzle-orm", () => ({
   eq: (col: { __col?: string }, val: unknown) =>
     col?.__col === "id" ? { __id: val } : { __eq: val },
   inArray: (_col: unknown, vals: Status[]) => ({ __allowed: vals }),
-  and: (...parts: Array<Record<string, unknown>>): Record<string, unknown> => {
-    const merged: Record<string, unknown> = {};
+  // UnknownRecord: predicate marker objects carry arbitrary stubbed values.
+  and: (...parts: UnknownRecord[]): UnknownRecord => {
+    const merged: UnknownRecord = {};
     for (const part of parts) Object.assign(merged, part);
     return merged;
   },

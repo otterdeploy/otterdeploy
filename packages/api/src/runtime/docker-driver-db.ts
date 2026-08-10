@@ -5,6 +5,7 @@
  * container/network helpers in `./docker-driver-helpers`.
  */
 
+import type { CreateContainerOptions, HostConfig } from "@otterdeploy/docker";
 import type { DeploymentId } from "@otterdeploy/shared/id";
 
 import { Docker } from "@otterdeploy/docker";
@@ -55,12 +56,12 @@ export async function runDatabase(input: DatabaseSpec): Promise<DatabaseStatus> 
   // to). A host binding here would also collide with Caddy's own published
   // engine port. `input.public` only gates that route; the container spec is
   // identical either way — which is what makes the public toggle roll-free.
-  const hostConfig: Record<string, unknown> = {
+  const hostConfig: Partial<HostConfig> = {
     RestartPolicy: { Name: "on-failure", MaximumRetryCount: 5 },
     Mounts: [{ Type: "volume", Source: input.volumeName, Target: mount.target }],
   };
 
-  const options: Record<string, unknown> = {
+  const options: CreateContainerOptions = {
     name: input.serviceName,
     Image: image,
     Env: [...userEnv, ...identityEnv, ...mount.env],
@@ -104,7 +105,7 @@ export async function runDatabase(input: DatabaseSpec): Promise<DatabaseStatus> 
     ? createStackDeployLog(input.deploymentId as DeploymentId)
     : nullStackDeployLog;
   try {
-    await pullImage(docker, options.Image as string, (line) => deployLog.line(line));
+    await pullImage(docker, options.Image, (line) => deployLog.line(line));
   } finally {
     await deployLog.close();
   }

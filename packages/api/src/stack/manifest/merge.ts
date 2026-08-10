@@ -13,6 +13,8 @@
  * Returns a new manifest object with environment overrides resolved.
  */
 
+import { isJsonObject, type JsonObject } from "@otterdeploy/shared/json";
+
 import type { Manifest } from "./schema";
 
 const SERVICE_DISCRIMINATOR = "source";
@@ -39,20 +41,20 @@ export function resolveEnvironment(manifest: Manifest, environment?: string): Ma
 }
 
 function mergeResources(
-  base: Record<string, unknown> | undefined,
-  override: Record<string, unknown> | undefined,
+  base: JsonObject | undefined,
+  override: JsonObject | undefined,
   discriminator: string,
-): Record<string, unknown> {
+): JsonObject {
   if (!override) return { ...base };
 
-  const result: Record<string, unknown> = { ...base };
+  const result: JsonObject = { ...base };
   for (const [name, overrideBlock] of Object.entries(override)) {
     if (overrideBlock === null) {
       delete result[name];
       continue;
     }
     const baseBlock = result[name];
-    if (!isObject(baseBlock) || !isObject(overrideBlock)) {
+    if (!isJsonObject(baseBlock) || !isJsonObject(overrideBlock)) {
       result[name] = overrideBlock;
       continue;
     }
@@ -69,31 +71,20 @@ function mergeResources(
   return result;
 }
 
-function deepMerge(
-  base: Record<string, unknown>,
-  override: Record<string, unknown>,
-): Record<string, unknown> {
-  const result: Record<string, unknown> = { ...base };
+function deepMerge(base: JsonObject, override: JsonObject): JsonObject {
+  const result: JsonObject = { ...base };
   for (const [key, value] of Object.entries(override)) {
     if (value === null) {
       delete result[key];
       continue;
     }
-    if (
-      isObject(value) &&
-      isObject(result[key]) &&
-      !Array.isArray(value) &&
-      !Array.isArray(result[key])
-    ) {
-      result[key] = deepMerge(result[key], value);
+    const existing = result[key];
+    if (isJsonObject(value) && isJsonObject(existing)) {
+      result[key] = deepMerge(existing, value);
       continue;
     }
     // Scalars + arrays + new keys all hit this branch — override replaces base.
     result[key] = value;
   }
   return result;
-}
-
-function isObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null;
 }

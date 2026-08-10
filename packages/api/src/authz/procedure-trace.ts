@@ -15,6 +15,8 @@ import { os as orpc } from "@orpc/server";
 import type { AuditDraft } from "../audit/changes";
 import type { Context } from "../context";
 
+import type { UnknownRecord } from "@otterdeploy/shared/json";
+
 import { classifyTraceError, traceActor } from "./procedure-audit";
 import { isReadAction, isReadMethod } from "./procedure-mode";
 
@@ -28,7 +30,7 @@ export const traceProcedure = orpc
     // immune to naming drift. Only endpoints with no method at all (neither
     // `.route()` nor `.meta({method})`) fall back to the verb-prefix guess.
     const orpcDef = procedure["~orpc"];
-    const meta = orpcDef.meta as Record<string, unknown> | undefined;
+    const meta: UnknownRecord | undefined = orpcDef.meta;
     const route = orpcDef.route as { method?: string } | undefined;
     const isRead = isReadMethod(meta, route) ?? isReadAction(action);
     // Top-level fields keep the console/observability wide event informative.

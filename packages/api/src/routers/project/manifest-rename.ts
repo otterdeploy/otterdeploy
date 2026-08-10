@@ -17,9 +17,17 @@
  * rewrites is the clone path's grammar and does not appear in manifests.
  */
 
-import type { Manifest } from "../../stack/manifest";
+import type {
+  ComposeManifest,
+  DatabaseManifest,
+  Manifest,
+  ServiceManifest,
+} from "../../stack/manifest";
 
 export type RenameKind = "service" | "database" | "compose";
+
+/** Any entry in any renamable manifest section. */
+type SectionEntry = ServiceManifest | DatabaseManifest | ComposeManifest;
 
 const SECTION: Record<RenameKind, "services" | "databases" | "composes"> = {
   service: "services",
@@ -102,17 +110,17 @@ export function renameInManifest(args: {
   if (from === to) return { ok: false, error: { code: "same-name" } };
 
   const section = SECTION[kind];
-  const entries = (manifest[section] ?? {}) as Record<string, unknown>;
+  const entries: Record<string, SectionEntry> = manifest[section] ?? {};
   if (!(from in entries)) return { ok: false, error: { code: "not-found" } };
 
   const taken = (["services", "databases", "composes"] as const).some((s) =>
-    Object.hasOwn((manifest[s] ?? {}) as Record<string, unknown>, to),
+    Object.hasOwn(manifest[s] ?? {}, to),
   );
   if (taken) return { ok: false, error: { code: "name-taken" } };
 
   // Move the entry, preserving key order so the rename doesn't reshuffle the
   // manifest (and produce a noisy diff in the stack editor).
-  const moved: Record<string, unknown> = {};
+  const moved: Record<string, SectionEntry> = {};
   for (const [name, spec] of Object.entries(entries)) {
     moved[name === from ? to : name] = spec;
   }

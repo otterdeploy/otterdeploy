@@ -13,21 +13,28 @@
  * `watchPatterns` is shared across every variant — globs against changed
  * paths in a push event; a push only triggers a redeploy when at least
  * one path matches. Unset = redeploy on every push.
+ *
+ * Variants are type aliases, not interfaces — aliases keep the implicit
+ * index signature that lets a `BuildConfig` assign into `JsonObject`-typed
+ * jsonb columns and diff payloads.
  */
 
 export const BUILDERS = ["auto", "dockerfile", "railpack", "compose"] as const;
 
 export type Builder = (typeof BUILDERS)[number];
 
-interface BuildCommon {
+// Type alias, not interface: aliases keep the implicit index signature that
+// makes this assignable to JsonObject/JsonValue (jsonb columns, log events).
+// oxlint-disable-next-line typescript/consistent-type-definitions
+type BuildCommon = {
   watchPatterns?: string[];
-}
+};
 
 /** Auto-detect: inspect the repo (Dockerfile → dockerfile, else railpack).
  *  No builder-specific knobs. */
-export interface BuildAutoConfig extends BuildCommon {
+export type BuildAutoConfig = BuildCommon & {
   builder: "auto";
-}
+};
 
 /** Build from a Dockerfile. `dockerfilePath` defaults to `./Dockerfile`
  *  (relative to `sourceSubdir` if set).
@@ -36,11 +43,11 @@ export interface BuildAutoConfig extends BuildCommon {
  *  build-time variables (NOT secrets: they land in the image history, same as
  *  any `--build-arg`). Use them for non-sensitive build toggles; for secrets,
  *  prefer runtime env on the service. Unset = no build-args. */
-export interface BuildDockerfileConfig extends BuildCommon {
+export type BuildDockerfileConfig = BuildCommon & {
   builder: "dockerfile";
   dockerfilePath?: string | null;
   buildArgs?: Record<string, string> | null;
-}
+};
 
 /** Railpack: zero-config builder. `buildCommand` overrides the detected
  *  build step.
@@ -61,20 +68,20 @@ export interface BuildDockerfileConfig extends BuildCommon {
  *  installed by Corepack, which reads the same field. Use it to escape a repo
  *  pinned to a broken release (e.g. bun 1.3.1's failing native install on Linux
  *  ARM64). Unset = use the repo's own field, or railpack's default if none. */
-export interface BuildRailpackConfig extends BuildCommon {
+export type BuildRailpackConfig = BuildCommon & {
   builder: "railpack";
   buildCommand?: string | null;
   spa?: boolean | null;
   staticRoot?: string | null;
   packageManager?: string | null;
-}
+};
 
 /** Compose: build/orchestrate from a docker-compose file. `composePath`
  *  defaults to `./docker-compose.yml` (relative to `sourceSubdir` if set). */
-export interface BuildComposeConfig extends BuildCommon {
+export type BuildComposeConfig = BuildCommon & {
   builder: "compose";
   composePath?: string | null;
-}
+};
 
 export type BuildConfig =
   | BuildAutoConfig

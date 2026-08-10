@@ -8,6 +8,7 @@ import { oc } from "@orpc/contract";
 import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import * as z from "zod";
 
+import { zJsonObject } from "../../lib/z-json";
 import { EVENT_IDS } from "./events";
 
 const tag = "notifications";
@@ -42,7 +43,7 @@ const channelSchema = z.object({
   /** Masked for display (full value never leaves the server for secrets). */
   target: z.string(),
   transport: z.string(),
-  config: z.record(z.string(), z.unknown()),
+  config: zJsonObject,
   status: channelStatus,
   events7d: z.number(),
   lastDelivery: z.string().nullable(),
@@ -90,7 +91,7 @@ const inboxItemSchema = z.object({
    * dot and the expandable detail rows in the header-bell popover. Null for
    * plain `notification.send` rows that carried no payload.
    */
-  data: z.record(z.string(), z.unknown()).nullable(),
+  data: zJsonObject.nullable(),
   /** Null until the user reads it. */
   readAt: z.date().nullable(),
   createdAt: z.date(),
@@ -107,7 +108,7 @@ const createChannelInput = z.object({
   name: z.string().min(1).max(120),
   target: z.string().min(1).max(2048),
   transport: z.string().max(120).optional(),
-  config: z.record(z.string(), z.unknown()).default({}),
+  config: zJsonObject.default({}),
   // Sensitive half (bot token, HMAC key, routing key). Encrypted at rest,
   // never returned.
   secret: z.string().max(4096).optional(),
@@ -118,7 +119,7 @@ const updateChannelInput = z.object({
   name: z.string().min(1).max(120).optional(),
   target: z.string().min(1).max(2048).optional(),
   transport: z.string().max(120).optional(),
-  config: z.record(z.string(), z.unknown()).optional(),
+  config: zJsonObject.optional(),
   // Omit / empty to leave the stored secret in place.
   secret: z.string().max(4096).optional(),
 });

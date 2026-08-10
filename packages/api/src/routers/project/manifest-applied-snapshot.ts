@@ -31,7 +31,15 @@
  *   - delete skipped → previous entry restored. The resource is still there.
  */
 
-import type { Manifest } from "../../stack/manifest";
+import type {
+  ComposeManifest,
+  DatabaseManifest,
+  Manifest,
+  ServiceManifest,
+} from "../../stack/manifest";
+
+/** Any entry in a revertible manifest section. */
+type SectionEntry = ServiceManifest | DatabaseManifest | ComposeManifest;
 
 /** The subset of a skip record this needs — matches ApplyResult["skipped"]. */
 export interface SkippedResource {
@@ -135,10 +143,10 @@ export function revertEntries(args: {
 
   for (const entry of args.resources) {
     for (const section of sectionsFor(entry.resource)) {
-      const target = next[section] as Record<string, unknown> | undefined;
+      const target: Record<string, SectionEntry> | undefined = next[section];
       if (!target) continue;
 
-      const before = (args.source?.[section] as Record<string, unknown> | undefined)?.[entry.name];
+      const before: SectionEntry | undefined = args.source?.[section]?.[entry.name];
       // Deliberately NOT guarded on the name already being in `target`: a
       // reverted DELETE is exactly the case where it isn't. The resource was
       // removed from the target manifest and the removal is what we're undoing,

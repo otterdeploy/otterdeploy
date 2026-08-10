@@ -2,6 +2,8 @@
 
 import * as React from "react";
 
+import type { UnknownRecord } from "@otterdeploy/shared/json";
+
 import type { DataGridCellProps } from "@/shared/components/data-grid/types";
 
 import {
@@ -29,9 +31,10 @@ export const DataGridCell = React.memo(DataGridCellImpl, (prev, next) => {
   if (prev.rowHeight !== next.rowHeight) return false;
 
   // Check cell value using row.original instead of getValue() for stability
-  // getValue() is unstable and recreates on every render, breaking memoization
-  const prevValue = (prev.cell.row.original as Record<string, unknown>)[prev.columnId];
-  const nextValue = (next.cell.row.original as Record<string, unknown>)[next.columnId];
+  // getValue() is unstable and recreates on every render, breaking memoization.
+  // UnknownRecord: TData rows are arbitrary runtime objects, not JSON.
+  const prevValue = (prev.cell.row.original as UnknownRecord)[prev.columnId];
+  const nextValue = (next.cell.row.original as UnknownRecord)[next.columnId];
   if (prevValue !== nextValue) {
     return false;
   }

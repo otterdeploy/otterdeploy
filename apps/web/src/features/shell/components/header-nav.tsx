@@ -131,7 +131,7 @@ export function HeaderNav() {
 
   const selectEnv = (slug: string) =>
     void navigate({
-      search: (prev: Record<string, unknown>) => ({ ...prev, env: slug }),
+      search: (prev: { env?: string }) => ({ ...prev, env: slug }),
     } as never);
 
   const lists = {

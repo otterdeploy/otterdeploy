@@ -13,6 +13,7 @@
  * strands as a phantom `pending`.
  */
 import type { DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
 import { deployment, project, resource, serviceResource } from "@otterdeploy/db/schema/project";
@@ -125,7 +126,7 @@ export async function triggerUploadBuild(args: {
   target: UploadDeploymentTarget;
   resourceId: ResourceId;
   // Structural so both the oRPC RequestLogger and evlog's global `log` fit.
-  log?: { set: (fields: Record<string, unknown>) => void };
+  log?: Pick<RequestLogger, "set">;
 }): Promise<Result<{ deploymentId: string }, string>> {
   const { projectId, deploymentId } = args.target;
 

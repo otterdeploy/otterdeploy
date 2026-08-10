@@ -2,6 +2,8 @@ import { oc } from "@orpc/contract";
 import { zId } from "@otterdeploy/shared/id";
 import * as z from "zod";
 
+import { zJsonObject } from "../../lib/z-json";
+
 const tag = "audit";
 const basePath = "/audit";
 
@@ -21,11 +23,11 @@ const auditEventSchema = z.object({
   actorLabel: z.string().nullable(),
   targetType: z.string().nullable(),
   targetId: z.string().nullable(),
-  target: z.record(z.string(), z.unknown()).nullable(),
+  target: zJsonObject.nullable(),
   outcome: auditOutcomeSchema,
   reason: z.string().nullable(),
   durationMs: z.number().nullable(),
-  changes: z.record(z.string(), z.unknown()).nullable(),
+  changes: zJsonObject.nullable(),
   ip: z.string().nullable(),
   userAgent: z.string().nullable(),
   correlationId: z.string().nullable(),

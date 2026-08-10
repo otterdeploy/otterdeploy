@@ -12,7 +12,7 @@ import { parse as parseYaml } from "yaml";
 
 import type { ParsedCompose, ParsedComposeService } from "./types";
 
-import { isObj, normalizeService } from "./normalize";
+import { isObj, normalizeService, type Obj } from "./normalize";
 
 class ComposeParseError extends Error {
   /** 1-based line of the YAML syntax error, when the parser reports one. */
@@ -44,10 +44,7 @@ function yamlParseError(rawMessage: string): ComposeParseError {
 
 /** Normalize each entry of the `services` map; non-mapping entries are skipped
  *  with a warning. */
-function collectServices(
-  servicesMap: Record<string, unknown>,
-  warnings: string[],
-): ParsedComposeService[] {
+function collectServices(servicesMap: Obj, warnings: string[]): ParsedComposeService[] {
   const services: ParsedComposeService[] = [];
   for (const [name, svc] of Object.entries(servicesMap)) {
     if (!isObj(svc)) {

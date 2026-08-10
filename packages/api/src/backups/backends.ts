@@ -21,6 +21,8 @@
  * now-deleted storage.ts, which held the pre-rustic archive-transfer layer). It
  * is the decrypted destination the whole backup subsystem passes around.
  */
+import type { JsonObject } from "@otterdeploy/shared/json";
+
 import type { ExecutionContext } from "./db";
 
 import { volumeArchiveScope } from "./volume";
@@ -37,7 +39,7 @@ export type DestinationType = "s3" | "local" | "sftp";
  */
 export interface ResolvedDestination {
   type: DestinationType;
-  config: Record<string, unknown>;
+  config: JsonObject;
   /** Decrypted secret creds (empty for `local`). */
   secret: Record<string, string>;
 }

@@ -1,3 +1,5 @@
+import type { UnknownRecord } from "@otterdeploy/shared/json";
+
 import { ORPCError } from "@orpc/server";
 import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import { describe, expect, test } from "vite-plus/test";
@@ -71,7 +73,9 @@ const ENV_ID = zId(ID_PREFIX.environment).parse("env_1");
  *  is awaited as a thenable. */
 function dbReturning(rows: Array<{ projectId: string | null }>) {
   let queried = false;
-  const chain: Record<string, unknown> = {};
+  // The chain's values are builder methods (functions), not data — a
+  // string-keyed bag of runtime values is exactly what UnknownRecord is for.
+  const chain: UnknownRecord = {};
   const passthrough = () => chain;
   chain.from = passthrough;
   chain.innerJoin = passthrough;

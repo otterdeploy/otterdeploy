@@ -1,8 +1,9 @@
+import type { JsonObject } from "@otterdeploy/shared/json";
 import { describe, expect, it } from "vite-plus/test";
 
 import { manifestSchema } from "../schema";
 
-function parse(web: Record<string, unknown>) {
+function parse(web: JsonObject) {
   return manifestSchema.safeParse({
     project: "acme-api",
     services: { web },

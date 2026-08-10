@@ -8,6 +8,9 @@
  * v1.7.8). Rows are enriched with country / AS from the local GeoIP DBs and
  * deduped per target.
  */
+import type { JsonObject } from "@otterdeploy/shared/json";
+
+import { isJsonObject } from "@otterdeploy/shared/json";
 import { Result } from "better-result";
 
 import { initGeo, lookupAsn, lookupCountry } from "../../edge-logs/geo";
@@ -38,7 +41,7 @@ export async function configured(): Promise<boolean> {
 }
 
 /** Parse `cscli … -o json` output. Empty result is printed as `null`. */
-function parseJsonArray(text: string | null): Record<string, unknown>[] {
+function parseJsonArray(text: string | null): JsonObject[] {
   if (!text) return [];
   const trimmed = text.trim();
   if (!trimmed || trimmed === "null") return [];
@@ -47,18 +50,14 @@ function parseJsonArray(text: string | null): Record<string, unknown>[] {
     catch: () => null,
   });
   if (parsed.isErr() || !Array.isArray(parsed.value)) return [];
-  return parsed.value as Record<string, unknown>[];
+  return parsed.value.filter(isJsonObject);
 }
 
 const str = (v: unknown): string | null =>
   v === undefined || v === null || v === "" ? null : String(v);
 
 /** Flatten one CrowdSec decision (within its alert wrapper) into a row. */
-function toDecision(
-  d: Record<string, unknown>,
-  alert: Record<string, unknown>,
-  source: Record<string, unknown>,
-): Decision {
+function toDecision(d: JsonObject, alert: JsonObject, source: JsonObject): Decision {
   return {
     id: typeof d.id === "number" ? d.id : null,
     origin: String(d.origin ?? alert.kind ?? "crowdsec"),
@@ -98,8 +97,10 @@ async function fetchDecisionsViaLapi(): Promise<Decision[] | null> {
   });
   if (res.isErr() || !res.value.ok) return null;
   // The endpoint returns a literal `null` body when nothing matches.
-  const body = (await res.value.json().catch(() => null)) as Record<string, unknown>[] | null;
-  const rows = (Array.isArray(body) ? body : []).map((d) => toDecision(d, {}, {}));
+  const body: unknown = await res.value.json().catch(() => null);
+  const rows = (Array.isArray(body) ? body.filter(isJsonObject) : []).map((d) =>
+    toDecision(d, {}, {}),
+  );
   // Newest first (decision ids are monotonic) — a just-placed ban is on top.
   return rows.sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
 }
@@ -122,9 +123,9 @@ async function fetchDecisionsViaCscli(): Promise<Decision[] | null> {
   const rows: Decision[] = [];
   for (const text of texts) {
     for (const alert of parseJsonArray(text)) {
-      const source = (alert.source as Record<string, unknown> | undefined) ?? {};
+      const source = isJsonObject(alert.source) ? alert.source : {};
       const decisions = Array.isArray(alert.decisions)
-        ? (alert.decisions as Record<string, unknown>[])
+        ? alert.decisions.filter(isJsonObject)
         : [];
       for (const d of decisions) {
         rows.push(toDecision(d, alert, source));

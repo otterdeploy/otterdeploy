@@ -11,6 +11,7 @@
  * bounded event ring stays high-signal.
  */
 
+import { isJsonObject, type JsonObject, type JsonValue } from "@otterdeploy/shared/json";
 import * as z from "zod";
 
 import type { EdgeEventCategory, EdgeEventLevel, EdgeEventLine } from "./types";
@@ -75,27 +76,40 @@ function parseTs(ts: number | string | undefined): string {
   return new Date(0).toISOString();
 }
 
+/** Canonicalize host + batch domains identically to the access plane so the
+ *  per-tenant scope check (event-ring `inScope`/`redact`) matches the owned
+ *  domains — see ./host. */
+function hostAndDomains(data: z.infer<typeof CaddyEventSchema>): {
+  host: string | null;
+  domains: string[];
+} {
+  const domains = (data.domains ?? data.identifiers ?? []).map(normalizeHost);
+  const rawHost = data.host ?? data.request?.host ?? null;
+  return { host: rawHost ? normalizeHost(rawHost) : null, domains };
+}
+
 /** Re-serialize the line for the detail view, dropping sensitive request
  *  headers (reverse_proxy errors embed the proxied request) and capping size. */
-function sanitizeRaw(raw: Record<string, unknown>): string {
-  let obj: unknown = raw;
+function sanitizeRaw(raw: JsonObject): string {
+  let obj: JsonValue = raw;
   const req = raw.request;
-  if (req && typeof req === "object" && "headers" in req) {
-    const headers = (req as { headers?: unknown }).headers;
-    if (headers && typeof headers === "object") {
-      const cleaned: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries(headers as Record<string, unknown>)) {
-        if (SENSITIVE_HEADERS.has(k.toLowerCase())) continue;
-        cleaned[k] = v;
-      }
-      obj = { ...raw, request: { ...(req as object), headers: cleaned } };
+  if (isJsonObject(req) && isJsonObject(req.headers)) {
+    const cleaned: JsonObject = {};
+    for (const [k, v] of Object.entries(req.headers)) {
+      if (SENSITIVE_HEADERS.has(k.toLowerCase())) continue;
+      cleaned[k] = v;
     }
+    obj = { ...raw, request: { ...req, headers: cleaned } };
   }
   const str = JSON.stringify(obj);
   return str.length > MAX_RAW ? `${str.slice(0, MAX_RAW)}…` : str;
 }
 
 export function parseCaddyEvent(raw: unknown): EdgeEventLine | null {
+  // Parse boundary: `raw` comes off `JSON.parse` in ingest.ts, so the guard
+  // is sound — and it lets sanitizeRaw keep the FULL line (the zod schema
+  // strips unknown keys, which the detail view wants to keep).
+  if (!isJsonObject(raw)) return null;
   const result = CaddyEventSchema.safeParse(raw);
   if (!result.success) return null;
 
@@ -108,12 +122,7 @@ export function parseCaddyEvent(raw: unknown): EdgeEventLine | null {
   const category = categorize(logger, msg);
   if (!shouldKeep(category, level)) return null;
 
-  // Canonicalize host + batch domains identically to the access plane so the
-  // per-tenant scope check (event-ring `inScope`/`redact`) matches the owned
-  // domains — see ./host.
-  const domains = (data.domains ?? data.identifiers ?? []).map(normalizeHost);
-  const rawHost = data.host ?? data.request?.host ?? null;
-  const host = rawHost ? normalizeHost(rawHost) : null;
+  const { host, domains } = hostAndDomains(data);
   const parsedTs = parseTs(data.ts);
 
   return {
@@ -127,6 +136,6 @@ export function parseCaddyEvent(raw: unknown): EdgeEventLine | null {
     domains,
     upstream: data.upstream ?? null,
     error: data.error ?? null,
-    raw: sanitizeRaw(raw as Record<string, unknown>),
+    raw: sanitizeRaw(raw),
   };
 }

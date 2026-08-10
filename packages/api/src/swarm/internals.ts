@@ -9,6 +9,12 @@ import { Docker } from "@otterdeploy/docker";
 import { setTimeout as sleep } from "node:timers/promises";
 
 import type { SwarmServiceResources, SwarmServiceRuntime, SwarmServiceSpec } from "./service";
+import type {
+  SwarmContainerSpec,
+  SwarmResourceObject,
+  SwarmTaskResources,
+  SwarmTaskTemplate,
+} from "./spec-types";
 
 import { placementSpread } from "./placement";
 
@@ -57,8 +63,8 @@ function mbToBytes(mb: number): number {
 function buildContainerSpec(
   spec: SwarmServiceSpec,
   labels: Record<string, string>,
-): Record<string, unknown> {
-  const containerSpec: Record<string, unknown> = {
+): SwarmContainerSpec {
+  const containerSpec: SwarmContainerSpec = {
     Image: spec.image,
     Env: Object.entries(spec.env).map(([k, v]) => `${k}=${v}`),
     // UTS hostname is `sethostname`-capped at 64 bytes; the internal FQDN can
@@ -96,9 +102,9 @@ function buildContainerSpec(
   return containerSpec;
 }
 
-function buildTaskResources(resources: SwarmServiceResources): Record<string, unknown> | undefined {
-  const limits: Record<string, number> = {};
-  const reservations: Record<string, number> = {};
+function buildTaskResources(resources: SwarmServiceResources): SwarmTaskResources | undefined {
+  const limits: SwarmResourceObject = {};
+  const reservations: SwarmResourceObject = {};
   if (resources.cpuLimit != null) limits.NanoCPUs = cpuToNanoCpus(resources.cpuLimit);
   if (resources.memoryLimitMb != null) limits.MemoryBytes = mbToBytes(resources.memoryLimitMb);
   if (resources.cpuReservation != null) {
@@ -108,7 +114,7 @@ function buildTaskResources(resources: SwarmServiceResources): Record<string, un
     reservations.MemoryBytes = mbToBytes(resources.memoryReservationMb);
   }
 
-  const out: Record<string, unknown> = {};
+  const out: SwarmTaskResources = {};
   if (Object.keys(limits).length > 0) out.Limits = limits;
   if (Object.keys(reservations).length > 0) out.Reservations = reservations;
   return Object.keys(out).length > 0 ? out : undefined;
@@ -131,7 +137,7 @@ export function buildServiceSpec(spec: SwarmServiceSpec, networkName: string) {
     ...(spec.deploymentId ? { "otterdeploy.deployment.id": spec.deploymentId } : {}),
   };
 
-  const taskTemplate: Record<string, unknown> = {
+  const taskTemplate: SwarmTaskTemplate = {
     ContainerSpec: buildContainerSpec(spec, otterdeployLabels),
     Networks: [
       {

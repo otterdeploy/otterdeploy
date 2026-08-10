@@ -1,3 +1,5 @@
+import type { JsonObject } from "@otterdeploy/shared/json";
+
 import { mock } from "bun:test";
 import { describe, expect, test } from "vite-plus/test";
 
@@ -17,7 +19,7 @@ const { withCanonicalDeviceOrigin } = await import("../device-origin");
 
 const DEVICE_PATH = "/api/auth/device/code";
 
-const deviceResponse = (body: Record<string, unknown>, init?: ResponseInit) =>
+const deviceResponse = (body: JsonObject, init?: ResponseInit) =>
   new Response(JSON.stringify(body), {
     status: 200,
     headers: { "content-type": "application/json", "cache-control": "no-store" },
@@ -46,7 +48,7 @@ describe("withCanonicalDeviceOrigin", () => {
 
   test("preserves every other field and the plugin's headers", async () => {
     const out = await withCanonicalDeviceOrigin(DEVICE_PATH, deviceResponse(BODY));
-    const json = (await out.json()) as Record<string, unknown>;
+    const json = (await out.json()) as JsonObject;
 
     expect(json.device_code).toBe("dev-code");
     expect(json.user_code).toBe("WDJB-MJHT");

@@ -5,6 +5,7 @@ import type {
   WebhookDeliveryId,
   WebhookId,
 } from "@otterdeploy/shared/id";
+import type { JsonObject } from "@otterdeploy/shared/json";
 
 /**
  * Webhooks — the org's HTTP event surface, both directions. Distinct from
@@ -113,7 +114,7 @@ export const webhookDelivery = pgTable(
       .references(() => webhook.id, { onDelete: "cascade" }),
     event: text("event").notNull(),
     // The exact JSON body that was signed and POSTed.
-    payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+    payload: jsonb("payload").$type<JsonObject>().notNull().default({}),
     // HTTP status of the response; null when the request never completed
     // (DNS failure, connection refused, timeout).
     statusCode: integer("status_code"),

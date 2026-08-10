@@ -4,7 +4,7 @@
  * to the diff and re-imported by `diff.ts`.
  */
 
-import type { CurrentService, CurrentServicePort } from "./diff";
+import type { ChangeDetails, CurrentService, CurrentServicePort } from "./diff";
 import type { ComposeManifest, DatabaseManifest, ServiceManifest } from "./schema";
 
 import { diffSourceFields, type FieldChanges } from "./diff-source";
@@ -108,7 +108,7 @@ export function diffServiceFields(desired: ServiceManifest, current: CurrentServ
 export interface EnvChange {
   key: string;
   action: "create" | "update" | "delete" | "no-op";
-  details?: Record<string, unknown>;
+  details?: ChangeDetails;
 }
 
 /**
@@ -232,9 +232,45 @@ function sameStringArray(a: string[] | null, b: string[] | null): boolean {
 }
 
 // ── Summaries ──────────────────────────────────────────────────────────
+//
+// Concrete field sets (not free-form JSON): each summary carries exactly the
+// headline fields a "create" diff entry shows. All JSON-shaped, so they
+// spread directly into a `ChangeDetails` payload.
 
-export function summarizeService(s: ServiceManifest): Record<string, unknown> {
-  const summary: Record<string, unknown> = { replicas: s.replicas ?? 1 };
+// Type alias, not interface: aliases keep the implicit index signature that
+// makes this assignable to JsonObject/JsonValue (jsonb columns, log events).
+// oxlint-disable-next-line typescript/consistent-type-definitions
+export type ServiceSummary = {
+  replicas: number;
+  image?: string;
+  repo?: string;
+  branch?: string;
+  sourceSubdir?: string;
+  ports?: ServiceManifest["ports"];
+  envKeys?: string[];
+  domains?: string[];
+};
+
+// Type alias, not interface: aliases keep the implicit index signature that
+// makes this assignable to JsonObject/JsonValue (jsonb columns, log events).
+// oxlint-disable-next-line typescript/consistent-type-definitions
+export type ComposeSummary = {
+  gitRepoUrl?: string | null;
+  envKeys?: string[];
+  exposed?: string[];
+};
+
+// Type alias, not interface: aliases keep the implicit index signature that
+// makes this assignable to JsonObject/JsonValue (jsonb columns, log events).
+// oxlint-disable-next-line typescript/consistent-type-definitions
+export type DatabaseSummary = {
+  version?: string;
+  publicEnabled?: boolean;
+  extraEnvKeys?: string[];
+};
+
+export function summarizeService(s: ServiceManifest): ServiceSummary {
+  const summary: ServiceSummary = { replicas: s.replicas ?? 1 };
   if (s.source === "image") summary.image = s.image;
   if (s.source === "git" && s.repo) summary.repo = s.repo;
   if (s.source === "git" && s.branch) summary.branch = s.branch;
@@ -245,8 +281,8 @@ export function summarizeService(s: ServiceManifest): Record<string, unknown> {
   return summary;
 }
 
-export function summarizeCompose(c: ComposeManifest): Record<string, unknown> {
-  const summary: Record<string, unknown> = {};
+export function summarizeCompose(c: ComposeManifest): ComposeSummary {
+  const summary: ComposeSummary = {};
   if (c.source === "git") summary.gitRepoUrl = c.gitRepoUrl;
   if (c.env && Object.keys(c.env).length > 0) summary.envKeys = Object.keys(c.env);
   if (c.exposed?.length) {
@@ -255,8 +291,8 @@ export function summarizeCompose(c: ComposeManifest): Record<string, unknown> {
   return summary;
 }
 
-export function summarizeDatabase(d: DatabaseManifest): Record<string, unknown> {
-  const summary: Record<string, unknown> = {};
+export function summarizeDatabase(d: DatabaseManifest): DatabaseSummary {
+  const summary: DatabaseSummary = {};
   if ("version" in d && d.version) summary.version = d.version;
   if (d.publicEnabled) summary.publicEnabled = true;
   if (d.extraEnv && Object.keys(d.extraEnv).length > 0) {

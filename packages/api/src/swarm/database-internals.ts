@@ -7,6 +7,7 @@
  */
 
 import { Docker } from "@otterdeploy/docker";
+import type { JsonObject } from "@otterdeploy/shared/json";
 import { log } from "evlog";
 
 import type { ProvisionSwarmDatabaseInput, SwarmDatabaseRuntime } from "./database";
@@ -223,8 +224,7 @@ export async function waitForServiceReady(
   networkName: string,
 ): Promise<SwarmDatabaseRuntime> {
   let lastState: string | null = null;
-  const tick = (event: Record<string, unknown>) =>
-    log.info({ swarm: { service: serviceName, step: "wait-ready", ...event } });
+  const tick = (event: JsonObject) => log.info({ swarm: { service: serviceName, step: "wait-ready", ...event } });
 
   // Event-driven wakeups. Each `task.update` for our service nudges the
   // loop to re-inspect immediately instead of waiting the full 1s tick.

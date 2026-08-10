@@ -13,6 +13,7 @@ import type {
   ProjectId,
   ResourceId,
 } from "@otterdeploy/shared/id";
+import type { JsonObject } from "@otterdeploy/shared/json";
 
 import { db } from "@otterdeploy/db";
 import {
@@ -45,7 +46,7 @@ interface ExecutionContextBase {
   destination: {
     id: BackupDestinationId;
     type: "s3" | "local" | "sftp";
-    config: Record<string, unknown>;
+    config: JsonObject;
     encryptedSecret: string | null;
   };
 }
@@ -89,7 +90,7 @@ interface ContextRow {
   password: string | null;
   destId: BackupDestinationId;
   destType: "s3" | "local" | "sftp";
-  destConfig: Record<string, unknown>;
+  destConfig: JsonObject;
   destSecret: string | null;
   preHook: string | null;
   scheduleId: BackupScheduleId | null;

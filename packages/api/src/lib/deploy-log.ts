@@ -56,7 +56,7 @@ export function createStackDeployLog(deploymentId: DeploymentId): StackDeployLog
           globalLog.warn({
             compose: { event: "deploy-log-write-failed", deploymentId },
             error: err instanceof Error ? err.message : String(err),
-          } as Record<string, unknown>);
+          });
         });
     },
     async close() {

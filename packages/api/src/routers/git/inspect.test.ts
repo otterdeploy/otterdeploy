@@ -36,10 +36,17 @@ let currentRow: FixtureRow | undefined = {
   providerRepoId: null,
 };
 
-const chain: Record<string, unknown> = {};
-chain.from = () => chain;
-chain.where = () => chain;
-chain.limit = () => Promise.resolve(currentRow ? [currentRow] : []);
+/** The subset of drizzle's select builder the code under test touches. */
+interface SelectChain {
+  from: () => SelectChain;
+  where: () => SelectChain;
+  limit: () => Promise<FixtureRow[]>;
+}
+const chain: SelectChain = {
+  from: () => chain,
+  where: () => chain,
+  limit: () => Promise.resolve(currentRow ? [currentRow] : []),
+};
 
 vi.mock("@otterdeploy/db", () => ({
   db: { select: () => chain },

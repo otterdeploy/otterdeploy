@@ -84,7 +84,7 @@ export function createLogSink(opts: {
       globalLog.error({
         build: { event: "log-flush-failed", deploymentId: opts.deploymentId },
         error: err instanceof Error ? err.message : String(err),
-      } as Record<string, unknown>);
+      });
     }
   }
 
@@ -115,7 +115,7 @@ export function createLogSink(opts: {
             deploymentId: opts.deploymentId,
           },
           error: err instanceof Error ? err.message : String(err),
-        } as Record<string, unknown>),
+        }),
       );
     if (buffer.length >= FLUSH_BATCH_SIZE) {
       void flush();

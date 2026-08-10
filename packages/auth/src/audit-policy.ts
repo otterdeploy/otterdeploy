@@ -21,6 +21,7 @@
  *  3. **Never throw.** Enforced by the caller in ./audit.ts: an audit write
  *     must not be able to fail a sign-in.
  */
+import { isJsonObject } from "@otterdeploy/shared/json";
 import { isAPIError } from "better-auth/api";
 
 export const MAX_EMAIL = 320;
@@ -203,11 +204,10 @@ export function detailFrom(
   body: unknown,
   fields: readonly string[] | undefined,
 ): Record<string, string> {
-  if (!fields || typeof body !== "object" || body === null) return {};
-  const source = body as Record<string, unknown>;
+  if (!fields || !isJsonObject(body)) return {};
   const out: Record<string, string> = {};
   for (const field of fields) {
-    const value = clip(source[field], MAX_ID);
+    const value = clip(body[field], MAX_ID);
     if (value) out[field] = value;
   }
   return out;

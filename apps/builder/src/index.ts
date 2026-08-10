@@ -35,16 +35,9 @@ async function runReconcile(trigger: "boot" | "interval"): Promise<void> {
       catch: (cause) => cause,
     })
   ).match({
-    ok: (summary) =>
-      log.info({ builder: { event: "reconciled", trigger, ...summary } } as Record<
-        string,
-        unknown
-      >),
+    ok: (summary) => log.info({ builder: { event: "reconciled", trigger, ...summary } }),
     err: (cause) =>
-      log.warn({ builder: { event: "reconcile-failed", trigger, cause: String(cause) } } as Record<
-        string,
-        unknown
-      >),
+      log.warn({ builder: { event: "reconcile-failed", trigger, cause: String(cause) } }),
   });
 }
 
@@ -54,7 +47,7 @@ async function bootstrap() {
   // which is why the settings card says a change needs the builder restarted
   // rather than implying it takes effect live.
   const concurrency = await builderConcurrency();
-  log.info({ builder: { event: "starting", concurrency } } as Record<string, unknown>);
+  log.info({ builder: { event: "starting", concurrency } });
 
   // Reset deployments stranded before we start pulling new jobs. Best-effort:
   // a reconcile failure must never block the worker.
@@ -70,14 +63,14 @@ async function bootstrap() {
   reconcileTimer = setInterval(() => void runReconcile("interval"), RECONCILE_INTERVAL_MS);
   reconcileTimer.unref();
 
-  log.info({ builder: { event: "ready" } } as Record<string, unknown>);
+  log.info({ builder: { event: "ready" } });
 }
 
 void bootstrap();
 
 for (const signal of ["SIGTERM", "SIGINT"] as const) {
   process.once(signal, async () => {
-    log.info({ builder: { event: "draining", signal } } as Record<string, unknown>);
+    log.info({ builder: { event: "draining", signal } });
     if (reconcileTimer) clearInterval(reconcileTimer);
     if (stop) await stop().catch(() => undefined);
     process.exit(0);

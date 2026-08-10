@@ -8,6 +8,8 @@ import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Input } from "@/shared/components/ui/input";
 
+import type { JsonObject } from "@otterdeploy/shared/json";
+
 import type { Destination } from "./data/destinations";
 
 import { Field, type DestinationKind } from "./shared";
@@ -79,7 +81,7 @@ export function missingRequiredFields(
 /** Seed the editable config record from an existing destination (or blanks). */
 export function configFromInitial(initial: Destination | null): Record<string, string> {
   const out: Record<string, string> = {};
-  const cfg = (initial?.config ?? {}) as Record<string, unknown>;
+  const cfg = (initial?.config ?? {}) as JsonObject;
   for (const f of DEST_TYPE_FIELDS[initial?.type ?? "s3"].config) {
     const v = cfg[f.key];
     out[f.key] = typeof v === "string" || typeof v === "number" ? String(v) : "";

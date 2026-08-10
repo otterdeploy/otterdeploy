@@ -5,6 +5,7 @@
  */
 
 import type { HugeiconsIcon } from "@hugeicons/react";
+import type { UnknownRecord } from "@otterdeploy/shared/json";
 import type { Node } from "@xyflow/react";
 
 import type { ComponentProps, SVGProps } from "react";
@@ -118,7 +119,9 @@ export interface PreviewInfo {
   parentId: string;
 }
 
-export interface ResourceNodeData extends Record<string, unknown> {
+// Extends UnknownRecord because xyflow's `Node<NodeData extends Record<string,
+// unknown>>` constraint requires node data to carry a string index signature.
+export interface ResourceNodeData extends UnknownRecord {
   kind: ResourceKind;
   name: string;
   description: string;

@@ -9,13 +9,10 @@ import { configExists, loadConfig, writeConfig } from "../config-file";
 import { cmd } from "../lib/name";
 import { abort, confirm, detail, dim, ok, out, section, warn } from "../lib/ui";
 
-function countsOf(manifest: {
-  services?: Record<string, unknown>;
-  databases?: Record<string, unknown>;
-  composes?: Record<string, unknown>;
-}): string {
-  const n = (record: Record<string, unknown> | undefined): number =>
-    Object.keys(record ?? {}).length;
+// Only the key count of each section matters here, so `object` is the whole
+// contract — any manifest section map satisfies it.
+function countsOf(manifest: { services?: object; databases?: object; composes?: object }): string {
+  const n = (record: object | undefined): number => Object.keys(record ?? {}).length;
   return `${n(manifest.services)} services ${dim("·")} ${n(manifest.databases)} databases ${dim("·")} ${n(manifest.composes)} composes`;
 }
 

@@ -15,6 +15,7 @@
  * create.
  */
 import type { OrganizationId, ProjectId, ResourceId, ServerId } from "@otterdeploy/shared/id";
+import type { JsonObject } from "@otterdeploy/shared/json";
 
 import { db } from "@otterdeploy/db";
 import { orphanedResource } from "@otterdeploy/db/schema";
@@ -35,7 +36,8 @@ export interface RecordOrphanInput {
   projectId?: ProjectId;
   serverId?: ServerId;
   label?: string;
-  payload?: Record<string, unknown>;
+  /** Extra teardown context, persisted to the `orphaned_resource.payload` jsonb column. */
+  payload?: JsonObject;
 }
 
 /**

@@ -4,6 +4,7 @@ import type {
   NotificationSubscriptionId,
   OrganizationId,
 } from "@otterdeploy/shared/id";
+import type { JsonObject } from "@otterdeploy/shared/json";
 
 /**
  * Notification channels — the routing config that fans platform events
@@ -91,7 +92,7 @@ export const notificationChannel = pgTable(
     // (e.g. "incoming-webhook", "POST · HMAC-SHA256", "SMTP via Resend").
     transport: text("transport").notNull(),
     // Non-secret extra params (smtp host/from, pagerduty severity, …).
-    config: jsonb("config").$type<Record<string, unknown>>().notNull().default({}),
+    config: jsonb("config").$type<JsonObject>().notNull().default({}),
     // AES-GCM ciphertext for the sensitive half (bot token, HMAC secret).
     encryptedSecret: text("encrypted_secret"),
     status: notificationChannelStatusEnum("status").notNull().default("active"),

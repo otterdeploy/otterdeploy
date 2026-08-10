@@ -1,4 +1,5 @@
 import type { EnvironmentId } from "@otterdeploy/shared/id";
+import type { UnknownRecord } from "@otterdeploy/shared/json";
 
 import { TaggedError } from "better-result";
 
@@ -100,7 +101,9 @@ function describePgError(err: unknown): {
       pgTable: null,
     };
   }
-  const p = pg as Record<string, unknown>;
+  // A PostgresError instance, not parsed JSON — dynamic string-keyed reads
+  // over a runtime error object, so UnknownRecord is the honest type here.
+  const p = pg as UnknownRecord;
   const pick = (k: string): string | null => (typeof p[k] === "string" ? (p[k] as string) : null);
   const code = pick("code");
   const detail = pick("detail");

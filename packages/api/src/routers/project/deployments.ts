@@ -17,6 +17,7 @@
  * in ./deployments-list. The notification emitters live in ./deployments-emit.
  */
 import type { DeploymentId, OrganizationId, PreviewId, ResourceId } from "@otterdeploy/shared/id";
+import type { JsonObject } from "@otterdeploy/shared/json";
 
 import { db } from "@otterdeploy/db";
 import { deployment, project, resource } from "@otterdeploy/db/schema/project";
@@ -43,7 +44,7 @@ export interface DeploymentRow {
    *  reproduce the prior state — service env, ports, command, healthcheck,
    *  database extraEnv + publicEnabled, etc. Shape is kind-specific and
    *  validated at the rollback site, not here. */
-  snapshot: Record<string, unknown>;
+  snapshot: JsonObject;
   gitSha: string | null;
   gitRef: string | null;
   gitCommitMessage: string | null;
@@ -70,7 +71,7 @@ interface InsertInput {
   status?: "pending" | "building";
   /** Snapshot the deployment is built from. Pass the resource's full
    *  current config so rollback can reapply it verbatim later. */
-  snapshot: Record<string, unknown>;
+  snapshot: JsonObject;
   /** Provenance of the commit this deployment puts (or re-puts) into service.
    *  Builds resolve it from GitHub; a rollback inherits it from the deployment
    *  it restores, because the image it re-launches WAS built from that commit.

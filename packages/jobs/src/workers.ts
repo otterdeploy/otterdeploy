@@ -47,15 +47,12 @@ export async function createWorkers(opts?: {
     }
   }
 
-  globalLog.info({ jobs: { event: "workers-started", count: workers.length } } as Record<
-    string,
-    unknown
-  >);
+  globalLog.info({ jobs: { event: "workers-started", count: workers.length } });
 
   return {
     async stop() {
       await Promise.all(workers.map((w) => w.close()));
-      globalLog.info({ jobs: { event: "workers-stopped" } } as Record<string, unknown>);
+      globalLog.info({ jobs: { event: "workers-stopped" } });
     },
   };
 }
@@ -75,22 +72,22 @@ function createWorker<TDef extends JobDef>(def: TDef, concurrency: number): Work
 
       // Per-job structured log helper. Every call carries the job name + id
       // + attempt number so log lines join cleanly to a single job run.
-      const log = {
-        info: (fields: Record<string, unknown>) =>
+      const log: JobContext<unknown>["log"] = {
+        info: (fields) =>
           globalLog.info({
             jobs: { name: def.name, id: job.id ?? "unknown", attempt: job.attemptsMade + 1 },
             ...fields,
-          } as Record<string, unknown>),
-        warn: (fields: Record<string, unknown>) =>
+          }),
+        warn: (fields) =>
           globalLog.warn({
             jobs: { name: def.name, id: job.id ?? "unknown", attempt: job.attemptsMade + 1 },
             ...fields,
-          } as Record<string, unknown>),
-        error: (fields: Record<string, unknown>) =>
+          }),
+        error: (fields) =>
           globalLog.error({
             jobs: { name: def.name, id: job.id ?? "unknown", attempt: job.attemptsMade + 1 },
             ...fields,
-          } as Record<string, unknown>),
+          }),
       };
 
       const ctx: JobContext<unknown> = { log, job: job as Job };

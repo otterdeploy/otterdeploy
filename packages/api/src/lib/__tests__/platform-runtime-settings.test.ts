@@ -7,6 +7,8 @@
  * silently impossible to express from the UI.
  */
 
+import type { JsonObject } from "@otterdeploy/shared/json";
+
 import { beforeEach, describe, expect, test, vi } from "vite-plus/test";
 
 const selectRow = vi.fn();
@@ -65,7 +67,7 @@ import {
 } from "../platform-runtime-settings";
 
 /** Stand in for the settings row; `undefined` = no row at all (fresh install). */
-function withRow(row: Record<string, unknown> | undefined) {
+function withRow(row: JsonObject | undefined) {
   selectRow.mockResolvedValue(row === undefined ? [] : [row]);
   invalidatePlatformRuntimeSettings();
 }

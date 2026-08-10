@@ -9,6 +9,7 @@
 
 import { Docker } from "@otterdeploy/docker";
 import { type DatabaseEngine } from "@otterdeploy/shared/database-engines";
+import type { JsonObject } from "@otterdeploy/shared/json";
 import { log, type RequestLogger } from "evlog";
 
 import { PLATFORM } from "../constants";
@@ -81,7 +82,7 @@ export async function provisionSwarmDatabase(
   rlog?: RequestLogger,
 ): Promise<SwarmDatabaseRuntime> {
   const docker = Docker.fromEnv();
-  const swarmStep = (event: Record<string, unknown>) =>
+  const swarmStep = (event: JsonObject) =>
     log.info({
       swarm: {
         service: input.serviceName,
@@ -132,7 +133,7 @@ export async function updateSwarmDatabase(
   rlog?: RequestLogger,
 ): Promise<SwarmDatabaseRuntime> {
   const docker = Docker.fromEnv();
-  const swarmStep = (event: Record<string, unknown>) =>
+  const swarmStep = (event: JsonObject) =>
     log.info({
       swarm: {
         service: input.serviceName,

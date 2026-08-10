@@ -8,6 +8,8 @@
 
 import type { OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 
+import { isJsonObject, type JsonObject } from "@otterdeploy/shared/json";
+
 import { db } from "@otterdeploy/db";
 import { project } from "@otterdeploy/db/schema";
 import { Result } from "better-result";
@@ -291,9 +293,9 @@ async function removeFromManifest(
     .limit(1);
   if (!row) return;
 
-  const strip = (m: Record<string, unknown> | null): Record<string, unknown> | null => {
-    const coll = (m as Record<string, Record<string, unknown> | undefined> | null)?.[collection];
-    if (!m || !coll || !(name in coll)) return m;
+  const strip = (m: JsonObject | null): JsonObject | null => {
+    const coll = m?.[collection];
+    if (!m || !isJsonObject(coll) || !(name in coll)) return m;
     const rest = { ...coll };
     delete rest[name];
     return { ...m, [collection]: rest };

@@ -118,8 +118,10 @@ export const WebhookDeliveryPayload = z.object({
   organizationId: z.string().min(1),
   webhookId: z.string().min(1),
   event: z.string().min(1),
-  /** The exact JSON object that will be serialized, signed, and POSTed. */
-  body: z.record(z.string(), z.unknown()),
+  /** The exact JSON object that will be serialized, signed, and POSTed.
+   * `z.json()` values (not `z.unknown()`) so the inferred type stays
+   * JSON-shaped and flows into the `webhook_delivery.payload` jsonb column. */
+  body: z.record(z.string(), z.json()),
 });
 export type WebhookDeliveryPayload = z.infer<typeof WebhookDeliveryPayload>;
 
@@ -128,8 +130,20 @@ type WebhookRow = typeof webhook.$inferSelect;
 type OrgId = WebhookRow["organizationId"];
 type WhId = WebhookRow["id"];
 
-/** The wire format receivers get. Kept flat and stable — it's an API. */
-export function buildWebhookBody(payload: WebhookEventPayload): Record<string, unknown> {
+/** The wire format receivers get. Kept flat and stable — it's an API.
+ * (A type alias, not an interface, so it keeps the implicit index signature
+ * that lets it flow into `WebhookDeliveryPayload["body"]`.) */
+// oxlint-disable-next-line typescript/consistent-type-definitions
+export type WebhookBody = {
+  event: string;
+  severity: WebhookEventPayload["severity"];
+  title: string;
+  message: string;
+  data: Record<string, string>;
+  timestamp: string;
+};
+
+export function buildWebhookBody(payload: WebhookEventPayload): WebhookBody {
   return {
     event: payload.eventId,
     severity: payload.severity,

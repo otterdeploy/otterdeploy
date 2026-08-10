@@ -162,7 +162,7 @@ app.use(async (c, next) => {
       emitted = true;
       return originalEmit(...args);
     };
-    logger.set = (data: Record<string, unknown>) => {
+    logger.set = (data: Parameters<typeof originalSet>[0]) => {
       if (emitted) return;
       originalSet(data);
     };

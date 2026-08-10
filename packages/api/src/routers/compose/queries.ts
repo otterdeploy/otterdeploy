@@ -28,7 +28,7 @@ export interface ComposeRecord {
 export function pgErrorInfo(err: unknown): { code: string | null; constraint: string | null } {
   const read = (o: unknown): { code: string | null; constraint: string | null } | null => {
     if (!o || typeof o !== "object") return null;
-    const r = o as Record<string, unknown>;
+    const r = o as { code?: unknown; constraint_name?: unknown; constraint?: unknown };
     const code = typeof r.code === "string" ? r.code : null;
     const constraint =
       (typeof r.constraint_name === "string" && r.constraint_name) ||

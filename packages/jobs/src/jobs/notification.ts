@@ -11,7 +11,9 @@ export const NotificationPayload = z.object({
   title: z.string().min(1),
   message: z.string(),
   organizationId: z.string().optional(),
-  data: z.record(z.string(), z.unknown()).optional(),
+  // `z.json()` values (not `z.unknown()`) so the inferred type stays
+  // JSON-shaped and flows into the `notification.data` jsonb column.
+  data: z.record(z.string(), z.json()).optional(),
 });
 export type NotificationPayload = z.infer<typeof NotificationPayload>;
 

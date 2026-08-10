@@ -117,7 +117,7 @@ async function scanEdgeThreats(now = Date.now()): Promise<void> {
     log.warn({
       edgeAnomaly: { event: "scan-failed" },
       error: cause instanceof Error ? cause.message : String(cause),
-    } as Record<string, unknown>);
+    });
   }
 }
 

@@ -24,6 +24,8 @@
  * See docs/designs/deployment-protection.md §8.
  */
 
+import type { JsonObject } from "@otterdeploy/shared/json";
+
 import { env } from "@otterdeploy/env/server";
 import { base64UrlDecode, base64UrlEncode, timingSafeEqual } from "@otterdeploy/shared/crypto";
 
@@ -56,8 +58,15 @@ export interface HandoffClaims extends SessionClaims {
 interface SignedPayload {
   p: Purpose;
   exp: number;
-  [key: string]: unknown;
 }
+
+/**
+ * A decoded token payload: the envelope fields plus the purpose-specific
+ * claims. Claims are JSON by construction (they round-trip through
+ * `JSON.stringify`/`JSON.parse`), so the open side is `JsonObject` — each
+ * verify* helper runtime-narrows the fields it needs.
+ */
+type TokenClaims = SignedPayload & JsonObject;
 
 export async function signHandoffToken(claims: HandoffClaims): Promise<string> {
   return sign("handoff", { ...claims }, HANDOFF_TTL_SECONDS);
@@ -190,13 +199,9 @@ export async function verifySessionCookie(
   };
 }
 
-async function sign(
-  purpose: Purpose,
-  claims: Record<string, unknown>,
-  ttlSeconds: number,
-): Promise<string> {
+async function sign(purpose: Purpose, claims: JsonObject, ttlSeconds: number): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
-  const payload: SignedPayload = { ...claims, p: purpose, exp: now + ttlSeconds };
+  const payload: TokenClaims = { ...claims, p: purpose, exp: now + ttlSeconds };
   const body = base64UrlEncode(new TextEncoder().encode(JSON.stringify(payload)));
   const sig = await hmac(body);
   return `${body}.${sig}`;
@@ -206,7 +211,7 @@ async function verify(
   token: string,
   purpose: Purpose,
   expectedDomain: string,
-): Promise<(SignedPayload & Record<string, unknown>) | null> {
+): Promise<TokenClaims | null> {
   const idx = token.lastIndexOf(".");
   if (idx <= 0) return null;
   const body = token.slice(0, idx);
@@ -214,10 +219,9 @@ async function verify(
   const expected = await hmac(body);
   if (!timingSafeEqual(sig, expected)) return null;
 
-  let payload: SignedPayload & Record<string, unknown>;
+  let payload: TokenClaims;
   try {
-    payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(body))) as SignedPayload &
-      Record<string, unknown>;
+    payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(body))) as TokenClaims;
   } catch {
     return null;
   }

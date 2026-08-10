@@ -4,6 +4,7 @@ import type {
   ProjectId,
   ServerId,
 } from "@otterdeploy/shared/id";
+import type { JsonObject } from "@otterdeploy/shared/json";
 
 /**
  * Orphaned runtime resources awaiting garbage collection.
@@ -64,7 +65,7 @@ export const orphanedResource = pgTable(
     label: text("label"),
     // Extra data a teardown primitive may need (projectId+resourceId for host
     // image reclaim, compose child names, etc.).
-    payload: jsonb("payload").$type<Record<string, unknown>>(),
+    payload: jsonb("payload").$type<JsonObject>(),
     // GC attempt counter — bumped when a sweep can't yet destroy the object.
     attempts: integer("attempts").notNull().default(0),
     lastAttemptAt: timestamp("last_attempt_at"),

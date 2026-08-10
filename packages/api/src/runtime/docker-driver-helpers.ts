@@ -6,6 +6,8 @@
  * `./docker-driver.ts` stays focused on the `RuntimeDriver` surface itself.
  */
 
+import type { CreateContainerOptions, HostConfig } from "@otterdeploy/docker";
+
 import { Docker } from "@otterdeploy/docker";
 import { setTimeout as sleep } from "node:timers/promises";
 
@@ -203,7 +205,7 @@ export async function waitForContainer(
 export function buildContainerOptions(
   spec: ContainerSpec,
   networkName: string,
-): Record<string, unknown> {
+): CreateContainerOptions {
   const env = Object.entries(spec.env).map(([k, v]) => `${k}=${v}`);
   const labels = otterLabels(spec, "service");
 
@@ -219,7 +221,7 @@ export function buildContainerOptions(
     }
   }
 
-  const hostConfig: Record<string, unknown> = {
+  const hostConfig: Partial<HostConfig> = {
     RestartPolicy: toRestartPolicy(spec.restart),
   };
   if (spec.resources?.memoryLimitMb != null)
@@ -262,21 +264,17 @@ export function buildContainerOptions(
 
 export async function createAndStart(
   docker: Docker,
-  options: Record<string, unknown>,
+  options: CreateContainerOptions,
   name: string,
   networkName: string,
 ): Promise<RuntimeStatus> {
-  let created = await docker.containers.create(
-    options as Parameters<Docker["containers"]["create"]>[0],
-  );
+  let created = await docker.containers.create(options);
   // Self-heal a name Conflict once: a leftover container from a failed prior
   // deploy (or a racing one) owns the name — remove it and retry, instead of
   // surfacing docker's "you have to remove that container" at the operator.
   if (created.isErr() && /container name .* already in use/i.test(created.error.message)) {
     await removeContainerByName(docker, name);
-    created = await docker.containers.create(
-      options as Parameters<Docker["containers"]["create"]>[0],
-    );
+    created = await docker.containers.create(options);
   }
   if (created.isErr()) throw created.error;
   const start = await created.value.start();

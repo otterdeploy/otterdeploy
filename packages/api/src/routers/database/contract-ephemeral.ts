@@ -57,7 +57,7 @@ export const ephemeralRevokeResultSchema = z.object({ revoked: z.boolean() });
 /** Read-write scope hands out the app role's full privileges, so it needs the
  *  same capability as the data viewer's write path. Takes the base error map
  *  so the shapes stay defined in one place (contract.ts). */
-export function makeNotEphemeral<T extends Record<string, unknown>>(notDatabase: T) {
+export function makeNotEphemeral<T extends object>(notDatabase: T) {
   return {
     ...notDatabase,
     WRITE_SCOPE_FORBIDDEN: {

@@ -1,3 +1,5 @@
+import type { JsonObject } from "../json";
+
 import { describe, expect, test } from "bun:test";
 
 import { omitUndefined } from "../object";
@@ -5,8 +7,9 @@ import { omitUndefined } from "../object";
 // `omitUndefined`'s mapped return type turns any key whose only value is
 // `undefined` into a `never`-typed property, which makes `toEqual` against an
 // object that omits that key fail to typecheck. Widen the received value to a
-// plain record at the assertion — we're asserting runtime structural equality.
-const struct = (value: object): Record<string, unknown> => value as Record<string, unknown>;
+// plain JSON object at the assertion — we're asserting runtime structural
+// equality of plain-data fixtures.
+const struct = (value: object): JsonObject => value as JsonObject;
 
 describe("omitUndefined", () => {
   test("strips undefined-valued keys", () => {

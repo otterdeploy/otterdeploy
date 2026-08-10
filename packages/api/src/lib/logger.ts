@@ -15,12 +15,19 @@
  * event.
  */
 
+import type { JsonObject } from "@otterdeploy/shared/json";
+
 import { log as globalLog, type RequestLogger } from "evlog";
 
+/**
+ * Step events are wide-event fragments: they end up JSON-serialized on the
+ * request's wide event (or a standalone one), so they are `JsonObject` by
+ * construction — no functions, class instances, or other runtime values.
+ */
 export interface StepLogger {
-  info(event: Record<string, unknown>): void;
-  warn(event: Record<string, unknown>): void;
-  error(eventOrError: Record<string, unknown> | Error): void;
+  info(event: JsonObject): void;
+  warn(event: JsonObject): void;
+  error(eventOrError: JsonObject | Error): void;
 }
 
 export function asStepLogger(log?: RequestLogger): StepLogger {

@@ -6,6 +6,7 @@ import type {
   ProjectId,
   ResourceId,
 } from "@otterdeploy/shared/id";
+import type { JsonObject } from "@otterdeploy/shared/json";
 
 /**
  * Backups schema — destinations, schedules, runs, and run logs.
@@ -129,7 +130,7 @@ export const backupDestination = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     type: backupDestinationTypeEnum("type").notNull(),
-    config: jsonb("config").$type<Record<string, unknown>>().notNull().default({}),
+    config: jsonb("config").$type<JsonObject>().notNull().default({}),
     encryptedSecret: text("encrypted_secret"),
     status: backupDestinationStatusEnum("status").notNull().default("active"),
     /**

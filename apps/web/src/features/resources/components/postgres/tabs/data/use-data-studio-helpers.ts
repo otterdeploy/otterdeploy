@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { format as formatSql } from "sql-formatter";
 
 import type { ColumnValue } from "./components/dice-grid";
-import type { TableRef } from "./data/queries";
+import type { ColumnVariant, TableRef } from "./data/queries";
 
 import { useMutateRow } from "./data/use-database";
 import { PLAYGROUND_ID, useSqlSnippets } from "./data/use-sql-snippets";
@@ -20,7 +20,7 @@ import { PLAYGROUND_ID, useSqlSnippets } from "./data/use-sql-snippets";
 export function buildSchema(
   tables: readonly { name: string }[],
   selected: TableRef | null,
-  columnVariants: Record<string, unknown>,
+  columnVariants: Record<string, ColumnVariant>,
 ): Record<string, string[]> {
   const m: Record<string, string[]> = {};
   for (const t of tables) m[t.name] = [];

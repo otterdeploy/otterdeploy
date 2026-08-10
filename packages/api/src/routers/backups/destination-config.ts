@@ -7,6 +7,8 @@
  * dump/encrypt/stage cycle.
  */
 
+import type { JsonObject } from "@otterdeploy/shared/json";
+
 export type DestinationType = "s3" | "local" | "sftp";
 
 /** Required non-secret config keys per destination type. */
@@ -19,7 +21,7 @@ const REQUIRED_CONFIG: Record<DestinationType, string[]> = {
 /** Required config keys that are absent or blank. */
 export function missingConfigKeys(
   type: DestinationType,
-  config: Record<string, unknown> | null | undefined,
+  config: JsonObject | null | undefined,
 ): string[] {
   return REQUIRED_CONFIG[type].filter((k) => {
     const v = config?.[k];

@@ -1,3 +1,4 @@
+import type { JsonObject } from "@otterdeploy/shared/json";
 import { describe, expect, it } from "vite-plus/test";
 
 import { resolveEnvironment } from "../merge";
@@ -97,7 +98,7 @@ describe("resolveEnvironment", () => {
       },
     } as unknown as Manifest;
     const merged = resolveEnvironment(m, "preview");
-    const web = merged.services.web as Record<string, unknown>;
+    const web = merged.services.web as JsonObject;
     expect(web).toEqual({ source: "git", sourceSubdir: "." });
     expect(web.image).toBeUndefined();
     expect(web.replicas).toBeUndefined();
@@ -108,7 +109,7 @@ describe("resolveEnvironment", () => {
       ...base(),
       environments: {
         local: {
-          databases: { primary: null as unknown as Record<string, unknown> },
+          databases: { primary: null },
         },
       },
     } as unknown as Manifest;

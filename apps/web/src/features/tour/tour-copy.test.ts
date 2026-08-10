@@ -19,16 +19,20 @@ const allSteps = buildTourSteps({
   isInstallAdmin: true,
 });
 
-const locales = { en, es } as Record<string, { tour: { steps: Record<string, unknown> } }>;
+// The per-step copy shape the assertions probe. `| undefined` because the
+// whole point of the test is that a step's copy may be missing from a locale.
+interface StepCopy { title?: string; description?: string }
+const locales = { en, es } as Record<
+  string,
+  { tour: { steps: Record<string, StepCopy | undefined> } }
+>;
 
 describe("tour copy", () => {
   for (const [name, locale] of Object.entries(locales)) {
     it(`${name}: every step has a title and a description`, () => {
       const missing = allSteps
         .map((step) => {
-          const copy = locale.tour.steps[step.id] as
-            | { title?: string; description?: string }
-            | undefined;
+          const copy = locale.tour.steps[step.id];
           const ok =
             typeof copy?.title === "string" &&
             copy.title.length > 0 &&

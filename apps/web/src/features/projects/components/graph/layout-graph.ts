@@ -56,6 +56,66 @@ function rectFor(node: Node, pos: XY): Rect {
   return { x: pos.x, y: pos.y, w: NODE_WIDTH, h: nodeHeight(node) };
 }
 
+/** Smallest rect enclosing every rect in the list, or null for an empty list. */
+function boundingBoxOf(rects: Rect[]): Rect | null {
+  if (rects.length === 0) return null;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const r of rects) {
+    minX = Math.min(minX, r.x);
+    minY = Math.min(minY, r.y);
+    maxX = Math.max(maxX, r.x + r.w);
+    maxY = Math.max(maxY, r.y + r.h);
+  }
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+}
+
+function addAdjacency(map: Map<string, string[]>, from: string, to: string): void {
+  const arr = map.get(from);
+  if (arr) arr.push(to);
+  else map.set(from, [to]);
+}
+
+/**
+ * For every node reachable from a pinned node by a chain of edges (undirected
+ * — a dependency edge connects two cards regardless of its source/target
+ * direction), the id of the NEAREST pinned node it's reachable from (fewest
+ * hops; ties broken by `pinnedIds` order, so the result is deterministic).
+ * Pinned nodes own themselves. A multi-source BFS from every pinned node at
+ * once, so an id's owner is always the closest one, not just the first
+ * pinned node in the list.
+ *
+ * Lets a genuinely new node that's wired into the existing graph anchor on
+ * the pinned neighbour it's actually connected to, rather than one arbitrary
+ * pinned node picked for the whole graph — see {@link incrementalLayout}.
+ */
+function nearestPinnedOwner(edges: Edge[], pinnedIds: string[]): Map<string, string> {
+  const adjacency = new Map<string, string[]>();
+  for (const e of edges) {
+    addAdjacency(adjacency, e.source, e.target);
+    addAdjacency(adjacency, e.target, e.source);
+  }
+  const owner = new Map<string, string>();
+  const queue: string[] = [];
+  for (const id of pinnedIds) {
+    owner.set(id, id);
+    queue.push(id);
+  }
+  for (let head = 0; head < queue.length; head++) {
+    const id = queue[head];
+    const root = owner.get(id);
+    if (root === undefined) continue;
+    for (const next of adjacency.get(id) ?? []) {
+      if (owner.has(next)) continue;
+      owner.set(next, root);
+      queue.push(next);
+    }
+  }
+  return owner;
+}
+
 /**
  * Minimum-translation vector that pushes `a` clear of `b` (both inflated by
  * `gap`), or null when they don't overlap. Only `a` is ever moved — the caller
@@ -152,9 +212,15 @@ export function resolveNewCollisions(
  * Lay out the graph while keeping already-placed nodes pinned, so adding a
  * node (e.g. a staged-create ghost) or removing one never reshuffles the
  * rest — the operator's mental map (and any open detail panel anchored on a
- * node) stays put. Genuinely-new nodes are placed by a fresh dagre pass,
- * translated to align with the cached layout via one shared anchor node so
- * they land in the right neighbourhood rather than at dagre's origin.
+ * node) stays put. Genuinely-new nodes are placed by a fresh dagre pass:
+ * a new node wired (even transitively) to a pinned one rides that pass
+ * translated onto the cached layout using ITS nearest pinned neighbour's own
+ * delta, so it lands next to what it's actually connected to; a new node
+ * with no edges at all — the common case right after the create wizard — is
+ * anchored to the pinned cluster's own bounding box instead, in a fresh row
+ * beneath it, so it always lands next to the existing cards rather than
+ * wherever dagre racked up its own disconnected component (which, on an
+ * already-wide graph, can be far off to the right).
  *
  * `cached` is the running id → position map; the return value is the next
  * one (callers persist it across renders).
@@ -180,13 +246,60 @@ export function incrementalLayout(
     return new Map(nodes.map((n) => [n.id, cached.get(n.id) ?? fresh.get(n.id) ?? { x: 0, y: 0 }]));
   }
 
-  // Additions present: anchor the fresh pass to the cached layout using the
-  // first node that exists in both, then offset new nodes by that delta.
-  const anchor = nodes.find((n) => !isNew(n.id))?.id;
-  const cachedAnchor = anchor ? cached.get(anchor) : undefined;
-  const freshAnchor = anchor ? fresh.get(anchor) : undefined;
-  const dx = cachedAnchor && freshAnchor ? cachedAnchor.x - freshAnchor.x : 0;
-  const dy = cachedAnchor && freshAnchor ? cachedAnchor.y - freshAnchor.y : 0;
+  // Additions present. Two placement strategies, chosen per new node:
+  //
+  //   - "wired" — reachable (via a chain of edges) from a pinned node. Placed
+  //     using THAT pinned neighbour's own fresh-vs-cached delta (not one
+  //     arbitrary node picked for the whole graph), so it lands next to what
+  //     it's actually connected to even when the graph has several separate
+  //     clusters far apart.
+  //   - "orphan" — no edges at all yet, the normal state for a resource
+  //     fresh off the create wizard (dependency edges only appear once an
+  //     env var references another resource). dagre treats these as their
+  //     own disconnected component and racks them up left-to-right, so on a
+  //     graph with a handful of stacks that dagre-invented column can
+  //     already be thousands of px past the last one — the far-right-edge
+  //     bug. Placed instead relative to the pinned cluster's own bounding
+  //     box, in a fresh row directly beneath it.
+  const pinnedIds = nodes.filter((n) => !isNew(n.id)).map((n) => n.id);
+  const owner = nearestPinnedOwner(edges, pinnedIds);
+  const isOrphan = (id: string) => isNew(id) && !owner.has(id);
+
+  // Per-pinned-node offset between where it sits now and where the fresh
+  // dagre pass just put it — wired new nodes borrow their owner's offset.
+  const wiredDelta = new Map<string, XY>();
+  for (const p of pinnedIds) {
+    const c = cached.get(p);
+    const f = fresh.get(p);
+    if (c && f) wiredDelta.set(p, { x: c.x - f.x, y: c.y - f.y });
+  }
+
+  const pinnedRects: Rect[] = [];
+  for (const n of nodes) {
+    const pos = !isNew(n.id) ? cached.get(n.id) : undefined;
+    if (pos) pinnedRects.push(rectFor(n, pos));
+  }
+  const pinnedBox = boundingBoxOf(pinnedRects);
+
+  // Orphans keep their position RELATIVE TO EACH OTHER from the fresh pass
+  // (so several added in the same render still read as one group) — only the
+  // block as a whole is re-anchored, from dagre's origin onto the row below
+  // the pinned cluster.
+  let odx = 0;
+  let ody = 0;
+  if (pinnedBox) {
+    const orphanRects: Rect[] = [];
+    for (const n of nodes) {
+      if (!isOrphan(n.id)) continue;
+      const f = fresh.get(n.id);
+      if (f) orphanRects.push(rectFor(n, f));
+    }
+    const orphanBox = boundingBoxOf(orphanRects);
+    if (orphanBox) {
+      odx = pinnedBox.x - orphanBox.x;
+      ody = pinnedBox.y + pinnedBox.h + RANK_SEP - orphanBox.y;
+    }
+  }
 
   const next = new Map<string, XY>();
   for (const n of nodes) {
@@ -196,12 +309,22 @@ export function incrementalLayout(
       continue;
     }
     const f = fresh.get(n.id);
-    next.set(n.id, f ? { x: f.x + dx, y: f.y + dy } : { x: 0, y: 0 });
+    if (!f) {
+      next.set(n.id, { x: 0, y: 0 });
+      continue;
+    }
+    if (isOrphan(n.id)) {
+      next.set(n.id, { x: f.x + odx, y: f.y + ody });
+      continue;
+    }
+    const delta = wiredDelta.get(owner.get(n.id) ?? "");
+    next.set(n.id, { x: f.x + (delta?.x ?? 0), y: f.y + (delta?.y ?? 0) });
   }
 
-  // The anchor-delta only lines up one node; pinned cards sit at cached /
-  // dragged / persisted spots dagre never saw, so a shifted newcomer can land
-  // on top of one. Nudge the new nodes clear — pinned ones stay put.
+  // Translating orphans as one rigid block only keeps THEM apart from each
+  // other; it says nothing about the pinned cluster's actual shape (an
+  // operator-dragged layout is never a tidy rectangle). Nudge every new node
+  // clear — pinned ones stay put.
   resolveNewCollisions(next, nodes, isNew);
   return next;
 }

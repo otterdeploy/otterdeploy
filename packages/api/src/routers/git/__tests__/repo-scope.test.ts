@@ -46,12 +46,20 @@ function setDbRow(row: FixtureRow | undefined) {
   currentRow = row;
 }
 
-const chain: Record<string, unknown> = {};
+/** The subset of drizzle's select builder `getRepoForOrg` touches. */
+interface SelectChain {
+  from: () => SelectChain;
+  leftJoin: () => SelectChain;
+  where: () => SelectChain;
+  limit: () => Promise<FixtureRow[]>;
+}
 const passthrough = () => chain;
-chain.from = passthrough;
-chain.leftJoin = passthrough;
-chain.where = passthrough;
-chain.limit = () => Promise.resolve(currentRow ? [currentRow] : []);
+const chain: SelectChain = {
+  from: passthrough,
+  leftJoin: passthrough,
+  where: passthrough,
+  limit: () => Promise.resolve(currentRow ? [currentRow] : []),
+};
 
 vi.mock("@otterdeploy/db", () => ({
   db: { select: () => chain },

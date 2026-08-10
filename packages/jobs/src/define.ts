@@ -1,12 +1,18 @@
+import type { UnknownRecord } from "@otterdeploy/shared/json";
 import type { JobsOptions, Job } from "bullmq";
 import type { z } from "zod";
 
 /** Logger handed to a job handler. Each method emits a structured wide event
- * with the job's name/id/attempt automatically tagged. */
+ * with the job's name/id/attempt automatically tagged.
+ *
+ * Fields are `UnknownRecord` (not `JsonObject`) on purpose: this bridges to
+ * evlog's global `Log`, whose wide events accept arbitrary runtime values —
+ * handlers pass live `Error` instances (e.g. `{ error: err }`) that evlog
+ * serializes itself. */
 export interface JobLogger {
-  info(fields: Record<string, unknown>): void;
-  warn(fields: Record<string, unknown>): void;
-  error(fields: Record<string, unknown>): void;
+  info(fields: UnknownRecord): void;
+  warn(fields: UnknownRecord): void;
+  error(fields: UnknownRecord): void;
 }
 
 /**

@@ -22,7 +22,10 @@
  * route passes straight through untouched.
  */
 
+import type { JsonValue } from "@otterdeploy/shared/json";
+
 import { resolveCanonicalWebOrigin } from "@otterdeploy/auth/web-origin";
+import { isJsonObject } from "@otterdeploy/shared/json";
 import { log } from "evlog";
 
 /** The one route whose body carries verification URLs. */
@@ -33,7 +36,7 @@ const URI_FIELDS = ["verification_uri", "verification_uri_complete"] as const;
 
 /** Swap `raw`'s origin for `origin`, keeping path + query. Returns the input
  *  unchanged if it isn't a parseable absolute URL (nothing to rebase). */
-function rebaseOrigin(raw: unknown, origin: string): unknown {
+function rebaseOrigin(raw: JsonValue | undefined, origin: string): JsonValue | undefined {
   if (typeof raw !== "string" || raw.length === 0) return raw;
   try {
     const next = new URL(raw);
@@ -61,7 +64,8 @@ export async function withCanonicalDeviceOrigin(path: string, res: Response): Pr
   if (!res.headers.get("content-type")?.includes("application/json")) return res;
 
   try {
-    const body = (await res.clone().json()) as Record<string, unknown>;
+    const body: unknown = await res.clone().json();
+    if (!isJsonObject(body)) return res;
     if (!URI_FIELDS.some((f) => typeof body[f] === "string")) return res;
 
     const origin = await resolveCanonicalWebOrigin();

@@ -6,6 +6,7 @@
  * whether the failure was "no PIN configured" vs "wrong PIN".
  */
 
+import type { JsonObject } from "@otterdeploy/shared/json";
 import type { Context, Handler } from "hono";
 
 import { resolveProtectedDomainOrg } from "@otterdeploy/api/authz/membership";
@@ -48,7 +49,7 @@ export async function pinCookieAllows(
 export const deployPinVerifyHandler: Handler = guard(
   async (c) => {
     const host = hostOf(c.req.header("host"));
-    const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
+    const body = await c.req.json<JsonObject>().catch((): JsonObject => ({}));
     const pin = typeof body.pin === "string" ? body.pin.trim() : "";
     const returnPath = sanitizePath(typeof body.return === "string" ? body.return : "/");
     if (!host || !/^\d{4,8}$/.test(pin)) {

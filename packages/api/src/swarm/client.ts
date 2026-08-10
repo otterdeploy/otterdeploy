@@ -1,3 +1,4 @@
+import type { EndpointSettings } from "@otterdeploy/docker";
 import type { RequestLogger } from "evlog";
 
 import { Docker, DockerNotFoundError } from "@otterdeploy/docker";
@@ -137,7 +138,7 @@ export async function connectCaddyToNetwork(
 
   let container: {
     Id: string;
-    NetworkSettings?: { Networks?: Record<string, unknown> };
+    NetworkSettings?: { Networks?: Record<string, EndpointSettings> };
   } | null = null;
 
   for (const caddyName of caddyNames) {

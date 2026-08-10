@@ -5,6 +5,8 @@
  * PLATFORM_EVENTS (packages/api/src/routers/notifications/events.ts) — the ids
  * MUST stay in lockstep.
  */
+import type { JsonObject } from "@otterdeploy/shared/json";
+
 import type { channelsCollection, subscriptionsCollection } from "./data/notifications";
 
 export type Channel = (typeof channelsCollection.toArray)[number];
@@ -109,7 +111,7 @@ function humanizeKey(key: string): string {
 
 /** The platform `eventId` carried in an inbox notification's `data`, if any —
  *  used to resolve the row's severity + event label. */
-export function inboxEventId(data: Record<string, unknown> | null | undefined): string | null {
+export function inboxEventId(data: JsonObject | null | undefined): string | null {
   const id = data?.eventId;
   return typeof id === "string" && id ? id : null;
 }
@@ -120,7 +122,7 @@ export function inboxEventId(data: Record<string, unknown> | null | undefined): 
  * stringified (objects fall back to JSON). Powers the expanded detail box.
  */
 export function inboxDetailRows(
-  data: Record<string, unknown> | null | undefined,
+  data: JsonObject | null | undefined,
 ): Array<{ key: string; label: string; value: string }> {
   if (!data) return [];
   const rows: Array<{ key: string; label: string; value: string }> = [];
@@ -171,9 +173,7 @@ const SEVERITY_RANK: readonly Severity[] = ["err", "warn", "info", "ok"];
  * `rollupStatus` (build-live-nodes.ts) and the app-status rollup resolve ties.
  * Callers pass the unread subset; a read failure is history, not a badge.
  */
-export function worstSeverity(
-  items: readonly { data: Record<string, unknown> | null }[],
-): Severity | null {
+export function worstSeverity(items: readonly { data: JsonObject | null }[]): Severity | null {
   if (items.length === 0) return null;
   const present = new Set<Severity>();
   for (const item of items) {

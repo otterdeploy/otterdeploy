@@ -48,6 +48,6 @@ export async function writeProjectEscapeHatch(projectId: ProjectId): Promise<voi
     globalLog.warn({
       escapeHatch: { event: "write-failed", projectId },
       error: cause instanceof Error ? cause.message : String(cause),
-    } as Record<string, unknown>);
+    });
   }
 }

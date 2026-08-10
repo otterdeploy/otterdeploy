@@ -15,6 +15,7 @@ import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
+import { zJsonObject } from "../../lib/z-json";
 import { projectIdField, resourceIdField } from "../project/contract/shared";
 import { volumeNameField } from "../volumes/contract";
 
@@ -64,7 +65,7 @@ export const destinationSchema = createSelectSchema(backupDestination)
   .omit({ encryptedSecret: true })
   .extend({
     id: backupDestinationIdField,
-    config: z.record(z.string(), z.unknown()),
+    config: zJsonObject,
     usedBytes: z.number(),
   });
 
@@ -123,7 +124,7 @@ const destinationInvalidConfig = {
 };
 
 // Non-secret connection params (bucket / region / endpoint / prefix / path).
-const destinationConfigInput = z.record(z.string(), z.unknown());
+const destinationConfigInput = zJsonObject;
 // Secret creds (S3 access key + secret, SFTP password/key). Encrypted at
 // rest, never returned. Omitted for `local` destinations.
 const destinationSecretInput = z.record(z.string(), z.string());

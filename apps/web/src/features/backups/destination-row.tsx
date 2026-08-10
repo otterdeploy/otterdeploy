@@ -17,6 +17,8 @@ import { toast } from "sonner";
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
 
+import type { JsonObject } from "@otterdeploy/shared/json";
+
 import type { Destination } from "./data/destinations";
 
 import {
@@ -77,7 +79,7 @@ export function DestinationRow({
 
   // `usedBytes` is computed; `maxStorageGb` (if set) lives in config.
   const usedGB = dest.usedBytes / 1e9;
-  const maxRaw = (dest.config as Record<string, unknown>)?.maxStorageGb;
+  const maxRaw = (dest.config as JsonObject | undefined)?.maxStorageGb;
   const totalGB = typeof maxRaw === "number" ? maxRaw : undefined;
   const pct = totalGB ? (usedGB / totalGB) * 100 : null;
 

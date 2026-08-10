@@ -15,6 +15,8 @@
  * fields the allowlist functions don't even have a slot for) and re-asserts
  * the router-level installation gate as a standing regression net.
  */
+import type { JsonObject, UnknownRecord } from "@otterdeploy/shared/json";
+
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -82,7 +84,9 @@ describe("[od-5j8.3] safe-view allowlists survive hostile / obfuscated placement
     expect(() => safeContainerInspect(hostile)).not.toThrow();
     const safe = safeContainerInspect(hostile);
     expect(safe.id).toBe("c1");
-    expect((Object.prototype as Record<string, unknown>).polluted).toBeUndefined();
+    // Object.prototype genuinely holds arbitrary runtime values — UnknownRecord
+    // is the honest view for a pollution probe.
+    expect((Object.prototype as UnknownRecord).polluted).toBeUndefined();
   });
 
   test("image history / build-arg secrets and volume driver-option secrets never surface even when deeply nested", () => {
@@ -110,7 +114,7 @@ describe("[od-5j8.3] safe-view allowlists survive hostile / obfuscated placement
   });
 
   test("network container membership never leaks peer container names or addresses, even for many peers", () => {
-    const containers: Record<string, unknown> = {};
+    const containers: JsonObject = {};
     for (let i = 0; i < 5; i++) {
       containers[`container_${i}`] = {
         Name: `tenant-${i}-secret-service`,

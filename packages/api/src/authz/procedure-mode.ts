@@ -4,6 +4,8 @@
 // independent gates depend on it agreeing with itself: the audit read-gate
 // (../index.ts) and the read-only API-key preset (isReadAllowed in
 // ./api-key-scope.ts). Both import from here — do not copy this regex.
+import type { UnknownRecord } from "@otterdeploy/shared/json";
+
 const READ_VERB =
   /^(list|get|inspect|stream|search|count|fetch|read|resolve|view|preview|status|events|logs|metrics|stats)/i;
 
@@ -15,9 +17,13 @@ export function isReadAction(action: string): boolean {
 /**
  * Prefer contract HTTP metadata over name heuristics. Contracts may declare
  * the method in either oRPC's route field or the repository's meta field.
+ *
+ * `meta` is oRPC's open `Meta` bag (`Record<string, any>` upstream): contracts
+ * stash arbitrary runtime values there (`tag`, `method`, …), so `UnknownRecord`
+ * is the honest view — only `method` is read, and it is runtime-checked.
  */
 export function isReadMethod(
-  meta: Record<string, unknown> | undefined,
+  meta: UnknownRecord | undefined,
   route: { method?: string } | undefined,
 ): boolean | null {
   const method = route?.method ?? meta?.method;

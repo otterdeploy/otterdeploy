@@ -58,7 +58,7 @@ export async function recordHealthObservations(
       log.warn({
         health: { event: "emit-failed", resourceId },
         error: cause instanceof Error ? cause.message : String(cause),
-      } as Record<string, unknown>);
+      });
     });
   }
 }

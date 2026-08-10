@@ -56,7 +56,7 @@ export function EnvironmentCreateDialog({ projectId, open, onOpenChange }: Props
 
       // Switch the URL to the freshly-created env so the user lands on it.
       void navigate({
-        search: (prev: Record<string, unknown>) => ({ ...prev, env: slug }),
+        search: (prev: { env?: string }) => ({ ...prev, env: slug }),
       } as never);
       setOpen(false);
       tx.isPersisted.promise.catch((err: unknown) =>

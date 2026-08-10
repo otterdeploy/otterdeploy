@@ -39,7 +39,10 @@ const MANAGED_LOCAL_DESTINATION_NAME = "Local disk (managed)";
  * `prefix` namespaces by org, which `deriveRepoId` already threads into the
  * rustic repo id — so no engine change is needed to keep orgs apart.
  */
-export function managedLocalConfig(organizationId: OrganizationId): Record<string, unknown> {
+export function managedLocalConfig(organizationId: OrganizationId): {
+  path: string;
+  prefix: OrganizationId;
+} {
   return { path: managedBackupRepoRoot(), prefix: organizationId };
 }
 
@@ -87,7 +90,7 @@ export async function ensureManagedLocalDestination(organizationId: Organization
     .limit(1);
   if (!existing) return;
 
-  const current = existing.config as Record<string, unknown>;
+  const current = existing.config;
   if (current.path === desiredConfig.path && current.prefix === desiredConfig.prefix) return;
 
   await db

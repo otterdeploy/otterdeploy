@@ -1,5 +1,6 @@
 import { db } from "@otterdeploy/db";
 import { auditLog } from "@otterdeploy/db/schema";
+import type { JsonObject } from "@otterdeploy/shared/json";
 
 /** Append a non-request control-plane action to the same durable audit trail
  * used by oRPC. Background work has no request logger/audit plugin envelope,
@@ -7,7 +8,7 @@ import { auditLog } from "@otterdeploy/db/schema";
 export async function recordSystemAudit(input: {
   action: string;
   outcome: "success" | "failure";
-  target: { type: string; id: string; [key: string]: unknown };
+  target: JsonObject & { type: string; id: string };
   reason?: string;
 }): Promise<void> {
   await db.insert(auditLog).values({

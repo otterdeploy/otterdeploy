@@ -1,4 +1,5 @@
 import type { NotificationChannelId, OrganizationId } from "@otterdeploy/shared/id";
+import type { JsonObject } from "@otterdeploy/shared/json";
 
 import { db } from "@otterdeploy/db";
 import {
@@ -31,7 +32,7 @@ export interface ChannelView {
   name: string;
   target: string;
   transport: string;
-  config: Record<string, unknown>;
+  config: JsonObject;
   status: "active" | "paused" | "disconnected" | "warn";
   events7d: number;
   lastDelivery: string | null;
@@ -130,10 +131,13 @@ export async function insertChannel(values: {
   name: string;
   target: string;
   transport: string;
-  config: Record<string, unknown>;
+  config: JsonObject;
   encryptedSecret: string | null;
 }): Promise<NotificationChannelRow> {
-  const [row] = await db.insert(notificationChannel).values(values).returning();
+  const [row] = await db
+    .insert(notificationChannel)
+    .values(values)
+    .returning();
   if (!row) {
     throw new Error("insertChannel: insert returned no row");
   }
@@ -146,7 +150,7 @@ export async function updateChannel(
     name: string;
     target: string;
     transport: string;
-    config: Record<string, unknown>;
+    config: JsonObject;
     encryptedSecret: string | null;
     status: "active" | "paused" | "disconnected";
   }>,

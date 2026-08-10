@@ -3,12 +3,15 @@
  * Turns the flat server diff (`manifest.diff` changes) into one card-worth
  * of data per resource; `pending-changes-diff.tsx` renders the cards.
  */
+import type { JsonObject } from "@otterdeploy/shared/json";
+
+import { isJsonObject } from "@otterdeploy/shared/json";
 
 export interface DiffChange {
   kind: "create" | "update" | "delete" | "no-op";
   resource: "service" | "database" | "env" | "compose";
   name: string;
-  details?: Record<string, unknown>;
+  details?: JsonObject;
 }
 
 export interface EnvRow {
@@ -66,7 +69,7 @@ function toGroup(c: DiffChange): GroupedChange {
 // fallback for older servers.
 function attachEnvRow(byKey: Map<string, GroupedChange>, c: DiffChange): void {
   if (c.kind === "no-op") return;
-  const d = (c.details ?? {}) as Record<string, unknown>;
+  const d = c.details ?? {};
   const dot = c.name.indexOf(".");
   const parentName = dot === -1 ? c.name : c.name.slice(0, dot);
   const group = findOrCreateParent(
@@ -97,12 +100,11 @@ function findOrCreateParent(
   return group;
 }
 
-function extractFields(details: unknown): GroupedChange["fields"] {
-  if (!details || typeof details !== "object") return [];
-  const fields = (details as { fields?: unknown }).fields;
-  if (!fields || typeof fields !== "object") return [];
-  return Object.entries(fields as Record<string, unknown>).map(([field, value]) => {
-    const v = value as { from?: unknown; to?: unknown };
+function extractFields(details: JsonObject | undefined): GroupedChange["fields"] {
+  const fields = details?.fields;
+  if (!isJsonObject(fields)) return [];
+  return Object.entries(fields).map(([field, value]) => {
+    const v = isJsonObject(value) ? value : {};
     return { field, from: v.from, to: v.to };
   });
 }
@@ -111,9 +113,9 @@ function extractFields(details: unknown): GroupedChange["fields"] {
 // envKeys, domains…). Everything except structural keys becomes a spec row.
 const SPEC_SKIP = new Set(["fields", "reason"]);
 
-function extractSpec(details: unknown): GroupedChange["spec"] {
-  if (!details || typeof details !== "object") return [];
-  return Object.entries(details as Record<string, unknown>).flatMap(([field, value]) =>
+function extractSpec(details: JsonObject | undefined): GroupedChange["spec"] {
+  if (!details) return [];
+  return Object.entries(details).flatMap(([field, value]) =>
     !SPEC_SKIP.has(field) && value !== undefined && value !== null
       ? [{ field: specLabel(field), value: renderValue(value) }]
       : [],

@@ -151,10 +151,7 @@ const installAdminMiddleware = orpc
   .middleware(async ({ context, procedure, next, errors }) => {
     const definition = procedure["~orpc"];
     const mode =
-      (isReadMethod(
-        definition.meta as Record<string, unknown> | undefined,
-        definition.route as { method?: string } | undefined,
-      ) ?? false)
+      (isReadMethod(definition.meta, definition.route as { method?: string } | undefined) ?? false)
         ? "read"
         : "write";
     const decision = await authorizeCapability(context.actor, {
@@ -228,10 +225,8 @@ export function requirePermission(permission: PermissionCheck) {
       }
       const definition = procedure["~orpc"];
       const mode =
-        (isReadMethod(
-          definition.meta as Record<string, unknown> | undefined,
-          definition.route as { method?: string } | undefined,
-        ) ?? isReadAction(path.join(".")))
+        (isReadMethod(definition.meta, definition.route as { method?: string } | undefined) ??
+        isReadAction(path.join(".")))
           ? "read"
           : "write";
       const projectId =

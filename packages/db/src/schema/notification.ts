@@ -1,4 +1,5 @@
 import type { NotificationId } from "@otterdeploy/shared/id";
+import type { JsonObject } from "@otterdeploy/shared/json";
 
 /**
  * In-app notifications — one row per delivered notification to a user. The
@@ -37,7 +38,7 @@ export const notification = pgTable(
     message: text("message").notNull(),
 
     // Optional deep-link / structured payload for the client.
-    data: jsonb("data").$type<Record<string, unknown>>(),
+    data: jsonb("data").$type<JsonObject>(),
 
     // Null until the user reads it.
     readAt: timestamp("read_at"),

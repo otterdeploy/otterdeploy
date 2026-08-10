@@ -5,6 +5,7 @@
  * so the public import path (`./deploy-protection`) is unchanged.
  */
 
+import type { JsonObject } from "@otterdeploy/shared/json";
 import type { Handler } from "hono";
 
 import { guestSessionHoursFor } from "@otterdeploy/api/authz/guests";
@@ -66,7 +67,7 @@ export const deployAccessHandler: Handler = guard(async (c) => {
 export const deployOtpRequestHandler: Handler = guard(
   async (c) => {
     const host = hostOf(c.req.header("host"));
-    const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
+    const body = await c.req.json<JsonObject>().catch((): JsonObject => ({}));
     const email = typeof body.email === "string" ? body.email.trim() : "";
     if (!host || !email) return c.json({ ok: false }, 400);
 
@@ -110,7 +111,7 @@ export const deployOtpRequestHandler: Handler = guard(
 export const deployOtpVerifyHandler: Handler = guard(
   async (c) => {
     const host = hostOf(c.req.header("host"));
-    const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
+    const body = await c.req.json<JsonObject>().catch((): JsonObject => ({}));
     const email = typeof body.email === "string" ? body.email.trim() : "";
     const code = typeof body.code === "string" ? body.code.trim() : "";
     const returnPath = sanitizePath(typeof body.return === "string" ? body.return : "/");

@@ -12,7 +12,10 @@
  * old snapshots can be migrated or refused with a clear error.
  */
 
-export interface PostgresSnapshotV1 {
+// A `type`, not an `interface`: type aliases get implicit index signatures,
+// so the snapshot assigns to the deployment row's `JsonObject` field directly.
+// oxlint-disable-next-line typescript/consistent-type-definitions
+export type PostgresSnapshotV1 = {
   kind: "postgres";
   version: 1;
   image: string;
@@ -26,7 +29,7 @@ export interface PostgresSnapshotV1 {
   /** Enabled extensions at snapshot time. Optional so snapshots written
    *  before the extensions feature still parse — treat absent as []. */
   extensions?: string[];
-}
+};
 
 export function snapshotForPostgresCreate(input: {
   image: string;
@@ -38,8 +41,8 @@ export function snapshotForPostgresCreate(input: {
   internalHostname: string;
   extraEnv: Record<string, string>;
   extensions?: string[];
-}): Record<string, unknown> {
-  const snap: PostgresSnapshotV1 = {
+}): PostgresSnapshotV1 {
+  return {
     kind: "postgres",
     version: 1,
     image: input.image,
@@ -52,5 +55,4 @@ export function snapshotForPostgresCreate(input: {
     extraEnv: input.extraEnv,
     extensions: input.extensions ?? [],
   };
-  return snap as unknown as Record<string, unknown>;
 }

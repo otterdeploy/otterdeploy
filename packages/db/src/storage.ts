@@ -19,6 +19,8 @@
  * rejections are captured via `Result.tryPromise`, so there is no raw
  * try/catch anywhere in this module.
  */
+import type { JsonObject } from "@otterdeploy/shared/json";
+
 import { Result, TaggedError } from "better-result";
 import { Files } from "files-sdk";
 import { bunS3 } from "files-sdk/bun-s3";
@@ -28,7 +30,9 @@ export type DestinationType = "s3" | "local" | "sftp";
 
 export interface ResolvedDestination {
   type: DestinationType;
-  config: Record<string, unknown>;
+  /** Destination settings straight from the jsonb column — validated field by
+   *  field at use (`str()` / the per-type checks in `filesFor`). */
+  config: JsonObject;
   /** Decrypted secret creds (empty for `local`). */
   secret: Record<string, string>;
 }

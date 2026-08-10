@@ -98,6 +98,51 @@ describe("incrementalLayout", () => {
       }
     }
   });
+
+  // od-r96: a brand-new resource has no dependency edges yet (those only
+  // appear once an env var references another resource), so dagre treats it
+  // as its own disconnected component and racks those up left-to-right — on
+  // a graph already spread wide by several earlier stacks, that landed the
+  // new card thousands of px past the last one, off in empty space. These
+  // pinned positions mirror what a real ~10-stack graph looks like once
+  // dagre has spread its disconnected components out.
+  it("places a brand-new, edge-less node near the pinned cluster instead of dagre's far-right slot", () => {
+    const cached = new Map<string, XY>(
+      Array.from({ length: 10 }, (_, i) => [`stack${i}`, { x: i * 468, y: i % 2 === 0 ? 40 : 400 }]),
+    );
+    const pinnedNodes = [...cached.keys()].map(node);
+    const result = incrementalLayout([...pinnedNodes, node("new")], noEdges, cached);
+
+    // Every pinned card kept its exact cached spot.
+    for (const [id, pos] of cached) expect(result.get(id)).toEqual(pos);
+
+    const pinnedMaxX = Math.max(...[...cached.values()].map((p) => p.x)) + W;
+    const pinnedMinX = Math.min(...[...cached.values()].map((p) => p.x));
+    const pinnedMaxY = Math.max(...[...cached.values()].map((p) => p.y)) + H;
+    const n = posOf(result, "new");
+    // Lands within the pinned cluster's own x-span (not past its right edge
+    // by more than one card + gap) and below it — not off past the last
+    // dagre-invented column.
+    expect(n.x).toBeGreaterThanOrEqual(pinnedMinX - W);
+    expect(n.x).toBeLessThanOrEqual(pinnedMaxX + W);
+    expect(n.y).toBeGreaterThanOrEqual(pinnedMaxY);
+  });
+
+  it("still places a new node wired to a pinned one near that neighbour, not the fresh row", () => {
+    const cached = new Map<string, XY>([
+      ["a", { x: 0, y: 0 }],
+      ["b", { x: 2000, y: 0 }], // far off to the right, like a distant stack
+    ]);
+    const pinnedNodes = [node("a"), node("b")];
+    const wiredEdge = [{ id: "e", source: "b", target: "new" }];
+    const result = incrementalLayout([...pinnedNodes, node("new")], wiredEdge, cached);
+
+    expect(result.get("a")).toEqual({ x: 0, y: 0 });
+    expect(result.get("b")).toEqual({ x: 2000, y: 0 });
+    // Wired to "b" — should land near it, not near "a"'s side of the graph.
+    const n = posOf(result, "new");
+    expect(Math.abs(n.x - 2000)).toBeLessThan(Math.abs(n.x - 0));
+  });
 });
 
 describe("resolveNewCollisions", () => {

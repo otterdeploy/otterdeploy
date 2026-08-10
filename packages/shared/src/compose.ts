@@ -12,8 +12,11 @@
  * shouldn't) depend on `@otterdeploy/api`. See docs/designs/compose.md.
  */
 
-/** Derived per-service summary, recomputed from the compose file on each save. */
-export interface ComposeServiceSummary {
+/** Derived per-service summary, recomputed from the compose file on each save.
+ *  Type alias, not interface — aliases keep the implicit index signature that
+ *  lets these summaries assign into `JsonObject`-typed jsonb columns. */
+// oxlint-disable-next-line typescript/consistent-type-definitions
+export type ComposeServiceSummary = {
   /** Service key in the compose file. */
   name: string;
   /** Resolved image ref; `null` when the service builds from source. */
@@ -26,14 +29,17 @@ export interface ComposeServiceSummary {
    *  card so a stateful service reads as stateful at a glance. Empty when the
    *  service mounts nothing (or only binds/tmpfs, which we drop). */
   volumes: string[];
-}
+};
 
 /** A `service:port` fronted by a public domain. */
-export interface ComposeExposed {
+// Type alias, not interface: aliases keep the implicit index signature that
+// makes this assignable to JsonObject/JsonValue (jsonb columns, log events).
+// oxlint-disable-next-line typescript/consistent-type-definitions
+export type ComposeExposed = {
   service: string;
   port: number;
   domain: string;
-}
+};
 
 /**
  * One file in a multi-file INLINE stack: the compose file itself plus any
@@ -44,10 +50,13 @@ export interface ComposeExposed {
  * to disk at deploy/build so the compose compiler + build worker can resolve
  * those relative references. See docs/designs/compose.md.
  */
-export interface ComposeFile {
+// Type alias, not interface: aliases keep the implicit index signature that
+// makes this assignable to JsonObject/JsonValue (jsonb columns, log events).
+// oxlint-disable-next-line typescript/consistent-type-definitions
+export type ComposeFile = {
   path: string;
   content: string;
-}
+};
 
 /**
  * The filenames `docker compose` itself looks for, in its precedence order.

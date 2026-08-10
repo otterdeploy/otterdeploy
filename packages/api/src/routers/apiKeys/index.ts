@@ -33,7 +33,11 @@ export const apiKeysRouter = {
       // Optional presets ride in key metadata (enableMetadata is on). Only the
       // explicitly-set ones are persisted, so an unscoped key keeps the current
       // full behavior — createContext reads these back into the ApiKeyActor.
-      const metadata: Record<string, unknown> = {};
+      const metadata: {
+        accessLevel?: typeof input.accessLevel;
+        projectScope?: typeof input.projectScope;
+        projectIds?: typeof input.projectIds;
+      } = {};
       if (input.accessLevel) metadata.accessLevel = input.accessLevel;
       if (input.projectScope) metadata.projectScope = input.projectScope;
       if (input.projectScope === "selected" && input.projectIds) {

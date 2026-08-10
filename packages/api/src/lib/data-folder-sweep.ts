@@ -179,13 +179,13 @@ async function sweepDataFolder(now = Date.now()): Promise<number> {
     if (removed > 0) {
       globalLog.info({
         dataFolderSweep: { event: "reclaimed", removed },
-      } as Record<string, unknown>);
+      });
     }
   } catch (cause) {
     globalLog.warn({
       dataFolderSweep: { event: "failed" },
       error: cause instanceof Error ? cause.message : String(cause),
-    } as Record<string, unknown>);
+    });
   }
   return removed;
 }

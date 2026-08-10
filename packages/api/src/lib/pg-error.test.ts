@@ -13,12 +13,20 @@ import {
   pgErrorInfo,
 } from "./pg-error";
 
+/** The optional pg diagnostic fields a fixture may set on the driver error. */
+interface PgFixtureFields {
+  constraint?: string;
+  table?: string;
+  column?: string;
+  detail?: string;
+}
+
 /**
  * bun-sql's PostgresError: SQLSTATE on `errno`, `code` a fixed constant.
  * Field values copied from a real duplicate-key failure observed against the
  * running control plane, so the fixture can't drift from the driver.
  */
-function bunPgError(errno: string, extra: Record<string, unknown> = {}): Error {
+function bunPgError(errno: string, extra: PgFixtureFields = {}): Error {
   return Object.assign(new Error('duplicate key value violates unique constraint "x_unique"'), {
     code: "ERR_POSTGRES_SERVER_ERROR",
     errno,
@@ -34,7 +42,7 @@ function bunPgError(errno: string, extra: Record<string, unknown> = {}): Error {
 }
 
 /** node-postgres / postgres.js: SQLSTATE on `code`. */
-function nodePgError(code: string, extra: Record<string, unknown> = {}): Error {
+function nodePgError(code: string, extra: PgFixtureFields = {}): Error {
   return Object.assign(new Error("duplicate key value"), {
     code,
     constraint: undefined,

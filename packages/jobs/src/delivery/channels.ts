@@ -22,6 +22,8 @@
  * PagerDuty) go through the same helper for consistency — harmless, since
  * they always resolve to a public address.
  */
+import type { JsonObject } from "@otterdeploy/shared/json";
+
 import { NotificationEmail, sendEmail, sendViaSmtpServer } from "@otterdeploy/email";
 import { EgressPolicyError, egressFetch } from "@otterdeploy/shared/egress-policy";
 
@@ -42,7 +44,8 @@ export interface ResolvedChannel {
   kind: ChannelKind;
   name: string;
   target: string;
-  config: Record<string, unknown>;
+  /** Free-form provider config (jsonb-backed; shape varies by `kind`). */
+  config: JsonObject;
   /** Decrypted secret (bot token / HMAC key / routing key), or null. */
   secret: string | null;
 }

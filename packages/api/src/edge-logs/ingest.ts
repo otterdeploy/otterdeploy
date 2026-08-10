@@ -8,6 +8,7 @@
  * exactly like DEPLOY_AUTHZ_UPSTREAM. No shared filesystem assumption.
  */
 
+import { isJsonObject } from "@otterdeploy/shared/json";
 import { log } from "evlog";
 
 import { promoteCertEvent } from "./cert-promote";
@@ -73,10 +74,9 @@ export function startEdgeLogSink(port: number): void {
  *  split, a reverse_proxy error (which embeds a `request`) would mis-parse as
  *  a status-0 access row. */
 function isAccessLog(json: unknown): boolean {
-  if (typeof json !== "object" || json === null) return false;
-  const o = json as Record<string, unknown>;
-  const logger = typeof o.logger === "string" ? o.logger : "";
-  return logger.includes("log.access") || o.msg === "handled request";
+  if (!isJsonObject(json)) return false;
+  const logger = typeof json.logger === "string" ? json.logger : "";
+  return logger.includes("log.access") || json.msg === "handled request";
 }
 
 function ingestLine(line: string): void {

@@ -19,6 +19,7 @@ import type {
   ServiceMountId,
   ServicePortId,
 } from "@otterdeploy/shared/id";
+import type { JsonObject } from "@otterdeploy/shared/json";
 
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
 import { sql } from "drizzle-orm";
@@ -93,9 +94,9 @@ export const project = pgTable(
     // `manifestVersion` is a monotonic counter for optimistic locking on
     // writes (separate from stackFileVersion so a YAML edit and a JSON
     // edit don't accidentally race).
-    manifest: jsonb("manifest").$type<Record<string, unknown> | null>(),
+    manifest: jsonb("manifest").$type<JsonObject | null>(),
     manifestVersion: integer("manifest_version").notNull().default(0),
-    lastAppliedManifest: jsonb("last_applied_manifest").$type<Record<string, unknown> | null>(),
+    lastAppliedManifest: jsonb("last_applied_manifest").$type<JsonObject | null>(),
     lastManifestAppliedAt: timestamp("last_manifest_applied_at"),
     // Per-project domain override. When set + verified, this project's
     // resources land under it instead of the org's baseDomain — e.g. a
@@ -363,7 +364,7 @@ export const databaseResource = pgTable(
     upstreamHost: text("upstream_host").notNull(),
     upstreamPort: integer("upstream_port").notNull().default(5432),
     caddyLayer4Snippet: text("caddy_layer4_snippet").notNull(),
-    engineConfig: jsonb("engine_config").$type<Record<string, unknown>>().notNull().default({}),
+    engineConfig: jsonb("engine_config").$type<JsonObject>().notNull().default({}),
     // User-editable env vars injected into the Postgres container alongside
     // the derived POSTGRES_USER / PASSWORD / DB. Used for tuning knobs like
     // POSTGRES_INITDB_ARGS, TZ, LANG, POSTGRES_HOST_AUTH_METHOD, etc.
@@ -731,7 +732,7 @@ export const deployment = pgTable(
     // normal redeploy. The schema is intentionally untyped at the DB
     // layer (resources differ between database/service kinds) and
     // validated at the application boundary instead.
-    snapshot: jsonb("snapshot").$type<Record<string, unknown>>().notNull().default({}),
+    snapshot: jsonb("snapshot").$type<JsonObject>().notNull().default({}),
     // Git provenance — populated when the deployment was triggered by a
     // push (reason="git-push") or built from a repo. Nullable for
     // image-only / database deployments.

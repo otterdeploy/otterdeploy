@@ -1,4 +1,5 @@
 import { auth } from "@otterdeploy/auth";
+import { isJsonObject } from "@otterdeploy/shared/json";
 import { Result } from "better-result";
 
 /** Credentials minted by the Better Auth API-key plugin for OtterDeploy. */
@@ -43,18 +44,23 @@ function readApiKeyCredential(headers: Headers, bearerOverride?: string): string
 function parseMetadata(
   metadata: unknown,
 ): Pick<ApiKeyActor, "accessLevel" | "projectIds" | "projectScope"> {
-  if (!metadata || typeof metadata !== "object") return {};
-  const value = metadata as Record<string, unknown>;
+  // API-key metadata is stored as JSON by Better Auth, so the JSON-object
+  // narrowing is sound here.
+  if (!isJsonObject(metadata)) return {};
 
   return {
     accessLevel:
-      value.accessLevel === "read" || value.accessLevel === "write" ? value.accessLevel : undefined,
-    projectScope:
-      value.projectScope === "all" || value.projectScope === "selected"
-        ? value.projectScope
+      metadata.accessLevel === "read" || metadata.accessLevel === "write"
+        ? metadata.accessLevel
         : undefined,
-    projectIds: Array.isArray(value.projectIds)
-      ? value.projectIds.filter((projectId): projectId is string => typeof projectId === "string")
+    projectScope:
+      metadata.projectScope === "all" || metadata.projectScope === "selected"
+        ? metadata.projectScope
+        : undefined,
+    projectIds: Array.isArray(metadata.projectIds)
+      ? metadata.projectIds.filter(
+          (projectId): projectId is string => typeof projectId === "string",
+        )
       : undefined,
   };
 }

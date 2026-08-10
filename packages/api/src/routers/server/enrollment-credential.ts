@@ -1,4 +1,5 @@
 import type { NodeEnrollmentId } from "@otterdeploy/shared/id";
+import type { JsonObject } from "@otterdeploy/shared/json";
 
 import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { createHash } from "node:crypto";
@@ -28,13 +29,14 @@ export function parseEnrollmentCredential(credential: string): { id: NodeEnrollm
 
 export interface SwarmInspect {
   Version?: { Index?: number };
-  Spec?: Record<string, unknown>;
+  /** Parsed docker Swarm inspect payload — free-form JSON we echo back on rotate. */
+  Spec?: JsonObject;
 }
 
 export function buildSwarmRotationOptions(
   swarm: SwarmInspect,
   role: EnrollmentRole,
-): Record<string, unknown> & {
+): JsonObject & {
   version: number;
   rotateWorkerToken: boolean;
   rotateManagerToken: boolean;

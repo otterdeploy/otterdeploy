@@ -8,6 +8,9 @@ import * as z from "zod";
 
 import type { Framework } from "@otterdeploy/shared/framework";
 import type { ProjectId } from "@otterdeploy/shared/id";
+import type { JsonObject } from "@otterdeploy/shared/json";
+
+import { isJsonObject } from "@otterdeploy/shared/json";
 
 import {
   buildLiveNodes,
@@ -49,9 +52,7 @@ const svcSchema = z.object({
 /** Map a compose `create` change's parsed `details.services` (set server-side
  *  by enrichComposeCreates) into the ghost group's member cards. Every service
  *  reads `pending` — the stack hasn't deployed yet, so nothing is running. */
-function composeGhostServices(
-  details: Record<string, unknown> | undefined,
-): ComposeServiceInfo[] {
+function composeGhostServices(details: JsonObject | undefined): ComposeServiceInfo[] {
   const raw = details?.services;
   if (!Array.isArray(raw)) return [];
   return raw.map((s) => {
@@ -80,7 +81,7 @@ type NodeResourceKind = PendingCreate["resource"];
 function ghostCreate(
   resource: NodeResourceKind,
   name: string,
-  details: Record<string, unknown> | undefined,
+  details: JsonObject | undefined,
   frameworks: ReadonlyMap<string, Framework>,
 ): PendingCreate {
   // Compose creates carry a parsed service summary (enrichComposeCreates on the
@@ -160,7 +161,10 @@ function computePendingByName(
     const key = `${c.resource}:${c.name}`;
     const id = idByName.get(key);
     if (c.kind === "create" && !id) {
-      creates.push(ghostCreate(c.resource, c.name, c.details, frameworks));
+      // Narrow the wire `details` to JsonObject at the boundary — the diff
+      // payload is plain JSON, the contract just types it loosely.
+      const details = isJsonObject(c.details) ? c.details : undefined;
+      creates.push(ghostCreate(c.resource, c.name, details, frameworks));
       createKeys.add(key);
     } else if (id && (c.kind === "update" || c.kind === "delete")) {
       // Key by the node id (`${resource}:${name}`), which is what the node

@@ -1,6 +1,7 @@
 import type { CacheConfig } from "drizzle-orm/cache/core/types";
 
 import { env } from "@otterdeploy/env/server";
+import { type UnknownRecord, isJsonObject } from "@otterdeploy/shared/json";
 import { withTimeout } from "@otterdeploy/shared/promise";
 import { Result } from "better-result";
 import { Table, getTableName } from "drizzle-orm";
@@ -46,7 +47,10 @@ const BIGINT_TAG = "__otterCacheBigInt__";
 // degrade to a miss and let Postgres answer.
 const REDIS_OP_TIMEOUT_MS = 2_000;
 
-export function tagRichValues(this: Record<string, unknown>, key: string, value: unknown): unknown {
+// `this` is the replacer's holder object: raw pre-serialization driver rows
+// whose values include Dates and BigInts — runtime values, not JSON — so
+// `JsonObject` would be dishonest here and `UnknownRecord` is the fit.
+export function tagRichValues(this: UnknownRecord, key: string, value: unknown): unknown {
   // Date has a `toJSON`, so by the time the replacer sees `value` it's already
   // an ISO string — reach for the untouched original on `this`. BigInt has no
   // `toJSON`, so `value` is still the raw BigInt here.
@@ -61,12 +65,12 @@ export function tagRichValues(this: Record<string, unknown>, key: string, value:
 }
 
 export function reviveRichValues(_key: string, value: unknown): unknown {
-  if (value !== null && typeof value === "object") {
-    const date = (value as Record<string, unknown>)[DATE_TAG];
+  if (isJsonObject(value)) {
+    const date = value[DATE_TAG];
     if (typeof date === "string") {
       return new Date(date);
     }
-    const big = (value as Record<string, unknown>)[BIGINT_TAG];
+    const big = value[BIGINT_TAG];
     if (typeof big === "string") {
       return BigInt(big);
     }

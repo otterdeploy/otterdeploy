@@ -4,7 +4,10 @@
 // (VS Code, JetBrains, …) can resolve it via the `$schema` field
 // embedded in user-authored otterdeploy.json files.
 
+import type { JsonObject } from "@otterdeploy/shared/json";
+
 import { manifestSchema } from "@otterdeploy/api/manifest";
+import { isJsonObject } from "@otterdeploy/shared/json";
 import { resolve } from "node:path";
 import * as z from "zod";
 
@@ -14,7 +17,7 @@ const json = z.toJSONSchema(manifestSchema, {
   // helpers); JSON Schema can't express those, so we degrade them to
   // `{}` rather than throwing.
   unrepresentable: "any",
-}) as Record<string, unknown>;
+}) as JsonObject;
 
 // zod marks `.default({})` fields as required (they're never undefined
 // at runtime — the default fills them in). JSON Schema validators in
@@ -23,21 +26,23 @@ const json = z.toJSONSchema(manifestSchema, {
 // from its parent's `required` array so the editor experience matches
 // the authoring contract: anything with a default is optional to write.
 function relaxDefaultedRequired(node: unknown): void {
-  if (!node || typeof node !== "object") return;
   if (Array.isArray(node)) {
     for (const item of node) relaxDefaultedRequired(item);
     return;
   }
-  const obj = node as Record<string, unknown>;
-  const props = obj.properties as Record<string, Record<string, unknown>> | undefined;
-  const required = obj.required;
+  if (!isJsonObject(node)) return;
+  const props = isJsonObject(node.properties) ? node.properties : undefined;
+  const required = node.required;
   if (props && Array.isArray(required)) {
-    obj.required = required.filter(
-      (key) => typeof key !== "string" || !(key in props) || !("default" in props[key]),
-    );
-    if ((obj.required as unknown[]).length === 0) delete obj.required;
+    const remaining = required.filter((key) => {
+      if (typeof key !== "string") return true;
+      const prop = props[key];
+      return !isJsonObject(prop) || !("default" in prop);
+    });
+    if (remaining.length === 0) delete node.required;
+    else node.required = remaining;
   }
-  for (const value of Object.values(obj)) relaxDefaultedRequired(value);
+  for (const value of Object.values(node)) relaxDefaultedRequired(value);
 }
 relaxDefaultedRequired(json);
 

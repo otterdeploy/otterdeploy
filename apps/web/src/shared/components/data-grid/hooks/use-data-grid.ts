@@ -1,5 +1,7 @@
 import * as React from "react";
 
+import type { UnknownRecord } from "@otterdeploy/shared/json";
+
 import {
   type ColumnDef,
   type ColumnFiltersState,
@@ -388,7 +390,8 @@ function useDataGrid<TData>({
         if (existingRow == null) continue;
 
         if (updates) {
-          const updatedRow = { ...existingRow } as Record<string, unknown>;
+          // UnknownRecord: TData rows are arbitrary runtime objects, not JSON.
+          const updatedRow = { ...existingRow } as UnknownRecord;
           for (const { columnId, value } of updates) {
             updatedRow[columnId] = value;
           }

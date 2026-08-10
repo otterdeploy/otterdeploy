@@ -1,3 +1,4 @@
+import type { JsonObject } from "@otterdeploy/shared/json";
 import type { AuditFields } from "evlog";
 
 /**
@@ -123,7 +124,7 @@ export function recordAuditChanges(
  */
 export function recordSecretMapChanges(
   context: { auditDraft?: AuditDraft },
-  { before, after }: { before: Record<string, unknown>; after: Record<string, unknown> },
+  { before, after }: { before: JsonObject; after: JsonObject },
 ): void {
   const draft = context.auditDraft;
   if (!draft) return;

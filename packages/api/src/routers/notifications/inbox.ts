@@ -6,6 +6,7 @@
  * another's rows.
  */
 import type { NotificationId, OrganizationId } from "@otterdeploy/shared/id";
+import type { JsonObject } from "@otterdeploy/shared/json";
 
 import { db } from "@otterdeploy/db";
 import { type NotificationRow, notification } from "@otterdeploy/db/schema";
@@ -17,7 +18,7 @@ export interface InboxItem {
   message: string;
   /** Structured context from the fan-out (eventId + display strings); null for
    *  plain sends. Surfaced so the client can render the severity + detail rows. */
-  data: Record<string, unknown> | null;
+  data: JsonObject | null;
   readAt: Date | null;
   createdAt: Date;
 }

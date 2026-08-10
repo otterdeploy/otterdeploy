@@ -1,7 +1,8 @@
-type UnknownRecord = Record<string, unknown>;
+import { isJsonObject, type JsonObject } from "@otterdeploy/shared/json";
 
-function record(value: unknown): UnknownRecord {
-  return value && typeof value === "object" ? (value as UnknownRecord) : {};
+/** Docker daemon responses are parsed JSON, so traversal yields JsonValues. */
+function record(value: unknown): JsonObject {
+  return isJsonObject(value) ? value : {};
 }
 
 function text(value: unknown): string | null {

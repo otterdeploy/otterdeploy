@@ -4,6 +4,7 @@
  * single decrypt path for the `test`/engine flow.
  */
 import type { BackupDestinationId, OrganizationId } from "@otterdeploy/shared/id";
+import type { JsonObject } from "@otterdeploy/shared/json";
 
 import { db } from "@otterdeploy/db";
 import { backup, backupDestination, backupSchedule } from "@otterdeploy/db/schema";
@@ -95,7 +96,7 @@ export async function getDestinationWithSecret(input: {
   id: BackupDestinationId;
 }): Promise<{
   type: "s3" | "local" | "sftp";
-  config: Record<string, unknown>;
+  config: JsonObject;
   encryptedSecret: string | null;
 } | null> {
   const [row] = await db
@@ -119,7 +120,7 @@ export async function createDestinationRecord(input: {
   organizationId: OrganizationId;
   name: string;
   type: "s3" | "local" | "sftp";
-  config: Record<string, unknown>;
+  config: JsonObject;
   encryptedSecret: string | null;
 }): Promise<DestinationView> {
   const [row] = await db
@@ -140,7 +141,7 @@ export async function updateDestinationRecord(input: {
   organizationId: OrganizationId;
   id: BackupDestinationId;
   name?: string;
-  config?: Record<string, unknown>;
+  config?: JsonObject;
   encryptedSecret?: string;
 }): Promise<DestinationView | null> {
   const patch: Partial<typeof backupDestination.$inferInsert> = {};

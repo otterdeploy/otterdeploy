@@ -5,6 +5,8 @@
  * `./types`). Unsupported constructs push non-fatal entries onto `warnings`.
  */
 
+import { isJsonObject, type JsonObject } from "@otterdeploy/shared/json";
+
 import type {
   ParsedBuild,
   ParsedComposeService,
@@ -18,9 +20,11 @@ import type {
 import { allowedHostBind, allowedHostBindPaths } from "../../lib/host-binds";
 import { splitCommandString } from "./command-string";
 
-export type Obj = Record<string, unknown>;
+/** A mapping node in the parsed compose YAML tree. YAML parses to the same
+ *  scalar tree JSON does, so the shared JSON vocabulary is the honest type. */
+export type Obj = JsonObject;
 
-export const isObj = (v: unknown): v is Obj => !!v && typeof v === "object" && !Array.isArray(v);
+export const isObj: (v: unknown) => v is Obj = isJsonObject;
 
 export function normalizeService(name: string, svc: Obj, warnings: string[]): ParsedComposeService {
   const deploy = isObj(svc.deploy) ? svc.deploy : {};

@@ -1,5 +1,5 @@
 import type { AuthMiddleware } from "better-auth/api";
-import type { BetterAuthOptions } from "better-auth/types";
+import type { BetterAuthOptions, Session, User } from "better-auth/types";
 
 /**
  * Writes the auth audit trail.
@@ -37,6 +37,16 @@ import {
   MAX_ID,
 } from "./audit-policy";
 
+/**
+ * The session/user pair better-auth attaches to a hook context. `Session` and
+ * `User` are the library's own row types; the organization plugin stamps
+ * `activeOrganizationId` onto the session row, which the base type omits.
+ */
+interface AuthHookIdentity {
+  session: Session & { activeOrganizationId?: string | null };
+  user: User;
+}
+
 interface AuthHookContext {
   path: string;
   body?: unknown;
@@ -44,8 +54,8 @@ interface AuthHookContext {
   headers?: Headers;
   context: {
     returned?: unknown;
-    newSession?: { session: Record<string, unknown>; user: Record<string, unknown> } | null;
-    session?: { session: Record<string, unknown>; user: Record<string, unknown> } | null;
+    newSession?: AuthHookIdentity | null;
+    session?: AuthHookIdentity | null;
     options: BetterAuthOptions;
   };
 }
@@ -84,7 +94,7 @@ export function createAuthAuditHook({
       log.warn({
         authAudit: { event: "write-failed", path: ctx.path },
         error: cause instanceof Error ? cause.message : String(cause),
-      } as Record<string, unknown>);
+      });
     }
   });
 }
@@ -135,7 +145,7 @@ async function recordAuthEvent(
  */
 function resolveActor(ctx: AuthHookContext): AuthActor {
   const identity = ctx.context.newSession ?? ctx.context.session ?? null;
-  const user = identity?.user as { id?: string; email?: string; name?: string } | undefined;
+  const user = identity?.user;
   const userId = clip(user?.id, MAX_ID);
   return {
     actorId: userId ?? "anonymous",
@@ -175,7 +185,7 @@ function buildTarget(
   entry: AuditedPath,
   userId: string | null,
   detail: Record<string, string>,
-): { targetType: string | null; targetId: string | null; target: Record<string, unknown> | null } {
+): { targetType: string | null; targetId: string | null; target: Record<string, string> | null } {
   const targetId = userId ?? Object.values(detail)[0] ?? null;
   if (!entry.targetType || (!targetId && Object.keys(detail).length === 0)) {
     return { targetType: null, targetId: null, target: null };

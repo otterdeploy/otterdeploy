@@ -272,7 +272,7 @@ export async function handleFailure(
     globalLog.error({
       build: { event: "mark-failed-failed", deploymentId },
       error: stateErr instanceof Error ? stateErr.message : String(stateErr),
-    } as Record<string, unknown>);
+    });
   });
   // Best-effort: fan a `build.failed` event out to subscribed channels — the
   // only failure notification the builder produces (the row is marked failed
@@ -286,7 +286,7 @@ export async function handleFailure(
         step: err.step,
       },
       error: message,
-    } as Record<string, unknown>);
+    });
   }
 }
 

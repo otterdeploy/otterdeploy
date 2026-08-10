@@ -1,4 +1,5 @@
 import type { DrainContext } from "evlog";
+import type { JsonObject } from "@otterdeploy/shared/json";
 
 /**
  * Postgres audit drain — persists evlog audit events into the `audit_log`
@@ -16,11 +17,10 @@ import { auditLog } from "@otterdeploy/db/schema";
 type AuditActorType = "user" | "system" | "api" | "agent";
 type AuditOutcome = "success" | "failure" | "denied";
 
-interface EventTarget {
+type EventTarget = JsonObject & {
   type?: string;
   id?: string;
-  [k: string]: unknown;
-}
+};
 
 type AuditEvent = DrainContext["event"];
 type AuditEnvelope = NonNullable<AuditEvent["audit"]>;
@@ -70,7 +70,9 @@ function toAuditRow(event: AuditEvent, a: AuditEnvelope) {
     outcome: a.outcome as AuditOutcome,
     reason: a.reason ?? null,
     durationMs: typeof event.durationMs === "number" ? Math.round(event.durationMs) : null,
-    changes: a.changes ?? null,
+    // evlog types before/after as `unknown`; audit diffs are JSON by
+    // construction (auditDiff output), so this is the jsonb write boundary.
+    changes: (a.changes ?? null) as JsonObject | null,
     correlationId: a.correlationId ?? null,
     causationId: a.causationId ?? null,
     version: a.version ?? 1,

@@ -8,7 +8,9 @@
  */
 
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
+import type { ComposeServiceSummary } from "@otterdeploy/shared/compose";
 import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
+import type { JsonValue } from "@otterdeploy/shared/json";
 
 import type { Manifest, ServiceManifest, DatabaseManifest, ComposeManifest } from "./schema";
 
@@ -19,15 +21,29 @@ import {
   summarizeDatabase,
   summarizeService,
 } from "./diff-helpers";
+import { type FieldChanges } from "./diff-source";
 
 export type ChangeKind = "create" | "update" | "delete" | "no-op";
 export type ChangeResource = "service" | "database" | "env" | "compose";
+
+/**
+ * Payload attached to a diff entry: summary fields on creates, a `fields`
+ * map on updates, env metadata on env changes. JSON-shaped — the diff rides
+ * oRPC to the web's pending-changes UI, which should converge on this type
+ * rather than respelling it. `FieldChanges` and `ComposeServiceSummary[]`
+ * (compose creates enriched by router-manifest.ts) join the index explicitly
+ * because their members are interfaces without the implicit index signature
+ * `JsonValue` needs, even though both are plain JSON on the wire.
+ */
+export interface ChangeDetails {
+  [key: string]: JsonValue | FieldChanges | ComposeServiceSummary[] | undefined;
+}
 
 export interface Change {
   kind: ChangeKind;
   resource: ChangeResource;
   name: string;
-  details?: Record<string, unknown>;
+  details?: ChangeDetails;
 }
 
 // ── Current-state view ─────────────────────────────────────────────────
@@ -36,13 +52,17 @@ export interface Change {
 // the diff function pure makes it trivially testable; the DB-loading
 // adapter sits in `routers/project/manifest.ts`.
 
-export interface CurrentServicePort {
+// A type alias (not an interface) on purpose: aliases get an implicit index
+// signature, so `CurrentServicePort[]` assigns to `JsonValue` and port diffs
+// can ride a `FieldChange` without casting.
+// oxlint-disable-next-line typescript/consistent-type-definitions
+export type CurrentServicePort = {
   containerPort: number;
   protocol: "tcp" | "udp";
   appProtocol: "http" | "tcp";
   isPrimary: boolean;
   name?: string;
-}
+};
 
 export interface CurrentService {
   name: string;
@@ -309,7 +329,7 @@ function diffDatabase(
     ];
   }
 
-  const fieldChanges: Record<string, { from: unknown; to: unknown }> = {};
+  const fieldChanges: FieldChanges = {};
   // publicEnabled is manifest-managed only when the manifest declares it.
   // Omitted → the toggle is live-managed (same convention as service
   // publicEnabled, which diffServiceFields skips entirely); defaulting the

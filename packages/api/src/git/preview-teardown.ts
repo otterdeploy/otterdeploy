@@ -9,6 +9,7 @@
  * branching it should move to a background job before heavy use.
  */
 import type { GitRepoId, PreviewId, ProjectId } from "@otterdeploy/shared/id";
+import type { JsonObject } from "@otterdeploy/shared/json";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
@@ -125,7 +126,7 @@ export async function destroyPreviewBranchDbs(
   return branches.length;
 }
 
-async function best(fn: () => Promise<unknown>, ctx: Record<string, unknown>): Promise<void> {
+async function best(fn: () => Promise<unknown>, ctx: JsonObject): Promise<void> {
   const r = await Result.tryPromise({ try: fn, catch: (cause) => cause });
   if (r.isErr()) log.warn({ preview: { step: "teardown", ...ctx }, err: r.error });
 }

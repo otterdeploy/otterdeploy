@@ -15,6 +15,7 @@
 import { oc } from "@orpc/contract";
 import * as z from "zod";
 
+import { zJsonObject } from "../../../lib/z-json";
 import { manifestSchema } from "../../../stack/manifest";
 import { getProjectInput } from "./project";
 import { basePath, projectNotFoundErrors, tag } from "./shared";
@@ -53,7 +54,7 @@ const manifestDiffOutput = z.object({
       kind: z.enum(["create", "update", "delete", "no-op"]),
       resource: z.enum(["service", "database", "env", "compose"]),
       name: z.string(),
-      details: z.record(z.string(), z.unknown()).optional(),
+      details: zJsonObject.optional(),
     }),
   ),
 });

@@ -1,3 +1,5 @@
+import type { JsonObject } from "@otterdeploy/shared/json";
+
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
 
@@ -33,7 +35,7 @@ export const channelsCollection = createCollection(
             kind: row.kind,
             name: row.name,
             target: row.target,
-            config: (row.config ?? {}) as Record<string, unknown>,
+            config: (row.config ?? {}) as JsonObject,
             // `secret` lives only in the insert metadata — it's never stored
             // on the row (the list never returns it).
             ...((m.metadata as { secret?: string } | undefined)?.secret
@@ -55,7 +57,7 @@ export const channelsCollection = createCollection(
             ...(c.name !== undefined && { name: c.name }),
             ...(c.target !== undefined && { target: c.target }),
             ...(c.config !== undefined && {
-              config: c.config as Record<string, unknown>,
+              config: c.config as JsonObject,
             }),
             // Secret is write-only — passed through the update metadata, never
             // held on the row.

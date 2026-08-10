@@ -13,6 +13,8 @@
  * logged no-op, not an error — the job still succeeds on the strength of the
  * persisted in-app row.
  */
+import type { JsonObject } from "@otterdeploy/shared/json";
+
 import type { JobLogger } from "../define";
 
 import { fcmServerKey, twilioConfig } from "./platform-transports";
@@ -22,7 +24,7 @@ interface DeliverInput {
   userId: string;
   title: string;
   message: string;
-  data?: Record<string, unknown>;
+  data?: JsonObject;
   log: JobLogger;
 }
 

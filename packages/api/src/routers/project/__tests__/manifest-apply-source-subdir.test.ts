@@ -10,6 +10,7 @@
  * Each leg is asserted separately so a regression names the leg that broke.
  */
 
+import type { JsonObject } from "@otterdeploy/shared/json";
 import type { RequestLogger } from "evlog";
 
 import { describe, expect, it } from "vite-plus/test";
@@ -60,7 +61,8 @@ function liveGitService(over: Partial<CurrentState["services"][string]> = {}): C
   };
 }
 
-const gitService = (over: Record<string, unknown> = {}) => ({
+// Pre-parse manifest JSON — the fixture feeds `manifestSchema.parse`.
+const gitService = (over: JsonObject = {}) => ({
   source: "git",
   repo: "acme/api",
   branch: "main",

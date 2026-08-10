@@ -1,4 +1,5 @@
 import type { AuditLogId } from "@otterdeploy/shared/id";
+import type { JsonObject } from "@otterdeploy/shared/json";
 
 /**
  * Audit log — append-only, queryable compliance trail. One row per
@@ -56,7 +57,7 @@ export const auditLog = pgTable(
     // On what (free-form resource ref).
     targetType: text("target_type"),
     targetId: text("target_id"),
-    target: jsonb("target").$type<Record<string, unknown>>(),
+    target: jsonb("target").$type<JsonObject>(),
 
     // Result.
     outcome: auditOutcomeEnum("outcome").notNull(),
@@ -64,7 +65,7 @@ export const auditLog = pgTable(
     durationMs: integer("duration_ms"),
 
     // Before/after diff for mutating actions (evlog `auditDiff`).
-    changes: jsonb("changes").$type<Record<string, unknown>>(),
+    changes: jsonb("changes").$type<JsonObject>(),
 
     // Request context (auto-filled by auditEnricher).
     requestId: text("request_id"),
