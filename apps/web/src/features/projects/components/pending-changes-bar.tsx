@@ -92,14 +92,9 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
         c.kind === "create" && c.resource !== "env" ? [`${c.resource}:${c.name}`] : [],
       );
       markAppliedCreates(projectId, appliedCreateKeys);
-      // The loading toast outlives the bar: once the diff empties the bar
-      // unmounts mid-call, and the toast is what carries the apply to its
-      // real end (the settle handlers upgrade it in place).
-      const count = changes.filter((c) => c.kind !== "no-op").length;
       setApplying(true);
-      return { toastId: toast.loading(`Applying ${count} change${count === 1 ? "" : "s"}…`) };
     },
-    onSuccess: async (result, _vars, ctx) => {
+    onSuccess: async (result) => {
       setApplying(false);
       await refreshAll();
       // The reconciler reports per-resource failures in `skipped[]` rather
@@ -109,19 +104,17 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
       if (result.skipped.length > 0) {
         const detail = result.skipped.map((s) => `${s.resource} ${s.name}: ${s.reason}`).join("; ");
         if (result.appliedCount === 0) {
-          toast.error(`Nothing applied — ${detail}`, { id: ctx.toastId });
+          toast.error(`Nothing applied — ${detail}`);
           return;
         }
-        toast.warning(`Applied ${result.appliedCount}, skipped ${result.skipped.length} — ${detail}`, {
-          id: ctx.toastId,
-        });
+        toast.warning(`Applied ${result.appliedCount}, skipped ${result.skipped.length} — ${detail}`);
       } else {
-        toast.success(`Applied ${result.appliedCount} change(s)`, { id: ctx.toastId });
+        toast.success(`Applied ${result.appliedCount} change(s)`);
       }
     },
-    onError: (err, _vars, ctx) => {
+    onError: (err) => {
       setApplying(false);
-      toast.error(toastMessage(err, "Apply failed"), { id: ctx?.toastId });
+      toast.error(toastMessage(err, "Apply failed"));
     },
   });
 
