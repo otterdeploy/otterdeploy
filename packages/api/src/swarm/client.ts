@@ -122,12 +122,15 @@ export async function ensureProjectNetwork(
 // Exported so the plain-Docker runtime can attach Caddy to a project's bridge
 // network too (the edge reaches containers by name on the shared network in
 // both runtimes).
-export async function connectCaddyToNetwork(
-  docker: Docker,
-  networkName: string,
-  rlog?: RequestLogger,
-): Promise<void> {
-  const log = asStepLogger(rlog);
+/**
+ * Locate the platform's edge (Caddy) container. Tries the known names first,
+ * then falls back to the compose service label: docker compose v2 appends a
+ * `-N` replica index (`otterdeploy-caddy-1`), so exact-name inspects miss it.
+ * A user-DEPLOYED caddy carries an otterdeploy.resource.id label; the edge
+ * never does, which is how the two are told apart. Returns null when no edge
+ * container exists (dev without the compose stack).
+ */
+export async function findEdgeContainerId(docker: Docker): Promise<string | null> {
   const caddyNames = [
     PLATFORM.swarm.caddyContainer,
     // Local compose names the edge container after the repo, while
@@ -135,41 +138,37 @@ export async function connectCaddyToNetwork(
     "otterdeploy-caddy",
     "caddy",
   ];
+  for (const caddyName of caddyNames) {
+    const inspectResult = await docker.containers.inspect(caddyName);
+    if (inspectResult.isOk()) return inspectResult.value.Id;
+  }
+  const listed = await docker.containers.list({
+    all: true,
+    filters: { label: ["com.docker.compose.service=caddy"] },
+  });
+  if (listed.isOk()) {
+    const edge = listed.value.find((c) => !c.Labels["otterdeploy.resource.id"]);
+    if (edge) return edge.Id;
+  }
+  return null;
+}
+
+export async function connectCaddyToNetwork(
+  docker: Docker,
+  networkName: string,
+  rlog?: RequestLogger,
+): Promise<void> {
+  const log = asStepLogger(rlog);
 
   let container: {
     Id: string;
     NetworkSettings?: { Networks?: Record<string, EndpointSettings> };
   } | null = null;
 
-  for (const caddyName of caddyNames) {
-    const inspectResult = await docker.containers.inspect(caddyName);
-    if (inspectResult.isOk()) {
-      container = inspectResult.value;
-      break;
-    }
-  }
-
-  // Fallback: docker compose v2 appends a `-N` replica index, so the edge is
-  // `otterdeploy-caddy-1`, not `otterdeploy-caddy` — the exact-name inspects above
-  // all miss it and every deployed service 502s (edge never joins the project
-  // bridge). Find it by its compose service label instead, excluding any
-  // user-DEPLOYED caddy (those carry an otterdeploy.resource.id; the edge never
-  // does). Inspect by id so the already-connected check below still works.
-  if (!container) {
-    const listed = await docker.containers.list({
-      all: true,
-      filters: { label: ["com.docker.compose.service=caddy"] },
-    });
-    if (listed.isOk()) {
-      const edge = listed.value.find(
-        (c) => !(c as { Labels?: Record<string, string> }).Labels?.["otterdeploy.resource.id"],
-      );
-      const id = (edge as { Id?: string } | undefined)?.Id;
-      if (id) {
-        const inspected = await docker.containers.inspect(id);
-        if (inspected.isOk()) container = inspected.value;
-      }
-    }
+  const edgeId = await findEdgeContainerId(docker);
+  if (edgeId) {
+    const inspected = await docker.containers.inspect(edgeId);
+    if (inspected.isOk()) container = inspected.value;
   }
 
   if (!container) {

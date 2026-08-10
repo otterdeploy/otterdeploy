@@ -25,7 +25,7 @@ import {
   mapProjectOrganizations,
   materializeCustomCerts,
 } from "./certs";
-import { adaptCaddyfile, loadCaddyfile } from "./client";
+import { adaptCaddyfile } from "./client";
 import { CONTROL_PLANE_ROUTE_POLICY } from "./control-plane-policy";
 import { maskCaddySecrets, stripGlobalBlock } from "./display";
 import { reconcileNodeEdges, type NodeEdgeResult, type PlacedRoute } from "./node-reconciler";
@@ -37,6 +37,7 @@ import {
   type ProxyRouteRecord,
 } from "./queries";
 import { reconcileRoutes, type ReconcileResult } from "./reconciler";
+import { loadWithEdgeSelfHeal } from "./self-heal";
 
 export type { ReconcileResult } from "./reconciler";
 export type { ProxyRouteInput } from "./builder";
@@ -168,7 +169,7 @@ export async function reconcile(rlog?: RequestLogger): Promise<ReconcileResult> 
     adminBind: env.CADDY_ADMIN_BIND,
     ...options,
     adapt: (caddyfile) => adaptCaddyfile(caddyfile, env.CADDY_ADMIN_URL, rlog),
-    load: (caddyfile) => loadCaddyfile(caddyfile, env.CADDY_ADMIN_URL, rlog),
+    load: (caddyfile) => loadWithEdgeSelfHeal(caddyfile, rlog),
     rlog,
   });
 
