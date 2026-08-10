@@ -16,6 +16,13 @@ import { envCollection, newPersistentEnvRow } from "./env";
 // unavailable (tests, unsupported browsers) `persistence` is null and we use the
 // plain in-memory query collection, so this is a safe, non-breaking wrapper.
 const projectQueryOptions = queryCollectionOptions({
+  // A STABLE id is what makes the SQLite persistence actually persist.
+  // Without one, persistedCollectionOptions falls back to
+  // `persisted-collection:${randomUUID()}` — a fresh identity every page
+  // load, which registers a fresh (empty) table, hydrates zero rows, and
+  // refetches from the network while the previous load's table sits
+  // orphaned in OPFS. Every session wrote to SQLite; none ever read back.
+  id: "projects",
   ...orpc.project.list.queryOptions(),
   queryKey: orpc.project.list.queryKey(),
   queryFn: async () => orpc.project.list.call(),
