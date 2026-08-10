@@ -1,5 +1,5 @@
 /**
- * Project-wide deployments list — every build/deploy across the project's
+ * Project-wide deployments list: every build/deploy across the project's
  * resources, commit-first, newest first. Filters (resource / status / time
  * window) live in the URL so a view is shareable; rows link to the existing
  * deployment detail route; eligible history rows expose a hover Roll back
@@ -25,6 +25,7 @@ import {
 } from "@/features/deployments/data/deployments-search";
 import { projectIdBySlug } from "@/features/projects/data/project";
 import { resourceCollection } from "@/features/resources/data/resource";
+import { inActiveEnvironment } from "@/features/shell/environment-scope";
 import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { Page, PageHeader } from "@/shared/components/page";
 import { orpc, queryClient } from "@/shared/server/orpc";
@@ -36,7 +37,7 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/deploym
   validateSearch: zDeploymentsSearch,
   // Warm the deployments list on hover (intent-preload) under the SAME custom
   // key the component reads (keyed on the filter selection + limit, not the
-  // resolved `since` — see the useQuery below), so a visit renders from cache
+  // resolved `since`. See the useQuery below), so a visit renders from cache
   // instead of spinning. Non-blocking + best-effort. `loaderDeps` pulls the
   // filter search params through so the preloaded entry matches the URL.
   loaderDeps: ({ search }) => ({
@@ -81,15 +82,15 @@ function RouteComponent() {
     void navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true });
   };
 
-  // Resource filter options — same collection the graph and logs pages read.
+  // Resource filter options: same collection the graph and logs pages read.
   const { data: resources } = useLiveQuery(
     (q) =>
       q
         .from({ r: resourceCollection })
         .where(({ r }) =>
-          and(eq(r.projectId, project.id), eq(r.environmentId, activeEnv.id ?? "")),
+          and(eq(r.projectId, project.id), inActiveEnvironment(r.environmentId, activeEnv)),
         ),
-    [project.id, activeEnv.id],
+    [project.id, activeEnv.id, activeEnv.isMain],
   );
   const resourceOptions = resources.map((r) => ({
     id: r.resourceId as string,
@@ -112,7 +113,7 @@ function RouteComponent() {
     setLimit(PAGE_SIZE);
   }
 
-  // Lower bound recomputed only when the window selection changes — a fresh
+  // Lower bound recomputed only when the window selection changes. A fresh
   // "now" every render would thrash the query input identity.
   const since = windowSince(windowSel);
 
@@ -126,7 +127,7 @@ function RouteComponent() {
         limit,
       },
     }),
-    // Key on the *filter selection*, not the resolved input — `since` is
+    // Key on the *filter selection*, not the resolved input. `since` is
     // derived from "now" on mount, so keying on it would make every return to
     // the route a cache miss (same trick as the audit page). Prefix from the
     // oRPC path (not a hand-typed string) so it stays tied to the procedure.
@@ -163,7 +164,7 @@ function RouteComponent() {
     <Page>
       <PageHeader
         title="Deployments"
-        description="Every build and deploy across this project's resources — newest first."
+        description="Every build and deploy across this project's resources, newest first."
       />
 
       <DeploymentsToolbar

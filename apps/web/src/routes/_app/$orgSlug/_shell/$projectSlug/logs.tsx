@@ -1,11 +1,11 @@
 /**
- * Project log explorer — a live, virtualized tail across the project's service
+ * Project log explorer: a live, virtualized tail across the project's service
  * containers. Filters (service / level / search / time window) live in the URL
  * so a view is shareable and survives reload; the stream wiring, table and
  * virtualizer live in sibling feature files (`use-logs-table`, `logs-table-view`).
  *
  * Runtime | Edge source toggle (od-u63.5): the project's Edge logs tab merged
- * in here as a second source rather than a separate tab — both are "logs for
+ * in here as a second source rather than a separate tab: both are "logs for
  * this project," just from different origins (container stdout vs the Caddy
  * access log). Edge content is unchanged from the old `edge-logs` route; only
  * the chrome that wraps it moved. See `$projectSlug/edge-logs.tsx` for the
@@ -34,6 +34,7 @@ import { LogsToolbar } from "@/features/logs/components/logs-toolbar";
 import { statusBadge } from "@/features/logs/components/logs-status";
 import { useLogsTable } from "@/features/logs/components/use-logs-table";
 import { resourceCollection } from "@/features/resources/data/resource";
+import { inActiveEnvironment } from "@/features/shell/environment-scope";
 import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { useDebouncedCallback } from "@/shared/components/data-grid/hooks/use-debounced-callback";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
@@ -51,17 +52,17 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/logs")(
   validateSearch: zLogsSearch,
   component: RouteComponent,
   // No loader preload: `resourceCollection` (drives the log source filter) is
-  // syncMode "on-demand" — preload() is a no-op there; it loads when the live
+  // syncMode "on-demand": preload() is a no-op there; it loads when the live
   // query subscribes with its projectId filter.
 });
 
 function RouteComponent() {
-  // React Compiler opt-out — LOAD-BEARING, do not remove. This component
+  // React Compiler opt-out: LOAD-BEARING, do not remove. This component
   // owns useVirtualizer (via useLogsTable); TanStack Virtual re-renders it
   // to publish scroll-driven state that lives INSIDE the stable virtualizer
   // instance. The compiler can't see that interior mutation: it cached the
   // route's child JSX on unchanged prop identities, so a scroll-only update
-  // re-rendered the route but React bailed out before LogsTableView — rows
+  // re-rendered the route but React bailed out before LogsTableView. Rows
   // and the tbody height froze at whatever the last append happened to
   // paint (prod symptom: blank table wherever you scrolled). The opt-out
   // must live HERE, at the hook owner, so the rerender actually reaches the
@@ -82,16 +83,16 @@ function RouteComponent() {
   };
 
   // Per-project resources, same source the graph reads from. Only services
-  // populate the filter — database log streams land in a separate surface
+  // populate the filter: database log streams land in a separate surface
   // (or on the resource detail panel's Logs tab) so they don't double up.
   const { data: resources } = useLiveQuery(
     (q) =>
       q
         .from({ r: resourceCollection })
         .where(({ r }) =>
-          and(eq(r.projectId, project.id), eq(r.environmentId, activeEnv.id ?? "")),
+          and(eq(r.projectId, project.id), inActiveEnvironment(r.environmentId, activeEnv)),
         ),
-    [project.id, activeEnv.id],
+    [project.id, activeEnv.id, activeEnv.isMain],
   );
   const services = useMemo(
     () =>
@@ -102,7 +103,7 @@ function RouteComponent() {
   );
 
   // Filters live in the URL (shareable / reproducible). Service is keyed by
-  // resource id — names collide across forks/renames, ids are stable.
+  // resource id: names collide across forks/renames, ids are stable.
   const svcFilter = search.service ?? "all";
   // Memoized: an inline `new Set(...)` was a fresh identity every render,
   // which invalidated the filter memos downstream on every tail frame and
@@ -173,7 +174,7 @@ function RouteComponent() {
     });
 
   return (
-    // Explicit viewport height so the page itself never scrolls — only the
+    // Explicit viewport height so the page itself never scrolls: only the
     // table container does. The flex chain above us bottoms out at
     // SidebarProvider's `min-h-svh` (a floor, not a cap), so `flex-1` can't
     // bound us; we must subtract the fixed chrome ourselves: the site header

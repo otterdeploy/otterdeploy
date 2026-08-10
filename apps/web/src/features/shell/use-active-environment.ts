@@ -3,7 +3,7 @@
  *
  * Every environment-scoped read needs the same answer to "which environment?",
  * and the URL only carries a SLUG (`?env=staging`). Resolving that slug to an
- * id was previously nobody's job, so no query ever sent one — the server fell
+ * id was previously nobody's job, so no query ever sent one. The server fell
  * back to its unscoped branch and every environment rendered the same rows.
  * This is the single place that conversion happens.
  *
@@ -15,7 +15,7 @@
  * Returns `undefined` while the environment list is still loading, and for a
  * slug that matches nothing (a stale bookmark). Both mean "the server should
  * use the project's main environment", which is exactly what omitting
- * `environmentId` from a request does — so callers can pass it straight
+ * `environmentId` from a request does, so callers can pass it straight
  * through without branching.
  */
 import { eq, useLiveQuery } from "@tanstack/react-db";
@@ -24,11 +24,15 @@ import { useSearch } from "@tanstack/react-router";
 import { envCollection } from "@/features/projects/data/env";
 import { projectCollection } from "@/features/projects/data/project";
 
-import { resolveDefaultEnvironment } from "./environment-default";
+import { isMainEnvironment, resolveDefaultEnvironment } from "./environment-default";
 
 export interface ActiveEnvironment {
   id: string | undefined;
   slug: string | undefined;
+  /** Whether this is the project's main environment (its own `environmentId`
+   *  pointer). Main additionally owns NULL-stamped resource rows. See
+   *  `inActiveEnvironment` in ./environment-scope. */
+  isMain: boolean;
 }
 
 /**
@@ -61,5 +65,9 @@ export function useActiveEnvironment(projectId: string | undefined): ActiveEnvir
     ? environments.find((e) => e.slug === envSlug)
     : resolveDefaultEnvironment(environments, project?.environmentId);
 
-  return { id: selected?.id, slug: selected?.slug };
+  return {
+    id: selected?.id,
+    slug: selected?.slug,
+    isMain: selected !== undefined && isMainEnvironment(selected, project?.environmentId),
+  };
 }

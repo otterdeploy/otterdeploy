@@ -1,5 +1,5 @@
 /**
- * Traffic tab for the bottom stack drawer — one row per public HTTP host in
+ * Traffic tab for the bottom stack drawer: one row per public HTTP host in
  * the project (edgeLogs.routeStats): host, owning resource, rps, p95, error
  * rate over a selectable 5m/1h window, polled every 10s. Hosts with no
  * traffic show honest dashes, not zeros dressed up as measurements.
@@ -14,6 +14,7 @@ import { useLiveQuery } from "@tanstack/react-db";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { resourceCollection } from "@/features/resources/data/resource";
+import { inActiveEnvironment } from "@/features/shell/environment-scope";
 import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { PublicHostLink } from "@/shared/components/public-host-link";
 import { Skeleton } from "@/shared/components/ui/skeleton";
@@ -33,21 +34,23 @@ export function TrafficPanel({ projectId }: { projectId: ProjectId }) {
     placeholderData: keepPreviousData,
   });
 
-  // Owning resource names come from the already-cached resource collection —
+  // Owning resource names come from the already-cached resource collection,
   // no second fetch, and the graph keeps this warm.
   const activeEnv = useActiveEnvironment(projectId);
   const { data: resources } = useLiveQuery(
     (q) =>
       q
         .from({ r: resourceCollection })
-        .where(({ r }) => and(eq(r.projectId, projectId), eq(r.environmentId, activeEnv.id ?? ""))),
-    [projectId, activeEnv.id],
+        .where(({ r }) =>
+          and(eq(r.projectId, projectId), inActiveEnvironment(r.environmentId, activeEnv)),
+        ),
+    [projectId, activeEnv.id, activeEnv.isMain],
   );
   const nameByResourceId = new Map(resources.map((r) => [r.resourceId as string, r.name]));
 
   if (query.isLoading) return <TrafficPending />;
   if (query.isError) {
-    return <CenterMessage text="Couldn't load traffic stats — retrying on the next refresh." />;
+    return <CenterMessage text="Couldn't load traffic stats. Retrying on the next refresh." />;
   }
 
   const rows = query.data ?? [];
@@ -106,13 +109,13 @@ export function TrafficPanel({ projectId }: { projectId: ProjectId }) {
             >
               <PublicHostLink host={r.host} className="min-w-0 flex-[2] text-foreground/85" />
               <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                {resourceName ?? "—"}
+                {resourceName ?? "–"}
               </span>
               <span className={cn("w-16 text-right", quiet && "text-muted-foreground/60")}>
                 {quiet ? "0" : formatRps(r.rps)}
               </span>
               <span className={cn("w-16 text-right", quiet && "text-muted-foreground/60")}>
-                {quiet ? "—" : `${Math.round(r.p95)}ms`}
+                {quiet ? "–" : `${Math.round(r.p95)}ms`}
               </span>
               <span
                 className={cn(
@@ -121,7 +124,7 @@ export function TrafficPanel({ projectId }: { projectId: ProjectId }) {
                   !quiet && r.errorRate > ERROR_RATE_ALERT && "text-destructive",
                 )}
               >
-                {quiet ? "—" : `${(r.errorRate * 100).toFixed(1)}%`}
+                {quiet ? "–" : `${(r.errorRate * 100).toFixed(1)}%`}
               </span>
             </div>
           );
@@ -131,7 +134,7 @@ export function TrafficPanel({ projectId }: { projectId: ProjectId }) {
   );
 }
 
-/** "1.2k", "312", "42.1", "0.03" — mirrors the graph chip's formatting. */
+/** "1.2k", "312", "42.1", "0.03": mirrors the graph chip's formatting. */
 function formatRps(rps: number): string {
   if (rps >= 10_000) return `${(rps / 1000).toFixed(0)}k`;
   if (rps >= 1000) return `${(rps / 1000).toFixed(1)}k`;

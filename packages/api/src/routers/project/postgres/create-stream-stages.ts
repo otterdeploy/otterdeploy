@@ -1,7 +1,7 @@
 /**
  * Stage implementations for the postgres create stream. Each stage is an async
  * generator that yields `CreatePostgresProgress` events and `return`s a small
- * outcome the orchestrator delegates to with `yield*` — so a stage failure can
+ * outcome the orchestrator delegates to with `yield*`, so a stage failure can
  * terminate the whole stream while still emitting partial progress. The derived
  * context + view-building live in ./create-stream-context.
  */
@@ -21,7 +21,7 @@ import { createPullLineSummarizer, resolveRegistryAuth, streamImagePull } from "
 import { resolvePlacementForResource } from "../../../swarm/resolve-placement";
 import { insertDeployment, markDeploymentFailed } from "../deployments";
 import { reconcileDeploySuccess } from "../deployments-reconcile";
-import { createDatabaseResourceRecord } from "../queries";
+import { createDatabaseResourceRecord, resolveProjectEnvironmentScope } from "../queries";
 import { isUniqueViolation } from "../views";
 import { tailContainerBootLogs } from "./boot-logs";
 import {
@@ -33,13 +33,13 @@ import { snapshotForPostgresCreate } from "./snapshot";
 
 type StageOutcome = { ok: true } | { ok: false };
 type StageResult<T> = { ok: true; value: T } | { ok: false };
-/** Provision stage outcome — carries whether the runtime actually came up so
+/** Provision stage outcome: carries whether the runtime actually came up so
  *  the orchestrator can stamp `resource.status` from the CONTAINER's health,
  *  not from the (edge-only) Caddy reconcile result. */
 type ProvisionOutcome = { ok: true; healthy: boolean } | { ok: false };
 
 // Insert the row as `draft` before any docker work so the wizard can hand off
-// to the resource page within milliseconds — image pulls, provisioning, and
+// to the resource page within milliseconds: image pulls, provisioning, and
 // caddy reconcile all keep streaming in the background.
 export async function* persistDbRecordStage(
   input: { projectId: ProjectId; name: string; environmentId?: EnvironmentId | null },
@@ -47,10 +47,19 @@ export async function* persistDbRecordStage(
 ): AsyncGenerator<CreatePostgresProgress, StageResult<CreatedRecord>, void> {
   yield { type: "step", step: "db-record", status: "start", message: null };
   let created: CreatedRecord;
+  // Resolve the project's MAIN environment when the caller sends none (deep
+  // links, the CLI, and the direct wizard route all do). Writing null here is
+  // what orphaned a live database on 2026-08-10 (od-lqm): the row existed and
+  // its container was healthy, but every environment-scoped client read
+  // skipped it. The read side now treats null as main (web's
+  // inActiveEnvironment, server's inEnvironmentScope), so this is
+  // belt-and-braces: a resource should still carry the environment it
+  // belongs to.
+  const scope = await resolveProjectEnvironmentScope(input.projectId, input.environmentId);
   try {
     created = await createDatabaseResourceRecord({
       projectId: input.projectId,
-      environmentId: input.environmentId ?? null,
+      environmentId: scope?.environmentId ?? input.environmentId ?? null,
       name: input.name,
       engine: ctx.engine,
       status: "draft",
@@ -91,8 +100,8 @@ export async function* persistDbRecordStage(
   return { ok: true, value: created };
 }
 
-// Record the deployment row BEFORE the image pull so the whole create — pull
-// included — reads as one `building` deployment. Without it the graph card
+// Record the deployment row BEFORE the image pull so the whole create (pull
+// included) reads as one `building` deployment. Without it the graph card
 // sees "container missing + no deployment" during a long pull and shows a
 // phantom error. The id also rides the swarm spec labels so every task links
 // back to this row.
@@ -119,7 +128,7 @@ export async function insertCreateDeployment(
 }
 
 // Pull the image on the manager before docker.services.create so the service's
-// first task starts immediately instead of stalling on a layer download — and
+// first task starts immediately instead of stalling on a layer download, and
 // gives the operator live byte-level feedback rather than 30s of silence.
 export async function* pullImageStage(
   image: string,
@@ -130,7 +139,7 @@ export async function* pullImageStage(
   const pullDocker = Docker.fromEnv();
   // Mirror pull progress into deployment_log + the Redis live tail. The
   // wizard stream dies with the request, but the deploy log is what the
-  // Deployments tab can replay later — and recent lines keep the zero-task
+  // Deployments tab can replay later, and recent lines keep the zero-task
   // stale check from flipping a slow pull to "failed".
   const deployLog = createStackDeployLog(deploymentId);
   const summarize = createPullLineSummarizer();
@@ -180,7 +189,7 @@ export async function* pullImageStage(
 }
 
 // Provision the swarm service under the already-recorded deployment row (see
-// insertCreateDeployment — inserted before the pull stage).
+// insertCreateDeployment, inserted before the pull stage).
 export async function* provisionStage(
   resourceId: ResourceId,
   ctx: CreateContext,
@@ -206,7 +215,7 @@ export async function* provisionStage(
         username: ctx.username,
         password: ctx.password,
         projectSlug: ctx.projectSlug,
-        deploymentId: deploymentRow.id as DeploymentId,
+        deploymentId: deploymentRow.id,
         extraEnv: ctx.extraEnv,
         public: ctx.publicEnabled,
       },
@@ -218,11 +227,11 @@ export async function* provisionStage(
     yield { type: "error", code: "SWARM_PROVISION_FAILED", message };
     return { ok: false };
   }
-  // The driver already waited for the container to come up — persist the
+  // The driver already waited for the container to come up. Persist the
   // building → running flip now so the Deployments card agrees with the live
   // runtime badge immediately, instead of a `deployments.list` poll later.
   if (runtime.status === "running") {
-    await reconcileDeploySuccess([deploymentRow.id as DeploymentId], resourceId);
+    await reconcileDeploySuccess([deploymentRow.id], resourceId);
   }
   yield {
     type: "step",

@@ -1,7 +1,7 @@
 import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
 /**
  * Postgres database-resource orchestration. Owns the create lifecycle for a
- * Postgres resource attached to a project — including the Swarm provision and
+ * Postgres resource attached to a project, including the Swarm provision and
  * Caddy proxy-route bookkeeping. Read/delete are handled generically in
  * resources.ts. The per-stage implementations live in ./create-stream-stages.
  */
@@ -78,7 +78,7 @@ export async function validatePostgresCreate(
   }
 
   // Same-environment names only. A `postgres` in production must not block a
-  // `postgres` in staging — they are different rows under
+  // `postgres` in staging: they are different rows under
   // resource_project_name_env_unique.
   const environmentScope = resolveEnvironmentScope(project, input.environmentId);
   const existing = environmentScope
@@ -105,6 +105,9 @@ export async function validatePostgresCreate(
 export async function* createPostgresResourceStream(
   input: ProjectRef & {
     name: string;
+    /** Environment the row is stamped into. Absent → NULL, which the read
+     *  path treats as the project's main environment (inEnvironmentScope). */
+    environmentId?: EnvironmentId;
     /** Database engine to provision. Default is postgres for back-compat
      *  with callers that haven't plumbed the param through yet. */
     engine?: DatabaseEngine;
@@ -116,18 +119,18 @@ export async function* createPostgresResourceStream(
      *  reuses it so the credentials the operator saw pre-deploy stay valid.
      *  Absent (e.g. legacy direct-create) → a fresh random password. */
     password?: string;
-    /** Staged postgres extensions — baked into the create (image resolved
+    /** Staged postgres extensions, baked into the create (image resolved
      *  up-front) so no post-create image-swap redeploy runs. */
     extensions?: string[];
-    /** Staged user env — baked into the container at create. */
+    /** Staged user env, baked into the container at create. */
     extraEnv?: Record<string, string>;
     /** Output of validatePostgresCreate so we don't re-fetch the project. */
     project: { id: string; slug: string };
   },
   log: RequestLogger,
 ): AsyncGenerator<CreatePostgresProgress, void, void> {
-  // Note: log.set() calls inside this generator's body are no-ops —
-  // hono/evlog flushes the wide event when the response starts streaming,
+  // Note: log.set() calls inside this generator's body are no-ops.
+  // Hono/evlog flushes the wide event when the response starts streaming,
   // which is BEFORE the first .next() on this generator. The handler sets
   // the audit-relevant fields eagerly before returning the iterator.
   const ctx = await prepareCreateContext(input);
@@ -136,7 +139,7 @@ export async function* createPostgresResourceStream(
   if (!dbRecord.ok) return;
   const created = dbRecord.value;
 
-  // The deployment row spans the FULL create — pull included — so the UI has
+  // The deployment row spans the FULL create (pull included) so the UI has
   // an honest `building` to show while the container doesn't exist yet, and a
   // pull failure lands on the row as a real `failed` + error message.
   const deploymentRow = await insertCreateDeployment(created.resource.id, ctx);
@@ -151,7 +154,7 @@ export async function* createPostgresResourceStream(
 
   yield* publishAndReconcileStage(input.projectId, created.resource.id, ctx, log);
 
-  // The resource is valid when its CONTAINER came up — same rule services use
+  // The resource is valid when its CONTAINER came up. Same rule services use
   // (provision outcome stamps the status). The Caddy reconcile above is an
   // edge concern: it fails routinely in dev (no proxy running) and covers
   // routes the database may not even have (internal-only DBs), so keying
