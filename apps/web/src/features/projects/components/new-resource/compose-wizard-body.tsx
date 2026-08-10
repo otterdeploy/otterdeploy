@@ -1,13 +1,16 @@
 /**
- * Inner chrome for the Compose wizard: the vars step, the source toggle, the
- * footer buttons, and the body that composes them with the source-specific
- * field groups. Split out of compose-wizard.tsx to keep that file under the
- * line caps.
+ * Inner chrome for the Compose wizard, built on `<form.FormGroup>`: one group
+ * per step. The `file` group owns the source toggle + source-specific fields;
+ * the `vars` group owns the `${VAR}` editor. Each group renders its OWN inner
+ * `<form>` whose submit calls `group.handleSubmit()`, so validation is
+ * per-step: the group runs its own `onDynamic` schema (compose-schema.ts) and
+ * only fires `onGroupSubmit` when that step is valid. Split out of
+ * compose-wizard.tsx to keep that file under the line caps.
  *
- * Nothing here hand-rolls validity: the owner passes `canContinue` (derived
- * from the compose schema) + a few display facts (`isLast` / `hasVars` /
- * `requiredUnset`). `step` and `source` are read straight off the form, so the
- * body doesn't need them threaded either.
+ * Nothing here hand-rolls validity: the footer button's disabled state reads
+ * `group.state.meta.isValid` (field-level + group-level, so the inline
+ * content field's async deployability verdict is already folded in), and the
+ * vars banner reads the same. `source` is read straight off the form.
  */
 
 import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
@@ -19,7 +22,17 @@ import { Button } from "@/shared/components/ui/button";
 
 import type { ComposeForm, Preview } from "./compose-wizard-shared";
 
+import { fileStepSchema, varsStepSchema } from "./compose-schema";
 import { ComposeGitFields, ComposeInlineFields } from "./compose-wizard-fields";
+
+// The file-step button's label. Git has no vars step, so its file step stages
+// directly ("Add resource"). Inline always routes through the vars step so env
+// is reviewed BEFORE deploy: "Next: variables" when the file declares any,
+// "Review & stage" when it declares none.
+function fileStepLabel(source: "inline" | "git", hasVars: boolean, isPending: boolean): string {
+  if (source === "git") return isPending ? "Adding…" : "Add resource";
+  return hasVars ? "Next: variables" : "Review & stage";
+}
 
 function ComposeVarsStep({
   form,
@@ -38,7 +51,7 @@ function ComposeVarsStep({
         <span className="text-sm font-medium">Environment variables</span>
         <span className="text-xs text-muted-foreground">
           {hasVars
-            ? "The compose file references these — secrets are auto-generated, defaults pre-filled. "
+            ? "The compose file references these: secrets are auto-generated, defaults pre-filled. "
             : "Set any variables this stack needs before it deploys. "}
           A red marker flags a required value that's still empty; click the eye to reveal or edit a
           secret. Saved as project variables.
@@ -46,11 +59,11 @@ function ComposeVarsStep({
       </div>
       {requiredUnset && (
         <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          Fill in the fields flagged in red — they're required and still empty. Secrets are already
+          Fill in the fields flagged in red: they're required and still empty. Secrets are already
           generated; what's left is usually a URL or name only you know.
         </div>
       )}
-      <form.AppField name="variables">
+      <form.AppField name="vars.variables">
         {(field) => <field.VariablesField projectId={projectId} />}
       </form.AppField>
     </div>
@@ -84,70 +97,130 @@ function ComposeSourceToggle({
   );
 }
 
-// The "advance" button's label. Inline always routes through the vars step
-// before staging (so env is reviewed BEFORE deploy) — "Next: variables" when
-// the file declares any, "Review & stage" when it declares none. Git has no
-// vars step, so its file-step button stages directly.
-function advanceLabel(isLast: boolean, hasVars: boolean, isPending: boolean): string {
-  if (isLast) return isPending ? "Adding…" : "Add resource";
-  return hasVars ? "Next: variables" : "Review & stage";
+// The `file` step. The FormGroup's `onDynamic` is `fileStepSchema` (its input
+// type IS the `file` slice, so no cast). `onGroupSubmit` fires only when that
+// slice validates; the owner then either stages (git) or advances to vars.
+function ComposeFileGroup({
+  form,
+  source,
+  hasVars,
+  isPending,
+  onNext,
+  onCancel,
+  fields,
+}: {
+  form: ComposeForm;
+  source: "inline" | "git";
+  hasVars: boolean;
+  isPending: boolean;
+  onNext: (source: "inline" | "git") => void;
+  onCancel?: () => void;
+  fields: React.ReactNode;
+}) {
+  return (
+    <form.FormGroup
+      name="file"
+      validators={{ onDynamic: fileStepSchema }}
+      onGroupSubmit={({ value }) => onNext(value.source)}
+    >
+      {(group) => (
+        <form
+          className="flex h-full flex-col"
+          onSubmit={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            void group.handleSubmit();
+          }}
+          noValidate
+        >
+          <div className="flex flex-1 flex-col gap-4 overflow-auto p-5">
+            <ComposeSourceToggle
+              source={source}
+              onSelect={(s) => form.setFieldValue("file.source", s)}
+            />
+            {fields}
+          </div>
+          <div className="flex items-center justify-end gap-2 border-t px-5 py-3">
+            <Button variant="outline" size="sm" type="button" onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button size="sm" type="submit" disabled={!group.state.meta.isValid || isPending}>
+              {fileStepLabel(source, hasVars, isPending)}
+            </Button>
+          </div>
+        </form>
+      )}
+    </form.FormGroup>
+  );
 }
 
-function ComposeFooter({
-  step,
-  isLast,
+// The `vars` step. `onDynamic` is `varsStepSchema`; `onGroupSubmit` stages the
+// stack once every required `${VAR}` is filled. The banner + disabled state
+// both read the group's own validity, no hand-rolled "requiredUnset" boolean.
+function ComposeVarsGroup({
+  form,
+  projectId,
   hasVars,
-  canContinue,
   isPending,
+  onStage,
   onBack,
-  onCancel,
 }: {
-  step: "file" | "vars";
-  isLast: boolean;
+  form: ComposeForm;
+  projectId: ProjectId;
   hasVars: boolean;
-  canContinue: boolean;
   isPending: boolean;
+  onStage: () => void;
   onBack: () => void;
-  onCancel?: () => void;
 }) {
-  if (step === "vars") {
-    return (
-      <div className="flex items-center justify-end gap-2 border-t px-5 py-3">
-        <Button variant="outline" size="sm" type="button" onClick={onBack}>
-          Back
-        </Button>
-        <Button size="sm" type="submit" disabled={!canContinue}>
-          {isPending ? "Adding…" : "Add resource"}
-        </Button>
-      </div>
-    );
-  }
-  // File step. The button is `type="submit"` with NO onClick — the form's
-  // onSubmit (handleContinue) owns both the file→vars transition and the git
-  // create, so Enter and this button behave identically.
   return (
-    <div className="flex items-center justify-end gap-2 border-t px-5 py-3">
-      <Button variant="outline" size="sm" type="button" onClick={onCancel}>
-        Cancel
-      </Button>
-      <Button size="sm" type="submit" disabled={!canContinue}>
-        {advanceLabel(isLast, hasVars, isPending)}
-      </Button>
-    </div>
+    <form.FormGroup
+      name="vars"
+      validators={{ onDynamic: varsStepSchema }}
+      onGroupSubmit={() => onStage()}
+    >
+      {(group) => (
+        <form
+          className="flex h-full flex-col"
+          onSubmit={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            void group.handleSubmit();
+          }}
+          noValidate
+        >
+          <div className="flex flex-1 flex-col gap-4 overflow-auto p-5">
+            <ComposeVarsStep
+              form={form}
+              projectId={projectId}
+              hasVars={hasVars}
+              requiredUnset={!group.state.meta.isValid}
+            />
+          </div>
+          <div className="flex items-center justify-end gap-2 border-t px-5 py-3">
+            <Button variant="outline" size="sm" type="button" onClick={onBack}>
+              Back
+            </Button>
+            <Button size="sm" type="submit" disabled={!group.state.meta.isValid || isPending}>
+              {isPending ? "Adding…" : "Add resource"}
+            </Button>
+          </div>
+        </form>
+      )}
+    </form.FormGroup>
   );
 }
 
 export function ComposeWizardBody({
   form,
+  step,
   projectId,
   projectSlug,
   parsing,
   preview,
-  isLast,
   hasVars,
-  requiredUnset,
-  canContinue,
   isPending,
+  onFileNext,
+  onStage,
   onBack,
   onCancel,
   fileInput,
@@ -155,74 +228,62 @@ export function ComposeWizardBody({
   parseContent,
 }: {
   form: ComposeForm;
+  step: "file" | "vars";
   projectId: ProjectId;
   projectSlug: ProjectSlug;
   parsing: boolean;
   preview: Preview | null;
-  isLast: boolean;
   hasVars: boolean;
-  requiredUnset: boolean;
-  canContinue: boolean;
   isPending: boolean;
+  onFileNext: (source: "inline" | "git") => void;
+  onStage: () => void;
   onBack: () => void;
   onCancel?: () => void;
   fileInput: React.RefObject<HTMLInputElement | null>;
   editorRef: React.RefObject<ReactCodeMirrorRef | null>;
   parseContent: (value: string) => Promise<string | undefined>;
 }) {
-  // Read the two view-driving values straight off the form — no need to thread
-  // them from the owner, which reads the same store.
-  const step = useStore(form.store, (s) => s.values.__step);
-  const source = useStore(form.store, (s) => s.values.source);
+  // Read the source straight off the form: it drives which field group renders
+  // inside the `file` step, and the owner reads the same store for it too.
+  const source = useStore(form.store, (s) => s.values.file.source);
+
+  if (step === "vars") {
+    return (
+      <ComposeVarsGroup
+        form={form}
+        projectId={projectId}
+        hasVars={hasVars}
+        isPending={isPending}
+        onStage={onStage}
+        onBack={onBack}
+      />
+    );
+  }
+
+  const fields =
+    source === "git" ? (
+      <ComposeGitFields form={form} projectId={projectId} projectSlug={projectSlug} />
+    ) : (
+      <ComposeInlineFields
+        form={form}
+        projectId={projectId}
+        fileInput={fileInput}
+        editorRef={editorRef}
+        parseContent={parseContent}
+        parsing={parsing}
+        preview={preview}
+      />
+    );
 
   return (
-    <>
-      <div className="flex flex-1 flex-col gap-4 overflow-auto p-5">
-        {step === "vars" ? (
-          <ComposeVarsStep
-            form={form}
-            projectId={projectId}
-            hasVars={hasVars}
-            requiredUnset={requiredUnset}
-          />
-        ) : (
-          <>
-            <ComposeSourceToggle
-              source={source}
-              onSelect={(s) => {
-                // Reset to the file step and switch source in one gesture — the
-                // discriminator moves with the view it drives.
-                form.setFieldValue("__step", "file");
-                form.setFieldValue("source", s);
-              }}
-            />
-
-            {source === "git" ? (
-              <ComposeGitFields form={form} projectId={projectId} projectSlug={projectSlug} />
-            ) : (
-              <ComposeInlineFields
-                form={form}
-                projectId={projectId}
-                fileInput={fileInput}
-                editorRef={editorRef}
-                parseContent={parseContent}
-                parsing={parsing}
-                preview={preview}
-              />
-            )}
-          </>
-        )}
-      </div>
-
-      <ComposeFooter
-        step={step}
-        isLast={isLast}
-        hasVars={hasVars}
-        canContinue={canContinue}
-        isPending={isPending}
-        onBack={onBack}
-        onCancel={onCancel}
-      />
-    </>
+    <ComposeFileGroup
+      form={form}
+      source={source}
+      hasVars={hasVars}
+      isPending={isPending}
+      onNext={onFileNext}
+      onCancel={onCancel}
+      fields={fields}
+    />
   );
 }

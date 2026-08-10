@@ -3,11 +3,14 @@
  * compose-wizard.tsx to keep that file + its main component under the line
  * caps.
  *
- * Validation lives next door in ./compose-schema.ts — the zod discriminated
- * union that owns every "can this step advance?" decision. This file is the
- * preview/detection types the parse hook + chrome share, plus `useComposeForm`,
- * which wires that schema onto the form.
+ * Validation lives next door in ./compose-schema.ts: one zod schema per step,
+ * each validating its own slice of the nested form value (`file` / `vars`),
+ * wired through `<form.FormGroup>` (see compose-wizard-body.tsx). This file is
+ * the preview/detection types the parse hook + chrome share, plus
+ * `useComposeForm`, which wires the parent-form schema onto the form.
  */
+
+import { revalidateLogic } from "@tanstack/react-form";
 
 import { composeDefaults, composeFormSchema, type ComposeFormValues } from "./compose-schema";
 import { useAppForm } from "./form-context";
@@ -44,7 +47,7 @@ export interface Preview {
 export interface ComposePrefill {
   name: string;
   content: string;
-  /** SvglLogo search string from the template — persisted on the stack so the
+  /** SvglLogo search string from the template, persisted on the stack so the
    *  graph node shows the template's brand mark. */
   logoBrand?: string;
 }
@@ -65,24 +68,34 @@ export function toResourceName(raw: string): string {
 /**
  * The wizard form, schema-owned like the resource wizard's `useWizardForm`.
  *
- * A template handoff seeds `name` + `content` through `defaultValues` (not an
- * effect) — the initial parse then runs off the `content` field's `onMount`
- * listener in compose-wizard-fields.tsx, exactly as if the operator had pasted
- * the file. The discriminated union validates against the current `__step`
- * arm; the `content` field carries its own async parse validator on top.
+ * A template handoff seeds `file.name` + `file.content` through `defaultValues`
+ * (not an effect): the initial parse then runs off the `content` field's
+ * `onMount` listener in compose-wizard-fields.tsx, exactly as if the operator
+ * had pasted the file.
+ *
+ * `validationLogic: revalidateLogic()` is what makes the per-step `onDynamic`
+ * schemas on the FormGroups behave (see the form-groups guide): each group runs
+ * its own schema off its own `submissionAttempts`, and the parent-form
+ * `onDynamic` here is only the bypass net for a whole-form `handleSubmit`. It
+ * does NOT intercept the `content`/`composePath` fields' own async validators —
+ * those have no `onDynamic` key, so revalidateLogic runs them normally and the
+ * live parse-on-type is untouched.
  */
 export function useComposeForm(prefill?: ComposePrefill) {
-  // `composeDefaults` carries the full typed shape, so the spread infers
-  // ComposeFormValues without a cast; the schema is a refined object whose input
-  // type is that same flat shape, so it drops onto `onChange` with no cast
-  // either (see compose-schema.ts for why it isn't a discriminatedUnion).
+  // `composeDefaults` carries the full nested typed shape, so the spread infers
+  // ComposeFormValues without a cast; a prefill only overrides the `file`
+  // group's name + content.
   const defaultValues: ComposeFormValues = {
     ...composeDefaults,
-    ...(prefill ? { name: prefill.name, content: prefill.content } : {}),
+    file: {
+      ...composeDefaults.file,
+      ...(prefill ? { name: prefill.name, content: prefill.content } : {}),
+    },
   };
   return useAppForm({
     defaultValues,
-    validators: { onChange: composeFormSchema },
+    validationLogic: revalidateLogic(),
+    validators: { onDynamic: composeFormSchema },
   });
 }
 

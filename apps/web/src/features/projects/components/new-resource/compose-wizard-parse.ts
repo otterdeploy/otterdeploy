@@ -24,7 +24,7 @@ import { type ComposeForm, type Preview } from "./compose-wizard-shared";
  * The FQDN a stack's address variables should point at, or null when there is
  * nothing to point them at yet.
  *
- * A compose stack has many services but one *front door* — the thing a
+ * A compose stack has many services but one *front door*. The thing a
  * `SERVER_URL` means. We take the first service that publishes a port, which
  * is what the exposure step defaults to and what a template's app service
  * always is (its database and worker declare none). Guessing wrong costs an
@@ -55,19 +55,19 @@ async function previewStackHost(
  * be reached"; leaving the exposure list empty made every stack deploy private
  * and silent about it. Authentik declares `ports: 9000` on its server, deployed
  * clean, and then had no public route and an Exposed Services panel reading
- * "No public routes" — with nothing saying the operator had to go and ask.
+ * "No public routes": with nothing saying the operator had to go and ask.
  *
  * Seeded, not forced: this only ever runs when the operator has not touched the
  * list, so unticking a service sticks and a re-parse (every keystroke in the
- * editor) cannot re-tick it. Services with no published port — databases,
- * caches, workers — are never selected, because they never asked to be.
+ * editor) cannot re-tick it. Services with no published port (databases,
+ * caches, workers) are never selected, because they never asked to be.
  */
 function seedExposure(form: ComposeForm, preview: Preview): void {
-  if (form.state.values.exposed.length > 0) return;
+  if (form.state.values.file.exposed.length > 0) return;
   const seeds = preview.services.flatMap((svc) =>
     svc.ports.length > 0 ? [`${svc.name}:${svc.ports[0]}`] : [],
   );
-  if (seeds.length > 0) form.setFieldValue("exposed", seeds);
+  if (seeds.length > 0) form.setFieldValue("file.exposed", seeds);
 }
 
 export function useComposeParse(
@@ -77,7 +77,7 @@ export function useComposeParse(
 ) {
   const [preview, setPreview] = useState<Preview | null>(null);
 
-  // Push the parse result onto the editor as a CodeMirror diagnostic — red
+  // Push the parse result onto the editor as a CodeMirror diagnostic. Red
   // gutter marker + underline + hover message on the offending line. Called
   // right after the parse, so the editor view + its content are in sync.
   const applyDiagnostics = (res: Preview | null) => {
@@ -98,7 +98,7 @@ export function useComposeParse(
   };
 
   // Debounced async parse, run by TanStack Form's `onChangeAsync` on the
-  // `content` field — no hand-rolled debounce/query/effect. Stores the preview,
+  // `content` field, no hand-rolled debounce/query/effect. Stores the preview,
   // updates the editor diagnostics, and returns a field error when invalid so
   // the form itself knows the compose can't be deployed.
   const parseContent = async (value: string): Promise<string | undefined> => {
@@ -129,24 +129,24 @@ export function useComposeParse(
     applyDiagnostics(res);
     seedExposure(form, res);
     // The public FQDN this stack will publish at, resolved by the SAME server
-    // chain the expose path walks — so an address we seed is the address the
+    // chain the expose path walks, so an address we seed is the address the
     // service actually gets, not a guess. Best-effort: a failure just leaves
     // address vars blank, exactly as before.
     const publicHost = await previewStackHost(projectId, res);
     // Seed the variables editor with the file's `${VAR}` refs, preserving any
     // rows the user already added/edited. A credential-looking key with no
     // `:-default` is AUTO-GENERATED (strong random, locked) and an address-
-    // looking key is filled with the resolved public URL — the operator never
+    // looking key is filled with the resolved public URL. The operator never
     // has to hand-type a password or paste back a hostname they can't know
     // yet. Both stay editable, so they can override or regenerate.
-    const current = form.state.values.variables;
+    const current = form.state.values.vars.variables;
     const seeded: Var[] = res.vars.map((ref) => {
       // No `:-default` in the compose → the operator MUST supply a value (we
       // auto-fill secrets; non-secrets still need input). Drives the required *.
       const required = ref.default === null;
       const existing = current.find((c) => c.key === ref.name);
       // Preserve the operator's edits (value/secret) but ALWAYS refresh
-      // `required` from the current parse — otherwise a row seeded before this
+      // `required` from the current parse. Otherwise a row seeded before this
       // flag existed keeps `required: undefined` and never shows its marker.
       if (existing) return existing.required === required ? existing : { ...existing, required };
       return {
@@ -158,15 +158,15 @@ export function useComposeParse(
     });
     // Keep any extra rows the user added that aren't refs in the file.
     const extra = current.filter((c) => !res.vars.some((ref) => ref.name === c.key));
-    form.setFieldValue("variables", [...seeded, ...extra]);
+    form.setFieldValue("vars.variables", [...seeded, ...extra]);
     if (!res.valid) return `line ${res.errorLine ?? "?"}: ${res.error ?? "Invalid YAML"}`;
     // A `build:` service can't deploy inline yet (those go through git), so make
-    // that a FIELD error — the "file" step then reads not-deployable straight off
+    // that a FIELD error: the "file" step then reads not-deployable straight off
     // the content field's validity, no separate `isInlineReady`/`buildServices`
     // flag. The amber band in ComposePreview names the offending services.
     const buildServices = res.services.filter((s) => s.hasBuild);
     if (buildServices.length > 0) {
-      return `${buildServices.map((s) => s.name).join(", ")} build from source — deploy from a repo`;
+      return `${buildServices.map((s) => s.name).join(", ")} build from source. Deploy from a repo`;
     }
     return undefined;
   };

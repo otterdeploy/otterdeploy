@@ -15,16 +15,16 @@ import type { ComposeForm } from "./compose-wizard-shared";
 import { editorExtensions } from "./compose-wizard-editor";
 
 export function ComposeExtraFiles({ form }: { form: ComposeForm }) {
-  const files = useStore(form.store, (s) => s.values.files);
-  const setFiles = (next: ComposeForm["state"]["values"]["files"]) =>
-    form.setFieldValue("files", next);
+  const files = useStore(form.store, (s) => s.values.file.files);
+  const setFiles = (next: ComposeForm["state"]["values"]["file"]["files"]) =>
+    form.setFieldValue("file.files", next);
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
         <span className="text-xs text-muted-foreground">Additional files</span>
         <span className="text-[11px] text-muted-foreground/60">
-          scripts, Dockerfiles, .env — referenced by your compose file
+          scripts, Dockerfiles and .env files referenced by your compose file
         </span>
         <div className="flex-1" />
         <Button

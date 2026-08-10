@@ -7,11 +7,13 @@
  * pending-changes bar's Deploy (manifest.apply) provisions it. See
  * docs/designs/compose.md.
  *
- * Validation is schema-owned, like the sibling resource wizard: a zod
- * discriminated union keyed on `__step` (./compose-schema.ts) decides whether
- * each step can advance. There are no hand-rolled `deriveComposeFlags` booleans
- * and no prefill effect — the template seeds through `defaultValues`, the parse
- * runs off the content field's `onMount` listener (compose-wizard-fields.tsx).
+ * Validation is schema-owned via the `<form.FormGroup>` API: the form value is
+ * nested into two groups (`file`, `vars`), and each step's FormGroup validates
+ * its own slice with a per-step zod schema (./compose-schema.ts). There are no
+ * hand-rolled `deriveComposeFlags` booleans and no prefill effect: the template
+ * seeds through `defaultValues`, the parse runs off the content field's
+ * `onMount` listener (compose-wizard-fields.tsx). The only React state is which
+ * group renders; the FormGroups own every "can this step advance?" decision.
  *
  * The wizard chrome lives in ./compose-wizard-body (+ ./compose-wizard-fields,
  * ./compose-preview); shared types/the form hook in ./compose-wizard-shared;
@@ -21,53 +23,58 @@
 import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 import type { ReactCodeMirrorRef } from "@uiw/react-codemirror";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 import { omitUndefined } from "@otterdeploy/shared/object";
 import { useStore } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
 
 import { useStageManifestChange } from "../../hooks/use-manifest-stage";
-import { composeFormSchema, stackNamePlaceholder, type ComposeStep } from "./compose-schema";
+import {
+  type ComposeFileValues,
+  type ComposeStep,
+  stackNamePlaceholder,
+} from "./compose-schema";
 import { ComposeWizardBody } from "./compose-wizard-body";
 import { useComposeParse } from "./compose-wizard-parse";
 import { type ComposeFormValues, type ComposePrefill, useComposeForm } from "./compose-wizard-shared";
 import { useUniqueStackName } from "./use-unique-stack-name";
 
-// Manifest `composes[name]` entry from the form values — split from the
+// Manifest `composes[name]` entry from the form values: split from the
 // submit handler (and per source, inline vs git) to stay under the
 // complexity cap.
 function buildComposeEntry(value: ComposeFormValues, logoBrand: string | undefined) {
   // `${VAR}` values → manifest env. Secret-ness is re-derived at apply time
   // from the key name (mirrors the create handler's default).
   const env: Record<string, string> = {};
-  for (const v of value.variables) {
+  for (const v of value.vars.variables) {
     if (v.key.trim() && v.value.trim()) env[v.key.trim()] = v.value;
   }
-  // Template brand mark — persisted so the graph node shows the logo.
+  // Template brand mark, persisted so the graph node shows the logo.
   const brand = logoBrand ? { logoBrand } : {};
   const envEntry = Object.keys(env).length > 0 ? { env } : {};
-  return value.source === "inline"
-    ? buildInlineEntry(value, brand, envEntry)
-    : buildGitEntry(value, brand, envEntry);
+  const file = value.file;
+  return file.source === "inline"
+    ? buildInlineEntry(file, brand, envEntry)
+    : buildGitEntry(file, brand, envEntry);
 }
 
 function buildInlineEntry(
-  value: ComposeFormValues,
+  file: ComposeFileValues,
   brand: { logoBrand?: string },
   envEntry: { env?: Record<string, string> },
 ) {
   return {
     source: "inline" as const,
     ...brand,
-    content: value.content,
+    content: file.content,
     // Multi-file: the compose file + supporting files. Only sent when the
     // user added files; a single-file stack keeps just `content`.
-    ...(value.files.some((f) => f.path.trim())
+    ...(file.files.some((f) => f.path.trim())
       ? {
           files: [
-            { path: "compose.yml", content: value.content },
-            ...value.files.flatMap((f) =>
+            { path: "compose.yml", content: file.content },
+            ...file.files.flatMap((f) =>
               f.path.trim() ? [{ path: f.path.trim(), content: f.content }] : [],
             ),
           ],
@@ -75,7 +82,7 @@ function buildInlineEntry(
         }
       : {}),
     ...envEntry,
-    exposed: value.exposed.map((k) => {
+    exposed: file.exposed.map((k) => {
       const [service, port] = k.split(":");
       return { service: service ?? "", port: Number(port) };
     }),
@@ -83,21 +90,21 @@ function buildInlineEntry(
 }
 
 function buildGitEntry(
-  value: ComposeFormValues,
+  file: ComposeFileValues,
   brand: { logoBrand?: string },
   envEntry: { env?: Record<string, string> },
 ) {
-  const gitRepoId = value.gitRepoId.trim();
+  const gitRepoId = file.gitRepoId.trim();
   return omitUndefined({
     source: "git" as const,
     logoBrand: brand.logoBrand,
     // Bound repo id (private-capable) when picked; else the pasted URL.
     gitRepoId: gitRepoId || undefined,
-    gitRepoUrl: gitRepoId ? undefined : value.gitRepoUrl.trim(),
+    gitRepoUrl: gitRepoId ? undefined : file.gitRepoUrl.trim(),
     // Blank → the builder auto-detects common compose file names.
-    gitRef: value.gitRef.trim() || undefined,
-    composePath: value.composePath.trim() || undefined,
-    sourceSubdir: value.sourceSubdir.trim() || undefined,
+    gitRef: file.gitRef.trim() || undefined,
+    composePath: file.composePath.trim() || undefined,
+    sourceSubdir: file.sourceSubdir.trim() || undefined,
     env: envEntry.env,
   });
 }
@@ -125,48 +132,38 @@ export function ComposeWizard({
 
   const stage = useStageManifestChange(projectId);
 
-  // Template prefill is seeded through defaultValues (no effect) — see
+  // The ONLY React state: which FormGroup renders. Every validity decision lives
+  // in the groups themselves. Inline flows file → vars; git stages from `file`.
+  const [step, setStep] = useState<ComposeStep>("file");
+
+  // Template prefill is seeded through defaultValues (no effect). See
   // useComposeForm; the content field's onMount runs the initial parse.
   const form = useComposeForm(prefill);
   const { preview, parseContent } = useComposeParse(projectId, editorRef, form);
 
-  // Everything the chrome needs, derived from form state + the schema — no
-  // hand-rolled flags. `values` re-renders the wizard on any field change,
-  // which is exactly when a step's validity can flip.
-  const values = useStore(form.store, (s) => s.values);
-  const parsing = useStore(form.store, (s) => Boolean(s.fieldMeta.content?.isValidating));
-  const contentInvalid = useStore(form.store, (s) => (s.fieldMeta.content?.errors?.length ?? 0) > 0);
-
-  const step = values.__step;
-  const source = values.source;
-  // The schema arm for the CURRENT step: does it parse clean?
-  const stepValid = composeFormSchema.safeParse(values).success;
-  // Inline flows file → vars; git has only the file step.
-  const steps: ComposeStep[] = source === "git" ? ["file"] : ["file", "vars"];
-  const isLast = steps.indexOf(step) === steps.length - 1;
-  // On the inline file step the schema only proves content is non-empty; whether
-  // it's DEPLOYABLE (parsed clean, no `build:` service) is the async content
-  // validator's verdict, read here off the field's own validity.
-  const inlineFileGate = step === "file" && source === "inline" ? !parsing && !contentInvalid : true;
-  const canContinue = !stage.isPending && stepValid && inlineFileGate;
+  // View facts read straight off the form store, no hand-rolled flags. `source`
+  // and `gitRepoUrl`/`name` drive the derived name; `hasVars` decides whether
+  // the file step routes through the vars step or (with no vars) straight to it.
+  const source = useStore(form.store, (s) => s.values.file.source);
+  const gitRepoUrl = useStore(form.store, (s) => s.values.file.gitRepoUrl);
+  const name = useStore(form.store, (s) => s.values.file.name);
+  // On the inline file step the button also waits out the async content parse
+  // (the deployability verdict lands as a field error the group folds into its
+  // own validity). While that parse is in flight the content field validates.
+  const parsing = useStore(form.store, (s) => Boolean(s.fieldMeta["file.content"]?.isValidating));
   const hasVars = source === "inline" && (preview?.vars.length ?? 0) > 0;
-  // The vars arm's only failure is an unset required `${VAR}` — so an invalid
-  // vars step IS "something required is still blank", which drives the banner.
-  const requiredUnset = step === "vars" && !stepValid;
 
-  // What the name will be if left blank — the field placeholder and the base
+  // What the name will be if left blank. The field placeholder and the base
   // useUniqueStackName bumps on collision.
-  const derivedName = stackNamePlaceholder(source, values.gitRepoUrl, preview?.name);
-  const unique = useUniqueStackName(projectId, values.name, derivedName);
+  const derivedName = stackNamePlaceholder(source, gitRepoUrl, preview?.name);
+  const unique = useUniqueStackName(projectId, name, derivedName);
 
-  const goToStep = (next: ComposeStep) => form.setFieldValue("__step", next);
-
-  // Stage a `composes[name]` entry into the manifest — no immediate deploy. The
+  // Stage a `composes[name]` entry into the manifest, no immediate deploy. The
   // graph then shows the stack as a pending ghost; the pending-changes bar's
   // Apply provisions it (manifest.apply → reconciler).
   //
   // Fire-and-forget: close and navigate to the graph THIS FRAME instead of
-  // awaiting the manifest.save round-trip — the dialog must not sit open on a
+  // awaiting the manifest.save round-trip. The dialog must not sit open on a
   // network call. The stage mutation runs in the background; its onSuccess
   // invalidates the graph's diff/resource queries so the pending ghost appears
   // on arrival, and its onError toasts if the save fails.
@@ -186,46 +183,30 @@ export function ComposeWizard({
     });
   };
 
-  // Validate the current step's arm, then advance or stage. Mirrors the resource
-  // wizard's handleContinue — form.validate + getAllErrors, not booleans. The
-  // `parsing` guard covers the async content parse still settling; the footer
-  // button is already disabled via `canContinue`, so this mostly guards Enter.
-  const handleContinue = async () => {
-    await form.validate("change");
-    const all = form.getAllErrors();
-    const blocked =
-      all.form.errors.length > 0 || Object.values(all.fields).some((f) => f.errors.length > 0);
-    if (blocked || parsing || stage.isPending) return;
-    if (isLast) stageStack();
-    else goToStep("vars");
+  // The file group's `onGroupSubmit`, fired only when the file slice validates:
+  // git has no vars step so it stages directly; inline advances to review env.
+  const handleFileNext = (fileSource: "inline" | "git") => {
+    if (fileSource === "git") stageStack();
+    else setStep("vars");
   };
 
   return (
-    <form
-      className="flex h-full flex-col"
-      onSubmit={(e) => {
-        e.preventDefault();
-        void handleContinue();
-      }}
-      noValidate
-    >
-      <ComposeWizardBody
-        form={form}
-        projectId={projectId}
-        projectSlug={projectSlug}
-        parsing={parsing}
-        preview={preview}
-        isLast={isLast}
-        hasVars={hasVars}
-        requiredUnset={requiredUnset}
-        canContinue={canContinue}
-        isPending={stage.isPending}
-        onBack={() => goToStep("file")}
-        onCancel={onCancel}
-        fileInput={fileInput}
-        editorRef={editorRef}
-        parseContent={parseContent}
-      />
-    </form>
+    <ComposeWizardBody
+      form={form}
+      step={step}
+      projectId={projectId}
+      projectSlug={projectSlug}
+      parsing={parsing}
+      preview={preview}
+      hasVars={hasVars}
+      isPending={stage.isPending}
+      onFileNext={handleFileNext}
+      onStage={stageStack}
+      onBack={() => setStep("file")}
+      onCancel={onCancel}
+      fileInput={fileInput}
+      editorRef={editorRef}
+      parseContent={parseContent}
+    />
   );
 }

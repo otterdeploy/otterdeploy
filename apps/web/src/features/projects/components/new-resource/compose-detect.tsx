@@ -6,7 +6,7 @@
  * detection ran: blank simply meant "the builder will guess, later, on the
  * server". When it guessed right you learned nothing; when the repo had no
  * compose file at all you found out minutes into a failed build. The listing
- * needed to answer the question was already one RPC away — `git.inspectRepo`
+ * needed to answer the question was already one RPC away. `git.inspectRepo`
  * returns `entries`, and the Builder step has used it for framework detection
  * all along (see steps/builder.tsx `DetectionBanner`).
  *
@@ -40,8 +40,8 @@ type Detection =
   | { kind: "empty" };
 
 function useComposeDetection(form: ComposeForm): Detection {
-  const gitRepoId = useStore(form.store, (s) => s.values.gitRepoId);
-  const subdir = useStore(form.store, (s) => s.values.sourceSubdir);
+  const gitRepoId = useStore(form.store, (s) => s.values.file.gitRepoId);
+  const subdir = useStore(form.store, (s) => s.values.file.sourceSubdir);
 
   const inspect = useQuery({
     ...orpc.git.inspectRepo.queryOptions({
@@ -119,7 +119,7 @@ function DetectionHint({
 
 /**
  * Verify a typed path against the repository, for TanStack Form's
- * `onChangeAsync` — same mechanism the `content` field uses for its debounced
+ * `onChangeAsync`: same mechanism the `content` field uses for its debounced
  * parse (see compose-wizard-parse.ts), so both halves of this wizard report
  * their problems through the form rather than through a side channel.
  *
@@ -134,7 +134,7 @@ async function validateComposePath(args: {
   sourceSubdir: string;
 }): Promise<string | undefined> {
   const typed = args.value.trim();
-  // Blank is the auto-detect case and always valid — that is the whole point
+  // Blank is the auto-detect case and always valid. That is the whole point
   // of the field being optional.
   if (!typed || !args.gitRepoId) return undefined;
 
@@ -152,13 +152,13 @@ async function validateComposePath(args: {
 
 export function ComposeFileField({ form }: { form: ComposeForm }) {
   const detection = useComposeDetection(form);
-  const subdir = useStore(form.store, (s) => s.values.sourceSubdir);
-  const gitRepoId = useStore(form.store, (s) => s.values.gitRepoId);
+  const subdir = useStore(form.store, (s) => s.values.file.sourceSubdir);
+  const gitRepoId = useStore(form.store, (s) => s.values.file.gitRepoId);
   const detected = detection.kind === "found" ? detection.names[0] : null;
 
   return (
     <form.Field
-      name="composePath"
+      name="file.composePath"
       validators={{
         onChangeAsyncDebounceMs: 400,
         onChangeAsync: ({ value }) =>
