@@ -15,6 +15,7 @@ import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 
 import type { ComposeForm, DetectedService, Preview } from "./compose-wizard-shared";
+import type { UniqueStackName } from "./use-unique-stack-name";
 
 import { ComposeFileField } from "./compose-detect";
 import { ComposeExtraFiles } from "./compose-extra-files";
@@ -24,7 +25,15 @@ import { RepoPicker } from "./steps/repo-picker";
 import { useBindingSummary } from "./steps/source-binding";
 import { BranchPicker } from "./steps/source-pickers";
 
-function ComposeNameField({ form, derivedName }: { form: ComposeForm; derivedName: string }) {
+function ComposeNameField({
+  form,
+  derivedName,
+  unique,
+}: {
+  form: ComposeForm;
+  derivedName: string;
+  unique: UniqueStackName;
+}) {
   return (
     <form.Field name="name">
       {(field) => (
@@ -38,6 +47,15 @@ function ComposeNameField({ form, derivedName }: { form: ComposeForm; derivedNam
             placeholder={derivedName}
             className="font-mono"
           />
+          {/* Already-in-project notice: not an error — we just stage a new copy
+              under the bumped name so a re-deployed template doesn't silently
+              overwrite the existing stack. */}
+          {unique.collides ? (
+            <span className="text-[11px] text-muted-foreground">
+              A stack named <span className="font-mono">{unique.base}</span> already exists — this
+              one deploys as <span className="font-mono text-foreground">{unique.name}</span>.
+            </span>
+          ) : null}
         </label>
       )}
     </form.Field>
@@ -47,10 +65,12 @@ function ComposeNameField({ form, derivedName }: { form: ComposeForm; derivedNam
 export function ComposeGitFields({
   form,
   derivedName,
+  unique,
   projectSlug,
 }: {
   form: ComposeForm;
   derivedName: string;
+  unique: UniqueStackName;
   projectSlug: ProjectSlug;
 }) {
   // Same repo-selection surface git services use: an account/repo picker over
@@ -142,7 +162,7 @@ export function ComposeGitFields({
         )}
       </form.Field>
 
-      <ComposeNameField form={form} derivedName={derivedName} />
+      <ComposeNameField form={form} derivedName={derivedName} unique={unique} />
       <p className="text-[11px] text-muted-foreground">
         Clones the repo, builds each service with a <code>build:</code> context, then deploys the
         whole stack. Track progress on the graph.
@@ -154,6 +174,7 @@ export function ComposeGitFields({
 export function ComposeInlineFields({
   form,
   derivedName,
+  unique,
   fileInput,
   editorRef,
   parseContent,
@@ -165,6 +186,7 @@ export function ComposeInlineFields({
 }: {
   form: ComposeForm;
   derivedName: string;
+  unique: UniqueStackName;
   fileInput: React.RefObject<HTMLInputElement | null>;
   editorRef: React.RefObject<ReactCodeMirrorRef | null>;
   parseContent: (value: string) => Promise<string | undefined>;
@@ -176,7 +198,7 @@ export function ComposeInlineFields({
 }) {
   return (
     <>
-      <ComposeNameField form={form} derivedName={derivedName} />
+      <ComposeNameField form={form} derivedName={derivedName} unique={unique} />
       <form.Field
         name="content"
         validators={{

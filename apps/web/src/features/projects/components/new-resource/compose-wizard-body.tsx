@@ -11,6 +11,7 @@ import type { ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { Button } from "@/shared/components/ui/button";
 
 import type { ComposeForm, DetectedService, Preview } from "./compose-wizard-shared";
+import type { UniqueStackName } from "./use-unique-stack-name";
 
 import { ComposeGitFields, ComposeInlineFields } from "./compose-wizard-fields";
 
@@ -151,6 +152,7 @@ export function ComposeWizardBody({
   exposed,
   hasVars,
   derivedName,
+  unique,
   showNext,
   canCreate,
   requiredUnset,
@@ -173,6 +175,7 @@ export function ComposeWizardBody({
   exposed: Set<string>;
   hasVars: boolean;
   derivedName: string;
+  unique: UniqueStackName;
   showNext: boolean;
   canCreate: boolean;
   requiredUnset: boolean;
@@ -204,11 +207,17 @@ export function ComposeWizardBody({
             />
 
             {source === "git" ? (
-              <ComposeGitFields form={form} derivedName={derivedName} projectSlug={projectSlug} />
+              <ComposeGitFields
+                form={form}
+                derivedName={derivedName}
+                unique={unique}
+                projectSlug={projectSlug}
+              />
             ) : (
               <ComposeInlineFields
                 form={form}
                 derivedName={derivedName}
+                unique={unique}
                 fileInput={fileInput}
                 editorRef={editorRef}
                 parseContent={parseContent}

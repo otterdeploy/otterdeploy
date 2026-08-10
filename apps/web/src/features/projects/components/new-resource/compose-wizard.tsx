@@ -28,9 +28,9 @@ import {
   type ComposeFormValues,
   type ComposePrefill,
   deriveComposeFlags,
-  toResourceName,
   useComposeForm,
 } from "./compose-wizard-shared";
+import { useUniqueStackName } from "./use-unique-stack-name";
 
 // Manifest `composes[name]` entry from the form values — split from the
 // submit handler (and per source, inline vs git) to stay under the
@@ -144,6 +144,7 @@ export function ComposeWizard({
 
   const source = useStore(form.store, (s) => s.values.source);
   const gitRepoUrl = useStore(form.store, (s) => s.values.gitRepoUrl);
+  const nameInput = useStore(form.store, (s) => s.values.name);
   const variables = useStore(form.store, (s) => s.values.variables);
   const exposed = new Set(useStore(form.store, (s) => s.values.exposed));
   // The form already tracks the async `content` validation — no manual flag.
@@ -164,20 +165,28 @@ export function ComposeWizard({
       variables,
     });
 
+  // Resolve a collision-free name up front so a re-deployed template stages a
+  // NEW stack (foo-2) instead of overwriting foo with an identical entry (the
+  // silent no-op). The name field renders `unique` as an inline indicator.
+  const unique = useUniqueStackName(projectId, nameInput, derivedName);
+
   // Stage a `composes[name]` entry into the manifest — no immediate deploy. The
   // graph then shows the stack as a pending ghost; the pending-changes bar's
-  // Apply provisions it (manifest.apply → reconciler). Defined here, after
-  // `derivedName`, so the blank-name fallback reads it straight off the derived
-  // value — no ref/effect round-trip.
-  const stageStack = async () => {
+  // Apply provisions it (manifest.apply → reconciler).
+  //
+  // Fire-and-forget: close and navigate to the graph THIS FRAME instead of
+  // awaiting the manifest.save round-trip — the dialog must not sit open on a
+  // network call. The stage mutation runs in the background; its onSuccess
+  // invalidates the graph's diff/resource queries so the pending ghost appears
+  // on arrival, and its onError toasts if the save fails.
+  const stageStack = () => {
     const value = form.state.values;
-    const name = toResourceName(value.name.trim() || derivedName);
     const entry = buildComposeEntry(value, prefill?.logoBrand);
 
-    await stage.mutateAsync((current) => ({
+    stage.mutate((current) => ({
       ...current,
       project: current.project || projectSlug,
-      composes: { ...current.composes, [name]: entry },
+      composes: { ...current.composes, [unique.name]: entry },
     }));
     onComplete?.();
     void navigate({
@@ -198,7 +207,7 @@ export function ComposeWizard({
           setStep("vars");
           return;
         }
-        if (canCreate) void stageStack();
+        if (canCreate) stageStack();
       }}
       noValidate
     >
@@ -215,6 +224,7 @@ export function ComposeWizard({
         exposed={exposed}
         hasVars={hasVars}
         derivedName={derivedName}
+        unique={unique}
         showNext={showNext}
         canCreate={canCreate}
         requiredUnset={requiredUnset}
