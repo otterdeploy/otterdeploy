@@ -50,8 +50,8 @@ export function pgErrorInfo(err: unknown): { code: string | null; constraint: st
  * actionable line, or null when the error is anything else (let the caller
  * surface it as-is). Without this, a compose stack whose inner service name /
  * internal hostname / public domain collides with an existing resource dumps
- * the raw `Failed query: insert into "service_resource" …` INSERT — bind params
- * and all — into the user-facing deploy log. `label` is the compose service key
+ * the raw `Failed query: insert into "service_resource" …` INSERT. Bind params
+ * and all: into the user-facing deploy log. `label` is the compose service key
  * the user controls in their file (e.g. "waves").
  */
 export function friendlyServiceCollisionMessage(err: unknown, label: string): string | null {
@@ -59,11 +59,11 @@ export function friendlyServiceCollisionMessage(err: unknown, label: string): st
   if (code !== "23505") return null;
   switch (constraint) {
     case "service_resource_service_name_unique":
-      return `a service named "${label}" already exists in this project — rename the compose service, or remove the standalone service that owns that name.`;
+      return `a service named "${label}" already exists in this project. Rename the compose service, or remove the standalone service that owns that name.`;
     case "service_resource_network_hostname_unique":
-      return `a service with the internal hostname "${label}" already exists in this project — rename the compose service, or remove the standalone service using that name.`;
+      return `a service with the internal hostname "${label}" already exists in this project. Rename the compose service, or remove the standalone service using that name.`;
     case "service_resource_public_domain_unique":
-      return `the public domain for "${label}" is already in use by another service — change the exposed domain.`;
+      return `the public domain for "${label}" is already in use by another service. Change the exposed domain.`;
     default:
       return null;
   }
@@ -127,14 +127,14 @@ export async function createComposeRecord(input: {
     });
   } catch (err) {
     // The stack name (swarm namespace) is globally unique. Two projects that
-    // share a slug — e.g. a "store" project in two different orgs — both derive
+    // share a slug (e.g. a "store" project in two different orgs) both derive
     // the same stackName for a given template and collide here. Translate the
     // raw Postgres/Drizzle dump into one actionable line; leaving it raw is what
     // floods the client toast with the whole failing INSERT + bind params.
     const { code, constraint } = pgErrorInfo(err);
     if (code === "23505" && constraint === "compose_resource_stack_name_unique") {
       throw new Error(
-        `A stack named "${input.stackName}" already exists. Stack names are unique across every project — rename the project or the resource, or open the existing stack.`,
+        `A stack named "${input.stackName}" already exists. Stack names are unique across every project. Rename the project or the resource, or open the existing stack.`,
       );
     }
     throw err;

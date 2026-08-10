@@ -22,7 +22,7 @@ import { loadDomainSourcesForProject } from "../../lib/domain-sources";
 export interface ServiceDomainView {
   id: string;
   // Scoping ids so the web client's on-demand collection can filter subsets by
-  // (project, resource) — mirrors the deployment-task view.
+  // (project, resource): mirrors the deployment-task view.
   projectId: string;
   resourceId: string;
   domain: string;
@@ -80,7 +80,7 @@ export function toDomainView(route: ProxyRouteRecord, dnsTarget: string | null):
 
 // Lowercase FQDN: one or more dot-separated labels. Allows a single-label
 // dev TLD (`app.localhost`) and normal multi-label public names. Rejects
-// schemes, paths, ports, and wildcards — those are caller errors, not hosts.
+// schemes, paths, ports, and wildcards: those are caller errors, not hosts.
 const FQDN_RE = /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 const LOCALHOST_RE = /^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+localhost$/;
 const RESERVED_CUSTOM_SUFFIXES = [
@@ -115,7 +115,7 @@ export async function isReservedControlPlaneDomain(domain: string): Promise<bool
  * Hosts no public CA will ever sign, whatever DNS says.
  *
  * Distinct from "DNS doesn't currently look right": this is a permanent
- * property of the name, so it outranks the downgrade guard below — there is
+ * property of the name, so it outranks the downgrade guard below. There is
  * no certificate here worth protecting.
  */
 function canHoldPublicCert(domain: string): boolean {
@@ -124,7 +124,7 @@ function canHoldPublicCert(domain: string): boolean {
 
 /** ACME can only issue for a publicly resolvable name that points at us. A
  *  `.localhost`/sslip host can't get a real cert, and a proxied/unpointed
- *  host's challenge can't complete — all stay on `tls internal`. */
+ *  host's challenge can't complete. All stay on `tls internal`. */
 export function acmeFor(domain: string, dnsState: DnsState): boolean {
   if (!canHoldPublicCert(domain)) return false;
   return dnsState === "pointed";
@@ -139,7 +139,7 @@ export function acmeFor(domain: string, dnsState: DnsState): boolean {
  *
  * That is not hypothetical. A generated route is born `dnsState: "pointed"`
  * (see expose.ts) and gets a real certificate. Put Cloudflare's proxy in front
- * of it afterwards — a supported, common, and usually *desirable* topology —
+ * of it afterwards (a supported, common, and usually *desirable* topology)
  * and the next recheck reads the Cloudflare anycast addresses, calls the host
  * `proxied`, and `acmeFor` returns false. The route flips to `tls internal`
  * and Caddy replaces a valid Let's Encrypt certificate with a self-signed one,
@@ -148,7 +148,7 @@ export function acmeFor(domain: string, dnsState: DnsState): boolean {
  *
  * So a downgrade needs more than a DNS heuristic disagreeing with the past: it
  * needs evidence the certificate is not working. `certState === "valid"` is
- * exactly that evidence, promoted from Caddy's own log plane — the edge is
+ * exactly that evidence, promoted from Caddy's own log plane. The edge is
  * telling us it holds a good certificate. Upgrades are unaffected; only the
  * valid → self-signed direction is refused.
  */
@@ -177,7 +177,7 @@ export async function serverIpFor(ref: ResourceRef): Promise<string | null> {
  * keep serving, or keep its old ACME decision, in the meantime.
  */
 /**
- * DNS that already resolves to this server is proof of control — the same
+ * DNS that already resolves to this server is proof of control. The same
  * thing the TXT challenge exists to establish, and the same thing ACME's
  * HTTP-01 would conclude. Lives here with the other domain decisions so all
  * three call sites (add, recheck, update) read one rule.
@@ -196,7 +196,7 @@ export function domainUpdatePatch(args: {
   const { domain, route, serviceName, dnsState, requiresVerification } = args;
   // A re-verification that the DNS has ALREADY satisfied is not a
   // verification, it is a formality. This branch used to reset ownership to
-  // null and disable the route without ever consulting dnsState — even though
+  // null and disable the route without ever consulting dnsState: even though
   // it is measured immediately before the call and passed in right here. Point
   // a host at this server and rename a route onto it and you were told to add
   // a TXT record to prove something the resolver had just proven. Worst on
@@ -208,7 +208,7 @@ export function domainUpdatePatch(args: {
     source: "custom" as const,
     dnsState,
     dnsCheckedAt: new Date(),
-    // Re-verification genuinely resets the decision — the host has to prove
+    // Re-verification genuinely resets the decision: the host has to prove
     // itself again. Otherwise this is an edit to a route that already exists
     // (a port change, say), so the same rule as recheck applies: don't pull a
     // working certificate out from under it. See acmeForExistingRoute.

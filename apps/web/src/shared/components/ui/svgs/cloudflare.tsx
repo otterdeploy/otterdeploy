@@ -2,7 +2,7 @@ import type { SVGProps } from "react";
 
 /**
  * Cloudflare mark (Simple Icons path). Monochrome, so it inherits the text
- * color and stays legible on both canvases — the brand orange would read as an
+ * color and stays legible on both canvases. The brand orange would read as an
  * accent here, and the accent is spoken for (see DESIGN.md).
  */
 const Cloudflare = (props: SVGProps<SVGSVGElement>) => (

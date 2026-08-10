@@ -1,5 +1,5 @@
 /**
- * Row multi-select for inventory tables (volumes, Docker images, networks) —
+ * Row multi-select for inventory tables (volumes, Docker images, networks):
  * the selection state, the header/row checkboxes, and the action bar that
  * appears once something is selected.
  *
@@ -9,8 +9,8 @@
  *
  * Bulk destructive actions here are a CLIENT-SIDE FAN-OUT over the existing
  * single-item endpoints ({@link runBulk}), not a bulk API call. Removing infra
- * is partial-failure by nature — an in-use volume fails with IN_USE while its
- * neighbours succeed — and fanning out per item is what lets the UI report
+ * is partial-failure by nature. An in-use volume fails with IN_USE while its
+ * neighbours succeed, and fanning out per item is what lets the UI report
  * "3 removed · 1 skipped" instead of collapsing to one all-or-nothing result.
  */
 
@@ -30,7 +30,7 @@ import { Checkbox } from "@/shared/components/ui/checkbox";
 import { TableCell, TableHead } from "@/shared/components/ui/table";
 
 export interface TableSelection<T> {
-  /** Keys currently selected — may include rows no longer present. */
+  /** Keys currently selected: may include rows no longer present. */
   selected: ReadonlySet<string>;
   /** Selected rows, in the order they appear in `rows`. */
   selectedRows: T[];
@@ -60,7 +60,7 @@ export function useTableSelection<T>(
     /**
      * Rows that select-all should pick up. Defaults to everything.
      *
-     * This is ONLY for rows that can categorically never be actioned — a
+     * This is ONLY for rows that can categorically never be actioned. A
      * built-in Docker network, say. It is NOT for rows the client merely
      * believes are busy: an in-use volume stays in select-all, because the
      * daemon decides that and a ref-count read seconds ago may be stale.
@@ -92,7 +92,7 @@ export function useTableSelection<T>(
     });
   };
 
-  // "All" means all ELIGIBLE rows — the checkbox reads as checked once every
+  // "All" means all ELIGIBLE rows. The checkbox reads as checked once every
   // row select-all would have picked is picked, not only when ineligible rows
   // have also been ticked by hand.
   const eligibleRows = rows.filter(eligible);
@@ -152,7 +152,7 @@ export function SelectRowCell<T>({
 }
 
 /**
- * Floating action bar — appears pinned above the viewport's bottom edge once
+ * Floating action bar: appears pinned above the viewport's bottom edge once
  * rows are selected, and slides away when the selection empties.
  *
  * Floating rather than inline above the table on purpose: these inventories run
@@ -161,7 +161,7 @@ export function SelectRowCell<T>({
  * motion of `PendingChangesBar` on the graph so the app has one vocabulary for
  * "you have staged something; here's how to commit or drop it".
  *
- * Rows the client believes are undeletable are still selectable — the daemon is
+ * Rows the client believes are undeletable are still selectable. The daemon is
  * the authority on whether a remove succeeds, and a stale ref-count would
  * otherwise block a delete that would have worked. Outcomes are reported after
  * the fact by {@link runBulk}.
@@ -177,7 +177,7 @@ export function SelectionBar<T>({
   /** Pluralisable i18n key for the count, e.g. `volumes.noun`. */
   nounKey: TranslationKey;
   /**
-   * The bare verb — "Remove", "Archive". Deliberately NOT "Remove 8": the
+   * The bare verb: "Remove", "Archive". Deliberately NOT "Remove 8": the
    * count is already stated by the label to its left, and repeating it inside
    * the button reads as though the number were part of the action's name. The
    * confirm dialog does restate it ("Remove 8 volumes"), because that step is
@@ -189,7 +189,7 @@ export function SelectionBar<T>({
 }) {
   const { t } = useTranslation();
   // Framer's JS animations aren't covered by the CSS prefers-reduced-motion
-  // reset, so collapse to instant ourselves — same as PendingChangesBar.
+  // reset, so collapse to instant ourselves: same as PendingChangesBar.
   const reduce = useReducedMotion();
   const transition: Transition = reduce
     ? { duration: 0 }
@@ -283,7 +283,7 @@ function reasonOf(err: unknown): string {
  *
  * `t` is a parameter because this is a plain helper, not a component. `nounKey`
  * is a key rather than a word because the old `${n} ${noun}${n === 1 ? "" : "s"}`
- * only pluralises English — every other language needs the locale to decide.
+ * only pluralises English: every other language needs the locale to decide.
  */
 export function summarizeBulk<T>(
   outcome: BulkOutcome<T>,

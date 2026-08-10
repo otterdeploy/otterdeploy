@@ -1,4 +1,4 @@
-# Wave C (effects & state) — bucket 2
+# Wave C (effects & state): bucket 2
 
 
 ## src/features/resources/components/postgres/tabs/data/use-data-studio.ts

@@ -64,7 +64,7 @@ describe("classifyCliCompat", () => {
     ).toEqual(ok);
   });
 
-  it("never complains that the server is AHEAD — that is the normal case", () => {
+  it("never complains that the server is AHEAD. That is the normal case", () => {
     expect(
       classifyCliCompat({ cliVersion: "0.7.0", serverVersion: "1.4.0", minCliVersion: "0.1.0" }),
     ).toEqual(ok);

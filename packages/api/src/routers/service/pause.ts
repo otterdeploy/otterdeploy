@@ -1,5 +1,5 @@
 /**
- * Pause / resume a service — an operator-facing "stop without losing
+ * Pause / resume a service: an operator-facing "stop without losing
  * anything" primitive.
  *
  * Pause remembers the desired replica count in `pausedReplicas`, scales the
@@ -35,7 +35,7 @@ export async function pauseService(
   if (ctx.isErr()) return Result.err(ctx.error);
   const { record, project } = ctx.value;
 
-  // Already paused — nothing to do.
+  // Already paused, nothing to do.
   if (record.service.pausedReplicas != null) return getService(input);
 
   // Remember at least 1 so resuming a service that somehow sat at 0 desired
@@ -49,7 +49,7 @@ export async function pauseService(
 
   // No dependent fan-out: pausing changes no env values, so services that
   // reference this one keep their resolved config (their requests will fail
-  // until resume — that's the point of pausing).
+  // until resume: that's the point of pausing).
   const rolled = await redeployOne(input.projectId, input.resourceId, project.slug, log);
   if (rolled.isErr()) return Result.err(rolled.error);
 
@@ -64,7 +64,7 @@ export async function resumeService(
   if (ctx.isErr()) return Result.err(ctx.error);
   const { record, project } = ctx.value;
 
-  // Not paused — nothing to restore.
+  // Not paused, nothing to restore.
   if (record.service.pausedReplicas == null) return getService(input);
 
   await setServiceReplicaState(input.resourceId, {

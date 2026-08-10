@@ -1,5 +1,5 @@
 /**
- * Schema explorer — the right-rail tables panel. Each table is collapsed by
+ * Schema explorer: the right-rail tables panel. Each table is collapsed by
  * default; clicking it expands an inline column list (name · type, PK badge)
  * fetched lazily via `information_schema`. This is a *reference* view: it never
  * navigates to the row browser, so you can inspect a schema while writing SQL.

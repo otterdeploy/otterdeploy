@@ -18,7 +18,7 @@ export const PROVIDER_SEARCH: Record<ProviderKind, string> = {
 // "coming soon" placeholders.
 export const SUPPORTED_KINDS = new Set<ProviderKind>(["github"]);
 
-// `ProviderView` / `InstallationView` are inferred from the API contract — see
+// `ProviderView` / `InstallationView` are inferred from the API contract. See
 // ./data/git-providers. Re-exported here so existing import sites keep working.
 export type { InstallationView, ProviderView } from "./data/git-providers";
 

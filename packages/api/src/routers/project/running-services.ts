@@ -16,8 +16,8 @@ import { listServiceResourceRefsByOrg } from "./queries";
 /**
  * The docker round-trip below is the long pole of project.list (~60-80ms of a
  * ~90ms handler; everything else rides the Redis query cache). Running counts
- * are display data the UI already treats as eventually-consistent — it
- * refreshes them via polling and org-stream resyncs — so a 3s memo keeps the
+ * are display data the UI already treats as eventually-consistent. It
+ * refreshes them via polling and org-stream resyncs, so a 3s memo keeps the
  * projects page comfortably under 100ms server-side without changing what any
  * reader can observe for more than one refresh cycle. Failures (null) are
  * evicted immediately so an unreachable daemon is retried on the next call,
@@ -49,7 +49,7 @@ export function countRunningServicesByProject(
 
 /**
  * How many service/compose resources per project have a live container right
- * now — one grouped `docker ps` over managed containers, matched to the org's
+ * now: one grouped `docker ps` over managed containers, matched to the org's
  * service/compose resources by the `otterdeploy.resource.id` label. A compose
  * stack fans out to several containers but is one resource, so it's counted
  * once (the running set is de-duped by resource id). Returns `null` if the

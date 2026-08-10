@@ -17,7 +17,7 @@ const ONE_DAY_MS = 1000 * 60 * 60 * 24;
  *
  * The Inngest version used `step.sleep()`. In BullMQ we get the same
  * deferred-execution behavior by enqueueing each follow-up email with a
- * `delay` — the job sits in the delayed set until its time comes and BullMQ
+ * `delay`: the job sits in the delayed set until its time comes and BullMQ
  * promotes it automatically.
  */
 export const welcomeSequenceJob = defineJob({
@@ -41,7 +41,7 @@ export const welcomeSequenceJob = defineJob({
       body: `Hi ${name}, welcome aboard!`,
     });
 
-    // Tips email — 1 day later
+    // Tips email: 1 day later
     await triggerEmail(
       {
         to: email,
@@ -51,7 +51,7 @@ export const welcomeSequenceJob = defineJob({
       { delay: ONE_DAY_MS },
     );
 
-    // Feature highlight — 4 days after signup (1 + 3)
+    // Feature highlight: 4 days after signup (1 + 3)
     await triggerEmail(
       {
         to: email,

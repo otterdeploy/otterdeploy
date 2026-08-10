@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 
 /**
  * Live TLS-certificate probing for a project's enabled HTTP domains. Connects
- * to the edge with each domain as SNI — single node reaches Caddy on loopback,
+ * to the edge with each domain as SNI: single node reaches Caddy on loopback,
  * multi-node via the configured server IP. Results are live, never cached.
  */
 import type { ProjectRef } from "../scopes";
@@ -18,13 +18,13 @@ import { getProjectInOrg } from "./queries";
 export interface ProjectCertificates {
   /** The edge address we probed (server IP, or loopback on a single node). */
   edgeHost: string;
-  /** ISO-8601 — when the probe ran (results are live, not cached). */
+  /** ISO-8601: when the probe ran (results are live, not cached). */
   probedAt: string;
   certificates: CertProbe[];
 }
 
 /** Read the platform's configured server IP (the public edge address). Null in
- *  dev / before detection — callers fall back to loopback. */
+ *  dev / before detection: callers fall back to loopback. */
 async function readServerIp(): Promise<string | null> {
   const [row] = await db
     .select({ serverIp: platformSettings.serverIp })

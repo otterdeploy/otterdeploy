@@ -1,24 +1,24 @@
 /**
- * od-5j8.9 — terminal access redesign: single-use tickets + step-up + Origin
+ * od-5j8.9: terminal access redesign: single-use tickets + step-up + Origin
  * checks on the /pty WebSocket upgrade.
  *
  * Invariants under test:
- *   1. A ticket is single-use — consuming it a second time (a replay) fails.
- *   2. A ticket minted for target A resolves to target A, never target B — and
+ *   1. A ticket is single-use. Consuming it a second time (a replay) fails.
+ *   2. A ticket minted for target A resolves to target A, never target B, and
  *      structurally, the WS upgrade (apps/server/src/handlers/terminal/ws.ts)
  *      accepts NO client-supplied target at all (no `?container=`/`?host=1`),
  *      so there is nothing left for a client to substitute.
  *   3. An expired ticket fails, exactly like a replay (Redis TTL eviction).
- *   4. The host terminal — the most dangerous target — is install-admin only;
+ *   4. The host terminal (the most dangerous target) is install-admin only;
  *      an ordinary organization member (even with the terminal:open
  *      permission) is denied.
- *   5. The WS upgrade itself performs no authorization or actor resolution —
+ *   5. The WS upgrade itself performs no authorization or actor resolution:
  *      that now happens once, at ticket-mint time, through the ordinary
  *      `terminal.mintTicket` oRPC procedure (see ./od-5j8.2's updated
  *      transport-parity assertions for the structural half of this).
  * Origin-check and "no cookie/ticket-less upgrade" behavior are exercised as
  * real HTTP requests against the actual handler in
- * apps/server/src/handlers/terminal/__tests__/ws.test.ts — that file owns
+ * apps/server/src/handlers/terminal/__tests__/ws.test.ts: that file owns
  * the transport, this one owns the ticket/authz primitives it's built on.
  */
 import { readFileSync } from "node:fs";
@@ -53,7 +53,7 @@ function readSource(path: string): string {
 
 const uid = (label: string) => `${label}_${crypto.randomUUID()}`;
 
-describe("[od-5j8.9] a ticket is single-use — replay fails", () => {
+describe("[od-5j8.9] a ticket is single-use. Replay fails", () => {
   test("consuming a minted ticket twice: first succeeds, second is rejected", async () => {
     const userId = uid("user");
     const organizationId = uid("org");
@@ -102,7 +102,7 @@ describe("[od-5j8.9] a ticket is single-use — replay fails", () => {
   });
 });
 
-describe("[od-5j8.9] a ticket is target-bound — no cross-target substitution", () => {
+describe("[od-5j8.9] a ticket is target-bound, no cross-target substitution", () => {
   test("a ticket minted for container A resolves only to container A, never container B", async () => {
     const userId = uid("user");
     const organizationId = uid("org");
@@ -131,7 +131,7 @@ describe("[od-5j8.9] a ticket is target-bound — no cross-target substitution",
       expect(claimsB.value.target).toEqual({ kind: "container", id: "container-B" });
   });
 
-  test("structurally: the WS upgrade accepts no client-supplied target — nothing to substitute", () => {
+  test("structurally: the WS upgrade accepts no client-supplied target, nothing to substitute", () => {
     const text = readSource("apps/server/src/handlers/terminal/ws.ts");
     // The old `?container=`/`?host=1` query params are gone; the target
     // comes exclusively from the consumed ticket's claims.
@@ -212,7 +212,7 @@ describe("[od-5j8.9] the host terminal is install-admin only", () => {
     expect(decision.isOk()).toBe(true);
   });
 
-  test("an organization API key — however broadly scoped — can never open the host shell", async () => {
+  test("an organization API key (however broadly scoped) can never open the host shell", async () => {
     const broadKey: ApiKeyActor = {
       kind: "api-key",
       id: "key_1",
@@ -234,7 +234,7 @@ describe("[od-5j8.9] the host terminal is install-admin only", () => {
 
   // Container-ownership authorization (a container must be org-owned before
   // any capability check runs) needs a real DB/docker daemon, which this
-  // pure security suite deliberately doesn't depend on — the org-scope
+  // pure security suite deliberately doesn't depend on. The org-scope
   // capability decision itself is already covered by
   // od-5j8.2-capability-authz-matrix.test.ts. Structural check that the
   // container branch still goes through org-ownership discovery first:
@@ -268,7 +268,7 @@ describe("[od-5j8.9] mintTicket requires an interactive step-up grant (structura
     expect(text).toContain("mintTerminalTicket(");
   });
 
-  test("the mintTicket handler rejects API-key actors — a real interactive session is required", () => {
+  test("the mintTicket handler rejects API-key actors. A real interactive session is required", () => {
     const text = readSource("packages/api/src/routers/terminal/index.ts");
     expect(text).toContain("INTERACTIVE_SESSION_REQUIRED");
     expect(text).toMatch(/if \(!context\.session\)/);

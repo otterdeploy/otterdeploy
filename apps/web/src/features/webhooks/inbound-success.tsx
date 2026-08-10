@@ -1,5 +1,5 @@
 /**
- * Post-create screen for an inbound endpoint — the only place the plaintext
+ * Post-create screen for an inbound endpoint. The only place the plaintext
  * HMAC secret ever appears (the create response returns it exactly once).
  * Split out of `inbound-dialog.tsx` to keep the dialog file within budget.
  */
@@ -53,7 +53,7 @@ function CopyRow({ value }: { value: string }) {
   );
 }
 
-/** Post-create screen — the only place the plaintext secret ever appears. */
+/** Post-create screen, the only place the plaintext secret ever appears. */
 export function SuccessScreen({ created, onDone }: { created: Created; onDone: () => void }) {
   const { t } = useTranslation();
   return (
@@ -61,7 +61,7 @@ export function SuccessScreen({ created, onDone }: { created: Created; onDone: (
       <DialogHeader>
         <DialogTitle>{t("webhooks.endpointCreated")}</DialogTitle>
         <DialogDescription>
-          Store the HMAC secret now — this is the only time it's shown in full. You can reveal it
+          Store the HMAC secret now. This is the only time it's shown in full. You can reveal it
           again later from the card, but treat this screen as the handoff.
         </DialogDescription>
       </DialogHeader>

@@ -1,8 +1,8 @@
 /**
- * Read-only detection hints for the step views — the framework
+ * Read-only detection hints for the step views. The framework
  * `git.inspectRepo` found for the currently bound (repo, root), and the
  * conventional port that goes with it. Steps use these to *explain* a
- * prefilled value ("Detected Vite — port 5173 prefilled"), never to set one.
+ * prefilled value ("Detected Vite, port 5173 prefilled"), never to set one.
  *
  * Applying detection to the form is a separate job and lives in
  * `steps/source-defaults.ts`, driven by the `repo`/`root` field listeners.
@@ -26,7 +26,7 @@ interface Detection {
 
 function useInspectQuery(repo: string, root: string): Detection {
   // Same query (and key) as the Builder step's DetectionBanner and the root
-  // directory picker — react-query dedupes, so this adds no network cost.
+  // directory picker: react-query dedupes, so this adds no network cost.
   const inspect = useQuery({
     ...orpc.git.inspectRepo.queryOptions({
       input: repo ? { gitRepoId: repo, path: root || "" } : skipToken,
@@ -37,7 +37,7 @@ function useInspectQuery(repo: string, root: string): Detection {
   return { framework, defaultPort: frameworkDefaultPort(framework) };
 }
 
-/** Step-view accessor (needs a mounted form context) — for detection hints. */
+/** Step-view accessor (needs a mounted form context), for detection hints. */
 export function useRepoDetection(): Detection {
   const form = useFormContext();
   const repo = useStore(form.store, (s) => s.values.repo as string);

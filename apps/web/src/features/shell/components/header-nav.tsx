@@ -93,7 +93,7 @@ export function HeaderNav() {
   // pickers) because the mobile menu renders all three lists at once.
   const { data: projects } = useLiveQuery((q) => q.from({ p: projectCollection }), []);
   // Sorted here as well as in `resolveDefaultEnvironment` because this array is
-  // ALSO what renders the switcher list — an unordered collection would shuffle
+  // ALSO what renders the switcher list. An unordered collection would shuffle
   // the menu between renders. Same reason variables.tsx sorts its copy.
   const { data: environments } = useLiveQuery(
     (q) =>
@@ -104,7 +104,7 @@ export function HeaderNav() {
     [project?.id],
   );
 
-  // `strict: false` — this nav also renders on org-level routes, which have no
+  // `strict: false`: this nav also renders on org-level routes, which have no
   // `env` search param in their schema at all.
   const search = useSearch({ strict: false }) as { env?: string };
   // The project's own pointer decides which environment is main. Deriving it
@@ -120,7 +120,7 @@ export function HeaderNav() {
     await authClient.organization.setActive({ organizationId: org.id });
     await Promise.all([
       // The session payload carries activeOrganizationId, and the gate now
-      // serves it from a 5min-stale cache — so switching org MUST drop it, or
+      // serves it from a 5min-stale cache, so switching org MUST drop it, or
       // the app keeps resolving the previous org until the cache expires.
       invalidateAuth(),
       queryClient.invalidateQueries({ queryKey: orpc.project.list.queryKey() }),
@@ -175,7 +175,7 @@ interface CrumbProps {
   lists: NavLists;
 }
 
-/** Full crumb trail — org / project / environment as three separate triggers.
+/** Full crumb trail: org / project / environment as three separate triggers.
  *  Needs ~26rem, so it only appears once there's room for it. */
 function DesktopTrail({ orgName, projectName, currentEnv, lists }: CrumbProps) {
   const { t } = useTranslation();
@@ -216,7 +216,7 @@ function DesktopTrail({ orgName, projectName, currentEnv, lists }: CrumbProps) {
 /** Below `md` the three triggers can't fit beside the sidebar toggle and the
  *  action cluster, so they collapse into ONE trigger that opens all three lists
  *  as labelled groups. Switching workspace, project and environment all stay
- *  reachable — they just share a surface. */
+ *  reachable: they just share a surface. */
 function MobileCrumbMenu({ orgName, projectName, currentEnv, lists }: CrumbProps) {
   const { t } = useTranslation();
   return (

@@ -40,7 +40,7 @@ export function StepResources({ isDb }: StepResourcesProps) {
   const sizeSub = nodesLoading
     ? "Reading swarm capacity…"
     : nodes.length === 0
-      ? "No swarm nodes registered — register one before deploying."
+      ? "No swarm nodes registered. Register one before deploying."
       : `Cluster has ${clusterCpu.total} vCPU across ${nodes.length} ${nodes.length === 1 ? "node" : "nodes"} · ${Math.max(0, clusterCpu.total - clusterCpu.used).toFixed(1)} free · ${Math.max(0, clusterMem.total - clusterMem.used).toFixed(0)} GB memory free`;
 
   return (

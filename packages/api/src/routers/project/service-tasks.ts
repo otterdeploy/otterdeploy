@@ -1,6 +1,6 @@
 /**
  * Live swarm-task state for every service in a project. Drives the per-node
- * REPLICAS tray in the graph. Recomputed on every read — there's no caching
+ * REPLICAS tray in the graph. Recomputed on every read. There's no caching
  * here; the frontend polls when it wants fresh state.
  *
  * Implementation:
@@ -47,7 +47,7 @@ export interface ServiceTaskInfo {
   containerId: string | null;
   exitCode: number | null;
   timestamp: string | null;
-  /** Runtime-agnostic restart contribution — plain Docker: the container's own
+  /** Runtime-agnostic restart contribution: plain Docker: the container's own
    *  `RestartCount`; swarm: 1 for a retired task (each retry is a fresh task).
    *  The client sums this per service for the ↻ badge. */
   restarts: number;
@@ -95,7 +95,7 @@ function buildSwarmNameToOwner(
       // A compose service is now a REAL child service_resource (registered in
       // the `services` loop above under its OWN resourceId). Its swarm name is
       // identical to this fan-out key, so setting it here would clobber the
-      // child owner — filing the child's live tasks under the STACK id and
+      // child owner, filing the child's live tasks under the STACK id and
       // leaving the child with zero tasks (which renders as a false "offline"
       // even while it's running). Only claim the swarm name for the stack when
       // no child row already owns it (orphan swarm service, no dedicated row).
@@ -174,7 +174,7 @@ function buildTaskInfo(task: unknown, owner: TaskOwner, serviceName: string): Se
     containerId: status.containerId,
     exitCode: status.exitCode,
     timestamp: status.timestamp,
-    // Swarm doesn't restart a task in place — each retry is a fresh task and the
+    // Swarm doesn't restart a task in place. Each retry is a fresh task and the
     // old one is retired ("shutdown"). So one retired task ≈ one restart.
     restarts: desiredState === "shutdown" ? 1 : 0,
   };
@@ -267,7 +267,7 @@ export async function listProjectServiceTasks(
   // Compose stacks fan out to N swarm services (`${stack}-${svc}`), each
   // labelled with the stack's resourceId. We resolve every sub-service's swarm
   // name up front so its tasks map back to the stack AND to the sub-service the
-  // group node rolls status up per — that's what makes "which service is up?"
+  // group node rolls status up per: that's what makes "which service is up?"
   // answerable instead of one pill for the whole stack.
   const composes = await db
     .select({
@@ -294,7 +294,7 @@ export async function listProjectServiceTasks(
   if (resourceIds.length === 0) return Result.ok([]);
 
   // Runtime-aware live state. A missing/unreachable backend surfaces as an
-  // empty result rather than failing the whole graph load — the UI keeps
+  // empty result rather than failing the whole graph load. The UI keeps
   // rendering nodes without live state.
   const docker = Docker.fromEnv();
   const grouped = new Map<ResourceId, ServiceTaskInfo[]>();

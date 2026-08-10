@@ -12,7 +12,7 @@ import { encryptForDomain } from "../../../lib/crypto";
 // Env vars
 // ---------------------------------------------------------------------------
 
-/** BASE rows only — preview overrides never surface in base env editors,
+/** BASE rows only: preview overrides never surface in base env editors,
  *  views, refs or manifest state. The resolver overlays preview rows itself
  *  via listPreviewServiceEnvVars. */
 export async function listServiceEnvVars(
@@ -35,7 +35,7 @@ export async function listServiceEnvVars(
   );
 }
 
-/** Base env rows for a SET of service resources — one query instead of N
+/** Base env rows for a SET of service resources. One query instead of N
  *  `listServiceEnvVars` calls (the project-resources list fired one per
  *  service). Returns a map keyed by serviceResourceId; services with no base
  *  env vars are absent (the caller defaults them to an empty list). */
@@ -53,7 +53,7 @@ export async function listServiceEnvVarsForResources(
         isNull(serviceEnvVar.previewId),
       ),
     )
-    // Fresh read — this feeds the resource list's `extraEnv`, which the panel's
+    // Fresh read. This feeds the resource list's `extraEnv`, which the panel's
     // Variables tab renders; a stale cache hit hides a just-saved var until the
     // 60s TTL lapses (the "I saved it but it's not in the UI" bug).
     .$withCache(false);
@@ -69,7 +69,7 @@ export async function listServiceEnvVarsForResources(
 /**
  * Sealing is sticky and one-way, mirroring `upsertProjectEnvVar`: if the
  * existing base row (or this call) marks the key sealed, the FINAL row is
- * sealed — a caller can never flip it back to unsealed by omitting
+ * sealed: a caller can never flip it back to unsealed by omitting
  * `sealed: true` on a later write. `value` is encrypted with the
  * "env-vars" domain key whenever the final state is sealed, whether or not
  * THIS call's input already knew that.
@@ -151,7 +151,7 @@ export async function deleteServiceEnvVar(input: {
  * `bulkReplaceProjectEnvVars`: they're never deleted by the "base rows"
  * pruning, and any `vars` entry whose key collides with an existing sealed
  * row is dropped rather than applied. The bulk editor round-trips values it
- * read back from the API — a sealed row's plaintext was never sent to it in
+ * read back from the API. A sealed row's plaintext was never sent to it in
  * the first place (masked by `mapEnvVar`), so blindly re-inserting that
  * entry would silently clobber the secret with an empty/stale value. Sealed
  * vars are managed one at a time via `upsertServiceEnvVar` / `deleteServiceEnvVar`.
@@ -173,7 +173,7 @@ export async function bulkReplaceServiceEnvVars(
       )) as ServiceEnvVarRow[];
     const sealedKeys = new Set(sealedRows.map((r) => r.key));
 
-    // Base, unsealed rows only — a bulk edit of the base env must never wipe
+    // Base, unsealed rows only: a bulk edit of the base env must never wipe
     // a PR preview's overrides, and never touches a sealed row.
     await tx
       .delete(serviceEnvVar)
@@ -212,7 +212,7 @@ export async function bulkReplaceServiceEnvVars(
  * (`previewId IS NULL`), which every non-preview resource is. Ordering NULLs
  * last puts the preview-scoped match first, so LIMIT 1 returns the branch when
  * present and the base otherwise. With no preview scope this always resolves
- * to the base row — identical to `getResourceByProjectAndName`.
+ * to the base row: identical to `getResourceByProjectAndName`.
  */
 export async function resolveResourceForPreview(
   projectId: ProjectId,
@@ -268,6 +268,6 @@ export async function findServiceDependentsByName(input: {
       ),
     );
 
-  // Dedupe — a service can reference the target via multiple env vars.
+  // Dedupe: a service can reference the target via multiple env vars.
   return Array.from(new Set(rows.map((r) => r.serviceResourceId))) as ResourceId[];
 }

@@ -37,7 +37,7 @@ describe("isTrustedOrigin", () => {
     expect(isTrustedOrigin("https://other.example.com", ALLOWED, null)).toBe(false);
   });
 
-  test("port is part of the origin — a different port is not same-origin", () => {
+  test("port is part of the origin. A different port is not same-origin", () => {
     expect(isTrustedOrigin("http://10.0.0.4:3000", ALLOWED, "10.0.0.4:9999")).toBe(false);
   });
 });

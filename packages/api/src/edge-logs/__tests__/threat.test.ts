@@ -23,7 +23,7 @@ const PROBES = [
   "/cgi-bin/luci",
 ];
 
-// Ordinary requests a real client makes — must NOT be flagged.
+// Ordinary requests a real client makes. Must NOT be flagged.
 const LEGIT = [
   "/",
   "/api/projects",
@@ -62,7 +62,7 @@ describe("classifyThreat", () => {
 describe("THREAT_SQL_REGEX", () => {
   // The Postgres `~*` regex must agree with the JS classifier (Postgres runs it
   // server-side; here we compile it as a JS RegExp to check parity on the same
-  // corpus — the constructs used mean the same thing in both engines).
+  // corpus: the constructs used mean the same thing in both engines).
   const re = new RegExp(THREAT_SQL_REGEX, "i");
 
   test("matches the same probes", () => {

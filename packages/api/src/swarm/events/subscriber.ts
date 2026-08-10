@@ -3,7 +3,7 @@
  *
  * Why a singleton: each connection holds a long-lived HTTP request against
  * the docker daemon. Without sharing, every consumer (UI streams, the
- * boot-log waiter, the future reconciler) would open its own — wasting
+ * boot-log waiter, the future reconciler) would open its own. Wasting
  * file descriptors and forcing the daemon to serialize every event N
  * times. Instead we keep ONE upstream connection and fan events out to
  * subscribers via an EventEmitter.
@@ -17,7 +17,7 @@
  * Reconnect: docker can drop the events stream for any reason (daemon
  * restart, network hiccup, swarm leadership change). The reader loop
  * catches stream-end and reconnects with exponential backoff capped at
- * 30s. There's no replay — consumers should treat the subscriber as
+ * 30s. There's no replay. Consumers should treat the subscriber as
  * best-effort and reconcile from current docker state when they need
  * authoritative answers (snapshot-then-watch pattern).
  */
@@ -44,15 +44,15 @@ class DockerEventBus {
   private stream: NodeJS.ReadableStream | null = null;
   private connected = false;
   /** Number of subscribe() callers minus close() callers. The connection
-   *  follows this — opens on 0→1, closes (after a quiet window) on N→0. */
+   *  follows this: opens on 0→1, closes (after a quiet window) on N→0. */
   private listenerCount = 0;
   private backoffMs = MIN_BACKOFF_MS;
   private idleShutdownTimer: NodeJS.Timeout | null = null;
   /** Stops the reader loop's recursive reconnect when we want a clean
-   *  teardown — set by stop(), checked by the loop. */
+   *  teardown: set by stop(), checked by the loop. */
   private shouldRun = false;
 
-  /** Increase emitter's listener cap — we don't want spurious "memory
+  /** Increase emitter's listener cap. We don't want spurious "memory
    *  leak" warnings from the (intentionally many) per-request consumers. */
   constructor() {
     this.emitter.setMaxListeners(0);
@@ -81,7 +81,7 @@ class DockerEventBus {
     };
   }
 
-  /** True when there's at least one live listener — useful for tests and
+  /** True when there's at least one live listener. Useful for tests and
    *  for the rare consumer that wants to know whether events will flow. */
   get hasSubscribers(): boolean {
     return this.listenerCount > 0;
@@ -98,7 +98,7 @@ class DockerEventBus {
         this.backoffMs = Math.min(this.backoffMs * 2, MAX_BACKOFF_MS);
         continue;
       }
-      // We got a live stream — reset backoff for the next failure.
+      // We got a live stream, reset backoff for the next failure.
       this.backoffMs = MIN_BACKOFF_MS;
       await this.drain();
       // drain() resolves on stream end (EOF or error). Tear down and try
@@ -151,7 +151,7 @@ class DockerEventBus {
       const event = normalizeDockerEvent(parsed);
       this.emitter.emit(EVENT_NAME, event);
     } catch {
-      // Malformed line — daemon sometimes batches partial JSON or sends
+      // Malformed line: daemon sometimes batches partial JSON or sends
       // status lines we don't care about. Skip without spamming logs.
     }
   }
@@ -161,7 +161,7 @@ class DockerEventBus {
       try {
         (this.stream as { destroy?: () => void }).destroy?.();
       } catch {
-        // Best-effort — the reader loop has already moved on.
+        // Best-effort: the reader loop has already moved on.
       }
     }
     if (this.docker) {
@@ -196,7 +196,7 @@ class DockerEventBus {
 }
 
 // Process-wide singleton. apps/server imports through the swarm barrel, so
-// there's exactly one instance per node process — which is what we want
+// there's exactly one instance per node process, which is what we want
 // because there's exactly one docker daemon per node.
 const bus = new DockerEventBus();
 
@@ -206,7 +206,7 @@ const bus = new DockerEventBus();
  * gracefully tears it down when the last listener leaves.
  *
  * Order guarantee: events are emitted in the order docker sends them on a
- * single connection. After a reconnect there's a gap — consumers that
+ * single connection. After a reconnect there's a gap. Consumers that
  * need full coverage across reconnects should snapshot the relevant
  * docker state when they start and after each reconnect (which they can
  * detect via the gap in event timestamps).
@@ -218,7 +218,7 @@ export function subscribeDockerEvents(listener: Listener): { close: () => void }
 /**
  * Predicate-filtered subscribe. Convenience wrapper for the common case
  * of "I only care about service.create events for THIS service name".
- * Keeps the per-listener filter cheap — the bus emits to every listener
+ * Keeps the per-listener filter cheap. The bus emits to every listener
  * regardless, so push the predicate down rather than allocating N times.
  */
 export function subscribeDockerEventsWhere<T extends DockerEvent = DockerEvent>(

@@ -3,7 +3,7 @@
  * viewer) it gets a native browser: list collections + counts, then page a
  * collection's documents. Only read operations are issued (find / skip / limit /
  * estimatedDocumentCount / getCollectionNames) and the collection name is the
- * only caller input — JSON-encoded into the eval source — so the viewer is
+ * only caller input (JSON-encoded into the eval source) so the viewer is
  * read-only by construction with no command-injection surface.
  *
  * Runs inside the database's task container via the same Docker exec channel the
@@ -12,7 +12,7 @@
  * payload out of any shell chatter.
  *
  * Requires `mongosh` (and `EJSON`), which ship in mongo 6+. We only support
- * mongo 6+ — the same assumption the engine adapter's healthcheck already makes
+ * mongo 6+: the same assumption the engine adapter's healthcheck already makes
  * (swarm/database-engines/mongodb.ts) and the pinned default image (`mongo:7`).
  * Legacy `mongo:4/5` (which shipped the old `mongo` shell) is unsupported; the
  * exec would fail with a clear error rather than silently misbehave.
@@ -95,7 +95,7 @@ async function withMongosh<T>(
 /**
  * Evaluate a read-only JS expression in the resource database and return its
  * EJSON-parsed value. The expression is authored server-side (never caller
- * input) — used by the org-catalog stats collector for db.stats()/serverStatus.
+ * input), used by the org-catalog stats collector for db.stats()/serverStatus.
  */
 export async function mongoEvalJson<T>(conn: DbConnInfo, jsExpr: string): Promise<T> {
   return withMongosh(conn, async (run) => {

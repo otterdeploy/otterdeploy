@@ -3,9 +3,9 @@
  * of index.ts like nosql-handlers so the orchestrator stays scannable.
  *
  * Permissions: minting/revoking rides `database:query` (same tier as running
- * a read-only statement — a read-only URL grants nothing the actor couldn't
+ * a read-only statement. A read-only URL grants nothing the actor couldn't
  * already do through the console). A `read-write` credential hands out the app
- * role's full privileges, so it additionally demands `database:write` — same
+ * role's full privileges, so it additionally demands `database:write`. Same
  * capability check as the data viewer's write path.
  */
 import type { DatabaseEphemeralCredentialId } from "@otterdeploy/shared/id";
@@ -33,7 +33,7 @@ export const ephemeralDatabaseHandlers = {
       await enforceResourceScope(context, input.resourceId);
 
       if (input.scope === "read-write") {
-        // API-key actors have no session for better-auth's role check — same
+        // API-key actors have no session for better-auth's role check. Same
         // stance as the data viewer's capabilities handler: no write surface.
         if (context.apiKey) throw errors.WRITE_SCOPE_FORBIDDEN();
         const { success } = await auth.api.hasPermission({

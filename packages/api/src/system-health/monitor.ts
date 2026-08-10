@@ -1,5 +1,5 @@
 /**
- * Host-health monitor — the background tick that turns introspection into
+ * Host-health monitor: the background tick that turns introspection into
  * warnings the operator actually sees. Every interval it snapshots host
  * health, records memory/disk series onto `platform_metric` (history for the
  * UI), and pushes warning/critical recommendations through the platform
@@ -8,7 +8,7 @@
  *
  * Cooldown: each recommendation id re-notifies at most once per window, so a
  * server sitting at 92% memory pings once, not every five minutes. In-memory
- * (mirrors notifications/audit-anomaly.ts) — a restart re-arming alerts is
+ * (mirrors notifications/audit-anomaly.ts): a restart re-arming alerts is
  * acceptable, losing alerts is not.
  *
  * Started from apps/server alongside startMetricsSampler; same lifecycle.
@@ -30,12 +30,12 @@ const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
 const NOTIFY_COOLDOWN_MS = 6 * 60 * 60 * 1000;
 
 // Self-heal: when the data root crosses this, auto-reclaim the SAFE targets
-// (unused images + idle build cache) instead of only alerting — a full disk
+// (unused images + idle build cache) instead of only alerting. A full disk
 // stalls every build/deploy, so waiting for an operator to click "reclaim" is
 // too late. Only fires when there's a meaningful amount to reclaim, and at most
 // once per window so it never churns.
 const AUTO_RECLAIM_DISK_PCT = 88;
-const AUTO_RECLAIM_MIN_BYTES = 1024 ** 3; // 1 GiB — don't churn for scraps
+const AUTO_RECLAIM_MIN_BYTES = 1024 ** 3; // 1 GiB: don't churn for scraps
 const AUTO_RECLAIM_COOLDOWN_MS = 30 * 60 * 1000;
 
 const lastNotified = new Map<string, number>();
@@ -95,7 +95,7 @@ let lastAutoReclaimAt = 0;
 
 /** Reclaim disk automatically when the data root is critically full, so a build
  *  host can't wedge itself at 100% (which stalls every build/deploy). Prunes
- *  only the SAFE targets the manual "reclaim" button uses — unused images and
+ *  only the SAFE targets the manual "reclaim" button uses. Unused images and
  *  idle BuildKit cache, both re-created on demand. Best-effort; emits an
  *  info-level event so the operator sees the box healed itself. */
 async function autoReclaim(health: HostHealth): Promise<void> {
@@ -120,7 +120,7 @@ async function autoReclaim(health: HostHealth): Promise<void> {
       organizationId: org.id as OrganizationId,
       eventId: "host.pressure",
       title: `Auto-reclaimed ${gb(reclaimedBytes)} of disk`,
-      message: `The data root was at ${disk.usedPct}% — otterdeploy pruned unused images and idle build cache so builds don't stall.`,
+      message: `The data root was at ${disk.usedPct}%. Otterdeploy pruned unused images and idle build cache so builds don't stall.`,
       data: { recommendation: "auto-reclaim", severity: "info", action: "images" },
     });
   }

@@ -1,5 +1,5 @@
 /**
- * i18n audit — finds user-visible English strings that are not routed through
+ * i18n audit: finds user-visible English strings that are not routed through
  * `t()`.
  *
  * This is a lint, not a codemod: it reports, it never rewrites. Run it before
@@ -9,7 +9,7 @@
  * It answers a different question from the type system. Once a string is
  * routed through `t()`, `packages/i18n/src/types.ts` takes over: the key must
  * exist and every locale must define it, both enforced by `tsc`. What types
- * cannot see is a string that never entered the system at all — a bare
+ * cannot see is a string that never entered the system at all. A bare
  * `<span>Deploy failed</span>` typechecks perfectly. That gap is this
  * script's entire job.
  *
@@ -73,7 +73,7 @@ function isSkippedFile(path: string): boolean {
   );
 }
 
-/** Identifiers, slugs and enum values — a single token with no prose shape. */
+/** Identifiers, slugs and enum values: a single token with no prose shape. */
 function isIdentifier(text: string): boolean {
   if (/^[a-z][a-z0-9_-]*$/.test(text)) return true;
   if (/^[A-Za-z][A-Za-z0-9]*$/.test(text) && !/\s/.test(text) && text.length < 4) return true;
@@ -147,7 +147,7 @@ interface Finding {
  * Blank a matched region while preserving its shape.
  *
  * Newlines must survive, or every multi-line comment collapses the line count
- * and every finding after it is reported at the wrong line — which sends you
+ * and every finding after it is reported at the wrong line, which sends you
  * editing the wrong part of the file.
  */
 function blank(match: string): string {
@@ -161,7 +161,7 @@ function maskIgnoredRegions(source: string): string {
       // Whole-line comments and block comments.
       .replace(/\/\*[\s\S]*?\*\//g, blank)
       .replace(/(^|\n)\s*\/\/[^\n]*/g, blank)
-      // Imports — module specifiers are never copy.
+      // Imports: module specifiers are never copy.
       .replace(/^import[^;]+;/gm, blank)
       // `throw new Error(...)` is addressed to whoever is reading a stack
       // trace, not to a user. Translating an invariant message makes it
@@ -210,7 +210,7 @@ function scanToasts(masked: string, rel: string): Finding[] {
 }
 
 /**
- * Template literals with prose in them — the audit's historic blind spot.
+ * Template literals with prose in them: the audit's historic blind spot.
  * `{`Pushes via ${name}`}` is neither a text node nor an attribute, so the
  * other scans walk straight past it.
  */

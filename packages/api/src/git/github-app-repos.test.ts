@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-// listInstallationRepos is pure fetch — no DB, no JWT mint. The config-loader
+// listInstallationRepos is pure fetch, no DB, no JWT mint. The config-loader
 // module is mocked anyway so the import chain never touches @otterdeploy/db.
 vi.mock("./github-app-config", () => ({
   loadGithubAppForInstallation: vi.fn(),
 }));
 // github-app.ts's `ghFetch` wrapper routes every request through the shared
-// egress policy (SSRF hardening) — stub both the network call and the
+// egress policy (SSRF hardening): stub both the network call and the
 // control-plane-identity denylist lookup (a DB read) so this stays a pure
 // unit test.
 vi.mock("@otterdeploy/shared/egress-policy", () => ({
@@ -98,7 +98,7 @@ describe("listInstallationRepos → repo list + truthful count", () => {
 
   it("reports total_count even when the repository list lags behind it", async () => {
     // GitHub can briefly return a short/empty page right after an install
-    // while still knowing the true total — the count must come from
+    // while still knowing the true total: the count must come from
     // total_count, never repositories.length, so the UI shows 77, not 0.
     fetchMock.mockResolvedValueOnce(jsonResponse({ total_count: 77, repositories: [] }));
 

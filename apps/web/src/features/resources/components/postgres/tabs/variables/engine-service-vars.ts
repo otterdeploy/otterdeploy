@@ -2,7 +2,7 @@
  * Engine-identity env vars the swarm spec actually injects into the
  * container. Mirrors per-engine adapters under
  * `packages/api/src/swarm/database-engines/<engine>.ts`. Backend reality
- * is the truth — keep this in sync when adding a new engine.
+ * is the truth. Keep this in sync when adding a new engine.
  */
 
 import type { PostgresBodyProps } from "../../types";
@@ -102,7 +102,7 @@ export function buildSystemVars(resource: PostgresBodyProps["resource"]): Derive
       value: resource.publicHostname,
       secret: false,
       description:
-        "The public TCP proxy domain for the service, if applicable. Always reached over 443 — no port needed.",
+        "The public TCP proxy domain for the service, if applicable. Always reached over 443, so no port is needed.",
     },
     {
       name: "OTTERDEPLOY_TCP_APPLICATION_PORT",

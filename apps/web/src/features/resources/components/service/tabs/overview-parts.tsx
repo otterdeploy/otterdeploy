@@ -1,9 +1,9 @@
 /**
- * Presentational pieces for {@link ServiceOverviewTab} — the stat-tile row,
+ * Presentational pieces for {@link ServiceOverviewTab}: the stat-tile row,
  * the nav cards, and the recent-deployments list, plus the small atoms they
  * share. Pulled into a sibling module so the tab component stays within the
  * complexity budget. Everything rendered is real data the panel already
- * loads — no invented numbers.
+ * loads, no invented numbers.
  */
 
 import { useEffect, useState } from "react";

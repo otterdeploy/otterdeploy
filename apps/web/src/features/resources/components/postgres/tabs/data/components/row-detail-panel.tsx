@@ -1,5 +1,5 @@
 /**
- * Row detail — a right-hand panel showing every column of one row as labeled
+ * Row detail: a right-hand panel showing every column of one row as labeled
  * read-only values with per-field copy. PK fields are highlighted; "Edit" jumps
  * to the grid's inline cell editor when the studio is editable. Opened from the
  * grid's per-row detail button; lives inside the grid wrapper so it can reach
@@ -100,7 +100,7 @@ function FieldValue({
   const [copied, setCopied] = useState(false);
   // The try/catch here used to swallow the real failure: `navigator.clipboard`
   // is undefined over plain http://<ip>, so accessing it threw and `setCopied`
-  // never ran — the tick silently never appeared and nothing reached the
+  // never ran. The tick silently never appeared and nothing reached the
   // clipboard. `copyToClipboard` has the insecure-context fallback and reports
   // whether the write actually landed. See shared/lib/clipboard.ts.
   const copy = async () => {

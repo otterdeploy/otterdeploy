@@ -1,10 +1,10 @@
-# Cloudflare Domain Connect — SaaS-as-Relay
+# Cloudflare Domain Connect: SaaS-as-Relay
 
 Status: **not started**. Prereqs (ops + Cloudflare approval) gate the work.
 Last verified: 2026-07-26.
 
-Scope note, so this isn't read as "no Cloudflare support": the **relay** described here — the
-one-click, no-token Domain Connect flow — is unbuilt. Cloudflare via an API token **is**
+Scope note, so this isn't read as "no Cloudflare support": the **relay** described here. The
+one-click, no-token Domain Connect flow: is unbuilt. Cloudflare via an API token **is**
 shipped: `organization.cloudflareListZones`, `setCloudflareConfig`,
 `autoConfigureBaseDomain` and `autoConfigureControlPlaneDomain` create the DNS records for
 you once a token is saved.
@@ -28,7 +28,7 @@ A one-click flow for connecting an org's base domain to Cloudflare DNS:
         │
         ▼
 [ dash.cloudflare.com Domain Connect UI ]
-   "otterdeploy wants to add these records to acme.com — Confirm?"
+   "otterdeploy wants to add these records to acme.com, Confirm?"
    user confirms
         │
         ▼  redirect_uri = app.otterdeploy.dev/api/relay/cb?state=…
@@ -41,13 +41,13 @@ A one-click flow for connecting an org's base domain to Cloudflare DNS:
    marks domain verified, refetches org.settings
 ```
 
-Both ends of the relay are otterdeploy code — same monorepo. The SaaS install
+Both ends of the relay are otterdeploy code, same monorepo. The SaaS install
 (`otterdeploy.dev`) runs with `OTTERDEPLOY_ROLE=relay`; the self-hosted install
 runs without that flag and points `OTTERDEPLOY_SAAS_RELAY_URL` at the SaaS host
 (default `https://app.otterdeploy.dev`).
 
 When the SaaS isn't reachable, the UI silently falls back to the paste-token
-flow that's already shipped — no broken state.
+flow that's already shipped, no broken state.
 
 ## Why the relay, not direct integration per install
 
@@ -72,13 +72,13 @@ self-hosted install at their own relay. The env var makes this swap-in clean.
 
 | # | What | Owner | Blocking |
 |---|------|-------|----------|
-| 1 | Deploy `app.otterdeploy.dev` (SaaS) | platform team | yes — relay has to live somewhere |
-| 2 | Generate RSA-2048 keypair for Domain Connect signing | platform team | yes — Cloudflare rejects unsigned URLs |
-| 3 | Publish public key as TXT record `_dck1.otterdeploy.dev` | platform team | yes — Cloudflare DNS-resolves this to verify signatures |
+| 1 | Deploy `app.otterdeploy.dev` (SaaS) | platform team | yes: relay has to live somewhere |
+| 2 | Generate RSA-2048 keypair for Domain Connect signing | platform team | yes: Cloudflare rejects unsigned URLs |
+| 3 | Publish public key as TXT record `_dck1.otterdeploy.dev` | platform team | yes: Cloudflare DNS-resolves this to verify signatures |
 | 4 | Store private key in SaaS secret manager (env var or Vault) | platform team | yes |
-| 5 | Write template JSON (`otterdeploy.base-domain.json`) | platform team | yes — defines which records get added |
-| 6 | PR template to [Domain-Connect/Templates](https://github.com/Domain-Connect/Templates) | platform team | yes — Cloudflare pulls from this repo |
-| 7 | Email `domain-connect@cloudflare.com` with template link + `syncPubKeyDomain` + SVG logo + proxy preferences | platform team | yes — multi-day async, blocks everything below |
+| 5 | Write template JSON (`otterdeploy.base-domain.json`) | platform team | yes. Defines which records get added |
+| 6 | PR template to [Domain-Connect/Templates](https://github.com/Domain-Connect/Templates) | platform team | yes: Cloudflare pulls from this repo |
+| 7 | Email `domain-connect@cloudflare.com` with template link + `syncPubKeyDomain` + SVG logo + proxy preferences | platform team | yes: multi-day async, blocks everything below |
 | 8 | Wait for Cloudflare approval | Cloudflare | yes |
 
 Template JSON skeleton (to be saved as
@@ -94,7 +94,7 @@ Template JSON skeleton (to be saved as
   "syncBlock":    false,
   "syncPubKeyDomain": "otterdeploy.dev",
   "logoUrl":      "https://app.otterdeploy.dev/static/logo.svg",
-  "description":  "Connect your domain to otterdeploy — points the apex at your server and adds the verification TXT.",
+  "description":  "Connect your domain to otterdeploy: points the apex at your server and adds the verification TXT.",
   "records": [
     {
       "type":  "TXT",
@@ -131,7 +131,7 @@ creates without needing per-resource DNS edits later.
 
 Six discrete changes, in dependency order.
 
-### 1. SaaS relay endpoint — `POST /api/relay/cloudflare/start`
+### 1. SaaS relay endpoint: `POST /api/relay/cloudflare/start`
 
 New router slice at `packages/api/src/routers/relay/`. Available only when
 `OTTERDEPLOY_ROLE=relay` is set.
@@ -141,7 +141,7 @@ Input:
 - `verifyToken`   (TXT challenge value the install already generated)
 - `serverIp`      (where the A record should point)
 - `callbackUrl`   (where to bounce the user after Cloudflare confirms;
-                   restricted via allowlist — see security below)
+                   restricted via allowlist: see security below)
 
 Behavior:
 1. Discover the customer's DNS provider via `dig TXT _domainconnect.<domain>`.
@@ -152,10 +152,10 @@ Behavior:
 4. Store `{ state → callbackUrl, expiresAt }` in a short-lived KV (Redis
    or Postgres with a TTL sweep). Never store the domain.
 5. Sign the apply URL: `sig = base64url(RSA-SHA256(private_key, normalized_query))`.
-   See Domain Connect spec §6 for the canonicalization rules — order matters.
+   See Domain Connect spec §6 for the canonicalization rules. Order matters.
 6. Return `{ applyUrl }` to the caller.
 
-### 2. SaaS relay callback — `GET /api/relay/cloudflare/cb`
+### 2. SaaS relay callback: `GET /api/relay/cloudflare/cb`
 
 Cloudflare redirects users here after they confirm.
 
@@ -167,11 +167,11 @@ Behavior:
 2. Pull `callbackUrl` out of the KV. Delete the entry (single-use).
 3. 302 to `<callbackUrl>?cloudflare=<ok|denied>`.
 
-### 3. Self-hosted client — `lib/cloudflare-relay.ts`
+### 3. Self-hosted client: `lib/cloudflare-relay.ts`
 
 Thin client that POSTs to the relay. Reads `OTTERDEPLOY_SAAS_RELAY_URL`
 (default `https://app.otterdeploy.dev`). When unset or the request fails,
-the existing paste-token UI is the fallback path — no relay code throws.
+the existing paste-token UI is the fallback path, no relay code throws.
 
 ### 4. Self-hosted callback handler
 
@@ -183,7 +183,7 @@ an oRPC endpoint). On `ok`:
 
 On `denied`: surface a toast, leave the org unverified.
 
-### 5. UI — Settings page
+### 5. UI: Settings page
 
 The Cloudflare card grows a primary button:
 
@@ -211,7 +211,7 @@ on DNS on every load.
 | Replay of signed apply URL | Apply URLs include `state` (single-use) and a short `iat` claim. Cloudflare rejects requests older than 10 minutes anyway per spec. |
 | Private key exposure | Private key never leaves the SaaS process. Stored in env var or secrets manager. Never logged. |
 | SaaS sees customer domains | We don't log `domain` in the KV (only the state token + callbackUrl). The signed URL passes through memory only. |
-| Self-hosted install impersonates another install | Self-hosted installs don't authenticate — they just supply a callbackUrl. The attack is "make user click connect and redirect them to someone else's install" — which requires also getting the user to confirm on Cloudflare's UI; user sees the records being added to their own domain. Low-impact. We can add HMAC auth later if abuse appears. |
+| Self-hosted install impersonates another install | Self-hosted installs don't authenticate. They just supply a callbackUrl. The attack is "make user click connect and redirect them to someone else's install", which requires also getting the user to confirm on Cloudflare's UI; user sees the records being added to their own domain. Low-impact. We can add HMAC auth later if abuse appears. |
 
 ## Testing strategy
 
@@ -229,7 +229,7 @@ on DNS on every load.
 
 - Other DNS providers that implement Domain Connect (GoDaddy / IONOS / Hover).
   Same protocol, different `urlSyncUX`. Adding them post-launch is a config
-  change, not a code change — the discovery step already returns whatever
+  change, not a code change. The discovery step already returns whatever
   provider the domain's TXT points at.
 - Async Domain Connect flow (OAuth-style with refresh tokens). The sync
   flow we're using is sufficient for one-shot record creation; async is

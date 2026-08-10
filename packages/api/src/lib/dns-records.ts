@@ -1,5 +1,5 @@
 /**
- * The DNS records a domain needs to work here — derived in one place, for every
+ * The DNS records a domain needs to work here. Derived in one place, for every
  * surface that asks for a domain.
  *
  * Service custom domains, the control-plane FQDN and the workspace base domain
@@ -22,7 +22,7 @@ export interface RequiredDnsRecord {
   name: string;
   value: string;
   /**
-   * `name` with the zone suffix removed — "waves" rather than
+   * `name` with the zone suffix removed. "waves" rather than
    * "waves.acme.com", and "@" at the apex. Every DNS UI (Cloudflare's
    * included) wants the zone-relative form, and pasting the FQDN into them
    * silently creates `waves.acme.com.acme.com`. Null when the zone isn't known
@@ -45,7 +45,7 @@ export function toRelativeName(fqdn: string, zone: string | null): string | null
  *
  * The TXT proves intent, which an A record cannot: an address might already
  * point at this install for unrelated reasons (shared IP, a CDN), and that must
- * not by itself grant the right to publish on that name — see ./dns-verify.ts.
+ * not by itself grant the right to publish on that name: see ./dns-verify.ts.
  */
 export function requiredDnsRecords(input: {
   domain: string;

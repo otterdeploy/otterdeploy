@@ -1,5 +1,5 @@
 /**
- * Edge defaults card — install-wide edge-proxy (Caddy) options: the ACME
+ * Edge defaults card: install-wide edge-proxy (Caddy) options: the ACME
  * registration email and the automatic HTTP→HTTPS redirect. Canonical home on
  * the Instance page (the copy under a project's Networking tab edits the same
  * platform_settings row). Saving reconciles the live edge; neither option can

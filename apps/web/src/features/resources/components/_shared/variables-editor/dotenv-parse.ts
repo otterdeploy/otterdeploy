@@ -1,6 +1,6 @@
 // .env parser/serializer for the bulk-edit dialog round-trip.
 // Handles: `KEY=value`, `export KEY=value`, single/double quotes, comments
-// starting with `#`, blank lines. Does NOT expand `${REF}` — those belong
+// starting with `#`, blank lines. Does NOT expand `${REF}`. Those belong
 // to the picker, not the source file.
 
 export interface DotenvEntry {

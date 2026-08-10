@@ -19,12 +19,12 @@ import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 /**
  * Repo count for an installation, honest about what we actually know:
  *
- *   1. `git_installation.repo_count` — GitHub's `total_count`, written by every
+ *   1. `git_installation.repo_count`: GitHub's `total_count`, written by every
  *      full sync. The source of truth when present.
  *   2. Fallback for rows that predate the column: the count of synced
- *      `git_repo` rows — but only when non-zero. Zero mirrored rows means
+ *      `git_repo` rows, but only when non-zero. Zero mirrored rows means
  *      "never synced", NOT "the installation has no repos", so it surfaces
- *      as null and the UI renders "—" instead of a confident wrong 0.
+ *      as null and the UI renders "–" instead of a confident wrong 0.
  */
 const installationRepoCountSql = sql<
   number | null
@@ -51,7 +51,7 @@ export async function listProvidersForOrg(organizationId: OrganizationId) {
   // A reinstall mints a fresh GitHub installation id, so the disconnected
   // account's soft-revoked row (kept for deploy history) would sit next to
   // its active replacement forever. Show a revoked row only while the same
-  // account has no active installation — as a "this is dead, reinstall" cue.
+  // account has no active installation. As a "this is dead, reinstall" cue.
   const accountKey = (i: typeof gitInstallation.$inferSelect) =>
     `${i.providerId}:${i.accountType}/${i.accountLogin}`;
   const activeAccounts = new Set(
@@ -102,7 +102,7 @@ export async function getInstallationForOrg(args: {
   return inst[0];
 }
 
-/** Full provider row + its (single) installation with repo count — powers the
+/** Full provider row + its (single) installation with repo count. Powers the
  *  GitHub App detail page. Returns null when the provider isn't in this org. */
 export async function getProviderDetail(args: {
   providerId: GitProviderId;
@@ -117,7 +117,7 @@ export async function getProviderDetail(args: {
     .limit(1);
   if (!provider) return null;
 
-  // Prefer the newest ACTIVE installation — after a reinstall the oldest row
+  // Prefer the newest ACTIVE installation: after a reinstall the oldest row
   // is the soft-revoked leftover, which would wrongly front the detail page.
   const [installation] = await db
     .select({
@@ -132,13 +132,13 @@ export async function getProviderDetail(args: {
   return { provider, installation: installation ?? null };
 }
 
-/** Projects deploying from a repo owned by this provider's installation —
+/** Projects deploying from a repo owned by this provider's installation,
  *  the "Resources" tab. */
 export async function listResourcesForProvider(args: {
   providerId: GitProviderId;
   organizationId: OrganizationId;
 }) {
-  // Repo binding lives on services now — list the (project, repo, branch) each
+  // Repo binding lives on services now. List the (project, repo, branch) each
   // git service bound to this provider's repos deploys from. Distinct so a
   // project with several services on the same repo+branch collapses to one row,
   // while a project deploying from multiple repos yields one row per repo.
@@ -179,12 +179,12 @@ export async function listReposForInstallation(installationDbId: GitInstallation
 }
 
 /**
- * Org-scoped `git_repo` lookup — the tenant boundary for every endpoint that
+ * Org-scoped `git_repo` lookup. The tenant boundary for every endpoint that
  * takes a caller-supplied `gitRepoId` (getRepo, inspectRepo, listBranches,
  * inspectEnv). A repo with no installation is a public-URL binding
  * (`connectPublicRepo`): by design those rows aren't tenant-scoped (the data
- * IS public GitHub content, and two orgs pasting the same URL share the row —
- * see public-repos.ts), so any authenticated org may read it. A repo that
+ * IS public GitHub content, and two orgs pasting the same URL share the row.
+ * See public-repos.ts), so any authenticated org may read it. A repo that
  * DOES have an installation is private-installation-backed and must resolve
  * to the caller's own org through installation → provider → organizationId,
  * otherwise this returns undefined so the caller 404s instead of leaking

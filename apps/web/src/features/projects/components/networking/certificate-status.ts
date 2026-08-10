@@ -1,7 +1,7 @@
 /**
  * Presentation for a probed edge certificate, shared by the route detail panel
  * and anything else that shows cert state. Extracted so the status vocabulary
- * (colour + label per status) stays identical wherever a certificate appears —
+ * (colour + label per status) stays identical wherever a certificate appears,
  * one coherent vocabulary, per DESIGN.md.
  */
 
@@ -22,7 +22,7 @@ export const CERT_STATUS: Record<CertStatus, { label: string; dot: string; text:
 };
 
 export function certExpiryLabel(c: RouteCertificate): string {
-  if (!c.notAfter) return "—";
+  if (!c.notAfter) return "–";
   const date = new Date(c.notAfter).toLocaleDateString();
   if (c.daysRemaining === null) return date;
   if (c.daysRemaining < 0) return `${date} · expired ${-c.daysRemaining}d ago`;

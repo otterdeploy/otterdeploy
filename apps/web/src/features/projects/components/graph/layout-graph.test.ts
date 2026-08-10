@@ -5,8 +5,10 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   incrementalLayout,
   NODE_WIDTH,
+  resolveAllOverlaps,
   resolveNewCollisions,
   topologySignature,
+  type NodeSize,
   type XY,
 } from "./layout-graph";
 
@@ -41,7 +43,7 @@ describe("incrementalLayout", () => {
     expect([...result.keys()].sort()).toEqual(["a", "b"]);
   });
 
-  it("pins existing nodes when one is added — they must not move", () => {
+  it("pins existing nodes when one is added, so they must not move", () => {
     const cached = new Map<string, XY>([
       ["a", { x: 10, y: 20 }],
       ["b", { x: 500, y: 20 }],
@@ -67,7 +69,7 @@ describe("incrementalLayout", () => {
   });
 
   it("never lets a new node land on top of a pinned one, and never moves the pinned ones", () => {
-    // Two pinned cards dragged nearly on top of each other (they overlap — that
+    // Two pinned cards dragged nearly on top of each other (they overlap, that
     // is the operator's choice and must be preserved). Adding a node drops its
     // ghost near the anchor, i.e. right into that pile.
     const cached = new Map<string, XY>([
@@ -101,14 +103,17 @@ describe("incrementalLayout", () => {
 
   // od-r96: a brand-new resource has no dependency edges yet (those only
   // appear once an env var references another resource), so dagre treats it
-  // as its own disconnected component and racks those up left-to-right — on
+  // as its own disconnected component and racks those up left-to-right. On
   // a graph already spread wide by several earlier stacks, that landed the
   // new card thousands of px past the last one, off in empty space. These
   // pinned positions mirror what a real ~10-stack graph looks like once
   // dagre has spread its disconnected components out.
   it("places a brand-new, edge-less node near the pinned cluster instead of dagre's far-right slot", () => {
     const cached = new Map<string, XY>(
-      Array.from({ length: 10 }, (_, i) => [`stack${i}`, { x: i * 468, y: i % 2 === 0 ? 40 : 400 }]),
+      Array.from({ length: 10 }, (_, i) => [
+        `stack${i}`,
+        { x: i * 468, y: i % 2 === 0 ? 40 : 400 },
+      ]),
     );
     const pinnedNodes = [...cached.keys()].map(node);
     const result = incrementalLayout([...pinnedNodes, node("new")], noEdges, cached);
@@ -121,7 +126,7 @@ describe("incrementalLayout", () => {
     const pinnedMaxY = Math.max(...[...cached.values()].map((p) => p.y)) + H;
     const n = posOf(result, "new");
     // Lands within the pinned cluster's own x-span (not past its right edge
-    // by more than one card + gap) and below it — not off past the last
+    // by more than one card + gap) and below it, not off past the last
     // dagre-invented column.
     expect(n.x).toBeGreaterThanOrEqual(pinnedMinX - W);
     expect(n.x).toBeLessThanOrEqual(pinnedMaxX + W);
@@ -139,7 +144,7 @@ describe("incrementalLayout", () => {
 
     expect(result.get("a")).toEqual({ x: 0, y: 0 });
     expect(result.get("b")).toEqual({ x: 2000, y: 0 });
-    // Wired to "b" — should land near it, not near "a"'s side of the graph.
+    // Wired to "b": should land near it, not near "a"'s side of the graph.
     const n = posOf(result, "new");
     expect(Math.abs(n.x - 2000)).toBeLessThan(Math.abs(n.x - 0));
   });
@@ -160,7 +165,7 @@ describe("resolveNewCollisions", () => {
 
   it("drops a horizontally boxed-in new node below the pile (phase-2 guarantee)", () => {
     // L and R are pinned, overlapping each other, so there is no clear spot
-    // between them — the only escape for the newcomer is downward.
+    // between them: the only escape for the newcomer is downward.
     const positions = new Map<string, XY>([
       ["L", { x: 0, y: 0 }],
       ["R", { x: 200, y: 0 }],
@@ -185,10 +190,10 @@ describe("resolveNewCollisions", () => {
   });
 });
 
-describe("resolveNewCollisions — operator-placed nodes are fixed obstacles", () => {
+describe("resolveNewCollisions: operator-placed nodes are fixed obstacles", () => {
   // The graph uses this with `isMovable = (id) => !dragged.has(id)`: a card the
   // operator dragged is never moved, but an auto-placed node is nudged clear of
-  // it — the "drag stays put, auto-layout avoids you" contract.
+  // it: the "drag stays put, auto-layout avoids you" contract.
   it("keeps a dragged card exactly where it is and moves the auto node off it", () => {
     const positions = new Map<string, XY>([
       ["dragged", { x: 100, y: 100 }],
@@ -229,5 +234,88 @@ describe("topologySignature", () => {
     const before = topologySignature([{ ...node("x"), data: { status: "running" } }], noEdges);
     const after = topologySignature([{ ...node("x"), data: { status: "error" } }], noEdges);
     expect(before).toBe(after);
+  });
+});
+
+// The last word on positions before React Flow renders them. Unlike
+// incrementalLayout (which pins by design), this one answers to a single rule:
+// when it returns, nothing overlaps. Whatever put the nodes where they were.
+describe("resolveAllOverlaps", () => {
+  it("separates two nodes that no layout pass ever compared (replayed graphLayout)", () => {
+    // Exactly the shape of the bug: a persisted layout is replayed straight
+    // into the render, so two saved spots can sit on top of each other and
+    // neither is "new" for anyone to nudge.
+    const positions = new Map<string, XY>([
+      ["compose:it-tools-2", { x: 0, y: 0 }],
+      ["compose:authentik", { x: 250, y: 10 }],
+    ]);
+    resolveAllOverlaps(positions, [node("compose:it-tools-2"), node("compose:authentik")]);
+    const a = posOf(positions, "compose:it-tools-2");
+    const b = posOf(positions, "compose:authentik");
+    expect(intersects(a, b)).toBe(false);
+  });
+
+  it("anchors the top-left card and moves the ones after it", () => {
+    const positions = new Map<string, XY>([
+      ["a", { x: 0, y: 0 }],
+      ["b", { x: 40, y: 20 }],
+    ]);
+    resolveAllOverlaps(positions, [node("a"), node("b")]);
+    expect(positions.get("a")).toEqual({ x: 0, y: 0 });
+    expect(intersects(posOf(positions, "b"), { x: 0, y: 0 })).toBe(false);
+  });
+
+  it("is idempotent: a clean layout comes back untouched", () => {
+    const clean = new Map<string, XY>([
+      ["a", { x: 0, y: 0 }],
+      ["b", { x: 900, y: 0 }],
+      ["c", { x: 0, y: 700 }],
+    ]);
+    const nodes = [node("a"), node("b"), node("c")];
+    const once = new Map(clean);
+    resolveAllOverlaps(once, nodes);
+    expect([...once]).toEqual([...clean]);
+    resolveAllOverlaps(once, nodes);
+    expect([...once]).toEqual([...clean]);
+  });
+
+  it("separates by MEASURED size, so a card taller than the estimate still clears", () => {
+    // A stack group that grew well past the height estimate (extra services,
+    // volume chips). Spaced so the estimate says "clear" and reality says
+    // "overlapping": the case where the graph shipped a visible collision.
+    const sizes: ReadonlyMap<string, NodeSize> = new Map([
+      ["tall", { width: W, height: 900 }],
+      ["below", { width: W, height: 220 }],
+    ]);
+    const positions = new Map<string, XY>([
+      ["tall", { x: 0, y: 0 }],
+      ["below", { x: 0, y: 400 }],
+    ]);
+
+    // Without the measurements the pass sees no overlap at all.
+    const unmeasured = new Map(positions);
+    resolveAllOverlaps(unmeasured, [node("tall"), node("below")]);
+    expect(unmeasured.get("below")).toEqual({ x: 0, y: 400 });
+
+    resolveAllOverlaps(positions, [node("tall"), node("below")], sizes);
+    const tall = posOf(positions, "tall");
+    const below = posOf(positions, "below");
+    const clearVertically = below.y >= tall.y + 900 || tall.y >= below.y + 220;
+    const clearHorizontally = below.x >= tall.x + W || tall.x >= below.x + W;
+    expect(clearVertically || clearHorizontally).toBe(true);
+    // It moved at all. The unmeasured pass above left it exactly where it was.
+    expect(below).not.toEqual({ x: 0, y: 400 });
+  });
+
+  it("leaves nothing overlapping in a pile of cards stacked on one point", () => {
+    const ids = ["a", "b", "c", "d", "e"];
+    const positions = new Map<string, XY>(ids.map((id, i) => [id, { x: i * 8, y: i * 4 }]));
+    resolveAllOverlaps(positions, ids.map(node));
+    for (const id of ids) {
+      for (const other of ids) {
+        if (id === other) continue;
+        expect(intersects(posOf(positions, id), posOf(positions, other))).toBe(false);
+      }
+    }
   });
 });

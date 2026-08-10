@@ -1,5 +1,5 @@
 /**
- * `service.env.*` oRPC procedures — split out of index.ts to keep the router
+ * `service.env.*` oRPC procedures: split out of index.ts to keep the router
  * module under the line cap. Spread back in as `serviceRouter.env`.
  */
 import { matchError, Result } from "better-result";
@@ -22,7 +22,7 @@ const refToServerError = (e: ResolveError) =>
     cause: e,
   });
 
-/** Best-effort manifest back-sync after a live env edit — must never fail the
+/** Best-effort manifest back-sync after a live env edit. Must never fail the
  *  mutation that already succeeded. See syncManifestEnvAfterLiveEdit. */
 async function backSync(ref: ResourceRef): Promise<void> {
   const synced = await Result.tryPromise({

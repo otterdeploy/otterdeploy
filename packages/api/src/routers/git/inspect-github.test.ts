@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 // inspect-github.ts's fetch helpers (fetchFullTree via getTreeSnapshot,
 // fetchPackageJson, fetchTextFile) now go through `ghFetch`
-// (packages/api/src/git/github-app.ts) instead of calling `fetch` directly —
-// od-skk closed the SSRF gap left by od-5j8.7 (these two files were excluded
+// (packages/api/src/git/github-app.ts) instead of calling `fetch` directly.
+// Od-skk closed the SSRF gap left by od-5j8.7 (these two files were excluded
 // from that pass while a sibling agent owned routers/git/**). ghFetch routes
 // every request through the shared egress policy, so stub the same seam
 // github-app-repos.test.ts / github-app-writeback.test.ts use to keep this a

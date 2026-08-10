@@ -2,17 +2,17 @@
  * Single-use, short-lived, target-bound tickets that authenticate the /pty
  * WebSocket upgrade (od-5j8.9). Replaces ambient-cookie / query-string-bearer
  * auth on the upgrade itself: a browser cannot set headers on a WebSocket
- * handshake, so SOME piece of the URL has to carry proof of authorization —
+ * handshake, so SOME piece of the URL has to carry proof of authorization,
  * but a long-lived credential there (a session cookie riding along, or the
  * old `?token=` API-key/bearer fallback) is exactly what makes cross-site
  * WebSocket hijacking and URL-leak replay possible. A ticket fixes both:
  * it's minted by an authenticated, step-up-verified RPC call (never derivable
  * from the WS request alone), it's good for seconds, and `consumeTerminalTicket`
- * atomically deletes it on first read (Redis GETDEL) — a captured/replayed
+ * atomically deletes it on first read (Redis GETDEL). A captured/replayed
  * ticket fails the second time no matter how fast the replay is.
  *
  * Same Redis-TTL-token shape as the existing deploy-protection handoff nonce
- * (../../authz/nonce.ts) and guest OTP (../../authz/otp.ts) — not a new
+ * (../../authz/nonce.ts) and guest OTP (../../authz/otp.ts), not a new
  * pattern, the same primitive applied to a new caller.
  */
 import { Result, TaggedError } from "better-result";
@@ -43,12 +43,12 @@ function redis(): TicketStore {
 }
 
 /**
- * Swap the ticket store. TEST ONLY — and enforced, not merely documented.
+ * Swap the ticket store. TEST ONLY, and enforced, not merely documented.
  *
  * `apps/server/.../ws.test.ts` exercises the real upgrade handler's rejection
  * paths, every one of which runs through this store. Without a seam those tests
  * open a live Redis connection, which the CI `test` job deliberately has no
- * service for (only the `integration` job gets containers — see ci.yml). The
+ * service for (only the `integration` job gets containers, see ci.yml). The
  * result was three tests hanging ~5s on a connection that could never succeed
  * and failing on timeout, while passing locally purely because a developer
  * happens to have compose up. A hidden infra dependency in a unit test is the
@@ -69,7 +69,7 @@ export function setTicketStoreForTests(store: TicketStore | null): void {
 const ticketKey = (token: string) => `terminal:ticket:${token}`;
 
 /**
- * The address a ticket binds to — derived by ONE function so the mint side and
+ * The address a ticket binds to. Derived by ONE function so the mint side and
  * the consume side can never drift apart. They previously each extracted it,
  * and a binding that compares two independent derivations of "the client" is a
  * bug waiting on a deployment topology to expose it.
@@ -80,10 +80,10 @@ const ticketKey = (token: string) => `terminal:ticket:${token}`;
  * than for short ones. On the otterdeploy deployment behind Cloudflare, every
  * ordinary request arrived with `X-Forwarded-For: <browser>`, while each
  * long-lived `/rpc/project/events/stream` arrived with `X-Forwarded-For:
- * <cloudflare-edge>` — same browser, same session, `Cf-Connecting-Ip` pinned to
+ * <cloudflare-edge>`: same browser, same session, `Cf-Connecting-Ip` pinned to
  * the real address throughout. A `/pty` upgrade is exactly such a long-lived
  * connection: the short mint POST bound the browser's address, the upgrade
- * presented the edge's, and the comparison rejected it. Unrecoverably, too —
+ * presented the edge's, and the comparison rejected it. Unrecoverably, too.
  * `consumeTerminalTicket` burns the ticket with GETDEL *before* the IP check,
  * so every retry minted a fresh ticket and failed identically.
  *
@@ -104,7 +104,7 @@ export interface TerminalTicketClaims {
   userId: string;
   organizationId: string;
   target: TerminalTarget;
-  /** Best-effort — null when the request carried no resolvable address. */
+  /** Best-effort: null when the request carried no resolvable address. */
   clientIp: string | null;
 }
 
@@ -122,7 +122,7 @@ function randomToken(): string {
 
 /** Mint a fresh single-use ticket bound to `claims`. `SET NX` (rather than a
  *  plain `SET`) makes minting itself fail closed on a token collision instead
- *  of silently overwriting a live ticket — with a 256-bit token the
+ *  of silently overwriting a live ticket. With a 256-bit token the
  *  collision path is never taken in practice, but the failure mode if it
  *  ever were should be "retry", not "clobber someone else's grant".
  *
@@ -152,7 +152,7 @@ export async function mintTerminalTicket(
 /**
  * Atomically read-and-delete a ticket. `GETDEL` is a single round trip with
  * no read-then-write gap, so two upgrade attempts racing the same ticket
- * (the classic replay window) can never both see a value — only one wins,
+ * (the classic replay window) can never both see a value. Only one wins,
  * the other gets `invalid_or_replayed` exactly as a genuine replay would.
  */
 export async function consumeTerminalTicket(
@@ -185,7 +185,7 @@ export async function consumeTerminalTicket(
 
   // Best-effort IP binding: only enforced when BOTH ends resolved an
   // address. The ticket is already burned above either way (GETDEL already
-  // ran) — a rejected-on-IP-mismatch ticket cannot be retried, same as any
+  // ran). A rejected-on-IP-mismatch ticket cannot be retried, same as any
   // other consumption.
   if (claims.clientIp && opts.clientIp && claims.clientIp !== opts.clientIp) {
     return Result.err(

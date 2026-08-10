@@ -24,7 +24,7 @@ type OrgId = OrganizationId;
 export interface ApplyContext {
   projectId: ProjectId;
   /** Environment this apply targets. Every resource it CREATES is stamped with
-   *  it, and every name-uniqueness check is scoped to it — otherwise a staging
+   *  it, and every name-uniqueness check is scoped to it. Otherwise a staging
    *  apply is rejected by production's names. */
   environmentId: EnvironmentId;
   organizationId: OrgId;
@@ -162,7 +162,7 @@ export async function runServiceDeletes(
 }
 
 // ── 7. Database deletes ────────────────────────────────────────────────
-// Full teardown via deleteProjectResource — proxy routes, the runtime
+// Full teardown via deleteProjectResource: proxy routes, the runtime
 // container, the row, and a caddy reconcile. A bare row delete here used to
 // leak the container, and the leftover name 409'd every later re-create.
 export async function runDatabaseDeletes(

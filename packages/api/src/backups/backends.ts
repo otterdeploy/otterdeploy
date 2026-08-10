@@ -1,11 +1,11 @@
 /**
  * Backend mapping for the rustic backup engine. Translates a `ResolvedDestination`
- * (the decrypted `{type, config, secret}` shape the engine already resolves —
+ * (the decrypted `{type, config, secret}` shape the engine already resolves,
  * see engine-helpers.resolveSecret) into the repository URL + OpenDAL backend
  * options rustic needs, and derives the per-(resource × destination) repo id
  * that scopes each repo and keys its password.
  *
- * rustic takes NO `-o`/`--option` flag — backend options are delivered through a
+ * rustic takes NO `-o`/`--option` flag. Backend options are delivered through a
  * config profile TOML (see rustic.ts). This module only computes the option map;
  * profile generation + invocation live in `RusticCli`.
  *
@@ -15,7 +15,7 @@
  *
  * ⚠️ SFTP is KEY-AUTH ONLY: rustic's OpenDAL sftp backend cannot authenticate
  * with a password. A password-only destination fails fast here (documented
- * limitation — a first-class SSH-key destination field is the follow-up).
+ * limitation: a first-class SSH-key destination field is the follow-up).
  *
  * The `ResolvedDestination`/`DestinationType` shapes live here (formerly in the
  * now-deleted storage.ts, which held the pre-rustic archive-transfer layer). It
@@ -31,7 +31,7 @@ import { volumeArchiveScope } from "./volume";
 export type DestinationType = "s3" | "local" | "sftp";
 
 /**
- * A backup destination with its secret already decrypted — the input every
+ * A backup destination with its secret already decrypted: the input every
  * backend mapping consumes. `config` is the non-secret connection params
  * (bucket/region/endpoint/prefix for s3, `path` for local, host/port for sftp);
  * `secret` is the decrypted creds (empty for `local`). Produced by the engine
@@ -58,7 +58,7 @@ export interface RusticRepo {
 }
 
 /**
- * Storage-scope segment for a run — the same value `engine.archiveShape` uses:
+ * Storage-scope segment for a run. The same value `engine.archiveShape` uses:
  * a database resource is scoped by its `resourceId`, a named volume by
  * `volume-<name>`. This is the leaf a repo id is rooted at.
  */
@@ -68,7 +68,7 @@ export function repoScope(ctx: ExecutionContext): string {
 
 /**
  * Derive the repo id for a run: `[<config.prefix>/]otterdeploy-backups/<scope>`.
- * This is the old archive-key layout minus the per-run file leaf — one repo per
+ * This is the old archive-key layout minus the per-run file leaf. One repo per
  * (resource × destination), rooted under the destination's optional prefix. It
  * is used as the repository root (local path / OpenDAL `root`) AND as the HKDF
  * `info` that derives the repo password, so it must be stable for a given
@@ -112,13 +112,13 @@ function sftpRepo(dest: ResolvedDestination, repoId: string): RusticRepo {
   if (!host) throw new Error("sftp destination missing `host`");
   const user = str(dest.secret.username) ?? str(dest.config.username);
   if (!user) throw new Error("sftp destination missing `username`");
-  // rustic's OpenDAL sftp backend authenticates with an SSH key only — password
+  // rustic's OpenDAL sftp backend authenticates with an SSH key only. Password
   // auth is not supported. Fail fast with a clear message.
   const privateKey = str(dest.secret.privateKey);
   if (!privateKey) {
     throw new Error(
       str(dest.secret.password)
-        ? "sftp destination uses password auth, which rustic's SFTP backend does not support — configure an SSH private key instead"
+        ? "sftp destination uses password auth, which rustic's SFTP backend does not support, configure an SSH private key instead"
         : "sftp destination missing an SSH private key (rustic's SFTP backend is key-auth only)",
     );
   }

@@ -36,7 +36,7 @@ export function ProvisionProgress({
       ),
     map: (raw, seq) => ({ seq, line: raw.line }),
     key: serverId,
-    onError: (_err, seq) => ({ seq, line: "— stream disconnected —" }),
+    onError: (_err, seq) => ({ seq, line: "[stream disconnected]" }),
   });
 
   // Authoritative terminal state. The live log can miss everything when the run
@@ -60,7 +60,7 @@ export function ProvisionProgress({
   const done = streamDone || row?.provisionStatus === "ready";
   const finished = done || failed || status === "ended";
 
-  // Refresh the servers table once the run reaches a terminal state — from
+  // Refresh the servers table once the run reaches a terminal state. From
   // either signal (stream end or the polled row).
   useEffect(() => {
     if (finished) {
@@ -104,7 +104,7 @@ export function ProvisionProgress({
           {done
             ? "Server ready."
             : failed
-              ? "Provisioning failed — fix the issue and retry from the servers table."
+              ? "Provisioning failed. Fix the issue and retry from the servers table."
               : status === "ended"
                 ? "Finished."
                 : "Provisioning…"}

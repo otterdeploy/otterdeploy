@@ -1,7 +1,7 @@
 import { oc } from "@orpc/contract";
 import { project } from "@otterdeploy/db/schema";
 /**
- * Project CRUD — schemas + contract slice.
+ * Project CRUD: schemas + contract slice.
  */
 import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { createSelectSchema } from "drizzle-zod";
@@ -22,7 +22,7 @@ const graphLayoutSchema = z.record(z.string(), z.object({ x: z.number(), y: z.nu
 
 export const projectSchema = createSelectSchema(project)
   // Manifest payloads are read through `project.manifest.get`, not embedded
-  // in every project row — keeps list/get cheap and avoids shipping a
+  // in every project row: keeps list/get cheap and avoids shipping a
   // potentially large jsonb on every navigation.
   .omit({
     organizationId: true,
@@ -46,7 +46,7 @@ export const projectListItemSchema = projectSchema.extend({
   // enabled proxy routes.
   routeCount: z.number().int().nonnegative(),
   // How many of `serviceCount` have a live container right now, or `null` when
-  // the runtime (docker) couldn't be reached for this list — the UI then shows
+  // the runtime (docker) couldn't be reached for this list. The UI then shows
   // the configured total without a running fraction.
   runningServiceCount: z.number().int().nonnegative().nullable(),
 });
@@ -99,7 +99,7 @@ const updateProjectInput = z.object({
   // skip the check. `null` clears (falls back to org default).
   customDomain: z.string().min(1).max(253).nullable().optional(),
   // PR-preview opt-in moved to the SERVICE (serviceResource.previewsEnabled,
-  // manifest `previews`) — the preview unit is the resource, not the project.
+  // manifest `previews`): the preview unit is the resource, not the project.
   // Git repo + image target moved to the service (edited via the service's
   // Source card, staged into the manifest). The project update no longer
   // carries a repo/registry binding.
@@ -112,11 +112,11 @@ const deleteProjectInput = z.object({
 
 const saveGraphLayoutInput = z.object({
   id: projectIdField,
-  // Partial map — only the nodes that moved. Merged into the stored layout
+  // Partial map. Only the nodes that moved. Merged into the stored layout
   // server-side so other nodes' positions are preserved.
   positions: graphLayoutSchema,
   // When true, `positions` REPLACES the stored layout instead of merging into
-  // it — `{}` clears every saved position. Powers the graph's "re-run layout"
+  // it: `{}` clears every saved position. Powers the graph's "re-run layout"
   // action, which hands placement back to dagre.
   replace: z.boolean().optional(),
 });
@@ -151,12 +151,12 @@ export const projectContractSlice = {
   delete: oc
     .errors({
       ...projectNotFoundErrors,
-      // Refused while service/compose resources exist — their runtimes are
+      // Refused while service/compose resources exist. Their runtimes are
       // only reclaimed by the per-resource delete path, so a project delete
       // underneath them would orphan containers/images on the host.
       CONFLICT: {
         status: 409,
-        message: "Project still has services — delete them first" as const,
+        message: "Project still has services. Delete them first" as const,
         data: z.object({ serviceCount: z.number().int().nonnegative() }),
       },
     })

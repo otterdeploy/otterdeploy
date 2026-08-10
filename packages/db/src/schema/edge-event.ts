@@ -1,11 +1,11 @@
 import { bigserial, index, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 /**
- * Persisted Caddy operational-log events (edge-logs Phase 3) — cert/ACME
+ * Persisted Caddy operational-log events (edge-logs Phase 3): cert/ACME
  * lifecycle, reverse_proxy upstream errors, and other warn/error operational
  * lines. Unlike the high-volume access log (`edge_log`, partitioned + managed
  * by raw DDL), events are SPARSE (the live ring caps at ~5k), so a plain
- * drizzle-managed table with DELETE-based retention is plenty — no
+ * drizzle-managed table with DELETE-based retention is plenty, no
  * partitioning. The live tail still runs off the in-memory ring; this backs
  * the Events tab across restarts.
  */

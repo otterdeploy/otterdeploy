@@ -31,7 +31,7 @@ export function windowSince(window: DeployWindow): string | undefined {
 /**
  * UI status vocabulary → API effective-status filter. "Replaced" is the
  * user-facing word for `superseded` (matches the badge label); "Building"
- * covers stored `pending` too — the API expands it.
+ * covers stored `pending` too, the API expands it.
  */
 export const DEPLOY_STATUS_FILTERS = [
   { id: "running", label: "Running", api: "running" },
@@ -60,7 +60,7 @@ export const zDeploymentsSearch = z.object({
 
 export type DeploymentsSearch = z.infer<typeof zDeploymentsSearch>;
 
-/** One row of `deployment.listByProject` — mirrors the contract's
+/** One row of `deployment.listByProject`: mirrors the contract's
  *  `projectDeploymentListItemSchema` (same status/reason vocabulary as the
  *  per-resource deployments list). */
 export interface ProjectDeployment {
@@ -94,7 +94,7 @@ export interface ProjectDeployment {
   gitRef: string | null;
   gitCommitMessage: string | null;
   gitCommitAuthor: string | null;
-  /** Content hash of an uploaded source tarball (source:"upload") — the upload
+  /** Content hash of an uploaded source tarball (source:"upload"): the upload
    *  analog of gitSha. Null for git / image deploys. */
   sourceSha: string | null;
   isLatest: boolean;
@@ -105,8 +105,8 @@ export interface ProjectDeployment {
 
 /**
  * Can this row be rolled back to? Mirrors `isRollbackable` in
- * `features/resources/components/_shared/history-row-menu.tsx` — a settled
- * successful deploy with a real built image — plus the project-list extras:
+ * `features/resources/components/_shared/history-row-menu.tsx`: a settled
+ * successful deploy with a real built image. Plus the project-list extras:
  * only services roll back (the mutation is `service.rollback`) and never the
  * resource's newest deployment (there is nothing newer to roll back *from*).
  */

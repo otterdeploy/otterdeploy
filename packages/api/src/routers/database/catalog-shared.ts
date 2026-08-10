@@ -1,5 +1,5 @@
 /**
- * Pure helpers for the org database catalog — aggregation logic plus the
+ * Pure helpers for the org database catalog: aggregation logic plus the
  * per-engine stat-output parsers. Leaf module (only type imports) so the unit
  * tests exercise the honest-degradation logic without dragging in the
  * auth/db/docker import chain the collectors need.
@@ -38,7 +38,7 @@ export interface BackupFreshness {
 /**
  * Freshness from newest-first backup rows: `lastBackupAt` is the newest
  * SUCCEEDED run (what a restore could actually use), `lastBackupStatus` is the
- * newest attempt of any outcome — together they read as "fresh", "stale", or
+ * newest attempt of any outcome: together they read as "fresh", "stale", or
  * "backups are broken".
  */
 export function backupFreshnessPerResource(
@@ -77,7 +77,7 @@ export const EMPTY_STATS: CatalogStats = {
   serverVersion: null,
 };
 
-/** Reject after `ms` — the probe itself keeps running (docker exec has no
+/** Reject after `ms`. The probe itself keeps running (docker exec has no
  *  cancel), but the request stops waiting on it. */
 export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -116,7 +116,7 @@ export function parsePostgresStatsRow(row: Array<string | null> | undefined): Ca
     sizeBytes: toFiniteNumber(row[0]),
     connections: toFiniteNumber(row[1]),
     maxConnections: toFiniteNumber(row[2]),
-    // server_version can carry a distro suffix ("16.4 (Debian …)") — keep the
+    // server_version can carry a distro suffix ("16.4 (Debian …)"). Keep the
     // leading version token only.
     serverVersion: row[3] ? (row[3].split(" ")[0] ?? null) : null,
   };
@@ -172,7 +172,7 @@ export function parseMongoStats(payload: MongoStatsPayload): CatalogStats {
   return {
     sizeBytes: toFiniteNumber(payload.dataSize),
     connections: current,
-    // Mongo reports remaining headroom, not a cap — the cap is current + available.
+    // Mongo reports remaining headroom, not a cap. The cap is current + available.
     maxConnections: current != null && available != null ? current + available : null,
     serverVersion: payload.version?.trim() || null,
   };

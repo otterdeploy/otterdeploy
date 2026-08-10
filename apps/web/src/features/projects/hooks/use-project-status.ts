@@ -3,8 +3,8 @@
  * reports it to the app-wide rollup, so the browser tab can show what the
  * project is doing while the operator is looking at another tab.
  *
- * Reads `serviceTasksCollection` — the same live data the project graph draws
- * its node badges from — so the tab and the graph can never disagree. No new
+ * Reads `serviceTasksCollection`. The same live data the project graph draws
+ * its node badges from, so the tab and the graph can never disagree. No new
  * endpoint and no extra polling: the collection is already mounted and on a 5s
  * refetch, refreshed immediately by the project event stream.
  */

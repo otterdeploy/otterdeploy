@@ -40,9 +40,9 @@ describe("getSwarmJoinTokens", () => {
     swarmInspect.mockResolvedValueOnce({ isErr: () => true });
 
     await expect(getSwarmJoinTokens()).resolves.toEqual({
-      worker: "—",
-      manager: "—",
-      managerAddr: "—",
+      worker: "–",
+      manager: "–",
+      managerAddr: "–",
     });
     expect(info).not.toHaveBeenCalled();
     expect(destroy).toHaveBeenCalledOnce();

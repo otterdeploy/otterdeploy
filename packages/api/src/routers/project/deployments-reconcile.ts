@@ -1,5 +1,5 @@
 /**
- * Deployment settlement — the write-side companion to `deployments-list.ts`
+ * Deployment settlement: the write-side companion to `deployments-list.ts`
  * (split out to keep that file under the size cap). The list read derives
  * status live; when the derivation notices a building/pending row whose tasks
  * came up (or died), these persist the flip and emit the deploy.succeeded /
@@ -25,7 +25,7 @@ import { publishResourceChanged } from "./project-event-bus";
  * come up, and emit `deploy.succeeded` exactly once per deployment. The
  * conditional UPDATE (status still building/pending) is the concurrency guard:
  * only the caller whose update actually changes a row emits, so concurrent
- * list requests can't double-fire. This is the "success detector" — the list
+ * list requests can't double-fire. This is the "success detector". The list
  * read reconciles lazily, and provisioning paths that already waited for the
  * container to come up call it eagerly so the Deployments card flips in the
  * same moment as the live runtime badge instead of a poll later.
@@ -48,7 +48,7 @@ export async function reconcileDeploySuccess(
 }
 
 const STALE_BUILD_MESSAGE =
-  "No container appeared and the build produced no output for over 3 minutes — " +
+  "No container appeared and the build produced no output for over 3 minutes, " +
   "the build process likely died or was never picked up (is the builder running?).";
 
 /**
@@ -73,11 +73,11 @@ export async function reconcileDeployFailure(deploymentIds: DeploymentId[]): Pro
 
 /**
  * Is the latest deployment's build still producing output? Only consulted
- * when the zero-task stale window would flip it to "failed" — one indexed
+ * when the zero-task stale window would flip it to "failed". One indexed
  * lookup for the newest log line, skipped entirely on the happy paths.
  */
 export async function isBuildStillLogging(
-  // Only `id`/`status`/`createdAt` are read — a Pick lets the project-wide
+  // Only `id`/`status`/`createdAt` are read. A Pick lets the project-wide
   // feed's snapshot-free JoinedRow reuse this without carrying the full row.
   latest: Pick<DeploymentRow, "id" | "status" | "createdAt"> | undefined,
   tasksByDeployment: Map<string, InstanceGlimpse[]>,
@@ -88,7 +88,7 @@ export async function isBuildStillLogging(
   if (Date.now() - latest.createdAt.getTime() <= ZERO_TASK_STALE_MS) return false;
   // Queue-aware guard: a deployment owned by an in-flight `deploy.triggered`
   // job WHILE the worker is actively building something is legitimately in the
-  // pipeline — queued behind another build (concurrency=1) or building itself —
+  // pipeline (queued behind another build (concurrency=1) or building itself)
   // so its log-silence must NOT fail it. If it's owned but nothing is active,
   // the builder isn't consuming the queue (likely down); fall through to the
   // log-recency check, which fails it after the stale window ("is the builder

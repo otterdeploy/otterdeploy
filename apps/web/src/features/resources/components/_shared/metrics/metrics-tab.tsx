@@ -1,5 +1,5 @@
 /**
- * Metrics tab — live CPU / memory / network for one resource's containers,
+ * Metrics tab: live CPU / memory / network for one resource's containers,
  * fed by `metrics.query` (30s Docker-stats samples). A window selector drives
  * the look-back; the panel polls in step with the sampler so it trails real
  * time by at most one tick. Shared by the database and service detail panels.
@@ -51,7 +51,7 @@ export function MetricsTab({ resourceId }: MetricsTabProps) {
         <EmptyMetricsState />
       ) : (
         <div className="flex flex-col gap-3">
-          {/* CPU — Docker-style percent of one core; can exceed 100% on
+          {/* CPU: Docker-style percent of one core; can exceed 100% on
               multi-core hosts, so the axis is left to auto-fit. */}
           <MetricCard
             icon={CpuIcon}
@@ -70,7 +70,7 @@ export function MetricsTab({ resourceId }: MetricsTabProps) {
             />
           </MetricCard>
 
-          {/* Memory — absolute working set; limit is shown as context since
+          {/* Memory: absolute working set; limit is shown as context since
               an unbounded container reports the host total as its limit. */}
           <MetricCard
             icon={RamMemoryIcon}
@@ -95,7 +95,7 @@ export function MetricsTab({ resourceId }: MetricsTabProps) {
             />
           </MetricCard>
 
-          {/* Network — per-second throughput derived from cumulative counters;
+          {/* Network: per-second throughput derived from cumulative counters;
               in and out overlaid on one axis. */}
           <MetricCard
             icon={Activity03Icon}
@@ -174,7 +174,7 @@ function Toolbar({
       {live ? (
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <HugeiconsIcon icon={PulseIcon} strokeWidth={2} className="size-3.5 text-success" />
-          <span>Live · updated {updatedAt ? formatClockSeconds(updatedAt) : "—"}</span>
+          <span>Live · updated {updatedAt ? formatClockSeconds(updatedAt) : "–"}</span>
         </div>
       ) : null}
     </div>

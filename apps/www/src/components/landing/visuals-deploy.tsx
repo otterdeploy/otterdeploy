@@ -3,7 +3,7 @@ import { Mono, StateChip, VisualFrame } from "./primitives";
 /**
  * Showcase visuals, part one: the build and the project canvas.
  *
- * These are drawn in HTML rather than shipped as screenshots — they stay sharp
+ * These are drawn in HTML rather than shipped as screenshots. They stay sharp
  * at any density, theme themselves from the same tokens as the dashboard, and
  * can't go stale the way a PNG of a UI does. They are illustrations of real
  * surfaces, not live data, so every value in them is either a state word the

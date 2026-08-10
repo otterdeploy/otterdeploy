@@ -10,12 +10,12 @@ import {
 } from "./mark-geometry";
 
 /**
- * The otterdeploy mark — a slashed zero. Port of the dashboard's component
+ * The otterdeploy mark: a slashed zero. Port of the dashboard's component
  * (apps/web/src/shared/components/brand/otterdeploy-logo.tsx) reading the same
  * generated geometry, so the marketing site and the product can't drift.
  *
  * The ring rides `currentColor`; only the counter is chromatic. `status` swaps
- * that counter, changing SHAPE and not just hue — at 16px, and for a
+ * that counter, changing SHAPE and not just hue: at 16px, and for a
  * colour-blind reader, colour alone says nothing.
  */
 
@@ -32,10 +32,10 @@ const STATUS_TOKEN: Record<MarkStatus, string> = {
 
 const STATUS_LABEL: Record<MarkStatus, string> = {
   idle: "otterdeploy",
-  deploying: "otterdeploy — deploying",
-  success: "otterdeploy — deployed",
-  warning: "otterdeploy — needs attention",
-  error: "otterdeploy — failed",
+  deploying: "otterdeploy, deploying",
+  success: "otterdeploy, deployed",
+  warning: "otterdeploy: needs attention",
+  error: "otterdeploy, failed",
 };
 
 interface MarkProps extends Omit<SVGProps<SVGSVGElement>, "width" | "height"> {

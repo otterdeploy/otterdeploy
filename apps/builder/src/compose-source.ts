@@ -4,7 +4,7 @@
  *
  * Split out of compose-build.ts so that file is only the PIPELINE (mark →
  * find → parse → build → persist → deploy → settle). Both jobs here answer the
- * same question — "what is this stack, and where does its code live?" — and
+ * same question ("what is this stack, and where does its code live?") and
  * both are the only places that care about the stack's SOURCE (inline file tree
  * vs. bound git repo vs. legacy public URL). Everything downstream of
  * {@link acquireComposeSource} is source-agnostic, so keeping the fork here
@@ -42,11 +42,11 @@ export interface ComposeBuildContext {
   registry: typeof containerRegistry.$inferSelect | null;
   /** Base image repository (no tag, no per-service suffix). */
   imageRepository: string;
-  /** Clone URL — the bound repo's clone URL, or the row's legacy public URL. */
+  /** Clone URL: the bound repo's clone URL, or the row's legacy public URL. */
   cloneUrl: string;
   /** GitHub NUMERIC installation id (private repos), else null (anonymous). */
   installationId: string | null;
-  /** Whether the bound repo is private — drives the clone bindingKind. */
+  /** Whether the bound repo is private. Drives the clone bindingKind. */
   isPrivate: boolean;
 }
 
@@ -74,13 +74,13 @@ export async function loadComposeBuildContext(
   // Resolve the clone binding: a picked repo (gitRepoId) resolves owner/repo +
   // the numeric installation id so PRIVATE repos clone with a token; a legacy
   // stack clones its stored public URL anonymously. INLINE stacks (multi-file,
-  // routed here for their `build:` services) have no repo — the builder
+  // routed here for their `build:` services) have no repo. The builder
   // materializes their stored file tree instead of cloning.
   let cloneUrl = "";
   let installationId: string | null = null;
   let isPrivate = false;
   if (comp.source === "inline") {
-    // no clone — files are materialized in acquireComposeSource.
+    // no clone: files are materialized in acquireComposeSource.
   } else if (comp.gitRepoId) {
     const bound = await resolveRepoCloneBinding(comp.gitRepoId);
     cloneUrl = bound.cloneUrl;
@@ -95,7 +95,7 @@ export async function loadComposeBuildContext(
   // Compose stacks build registry-less local images: the project no longer
   // carries a registry FK (push credentials are resolved from the shared
   // container_registry library by the image's host string at build time), and
-  // compose_resource binds no registry of its own — so every `build:` service
+  // compose_resource binds no registry of its own, so every `build:` service
   // lands in the host daemon under a stack-derived repo. Image-only services
   // pass through untouched. See docs/designs/compose.md.
   const registry: typeof containerRegistry.$inferSelect | null = null;
@@ -117,7 +117,7 @@ export async function loadComposeBuildContext(
 /**
  * Source the build tree for one compose stack and report where the compose file
  * should be resolved from: INLINE stacks materialize their stored file tree (no
- * repo, so no subdir either), git stacks clone at the pinned SHA — minting an
+ * repo, so no subdir either), git stacks clone at the pinned SHA, minting an
  * installation token first when the bound repo is private.
  */
 export async function acquireComposeSource(input: {

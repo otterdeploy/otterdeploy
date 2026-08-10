@@ -9,8 +9,8 @@
  * It is a **ratchet, not a wall**: the 177 dead-code findings, 18 cycles and 356
  * clone groups that exist today block nobody. What fails CI is a number going
  * *up*. When a number goes down, the script says so and prints the command that
- * pins the new floor — that is how a phase's gain gets locked in
- * (`docs/audit/PLAN.md`, "Definition of done — per phase").
+ * pins the new floor: that is how a phase's gain gets locked in
+ * (`docs/audit/PLAN.md`, "Definition of done, per phase").
  *
  *   bun scripts/audit/ratchet.ts                  # totals vs the committed baseline
  *   bun scripts/audit/ratchet.ts --base <ref>     # + which findings this branch introduced
@@ -18,11 +18,11 @@
  *
  * Two things it deliberately does NOT gate on:
  *
- *   complexity — oxlint already errors at cyclomatic 15 (`.oxlintrc.json`).
+ *   complexity: oxlint already errors at cyclomatic 15 (`.oxlintrc.json`).
  *     fallow's CRAP score assumes 0% coverage when no coverage file is passed,
  *     which makes every new function above cyclomatic 6 "critical". That is
  *     noise, not signal, so complexity is reported and left to lint.
- *   unlisted-dependencies — `vite-plus` is imported by ~40 test files while
+ *   unlisted-dependencies: `vite-plus` is imported by ~40 test files while
  *     declared only at the root (od-hml). fallow attributes a project-wide
  *     finding to whichever file the changeset touched, so gating on it would
  *     fail every PR that edits a test until od-hml lands.
@@ -61,8 +61,8 @@ const MEASURES: { key: keyof Totals; label: string }[] = [
 /**
  * Graph-shape findings that are never a legitimate work-in-progress state, so a
  * newly introduced one fails on its own rather than waiting for a total to move.
- * The totals ratchet nets out — deleting an unused type elsewhere in the same PR
- * would hide a new cycle — and these are the findings that must not be hidden.
+ * The totals ratchet nets out, deleting an unused type elsewhere in the same PR
+ * would hide a new cycle, and these are the findings that must not be hidden.
  */
 const GATED_FINDINGS = new Set([
   "circular_dependencies",
@@ -80,7 +80,7 @@ function num(report: Record<string, unknown>, section: string, key: string): num
   const value = holder?.[key];
   if (typeof value !== "number") {
     throw new Error(
-      `fallow report has no numeric ${section}.${key} — the schema moved under the ` +
+      `fallow report has no numeric ${section}.${key}. The schema moved under the ` +
         `version pin in scripts/audit/fallow.ts, so this gate is measuring nothing`,
     );
   }
@@ -91,7 +91,7 @@ function measure(): Totals {
   const dead = fallowJson(["dead-code"], ROOT);
   const dupes = fallowJson(["dupes"], ROOT);
   if (!dead || !dupes) {
-    throw new Error(`fallow@${FALLOW_VERSION} produced no report — the ratchet cannot run`);
+    throw new Error(`fallow@${FALLOW_VERSION} produced no report. The ratchet cannot run`);
   }
   return {
     deadCodeIssues: num(dead, "summary", "total_issues"),
@@ -106,7 +106,7 @@ function readBaseline(): Baseline {
   if (parsed.fallowVersion !== FALLOW_VERSION) {
     throw new Error(
       `baseline was measured with fallow ${parsed.fallowVersion} but the pin is ` +
-        `${FALLOW_VERSION}. Counts are not comparable across versions — re-run ` +
+        `${FALLOW_VERSION}. Counts are not comparable across versions. Re-run ` +
         "`bun scripts/audit/ratchet.ts --update` in the commit that bumps the pin",
     );
   }
@@ -147,7 +147,7 @@ function findingName(item: Finding): string | undefined {
     | undefined;
 }
 
-/** The files a finding spans — cycles list them, clone groups nest them. */
+/** The files a finding spans: cycles list them, clone groups nest them. */
 function findingFiles(item: Finding): string[] | undefined {
   const instances = item.instances as { file?: string }[] | undefined;
   return (item.files as string[] | undefined) ?? instances?.map((i) => i.file ?? "?");
@@ -169,7 +169,7 @@ function withFirstImporter(name: string, item: Finding): string {
 function describe(item: Finding): string {
   const at = findingPath(item);
   const name = findingName(item);
-  if (at) return name ? `${at} — ${name}` : at;
+  if (at) return name ? `${at}, ${name}` : at;
   const files = findingFiles(item);
   if (files) return files.join(" <-> ");
   if (name) return withFirstImporter(name, item);
@@ -205,7 +205,7 @@ function report(audit: Record<string, unknown>, baseRef: string): void {
   const complexity = (audit.complexity as { findings?: unknown[] } | undefined)?.findings ?? [];
   if (complexity.length > 0) {
     const n = complexity.length;
-    console.log(`\n  ${n} complexity findings in changed files — reported only;`);
+    console.log(`\n  ${n} complexity findings in changed files. Reported only;`);
     console.log("  oxlint gates complexity (see the header of this file).");
   }
 }
@@ -232,11 +232,11 @@ function runUpdate(now: Totals): void {
 function pass(now: Totals, base: Totals): void {
   const better = MEASURES.filter(({ key }) => now[key] < base[key]);
   if (better.length === 0) {
-    console.log("\nPASS — nothing regressed.");
+    console.log("\nPASS, nothing regressed.");
     return;
   }
   console.log(
-    `\nPASS — ${better.map((m) => m.label).join(", ")} improved. Lock it in:\n` +
+    `\nPASS: ${better.map((m) => m.label).join(", ")} improved. Lock it in:\n` +
       "  bun scripts/audit/ratchet.ts --update",
   );
 }
@@ -246,7 +246,7 @@ function fail(worse: (keyof Totals)[], now: Totals, base: Totals, introduced: st
   for (const key of worse) console.log(`  ${key} rose from ${base[key]} to ${now[key]}`);
   for (const line of introduced) console.log(`  ${line}`);
   console.log(
-    "\nFix the finding, or — if the rise is deliberate and justified — say why in the\n" +
+    "\nFix the finding, or (if the rise is deliberate and justified) say why in the\n" +
       "commit message and re-pin with `bun scripts/audit/ratchet.ts --update`.",
   );
   process.exitCode = 1;

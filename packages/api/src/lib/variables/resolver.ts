@@ -42,7 +42,7 @@ interface ResolveContext {
   environmentId: EnvironmentId;
   // Preview scoping for RESOURCE lookups: a preview-scoped row (an opt-in DB
   // branch) wins over the base row; null resolves base rows only. Previews
-  // are NOT environments — their var bags are the base env's, unchanged.
+  // are NOT environments. Their var bags are the base env's, unchanged.
   previewId: PreviewId | null;
   visited: Set<string>;
   exportsCache: Map<string, Record<string, string>>;
@@ -53,7 +53,7 @@ export async function resolveServiceEnv(
   serviceResourceId: ResourceId,
   previewId?: PreviewId | null,
 ): Promise<Result<Record<string, string>, ResolveError | RefMissingResourceError>> {
-  // Var bags always come from the project's persistent environment — a
+  // Var bags always come from the project's persistent environment. A
   // preview inherits production's vars verbatim (it is not an environment);
   // only its RESOURCE refs may re-resolve to preview-scoped branches.
   const envId = (await getProjectRecord(projectId))?.environmentId;
@@ -99,8 +99,8 @@ async function resolveEnvFor(
 ): Promise<Result<Record<string, string>, ResolveError>> {
   const resolved: Record<string, string> = {};
 
-  // Base overlay (legacy NULL-env < active persistent env), then — inside a
-  // preview — that preview's per-service overrides win by key. Overrides are
+  // Base overlay (legacy NULL-env < active persistent env), then: inside a
+  // preview: that preview's per-service overrides win by key. Overrides are
   // fetched here (not via record.env) so they stay invisible to every base
   // surface by construction.
   let rows = overlayServiceEnv(record.env, ctx.environmentId);
@@ -115,7 +115,7 @@ async function resolveEnvFor(
   }
 
   for (const envVar of rows) {
-    // Sealed vars store a ciphertext envelope, not a template string — this
+    // Sealed vars store a ciphertext envelope, not a template string. This
     // IS the deploy/injection boundary, so decrypt here (and nowhere a
     // list/read API surface can reach) before any template parsing.
     const rawValue = envVar.sealed
@@ -177,8 +177,8 @@ async function loadExports(
 ): Promise<Result<Record<string, string>, ResolveError>> {
   // Magic scopes: `project` and `environment` aren't real resources but
   // env-var bags shared across every service in the (project, environment)
-  // pair. Both resolve from the same underlying projectEnvVar table today
-  // — semantic split is preserved so when multi-env-per-project lands,
+  // pair. Both resolve from the same underlying projectEnvVar table today.
+  // Semantic split is preserved so when multi-env-per-project lands,
   // `environment` can specialize without breaking existing service envs.
   if (refResourceName === "project" || refResourceName === "environment") {
     const cacheKey = `__${refResourceName}__`;
@@ -219,7 +219,7 @@ async function loadScopeExports(
   cacheKey: string,
   ctx: ResolveContext,
 ): Promise<Result<Record<string, string>, ResolveError>> {
-  // The bag is keyed by (projectId, environmentId) — the persistent env's own
+  // The bag is keyed by (projectId, environmentId). The persistent env's own
   // vars. Previews read the same bag (they are not environments).
   const bag: Record<string, string> = {};
   Object.assign(

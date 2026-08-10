@@ -1,6 +1,6 @@
 /**
  * Shared primitives for the container-log tail generators (resource / task /
- * deployment). Leaf module — resolves resource ids to swarm service names +
+ * deployment). Leaf module: resolves resource ids to swarm service names +
  * ids, and demuxes docker's multiplexed log framing into ResourceLogEvents.
  *
  * Docker stream framing (when TTY is false on the container, which is our
@@ -50,13 +50,13 @@ export async function resolveServiceName(
     });
   }
   if (found.kind === "service") return found.record.service.serviceName;
-  // Compose stack — no single swarm service of its own. Log tails that
+  // Compose stack, no single swarm service of its own. Log tails that
   // support stacks fan out over the children (see tailDeploymentLogs).
   return null;
 }
 
 // System line for a resource whose runtime logs can't be tailed as a single
-// stream. Distinguishes a genuinely-missing resource from a compose stack —
+// stream. Distinguishes a genuinely-missing resource from a compose stack,
 // which exists but owns no swarm service of its own, so "Resource not found"
 // (the old message) was a lie that sent users hunting for a non-problem.
 export async function unresolvedLogTargetMessage(
@@ -67,7 +67,7 @@ export async function unresolvedLogTargetMessage(
   if (!found) return "Resource not found";
   if (found.kind === "compose") {
     return (
-      "This is a compose stack — it has no combined runtime log stream yet. " +
+      "This is a compose stack. It has no combined runtime log stream yet. " +
       "Tail one of its services with `otterdeploy logs <service>`, " +
       "or use `otterdeploy logs <stack> --build` for the stack's build logs."
     );
@@ -91,8 +91,8 @@ export async function resolveServiceNames(
 }
 
 // Resolve a resource id to the swarm service that owns it. Returns null when
-// the resource doesn't exist OR the swarm service hasn't been created yet —
-// for a freshly-inserted draft postgres resource, the row exists in our DB
+// the resource doesn't exist OR the swarm service hasn't been created yet.
+// For a freshly-inserted draft postgres resource, the row exists in our DB
 // before the service-create call lands at the daemon, so we have to poll.
 export async function resolveServiceId(
   projectId: ProjectId,
@@ -117,7 +117,7 @@ export async function resolveServiceId(
 
 // Demux a docker log stream into ResourceLogEvents, peeling the ISO timestamp
 // docker prepends (we attach `timestamps=true`). Thin adapter over the shared
-// `demuxDockerStream` framing — reused by the project-wide log fan-in without
+// `demuxDockerStream` framing, reused by the project-wide log fan-in without
 // re-implementing the framing logic.
 export async function* demuxDockerLogs(
   stream: NodeJS.ReadableStream,

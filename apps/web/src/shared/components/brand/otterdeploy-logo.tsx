@@ -22,11 +22,11 @@ import { cn } from "@/shared/lib/utils";
  * on; only the counter is chromatic.
  *
  * `status` swaps that counter to report system state. It changes SHAPE, not
- * just hue — at 16px, and for a colour-blind operator, colour alone says
+ * just hue: at 16px, and for a colour-blind operator, colour alone says
  * nothing (DESIGN.md: never depend on colour alone).
  */
 
-/** Per-status colour token. `deploying` stays on the brand accent — a deploy in
+/** Per-status colour token. `deploying` stays on the brand accent. A deploy in
  *  flight is activity, not a warning. */
 const STATUS_TOKEN: Record<MarkStatus, string> = {
   idle: "var(--brand-accent)",
@@ -39,10 +39,10 @@ const STATUS_TOKEN: Record<MarkStatus, string> = {
 /** What a screen reader hears when the mark is carrying state. */
 const STATUS_LABEL: Record<MarkStatus, string> = {
   idle: "otterdeploy",
-  deploying: "otterdeploy — deploying",
-  success: "otterdeploy — deployed",
-  warning: "otterdeploy — needs attention",
-  error: "otterdeploy — failed",
+  deploying: "otterdeploy: deploying",
+  success: "otterdeploy: deployed",
+  warning: "otterdeploy: needs attention",
+  error: "otterdeploy: failed",
 };
 
 interface MarkProps extends Omit<SVGProps<SVGSVGElement>, "width" | "height"> {
@@ -92,7 +92,7 @@ export function OtterdeployMark({
           strokeLinecap="round"
           pathLength={MARK_ARC.pathLength}
           strokeDasharray={MARK_ARC.dashArray}
-          // `motion-reduce:` parks the arc instead of spinning it — the keyframes
+          // `motion-reduce:` parks the arc instead of spinning it: the keyframes
           // and the parked offset both live in index.css (`.mark-arc`).
           className="mark-arc"
         />
@@ -115,7 +115,7 @@ export function OtterdeployMark({
 interface LogoProps {
   /** Mark edge length in px; the wordmark is sized off it. */
   size?: number;
-  /** Mark only, no wordmark — for collapsed sidebars and tight headers. */
+  /** Mark only, no wordmark: for collapsed sidebars and tight headers. */
   markOnly?: boolean;
   mono?: boolean;
   status?: MarkStatus;
@@ -124,7 +124,7 @@ interface LogoProps {
 
 /**
  * Mark plus wordmark. The wordmark is live Geist rather than the outlined
- * `brand/logo/lockup.svg` — the app already loads the family, and live text
+ * `brand/logo/lockup.svg`: the app already loads the family, and live text
  * stays crisp at every zoom level and is selectable/searchable. The ratios
  * (0.66 of the mark, -0.025em) mirror the outlined lockup exactly.
  */

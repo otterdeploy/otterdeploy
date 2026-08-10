@@ -1,5 +1,5 @@
 /**
- * GitHub App manifest flow — create an App through the UI without
+ * GitHub App manifest flow: create an App through the UI without
  * touching env vars.
  *
  *   1. UI calls `git.startManifest` (oRPC). Server builds a manifest
@@ -24,7 +24,7 @@
  *
  * Spec: https://docs.github.com/en/apps/sharing-github-apps/registering-a-github-app-from-a-manifest
  *
- * Matches the pattern Coolify and Dokploy use — no env vars at any
+ * Matches the pattern Coolify and Dokploy use, no env vars at any
  * step of the round-trip.
  */
 
@@ -41,7 +41,7 @@ type OrgId = OrganizationId;
 
 /**
  * Minimum permissions + events required to read source and report build
- * status. Kept tight on purpose — operators can widen later via the
+ * status. Kept tight on purpose. Operators can widen later via the
  * App's settings page on GitHub. Schema reference:
  * https://docs.github.com/en/apps/creating-github-apps/setting-up-a-github-app/about-the-github-app-manifest
  */
@@ -61,7 +61,7 @@ export interface GithubAppManifest {
 export interface StartManifestResult {
   /** Where the UI's auto-submitted form should POST to. */
   formActionUrl: string;
-  /** Hidden form field value — must be POSTed under the name "manifest". */
+  /** Hidden form field value: must be POSTed under the name "manifest". */
   manifestJson: string;
 }
 
@@ -70,7 +70,7 @@ export interface StartManifestResult {
  *
  * `host` is "github.com" by default; pass a GHE host to register the App
  * on a self-hosted GitHub Enterprise instance. `accountLogin` decides
- * whether the form posts to a personal or organization namespace —
+ * whether the form posts to a personal or organization namespace:
  * blank/null means "use whichever account the operator is logged in as
  * on GitHub".
  */
@@ -78,14 +78,14 @@ export function buildManifestRequest(opts: {
   state: string;
   /** Browser-facing base for redirect/callback/setup URLs. GitHub only sends
    *  the operator's *browser* here, so it can be the local control-plane
-   *  address (`.localhost` in dev) — no public tunnel required. */
+   *  address (`.localhost` in dev), no public tunnel required. */
   baseUrl: string;
-  /** Public base for `hook_attributes.url` only — GitHub's *servers* POST
+  /** Public base for `hook_attributes.url` only: GitHub's *servers* POST
    *  webhooks here, so it must be internet-reachable (a tunnel in dev).
    *  Falls back to `baseUrl` (prod is single-origin). */
   webhookBaseUrl?: string;
   host?: string;
-  /** Optional org login on GitHub — POSTing to the org namespace pre-fills
+  /** Optional org login on GitHub, POSTing to the org namespace pre-fills
    *  the owner picker for the operator. */
   accountLogin?: string | null;
   appName?: string;
@@ -104,7 +104,7 @@ export function buildManifestRequest(opts: {
     callback_urls: [`${base}/api/integrations/github/install/callback`],
     setup_url: `${base}/api/integrations/github/install/callback`,
     setup_on_update: true,
-    // Per-org App, single tenant — don't list on the marketplace.
+    // Per-org App, single tenant: don't list on the marketplace.
     public: false,
     // Read source, see PRs for preview branches, write check runs to
     // report build status. Webhook secret + private key are generated
@@ -120,7 +120,7 @@ export function buildManifestRequest(opts: {
       // status ("Resource not accessible by integration").
       statuses: "write",
       // `issue_comment` is delivered under the `issues` permission even when
-      // the comment is on a pull request — GitHub models PR conversation
+      // the comment is on a pull request. GitHub models PR conversation
       // comments as issue comments. Read-only: the on-demand
       // `@otterdeploy preview` trigger only needs to see the body and the
       // author's association; it writes back through `pull_requests`.
@@ -128,14 +128,14 @@ export function buildManifestRequest(opts: {
     },
     // Only permission-backed events go here. `installation` and
     // `installation_repositories` are App-lifecycle events GitHub delivers to
-    // every App automatically — listing them in a manifest is rejected
+    // every App automatically, listing them in a manifest is rejected
     // ("Default events unsupported / not supported by permissions"). We still
     // receive them; the install handler (handle-installation.ts) processes them.
     //
     // `issue_comment` powers the on-demand `@otterdeploy preview` trigger for
     // repositories that have not enabled automatic previews. NOTE: adding an
     // event (and the `issues` permission above) means EXISTING installations
-    // must accept the updated permissions before the trigger works for them —
+    // must accept the updated permissions before the trigger works for them.
     // GitHub does not grant them retroactively. The feature is dark on those
     // installs until an owner approves, which is a rollout step, not a bug.
     default_events: ["push", "pull_request", "issue_comment"],
@@ -187,9 +187,9 @@ export async function completeManifestExchange(opts: {
   const host = opts.host ?? "github.com";
   const apiBase = apiBaseUrlForHost(host);
 
-  // No auth needed — the `code` is the auth, and it's single-use. `host`
-  // (via apiBase) may be a self-hosted GHE host the operator just typed in
-  // — goes through the shared egress policy the same as every other
+  // No auth needed. The `code` is the auth, and it's single-use. `host`
+  // (via apiBase) may be a self-hosted GHE host the operator just typed in.
+  // Goes through the shared egress policy the same as every other
   // GitHub API call (see ghFetch in ./github-app.ts).
   const res = await ghFetch(`${apiBase}/app-manifests/${opts.code}/conversions`, {
     method: "POST",
@@ -210,7 +210,7 @@ export async function completeManifestExchange(opts: {
     encryptForDomain(json.pem, "git-secrets"),
   ]);
 
-  // Upsert by (orgId, kind=github) — the unique index. An org has at
+  // Upsert by (orgId, kind=github): the unique index. An org has at
   // most one GitHub App at a time; re-running the manifest flow
   // replaces credentials in place (operator deleted the App on GitHub
   // and made a new one).
@@ -259,7 +259,7 @@ export async function completeManifestExchange(opts: {
 }
 
 /** True if the org already has a GitHub provider row with App credentials
- *  populated — UI uses this to skip the manifest step and go straight to
+ *  populated: UI uses this to skip the manifest step and go straight to
  *  the install URL. */
 export async function orgHasGithubApp(orgId: OrgId): Promise<boolean> {
   const [row] = await db

@@ -80,7 +80,7 @@ ytz3Mgxr5ZfNyWsxInPlHl6YbEOhRANCAATia5DeWzqaByYX3yuwdQAc/AMyEVc0
 TM+mf03IPpI8awi542epIQllZmLCmqexD9k6UIp3Rs5LuAO1dRBEHUgO
 -----END PRIVATE KEY-----`;
 
-// A DIFFERENT RSA key (pairs with no fixture cert) — for mismatch tests.
+// A DIFFERENT RSA key (pairs with no fixture cert): for mismatch tests.
 const OTHER_KEY = `-----BEGIN PRIVATE KEY-----
 MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC2jaryS5lMjnCM
 p4N6DV8ykUy1CYwXzshHg7KJNUpG44MGOJxCsNbjYhLVFW1hnw9Dipb77DagDS7l

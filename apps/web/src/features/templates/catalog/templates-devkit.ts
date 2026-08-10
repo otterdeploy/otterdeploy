@@ -7,7 +7,7 @@ export const DEVKIT_TEMPLATES: StackTemplate[] = [
     id: "dozzle",
     name: "Dozzle",
     description:
-      "Live log viewer for every container on the host — tail, search and follow without SSH. Reads the Docker socket, so anyone who reaches it can read every container's logs: keep it behind Require login in the service's Deployment protection.",
+      "Live log viewer for every container on the host. Tail, search and follow without SSH. Reads the Docker socket, so anyone who reaches it can read every container's logs: keep it behind Require login in the service's Deployment protection.",
     category: "devtools",
     includes: ["dozzle"],
     requiredEnv: [],
@@ -34,7 +34,7 @@ services:
     id: "verdaccio",
     name: "Verdaccio",
     description:
-      "Private npm registry that proxies and caches the public one — publish internal packages without paying for a private scope, and keep installing when npmjs is down.",
+      "Private npm registry that proxies and caches the public one. Publish internal packages without paying for a private scope, and keep installing when npmjs is down.",
     category: "devtools",
     includes: ["verdaccio"],
     requiredEnv: [],
@@ -59,7 +59,7 @@ volumes:
     id: "docker-registry",
     name: "Docker Registry",
     description:
-      "The reference OCI registry — a private place to push images your services then pull. Pairs with a service's image target so builds never leave your own infrastructure.",
+      "The reference OCI registry: a private place to push images your services then pull. Pairs with a service's image target so builds never leave your own infrastructure.",
     category: "devtools",
     includes: ["registry"],
     requiredEnv: [],
@@ -84,7 +84,7 @@ volumes:
     id: "hoppscotch",
     name: "Hoppscotch",
     description:
-      "API client in the browser — REST, GraphQL and WebSocket requests with collections and environments. A self-hosted alternative to Postman that never syncs your tokens anywhere.",
+      "API client in the browser: REST, GraphQL and WebSocket requests with collections and environments. A self-hosted alternative to Postman that never syncs your tokens anywhere.",
     category: "devtools",
     includes: ["hoppscotch"],
     requiredEnv: [],
@@ -104,7 +104,7 @@ services:
     id: "code-server",
     name: "code-server",
     description:
-      "VS Code running on the server, reached from a browser tab — the editor keeps its extensions and terminal on the machine, so a laptop or tablet is only a screen.",
+      "VS Code running on the server, reached from a browser tab. The editor keeps its extensions and terminal on the machine, so a laptop or tablet is only a screen.",
     category: "devtools",
     includes: ["code-server"],
     requiredEnv: [
@@ -140,7 +140,7 @@ volumes:
     id: "jaeger",
     name: "Jaeger",
     description:
-      "Distributed tracing — send OpenTelemetry spans and follow one request across every service it touched. All-in-one image with in-memory storage, so it starts with no dependencies.",
+      "Distributed tracing. Send OpenTelemetry spans and follow one request across every service it touched. All-in-one image with in-memory storage, so it starts with no dependencies.",
     category: "observability",
     includes: ["jaeger"],
     requiredEnv: [],
@@ -164,17 +164,17 @@ services:
     id: "healthchecks",
     name: "Healthchecks",
     description:
-      "Dead-man's-switch monitoring for cron jobs and backups — each job pings a URL when it finishes, and you get alerted when a ping does not arrive on schedule.",
+      "Dead-man's-switch monitoring for cron jobs and backups. Each job pings a URL when it finishes, and you get alerted when a ping does not arrive on schedule.",
     category: "observability",
     includes: ["healthchecks", "db"],
     requiredEnv: [
       {
         key: "SITE_ROOT",
-        description: "Public base URL — appears in ping URLs and alert emails.",
+        description: "Public base URL. Appears in ping URLs and alert emails.",
       },
       {
         key: "SECRET_KEY",
-        description: "Django secret — signs sessions and tokens.",
+        description: "Django secret. Signs sessions and tokens.",
       },
       {
         key: "POSTGRES_PASSWORD",

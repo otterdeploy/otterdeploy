@@ -1,6 +1,6 @@
 /**
  * CLI helper: find an anchor element in source and splice an insert-variant
- * wrapper before or after it (no original variant — net-new content).
+ * wrapper before or after it (no original variant, net-new content).
  *
  * Usage:
  *   node live-insert.mjs --id SESSION_ID --count N --position after \

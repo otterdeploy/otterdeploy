@@ -7,7 +7,7 @@
  *   `null` value   → deletes the key from the base
  *   Missing key    → inherits base unchanged
  *   Discriminator  → if `source` (services) or `engine` (databases) differs,
- *                    the override fully replaces the base block — no
+ *                    the override fully replaces the base block, no
  *                    cross-discriminator deep merge.
  *
  * Returns a new manifest object with environment overrides resolved.
@@ -83,7 +83,7 @@ function deepMerge(base: JsonObject, override: JsonObject): JsonObject {
       result[key] = deepMerge(existing, value);
       continue;
     }
-    // Scalars + arrays + new keys all hit this branch — override replaces base.
+    // Scalars + arrays + new keys all hit this branch: override replaces base.
     result[key] = value;
   }
   return result;

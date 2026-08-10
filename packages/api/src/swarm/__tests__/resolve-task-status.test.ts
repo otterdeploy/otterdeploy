@@ -6,7 +6,7 @@ import { resolveTaskStatus } from "../internals";
  * Guards the false-success bug: a compose/service deploy whose image can't be
  * pulled leaves swarm churning through failing tasks. The *newest* task is often
  * a fresh "preparing" retry (which reads as "starting"), so sampling only the
- * latest task made a broken rollout look like it was still coming up — and the
+ * latest task made a broken rollout look like it was still coming up, and the
  * reconcile then marked the deployment "running" over an empty shell.
  * resolveTaskStatus must instead surface the most recent hard failure's reason.
  */
@@ -26,7 +26,7 @@ describe("resolveTaskStatus", () => {
 
   test("reports error with the pull reason when the newest task is a fresh retry", () => {
     // Swarm order in the wild: an older task rejected on the pull, a newer one
-    // already re-created and sitting in "preparing" — the exact race the bug hit.
+    // already re-created and sitting in "preparing", the exact race the bug hit.
     const out = resolveTaskStatus([
       task("rejected", "2026-01-01T00:00:00Z", "pull access denied for otterdeploy-local/waves"),
       task("preparing", "2026-01-01T00:00:05Z"),

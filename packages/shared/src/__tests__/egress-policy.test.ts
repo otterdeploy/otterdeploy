@@ -52,7 +52,7 @@ describe("isForbiddenEgressAddress", () => {
     "ff02::1",
     // "127.1" / "0x7f.1" / "2130706433" aren't valid `net.isIP` literals on
     // their own (that encoding is a URL-host-parser normalization, exercised
-    // in the assertAllowedEgressUrl tests below) — here they hit the
+    // in the assertAllowedEgressUrl tests below): here they hit the
     // fail-closed "not a recognized IP literal" branch, which is exactly the
     // safe outcome for an unrecognized address form.
   ])("denies %s", (address) => {
@@ -83,7 +83,7 @@ describe("isForbiddenEgressAddress", () => {
     expect(isForbiddenEgressAddress("192.168.1.99", { allowAddresses: ["192.168.1.0/24"] })).toBe(
       false,
     );
-    // A CIDR carve-out is scoped — a sibling address outside it stays denied.
+    // A CIDR carve-out is scoped. A sibling address outside it stays denied.
     expect(isForbiddenEgressAddress("192.168.2.1", { allowAddresses: ["192.168.1.0/24"] })).toBe(
       true,
     );
@@ -204,10 +204,10 @@ describe("egressFetch", () => {
       egressFetch("http://public.example/hook", {}, { allowHttp: true, resolveHost, request }),
     ).rejects.toThrow("non-public");
     // The first (and only) socket dial used the DNS-resolved, policy-checked
-    // address — never the raw hostname — proving the connection is pinned.
+    // address (never the raw hostname) proving the connection is pinned.
     expect(request).toHaveBeenCalledTimes(1);
     expect(request.mock.calls[0]?.[1]).toEqual(publicAddress);
-    // The redirect target was never dialed — it was rejected before a
+    // The redirect target was never dialed. It was rejected before a
     // second `request()` call, i.e. before a second socket would open.
   });
 
@@ -262,7 +262,7 @@ describe("egressFetch", () => {
 
 /**
  * The tests above all inject a fake `request`, so none of them touch
- * `requestPinnedAddress` — the function that actually opens the socket. That
+ * `requestPinnedAddress`: the function that actually opens the socket. That
  * gap let a release ship in which EVERY outbound call failed on Bun: the
  * request's `close` fires before the response's `end` there (node emits it
  * after), so an ungated close-as-failure fallback rejected successful 200s and

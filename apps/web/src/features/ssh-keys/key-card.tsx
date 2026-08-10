@@ -192,7 +192,7 @@ export function KeyCard({ sshKey, canManage }: { sshKey: SshKey; canManage: bool
   );
 }
 
-/** "Used by" chips — the git hosts / nodes / services this key authenticates. */
+/** "Used by" chips, the git hosts / nodes / services this key authenticates. */
 function KeyUsedBy({ usedBy }: { usedBy: SshKey["usedBy"] }) {
   const { t } = useTranslation();
   return (

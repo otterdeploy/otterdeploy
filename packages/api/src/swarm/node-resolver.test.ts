@@ -24,7 +24,7 @@ describe("pickNodeForServer", () => {
   test("picks the Ready node when a hostname is duplicated", () => {
     // The real shape of this cluster: a re-provisioned machine leaves its old
     // node registered, Down, under the same hostname. Listed FIRST here on
-    // purpose — first-match would pin to the dead one.
+    // purpose: first-match would pin to the dead one.
     const nodes = [node("dead1", "ubuntu-4gb-nbg1-1", "down"), node("live1", "ubuntu-4gb-nbg1-1")];
     expect(pickNodeForServer(nodes, { hostname: "ubuntu-4gb-nbg1-1", name: null })).toEqual({
       kind: "resolved",

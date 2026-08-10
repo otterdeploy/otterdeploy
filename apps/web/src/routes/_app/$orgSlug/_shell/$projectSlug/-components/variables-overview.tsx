@@ -70,7 +70,7 @@ export function OverviewMatrix({
     (k) => !q || k.toLowerCase().includes(q.toLowerCase()),
   );
 
-  // Count defined keys per env — every row counts (both `set` and
+  // Count defined keys per env. Every row counts (both `set` and
   // `empty`); only `missing` (no row) doesn't contribute.
   const counts = new Map<string, number>();
   for (const env of envs) {
@@ -103,7 +103,7 @@ export function OverviewMatrix({
         add or edit values.
       </p>
 
-      {/* secret × environment is a real matrix — it can't stack into a list
+      {/* secret × environment is a real matrix. It can't stack into a list
           without losing the comparison it exists for, so it scrolls sideways
           on a phone rather than clipping the right-hand environments. */}
       <div className="overflow-x-auto rounded-md border bg-card">

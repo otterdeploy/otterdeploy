@@ -137,15 +137,15 @@ const platformHealth = defineCommand({
 
     out();
     if (health.recommendations.length === 0) {
-      ok("No recommendations — host looks healthy.");
+      ok("No recommendations. Host looks healthy.");
       return;
     }
     // Every recommendation is reported. A `critical` one used to be printed with
-    // consola.error, which does not exit — keep that, because aborting on the
+    // consola.error, which does not exit. Keep that, because aborting on the
     // first critical would hide the rest of the host's problems.
     section("Recommendations");
     for (const rec of health.recommendations) {
-      const text = `${rec.title} — ${rec.detail}`;
+      const text = `${rec.title}: ${rec.detail}`;
       if (rec.severity === "critical") fail(text);
       else if (rec.severity === "warning") warn(text);
       else note(text);
@@ -202,7 +202,7 @@ const updateApply = defineCommand({
       // This MUST stop when declined. The previous version printed "Aborted."
       // and then applied the update anyway.
       if (!(await confirm(`Update the platform to ${check.latest}?`))) {
-        abort("Aborted — the platform was not updated.");
+        abort("Aborted. The platform was not updated.");
       }
     }
     const result = await client.system.apply({});
@@ -216,7 +216,7 @@ const updateApply = defineCommand({
     }
     ok(`Update to ${result.targetVersion} started${result.dryRun ? " (dry run)" : ""}.`);
     // The apply is fire-and-forget: a detached helper pulls new images,
-    // migrates, and recreates the control plane — polling from here would
+    // migrates, and recreates the control plane, polling from here would
     // die mid-restart, so hand off to the dashboard instead.
     note(
       dim(

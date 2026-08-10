@@ -1,7 +1,7 @@
 /**
  * Platform self-update contract (install-wide "Updates"). Version detection +
  * check + apply + a live progress event-iterator. Above the org resource
- * surface — reads need `platform:read`, apply/settings need `platform:update`
+ * surface. Reads need `platform:read`, apply/settings need `platform:update`
  * (enforced in index.ts).
  */
 import { eventIterator, oc } from "@orpc/contract";
@@ -163,7 +163,7 @@ export const systemContract = {
     .input(emptyInput)
     .output(versionInfoSchema),
 
-  /** Full install-wide rendered Caddyfile (secrets masked) — admin view. */
+  /** Full install-wide rendered Caddyfile (secrets masked), admin view. */
   caddyfile: oc
     .meta({ path: `${base}/caddyfile`, tag, method: "GET" })
     .input(emptyInput)

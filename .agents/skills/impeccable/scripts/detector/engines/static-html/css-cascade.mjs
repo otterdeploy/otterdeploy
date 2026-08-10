@@ -9,7 +9,7 @@ import { parseAnyColor, resolveLengthPx, resolveVarRefs } from '../../rules/chec
 // ---------------------------------------------------------------------------
 //
 // jsdom's CSSOM silently drops any border shorthand that contains a var()
-// reference — the computed style for the element then shows empty width,
+// reference: the computed style for the element then shows empty width,
 // empty style, and a default black color. That's enough to hide the most
 // common real-world side-tab pattern in AI-generated pages:
 //
@@ -29,7 +29,7 @@ import { parseAnyColor, resolveLengthPx, resolveVarRefs } from '../../rules/chec
 //
 // Limitations (intentional, to keep the pass simple):
 //   * Only :root-level custom properties are resolved. Scoped overrides on
-//     descendants are not tracked — uncommon in practice and would require
+//     descendants are not tracked. Uncommon in practice and would require
 //     a per-element cascade walk.
 //   * @media / @supports wrapped rules are ignored (jsdom often mishandles
 //     these anyway).
@@ -41,7 +41,7 @@ const BORDER_SHORTHAND_RE = /^(\d+(?:\.\d+)?)px\s+(solid|dashed|dotted|double|gr
 // isNeutralColor only understands rgba()/oklch()/lch()/lab()/hsl()/hwb().
 // CSS variables typically hold hex or named colors, so normalize those to
 // rgb() before handing the value off to the shared check. Anything we don't
-// recognise is passed through unchanged — isNeutralColor then treats it as
+// recognise is passed through unchanged. IsNeutralColor then treats it as
 // non-neutral, which is the safer default (matches the oklch-era bugfix).
 const NAMED_COLORS = {
   white: [255, 255, 255], black: [0, 0, 0], gray: [128, 128, 128],
@@ -147,7 +147,7 @@ function buildBorderOverrideMap(document, window) {
         if (!val || !val.includes('var(')) continue;
         const resolved = resolveVar(val).trim();
         if (!resolved) continue;
-        // Width may or may not come from this rule — that's fine; the
+        // Width may or may not come from this rule. That's fine; the
         // adapter only substitutes the color when jsdom left it as a
         // literal var() string.
         if (!perSide[side]) perSide[side] = { width: 0, color: normalizeColorForCheck(resolved) };
@@ -162,7 +162,7 @@ function buildBorderOverrideMap(document, window) {
       for (const el of matched) {
         const existing = map.get(el);
         if (existing) {
-          // Later rules overwrite earlier ones — approximates source-order
+          // Later rules overwrite earlier ones: approximates source-order
           // cascade for equal-specificity rules and is good enough for the
           // uncontested var()-dropped sides we're trying to recover.
           Object.assign(existing, perSide);
@@ -204,7 +204,7 @@ function unwrapCssAtLayer(source) {
       i++;
     }
     if (depth !== 0) {
-      // Unbalanced — bail and return source unchanged.
+      // Unbalanced: bail and return source unchanged.
       return source;
     }
     // Emit everything before the @layer, then the inner contents

@@ -25,8 +25,8 @@ export const loginCommand = defineCommand({
     // clear message instead of a downstream "Invalid base URL".
     // Interactively, a stored `url` is NOT treated as explicit: bare
     // `otterdeploy login` should offer the domains you already have (the
-    // stored one among them) rather than silently reusing the last one —
-    // that pick-list is the point. Non-interactively there's nobody to ask,
+    // stored one among them) rather than silently reusing the last one.
+    // That pick-list is the point. Non-interactively there's nobody to ask,
     // so the stored URL still wins and CI behaviour is unchanged.
     const positional = args._?.[0];
     const explicit = args.url ?? positional ?? (process.stdin.isTTY ? undefined : loadConfig().url);
@@ -49,7 +49,7 @@ export const loginCommand = defineCommand({
       );
     }
 
-    // webUrl = web origin from the device verification URL — init needs it
+    // webUrl = web origin from the device verification URL: init needs it
     // to write a working $schema URL, so persist it alongside the token.
     const { token, webUrl } = await deviceCodeLogin(url);
     saveConfig({ ...loadConfig(), url, webUrl, token });

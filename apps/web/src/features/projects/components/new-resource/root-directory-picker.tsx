@@ -1,12 +1,12 @@
 /**
- * Root Directory picker — Vercel-style "Import Git Repository" flow.
+ * Root Directory picker: Vercel-style "Import Git Repository" flow.
  *
  * Backed by orpc.git.inspectRepo, which walks the GitHub Contents API
  * for the bound gitRepoId. The trigger shows the current value; the
  * dialog lets the operator navigate folders, surfacing a detected
  * framework badge per row + a monorepo hint at the root.
  *
- * The picker doesn't write back through a query mutation — it owns a
+ * The picker doesn't write back through a query mutation. It owns a
  * local "currently browsing" path and only commits to the form via the
  * `onChange` callback when the operator clicks Select.
  *
@@ -52,7 +52,7 @@ import {
 
 interface RootDirectoryPickerProps {
   gitRepoId: string | null;
-  /** Current form value — the path that was last committed. */
+  /** Current form value: the path that was last committed. */
   value: string;
   /** Called when the operator picks a folder and clicks Select. */
   onChange: (path: string) => void;
@@ -68,8 +68,8 @@ export function RootDirectoryPicker({
 }: RootDirectoryPickerProps) {
   const [open, setOpen] = useState(false);
   // Two independent paths inside the dialog:
-  //   browsePath  — which folder's contents are currently visible
-  //   selected    — the radio-picked folder, what "Use this folder" commits
+  //   browsePath, which folder's contents are currently visible
+  //   selected: the radio-picked folder, what "Use this folder" commits
   // They start diverged: browsePath opens at the PARENT of the committed
   // value so the value renders as a highlighted row in its parent's listing
   // (e.g. value `apps/web` opens `apps/` with `web` selected) instead of
@@ -168,7 +168,7 @@ export function RootDirectoryPicker({
 }
 
 /**
- * One pane = one path's listing. Only directories render — files
+ * One pane = one path's listing. Only directories render. Files
  * aren't valid root choices, so they'd just be visual noise.
  *
  * Each row holds a radio (selects the folder) and a chevron button

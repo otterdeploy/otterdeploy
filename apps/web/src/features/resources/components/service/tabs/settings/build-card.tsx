@@ -1,5 +1,5 @@
 // Build settings for a git-sourced service. Edits the build config and stages
-// it into the project manifest — same manifest.get → patch → manifest.save path
+// it into the project manifest: same manifest.get → patch → manifest.save path
 // as the danger zone, so the change rides the normal pending-changes bar and
 // applies + rebuilds on the next Deploy. Build config only matters at build
 // time, so there's no live mutation.
@@ -20,10 +20,10 @@ import { DockerfileBuildCard, RailpackBuildCard } from "./build-card-forms";
 
 /** Dispatch on the builder: railpack and dockerfile each get their own card;
  *  everything else (image / compose / auto) renders nothing. Pure narrowing
- *  only — no hooks — so the sub-components own their own state. */
+ *  only (no hooks) so the sub-components own their own state. */
 export function ServiceBuildCard({ resource }: { resource: ServiceBuildResource }) {
   // `buildConfig` arrives as the `BuildConfig` union, so the discriminator
-  // does the narrowing — no hand-written cast per builder.
+  // does the narrowing, no hand-written cast per builder.
   switch (resource.buildConfig?.builder) {
     case "railpack":
       return <RailpackBuildCard resource={resource} config={resource.buildConfig} />;

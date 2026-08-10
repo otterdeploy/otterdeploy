@@ -4,11 +4,11 @@
  * A resource's name is not just a label: other resources address it by that
  * name in their env values (`${database:primary.url}`, `${service:api.host}`).
  * Renaming the key alone would leave every one of those refs pointing at a
- * resource that no longer exists — the manifest would still validate, and the
+ * resource that no longer exists. The manifest would still validate, and the
  * breakage would surface at deploy time as an unresolvable ref.
  *
  * So a rename is one atomic transform: move the entry, then rewrite every ref
- * that named it. Pure and manifest-only — callers decide whether the rename is
+ * that named it. Pure and manifest-only: callers decide whether the rename is
  * ALLOWED (see `renamableState`), which is a question about deployed
  * infrastructure, not about the document.
  *
@@ -50,7 +50,7 @@ export function rewriteRefsInValue(
   from: string,
   to: string,
 ): string {
-  // compose stacks aren't addressable by ref — nothing to rewrite.
+  // compose stacks aren't addressable by ref, nothing to rewrite.
   if (kind === "compose") return value;
   const escaped = from.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
   // `${kind:name}` followed by `.` (a field/key) or the closing brace.
@@ -97,7 +97,7 @@ export type RenameError = { code: "not-found" } | { code: "name-taken" } | { cod
  *
  * `name-taken` checks EVERY section, not just the one being renamed: a service
  * and a database cannot share a name because they share the project's internal
- * DNS namespace — `${service:x.host}` and a database called `x` would be two
+ * DNS namespace: `${service:x.host}` and a database called `x` would be two
  * different answers to the same question.
  */
 export function renameInManifest(args: {

@@ -10,7 +10,7 @@ import { orpc, queryClient } from "@/shared/server/orpc";
 
 /**
  * Org-scoped backup runs. The list endpoint derives the org from the session,
- * so this is a plain (non-subset) collection — fetch the full list, filter
+ * so this is a plain (non-subset) collection. Fetch the full list, filter
  * client-side in the route. The row type is inferred from the contract's
  * `backupSchema`, not re-declared.
  *
@@ -29,7 +29,7 @@ function isInFlight(b: Backup): boolean {
 }
 
 const backupsQueryOptions = queryCollectionOptions({
-  // Stable id — persistedCollectionOptions keys the SQLite table off it; a
+  // Stable id: persistedCollectionOptions keys the SQLite table off it; a
   // random per-load id would never round-trip (see project.ts).
   id: "backups",
   ...orpc.backups.list.queryOptions({ input: {} }),
@@ -39,8 +39,8 @@ const backupsQueryOptions = queryCollectionOptions({
   getKey: (b) => b.id,
   // `backups.run` returns once the run is ENQUEUED, not once it finishes, so
   // runBackup's single invalidate below always lands on a still-running row.
-  // Without this the row sat at "Running" forever — with the completed log
-  // visible inside it, since logs are fetched separately — and Restore /
+  // Without this the row sat at "Running" forever. With the completed log
+  // visible inside it, since logs are fetched separately, and Restore /
   // Download stayed disabled because both gate on status === "succeeded".
   // Poll only while something is in flight; stop dead once it settles.
   refetchInterval: (query) =>
@@ -49,7 +49,7 @@ const backupsQueryOptions = queryCollectionOptions({
 
 type BackupRow = Awaited<ReturnType<typeof orpc.backups.list.call>>[number];
 
-// Call `createCollection` inside each branch — the persisted and plain option
+// Call `createCollection` inside each branch. The persisted and plain option
 // objects are different types (see project.ts for the full type note).
 export const backupsCollection = persistence
   ? createCollection(
@@ -73,7 +73,7 @@ export function restoreBackup(input: Parameters<typeof orpc.backups.restore.call
   return orpc.backups.restore.call(input);
 }
 
-/** Integrity check result — the server re-fetches the stored archive and
+/** Integrity check result. The server re-fetches the stored archive and
  *  recomputes its checksum. Read through `useQuery` at the point of use (see
  *  restore-verify-step.tsx), so only the output type is shared from here. */
 export type VerifyResult = Awaited<ReturnType<typeof orpc.backups.verify.call>>;

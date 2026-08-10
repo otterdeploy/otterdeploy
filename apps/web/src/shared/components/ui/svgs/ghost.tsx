@@ -1,7 +1,7 @@
 import type { SVGProps } from "react";
 
 /**
- * Ghost mark (Simple Icons). Monochrome — inherits the tile's `color`
+ * Ghost mark (Simple Icons). Monochrome: inherits the tile's `color`
  * via `currentColor`, so it stays legible on both canvases.
  */
 const Ghost = (props: SVGProps<SVGSVGElement>) => (

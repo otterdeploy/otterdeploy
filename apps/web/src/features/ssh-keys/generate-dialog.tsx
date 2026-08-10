@@ -1,7 +1,7 @@
 /**
  * Generate-an-SSH-key dialog. Collects a name, key type, optional comment and
  * passphrase, then asks the server to run `ssh-keygen`. The private half never
- * leaves the cluster — on success we just close and the new key appears in the
+ * leaves the cluster. On success we just close and the new key appears in the
  * list (operators copy the PUBLIC key from its card to their Git host).
  */
 
@@ -87,7 +87,7 @@ export function GenerateKeyDialog({
           <DialogTitle>{t("sshKeys.generateTitle")}</DialogTitle>
           <DialogDescription>
             We run <code className="font-mono text-xs">ssh-keygen</code> on the cluster. The private
-            key is encrypted at rest and never shown — copy the public key to your Git host or
+            key is encrypted at rest and never shown. Copy the public key to your Git host or
             server.
           </DialogDescription>
         </DialogHeader>

@@ -1,5 +1,5 @@
 /**
- * App-wide status rollup — what the browser tab should be saying right now.
+ * App-wide status rollup: what the browser tab should be saying right now.
  *
  * Several places know something worth reporting (a project's live task states, a
  * long-running mutation), and none of them own the tab. So they each *report*
@@ -46,7 +46,7 @@ function publish(): void {
 /**
  * Records (or with `null`, withdraws) one source's opinion.
  *
- * `key` should be stable per source — reporting again under the same key
+ * `key` should be stable per source. Reporting again under the same key
  * replaces that source's previous value rather than stacking.
  */
 function reportAppStatus(key: string, status: MarkStatus | null): void {
@@ -73,7 +73,7 @@ export function useAppStatus(): MarkStatus {
 
 /**
  * Reports `status` for as long as the calling component is mounted, and
- * withdraws it on unmount. The common case — a route that knows about its own
+ * withdraws it on unmount. The common case. A route that knows about its own
  * subtree's health and should not outlive it.
  */
 export function useReportAppStatus(key: string, status: MarkStatus | null): void {
@@ -82,6 +82,6 @@ export function useReportAppStatus(key: string, status: MarkStatus | null): void
   }, [key, status]);
 
   // Separate from the report effect so a changing `status` does not churn the
-  // cleanup — this one runs only when the key changes or on unmount.
+  // cleanup: this one runs only when the key changes or on unmount.
   useEffect(() => () => reportAppStatus(key, null), [key]);
 }

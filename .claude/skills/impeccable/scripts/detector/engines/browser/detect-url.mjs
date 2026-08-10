@@ -104,7 +104,7 @@ async function detectUrl(url, options = {}) {
     }
   }
 
-  // Read the browser detection script — reuse it instead of reimplementing
+  // Read the browser detection script, reuse it instead of reimplementing
   const browserScriptPath = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '..',

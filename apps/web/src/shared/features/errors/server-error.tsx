@@ -4,7 +4,7 @@ import { ErrorScreen, errorBackClass, errorBtnClass } from "@otterdeploy/ui/erro
 import { useTranslation } from "react-i18next";
 
 /**
- * 500 screen — wired into the router as `defaultErrorComponent` (see main.tsx).
+ * 500 screen, wired into the router as `defaultErrorComponent` (see main.tsx).
  * Renders when a route loader or component throws. `reset` retries the boundary.
  */
 export function ServerError({ reset, error }: ErrorComponentProps) {

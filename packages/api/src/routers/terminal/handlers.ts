@@ -1,14 +1,14 @@
 /**
  * Terminal target discovery. One read covers everything the picker needs to
  * show under Container + Database tabs. SSH targets piggyback on the existing
- * org-scoped server.list — no need to re-source them here.
+ * org-scoped server.list, no need to re-source them here.
  *
  * Org scoping:
  *   - Containers: filtered to docker labels { otterdeploy.managed=true,
  *     otterdeploy.project=<projectSlug> } for projects in this org.
  *   - Databases: SQL join `resource → project` filtered by organizationId.
  *
- * Container labels are the source of truth for the project mapping — we DO
+ * Container labels are the source of truth for the project mapping. We DO
  * NOT trust labels to identify the org (a different deployment in the same
  * Docker daemon could spoof them). Instead we pre-load the org's project
  * slugs and only emit containers whose `otterdeploy.project` label matches.
@@ -73,7 +73,7 @@ function splitTaskName(name: string): {
 } {
   // Stripping a leading slash that docker prepends to Names entries.
   const clean = name.replace(/^\//, "");
-  // Swarm task naming: `<service>.<slot>.<taskId>` — slot is numeric.
+  // Swarm task naming: `<service>.<slot>.<taskId>`: slot is numeric.
   const match = /^(.*)\.(\d+)\.[a-z0-9]+$/.exec(clean);
   if (match && match[1]) return { serviceName: match[1], slot: match[2] ?? null };
   return { serviceName: clean, slot: null };
@@ -127,7 +127,7 @@ export async function listTerminalTargets(input: {
   /** Optional project allow-list, used by project-restricted API keys. */
   projectIds?: string[];
 }): Promise<TerminalTargets> {
-  // Org projects — slugs let us scope label-filtered containers safely.
+  // Org projects: slugs let us scope label-filtered containers safely.
   const projects = await db
     .select({ id: project.id, slug: project.slug, name: project.name })
     .from(project)
@@ -147,7 +147,7 @@ export async function listTerminalTargets(input: {
   // an org-owned slug before emitting.
   const docker = Docker.fromEnv();
   const listed = await docker.containers.list({
-    all: false, // running only — exec is meaningless against stopped
+    all: false, // running only: exec is meaningless against stopped
     filters: { label: ["otterdeploy.managed=true"] },
   });
 
@@ -184,7 +184,7 @@ export async function listTerminalTargets(input: {
     .from(databaseResource)
     .innerJoin(resource, eq(resource.id, databaseResource.resourceId))
     .innerJoin(project, eq(project.id, resource.projectId))
-    // Base databases only — a PR preview's branch DB is not a terminal target.
+    // Base databases only: a PR preview's branch DB is not a terminal target.
     .where(and(eq(project.organizationId, input.organizationId), isNull(resource.previewId)));
 
   const databases: TerminalDatabase[] = dbRows

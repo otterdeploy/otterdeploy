@@ -6,7 +6,7 @@ import { triggerDeploy } from "@otterdeploy/jobs";
 /**
  * Hand a git-sourced compose stack to the build worker. Kept out of the oRPC
  * handlers (`index.ts`) because it's a distinct concern: resolve the branch
- * head, open a deployment, and enqueue — the builder then clones, builds any
+ * head, open a deployment, and enqueue. The builder then clones, builds any
  * `build:` services, fetches + persists the compose file, and deploys.
  */
 import { Result } from "better-result";
@@ -20,7 +20,7 @@ import { parseGitHubUrl } from "./util";
  * Enqueue a build for a git-sourced stack: resolve the branch head SHA (unless
  * the caller pre-resolved it for fail-fast), open a pending deployment row, and
  * trigger the build. Shared by git-create and git-redeploy so a git stack
- * ALWAYS deploys through the builder — never off stale/absent persisted content
+ * ALWAYS deploys through the builder, never off stale/absent persisted content
  * (a direct `deployCompose` on an unbuilt git stack would throw on empty
  * content).
  */
@@ -113,7 +113,7 @@ export async function enqueueComposeBuild(input: {
  * Enqueue a build for an INLINE stack whose compose file has `build:` services.
  * There is no repo: the builder materializes the stack's stored file tree and
  * builds each context from it. The deployment's "sha" is a content hash of the
- * compose file (stable per content — tags the built images), ref is the literal
+ * compose file (stable per content, tags the built images), ref is the literal
  * `inline` sentinel.
  */
 export async function enqueueInlineComposeBuild(input: {
@@ -138,7 +138,7 @@ export async function enqueueInlineComposeBuild(input: {
 
   await triggerDeploy({
     projectId: input.projectId,
-    // Correlation-only (no repo) — the builder loads everything off the row.
+    // Correlation-only (no repo): the builder loads everything off the row.
     gitRepoId: input.resourceId,
     ref: "inline",
     sha,

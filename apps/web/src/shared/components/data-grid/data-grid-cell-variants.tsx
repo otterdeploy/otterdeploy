@@ -196,7 +196,7 @@ export function ShortTextCell<TData>({
         })}
       >
         {!isEditing && value == null ? (
-          // SQL NULL sentinel — distinct from an empty string (which is blank).
+          // SQL NULL sentinel: distinct from an empty string (which is blank).
           <span className="text-muted-foreground/40 italic">NULL</span>
         ) : (
           displayValue

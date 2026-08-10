@@ -1,5 +1,5 @@
 /**
- * Minimal SSH command transport for remote-server provisioning — a thin
+ * Minimal SSH command transport for remote-server provisioning: a thin
  * wrapper over `ssh2`'s `Client` (lazy-loaded, optional dep). We connect OUT to
  * a host, run bash scripts, and stream their output line-by-line. This is the
  * *bootstrap* transport only (install Docker, join the swarm); once a node is
@@ -14,12 +14,12 @@
 import type { Client as SshClient } from "ssh2";
 
 const SSH2_MISSING =
-  "ssh2 is not installed — run `bun install` to enable remote server provisioning " +
+  "ssh2 is not installed. Run `bun install` to enable remote server provisioning " +
   "(it's an optional dependency so single-host installs don't pay for its native build).";
 
 /** Auth material for one connection. Exactly one of key/password is expected;
  *  the key is preferred and the password is a one-time bootstrap credential
- *  (used only to install our managed key, then discarded — never stored). */
+ *  (used only to install our managed key, then discarded, never stored). */
 export interface SshTarget {
   host: string;
   port: number;
@@ -44,10 +44,10 @@ function mapConnectError(err: Error & { level?: string }): Error {
   switch (err.level) {
     case "client-authentication":
       return new Error(
-        "SSH authentication failed — check the key is installed in the host's authorized_keys (or the password is correct).",
+        "SSH authentication failed. Check the key is installed in the host's authorized_keys (or the password is correct).",
       );
     case "client-timeout":
-      return new Error("SSH connection timed out — is the host reachable and is port open?");
+      return new Error("SSH connection timed out. Is the host reachable and is port open?");
     default:
       return new Error(`SSH connection failed: ${err.message}`);
   }
@@ -80,7 +80,7 @@ export class SshSession {
         privateKey: target.privateKey,
         password: target.password,
         readyTimeout: 20_000,
-        // First contact with a brand-new host — no known_hosts entry can exist
+        // First contact with a brand-new host, no known_hosts entry can exist
         // yet, so we accept the host key on trust (same as Coolify's
         // StrictHostKeyChecking=no). The tailnet path (phase 2) removes the
         // MITM window by carrying this over an authenticated mesh.
@@ -92,7 +92,7 @@ export class SshSession {
   /**
    * Run a bash script on the remote and stream its output. The script is
    * base64-piped into `bash` so we never have to escape it into a command
-   * line. Resolves with the exit code even on non-zero — the caller decides
+   * line. Resolves with the exit code even on non-zero. The caller decides
    * whether that's fatal (some probe steps expect failure).
    */
   runScript(script: string, onLine?: LineSink): Promise<RemoteExecResult> {

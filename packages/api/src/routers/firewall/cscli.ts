@@ -2,15 +2,15 @@ import type { Duplex } from "node:stream";
 
 /**
  * Talk to the CrowdSec agent by exec'ing `cscli` inside its container over the
- * Docker socket the control plane already manages — no LAPI credentials, no host
+ * Docker socket the control plane already manages, no LAPI credentials, no host
  * networking. Two shapes:
  *   - `cscliRead`  : a TRUSTED fixed command (stderr dropped → clean JSON).
- *   - `cscliRun`   : a command that takes UNTRUSTED input — the values are passed
+ *   - `cscliRun`   : a command that takes UNTRUSTED input. The values are passed
  *                    as POSITIONAL shell args ($1, $2, …), never interpolated, so
  *                    a hostile blocklist URL / reason can't inject shell.
  *
  * Execs run WITHOUT a TTY: `cscli decisions list` deadlocks when stdout is a
- * pty (observed on v1.7.8 — zero bytes, forever), so the attach stream arrives
+ * pty (observed on v1.7.8, zero bytes, forever), so the attach stream arrives
  * in Docker's multiplexed framing and is demuxed here. Every exec also carries
  * a hard timeout: a wedged agent degrades to `null` ("agent unreachable")
  * instead of a forever-pending RPC that piles stuck cscli processes into the
@@ -36,7 +36,7 @@ function collectStream(stream: NodeJS.ReadableStream): Promise<Buffer> {
 /**
  * Demultiplex a non-TTY docker attach stream: frames of
  * `[stream(1), 0, 0, 0, len(u32 BE)]` + payload. stdout and stderr payloads
- * are concatenated in arrival order — same merged text the old TTY mode
+ * are concatenated in arrival order. Same merged text the old TTY mode
  * produced. Falls back to the raw text when the buffer isn't mux-framed.
  * Exported for tests.
  */
@@ -80,8 +80,8 @@ async function execInCrowdsec(
  * Run a command in the crowdsec container with data on STDIN, via the docker
  * CLI rather than the Docker HTTP API.
  *
- * The API path (exec + AttachStdin + a hijacked duplex) delivers the payload —
- * cscli genuinely imports the decisions — but the response stream comes back
+ * The API path (exec + AttachStdin + a hijacked duplex) delivers the payload:
+ * cscli genuinely imports the decisions, but the response stream comes back
  * EMPTY and `exec.inspect()` reports a null exit code, so the caller cannot
  * tell success from failure. That made every managed-blocklist import look
  * rejected while its decisions were live in CrowdSec, and the caller then
@@ -132,7 +132,7 @@ async function run(
       )
     : undefined;
   if (!container) return null;
-  // Anything with stdin goes through the CLI — see runViaCli for why.
+  // Anything with stdin goes through the CLI. See runViaCli for why.
   if (input !== undefined) return runViaCli(container.Id, cmd, input, timeoutMs);
   const exec = await docker.containers.getContainer(container.Id).exec({
     Cmd: cmd,
@@ -151,7 +151,7 @@ async function run(
   return demuxDockerStream(await output);
 }
 
-/** Run a TRUSTED, fixed command with stderr suppressed — for clean JSON reads.
+/** Run a TRUSTED, fixed command with stderr suppressed. For clean JSON reads.
  *  `command` must NOT contain untrusted input. The in-container `timeout`
  *  kills the process itself: without it, an abandoned slow query (e.g. the
  *  /v1/alerts scan behind `cscli decisions list`) keeps grinding the agent at
@@ -160,8 +160,8 @@ export function cscliRead(command: string): Promise<string | null> {
   return execInCrowdsec(["sh", "-lc", `timeout 25 ${command} 2>/dev/null`]);
 }
 
-/** Run a command whose `script` references untrusted values as $1, $2, … —
- *  the values are passed as separate argv entries, so they're never parsed by
+/** Run a command whose `script` references untrusted values as $1, $2, ….
+ *  The values are passed as separate argv entries, so they're never parsed by
  *  the shell. Output is the merged stdout+stderr (so callers can read result
  *  messages like "Imported N decisions"). */
 export function cscliRun(

@@ -24,8 +24,8 @@ const glowStyle = {
 
 /**
  * Full-screen branded shell for the first-run setup wizard. Shares the auth
- * surface's atmosphere — faint grid, primary glow, top-left wordmark, security
- * footer — but leaves the centered content (the stepped wizard card) to the
+ * surface's atmosphere. Faint grid, primary glow, top-left wordmark, security
+ * footer, but leaves the centered content (the stepped wizard card) to the
  * caller rather than wrapping it in a fixed single card.
  */
 export function WizardShell({ children }: { children: ReactNode }) {

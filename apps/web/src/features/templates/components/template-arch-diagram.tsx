@@ -1,5 +1,5 @@
 /**
- * Architecture diagram for a template's detail modal — generated entirely
+ * Architecture diagram for a template's detail modal. Generated entirely
  * from the parsed compose file (ports → exposed, depends_on → edges, named
  * volume mounts → volume nodes). Nothing here is hand-drawn per template, so
  * the diagram can never drift from the YAML that actually deploys.

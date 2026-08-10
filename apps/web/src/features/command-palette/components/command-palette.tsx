@@ -37,7 +37,7 @@ import { NavGroup, ORG_NAV_GROUPS, PaletteFooter, PROJECT_NAV } from "./nav-item
 /**
  * Imperative navigation for palette selections. Nav entries carry typed
  * RoutePaths (checked at their definition in the nav manifest), but at these
- * dynamic call sites the widened union defeats param inference — substitute
+ * dynamic call sites the widened union defeats param inference. Substitute
  * the known params into the concrete path instead of casting: `to` also
  * accepts a plain string.
  */
@@ -68,7 +68,7 @@ function makeGoHandlers(opts: {
   };
   // Same-page search tweak. The current route (and so its search schema) is
   // opaque at this call site, so go through the concrete URL instead of a
-  // cast — TanStack's search serializer round-trips raw values losslessly.
+  // cast: TanStack's search serializer round-trips raw values losslessly.
   const switchEnv = (slug: string) =>
     run(() => {
       const url = new URL(window.location.href);
@@ -102,7 +102,7 @@ export function CommandPalette() {
     [projectId],
   );
 
-  // All projects in the org — the palette doubles as a project switcher.
+  // All projects in the org: the palette doubles as a project switcher.
   const { data: projects } = useLiveQuery((q) => q.from({ p: projectCollection }), []);
 
   const run = (fn: () => void) => {
@@ -124,7 +124,7 @@ export function CommandPalette() {
 
   // Global keyboard shortcuts. `ignoreInputs` defaults to true for single keys
   // and sequences, so these don't fire while the user is typing in a text
-  // field — but that alone doesn't cover focus sitting on a non-input element
+  // field, but that alone doesn't cover focus sitting on a non-input element
   // inside an open dialog (a card, a tab, the dialog body), so also disable
   // while any dialog is open (`useIsOverlayOpen`) to stop a stray keystroke
   // from popping this dialog open on top of / navigating away from another.

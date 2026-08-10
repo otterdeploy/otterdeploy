@@ -86,7 +86,7 @@ export function shapeValue(
       };
     }
     default:
-      // "none" — key missing or expired between list and read.
+      // "none": key missing or expired between list and read.
       return { ...base, truncated: false };
   }
 }

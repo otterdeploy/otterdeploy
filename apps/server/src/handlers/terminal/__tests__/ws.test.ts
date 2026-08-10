@@ -1,16 +1,16 @@
 /**
- * od-5j8.9 — /pty WebSocket upgrade: Origin validation + single-use ticket.
+ * od-5j8.9: /pty WebSocket upgrade: Origin validation + single-use ticket.
  *
  * These exercise the REAL `terminalWebSocketHandler` over HTTP (Hono's
  * `app.request`), but only scenarios that are rejected before the handler
- * calls `upgradeWebSocket` — a genuine upgrade needs a live Bun server socket
+ * calls `upgradeWebSocket`. A genuine upgrade needs a live Bun server socket
  * that `app.request()` can't provide. That's every scenario this file needs:
  * origin checks and ticket rejection both happen strictly before the upgrade
  * call (see ../ws.ts), so a plain HTTP request through the same handler is a
  * faithful test of them.
  *
  * The ticket store is an in-memory double (see `memoryTicketStore` below) so
- * this file needs no Redis. That is not a convenience — it is the difference
+ * this file needs no Redis. That is not a convenience. It is the difference
  * between these tests passing and hanging in CI.
  */
 
@@ -31,8 +31,8 @@ const TRUSTED_ORIGIN = env.CORS_ORIGIN[0] ?? "http://localhost:3001";
 /**
  * In-memory stand-in for the ticket store.
  *
- * These tests are about the UPGRADE HANDLER's rejection paths, not about Redis
- * — but every path that inspects a ticket goes through the store, so without a
+ * These tests are about the UPGRADE HANDLER's rejection paths, not about Redis,
+ * but every path that inspects a ticket goes through the store, so without a
  * double they opened a real connection. The CI `test` job has no Redis service
  * by design (only `integration` gets containers, see ci.yml), so those three
  * tests hung ~5s and failed on timeout, passing locally only because a
@@ -90,7 +90,7 @@ describe("[od-5j8.9] /pty Origin validation", () => {
     expect(body.message).toMatch(/origin/i);
   });
 
-  test("a missing Origin is rejected — every browser sends one on a WS handshake", async () => {
+  test("a missing Origin is rejected. Every browser sends one on a WS handshake", async () => {
     const res = await upgradeRequest({ ticket: "whatever" });
     expect(res.status).toBe(403);
   });
@@ -103,7 +103,7 @@ describe("[od-5j8.9] /pty Origin validation", () => {
   });
 });
 
-describe("[od-5j8.9] /pty requires a single-use ticket — no cookie/ambient fallback", () => {
+describe("[od-5j8.9] /pty requires a single-use ticket, no cookie/ambient fallback", () => {
   test("no ticket at all is rejected (cookie-only upgrades are dead)", async () => {
     const res = await upgradeRequest({ origin: TRUSTED_ORIGIN });
     expect(res.status).toBe(401);
@@ -123,7 +123,7 @@ describe("[od-5j8.9] /pty requires a single-use ticket — no cookie/ambient fal
       target: { kind: "host" },
       clientIp: null,
     });
-    // Burn it directly — equivalent to "already used to open a session".
+    // Burn it directly: equivalent to "already used to open a session".
     const { consumeTerminalTicket } = await import("@otterdeploy/api/routers/terminal/tickets");
     const first = await consumeTerminalTicket(minted.token, { clientIp: null });
     expect(first.isOk()).toBe(true);
@@ -137,8 +137,8 @@ describe("[od-5j8.9] /pty requires a single-use ticket — no cookie/ambient fal
   test("a non-upgrade GET falls through untouched (health checks etc. aren't caught by the gate)", async () => {
     const res = await app().request("http://server.test/pty");
     // No `Upgrade: websocket` header ⇒ handler calls next(); with nothing
-    // else mounted on this throwaway app, Hono's default 404 comes back —
-    // proof the gate didn't intercept a non-WS request.
+    // else mounted on this throwaway app, Hono's default 404 comes back.
+    // Proof the gate didn't intercept a non-WS request.
     expect(res.status).toBe(404);
   });
 });

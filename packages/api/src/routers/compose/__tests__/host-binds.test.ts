@@ -6,7 +6,7 @@
  * a SINGLE-FILE stack, so it has no materialized tree and `toMounts` dropped
  * the bind on the `!ctx.stackDir` guard before ever looking at the path. The
  * stack applied clean and the container crash-looped on "Could not connect to
- * any Docker Engine" — an error that points at the image, not at us.
+ * any Docker Engine": an error that points at the image, not at us.
  */
 import { describe, expect, it } from "vite-plus/test";
 
@@ -31,7 +31,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
 `;
 
-/** A single-file stack — no materialized tree, so no stackDir. */
+/** A single-file stack, no materialized tree, so no stackDir. */
 const ctx = {
   projectId: "project_1",
   organizationId: "org_1",

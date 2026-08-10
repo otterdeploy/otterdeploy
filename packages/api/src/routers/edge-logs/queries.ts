@@ -7,11 +7,11 @@ import { and, eq } from "drizzle-orm";
 
 import { normalizeHost } from "../../edge-logs/host";
 
-/** All domains owned by an org — the access-log/event visibility scope. NOT
+/** All domains owned by an org. The access-log/event visibility scope. NOT
  *  restricted to `type="http"`: the cross-tenant guard is the org join, and an
  *  org's layer4 (public-DB) domains still get cert/ACME events on the operational
  *  plane, so scoping them out only hid the tenant's own traffic. Canonicalized
- *  (lowercase, no port) to match the ingested host — see edge-logs/host. */
+ *  (lowercase, no port) to match the ingested host: see edge-logs/host. */
 export async function listOrgDomains(organizationId: OrganizationId): Promise<string[]> {
   const rows = await db
     .select({ domain: proxyRoute.domain })
@@ -91,7 +91,7 @@ export async function listRouteUpstreams(
   return map;
 }
 
-/** A project's domains, but only if the project belongs to the org — the org
+/** A project's domains, but only if the project belongs to the org. The org
  *  filter is the cross-tenant guard. Not `type="http"`-restricted, and
  *  canonicalized, for the same reasons as listOrgDomains. */
 export async function listProjectDomains(

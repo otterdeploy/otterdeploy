@@ -1,11 +1,11 @@
 /**
  * The restore wizard's Verify stage: a server-side integrity check (the
  * server re-fetches the stored archive and recomputes its checksum against
- * the recorded one — a real probe, no fake diff) plus a plain source → target
+ * the recorded one: a real probe, no fake diff) plus a plain source → target
  * summary built from what is genuinely stored on the run row.
  *
  * The check is a query keyed on the run id, so switching runs swaps verdicts
- * without any per-mount refetch — and re-opening the wizard on a run verified
+ * without any per-mount refetch, and re-opening the wizard on a run verified
  * moments ago reuses that result rather than making the server pull the whole
  * archive down again.
  */
@@ -33,7 +33,7 @@ export function VerifyStep({
   const verify = useQuery({
     ...orpc.backups.verify.queryOptions({ input: { id: backup.id } }),
     // One shot, like the probe this replaces. An unreachable archive is a
-    // verdict to show, not a blip worth three rounds of backoff — retrying
+    // verdict to show, not a blip worth three rounds of backoff. Retrying
     // would only hold the badge on "re-fetching archive…" for seconds longer.
     retry: false,
     // The badge and the amber reason line carry the failure inline, so opt out
@@ -119,7 +119,7 @@ function ChecksumLines({
 }) {
   return (
     <div className="flex flex-col gap-0.5 font-mono text-[11px] text-muted-foreground">
-      <span className="break-all">stored: {result?.storedChecksum ?? backup.checksum ?? "—"}</span>
+      <span className="break-all">stored: {result?.storedChecksum ?? backup.checksum ?? "–"}</span>
       {result?.computedChecksum && (
         <span className="break-all">computed: {result.computedChecksum}</span>
       )}
@@ -149,7 +149,7 @@ function RestoreSummary({
       <div>source: {backup.sourceService ?? source}</div>
       <div>target: {mode === "in-place" ? source : "(download only)"}</div>
       <div>size: {fmtBytes(backup.sourceSizeBytes)} raw</div>
-      <div>method: {backup.method ?? "—"}</div>
+      <div>method: {backup.method ?? "–"}</div>
       {mode === "in-place" && (
         <div className="text-destructive">existing data on {source} will be replaced</div>
       )}

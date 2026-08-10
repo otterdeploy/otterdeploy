@@ -1,6 +1,6 @@
 /**
  * Private-networking provider layer. Everything above this module is
- * provider-blind — it deals in `MeshProviderClient`, never in NetBird or
+ * provider-blind: it deals in `MeshProviderClient`, never in NetBird or
  * Tailscale specifics.
  *
  * Design: docs/designs/vpn-mesh.md
@@ -25,7 +25,7 @@ export interface MeshCredentials {
 /**
  * Build a provider client from a stored row, decrypting the credential at the
  * last possible moment. Throws for a provider we haven't implemented yet
- * rather than silently degrading — a half-working mesh is worse than an
+ * rather than silently degrading: a half-working mesh is worse than an
  * honest error.
  */
 export async function createMeshClient(
@@ -47,7 +47,7 @@ export async function createMeshClient(
       throw new MeshProviderError({
         provider: "tailscale",
         status: null,
-        message: "Tailscale support isn't implemented yet — connect a NetBird account for now.",
+        message: "Tailscale support isn't implemented yet, connect a NetBird account for now.",
       });
   }
 }
@@ -58,7 +58,7 @@ export async function createMeshClient(
  * NetBird: the node peer registers ONE wildcard extra DNS label at join
  * (`--extra-dns-labels "*.<dnsLabel>"`), so every service under that label
  * resolves to the node's mesh IP with no per-service API call and no external
- * DNS. Caddy fans the wildcard back out by Host header — exactly what the
+ * DNS. Caddy fans the wildcard back out by Host header: exactly what the
  * public reconciler already does for real domains.
  *
  *     <service>-<project>.<dnsLabel>.<peerDomain>

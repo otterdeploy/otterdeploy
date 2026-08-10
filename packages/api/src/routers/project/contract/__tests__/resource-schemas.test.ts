@@ -2,7 +2,7 @@
  * The `buildConfig` field on the service resource contract.
  *
  * It used to be `z.unknown()`, which typed correctly (anything passes) but
- * pushed the narrowing onto every consumer — the web app carried four prop
+ * pushed the narrowing onto every consumer. The web app carried four prop
  * shapes and three hand-written casts just to read `builder`. It is now the
  * real `buildSchema` union, so the discriminator does that work.
  *
@@ -32,7 +32,7 @@ describe("serviceResourceSchema.buildConfig", () => {
     });
   });
 
-  test("keeps null and undefined — a service with no build config is normal", () => {
+  test("keeps null and undefined. A service with no build config is normal", () => {
     expect(buildConfig.parse(null)).toBeNull();
     expect(buildConfig.parse(undefined)).toBeUndefined();
   });

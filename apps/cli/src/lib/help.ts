@@ -1,5 +1,5 @@
 /**
- * Help and usage rendering — a full replacement for citty's `renderUsage`.
+ * Help and usage rendering: a full replacement for citty's `renderUsage`.
  *
  * citty's default output has three problems at this CLI's size. It prints a
  * `USAGE` line listing all 34 commands pipe-separated, which wraps into an
@@ -34,7 +34,7 @@ export interface CommandGroup {
  *
  * citty's `CommandDef<T>` is invariant in `T` through its `setup`/`cleanup`
  * callbacks, so a `CommandDef<{url: StringArgDef}>` is not assignable to
- * `CommandDef<ArgsDef>` — which is why citty's own `SubCommandsDef` reaches for
+ * `CommandDef<ArgsDef>`, which is why citty's own `SubCommandsDef` reaches for
  * `any`. `no-explicit-any` is an error here, so instead of widening we narrow:
  * help only ever reads meta, args and subCommands, and this states exactly that.
  */
@@ -70,7 +70,7 @@ function commandPath(): string[] {
  * What a string flag's value looks like, inferred from the flag's name.
  *
  * citty reads this from a per-arg `valueHint`, which none of the 34 commands
- * set — so every string flag rendered as a useless `<value>`. Inferring from
+ * set, so every string flag rendered as a useless `<value>`. Inferring from
  * the name fixes all of them at once and keeps the hint from drifting out of
  * sync with a flag it was hand-written for.
  */
@@ -109,7 +109,7 @@ const VALUE_HINTS: Record<string, string> = {
   image: "image",
 };
 
-/** `--tail <n>`, `--no-follow`, `-h, --help` — one flag as the user types it. */
+/** `--tail <n>`, `--no-follow`, `-h, --help`: one flag as the user types it. */
 function formatFlag(name: string, def: ArgsDef[string]): string {
   const arg = def as {
     type?: string;
@@ -162,7 +162,7 @@ function argEntries(args: ArgsDef): {
   for (const [name, def] of Object.entries(args)) {
     const arg = def as { type?: string; description?: string; required?: boolean };
     if (arg.type === "positional") {
-      // Angle brackets for required, square for optional — and the ARGUMENTS
+      // Angle brackets for required, square for optional, and the ARGUMENTS
       // list uses the same notation as the usage line, so the two agree.
       const token = arg.required !== false ? `<${name}>` : `[${name}]`;
       positionals.push([token, arg.description ?? ""]);
@@ -192,7 +192,7 @@ async function renderRootHelp(cmd: HelpCommand): Promise<void> {
   line(`${bold(bin)} <command> [options]`);
   line(dim(`${bin} <command> --help    options for one command`));
 
-  // Grouped commands — the whole reason this renderer exists.
+  // Grouped commands: the whole reason this renderer exists.
   const grouped: Array<{ title: string; entries: Array<[string, string]> }> = [];
   for (const group of groups) {
     const entries: Array<[string, string]> = [];
@@ -229,7 +229,7 @@ async function renderRootHelp(cmd: HelpCommand): Promise<void> {
 
 /**
  * The usage line(s) for one command. A group that also has its own `run` gets
- * both forms — `otd env <command>` and `otd env [options]` — because both are
+ * both forms (`otd env <command>` and `otd env [options]`) because both are
  * real ways to invoke it.
  */
 function renderUsageLines(

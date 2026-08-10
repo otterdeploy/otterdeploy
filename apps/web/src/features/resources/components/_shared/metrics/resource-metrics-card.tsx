@@ -80,7 +80,7 @@ export function ResourceMetricsCard({
         <div className="grid grid-cols-3 divide-x divide-border/60 border-t border-border/60">
           <MiniMetric
             label="CPU"
-            value={hasData ? formatPercent(latest?.cpuPct ?? 0) : "—"}
+            value={hasData ? formatPercent(latest?.cpuPct ?? 0) : "–"}
             loading={isLoading && !hasData}
             chart={
               <MetricAreaChart
@@ -93,7 +93,7 @@ export function ResourceMetricsCard({
           />
           <MiniMetric
             label="Memory"
-            value={hasData ? formatBytes(latest?.memBytes ?? 0) : "—"}
+            value={hasData ? formatBytes(latest?.memBytes ?? 0) : "–"}
             loading={isLoading && !hasData}
             chart={
               <MetricAreaChart
@@ -133,7 +133,7 @@ export function ResourceMetricsCard({
                   </span>
                 </span>
               ) : (
-                "—"
+                "–"
               )
             }
             loading={isLoading && !hasData}

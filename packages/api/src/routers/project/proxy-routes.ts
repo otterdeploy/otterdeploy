@@ -46,7 +46,7 @@ export async function listProjectProxyRoutes(
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
 
-  // Base routes only — preview-scoped hosts are lifecycle-managed by the PR
+  // Base routes only: preview-scoped hosts are lifecycle-managed by the PR
   // webhook and must not surface as project domains.
   const records = (await listProxyRoutesByProject(input.projectId)).filter(
     (r) => r.previewId == null,
@@ -80,7 +80,7 @@ export interface GlobalCaddyOptions {
 }
 
 /** Read the instance-wide global Caddy options (the `platform_settings`
- *  singleton). Org-agnostic — there's one edge proxy per install. */
+ *  singleton). Org-agnostic: there's one edge proxy per install. */
 export async function getGlobalCaddyOptions(): Promise<GlobalCaddyOptions> {
   const [s] = await db
     .select({
@@ -98,7 +98,7 @@ export async function getGlobalCaddyOptions(): Promise<GlobalCaddyOptions> {
 
 /** Persist the global Caddy options, then reconcile so they take effect. These
  *  options (an email + a redirect toggle) can't produce invalid global syntax,
- *  and reconcile only swaps the live config in after a successful adapt — so a
+ *  and reconcile only swaps the live config in after a successful adapt, so a
  *  bad value can't take routes offline. */
 export async function saveGlobalCaddyOptions(
   input: GlobalCaddyOptions,

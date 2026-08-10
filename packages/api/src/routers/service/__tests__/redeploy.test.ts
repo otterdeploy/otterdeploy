@@ -61,7 +61,7 @@ describe("redeployOne", () => {
 
     const result = await redeployOne(projectId, resourceId, "proj");
 
-    // The infra throw must NOT propagate — the DB write already succeeded, so
+    // The infra throw must NOT propagate. The DB write already succeeded, so
     // the caller (e.g. `env set`) reports success and the node shows an error.
     expect(result.isOk()).toBe(true);
     if (result.isOk()) expect(result.value.status).toBe("error");

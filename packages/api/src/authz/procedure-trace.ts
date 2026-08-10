@@ -4,18 +4,18 @@
  * mutations and denials) an audit row.
  *
  * Split out of ../index.ts so that file stays a readable map of the procedure
- * *ladder* — public → protected → org-scoped → permission-gated. This module
+ * *ladder*: public → protected → org-scoped → permission-gated. This module
  * owns the observability/audit concern instead, and sits next to the helpers it
  * consumes (`procedure-audit` for actor/error classification, `procedure-mode`
  * for the read-vs-write decision).
  */
 
+import type { UnknownRecord } from "@otterdeploy/shared/json";
+
 import { os as orpc } from "@orpc/server";
 
 import type { AuditDraft } from "../audit/changes";
 import type { Context } from "../context";
-
-import type { UnknownRecord } from "@otterdeploy/shared/json";
 
 import { classifyTraceError, traceActor } from "./procedure-audit";
 import { isReadAction, isReadMethod } from "./procedure-mode";
@@ -26,7 +26,7 @@ export const traceProcedure = orpc
   .middleware(async ({ context, path, procedure, next }) => {
     const action = path.join(".");
     const actor = traceActor(context);
-    // Prefer the procedure's own REST method (GET ⇒ read) — exact, and
+    // Prefer the procedure's own REST method (GET ⇒ read), exact, and
     // immune to naming drift. Only endpoints with no method at all (neither
     // `.route()` nor `.meta({method})`) fall back to the verb-prefix guess.
     const orpcDef = procedure["~orpc"];
@@ -72,7 +72,7 @@ export const traceProcedure = orpc
         error: detail,
         durationMs: performance.now() - start,
       });
-      // Always audit denials (even of a read — a blocked read is exactly
+      // Always audit denials (even of a read, a blocked read is exactly
       // what auditors want); audit failures only for mutating actions.
       if (denied) {
         context.log.audit?.deny(reason, { action, actor });

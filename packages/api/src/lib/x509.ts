@@ -1,7 +1,7 @@
 /**
  * X.509 PEM parsing + validation for operator-uploaded certificate material
  * (custom edge certs, trusted CAs). Pure functions over `node:crypto`'s
- * `X509Certificate` — no I/O, no DB — so everything here is unit-testable
+ * `X509Certificate` (no I/O, no DB) so everything here is unit-testable
  * with plain PEM fixtures. Failures are returned as discriminated results,
  * never thrown: the caller (the certificates router) maps them onto its
  * typed domain errors.
@@ -19,7 +19,7 @@ export interface ParsedCertificate {
   subjectCN: string | null;
   /** Full subject line, "CN=x, O=y". */
   subject: string | null;
-  /** Issuer org (preferred) or CN — matches the live probe's convention. */
+  /** Issuer org (preferred) or CN: matches the live probe's convention. */
   issuer: string | null;
   serial: string | null;
   /** DNS subject-alternative names. */
@@ -27,7 +27,7 @@ export interface ParsedCertificate {
   /** ISO-8601. */
   notBefore: string;
   notAfter: string;
-  /** SHA-256 fingerprint, "AA:BB:…" — same format as cert-probe's
+  /** SHA-256 fingerprint, "AA:BB:…": same format as cert-probe's
    *  `fingerprint256`, so served-vs-stored is a string comparison. */
   fingerprint256: string;
   /** Human key description, e.g. "RSA 2048" / "ECDSA P-256" / "Ed25519". */
@@ -137,7 +137,7 @@ export function parseCertificateChain(pem: string): ParseChainResult {
   if (!leafBlock) {
     return {
       ok: false,
-      error: "no CERTIFICATE block found — paste the PEM chain, leaf certificate first",
+      error: "no CERTIFICATE block found, paste the PEM chain, leaf certificate first",
     };
   }
   let leaf: X509Certificate;
@@ -168,7 +168,7 @@ export function checkKeyMatchesCertificate(certPem: string, keyPem: string): Key
   if (/ENCRYPTED/.test(keyPem)) {
     return {
       ok: false,
-      error: "private key is passphrase-protected — upload an unencrypted PEM key",
+      error: "private key is passphrase-protected, upload an unencrypted PEM key",
     };
   }
   let key: KeyObject;
@@ -191,7 +191,7 @@ export function checkKeyMatchesCertificate(certPem: string, keyPem: string): Key
 /**
  * Does a certificate (CN + SANs) cover `domain`? Exact match, or a
  * single-label wildcard (`*.example.com` covers `a.example.com`, not
- * `a.b.example.com` and not `example.com`) — the same matching TLS clients
+ * `a.b.example.com` and not `example.com`): the same matching TLS clients
  * apply. Case-insensitive.
  */
 export function certCoversDomain(

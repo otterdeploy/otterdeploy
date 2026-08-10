@@ -2,7 +2,7 @@
  * Create / edit a backup destination. TanStack Form drives the fields; on
  * submit it mutates `destinationsCollection` optimistically (secret threaded
  * through the mutation metadata, since it never lives on a row). Reset happens
- * by remounting per target (the `key`) — no `useEffect`.
+ * by remounting per target (the `key`), no `useEffect`.
  */
 import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
@@ -89,7 +89,7 @@ function saveDestination(
       type: value.type,
       config: cleanConfig,
       status: "active",
-      // Operator-created destinations are never managed — only the platform's
+      // Operator-created destinations are never managed. Only the platform's
       // own local row is, and that one is provisioned server-side.
       managed: false,
       usedBytes: 0,

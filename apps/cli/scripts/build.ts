@@ -16,9 +16,9 @@ const OUT = "dist/index.js";
 //   - npm/pnpm/yarn (Win/mac/Linux): npm ships Node, and its Windows cmd-shim
 //     turns this line into a `.cmd` that calls `node`. A `#!/bin/sh` polyglot
 //     instead makes cmd-shim emit a shim that calls `/bin/sh`, which stock
-//     Windows lacks — so npm-on-Windows breaks. (Verified with cmd-shim@6.)
+//     Windows lacks, so npm-on-Windows breaks. (Verified with cmd-shim@6.)
 //   - `bun add -g`: symlinks straight to this file, so the OS honors the
-//     shebang — Node is used when present.
+//     shebang: Node is used when present.
 //   - Bun-only boxes with no Node: `bun add -g` can't work (no interpreter the
 //     shebang can name is present in BOTH a Bun-only and a Node-only install),
 //     but `bunx @otterdeploy/cli` runs under Bun and ignores the shebang. The
@@ -26,7 +26,7 @@ const OUT = "dist/index.js";
 const NODE_SHEBANG = "#!/usr/bin/env node";
 
 // The --define marks this as the published bundle so the dev-only localhost TLS
-// relaxation (lib/local-tls.ts) is dead-code-eliminated — the shipped CLI must
+// relaxation (lib/local-tls.ts) is dead-code-eliminated. The shipped CLI must
 // contain no certificate-verification bypass.
 await $`bun build --target=node --format=esm --minify --sourcemap=none --define process.env.OTTERDEPLOY_BUNDLED='"1"' ./src/index.ts --outfile ${OUT}`;
 

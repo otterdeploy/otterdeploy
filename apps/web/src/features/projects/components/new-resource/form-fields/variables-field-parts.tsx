@@ -1,5 +1,5 @@
 /**
- * The per-row editing pieces of the VariablesField — the row itself, its value
+ * The per-row editing pieces of the VariablesField: the row itself, its value
  * cell and the small controls inside it. Split out of variables-field.tsx to
  * keep that file + its main component under the line caps.
  *
@@ -68,7 +68,7 @@ function valuePaddingClass(trailingButtons: number): string {
 }
 
 /** The value cell of a variable row: the input plus its trailing controls.
- *  Split out of VariableRow because masking is a concern of its own — the
+ *  Split out of VariableRow because masking is a concern of its own. The
  *  reveal state is per-row and local, and it decides both the input type and
  *  how much room the buttons need. */
 function VariableValueCell({
@@ -177,7 +177,7 @@ export function VariableRow({
         <TableCell className="py-2 text-center">
           {v.required && v.value.trim() === "" && (
             <span
-              title="Required — fill this in before the stack can deploy"
+              title="Required. Fill this in before the stack can deploy."
               aria-label="Required, empty"
               className="inline-flex text-destructive"
             >

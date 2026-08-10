@@ -1,7 +1,7 @@
 /**
  * Mint dialog for ephemeral database URLs: TTL + scope + optional label, then
  * a shown-once result view (the password is never stored server-side, so the
- * URL cannot be re-fetched — closing the dialog discards it for good).
+ * URL cannot be re-fetched, closing the dialog discards it for good).
  */
 
 import type { ResourceId } from "@otterdeploy/shared/id";
@@ -121,7 +121,7 @@ export function EphemeralMintDialog({
   const setOpen = (next: boolean) => {
     onOpenChange(next);
     if (!next) {
-      // Reset for the next mint — the shown-once URL must not linger.
+      // Reset for the next mint: the shown-once URL must not linger.
       setMinted(null);
       form.reset();
     }
@@ -135,7 +135,7 @@ export function EphemeralMintDialog({
             <DialogHeader>
               <DialogTitle>Connection URL minted</DialogTitle>
               <DialogDescription>
-                Copy it now — the password isn't stored, so this URL can't be shown again. It stops
+                Copy it now. The password isn't stored, so this URL can't be shown again. It stops
                 working {expiresIn(minted.expiresAt).replace("expires ", "")}.
               </DialogDescription>
             </DialogHeader>

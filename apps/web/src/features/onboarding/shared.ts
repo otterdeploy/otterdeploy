@@ -7,7 +7,7 @@ export interface CreatedOrg {
   name: string;
 }
 
-// `.slugify()` alone — derives the slug live as the user types the name.
+// `.slugify()` alone: derives the slug live as the user types the name.
 // Doesn't throw on short/empty input, just normalizes whatever's there.
 export const slugifier = z.string().slugify();
 

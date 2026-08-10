@@ -4,14 +4,14 @@
  * Two entry points over one plan, because the interesting facts are known
  * BEFORE anything is created and are worth showing first:
  *
- *   preview — the names the copies will get, and every env reference that will
+ *   preview: the names the copies will get, and every env reference that will
  *     still point at a resource outside the set. That second list is the one
  *     that matters: a cloned service holding `${{redis.URL}}` for a redis you
  *     didn't clone will read and write your production redis, happily, with no
  *     symptom. Showing it before the copy exists is the difference between a
  *     decision and a discovery.
  *
- *   execute — do it.
+ *   execute: do it.
  *
  * The plan is computed identically for both, so the preview cannot promise
  * something the execution won't deliver.
@@ -148,7 +148,7 @@ export async function cloneResources(
   const { plan, projectSlug } = built.value;
 
   const outcome = await executeClone(plan, { projectId: input.projectId, projectSlug }, log);
-  // The warning travels with the result too, not just the preview — a caller
+  // The warning travels with the result too, not just the preview: a caller
   // that skipped the preview still has to be told what its copies point at.
   return Result.ok({ ...outcome, externalRefs: plan.externalRefs });
 }

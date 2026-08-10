@@ -6,7 +6,7 @@
  * Ignore semantics (per the plan): always drop `.git` and `node_modules`, and
  * layer on any `.gitignore` / `.dockerignore` / `.otterignore` present at the
  * project root via `--exclude-from`. Note: `tar`'s exclude patterns are a close
- * but not exact match for gitignore syntax (negations aren't honored) — good
+ * but not exact match for gitignore syntax (negations aren't honored). Good
  * enough for the common case; a `.otterignore` gives an explicit escape hatch.
  */
 
@@ -34,7 +34,7 @@ export function createSourceTarball(projectDir: string, stamp: string): string {
   const args = ["-czf", out, "-C", projectDir, ...excludeArgs, ...ignoreArgs, "."];
   const proc = spawnSync("tar", args, { encoding: "utf8" });
   if (proc.error) {
-    throw new Error(`could not run tar (${proc.error.message}) — is tar installed?`);
+    throw new Error(`could not run tar (${proc.error.message}): is tar installed?`);
   }
   if (proc.status !== 0) {
     throw new Error(

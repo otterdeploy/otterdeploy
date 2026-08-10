@@ -14,7 +14,7 @@
  *
  * Unlike bd, resource *kind* badges are deliberately uncoloured. DESIGN.md caps
  * the accent at ≤10% of a surface and specifies one accent hue, so hue is spent
- * on state — the thing a reader scans for — while kind stays a dim bracketed
+ * on state (the thing a reader scans for) while kind stays a dim bracketed
  * word. Colouring five kinds would blow that budget and dilute the one signal.
  */
 
@@ -27,7 +27,7 @@ const env = process.env;
 
 /**
  * Box-drawing and geometric glyphs need a UTF-8 locale. Rather than probe the
- * terminal, trust the locale env vars and offer an explicit override — the
+ * terminal, trust the locale env vars and offer an explicit override. The
  * failure mode of guessing wrong is mojibake in every line of output.
  */
 function unicodeEnabled(): boolean {
@@ -50,15 +50,15 @@ function g(unicode: string, ascii: string): string {
 export const G = {
   /** Live and healthy. */
   live: g("●", "*"),
-  /** Exists but not running — draft, pending, queued, unpointed. */
+  /** Exists but not running. Draft, pending, queued, unpointed. */
   idle: g("○", "o"),
-  /** In flight — building, starting, obtaining, draining. */
+  /** In flight, building, starting, obtaining, draining. */
   progress: g("◐", ">"),
-  /** Stopped badly — failed, crashed, invalid, down. */
+  /** Stopped badly. Failed, crashed, invalid, down. */
   failed: g("✗", "x"),
-  /** Running but impaired — degraded, proxied. */
+  /** Running but impaired, degraded, proxied. */
   degraded: g("△", "!"),
-  /** Retired — superseded, removed, no-op. */
+  /** Retired, superseded, removed, no-op. */
   retired: g("·", "."),
 
   // ── Structure ──────────────────────────────────────────────────────
@@ -69,7 +69,7 @@ export const G = {
   parent: g("↑", "^"),
   /** Points back at what a row was derived from (bd's `←`). */
   derived: g("←", "<-"),
-  /** Points at a next action — the one glyph that leads a hint. */
+  /** Points at a next action: the one glyph that leads a hint. */
   next: g("→", "->"),
   /** Field separator inside a single line. */
   sep: g("·", "-"),
@@ -127,7 +127,7 @@ const STATES: Record<string, State> = {
   unpointed: IDLE,
   unknown: IDLE,
 
-  // proxy_route_cert_state — `valid` and `failed` are shared above
+  // proxy_route_cert_state: `valid` and `failed` are shared above
   obtaining: PROGRESS,
 
   // backup_status
@@ -150,7 +150,7 @@ const STATES: Record<string, State> = {
   disabled: IDLE,
 
   // Phases the deploy wait-loop derives from runtime tasks rather than a
-  // deployment row (see lib/wait.ts) — an image service never gets a row.
+  // deployment row (see lib/wait.ts). An image service never gets a row.
   scheduling: IDLE,
   error: FAILED,
   "not-scheduled": FAILED,
@@ -185,7 +185,7 @@ export function stateLabel(status: string): string {
 }
 
 /**
- * A dim bracketed kind, e.g. `[service]`. Uncoloured on purpose — see the
+ * A dim bracketed kind, e.g. `[service]`. Uncoloured on purpose: see the
  * module header on the accent budget.
  */
 export function kindBadge(kind: string): string {

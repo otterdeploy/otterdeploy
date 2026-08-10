@@ -27,7 +27,7 @@ const STEPS: { id: StepId; title: string; hint: string }[] = [
 /**
  * First-run setup wizard. Walks a brand-new user from signup to a project they
  * can deploy into: create an organization, set a base domain (skippable), then
- * create a first project. Every step writes through a real API — nothing here
+ * create a first project. Every step writes through a real API. Nothing here
  * is staged or faked.
  *
  * `initialOrg` resumes the flow past step 1 when the user already has an

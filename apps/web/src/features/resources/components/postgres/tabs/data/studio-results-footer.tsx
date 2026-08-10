@@ -20,7 +20,7 @@ import { type DataStudioController, PAGE_SIZES } from "./use-data-studio";
 /** Rows above this get the type-the-table-name gate instead of a plain confirm. */
 const TYPED_CONFIRM_THRESHOLD = 10;
 
-/** Bulk-delete confirm — typed table name past the threshold. */
+/** Bulk-delete confirm, typed table name past the threshold. */
 export function BulkDeleteConfirm({
   pending,
   tableName,

@@ -4,7 +4,7 @@
  * count that makes "the mesh is down" an honest number instead of a shrug.
  *
  * Split out of ./handlers so that file reads as the connect / verify /
- * disconnect / list lifecycle. This module owns the *view* — it is the single
+ * disconnect / list lifecycle. This module owns the *view*. It is the single
  * place a new status field gets added, and the only place that decides what an
  * org with no mesh looks like (rule 1 of the design: absence is normal, never
  * an error).
@@ -64,7 +64,7 @@ export const DISCONNECTED_STATUS: MeshStatusView = {
 /**
  * Routes still marked private (or dual-scoped) in an org. Called when the mesh
  * is not usable, where the number means "this many apps are currently
- * unreachable on their private host" — the honest framing, since we refuse to
+ * unreachable on their private host": the honest framing, since we refuse to
  * silently republish them to the internet.
  */
 export async function countPrivateRoutes(organizationId: OrganizationId): Promise<number> {

@@ -44,7 +44,7 @@ export function DeploymentDetailsBody({
   projectId: string;
   resourceId: string;
   deploymentId: string;
-  /** Set when this deployment belongs to a PR preview — the preview serves its
+  /** Set when this deployment belongs to a PR preview. The preview serves its
    *  own host, so the base resource's domain is the wrong answer here. */
   previewUrl?: string | null;
 }) {
@@ -80,7 +80,7 @@ const TONE_STYLE: Record<Tone, { border: string; head: string; text: string }> =
   failed: { border: "border-destructive/30", head: "bg-destructive/[0.07]", text: "text-destructive" },
   active: { border: "border-warning/30", head: "bg-warning/[0.06]", text: "text-warning" },
   neutral: { border: "border-border", head: "bg-muted/40", text: "text-foreground/90" },
-  // Live, but not every replica is up — warning, not success and not error.
+  // Live, but not every replica is up, warning, not success and not error.
   degraded: { border: "border-warning/30", head: "bg-warning/[0.06]", text: "text-warning" },
 };
 
@@ -175,7 +175,7 @@ function branchOf(ref: string | null): string | null {
  * What was deployed, in the terms a person thinks in: the commit subject, and
  * who wrote it.
  *
- * "Git deployment · refs/heads/artzkaizen-patch-1 · 277764a" named nothing —
+ * "Git deployment · refs/heads/artzkaizen-patch-1 · 277764a" named nothing,
  * not the change, not the author. The subject is the headline; the author gets
  * a face; the branch loses its `refs/heads/` noise and the sha stays as the
  * precise-but-secondary detail it is.
@@ -200,7 +200,7 @@ function GitProvenance({ deployment }: { deployment: DeploymentRow }) {
           className="min-w-0 truncate text-[13px] text-foreground/90"
           title={deployment.gitCommitMessage ?? undefined}
         >
-          {/* Subject only — a commit body would swamp the row. */}
+          {/* Subject only: a commit body would swamp the row. */}
           {subject || "Git deployment"}
         </span>
       </div>
@@ -435,10 +435,10 @@ function DeploymentTaskRow({ task }: { task: ServiceTaskInfo }) {
     <div className="grid grid-cols-[100px_80px_140px_1fr_140px] items-center gap-3 px-3 py-2.5 font-mono text-[11.5px]">
       <TaskStateBadge state={task.state} />
       <span className="text-muted-foreground">
-        {task.slot != null ? `slot.${task.slot}` : "—"}
+        {task.slot != null ? `slot.${task.slot}` : "–"}
       </span>
       <span className="text-foreground/75">
-        {task.containerId ? task.containerId.slice(0, 12) : "—"}
+        {task.containerId ? task.containerId.slice(0, 12) : "–"}
       </span>
       <span className="truncate text-foreground/80">
         {task.error ?? task.message ?? task.rawState ?? "no message"}
@@ -447,7 +447,7 @@ function DeploymentTaskRow({ task }: { task: ServiceTaskInfo }) {
         ) : null}
       </span>
       <span className="text-right text-muted-foreground">
-        {task.timestamp ? new Date(task.timestamp).toLocaleString() : "—"}
+        {task.timestamp ? new Date(task.timestamp).toLocaleString() : "–"}
       </span>
     </div>
   );
@@ -477,7 +477,7 @@ function TaskStateBadge({ state }: { state: ServiceTaskInfo["state"] }) {
   );
 }
 
-/** Status shown as a bare colored dot (no text) — the deployment header already
+/** Status shown as a bare colored dot (no text): the deployment header already
  *  spells out the deployment id + timestamp, so the status only needs a glanceable
  *  color. In-flight states pulse. The label stays available to assistive tech and
  *  on hover via aria-label/title. */

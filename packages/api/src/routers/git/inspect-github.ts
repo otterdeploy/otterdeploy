@@ -23,7 +23,7 @@ import { eq } from "drizzle-orm";
 
 import { getInstallationToken, ghFetch } from "../../git/github-app";
 
-// Tagged so the oRPC handler can dispatch via `matchError` — same shape
+// Tagged so the oRPC handler can dispatch via `matchError`, same shape
 // as ProjectNotFoundError etc. in routers/project/errors.ts.
 export class InspectRepoNotFoundError extends TaggedError("InspectRepoNotFoundError")<{
   message: string;
@@ -52,8 +52,8 @@ export class InspectRepoRateLimitedError extends TaggedError("InspectRepoRateLim
       resetsAt,
       authenticated,
       message: authenticated
-        ? "GitHub rate-limited the installation — try again in a few minutes."
-        : "GitHub anonymous rate limit exceeded — connect the GitHub App for higher limits, or wait a few minutes.",
+        ? "GitHub rate-limited the installation: try again in a few minutes."
+        : "GitHub anonymous rate limit exceeded: connect the GitHub App for higher limits, or wait a few minutes.",
     });
   }
 }
@@ -85,7 +85,7 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 
 export interface TreeSnapshot {
   /** Every blob path in the repo, sorted. Includes `name` only, not
-   *  shas — we only need paths for the picker. */
+   *  shas: we only need paths for the picker. */
   paths: string[];
   /** Same paths but with the tree (directory) entries flagged so
    *  we don't reissue contents calls to figure out file vs. dir. */
@@ -155,7 +155,7 @@ export async function ghHeaders(
 
 /**
  * Minimal response shape shared by both the real DOM `Response` and
- * `ghFetch`'s egress-policy-wrapped return value — just enough for the
+ * `ghFetch`'s egress-policy-wrapped return value. Just enough for the
  * rate-limit checks below, so callers on either side of the SSRF-hardened
  * `ghFetch` migration can use these helpers unchanged.
  */
@@ -195,7 +195,7 @@ interface GhTreeEntry {
 /**
  * One-shot fetch of the entire repo tree. Recursive flag returns every
  * path in a single response (up to 100k entries; GitHub flags `truncated`
- * past that — we accept the lossy result).
+ * past that: we accept the lossy result).
  */
 async function fetchFullTree(
   binding: RepoBinding,
@@ -301,8 +301,8 @@ export async function fetchTextFile(binding: RepoBinding, path: string): Promise
 }
 
 /**
- * Trim GitHub's JSON error body to its `message` field when possible —
- * the picker shows this string verbatim. Keeps the rate-limit body off
+ * Trim GitHub's JSON error body to its `message` field when possible.
+ * The picker shows this string verbatim. Keeps the rate-limit body off
  * the screen if we somehow miss the typed detection above.
  */
 export function humanizeUpstreamBody(body: string, status: number): string {

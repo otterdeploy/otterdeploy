@@ -1,5 +1,5 @@
 /**
- * Private networking oRPC contract — connect / inspect / disconnect the org's
+ * Private networking oRPC contract: connect / inspect / disconnect the org's
  * own VPN account (NetBird now, Tailscale behind the same shapes).
  *
  * The stored credential is NEVER part of any output schema. `status` is safe
@@ -39,7 +39,7 @@ const meshPeerSchema = z.object({
 
 /**
  * The org's mesh, or `connected: false` when there is none. A null connection
- * is the normal, fully-supported state — the whole feature is optional — so
+ * is the normal, fully-supported state (the whole feature is optional) so
  * this is an absence, not an error.
  */
 const meshStatusOutput = z.object({
@@ -53,7 +53,7 @@ const meshStatusOutput = z.object({
   /** DNS zone private hostnames are minted under. */
   peerDomain: z.string().nullable(),
   /** Whether peerDomain was read from the account, observed on a peer, or
-   *  assumed — surfaced so operators can spot a wrong guess before it breaks
+   *  assumed. Surfaced so operators can spot a wrong guess before it breaks
    *  hostnames. */
   peerDomainSource: z.enum(["account-settings", "peer-dns-label", "default"]).nullable(),
   dnsLabel: z.string().nullable(),
@@ -64,7 +64,7 @@ const meshStatusOutput = z.object({
   lastError: z.string().nullable(),
   peerCount: z.number().int().nullable(),
   /** Number of routes still marked private while the mesh isn't usable. These
-   *  are NOT publicly reachable and NOT silently re-exposed — the UI turns
+   *  are NOT publicly reachable and NOT silently re-exposed. The UI turns
    *  this into an explicit "make public" decision for the operator. */
   strandedPrivateRoutes: z.number().int(),
 });
@@ -75,7 +75,7 @@ const connectInput = z.object({
   managementUrl: z.string().trim().max(2048).optional(),
   /** NetBird personal access token / Tailscale OAuth client secret. */
   apiToken: z.string().min(1).max(4096),
-  /** Tailscale only — a PAT has no public half. */
+  /** Tailscale only: a PAT has no public half. */
   oauthClientId: z.string().trim().max(512).optional(),
   /**
    * Wildcard DNS label the nodes register. Lowercase DNS label; defaults to
@@ -92,7 +92,7 @@ const connectInput = z.object({
 
 const setAccessGroupsInput = z.object({
   /** Provider groups permitted to reach private services. An empty list is
-   *  valid and means "nobody yet" — we never invent access on the org's
+   *  valid and means "nobody yet". We never invent access on the org's
    *  behalf. */
   groupIds: z.array(z.string()).max(64),
 });

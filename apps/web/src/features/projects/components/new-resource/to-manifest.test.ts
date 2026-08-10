@@ -102,7 +102,7 @@ describe("domainsFromPorts", () => {
   it("returns undefined for internal-only, empty, and portless rows", () => {
     expect(domainsFromPorts([port({ public: false, host: "x.acme.com" })], "d")).toBeUndefined();
     expect(domainsFromPorts([], "d")).toBeUndefined();
-    // Public but no container port yet — no route to seed.
+    // Public but no container port yet, no route to seed.
     expect(domainsFromPorts([port({ port: 0, public: true })], "d")).toBeUndefined();
     // Public with empty host but no derived host available either.
     expect(domainsFromPorts([port({ port: 80, host: "" })], null)).toBeUndefined();
@@ -303,7 +303,7 @@ describe("buildServiceSpec", () => {
     expect(build).toEqual({ builder: "railpack", staticRoot: "dist" });
   });
 
-  it("emits the manifest healthcheck when a path is set — and never for static kinds", () => {
+  it("emits the manifest healthcheck when a path is set, and never for static kinds", () => {
     const spec = buildServiceSpec({
       ...base,
       source: "git",
@@ -374,7 +374,7 @@ describe("buildDatabaseSpec", () => {
     expect(spec).not.toHaveProperty("extensions");
   });
 
-  it("emits no storage/backup/HA fields — the manifest and provisioner don't support them", () => {
+  it("emits no storage/backup/HA fields: the manifest and provisioner don't support them", () => {
     // Regression guard for the storage-step honesty cleanup: if someone
     // reintroduces wizard storage controls, they must land as real manifest
     // fields the reconciler honors, not silently-dropped keys.

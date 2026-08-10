@@ -1,8 +1,8 @@
-# Temporal Migration — Spec
+# Temporal Migration: Spec
 
 ## Problem
 
-Every layer of the stack passes `Date` objects around — Drizzle returns `Date`
+Every layer of the stack passes `Date` objects around: Drizzle returns `Date`
 from `timestamp()` columns, `drizzle-zod` widens those into `z.date()`,
 oRPC serializes `Date` to ISO over the wire and rehydrates back to `Date`,
 forms hold `Date` in field state, and the UI formats with ad-hoc helpers
@@ -11,7 +11,7 @@ forms hold `Date` in field state, and the UI formats with ad-hoc helpers
 `Date` has known foot-guns: it's mutable, time-zone-ambiguous (the same
 object behaves as local-or-UTC depending on which method you call),
 month-is-zero-indexed, and has no first-class duration type. The ECMAScript
-`Temporal` proposal fixes all of this — and at the same time absorbs ~80%
+`Temporal` proposal fixes all of this, and at the same time absorbs ~80%
 of what we'd reach for `date-fns` to do (arithmetic, comparisons,
 durations, time zones).
 
@@ -29,26 +29,26 @@ In-scope (this codebase):
 - A small `lib/time.ts` helper that wraps the polyfill import and exposes
   the typed conversions and locale-aware formatters our app actually
   needs.
-- Removing `date-fns` (we don't currently depend on it — but the
+- Removing `date-fns` (we don't currently depend on it, but the
   migration will make sure we don't reach for it as we add features).
 
 Upstream contributions (separate from the in-codebase migration but
 tracked here for sequencing):
 
-- `colinhacks/zod` — first-class Temporal validators.
-- `drizzle-team/drizzle-orm` — opt-in Temporal column adapters.
-- `drizzle-team/drizzle-zod` — emit Temporal schemas when a column opts
+- `colinhacks/zod`: first-class Temporal validators.
+- `drizzle-team/drizzle-orm`: opt-in Temporal column adapters.
+- `drizzle-team/drizzle-zod`: emit Temporal schemas when a column opts
   in.
-- `unnoq/orpc` — JSON serializer support for Temporal types.
-- `tanstack/form` — Temporal-aware adapter / type narrowing where needed.
+- `unnoq/orpc`: JSON serializer support for Temporal types.
+- `tanstack/form`: Temporal-aware adapter / type narrowing where needed.
 
 Out of scope for v1:
 
-- Replacing `Intl.DateTimeFormat` — Temporal interoperates with Intl
+- Replacing `Intl.DateTimeFormat`: Temporal interoperates with Intl
   out of the box; we just call `.toLocaleString(locale, options)`.
-- Calendar systems other than ISO 8601 — every type we use is the
+- Calendar systems other than ISO 8601: every type we use is the
   default Gregorian/ISO calendar.
-- Dropping the polyfill — we'll carry `@js-temporal/polyfill` for as
+- Dropping the polyfill: we'll carry `@js-temporal/polyfill` for as
   long as V8/Bun lack native Temporal. The migration writes code as if
   `Temporal` is global, and the polyfill is imported once at the entry
   point.
@@ -65,7 +65,7 @@ Out of scope for v1:
 
 This means: write code against `globalThis.Temporal` (typed via the
 polyfill's `.d.ts`), import the polyfill once at app entry, and when V8
-/ Bun ship native Temporal we delete the import — no other code changes.
+/ Bun ship native Temporal we delete the import, no other code changes.
 
 ## Architecture
 
@@ -162,7 +162,7 @@ ISO. Inference produces `Temporal.Instant` on both ends of the contract.
 
 ## Migration phases (in-codebase)
 
-### Phase 0 — Foundations (1 PR)
+### Phase 0: Foundations (1 PR)
 
 Files: `apps/web/src/shared/lib/time.ts` (new),
 `packages/api/src/shared/time.ts` (new),
@@ -173,19 +173,19 @@ Files: `apps/web/src/shared/lib/time.ts` (new),
 Acceptance: helpers exist, polyfill is imported once at each entry
 (`apps/web/src/main.tsx`, `apps/server/src/index.ts` if present).
 
-### Phase 1 — Display layer (1 PR, low risk)
+### Phase 1: Display layer (1 PR, low risk)
 
 Replace all `toLocaleString` / ad-hoc `formatRelative` callsites with
 `toRelative` / `Temporal.PlainDateTime.from(...).toLocaleString(...)`.
 
 Callsites identified by `grep -r "toLocaleString\|formatRelative" apps/web/src`:
 
-- `routes/_app/$orgSlug/servers.tsx` — `formatRelative(server.joinedAt)`
-- `routes/_app/$orgSlug/$projectSlug/graph/$resourceId.tsx` — any
+- `routes/_app/$orgSlug/servers.tsx`: `formatRelative(server.joinedAt)`
+- `routes/_app/$orgSlug/$projectSlug/graph/$resourceId.tsx`: any
   timestamp display
-- `features/projects/components/new-resource/steps/review.tsx` — none
+- `features/projects/components/new-resource/steps/review.tsx`: none
   currently, but anywhere a date renders
-- `features/projects/components/graph/resource-node.tsx` — none yet
+- `features/projects/components/graph/resource-node.tsx`: none yet
 
 Each callsite converts `Date | string` → `Temporal.Instant` at entry,
 then formats. Wire format unchanged.
@@ -193,7 +193,7 @@ then formats. Wire format unchanged.
 Acceptance: every visible timestamp goes through `lib/time.ts`. No new
 `Date` math added in display code.
 
-### Phase 2 — Form layer (1 PR per feature, batch)
+### Phase 2: Form layer (1 PR per feature, batch)
 
 Tanstack-form field types switch from `Date` to the appropriate
 Temporal type (`PlainDate` for date pickers, `ZonedDateTime` for
@@ -207,11 +207,11 @@ Touched: every form schema in `apps/web/src/features/**/schema.ts` and
 Acceptance: form state holds Temporal types. Submit handler converts to
 Date for the legacy wire boundary.
 
-### Phase 3 — Contract layer (1 PR per router)
+### Phase 3: Contract layer (1 PR per router)
 
 Replace `z.date()` / `createSelectSchema().extend()` Date fields with
 `zInstant` / `zPlainDate`. The contract's inferred output becomes
-`Temporal.Instant`. oRPC continues to serialize ISO on the wire — the
+`Temporal.Instant`. oRPC continues to serialize ISO on the wire: the
 transform happens in the Zod parse.
 
 Touched: every contract file under `packages/api/src/routers/*/contract.ts`.
@@ -219,7 +219,7 @@ Touched: every contract file under `packages/api/src/routers/*/contract.ts`.
 Acceptance: `serverSchema`, `envSchema`, `projectSchema`, etc. all
 expose Temporal types. Contract tests still pass.
 
-### Phase 4 — DB driver layer (1 PR, big diff but mechanical)
+### Phase 4: DB driver layer (1 PR, big diff but mechanical)
 
 Once upstream `drizzle-orm` lands a Temporal column type (item 2), swap
 every `timestamp(...)` column for `timestamp(..., { mode: 'temporal' })`
@@ -237,14 +237,14 @@ some depend on others. Goal: every PR is small enough to merge on its
 own merits, doesn't require a coordinated release across libraries, and
 ships behind an opt-in flag where possible.
 
-### 1. `colinhacks/zod` — `z.temporal.*` validators
+### 1. `colinhacks/zod`: `z.temporal.*` validators
 
 Repo: <https://github.com/colinhacks/zod>
 
 Proposal: add `z.instant()`, `z.plainDate()`, `z.plainDateTime()`,
 `z.zonedDateTime()`, `z.duration()` constructors. Each accepts either
 an ISO string or an existing Temporal instance and validates against
-`Temporal.X.from()` (which throws on malformed input — Zod wraps the
+`Temporal.X.from()` (which throws on malformed input, Zod wraps the
 throw into a `ZodIssue`).
 
 Why first: every other upstream PR is cleaner if Zod has native
@@ -258,7 +258,7 @@ issue first; don't drop a 1000-line PR cold.
 
 PR size estimate: ~400 LOC + tests.
 
-### 2. `drizzle-team/drizzle-orm` — Temporal column types
+### 2. `drizzle-team/drizzle-orm`: Temporal column types
 
 Repo: <https://github.com/drizzle-team/drizzle-orm>
 
@@ -285,7 +285,7 @@ This needs an RFC + maintainer buy-in before code.
 PR size estimate: ~600 LOC across Postgres/MySQL/SQLite column types +
 docs + tests.
 
-### 3. `drizzle-team/drizzle-zod` — Temporal schema emission
+### 3. `drizzle-team/drizzle-zod`: Temporal schema emission
 
 Repo: <https://github.com/drizzle-team/drizzle-zod>
 
@@ -298,7 +298,7 @@ PR to map the new column flag to the new Zod constructor.
 
 PR size estimate: ~150 LOC.
 
-### 4. `unnoq/orpc` — JSON adapter for Temporal types
+### 4. `unnoq/orpc`: JSON adapter for Temporal types
 
 Repo: <https://github.com/unnoq/orpc>
 
@@ -307,7 +307,7 @@ Proposal: register Temporal types in oRPC's JSON serializer so
 without requiring every contract to do `z.string().transform()`. This is
 the same shape as the existing Date serialization, just for Temporal.
 
-Wire format remains ISO 8601 — no breaking change.
+Wire format remains ISO 8601, no breaking change.
 
 Why later: once the codebase has Temporal in contracts (Phase 3),
 removing the per-schema `.transform()` boilerplate is a quality-of-life
@@ -315,13 +315,13 @@ win, not a blocker.
 
 PR size estimate: ~200 LOC including tests.
 
-### 5. `tanstack/form` — Temporal-aware field types
+### 5. `tanstack/form`: Temporal-aware field types
 
 Repo: <https://github.com/TanStack/form>
 
 Proposal: ensure `Field<T>` infers correctly for Temporal types and
 that the form's serialization (for tools like devtools) doesn't choke
-on Temporal instances. Likely a small types-only PR — Tanstack Form is
+on Temporal instances. Likely a small types-only PR: Tanstack Form is
 mostly type-passthrough so this might be docs + a couple of test
 fixtures.
 
@@ -351,7 +351,7 @@ also depends on 2.
   `Temporal.Instant`. Compare via `.equals()`.
 - DB integration: a single migration test inserts a `Date`, reads it
   back, confirms it converts to the expected `Temporal.Instant`.
-- No "before/after Temporal" snapshot tests — the behavior we care
+- No "before/after Temporal" snapshot tests: the behavior we care
   about (wire format, displayed strings, calendar math) is what gets
   asserted directly.
 
@@ -370,7 +370,7 @@ Every phase is independently reversible:
 - Phase 4: revert the column-type swap; handler `serialize()` helper
   reappears.
 
-The polyfill itself can stay through any rollback — it has no runtime
+The polyfill itself can stay through any rollback. It has no runtime
 impact unless code references `Temporal`.
 
 ## Open decisions
@@ -390,8 +390,8 @@ impact unless code references `Temporal`.
 
 ## What stays untouched
 
-- ISO 8601 on the wire — every existing client keeps working.
-- Drizzle migrations and DB schema — `timestamp(...)` columns don't
+- ISO 8601 on the wire: every existing client keeps working.
+- Drizzle migrations and DB schema: `timestamp(...)` columns don't
   change at the Postgres level.
-- Public API URLs and shapes — the migration is type-level + adapter
+- Public API URLs and shapes: the migration is type-level + adapter
   -level only.

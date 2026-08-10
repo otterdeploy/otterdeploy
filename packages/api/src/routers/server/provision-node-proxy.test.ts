@@ -20,7 +20,7 @@ describe("nodeProxyInstallScript", () => {
     expect(s).toContain("-p 443:443/udp");
   });
 
-  test("is idempotent — a re-provision converges instead of stacking listeners", () => {
+  test("is idempotent. A re-provision converges instead of stacking listeners", () => {
     const s = script();
     expect(s).toContain(`docker rm -f ${NODE_PROXY_CONTAINER}`);
     expect(s.indexOf("docker rm -f")).toBeLessThan(s.indexOf("docker run -d"));
@@ -33,7 +33,7 @@ describe("nodeProxyInstallScript", () => {
   });
 
   test("bootstrap config answers 503 instead of refusing the connection", () => {
-    // An edge that is up with no routes should say so — a refused connection is
+    // An edge that is up with no routes should say so. A refused connection is
     // indistinguishable from a dead host.
     const s = script();
     expect(s).toContain("503");

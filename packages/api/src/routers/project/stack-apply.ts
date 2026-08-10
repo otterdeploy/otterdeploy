@@ -28,7 +28,7 @@ class StackNotSavedError extends TaggedError("StackNotSavedError")<{
   message: string;
 }>() {
   constructor() {
-    super({ message: "no saved stackFile to apply — save first, then apply" });
+    super({ message: "no saved stackFile to apply. Save first, then apply" });
   }
 }
 

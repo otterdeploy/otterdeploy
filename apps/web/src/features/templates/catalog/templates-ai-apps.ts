@@ -1,4 +1,4 @@
-// AI application templates — builders, RAG workspaces and inference-adjacent
+// AI application templates: builders, RAG workspaces and inference-adjacent
 // APIs. See ./types.ts for the honesty contract.
 import type { StackTemplate } from "./types";
 
@@ -7,7 +7,7 @@ export const AI_APPS_TEMPLATES: StackTemplate[] = [
     id: "flowise",
     name: "Flowise",
     description:
-      "Drag-and-drop builder for LLM chains and agents — wire up prompts, tools, retrievers and memory on a canvas, then call the result as an API. Flows persist to a named volume.",
+      "Drag-and-drop builder for LLM chains and agents. Wire up prompts, tools, retrievers and memory on a canvas, then call the result as an API. Flows persist to a named volume.",
     category: "ai",
     includes: ["flowise"],
     requiredEnv: [
@@ -43,7 +43,7 @@ volumes:
     id: "anythingllm",
     name: "AnythingLLM",
     description:
-      "All-in-one RAG workspace — drop in documents, pick a model, and chat over them with citations. Bundles its own vector store, so there is nothing else to run.",
+      "All-in-one RAG workspace. Drop in documents, pick a model, and chat over them with citations. Bundles its own vector store, so there is nothing else to run.",
     category: "ai",
     includes: ["anythingllm"],
     requiredEnv: [
@@ -75,7 +75,7 @@ volumes:
     id: "libretranslate",
     name: "LibreTranslate",
     description:
-      "Self-hosted machine translation API — no per-character billing and no text leaving your server. Downloads language models on first start into a named volume.",
+      "Self-hosted machine translation API, with no per-character billing and no text leaving your server. Downloads language models on first start into a named volume.",
     category: "ai",
     includes: ["libretranslate"],
     requiredEnv: [],
@@ -101,13 +101,13 @@ volumes:
     id: "activepieces",
     name: "Activepieces",
     description:
-      "No-code automation with 200+ integrations and a branching flow builder — the open alternative to Zapier. Postgres for flow state, Redis for the job queue.",
+      "No-code automation with 200+ integrations and a branching flow builder: the open alternative to Zapier. Postgres for flow state, Redis for the job queue.",
     category: "automation",
     includes: ["activepieces", "db", "redis"],
     requiredEnv: [
       {
         key: "AP_FRONTEND_URL",
-        description: "Public base URL — webhook endpoints and OAuth callbacks are built from it.",
+        description: "Public base URL. Webhook endpoints and OAuth callbacks are built from it.",
       },
       {
         key: "AP_ENCRYPTION_KEY",

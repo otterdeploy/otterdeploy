@@ -1,5 +1,5 @@
 /**
- * Generic resource schemas — database / service / compose, and the
+ * Generic resource schemas: database / service / compose, and the
  * discriminated union over them. Split out of `./resource` (which now holds
  * just the inputs + router slice) so that file stays under the line cap.
  *
@@ -16,7 +16,7 @@ import { buildSchema } from "../../../stack/manifest";
 import { environmentIdField, projectIdField, resourceIdField } from "./shared";
 
 // Renamed conceptually from postgresResourceSchema to "database resource
-// schema" — the shape is the same across engines (a record with credentials
+// schema": the shape is the same across engines (a record with credentials
 // + a set of connection strings), the engine field just enumerates which
 // engine produced those strings. The export alias below keeps the
 // `postgresResourceSchema` import name compiling.
@@ -24,7 +24,7 @@ const databaseResourceSchema = z.object({
   resourceId: resourceIdField,
   projectId: projectIdField,
   /** Which environment owns this resource. Null on rows created before
-   *  environment scoping — those belong to the project's main environment. */
+   *  environment scoping: those belong to the project's main environment. */
   environmentId: environmentIdField.nullable(),
   name: z.string(),
   type: z.literal("database"),
@@ -32,7 +32,7 @@ const databaseResourceSchema = z.object({
   // Status of the most-recent deployment row (same shape as the service
   // view). For databases this is what distinguishes "container missing
   // because the image is still pulling / the create is in flight"
-  // (building/pending) from "container genuinely gone" — the graph card
+  // (building/pending) from "container genuinely gone": the graph card
   // falls back to it before declaring an error. Null when never deployed.
   latestDeploymentStatus: z
     .enum([
@@ -57,8 +57,8 @@ const databaseResourceSchema = z.object({
   databaseName: z.string(),
   username: z.string(),
   password: z.string(),
-  /** When false, the public hostname exists but isn't wired through Caddy
-   *  — the DB is only reachable on the internal network. */
+  /** When false, the public hostname exists but isn't wired through Caddy.
+   *  The DB is only reachable on the internal network. */
   publicEnabled: z.boolean(),
   publicHostname: z.string(),
   publicPort: z.number().int().positive(),
@@ -80,7 +80,7 @@ const databaseResourceSchema = z.object({
   // User-added envs injected into the Postgres container at deploy time.
   // Editable via project.resource.database.postgres.env.{set,unset}.
   extraEnv: z.record(z.string(), z.string()),
-  // Keys the operator flagged as sensitive — display hint for the editor
+  // Keys the operator flagged as sensitive: display hint for the editor
   // to mask the value behind a reveal toggle. Always present (default []).
   secretKeys: z.array(z.string()),
   // Enabled Postgres extensions (canonical CREATE EXTENSION names). Drives
@@ -90,26 +90,26 @@ const databaseResourceSchema = z.object({
 });
 
 // Legacy alias for callers that still import the postgres-named schema.
-// Same object, just a different name — drop once all imports rename.
+// Same object, just a different name: drop once all imports rename.
 export const postgresResourceSchema = databaseResourceSchema;
 
 /**
  * Minimal service view for the graph and resource list. Keeps the list
- * response cheap — ports / env vars / live task state are deferred to
+ * response cheap: ports / env vars / live task state are deferred to
  * later sub-slices.
  */
 export const serviceResourceSchema = z.object({
   resourceId: resourceIdField,
   projectId: projectIdField,
   /** Which environment owns this resource. Null on rows created before
-   *  environment scoping — those belong to the project's main environment. */
+   *  environment scoping: those belong to the project's main environment. */
   environmentId: environmentIdField.nullable(),
   name: z.string(),
   type: z.literal("service"),
   status: z.enum(["draft", "valid", "invalid"]),
   // Status of the resource's most-recent deployment. Drives the graph node's
   // runtime pill for build-time states (pending/building/failed) that produce
-  // zero swarm tasks — those never appear in the live-task rollup, so without
+  // zero swarm tasks: those never appear in the live-task rollup, so without
   // this the node stays blank while the deployment panel already shows FAILED.
   // Null when the service has never been deployed. Running services with live
   // tasks still derive their pill from the task rollup, which takes precedence.
@@ -127,7 +127,7 @@ export const serviceResourceSchema = z.object({
       "removed",
     ])
     .nullable(),
-  // Latest deployment timestamps — drive the live build/deploy duration on the
+  // Latest deployment timestamps: drive the live build/deploy duration on the
   // graph node. ISO strings; `finishedAt` is null while the deploy is in flight.
   latestDeploymentStartedAt: z.string().nullable(),
   latestDeploymentFinishedAt: z.string().nullable(),
@@ -141,20 +141,20 @@ export const serviceResourceSchema = z.object({
   sourceSubdir: z.string().nullable(),
   // Framework detected at build time (next/vite/go/…). The graph renders the
   // matching brand logo on the node. Captured by the builder from the cloned
-  // repo — the graph reads this stored value, it does NOT call the git API.
+  // repo: the graph reads this stored value, it does NOT call the git API.
   // Null until the first successful build, or when nothing was detected.
   framework: z.enum(FRAMEWORK_KINDS).nullable(),
   replicas: z.number().int().min(0),
   // Owning compose stack (the compose resource id), when this service is a
-  // member of a stack — drives graph grouping. Null for a standalone service.
+  // member of a stack: drives graph grouping. Null for a standalone service.
   stackId: z.string().nullable(),
-  // The runtime's service name — `${stack}-${composeKey}` for a compose
+  // The runtime's service name. `${stack}-${composeKey}` for a compose
   // child (see composeSwarmServiceName), or the resource's own docker/swarm
   // name for a standalone service. For compose children this is the ONLY
   // stable join key back to the compose file's declared service entry: the
   // resource's `name` gets collision-suffixed by pickResourceName (e.g.
   // stack "excalidraw" + service "excalidraw" -> resource "excalidraw-
-  // service"), but serviceName never is — reconcile matches on it too.
+  // service"), but serviceName never is, reconcile matches on it too.
   serviceName: z.string(),
   // Bare DNS alias other services on the project's overlay network reach this
   // one at (e.g. `http://<internalHostname>`). Surfaced so the graph's node
@@ -165,7 +165,7 @@ export const serviceResourceSchema = z.object({
   publicDomain: z.string().nullable(),
   // User-authored env bag. Mirrors the database row's `extraEnv` so the
   // resource panel's Variables tab can reuse the same editor for both.
-  // Always present — empty record when nothing's been set.
+  // Always present: empty record when nothing's been set.
   extraEnv: z.record(z.string(), z.string()),
   // Keys flagged as sensitive by the operator. Display hint for the
   // editor; values still travel the wire in plaintext.
@@ -176,15 +176,15 @@ export const serviceResourceSchema = z.object({
   // without a second fetch.
   preDeploy: z.array(z.string()).nullable().optional(),
   postDeploy: z.array(z.string()).nullable().optional(),
-  // The real discriminated union, not `z.unknown()` — the column is already
+  // The real discriminated union, not `z.unknown()`: the column is already
   // `$type<BuildConfig>()`, and erasing that here forced every consumer to
   // re-narrow by hand before it could read `builder`.
   //
   // `.catch(null)` is the safety valve: this is an output schema on the
   // whole-project resource list, so a single row whose stored JSON predates
   // the current union (an old `builder`, a dropped field) must not fail the
-  // list and blank the graph. Such a row degrades to "no build config" —
-  // exactly what the hand-narrowing did with an unrecognised builder.
+  // list and blank the graph. Such a row degrades to "no build config".
+  // Exactly what the hand-narrowing did with an unrecognised builder.
   buildConfig: buildSchema.nullable().catch(null).optional(),
   restartWindowMs: z.number().int().nullable().optional(),
   diskLimitMb: z.number().int().nullable().optional(),
@@ -192,13 +192,13 @@ export const serviceResourceSchema = z.object({
   pidsLimit: z.number().int().nullable().optional(),
 });
 
-// A Docker Compose stack — one resource that owns N swarm services. The graph
+// A Docker Compose stack: one resource that owns N swarm services. The graph
 // renders it as a node listing those services (the parsed summary).
 export const composeResourceSchema = z.object({
   resourceId: resourceIdField,
   projectId: projectIdField,
   /** Which environment owns this resource. Null on rows created before
-   *  environment scoping — those belong to the project's main environment. */
+   *  environment scoping: those belong to the project's main environment. */
   environmentId: environmentIdField.nullable(),
   name: z.string(),
   type: z.literal("compose"),
@@ -216,7 +216,7 @@ export const composeResourceSchema = z.object({
       "removed",
     ])
     .nullable(),
-  // Latest deployment timestamps — drive the live build/deploy duration on the
+  // Latest deployment timestamps: drive the live build/deploy duration on the
   // graph node. ISO strings; `finishedAt` is null while the deploy is in flight.
   latestDeploymentStartedAt: z.string().nullable(),
   latestDeploymentFinishedAt: z.string().nullable(),
@@ -229,7 +229,7 @@ export const composeResourceSchema = z.object({
     z.object({
       name: z.string(),
       // Declared service's runtime name (composeSwarmServiceName(stackName,
-      // name)) — the same join key exposed on the child ServiceResource's
+      // name)): the same join key exposed on the child ServiceResource's
       // `serviceName`, so the graph can match a declared service back to its
       // materialized child resource without relying on the (possibly
       // collision-suffixed) resource name.
@@ -245,7 +245,7 @@ export const composeResourceSchema = z.object({
 });
 
 // `type` discriminates database vs service vs compose. The engine field on
-// database rows is a plain enum (not nested discriminators) — engines share
+// database rows is a plain enum (not nested discriminators), engines share
 // the same record shape, just produce different connection-string formats.
 export const resourceSchema = z.discriminatedUnion("type", [
   databaseResourceSchema,

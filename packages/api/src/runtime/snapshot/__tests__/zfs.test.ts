@@ -55,7 +55,7 @@ describe("zfs branch", () => {
     expect(script()).toContain("zfs destroy otterdeploy/pg/a@b 2>/dev/null || true");
   });
 
-  it("never recurses — -r would reach datasets we did not create", async () => {
+  it("never recurses: -r would reach datasets we did not create", async () => {
     await zfsDriver.branch({ sourceVolume: "a", targetVolume: "b", engine: "postgres" });
     expect(script()).not.toMatch(/zfs destroy\s+-r/);
   });

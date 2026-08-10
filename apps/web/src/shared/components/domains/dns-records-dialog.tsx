@@ -1,5 +1,5 @@
 /**
- * "Configure DNS Records" — the one dialog every add-a-domain surface shows.
+ * "Configure DNS Records": the one dialog every add-a-domain surface shows.
  *
  * Service custom domains, the control-plane FQDN and the workspace base domain
  * all need the same two things published, and each used to explain that its own
@@ -44,7 +44,7 @@ export interface DnsRecordRow {
   type: "A" | "TXT" | "CNAME";
   /** Fully-qualified name. */
   name: string;
-  /** Zone-relative name when known — what a DNS provider's UI actually wants.
+  /** Zone-relative name when known: what a DNS provider's UI actually wants.
    *  Pasting the FQDN into Cloudflare creates `waves.acme.com.acme.com`. */
   relativeName?: string | null;
   value: string;
@@ -57,7 +57,7 @@ function CopyCell({ text, mono = true }: { text: string; mono?: boolean }) {
       type="button"
       // `copyToClipboard`, not `navigator.clipboard`: this dialog is reached
       // over plain http://<ip> on most self-hosted installs, where the async
-      // Clipboard API doesn't exist at all — the bare call threw before the
+      // Clipboard API doesn't exist at all. The bare call threw before the
       // toast ran, so the row just did nothing. See shared/lib/clipboard.ts.
       onClick={() => {
         void copyToClipboard(text).then((ok) =>
@@ -120,7 +120,7 @@ function OneClickRow({
 }
 
 /** The records themselves, click-to-copy. Empty only before the domain is
- *  saved — there is no "this provider needs no records" case. */
+ *  saved. There is no "this provider needs no records" case. */
 function RecordsTable({ records }: { records: DnsRecordRow[] }) {
   const { t } = useTranslation();
   return (
@@ -159,7 +159,7 @@ function RecordsTable({ records }: { records: DnsRecordRow[] }) {
 }
 
 /** Shown only once `proxied` is definitely true. `address` is the first
- *  resolved address when we have one — it makes the warning checkable rather
+ *  resolved address when we have one. It makes the warning checkable rather
  *  than something the operator has to take on faith. */
 function ProxiedWarning({ address }: { address: string | undefined }) {
   const { t } = useTranslation();
@@ -177,7 +177,7 @@ export function DnsRecordsDialog({
   domain,
   records,
   /** Runs the provider's one-click setup. Omit when the surface has no
-   *  auto-configure endpoint yet — the dialog then stays manual-only. */
+   *  auto-configure endpoint yet: the dialog then stays manual-only. */
   onAutoConfigure,
   autoConfiguring = false,
   /** Where "Connect Cloudflare" sends someone. */
@@ -194,7 +194,7 @@ export function DnsRecordsDialog({
   const { t } = useTranslation();
   const inspect = useQuery({
     ...orpc.dns.inspect.queryOptions({ input: { domain } }),
-    // Only ask once the dialog is actually open — this does live DNS lookups.
+    // Only ask once the dialog is actually open. This does live DNS lookups.
     enabled: open && domain.length > 0,
     staleTime: 30_000,
     meta: { suppressErrorToast: true },
@@ -231,7 +231,7 @@ export function DnsRecordsDialog({
             path that hides what it wrote leaves nothing to verify against. */}
         <RecordsTable records={records} />
 
-        {/* The orange-cloud warning. Only when we KNOW it's proxied — `proxied`
+        {/* The orange-cloud warning. Only when we KNOW it's proxied, `proxied`
             is nullable precisely so "we couldn't tell" never renders as a
             claim either way. */}
         {info?.proxied === true ? <ProxiedWarning address={info.resolvedAddresses[0]} /> : null}

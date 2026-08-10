@@ -8,7 +8,7 @@ import type { Readable } from "node:stream";
  * exec INSIDE the database's own task container via the Docker API rather than
  * connecting over the overlay network from the control plane. On a single-node
  * swarm the manager can reach every task; multi-node exec routing is a Docker
- * daemon concern, not ours. This keeps creds off the wire — pg_dump runs next
+ * daemon concern, not ours. This keeps creds off the wire. Pg_dump runs next
  * to the socket and streams its archive back over the exec channel.
  */
 import { Docker, demuxStream } from "@otterdeploy/docker";
@@ -22,7 +22,7 @@ export interface ExecResult {
 /** Find the running container backing a resource by its `otterdeploy.resource.id`
  *  label. Runtime-agnostic: the plain-docker runtime (`DEPLOY_RUNTIME=docker`)
  *  stamps this label on the container directly, and swarm mirrors it onto every
- *  task's `ContainerSpec.Labels` — so this resolves the backing container under
+ *  task's `ContainerSpec.Labels`, so this resolves the backing container under
  *  BOTH runtimes. The old `com.docker.swarm.service.name` filter matched nothing
  *  under plain docker, which is why the DB Tables/Query views and backups all
  *  failed with "container is not running" on non-swarm hosts. */
@@ -79,13 +79,13 @@ export async function execCapture(
 }
 
 /**
- * A streaming dump exec. `stream` is the command's raw stdout (binary-safe —
+ * A streaming dump exec. `stream` is the command's raw stdout (binary-safe,
  * the archive bytes) handed to the caller to consume live; `stderr()` and
  * `exitCode` resolve once the exec has finished. rustic reads `stream` as its
  * backup stdin, so nothing is buffered in RAM (the old whole-archive-in-memory
  * limit is gone). Both promises only settle after the stdout side has been
- * drained — the exit code is meaningless until the process has actually exited,
- * and demux back-pressures stderr behind an unread stdout — so a caller MUST
+ * drained: the exit code is meaningless until the process has actually exited,
+ * and demux back-pressures stderr behind an unread stdout, so a caller MUST
  * consume `stream` before awaiting them (else they hang).
  */
 export interface DumpStream {
@@ -123,8 +123,8 @@ export async function execDump(
   // consumer, and its completion (source end) is the signal that the exec has
   // exited and `inspect()` now carries a real exit code. Memoized so repeated
   // `stderr()` calls share one drain, and non-rejecting (→ "" on a stream
-  // error) so abandoning it — e.g. when the rustic pipe fails before draining
-  // stdout — never surfaces an unhandled rejection.
+  // error) so abandoning it: e.g. when the rustic pipe fails before draining
+  // stdout, never surfaces an unhandled rejection.
   const stderrText = collect(stderr).then(
     (b) => b.toString("utf8"),
     () => "",

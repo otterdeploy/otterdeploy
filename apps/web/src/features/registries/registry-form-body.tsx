@@ -1,5 +1,5 @@
 /**
- * Field set + footer for {@link RegistryDialog} — split into a sibling module
+ * Field set + footer for {@link RegistryDialog}. Split into a sibling module
  * to keep the dialog file within the size budget. The form instance is created
  * by the dialog (via {@link useRegistryForm}) and passed down.
  */
@@ -24,7 +24,7 @@ export interface RegistryFormValues {
   password: string;
 }
 
-/** The dialog's form instance — extracted so the field-set component can be
+/** The dialog's form instance. Extracted so the field-set component can be
  * typed without re-spelling TanStack Form's generic surface. */
 export type RegistryForm = ReturnType<typeof useRegistryForm>;
 
@@ -34,7 +34,7 @@ export function useRegistryForm(args: {
 }) {
   return useForm({
     // Re-hydrate per render so opening an edit / create row starts from the
-    // right values — TanStack Form keeps the live state once mounted; `reset`
+    // right values: TanStack Form keeps the live state once mounted; `reset`
     // on close clears it for the next open.
     defaultValues: {
       displayName: args.existing?.displayName ?? "",

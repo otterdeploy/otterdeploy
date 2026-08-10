@@ -1,7 +1,7 @@
 /**
  * The gate's caching contract. `_app`'s `beforeLoad` reads the session and org
  * list through `ensureQueryData`, and nothing else in the app observes those
- * two queries — which makes them the exact shape that plain `invalidateQueries`
+ * two queries, which makes them the exact shape that plain `invalidateQueries`
  * silently skips. See the note on `invalidateAuth`.
  */
 
@@ -47,7 +47,7 @@ describe("invalidateAuth", () => {
     // caches an empty org list; the wizard then creates one. If invalidation
     // doesn't actually refetch, the next gate read still sees `[]`, decides
     // "onboarding", and bounces the user back into the wizard they just
-    // finished — which is what shipped.
+    // finished, which is what shipped.
     listOrganizations.mockResolvedValueOnce({ data: [], error: null });
     expect(await queryClient.ensureQueryData(organizationsQuery)).toEqual([]);
 
@@ -56,7 +56,7 @@ describe("invalidateAuth", () => {
 
     // Note this is `ensureQueryData`, not `fetchQuery`: it returns whatever is
     // cached whenever that is defined, stale or not. Marking the query stale is
-    // therefore not enough — the refetch has to have already landed.
+    // therefore not enough: the refetch has to have already landed.
     expect(await queryClient.ensureQueryData(organizationsQuery)).toEqual([ACME]);
     expect(listOrganizations).toHaveBeenCalledTimes(2);
   });

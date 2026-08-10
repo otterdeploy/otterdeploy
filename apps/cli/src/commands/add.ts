@@ -69,7 +69,7 @@ const addService = defineCommand({
     "source-subdir": { type: "string", description: "Build path within the git repo" },
     port: { type: "string", description: "Container port (HTTP, primary)" },
     replicas: { type: "string", description: "Replica count" },
-    domain: { type: "string", description: "Public domain — first is primary (repeatable)" },
+    domain: { type: "string", description: "Public domain; first is primary (repeatable)" },
     env: { type: "string", description: "Env var KEY=VAL (repeatable)" },
     config: { type: "string", description: "Path to config file" },
   },
@@ -80,10 +80,10 @@ const addService = defineCommand({
     }
 
     if (args.upload && args.git) {
-      abort("--upload and --git are mutually exclusive — pick one source.");
+      abort("--upload and --git are mutually exclusive. Pick one source.");
     }
     if ((args.repo || args.branch) && !args.git) {
-      abort("--repo/--branch only apply to git services — pass --git as well.");
+      abort("--repo/--branch only apply to git services. Pass --git as well.");
     }
     if (args.repo) {
       const parts = args.repo.split("/");
@@ -200,7 +200,7 @@ const addCompose = defineCommand({
     name: { type: "positional", required: true, description: "Stack name" },
     file: { type: "string", description: "Local compose file to inline (source=inline)" },
     "git-url": { type: "string", description: "HTTPS repo URL with the compose file (source=git)" },
-    "git-ref": { type: "string", description: "Git ref — branch/tag/sha (with --git-url)" },
+    "git-ref": { type: "string", description: "Git ref: branch/tag/sha (with --git-url)" },
     "compose-path": {
       type: "string",
       description: "Compose file path in the repo (with --git-url)",

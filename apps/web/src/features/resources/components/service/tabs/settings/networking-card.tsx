@@ -1,5 +1,5 @@
 /**
- * Public Networking — the one surface that decides whether a service is
+ * Public Networking: the one surface that decides whether a service is
  * reachable from the internet, and on which hosts.
  *
  * Domains ARE the exposure. There is no separate "expose publicly" switch to
@@ -48,7 +48,7 @@ export function ServiceNetworkingCard({
   };
 
   const domains = useQuery(orpc.service.domains.list.queryOptions({ input }));
-  // Ports live on the live service record, not on the panel resource — the
+  // Ports live on the live service record, not on the panel resource. The
   // add/edit forms need them to offer a target port.
   const service = useQuery(orpc.service.get.queryOptions({ input }));
   const ports: PortChoice[] = (service.data?.ports ?? []).map((p) => ({
@@ -108,7 +108,7 @@ export function ServiceNetworkingCard({
             <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-3.5" />
             Custom domain
           </Button>
-          {/* One generated host per service — offering it again would only
+          {/* One generated host per service, offering it again would only
               re-publish the host that is already in the list above. */}
           {!hasGenerated && (
             <Button
@@ -128,7 +128,7 @@ export function ServiceNetworkingCard({
 }
 
 /** Generated hostnames route under the org's base domain, so a generated
- *  host is only provably reachable once that domain is verified — the
+ *  host is only provably reachable once that domain is verified. The
  *  workspace General page owns that, and the chip reads the same signal
  *  rather than asserting the route is live sight unseen. */
 function useBaseDomainStatus(): BaseDomainStatus | undefined {
@@ -182,7 +182,7 @@ function DomainList({
     <div className="divide-y divide-border/40">
       {unpublished && (
         <div className="flex flex-wrap items-center justify-between gap-2 bg-muted/30 px-3 py-2 text-[12px] text-muted-foreground">
-          Public access is off — none of these hosts are being served.
+          Public access is off. None of these hosts are being served.
           <Button
             size="xs"
             variant="secondary"

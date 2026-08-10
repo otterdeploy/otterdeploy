@@ -50,7 +50,7 @@ export async function listProjects(input: OrgRef): Promise<ProjectListItem[]> {
   ]);
   return records.map((r) => ({
     ...r,
-    // A project with no resources/routes has no group row at all — absent means 0.
+    // A project with no resources/routes has no group row at all. Absent means 0.
     databaseCount: resourceTallies.get(r.id)?.databaseCount ?? 0,
     serviceCount: resourceTallies.get(r.id)?.serviceCount ?? 0,
     routeCount: routeTallies.get(r.id) ?? 0,
@@ -164,13 +164,13 @@ export async function updateProject(
 /**
  * Merge operator-dragged node positions into the project's stored graph
  * layout. Partial map in (only the nodes that moved); the rest of the layout
- * is preserved. Shared per project — see the `graphLayout` column.
+ * is preserved. Shared per project. See the `graphLayout` column.
  */
 export async function saveProjectGraphLayout(
   input: OrgRef & {
     projectId: ProjectId;
     positions: Record<string, { x: number; y: number }>;
-    /** Replace the stored layout wholesale instead of merging — `{}` resets
+    /** Replace the stored layout wholesale instead of merging. `{}` resets
      *  every saved position so dagre owns placement again. */
     replace?: boolean;
   },
@@ -206,8 +206,8 @@ export async function deleteProject(
   }
 
   // Refuse while service/compose resources exist. This teardown handles the
-  // project's databases itself (below), but service runtimes — containers,
-  // built images, buildx caches, volumes — are only reclaimed by the
+  // project's databases itself (below), but service runtimes. Containers,
+  // built images, buildx caches, volumes. Are only reclaimed by the
   // per-resource delete path; dropping the rows via FK cascade would orphan
   // them on the host. Safest honest behavior: refuse with the count so the
   // operator deletes the services first.
@@ -223,7 +223,7 @@ export async function deleteProject(
 
   const projectSlug = sanitizeProjectSlug(project.slug);
   const dbRecords = await listDatabaseResourceRecords(input.id);
-  // Preview branch containers are named `<name>-<preview slug>` — resolve the
+  // Preview branch containers are named `<name>-<preview slug>`. Resolve the
   // slugs so project deletion reaps them too, not just the base containers.
   const previewRows = await db
     .select({ id: preview.id, slug: preview.slug })
@@ -245,7 +245,7 @@ export async function deleteProject(
     await destroySwarmPostgres({ serviceName }, log);
   }
 
-  // 2. Delete the project row — FKs cascade to children.
+  // 2. Delete the project row, FKs cascade to children.
   const deleted = await deleteProjectRecord({
     projectId: input.id,
     organizationId: input.organizationId,

@@ -7,7 +7,7 @@
  * tab reloadable, shareable and reachable by back/forward.
  *
  * Each panel kind owns its own tab union, its own default, and its own subset
- * of tabs that work while the resource is still a staged ghost — so they pass
+ * of tabs that work while the resource is still a staged ghost, so they pass
  * those in rather than this module knowing about them.
  */
 

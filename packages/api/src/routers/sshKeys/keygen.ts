@@ -2,7 +2,7 @@
  * SSH keypair generation + public-key parsing, by shelling out to the host
  * `ssh-keygen` (same posture as the builder shelling out to `railpack`). Doing
  * it with the canonical tool means we emit exactly the OpenSSH formats every
- * Git host and SSH server already accept — no hand-rolled wire encoding to get
+ * Git host and SSH server already accept, no hand-rolled wire encoding to get
  * subtly wrong.
  *
  * These functions THROW on failure; callers wrap them in `Result.tryPromise`
@@ -16,7 +16,7 @@ export type SshKeyType = "ed25519" | "rsa" | "ecdsa";
 
 export interface GeneratedKeyPair {
   type: SshKeyType;
-  /** Bits — set for rsa/ecdsa, null for ed25519 (fixed-size). */
+  /** Bits: set for rsa/ecdsa, null for ed25519 (fixed-size). */
   bits: number | null;
   /** OpenSSH public-key line: "ssh-ed25519 AAAA… comment". */
   publicKey: string;

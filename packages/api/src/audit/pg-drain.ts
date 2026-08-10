@@ -1,8 +1,8 @@
-import type { DrainContext } from "evlog";
 import type { JsonObject } from "@otterdeploy/shared/json";
+import type { DrainContext } from "evlog";
 
 /**
- * Postgres audit drain — persists evlog audit events into the `audit_log`
+ * Postgres audit drain: persists evlog audit events into the `audit_log`
  * table. Wrap with `auditOnly(...)` so only events carrying `event.audit`
  * reach it, and register it as a plugin alongside the default drain so normal
  * logging is untouched (see apps/server bootstrap).

@@ -1,5 +1,5 @@
 /**
- * Presentational pieces of the Profile card — the avatar identity row and the
+ * Presentational pieces of the Profile card: the avatar identity row and the
  * name / email / avatar-URL inputs. All state stays in `ProfileCard`; these
  * only render the current values. Split out to keep that component's branch
  * count in check.
@@ -36,7 +36,7 @@ export function ProfileIdentity({
         <AvatarFallback className="text-sm">{initialsOf(name || "?")}</AvatarFallback>
       </Avatar>
       <div className="min-w-0">
-        <div className="truncate text-[13px] font-medium">{currentName || "—"}</div>
+        <div className="truncate text-[13px] font-medium">{currentName || "–"}</div>
         <div className="truncate font-mono text-[11.5px] text-muted-foreground">{email ?? "…"}</div>
       </div>
     </div>
@@ -104,7 +104,7 @@ export function ProfileFields({
           className="font-mono text-[13px]"
         />
         <p className="text-[11px] text-muted-foreground">
-          A public image URL — uploads aren't supported yet. Leave blank for initials.
+          A public image URL. Uploads aren't supported yet. Leave blank for initials.
         </p>
       </div>
     </>

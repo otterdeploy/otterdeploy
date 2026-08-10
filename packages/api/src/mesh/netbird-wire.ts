@@ -3,10 +3,10 @@
  * pure functions that translate them into our provider-neutral mesh types, and
  * the reading of a failed response into a message an operator can act on.
  *
- * Split out of ./netbird.ts so that file is just the client — transport, auth
+ * Split out of ./netbird.ts so that file is just the client. Transport, auth
  * header, timeout, and one method per endpoint. Everything here is pure and
  * side-effect free (no fetch, no token), which is what makes the fiddly parts
- * — peer-domain resolution and TTL clamping — cheap to unit-test without a
+ * (peer-domain resolution and TTL clamping) cheap to unit-test without a
  * server, and keeps NetBird's snake_case vocabulary from leaking further up.
  */
 
@@ -67,8 +67,8 @@ export function toMeshGroup(group: NetbirdGroup): MeshGroup {
 /**
  * Resolve the account's peer DNS zone, preferring hard evidence over guesses:
  *
- *   1. `settings.dns_domain` — the account's own configured zone.
- *   2. the suffix of any existing peer's fully-qualified `dns_label` — actual
+ *   1. `settings.dns_domain`: the account's own configured zone.
+ *   2. the suffix of any existing peer's fully-qualified `dns_label`. Actual
  *      observed behaviour, which beats any assumption.
  *   3. the hosted default, flagged as such so the UI can say it's a guess.
  */
@@ -81,7 +81,7 @@ export function resolvePeerDomain(
 
   for (const peer of peers) {
     const label = peer.dns_label?.trim();
-    // dns_label is fully-qualified ("host.netbird.cloud") — everything after
+    // dns_label is fully-qualified ("host.netbird.cloud"). Everything after
     // the first dot is the zone.
     const dot = label?.indexOf(".") ?? -1;
     if (label && dot > 0 && dot < label.length - 1) {
@@ -101,7 +101,7 @@ export function clampTtl(seconds: number | undefined): number {
   return Math.min(MAX_KEY_TTL, Math.max(MIN_KEY_TTL, Math.floor(seconds)));
 }
 
-/** A 404 on delete means the object is already gone — the desired end state. */
+/** A 404 on delete means the object is already gone. The desired end state. */
 export function ignoreMissing(err: unknown): void {
   if (err instanceof MeshProviderError && err.status === 404) return;
   throw err;
@@ -115,7 +115,7 @@ export async function describeFailure(response: Response, base: string): Promise
     const parsed = JSON.parse(body) as { message?: string };
     if (parsed?.message) detail = parsed.message;
   } catch {
-    // Non-JSON body (an HTML error page from a reverse proxy, typically) —
+    // Non-JSON body (an HTML error page from a reverse proxy, typically):
     // the truncated raw text is more useful than pretending we parsed it.
   }
 
@@ -125,7 +125,7 @@ export async function describeFailure(response: Response, base: string): Promise
     case 403:
       return "The NetBird token authenticated but lacks permission (403). Use a token from an account admin.";
     case 404:
-      return `NetBird returned 404 for ${base}/api — check the management URL points at a NetBird management server.`;
+      return `NetBird returned 404 for ${base}/api. Check the management URL points at a NetBird management server.`;
     default:
       return `NetBird API error ${response.status}${detail ? `: ${detail}` : ""}`;
   }

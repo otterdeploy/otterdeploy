@@ -8,7 +8,7 @@ import { proxyRoute } from "./proxy-route";
 /**
  * External guests invited to a protected deployment (Cloudflare-Access-style
  * one-time-PIN access). An invited email gets a time-boxed, deployment-scoped
- * session via email OTP — no org account, no invite link. The session length
+ * session via email OTP, no org account, no invite link. The session length
  * is per-guest (`sessionHours`, default 24). See
  * docs/designs/deployment-protection.md.
  */

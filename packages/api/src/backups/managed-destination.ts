@@ -4,7 +4,7 @@
  * Every org gets exactly one, created on demand. Without it a fresh install has
  * zero destinations, and since `backupCreateScheduleInput` requires
  * `destinationIds.min(1)` nobody can schedule a backup until they hand-configure
- * a destination — including inventing a host path for `local`, which the
+ * a destination, including inventing a host path for `local`, which the
  * operator has no reason to choose and no way to validate. The platform knows
  * the right answer (`DATA_ROOT`), so it owns this one.
  *
@@ -12,8 +12,8 @@
  *   - it always exists, so the schedule form has a destination pre-selected;
  *   - its path is ours, so it cannot point somewhere unwritable or off-volume;
  *   - it cannot be deleted, so an org can never fall back to zero destinations.
- * It CAN be disabled once another active destination exists — see
- * `canDisableManagedDestination` — for operators who don't want local copies
+ * It CAN be disabled once another active destination exists. See
+ * `canDisableManagedDestination`: for operators who don't want local copies
  * consuming the data volume.
  *
  * IMPORTANT: a local destination is not disaster recovery. It sits on the same
@@ -31,13 +31,13 @@ import { and, eq, ne, or } from "drizzle-orm";
 
 /** Shown in the destinations list and pre-selected in the schedule form. The
  *  name is the one field the operator may edit, so this is only the initial
- *  value — never match on it, match on `managed`. */
+ *  value, never match on it, match on `managed`. */
 const MANAGED_LOCAL_DESTINATION_NAME = "Local disk (managed)";
 
 /**
  * The config the platform owns for the managed row. `path` is the repo root and
  * `prefix` namespaces by org, which `deriveRepoId` already threads into the
- * rustic repo id — so no engine change is needed to keep orgs apart.
+ * rustic repo id, so no engine change is needed to keep orgs apart.
  */
 export function managedLocalConfig(organizationId: OrganizationId): {
   path: string;
@@ -51,13 +51,13 @@ export function managedLocalConfig(organizationId: OrganizationId): {
  *
  * Idempotent and concurrency-safe: the insert is guarded by the partial unique
  * index `backup_destination_managed_org_idx` (one managed row per org), so two
- * simultaneous callers cannot both create one — the loser's
+ * simultaneous callers cannot both create one. The loser's
  * `onConflictDoNothing` returns no row and we fall through to the read.
  *
  * Also self-heals `config`: if DATA_ROOT moved (a redeployed install with a
  * different `OTTERDEPLOY_DATA_DIR`) the stored path would otherwise keep
  * pointing at a directory that no longer exists. Existing snapshots under the
- * old root are not migrated — this only makes NEW backups land somewhere real.
+ * old root are not migrated. This only makes NEW backups land somewhere real.
  */
 export async function ensureManagedLocalDestination(organizationId: OrganizationId): Promise<void> {
   const desiredConfig = managedLocalConfig(organizationId);
@@ -77,7 +77,7 @@ export async function ensureManagedLocalDestination(organizationId: Organization
   if (inserted) return;
 
   // Already present (or another caller just won the race). Reconcile the
-  // platform-owned config only — never the name, which the operator may edit.
+  // platform-owned config only, never the name, which the operator may edit.
   const [existing] = await db
     .select({ id: backupDestination.id, config: backupDestination.config })
     .from(backupDestination)
@@ -102,7 +102,7 @@ export async function ensureManagedLocalDestination(organizationId: Organization
 /**
  * May the managed destination be disabled right now?
  *
- * Only while some OTHER destination is still active — disabling the last active
+ * Only while some OTHER destination is still active. Disabling the last active
  * destination would silently turn every schedule into a no-op, which is exactly
  * the "configured but not actually backing up" state this whole feature exists
  * to remove. A `degraded` peer counts: it is a health signal, not operator

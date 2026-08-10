@@ -35,11 +35,11 @@ class ComposeDeployError extends Error {
 
 /** Message for an empty-content deploy. A git stack shouldn't reach a direct
  *  deploy (it goes through the builder), so empty content there means its first
- *  build hasn't finished — point the user at redeploy rather than "empty file". */
+ *  build hasn't finished, point the user at redeploy rather than "empty file". */
 function emptyContentError(source: string): ComposeDeployError {
   return new ComposeDeployError(
     source === "git"
-      ? "This git stack hasn't finished its first build yet — redeploy to build it."
+      ? "This git stack hasn't finished its first build yet. Redeploy to build it."
       : "Compose file is empty",
   );
 }
@@ -82,7 +82,7 @@ export async function deployCompose(
   input: {
     projectId: ProjectId;
     resourceId: ResourceId;
-    /** Reuse an existing build deployment instead of opening a new one — the
+    /** Reuse an existing build deployment instead of opening a new one. The
      *  build worker passes its own; the caller then owns status transitions. */
     deploymentId?: DeploymentId;
   },
@@ -103,7 +103,7 @@ export async function deployCompose(
   // through the build worker (compose/index.ts redeploy + create, and
   // manifest-reconcile), which clones, builds, and persists `composeContent`
   // before deploying. So empty content here means a git stack slipped through
-  // (e.g. a build that never finished) — surface it as such, not "empty file".
+  // (e.g. a build that never finished). Surface it as such, not "empty file".
   const content = record.compose.composeContent;
   if (!content) {
     return Result.err(emptyContentError(record.compose.source));
@@ -126,7 +126,7 @@ export async function deployCompose(
   // `build:` services need an image the build worker produced. Resolve each
   // service's image from `image:` or the builder's `builtImages` map, then
   // apply compose `${VAR:-default}` interpolation (the `image:` field uses it
-  // too — not just env). A service with no image yet hasn't been built.
+  // too, not just env). A service with no image yet hasn't been built.
   const builtImages = record.compose.builtImages;
   const resolveImage = (svc: { name: string; image: string | null }) => {
     const raw = svc.image ?? builtImages[svc.name] ?? null;
@@ -146,7 +146,7 @@ export async function deployCompose(
   // Stack-level deployment row: tracks the rollout as a whole (and is the row
   // the build worker owns for git stacks). Each service ALSO gets its own
   // deployment row inside the reconcile, for per-service history + logs.
-  // Direct deploys start at "pending", not "building" — an image-only stack
+  // Direct deploys start at "pending", not "building". An image-only stack
   // never builds anything, and the UI renders the states differently.
   const depId =
     input.deploymentId ??
@@ -166,7 +166,7 @@ export async function deployCompose(
   const dlog = createStackDeployLog(depId);
   try {
     dlog.line(
-      `Deploying stack ${record.compose.stackName} — ${parsed.value.services.length} service(s), reason: ${reason}`,
+      `Deploying stack ${record.compose.stackName}: ${parsed.value.services.length} service(s), reason: ${reason}`,
     );
     if (stackDir) {
       dlog.line(`Materialized ${record.compose.files.length} inline file(s) to ${stackDir}`);
@@ -177,7 +177,7 @@ export async function deployCompose(
     // logs / variables / settings / public-private work per service unchanged.
     //
     // Seed-only exposure: `record.compose.exposed` is the wizard/manifest's
-    // one-time selection of which compose services should start out public —
+    // one-time selection of which compose services should start out public,
     // never edited after create (there is no stack-level "Save exposures"
     // path anymore; public exposure is owned exclusively by each child
     // service's own Settings tab). reconcileStackServices applies this seed
@@ -230,7 +230,7 @@ export async function deployCompose(
   }
 }
 
-/** Drop a stack's routes + re-render Caddy (used on stack delete — cleans up
+/** Drop a stack's routes + re-render Caddy (used on stack delete, cleans up
  *  both the child services' own routes and any legacy stack-level route a
  *  pre-migration exposure left behind). */
 export async function removeComposeDomains(resourceId: ResourceId): Promise<void> {

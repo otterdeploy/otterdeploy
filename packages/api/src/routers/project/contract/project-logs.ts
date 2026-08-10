@@ -1,6 +1,6 @@
 // Fan-in log stream that multiplexes every resource in a project into a
 // single subscription. Per-resource subscriptions still exist
-// (resource.logs.tail) — this one is for the project-wide /logs page where
+// (resource.logs.tail): this one is for the project-wide /logs page where
 // the operator wants to see everything at once.
 
 import { eventIterator, oc } from "@orpc/contract";
@@ -20,7 +20,7 @@ const projectLogEventSchema = resourceLogEventSchema.extend({
 const projectLogsTailInput = z.object({
   projectId: projectIdField,
   // Whitelist of resource ids to follow. Empty / undefined = every service
-  // resource in the project (databases are excluded by default — they have
+  // resource in the project (databases are excluded by default, they have
   // their own log surface on the resource detail panel).
   resourceIds: z.array(resourceIdField).optional(),
   tail: z.number().int().min(0).max(500).optional().default(50),

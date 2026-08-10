@@ -1,13 +1,13 @@
 /**
- * Health-agent credential — the machine token remote nodes present when
+ * Health-agent credential: the machine token remote nodes present when
  * POSTing health reports. Same idiom as authz/tokens.ts (purpose-tagged
- * base64url payload + HMAC-SHA256 over BETTER_AUTH_SECRET — no extra secret
+ * base64url payload + HMAC-SHA256 over BETTER_AUTH_SECRET, no extra secret
  * to provision), but standalone: those tokens are deployment-domain-bound,
  * this one is install-bound with nothing else to pin.
  *
  * Trust model v1 (docs/designs/server-health-agent.md): one token per agent
- * service generation; any holder can claim any hostname. That's acceptable —
- * agents run on swarm member nodes, which are already trusted with workloads;
+ * service generation; any holder can claim any hostname. That's acceptable.
+ * Agents run on swarm member nodes, which are already trusted with workloads;
  * the token gates outsiders, not peers. The reconciler re-mints whenever it
  * (re)creates the agent service (every platform update), so the long TTL is a
  * ceiling, not the expected rotation cadence.

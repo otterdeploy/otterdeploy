@@ -5,7 +5,7 @@ import type { z } from "zod";
  * Org-scoped SSH keys for the viewed organization. Everything rides the oRPC
  * `sshKeys` router via plain TanStack Query (`orpc.sshKeys.*`): a `list` query
  * the page reads, and `generate` / `import` / `rotate` / `delete` mutations that
- * invalidate it. Unlike API keys this isn't a TanStack DB collection — there are
+ * invalidate it. Unlike API keys this isn't a TanStack DB collection. There are
  * two distinct create verbs (generate vs import) that don't map onto a single
  * `onInsert`, so a query/mutation surface is the clean fit.
  */

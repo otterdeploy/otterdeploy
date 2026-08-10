@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Outlet,
   createFileRoute,
@@ -34,15 +34,11 @@ import {
   useRevealNewNodes,
 } from "./-components/graph-camera";
 import { useGraphContextMenu } from "./-components/graph-context-menu-actions";
-import { useBoundedGraph } from "./-components/graph-extent";
+import { usePlacedNodes } from "./-components/graph-extent";
 import { GraphFlow } from "./-components/graph-flow";
 import { useGraphModel } from "./-components/graph-model";
 import { GraphNodeDialogs } from "./-components/graph-node-dialogs";
-import {
-  commitNodeDrop,
-  computeLaidOutNodes,
-  resolveDroppedPositions,
-} from "./-components/laid-out-nodes";
+import { commitNodeDrop, resolveDroppedPositions } from "./-components/laid-out-nodes";
 import { GraphPanelShell } from "./-components/panel-shell";
 
 export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/graph")({
@@ -56,8 +52,8 @@ function RouteComponent() {
   // presence flip is what lets it slide out before unmounting.
   //
   // What it is deliberately NOT keyed on is *which* child matched. Keying by
-  // pathname made every resource-to-resource click a full exit + re-enter —
-  // panel A slid away, then panel B slid back in — when the drawer never left
+  // pathname made every resource-to-resource click a full exit + re-enter:
+  // panel A slid away, then panel B slid back in, when the drawer never left
   // the screen conceptually. It animates once on open and once on close; a
   // switch between resources just swaps the Outlet's contents inside the
   // already-open drawer.
@@ -66,7 +62,7 @@ function RouteComponent() {
   const { orgSlug, projectSlug } = Route.useParams();
   const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
 
-  // Whether the project has ever had any resources — drives the stack
+  // Whether the project has ever had any resources. Drives the stack
   // drawer's first-visit-ever default (see use-panel-state). A brand-new
   // project has nothing but boilerplate YAML to show, so the drawer starts
   // collapsed instead of covering the empty-state CTA. `status` guards the
@@ -89,7 +85,7 @@ function RouteComponent() {
   const panel = useStackPanelState(project.id, hasResources);
 
   return (
-    // No inset padding / rounded frame on a phone — at 375px the 12px gutter
+    // No inset padding / rounded frame on a phone: at 375px the 12px gutter
     // and the border are pure loss, and the canvas wants every pixel.
     <div className="relative flex flex-1 overflow-hidden p-0 sm:p-3">
       <div className="relative flex-1 overflow-hidden border-0 sm:rounded-2xl sm:border">
@@ -101,7 +97,7 @@ function RouteComponent() {
           <div className="pointer-events-none absolute inset-0 top-0 z-10 flex size-full items-end justify-end sm:top-10">
             <AnimatePresence>
               {panelOpen ? (
-                // The drawer itself is OURS, not the child route's — see
+                // The drawer itself is OURS, not the child route's. See
                 // panel-shell.tsx. The child routes set `pendingMs: 0`, so
                 // `panelOpen` flips the moment a node is clicked and the drawer
                 // starts sliding in while the child is still pending; its
@@ -120,7 +116,7 @@ function RouteComponent() {
 }
 
 // Applied resources carry the real resourceId on data; a pending-create ghost
-// has none, so fall back to the node id (`${kind}:${name}`) — the $resourceId
+// has none, so fall back to the node id (`${kind}:${name}`). The $resourceId
 // route resolves either form.
 function nodeTargetId(node: { id: string; data: { resourceId?: unknown } }): string {
   const real = node.data.resourceId;
@@ -139,7 +135,7 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
   const { liveNodes, liveEdges, traffic } = useGraphModel(project, activeEnv);
 
   // Lay out with both nodes and edges so dagre ranks consumers above their
-  // dependencies (routes → services → databases) — but only when the topology
+  // dependencies (routes → services → databases), but only when the topology
   // actually changes, and even then without disturbing already-placed nodes.
   // Two problems this guards against:
   //   1. The manifest diff polls every 5s and task statuses tick constantly;
@@ -147,7 +143,7 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
   //      unrelated nodes jitter. A topology signature (node id set + edges)
   //      gates relayout to genuine add/remove only.
   //   2. Even on a real add (staging a create → a ghost node appears), a full
-  //      relayout shoved existing services aside — yanking the node a detail
+  //      relayout shoved existing services aside, yanking the node a detail
   //      panel was anchored on. incrementalLayout pins existing nodes and only
   //      places the new one.
   // Cached positions accumulate across topology changes; mutating a ref during
@@ -163,7 +159,7 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
   // a node is dragged we honor that placement for the rest of the session,
   // layering it over dagre's position. React Flow is a controlled graph here
   // (we own the `nodes` prop), so a drag only sticks if we capture its position
-  // change and feed it back — otherwise the next poll-driven render snaps the
+  // change and feed it back. Otherwise the next poll-driven render snaps the
   // node home. Kept in state so a drag re-renders.
   const [dragged, setDragged] = useState<Map<string, XY>>(
     () => new Map(Object.entries(project.graphLayout ?? {})),
@@ -171,7 +167,7 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
   // True while a node is actively being dragged. The graph polls every 5s
   // (diff / resources / tasks) and each poll rebuilds the node list; if one
   // lands mid-drag it swaps the node set under React Flow and the node you're
-  // holding unmounts then remounts — the fast-drag flicker. While dragging we
+  // holding unmounts then remounts. The fast-drag flicker. While dragging we
   // freeze the rendered set so no poll can add/remove a node until you drop.
   const [dragging, setDragging] = useState(false);
 
@@ -180,11 +176,11 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
     // learns sizes from these changes. See graph-extent.ts.
     captureDimensions(changes);
     // This graph is controlled: React Flow does NOT move the dragged node on its
-    // own here — it only tracks the cursor if we feed each position change back
+    // own here. It only tracks the cursor if we feed each position change back
     // into the `nodes` prop. So we must capture per-frame positions. The cost of
     // that (re-rendering) is contained elsewhere: `laidOutNodes` keeps every
     // non-dragged node's object reference stable, and the node renderers are
-    // memoized, so only the dragged card's transform updates — its contents
+    // memoized, so only the dragged card's transform updates. Its contents
     // don't re-render.
     setDragged((prev) => {
       let next = prev;
@@ -216,30 +212,24 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
   // so it still sees the flag; the next genuine click does not).
   const didDragRef = useRef(false);
 
-  // Node positioning lives in ./-components/laid-out-nodes (pure, keeps this
-  // component under the line/complexity caps). It reads/writes the two render-
-  // cache refs during render on purpose — mid-drag we must return the exact set
-  // we last rendered (no flicker) and accumulate dagre positions across renders;
-  // promoting them to state reintroduces the flicker/jitter the cache prevents.
-  /* oxlint-disable react-hooks-js/refs -- deliberate render cache (anti-flicker); see laid-out-nodes.ts */
-  const laidOutNodes = useMemo(
-    () =>
-      computeLaidOutNodes({ dragging, dragged, liveNodes, liveEdges, renderedNodesRef, layoutCache }),
-    [liveNodes, liveEdges, dragged, dragging],
-  );
-  /* oxlint-enable react-hooks-js/refs */
-
-  // Bounded world + the strays pulled back into it — see graph-extent.ts.
-  const { nodes: boundedNodes, nodeExtent, translateExtent, captureDimensions } =
-    useBoundedGraph(laidOutNodes, layoutCache);
+  // Measure → place (dagre + drags, then the no-overlap guarantee) → bound.
+  // See graph-extent.ts / laid-out-nodes.ts; kept in one hook because the order
+  // between those three matters.
+  const {
+    nodes: boundedNodes,
+    nodeExtent,
+    translateExtent,
+    measured,
+    captureDimensions,
+  } = usePlacedNodes({ dragging, dragged, liveNodes, liveEdges, renderedNodesRef, layoutCache });
 
   const panelOpen = useDetailPanelRefit(fitView);
   // A node created after load lands wherever dagre puts it, which is often
-  // outside the current viewport — reveal it instead of leaving the operator
+  // outside the current viewport: reveal it instead of leaving the operator
   // to hunt for a card they were just told was created.
   useRevealNewNodes(boundedNodes, fitView, getViewport);
 
-  // A resource panel (or preview/deployment overlay) is open — collapse the
+  // A resource panel (or preview/deployment overlay) is open. Collapse the
   // bottom drawer so its content isn't squeezed into a ~6-line sliver behind
   // the panel. The operator's real open/closed preference is untouched in
   // storage; this only overrides what's rendered while a panel covers it.
@@ -247,22 +237,22 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
     ? { ...panel, open: false, occupiedHeight: PANEL_COLLAPSED_HEIGHT }
     : panel;
 
-  // Auto fit-view the first time any node (real or staged-ghost) appears —
+  // Auto fit-view the first time any node (real or staged-ghost) appears:
   // React Flow's `fitView` prop only fires once, on the canvas's initial
   // mount, so a project that starts empty (or a fresh ghost created after
   // mount) never gets framed and the lone new card renders at whatever zoom
   // the empty canvas happened to be at (the "huge first node" glitch).
-  const hadNodesRef = useRef(laidOutNodes.length > 0);
+  const hadNodesRef = useRef(boundedNodes.length > 0);
   useEffect(() => {
-    const hasNodes = laidOutNodes.length > 0;
+    const hasNodes = boundedNodes.length > 0;
     if (hasNodes && !hadNodesRef.current) {
       requestAnimationFrame(() => void fitView({ padding: 0.2, duration: 300 }));
     }
     hadNodesRef.current = hasNodes;
-  }, [laidOutNodes.length, fitView]);
+  }, [boundedNodes.length, fitView]);
 
-  // Shared by the node click handler and the context menu's "Open" item —
-  // same navigation, same pending-delete guard, same preview-satellite branch.
+  // Shared by the node click handler and the context menu's "Open" item.
+  // Same navigation, same pending-delete guard, same preview-satellite branch.
   const openNode = (node: ResourceFlowNode) => {
     if (node.data.pending === "delete") return;
     if (node.data.kind === "preview") {
@@ -284,7 +274,7 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
     });
   };
 
-  // Right-click menus (node + empty canvas) — state/mutations live in a
+  // Right-click menus (node + empty canvas): state/mutations live in a
   // sibling hook so this component stays under the line/complexity caps.
   const contextMenu = useGraphContextMenu({
     projectId: project.id,
@@ -299,7 +289,7 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
   // Re-run layout: forget every operator-dragged position (local caches +
   // the persisted project layout via `replace: true`) so the next render's
   // dagre pass owns placement again, then refit. The server write is
-  // best-effort — the local reset already re-laid the graph.
+  // best-effort: the local reset already re-laid the graph.
   const onRelayout = () => {
     layoutCache.current = { sig: "", positions: new Map() };
     setDragged(new Map());
@@ -340,22 +330,22 @@ function GraphCanvas({ panel }: { panel: StackPanelState }) {
             didDragRef.current = false;
           });
           // Bounce the dropped card(s) to the nearest clear spot so a drop never
-          // leaves an overlap — moves ONLY the card(s) you dropped; every other
+          // leaves an overlap. Moves ONLY the card(s) you dropped; every other
           // node is a fixed obstacle. Multi-select drags carry every dragged
           // node in `nodes`. Committing (local + best-effort persist) is a
-          // sibling helper so this handler stays a one-liner — see
+          // sibling helper so this handler stays a one-liner. See
           // laid-out-nodes.ts.
           const moved = nodes.length > 0 ? nodes : [node];
-          const resolved = resolveDroppedPositions(renderedNodesRef.current, moved);
+          const resolved = resolveDroppedPositions(renderedNodesRef.current, moved, measured);
           commitNodeDrop({ projectId: project.id, moved, resolved, layoutCache, setDragged });
         }}
         onNodeMouseEnter={(_event, node) => preloadNodeRoute(node, router, { orgSlug, projectSlug })}
       onNodeClick={(_event, node) => {
-        // A drag just ended — don't treat its mouseup as a click that would
+        // A drag just ended. Don't treat its mouseup as a click that would
         // reopen the panel.
         if (didDragRef.current) return;
         // React Flow's generic handler types the node as the untyped base
-        // `Node` — this canvas only ever renders `ResourceNode`, which always
+        // `Node`: this canvas only ever renders `ResourceNode`, which always
         // gets `ResourceNodeData` (see nodeTypes in graph-flow.tsx).
         openNode(node as ResourceFlowNode);
       }}

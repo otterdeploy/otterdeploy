@@ -1,5 +1,5 @@
 /**
- * GitHub App auth primitives — JWT minting + installation access token
+ * GitHub App auth primitives: JWT minting + installation access token
  * exchange. Pure functions: take an explicit `GithubAppConfig` (loaded by
  * the helpers in `github-app-config.ts`) and do no DB access of their own,
  * so they can be unit-tested without a row.
@@ -35,12 +35,12 @@ import { controlPlaneEgressDenylist } from "../lib/egress-denylist";
 import { egressAllowlist } from "../lib/egress-options";
 import { loadGithubAppForInstallation } from "./github-app-config";
 
-const JWT_TTL_SECONDS = 9 * 60; // 9 minutes — GitHub allows up to 10.
+const JWT_TTL_SECONDS = 9 * 60; // 9 minutes: GitHub allows up to 10.
 const GITHUB_FETCH_TIMEOUT_MS = 15_000;
 const GITHUB_MAX_RESPONSE_BYTES = 10 * 1024 * 1024;
 
 /**
- * `config.apiBaseUrl` embeds `git_provider.host` — tenant-configurable for
+ * `config.apiBaseUrl` embeds `git_provider.host`: tenant-configurable for
  * a self-hosted GitHub Enterprise Server install (`apiBaseUrlForHost`
  * below). Every call to GitHub's API goes through the shared egress
  * policy: resolve + validate every address, deny loopback/private/
@@ -85,15 +85,15 @@ export async function ghFetch(
  * call so secrets stay in memory only for the duration of an API call.
  */
 export interface GithubAppConfig {
-  /** Numeric App ID GitHub assigns (stored as text — GitHub returns it stringified). */
+  /** Numeric App ID GitHub assigns (stored as text, GitHub returns it stringified). */
   appId: string;
   /** PEM-encoded RSA private key for signing App JWTs. */
   privateKeyPem: string;
-  /** Resolved API base — github.com → api.github.com; GHE → {host}/api/v3. */
+  /** Resolved API base, github.com → api.github.com; GHE → {host}/api/v3. */
   apiBaseUrl: string;
 }
 
-/** App config plus webhook secret — only loaded by the webhook receiver. */
+/** App config plus webhook secret: only loaded by the webhook receiver. */
 export interface GithubAppConfigWithWebhookSecret extends GithubAppConfig {
   webhookSecret: string;
   /** Provider id, surfaced so the webhook handler can scope its logging. */
@@ -105,13 +105,13 @@ export class GithubAppNotConfiguredError extends TaggedError("GithubAppNotConfig
 }>() {
   constructor(reason?: string) {
     super({
-      message: `GitHub App not configured${reason ? ` (${reason})` : ""} — create one via the manifest flow in Settings → Git Providers`,
+      message: `GitHub App not configured${reason ? ` (${reason})` : ""}: create one via the manifest flow in Settings → Git Providers`,
     });
   }
 }
 
 /**
- * GitHub returned 404 for an installation we have on record — it was
+ * GitHub returned 404 for an installation we have on record. It was
  * uninstalled, suspended past recovery, or belongs to a different App. The
  * only fix is to reinstall the App, so callers surface this as an actionable
  * "reinstall required" error rather than a generic 5xx.
@@ -122,7 +122,7 @@ export class GithubInstallationInvalidError extends TaggedError("GithubInstallat
   constructor() {
     super({
       message:
-        "GitHub no longer recognizes this installation — reinstall the GitHub App to reconnect.",
+        "GitHub no longer recognizes this installation: reinstall the GitHub App to reconnect.",
     });
   }
 }
@@ -135,8 +135,8 @@ export function apiBaseUrlForHost(host: string): string {
 }
 
 /**
- * Mints a fresh App-level JWT. Cache lifetime is intentionally short —
- * call once per outbound request and discard.
+ * Mints a fresh App-level JWT. Cache lifetime is intentionally short.
+ * Call once per outbound request and discard.
  */
 export async function mintAppJwt(config: GithubAppConfig): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
@@ -222,7 +222,7 @@ export interface InstallationLookup {
 /**
  * Fetches the installation row by id. Takes an explicit `config` because
  * the install callback runs BEFORE we've persisted a `git_installation`
- * row — so loadGithubAppForInstallation would 404. The caller (connect.ts)
+ * row, so loadGithubAppForInstallation would 404. The caller (connect.ts)
  * loads the config from the org's provider row directly.
  */
 export async function lookupInstallation(
@@ -266,7 +266,7 @@ export interface InstallationRepo {
 export interface InstallationRepoList {
   repositories: InstallationRepo[];
   /**
-   * GitHub's `total_count` for the installation — the truthful repo count
+   * GitHub's `total_count` for the installation. The truthful repo count
    * even when `repositories` is shorter (page-walk safety stop, or GitHub's
    * post-install read lag returning a partial/empty first page). Callers
    * persist THIS, never `repositories.length`.
@@ -308,12 +308,12 @@ export async function listInstallationRepos(
     out.push(...json.repositories);
     if (json.repositories.length < 100) break;
     page++;
-    if (page > 50) break; // safety stop — 5k repos is plenty
+    if (page > 50) break; // safety stop: 5k repos is plenty
   }
   return { repositories: out, totalCount };
 }
 
-/** The head commit of a branch — what a push payload would have told us. */
+/** The head commit of a branch: what a push payload would have told us. */
 export interface BranchHead {
   sha: string;
   /** Full commit message (subject + body). Null when GitHub omits it. */
@@ -328,7 +328,7 @@ export interface BranchHead {
 /**
  * Resolve the head commit of a branch via the installation token.
  * Used by the UI "Deploy" path (manifest apply) to mint a build the same
- * way a git push would — the push webhook gets the commit from its payload,
+ * way a git push would. The push webhook gets the commit from its payload,
  * but a UI-triggered build has to ask GitHub for the branch head itself.
  *
  * Returns the whole commit, not just the SHA: the deployment card names the
@@ -346,8 +346,8 @@ export async function fetchBranchHead(
   branch: string,
 ): Promise<BranchHead> {
   // Public repos resolve their head anonymously (no installation linked).
-  // GitHub's commits endpoint is readable without auth for public repos —
-  // rate-limited to 60/hr per IP, fine for the UI deploy path.
+  // GitHub's commits endpoint is readable without auth for public repos.
+  // Rate-limited to 60/hr per IP, fine for the UI deploy path.
   // Private repos pass a real installation token.
   const token = installationId ? (await getInstallationToken(installationId)).token : null;
   const res = await ghFetch(
@@ -370,7 +370,7 @@ export async function fetchBranchHead(
   }
   // `commit.author` is the git trailer (always present); the top-level `author`
   // is the GitHub ACCOUNT it maps to, which is absent for a commit whose email
-  // belongs to no user — hence the separate name/avatar sources.
+  // belongs to no user, hence the separate name/avatar sources.
   const json = (await res.json()) as {
     sha?: string;
     commit?: { message?: string; author?: { name?: string } };
@@ -390,7 +390,7 @@ export async function fetchBranchHead(
   };
 }
 
-/** Head SHA only — for callers that pin a build and don't render provenance. */
+/** Head SHA only: for callers that pin a build and don't render provenance. */
 export async function fetchBranchHeadSha(
   installationId: string | null,
   owner: string,

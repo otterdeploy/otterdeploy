@@ -2,7 +2,7 @@
  * Pure derivations over a cached repo tree snapshot (see inspect-github.ts):
  * folder listings, monorepo signals, workspace-package expansion, framework
  * detection, and dotenv key harvesting. Everything here reads from the snapshot
- * (or a single cached package.json read) — no extra HTTP beyond what
+ * (or a single cached package.json read), no extra HTTP beyond what
  * `fetchPackageJson` already memoizes.
  */
 import { detectFrameworkFromPkg, type FrameworkKind } from "@otterdeploy/shared/framework";
@@ -17,13 +17,13 @@ import {
 } from "./inspect-github";
 
 // Framework detection from a parsed package.json lives in
-// @otterdeploy/shared/framework — the SAME heuristic the builder runs against
+// @otterdeploy/shared/framework: the SAME heuristic the builder runs against
 // the locally-cloned package.json at build time, so the wizard preview and the
 // stored framework agree. `PkgJson` here is structurally compatible with the
 // shared `PackageJsonLike` (it carries the dependency maps the detector reads).
 const detectFromPkg = detectFrameworkFromPkg;
 
-/** Detect monorepo signal from the cached path list — no extra HTTP. */
+/** Detect monorepo signal from the cached path list, no extra HTTP. */
 export function detectMonorepoFromPaths(paths: string[], rootPkg: PkgJson | null): MonorepoKind {
   const rootFiles = new Set(paths.filter((p) => !p.includes("/")));
   if (rootFiles.has("turbo.json")) return "turbo";
@@ -38,7 +38,7 @@ export function detectMonorepoFromPaths(paths: string[], rootPkg: PkgJson | null
 
 /**
  * Derive direct children of `path` (single segment further down) from
- * the flat path list. No HTTP — the tree snapshot is the source of
+ * the flat path list. No HTTP: the tree snapshot is the source of
  * truth for layout.
  */
 export function listChildren(snapshot: TreeSnapshot, path: string): InspectEntry[] {
@@ -50,7 +50,7 @@ export function listChildren(snapshot: TreeSnapshot, path: string): InspectEntry
     if (!rest) continue;
     const slash = rest.indexOf("/");
     if (slash === -1) {
-      // Direct child — could be either file or dir; trust pathTypes.
+      // Direct child: could be either file or dir; trust pathTypes.
       seen.set(rest, type);
     } else {
       // The child is the first segment, always a dir.
@@ -104,17 +104,17 @@ export async function detectFrameworkForPath(
     const pkg = await fetchPackageJson(binding, pkgPath, gitRepoId);
     const fromPkg = detectFromPkg(pkg);
     if (fromPkg && fromPkg !== "node") return fromPkg;
-    // package.json says "just node" — peek at other signal files
+    // package.json says "just node". Peek at other signal files
     // BEFORE giving up, in case the repo has both (rare but possible).
   }
-  // Non-Node signals — all derived from the tree snapshot, no HTTP.
+  // Non-Node signals: all derived from the tree snapshot, no HTTP.
   const sig = (filename: string) =>
     snapshot.pathTypes.get(path ? `${path}/${filename}` : filename) === "file";
   if (sig("go.mod")) return "go";
   if (sig("pyproject.toml") || sig("requirements.txt")) return "python";
   if (sig("Cargo.toml")) return "rust";
   if (sig("Gemfile")) return "ruby";
-  // No non-Node signal — fall back to the package.json verdict if we
+  // No non-Node signal: fall back to the package.json verdict if we
   // had one, even if it was just "node".
   if (snapshot.pathTypes.get(pkgPath) === "file") {
     const pkg = await fetchPackageJson(binding, pkgPath, gitRepoId);
@@ -123,7 +123,7 @@ export async function detectFrameworkForPath(
   return null;
 }
 
-// Files that, if committed, leak real secrets — flagged to the operator.
+// Files that, if committed, leak real secrets, flagged to the operator.
 export const COMMITTED_ENV_FILES = [".env", ".env.local", ".env.production"];
 // Template files we harvest keys from, in precedence order.
 export const ENV_TEMPLATE_FILES = [".env.example", ".env.sample", ".env.template", ".env.dist"];

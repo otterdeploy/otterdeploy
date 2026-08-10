@@ -43,7 +43,7 @@ export const envRouter = {
           EnvironmentDatabaseError: (err) => {
             // Log the actual cause to the operator stream so apps/server
             // shows what the DB rejected (FK violation, missing column,
-            // bad slug, etc.) — the client only sees a generic 500.
+            // bad slug, etc.): the client only sees a generic 500.
             context.log.set({
               database: {
                 cause: err.cause,

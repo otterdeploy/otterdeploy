@@ -1,9 +1,9 @@
 /**
- * Webhooks oRPC contract — outbound webhooks (we POST signed events out),
+ * Webhooks oRPC contract: outbound webhooks (we POST signed events out),
  * their delivery log, and inbound trigger endpoints (unique URLs external
  * systems call in). Mirrors the notifications contract idioms: branded
  * `zId(...)` inputs, hand-rolled output schemas (rows carry computed delivery
- * stats, never a secret — secrets go through explicit `reveal` procedures or
+ * stats, never a secret: secrets go through explicit `reveal` procedures or
  * the create-once response), stable tag/basePath.
  *
  * Event vocabulary = the notifications PLATFORM_EVENTS catalog (one
@@ -25,7 +25,7 @@ const resourceIdField = zId(ID_PREFIX.resource);
 
 const eventId = z.enum(EVENT_IDS as [string, ...string[]]);
 
-// Display status — `failing` is derived from recent delivery failures on an
+// Display status: `failing` is derived from recent delivery failures on an
 // active webhook, never stored.
 const webhookStatus = z.enum(["active", "paused", "failing"]);
 const inboundStatus = z.enum(["active", "paused"]);
@@ -42,7 +42,7 @@ const ipAllowlist = z
 
 // ─── Output schemas ──────────────────────────────────────────────────────
 
-/** An outbound webhook as the UI sees it — stats included, secret never. */
+/** An outbound webhook as the UI sees it, stats included, secret never. */
 const webhookSchema = z.object({
   id: webhookIdField,
   url: z.string(),
@@ -60,7 +60,7 @@ const webhookSchema = z.object({
 const deliverySchema = z.object({
   id: zId(ID_PREFIX.webhookDelivery),
   webhookId: webhookIdField,
-  /** Hostname of the webhook URL — the "Target" column. */
+  /** Hostname of the webhook URL: the "Target" column. */
   target: z.string(),
   event: z.string(),
   statusCode: z.number().nullable(),
@@ -71,7 +71,7 @@ const deliverySchema = z.object({
   createdAt: z.date(),
 });
 
-/** An inbound endpoint — token is card-visible (it's in the URL); the HMAC
+/** An inbound endpoint: token is card-visible (it's in the URL); the HMAC
  * secret is not (create-once response or `reveal`). */
 const inboundEndpointSchema = z.object({
   id: inboundEndpointIdField,

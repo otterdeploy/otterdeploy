@@ -1,5 +1,5 @@
 /**
- * The `deploy.triggered` BullMQ handler — replaces the stub in
+ * The `deploy.triggered` BullMQ handler. Replaces the stub in
  * `packages/jobs/src/jobs/deploy.ts`. Iterates the deployments named in the
  * payload and builds each in its own throwaway helper container, in series.
  *
@@ -7,7 +7,7 @@
  * in-process, the worker spawns a fresh `docker run --rm` container per
  * deployment (see build-one.ts) and waits for it to exit. The container
  * carries the railpack/docker toolchain and holds its own DB + Redis handles,
- * so it marks deployment state and streams logs itself — the worker only
+ * so it marks deployment state and streams logs itself: the worker only
  * reads the exit code. A build that crashes, leaks disk, or OOMs takes its
  * container down with it, never the long-lived worker; the clone lives in the
  * container's filesystem and is gone the moment `--rm` fires.
@@ -46,7 +46,7 @@ const CACHE_ROOT = join(DATA_ROOT, "buildx-cache");
 
 interface HelperResult {
   exitCode: number;
-  /** Combined stdout+stderr tail — worker-level diagnostics only; the real
+  /** Combined stdout+stderr tail: worker-level diagnostics only; the real
    *  build logs are published to Redis/DB from inside the container. */
   tail: string;
 }
@@ -54,7 +54,7 @@ interface HelperResult {
 /** Human-readable cause for a helper exit code, used when the pipeline never
  *  wrote a terminal status itself. 125/126/127 are docker-run's own "the
  *  container never started" codes; 137/143 are kill signals (128+SIGKILL /
- *  128+SIGTERM) — a 137 mid-build is almost always the kernel OOM killer. */
+ *  128+SIGTERM): a 137 mid-build is almost always the kernel OOM killer. */
 function classifyHelperExit(exitCode: number): string {
   if (exitCode === HELPER_TIMED_OUT) {
     return `build exceeded the ${HELPER_TIMEOUT_MS / 60_000}-minute limit and was killed`;
@@ -66,7 +66,7 @@ function classifyHelperExit(exitCode: number): string {
     return "build was killed (exit 137, likely out of memory) before it could finish";
   }
   if (exitCode === 143) {
-    return "build was terminated (exit 143, SIGTERM — host shutdown or manual stop)";
+    return "build was terminated (exit 143, SIGTERM: host shutdown or manual stop)";
   }
   return `build process died (exit ${exitCode}) without reporting a failure`;
 }
@@ -83,7 +83,7 @@ function classifyHelperExit(exitCode: number): string {
  * this process's own cgroup quota, so a CPU-limited builder would under-report
  * and clamp the helper further than necessary. Docker validates `--cpus`
  * against the host's raw CPU count, which is what /proc/cpuinfo reports even
- * from inside a container — so that is the number to compare against.
+ * from inside a container, so that is the number to compare against.
  *
  * Returns null when the platform reports nothing, which leaves `--cpus`
  * untouched rather than inventing a limit.
@@ -102,7 +102,7 @@ const HELPER_TIMED_OUT = -2;
  *  For a `source: "upload"` build, `sourceTarball` is the host path of the
  *  staged tarball; it's bind-mounted into the helper at the same path so the
  *  pipeline's extract step can read it (the helper does NOT mount DATA_ROOT, so
- *  the tarball must be mounted explicitly — same-path, docker-out-of-docker). */
+ *  the tarball must be mounted explicitly, same-path, docker-out-of-docker). */
 function runHelperContainer(
   deploymentId: DeploymentId,
   opts: { sourceTarball?: string } = {},
@@ -120,7 +120,7 @@ function runHelperContainer(
 
   // Mount the staged source tarball read-only at its own host path so the
   // extract step finds it (the bind source resolves on the host daemon). Gated
-  // on the file existing on the host — no data folder ⇒ no tarball ⇒ the build
+  // on the file existing on the host, no data folder ⇒ no tarball ⇒ the build
   // fails with a clear "uploaded source not found" from extract.ts.
   const sourceFlags =
     opts.sourceTarball && existsSync(opts.sourceTarball)
@@ -130,7 +130,7 @@ function runHelperContainer(
   // Persist the BuildKit layer cache + the buildx instance registration across
   // these throwaway containers, but only when the data folder is actually
   // present (prod / data-folder hosts). The bind source resolves on the HOST
-  // daemon (docker-out-of-docker), so the path must exist on the host — which,
+  // daemon (docker-out-of-docker), so the path must exist on the host, which,
   // for the compose builder service, means DATA_ROOT is mounted into it too.
   // Absent (dev) → no flags → builds run with no persistent cache, unchanged.
   const cacheFlags = existsSync(DATA_ROOT)
@@ -203,14 +203,14 @@ export function makeBuildJob() {
       const results: Array<{ deploymentId: string; ok: boolean; error?: string }> = [];
 
       // The pipeline converges the row to a terminal status (running/failed)
-      // itself, so a helper that exits — with ANY code — while the row is
+      // itself, so a helper that exits (with ANY code) while the row is
       // still `pending`/`building` died before converging it: a no-op build
       // (redundant deploy of an already-built SHA), a docker start failure
       // (125/126/127), or a silent event-loop-drain death (Bun 1.3.14
       // intermittently drops a DB/Redis promise during client warm-up and
-      // exits before markBuilding — observed on ~8-24% of helper runs). The
+      // exits before markBuilding, observed on ~8-24% of helper runs). The
       // drain death is random and nothing was built or marked, so re-run the
-      // helper once before repairing the row to a visible failure — never
+      // helper once before repairing the row to a visible failure, never
       // strand a phantom `pending`/`building` row with an empty log pane.
       const MAX_ATTEMPTS = 2;
 
@@ -231,7 +231,7 @@ export function makeBuildJob() {
             // An operator cancelled while this was building: the control plane
             // wrote `cancelled` and THEN force-removed the container, so the
             // non-zero exit we just saw is the cancellation itself, not a
-            // failure. Stop here — retrying would relaunch the very build they
+            // failure. Stop here. Retrying would relaunch the very build they
             // asked us to stop, and marking it failed would overwrite their
             // intent with a red row.
             if (status === "cancelled") {
@@ -260,7 +260,7 @@ export function makeBuildJob() {
               outcome = { ok: true };
             } else {
               // build-one.ts exits 1 after the pipeline has already marked
-              // the row failed — the row is terminal, just report it.
+              // the row failed. The row is terminal, just report it.
               outcome = { ok: false, error: `build exited ${exitCode}` };
             }
           } catch (err) {

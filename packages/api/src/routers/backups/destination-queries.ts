@@ -15,7 +15,7 @@ export interface DestinationRow {
   usedBytes: number;
 }
 
-// Safe view — never selects `encryptedSecret`.
+// Safe view, never selects `encryptedSecret`.
 const DESTINATION_VIEW = {
   id: backupDestination.id,
   organizationId: backupDestination.organizationId,
@@ -47,7 +47,7 @@ async function getDestinationForOrg(input: {
   return row ?? null;
 }
 
-/** Type + managed flag only — the guard read for update/delete/disable, which
+/** Type + managed flag only: the guard read for update/delete/disable, which
  *  must not pull a secret into memory just to check whether a row is ours. */
 export async function getDestinationGuardFields(input: {
   organizationId: OrganizationId;
@@ -90,7 +90,7 @@ export async function setDestinationStatusRecord(input: {
   return row ?? null;
 }
 
-/** Includes the encrypted secret + config — for the `test`/engine decrypt path only. */
+/** Includes the encrypted secret + config: for the `test`/engine decrypt path only. */
 export async function getDestinationWithSecret(input: {
   organizationId: OrganizationId;
   id: BackupDestinationId;
@@ -237,7 +237,7 @@ export async function listDestinationsByOrg(
     .leftJoin(backup, eq(backup.destinationId, backupDestination.id))
     .where(eq(backupDestination.organizationId, organizationId))
     .groupBy(backupDestination.id)
-    // Managed first — it is the default the schedule form pre-selects, so it
+    // Managed first: it is the default the schedule form pre-selects, so it
     // should also be the first row the operator sees.
     .orderBy(desc(backupDestination.managed), asc(backupDestination.createdAt));
 

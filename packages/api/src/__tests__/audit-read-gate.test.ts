@@ -20,7 +20,7 @@ describe("isReadMethod (authoritative HTTP-method audit gate)", () => {
 
   // Some contracts (sshKeys, apiKeys, certificates, notifications, webhooks)
   // declare their method via oRPC's own `.route({ method })` instead of this
-  // repo's usual `.meta({ method })` convention — that lands on a different
+  // repo's usual `.meta({ method })` convention. That lands on a different
   // field entirely. Missing this would silently go blind on every endpoint
   // in those five files.
   test("`.route({ method })` is read the same as `.meta({ method })`", () => {
@@ -33,7 +33,7 @@ describe("isReadMethod (authoritative HTTP-method audit gate)", () => {
   // od-1kc.2 regression: these four action names all read data and all
   // declare `method: "GET"` in their contract, but none of their last path
   // segments matched the old name-only READ_VERB allowlist ("query",
-  // "version", "platform", "decisions" weren't in it) — every poll of them
+  // "version", "platform", "decisions" weren't in it). Every poll of them
   // landed an audit row. The method gate must catch all of them even though
   // the name heuristic still doesn't.
   test("od-1kc.2 regression: GET-only endpoints whose verb the name heuristic misses", () => {

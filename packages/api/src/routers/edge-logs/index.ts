@@ -30,7 +30,7 @@ export const edgeLogsRouter = {
     // (the visibility guard). Keep them distinct in the filter.
     const { hosts: selectedHosts, ...rest } = input;
     // NOTE: never pass `hosts` (or any object used after this point) into a
-    // log call here — evlog's redaction mutates the event IN PLACE, and its
+    // log call here. Evlog's redaction mutates the event IN PLACE, and its
     // ipv4 masker rewrites sslip.io-style hosts (`x.65.108.240.250.sslip.io` →
     // `x.***.***.***.250.sslip.io`) inside the live array, silently emptying
     // every result. A "temporary" diagnostic that logged `resolvedHosts: hosts`
@@ -83,16 +83,16 @@ export const edgeLogsRouter = {
   }),
 
   // Per-host traffic stats for a project's HTTP routes, joined to the owning
-  // resource. Short windows only (5m/1h) — this backs a ~10s poll on the graph
+  // resource. Short windows only (5m/1h): this backs a ~10s poll on the graph
   // and the stack panel's Traffic tab. Hosts with no traffic come back
   // zero-filled so consumers can list every public host honestly.
   routeStats: orgScopedProcedure.edgeLogs.routeStats.handler(async ({ input, context }) => {
     const orgId = context.activeOrganizationId;
-    // Org-guarded join — a projectId outside the caller's org yields no routes.
+    // Org-guarded join. A projectId outside the caller's org yields no routes.
     const routes = await listProjectRoutes(orgId, input.projectId);
     if (routes.length === 0) return [];
 
-    // `limit: 1` keeps the row payload minimal — only hostStats are consumed.
+    // `limit: 1` keeps the row payload minimal. Only hostStats are consumed.
     const filter = { range: input.range, hosts: routes.map((r) => r.host), limit: 1 };
     const now = Date.now();
     // Same storage split + fallback as `query` above: DB when persistence is
@@ -118,8 +118,8 @@ export const edgeLogsRouter = {
     return mergeRouteStats(routes, result.hostStats);
   }),
 
-  // Bucketed rps + per-bucket p95 across all of one project's public hosts —
-  // the request half of the project metrics overview (~30s poll). Same
+  // Bucketed rps + per-bucket p95 across all of one project's public hosts.
+  // The request half of the project metrics overview (~30s poll). Same
   // storage split + ring fallback as `query`/`routeStats`; the fetch is
   // capped at REQUEST_SERIES_MAX newest rows (mirrors query-db's MAX_FETCH),
   // and `sampled: true` flags when that cap truncated the window.
@@ -127,7 +127,7 @@ export const edgeLogsRouter = {
     const orgId = context.activeOrganizationId;
     context.log.set({ target: { type: "project", id: input.projectId } });
 
-    // Org-guarded join — a projectId outside the caller's org yields no routes.
+    // Org-guarded join. A projectId outside the caller's org yields no routes.
     const routes = await listProjectRoutes(orgId, input.projectId);
     const source = persistenceEnabled() ? ("db" as const) : ("ring" as const);
     if (routes.length === 0) {

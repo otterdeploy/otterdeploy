@@ -1,8 +1,8 @@
 /**
- * Audit log — queryable, append-only record of every audit-worthy action
+ * Audit log: queryable, append-only record of every audit-worthy action
  * (mutations + all denials) across the org.
  *
- * Filters are a TanStack Form (used as a reactive container — no submit; value
+ * Filters are a TanStack Form (used as a reactive container, no submit; value
  * changes drive the reads). Rows ride a TanStack DB query collection consumed
  * via `useLiveQuery`; the server-truth aggregates (`counts`/`total`) the
  * collection can't represent come from a tiny companion query. See
@@ -68,9 +68,9 @@ function AuditRoute() {
   const key = auditSubsetKey(queryFilter);
 
   // Companion read for the server-truth aggregates the collection can't hold.
-  // `limit: 1` keeps the payload tiny — `counts`/`total` span the whole filtered
+  // `limit: 1` keeps the payload tiny, `counts`/`total` span the whole filtered
   // set regardless of limit. Also the page's loading / error / retry source.
-  // Key on the *filter selection* (`key`), not the resolved input — same trick
+  // Key on the *filter selection* (`key`), not the resolved input. Same trick
   // as the rows subset. `input.from` is recomputed from "now" on every mount, so
   // keying on it made each remount a cache miss and flashed the full loading
   // state on every return to the route. The queryFn still sends the fresh
@@ -101,7 +101,7 @@ function AuditRoute() {
     <Page>
       <PageHeader
         title="Audit log"
-        description="Append-only record of every administrative action across this workspace — mutations and denials."
+        description="Append-only record of every administrative action across this workspace, including denials."
         actions={
           <Button
             variant="outline"

@@ -6,8 +6,9 @@
  * orchestration.
  */
 
-import { Docker } from "@otterdeploy/docker";
 import type { JsonObject } from "@otterdeploy/shared/json";
+
+import { Docker } from "@otterdeploy/docker";
 import { log } from "evlog";
 
 import type { ProvisionSwarmDatabaseInput, SwarmDatabaseRuntime } from "./database";
@@ -21,7 +22,7 @@ export function buildDatabaseSpec(input: ProvisionSwarmDatabaseInput, networkNam
   const image = input.image ?? adapter.defaultImage;
   const mount = resolveDatabaseMount(adapter, image);
 
-  // User envs come first, identity envs second — identity wins on key
+  // User envs come first, identity envs second. Identity wins on key
   // collision. Reserved keys are stripped so a fat-fingered POSTGRES_PASSWORD
   // in extraEnv can't break the boot.
   const userEnv = Object.entries(input.extraEnv ?? {})
@@ -36,7 +37,7 @@ export function buildDatabaseSpec(input: ProvisionSwarmDatabaseInput, networkNam
 
   // Identity labels mirror onto BOTH the service spec (so `docker service
   // ls` filters work) AND the container spec (so `docker container ls
-  // --filter label=…` finds the actual replicas — that's what the
+  // --filter label=…` finds the actual replicas. That's what the
   // terminal-targets handler uses to populate the picker / per-resource
   // shell). Skipping ContainerSpec.Labels here meant terminals couldn't
   // find their own running container.
@@ -92,7 +93,7 @@ export function buildDatabaseSpec(input: ProvisionSwarmDatabaseInput, networkNam
       },
       ForceUpdate: input.forceUpdateCounter ?? 1,
       // Pinned only when the resource names a target node. A database owns a
-      // local volume, so a pinned one must NOT fail over — swarm leaves the
+      // local volume, so a pinned one must NOT fail over. Swarm leaves the
       // task pending rather than starting it somewhere its data isn't.
       ...placementSpread(input.placementNodeId),
     },
@@ -103,7 +104,7 @@ export function buildDatabaseSpec(input: ProvisionSwarmDatabaseInput, networkNam
     // database owns a persistent volume that exactly one process can hold
     // open at a time. With `start-first` swarm boots the new task before
     // stopping the old, both mount the same volume, the second postgres
-    // sees a stale postmaster.pid and immediately shuts down — taking
+    // sees a stale postmaster.pid and immediately shuts down. Taking
     // both tasks with it (we observed exactly this with TZ=UTC redeploys).
     // Trade-off: ~5–10s of write outage during the gap; acceptable for an
     // intentional redeploy.
@@ -123,7 +124,7 @@ export function buildDatabaseSpec(input: ProvisionSwarmDatabaseInput, networkNam
       Monitor: 10_000_000_000,
       MaxFailureRatio: 0,
     },
-    // Databases are NEVER host-published — no raw engine port (5432, …) on the
+    // Databases are NEVER host-published, no raw engine port (5432, …) on the
     // node. Same-project apps reach the DB over the project overlay network
     // (Aliases above) at `<serviceName>:<port>`; public access goes through the
     // Caddy edge on :443 (TLS-SNI layer4 listener wrapper → overlay), driven by
@@ -224,12 +225,13 @@ export async function waitForServiceReady(
   networkName: string,
 ): Promise<SwarmDatabaseRuntime> {
   let lastState: string | null = null;
-  const tick = (event: JsonObject) => log.info({ swarm: { service: serviceName, step: "wait-ready", ...event } });
+  const tick = (event: JsonObject) =>
+    log.info({ swarm: { service: serviceName, step: "wait-ready", ...event } });
 
   // Event-driven wakeups. Each `task.update` for our service nudges the
   // loop to re-inspect immediately instead of waiting the full 1s tick.
   // The poll cap stays (60 attempts ≈ 60s) so a daemon that's somehow
-  // dropping events still terminates — events are best-effort, the cap
+  // dropping events still terminates: events are best-effort, the cap
   // is authoritative. The wakeup function resolves on event OR the 1s
   // floor, whichever first.
   const wakeup = createTaskUpdateWakeup(serviceName);
@@ -281,7 +283,7 @@ export async function waitForServiceReady(
  * are coalesced into a single pending wakeup, so a burst of state
  * transitions wakes the loop once.
  *
- * Lifecycle is caller-owned via `close()` — the wait-ready loop's
+ * Lifecycle is caller-owned via `close()`. The wait-ready loop's
  * `try/finally` guarantees the subscription tears down even on error /
  * early return.
  */
@@ -295,7 +297,7 @@ function createTaskUpdateWakeup(serviceName: string): {
   const sub = subscribeDockerEvents((event) => {
     if (event.kind !== "task") return;
     // Swarm tags task events with the originating service's NAME (not
-    // just id) — use it as the filter so we don't have to resolve the
+    // just id): use it as the filter so we don't have to resolve the
     // service id ourselves.
     if (event.labels["com.docker.swarm.service.name"] !== serviceName) return;
     if (resolveCurrent) {

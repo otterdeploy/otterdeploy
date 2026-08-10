@@ -1,6 +1,6 @@
 /**
  * Toggle Postgres extensions on an existing database. Calls
- * `project.resource.database.postgres.setExtensions` — the backend persists
+ * `project.resource.database.postgres.setExtensions`: the backend persists
  * the full set, rolls the service (the image changes for non-contrib
  * extensions like pgvector / postgis), then runs CREATE / DROP EXTENSION
  * against the live database.
@@ -49,7 +49,7 @@ export function ExtensionsCard({
 }) {
   const enabled = resource.extensions ?? [];
 
-  // A non-contrib toggle awaiting confirmation — it swaps the database image
+  // A non-contrib toggle awaiting confirmation: it swaps the database image
   // and redeploys, so we make the user click through before committing.
   const [pendingSwap, setPendingSwap] = useState<{
     name: string;
@@ -71,11 +71,11 @@ export function ExtensionsCard({
   });
 
   const stage = useStageManifestChange(resource.projectId, {
-    successToast: "Extensions staged — Deploy to apply",
+    successToast: "Extensions staged. Deploy to apply.",
   });
 
   // Contrib extensions enable live; non-contrib ones swap the image and need
-  // explicit confirmation first. Pending stacks never run, so nothing to swap —
+  // explicit confirmation first. Pending stacks never run, so nothing to swap,
   // every toggle stages immediately.
   const requestToggle = (ext: (typeof POSTGRES_EXTENSIONS)[number], on: boolean) => {
     if (pending || ext.contrib) {
@@ -88,13 +88,13 @@ export function ExtensionsCard({
   const apply = (name: string, on: boolean) => {
     const next = on ? [...enabled, name] : enabled.filter((e) => e !== name);
 
-    // Block incompatible image combinations before the round-trip — the
+    // Block incompatible image combinations before the round-trip: the
     // server would reject them too, but this is instant and specific.
     // `defaultImage` is irrelevant to the conflict check, so any string works.
     const resolved = resolvePostgresImage(next, "postgres");
     if (!resolved.ok) {
       toast.error(
-        `Can't combine these extensions — they need different images: ${resolved.conflict.join(", ")}`,
+        `Can't combine these extensions. They need different images: ${resolved.conflict.join(", ")}`,
       );
       return;
     }

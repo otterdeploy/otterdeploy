@@ -1,7 +1,7 @@
 /**
  * Pure mapping layer for the rustic engine: destination → repository URL +
  * OpenDAL options, and the repo-id derivation that scopes each repo. No daemon
- * or network — the invocation side (RusticCli) is smoke-tested against a real
+ * or network: the invocation side (RusticCli) is smoke-tested against a real
  * binary separately.
  */
 import { describe, expect, it } from "vite-plus/test";
@@ -11,7 +11,7 @@ import type { ExecutionContext } from "../db";
 
 import { deriveRepoId, repoScope, toRusticRepo } from "../backends";
 
-describe("toRusticRepo — local", () => {
+describe("toRusticRepo: local", () => {
   it("roots the repo at <path>/<repoId>", () => {
     const dest: ResolvedDestination = {
       type: "local",
@@ -40,7 +40,7 @@ describe("toRusticRepo — local", () => {
   });
 });
 
-describe("toRusticRepo — s3", () => {
+describe("toRusticRepo: s3", () => {
   const base: ResolvedDestination = {
     type: "s3",
     config: { bucket: "my-bucket" },
@@ -82,7 +82,7 @@ describe("toRusticRepo — s3", () => {
   });
 });
 
-describe("toRusticRepo — sftp", () => {
+describe("toRusticRepo: sftp", () => {
   it("maps a key-auth destination to opendal:sftp", () => {
     const dest: ResolvedDestination = {
       type: "sftp",
@@ -137,7 +137,7 @@ describe("toRusticRepo — sftp", () => {
   });
 });
 
-// Minimal ExecutionContext fixtures — repoScope/deriveRepoId only read kind,
+// Minimal ExecutionContext fixtures: repoScope/deriveRepoId only read kind,
 // the source id, and destination.config.prefix.
 function dbCtx(prefix?: string): ExecutionContext {
   return {

@@ -5,7 +5,7 @@
  *
  * Verification is a separate flow (DNS TXT or CNAME); we just expose
  * the bound string here and reflect status. Saving a new value resets
- * verification — the operator has to re-prove ownership of the new
+ * verification: the operator has to re-prove ownership of the new
  * domain.
  */
 
@@ -78,7 +78,7 @@ function StatusLine({
   return (
     <p className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
       <span className={cn("size-1.5 rounded-full", "bg-amber-500")} />
-      Pending verification — DNS check runs after Save.
+      Pending verification. The DNS check runs after Save.
     </p>
   );
 }

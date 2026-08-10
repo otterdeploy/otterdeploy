@@ -38,11 +38,11 @@ export async function rollDatabaseEnv(args: {
 }): Promise<void> {
   const { resourceId, dbRecord, projectSlug, next, log } = args;
   const resourceName = dbRecord.resource.name;
-  // Use the engine from the row — not "postgres" — so redis/mariadb/mongo
+  // Use the engine from the row (not "postgres") so redis/mariadb/mongo
   // containers don't get silently replaced with postgres on every env edit.
   // Same bug pattern as env.ts; see the comment there for the full incident.
   const engine = dbRecord.database.engine;
-  // Preserve the image that's actually running (latest deployment row) —
+  // Preserve the image that's actually running (latest deployment row),
   // falling back to the catalog default rolled a version-pinned or
   // extension-bundled database onto the default tag on every env edit.
   const latest = await getLatestDeploymentForResource(resourceId);
@@ -80,7 +80,7 @@ export async function rollDatabaseEnv(args: {
           // Same reason as roll.ts: an update without this unpins the database.
           placementNodeId: placement.nodeId,
           // Without an explicit image the driver falls back to the engine
-          // default — which would swap the running version on an env roll.
+          // default, which would swap the running version on an env roll.
           image: engineImage,
           serviceName: buildContainerName({ engine, projectSlug, resourceName }),
           volumeName: buildVolumeName({ engine, projectSlug, resourceName }),

@@ -1,6 +1,6 @@
 /**
  * Shell-completion generation. Walks the resolved citty command tree so the
- * scripts never drift from the real command set — add a command and its
+ * scripts never drift from the real command set. Add a command and its
  * completion appears automatically on the next `completions` run.
  *
  * Covers command/subcommand names and each command's long flags. Two levels
@@ -82,7 +82,7 @@ function zshScript(root: CommandNode, bin: string): string {
         `      ${c.name}) _values 'subcommand' ${c.children.map((s) => `'${s.name}'`).join(" ")} ;;`,
     )
     .join("\n");
-  // NB: don't name the static list `words` — that shadows zsh's special
+  // NB: don't name the static list `words`. That shadows zsh's special
   // command-line array, which the `case` below reads to find the subcommand.
   return `#compdef ${bin}
 # ${bin} zsh completion. Install: ${bin} completions zsh > "\${fpath[1]}/_${bin}"

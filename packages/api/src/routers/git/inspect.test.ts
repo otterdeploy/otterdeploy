@@ -1,5 +1,5 @@
 /**
- * od-skk — proves `listRepoBranches` (inspect.ts) now routes its GitHub call
+ * od-skk: proves `listRepoBranches` (inspect.ts) now routes its GitHub call
  * through `ghFetch` (the shared SSRF-hardened egress policy wrapper), the
  * same way inspect-github.test.ts proves it for the tree/package.json/env
  * file fetches. Before this fix, this was the last raw `fetch(url, {
@@ -53,7 +53,7 @@ vi.mock("@otterdeploy/db", () => ({
 }));
 
 // ghFetch (github-app.ts) routes every request through the shared egress
-// policy — stub the same seam github-app-repos.test.ts /
+// policy: stub the same seam github-app-repos.test.ts /
 // github-app-writeback.test.ts / inspect-github.test.ts use.
 vi.mock("@otterdeploy/shared/egress-policy", () => ({
   egressFetch: vi.fn(),

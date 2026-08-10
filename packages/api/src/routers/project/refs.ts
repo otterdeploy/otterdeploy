@@ -7,7 +7,7 @@
  * `AvailableReference` shape consumed by the wizard's "Add Reference"
  * dropdown.
  *
- * Secrets are masked here — the picker only needs to render the key
+ * Secrets are masked here. The picker only needs to render the key
  * name and the source label. The actual value lands in the consumer
  * service's container at deploy time via the resolver; the picker is
  * a discovery surface, not a viewer.
@@ -65,7 +65,7 @@ function isSecretKey(key: string): boolean {
 }
 
 function projectEngineFor(engine: string): DatabaseEngine {
-  // Schema enum guarantees one of these — explicit cast keeps the
+  // Schema enum guarantees one of these: explicit cast keeps the
   // discriminated UI types narrow at the call site.
   return engine as DatabaseEngine;
 }
@@ -92,7 +92,7 @@ export async function listAvailableRefs(
   // ── Database resources: postgres exporter today; redis/mariadb/mongo
   // pick up their own exporter when we wire them. The exporter contract
   // is engine-agnostic (Record<string,string>) so the picker doesn't
-  // change shape per engine — just the set of keys it sees.
+  // change shape per engine. Just the set of keys it sees.
   for (const row of databases) {
     const engine = projectEngineFor(row.database.engine);
     const exported = postgresExports({
@@ -121,7 +121,7 @@ export async function listAvailableRefs(
   }
 
   // ── Service resources: HOST/PORT/URL + every defined env key. We
-  // don't resolve cross-service refs here — the picker shows the
+  // don't resolve cross-service refs here. The picker shows the
   // service's OWN env keys (post-resolution at deploy time those are
   // what consumers see), which is enough for the dropdown's purpose.
   for (const row of services) {
@@ -157,7 +157,7 @@ export async function listAvailableRefs(
   // SAME (project, environment) bag today, so emitting one ref per key under
   // each scope produced a confusing duplicate list (S3_BUCKET·project +
   // S3_BUCKET·environment, identical value). Collapse to ONE entry per key,
-  // tokenized under the project scope — the broader scope that resolves in
+  // tokenized under the project scope. The broader scope that resolves in
   // every environment. (When env-specific overrides become a distinct bag,
   // emit the environment variant only for keys whose value actually differs.)
   const projectRecord = await getProjectRecord(input.projectId);

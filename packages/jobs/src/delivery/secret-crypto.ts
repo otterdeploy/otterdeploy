@@ -6,7 +6,7 @@
  *   - the API router encrypts on create/update (imports this module)
  *   - the channel-delivery job decrypts on send (right here)
  *
- * Same construction as packages/api/src/lib/crypto.ts — HKDF-SHA256 off
+ * Same construction as packages/api/src/lib/crypto.ts: HKDF-SHA256 off
  * BETTER_AUTH_SECRET, AES-256-GCM, `v1.<nonce>.<ciphertext>` base64url framing,
  * fresh random nonce per call. Because the key is derived deterministically
  * from the env secret, ciphertext written by the API decrypts here without any

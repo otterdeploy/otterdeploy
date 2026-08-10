@@ -44,7 +44,7 @@ export async function guard(
   return Result.ok({ project, preview });
 }
 
-/** The opted-in base git services this preview builds — the deploy predicate. */
+/** The opted-in base git services this preview builds. The deploy predicate. */
 async function previewServices(
   projectId: ProjectId,
   gitRepoId: GitRepoId,

@@ -3,7 +3,7 @@
  * file bytes (download) or streams them into the live database/volume (in-place,
  * typed-name-confirmed); `verifyBackup` runs a structural repo `check` and
  * confirms the recorded snapshot still resolves. rustic owns dedup + zstd +
- * repo-key encryption, so there is no decrypt/gunzip/checksum plumbing here — a
+ * repo-key encryption, so there is no decrypt/gunzip/checksum plumbing here. A
  * run's `storagePath` is the snapshot id, which is all we need to address it.
  * Split out of engine.ts, which keeps the backup write path (executeBackup).
  */
@@ -56,7 +56,7 @@ function collect(stream: Readable): Promise<Buffer> {
 }
 
 /** A buffer-collecting Writable + a promise that resolves with the bytes once
- *  the writer finishes — the sink we hand `dumpToStream` when a caller needs the
+ *  the writer finishes: the sink we hand `dumpToStream` when a caller needs the
  *  snapshot file materialised (download bytes, or the volume tar to re-extract). */
 function bufferSink(): { sink: Writable; done: Promise<Buffer> } {
   const chunks: Buffer[] = [];
@@ -83,7 +83,7 @@ function bufferSink(): { sink: Writable; done: Promise<Buffer> } {
 export type RestoreMode = "download" | "in-place";
 
 type VolumeContext = Extract<ExecutionContext, { kind: "volume" }>;
-// The DB-ish arm — managed `database` and compose `stack` share one field set.
+// The DB-ish arm, managed `database` and compose `stack` share one field set.
 
 /** In-place restore of a named volume: refuse while any container mounts it,
  *  then reload the snapshot's tar via the backup path's helper mechanics. */
@@ -93,8 +93,8 @@ async function restoreVolumeInPlace(
   cli: RusticCli,
   snapshotId: string,
 ): Promise<{ ok: true }> {
-  // Guard: extracting under a container that mounts the volume — even a stopped
-  // one that could restart mid-extract — risks a corrupt half-state.
+  // Guard: extracting under a container that mounts the volume, even a stopped
+  // one that could restart mid-extract, risks a corrupt half-state.
   const mounters = await listVolumeMounters(docker, ctx.volumeName);
   const blocked = volumeRestoreBlockReason(mounters);
   if (blocked) throw new Error(blocked);
@@ -132,7 +132,7 @@ async function restorePostgresInPlace(
   // Stream the custom-format dump straight from the snapshot into an in-container
   // pg_restore: rustic writes to pg_restore's stdin over the exec's hijacked
   // duplex, and we demux + capture its stderr. pg_restore exits non-zero on a
-  // genuinely failed restore, so we surface stderr and fail the run — a silent
+  // genuinely failed restore, so we surface stderr and fail the run. A silent
   // `{ ok: true }` on a half-restored DB would mislead the caller.
   const container = docker.containers.getContainer(containerId);
   const execResult = await container.exec({
@@ -185,7 +185,7 @@ async function restorePostgresInPlace(
  * Restore a succeeded backup. `download` streams the snapshot's file back out
  * (`dump`) and returns its bytes for the caller to hand to the user. `in-place`
  * streams it into the live database (pg only) or, for volume runs, replaces the
- * volume's contents — refused while any container still mounts it.
+ * volume's contents. Refused while any container still mounts it.
  */
 /**
  * The database a restore should WRITE to, or null to write back over the
@@ -216,12 +216,12 @@ export async function restoreBackup(input: {
   backupId: string;
   mode: RestoreMode;
   /** Typed-name confirmation, required for the destructive in-place mode.
-   *  Must equal the name of whatever gets OVERWRITTEN — the target database
+   *  Must equal the name of whatever gets OVERWRITTEN. The target database
    *  when one is given, otherwise the snapshot's own source. The UI collects
    *  it; we re-check here so a direct API call can't skip the gate. */
   confirm?: string;
   /** Restore into this database instead of the one the snapshot came from.
-   *  Database runs only — a volume snapshot has no such notion. */
+   *  Database runs only. A volume snapshot has no such notion. */
   targetResourceId?: string;
 }): Promise<{ ok: true; bytes?: Buffer; filename?: string }> {
   const ctx = await getExecutionContext(input.backupId as ExecutionContext["backupId"]);
@@ -231,7 +231,7 @@ export async function restoreBackup(input: {
   // the name of the thing being overwritten, which differs once there's a target.
   const target = await resolveRestoreTarget(ctx, input.targetResourceId);
 
-  // In-place overwrites live data — require the typed-name confirmation
+  // In-place overwrites live data, require the typed-name confirmation
   // server-side, not just in the dialog.
   if (input.mode === "in-place") {
     const expected = target
@@ -264,7 +264,7 @@ export async function restoreBackup(input: {
   const docker = Docker.fromEnv();
   try {
     if (ctx.kind === "volume") return await restoreVolumeInPlace(docker, ctx, cli, snapshotId);
-    // No explicit target — write back over the snapshot's own source.
+    // No explicit target: write back over the snapshot's own source.
     const writeTo: DatabaseTarget = target ?? {
       resourceId: ctx.resourceId,
       resourceName: ctx.resourceName,
@@ -288,9 +288,9 @@ export interface VerifyResult {
   match: boolean | null;
   /** The recorded snapshot id (rustic addresses integrity by id, not a blob hash). */
   storedChecksum: string | null;
-  /** Always null — rustic owns integrity structurally; there is no blob hash to recompute. */
+  /** Always null: rustic owns integrity structurally; there is no blob hash to recompute. */
   computedChecksum: string | null;
-  /** Not exposed by the rustic check/snapshotExists surface — always null here. */
+  /** Not exposed by the rustic check/snapshotExists surface, always null here. */
   archiveSizeBytes: number | null;
   /** Why verification couldn't run (no snapshot recorded, repo unreachable). */
   reason: string | null;
@@ -300,7 +300,7 @@ export interface VerifyResult {
  * Integrity check for a stored snapshot: run rustic's structural `check` over
  * the whole repo, then confirm the run's recorded snapshot id still resolves.
  * This proves the destination still holds an intact repo containing the exact
- * snapshot the run recorded — no download/decrypt/restore needed.
+ * snapshot the run recorded, no download/decrypt/restore needed.
  */
 export async function verifyBackup(backupId: string): Promise<VerifyResult> {
   const ctx = await getExecutionContext(backupId as ExecutionContext["backupId"]);

@@ -1,6 +1,6 @@
 /**
  * Searchable database picker for the backups dialogs. A flat <Select> became
- * unusable once an org has many databases across projects — this is a Command
+ * unusable once an org has many databases across projects. This is a Command
  * popover that filters by database name, engine, OR project as you type, with
  * the owning project shown as a tag on every row.
  */

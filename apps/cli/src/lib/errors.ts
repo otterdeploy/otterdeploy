@@ -6,7 +6,7 @@
  * line plus whatever recovery steps we know, and exits non-zero. Raw stacks only
  * under DEBUG=1. UNAUTHORIZED gets special treatment: when the stale token came
  * from the config file and we're interactive, clear it and re-run the command
- * once — `ensureAuthenticated` inside the command walks the device-code flow
+ * once: `ensureAuthenticated` inside the command walks the device-code flow
  * again.
  *
  * Every hint is built with `cmd()` so it names the bin the user actually typed.
@@ -39,7 +39,7 @@ function formatOrpcError(error: ORPCError<string, unknown>): FriendlyError {
         message: "Not authenticated, or the session expired.",
         hints:
           tokenSource() === "env"
-            ? ["OTTERDEPLOY_TOKEN was rejected — check the key is valid and not expired"]
+            ? ["OTTERDEPLOY_TOKEN was rejected. Check the key is valid and not expired"]
             : [`run \`${cmd("login <url>")}\` to sign in again`],
       };
     case "NO_ACTIVE_ORGANIZATION":
@@ -101,7 +101,7 @@ export function formatCliError(error: unknown): FriendlyError {
 function printAndExit(error: unknown): never {
   // Before the failure, not after: a CLI/server version gap is frequently the
   // CAUSE of the error below (a procedure the old server never had reads as a
-  // bare NOT_FOUND), so it belongs as context above it — and `abort` exits the
+  // bare NOT_FOUND), so it belongs as context above it, and `abort` exits the
   // process, so anything printed afterwards would never run.
   reportCompatWarning();
 
@@ -126,7 +126,7 @@ function withBoundary(run: RunFn): RunFn {
       await run(ctx);
     } catch (error) {
       // Session token from the config file went stale: clear it and retry
-      // once — ensureAuthenticated inside the command re-runs the device
+      // once, ensureAuthenticated inside the command re-runs the device
       // flow. Env-provided tokens are the caller's to fix; non-TTY can't
       // complete a browser login, so both fall through to the printer.
       const canReauth =
@@ -135,7 +135,7 @@ function withBoundary(run: RunFn): RunFn {
         tokenSource() === "config" &&
         process.stdin.isTTY;
       if (!canReauth) printAndExit(error);
-      warn("Session expired — signing in again.");
+      warn("Session expired. Signing in again.");
       clearToken();
       try {
         await run(ctx);

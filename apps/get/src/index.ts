@@ -1,5 +1,5 @@
 /**
- * get.otterdeploy.com — the install edge.
+ * get.otterdeploy.com. The install edge.
  *
  * Serves the three files a fresh host needs (`install.sh`, `uninstall.sh`,
  * `docker-compose.yml`) plus the `versions.json` manifest that running
@@ -10,7 +10,7 @@
  *   1. A stable, brandable URL that survives repo renames and file moves.
  *   2. Install counts. GHCR publishes no pull stats and raw.githubusercontent
  *      gives us nothing, so today we have zero visibility into adoption. Every
- *      request through here is a datapoint (see `record`) — the same mechanism
+ *      request through here is a datapoint (see `record`). The same mechanism
  *      Coolify uses, which is how they can quote an active-instance number.
  *
  * Two paths per artifact:
@@ -31,7 +31,7 @@ interface Env {
 }
 
 /**
- * What this edge serves, and where each file lives in the repo — `repoPath` is
+ * What this edge serves, and where each file lives in the repo. `repoPath` is
  * the fallback source when R2 has no object yet (see `fallback`).
  *
  * Note `docker-compose.yml` maps to `docker-compose.prod.yml`. The repo's own
@@ -58,14 +58,14 @@ const ARTIFACTS = {
 
 type ArtifactName = keyof typeof ARTIFACTS;
 
-/** Release tags only — `v1.2.3`, optionally `-rc.1`. Anything else 404s rather
+/** Release tags only: `v1.2.3`, optionally `-rc.1`. Anything else 404s rather
  *  than reaching R2, so a stray path can't be used to probe the bucket. */
 const VERSION_RE = /^v\d+\.\d+\.\d+(?:-[0-9A-Za-z][0-9A-Za-z.-]*)?$/;
 
 const MANIFEST_KEY = "versions.json";
 
 /** A pinned version can never change, so cache it forever. `latest` moves on
- *  every release — five minutes bounds how long a new release stays invisible. */
+ *  every release: five minutes bounds how long a new release stays invisible. */
 const IMMUTABLE_CACHE = "public, max-age=31536000, immutable";
 const LATEST_CACHE = "public, max-age=300";
 /** The update-poll target. Short, so "update available" lights up promptly. */
@@ -164,7 +164,7 @@ async function artifact(
     });
   }
 
-  // A checksum can't be synthesised from a fallback — serving the file from
+  // A checksum can't be synthesised from a fallback. Serving the file from
   // GitHub while claiming an R2 digest would be worse than a clean 404.
   if (checksum) return text("Not found\n", 404);
 
@@ -198,7 +198,7 @@ async function fallback(env: Env, version: string | null, name: ArtifactName): P
 /**
  * The update-poll target. Shaped to match GitHub's `releases/latest` payload
  * (`tag_name` / `html_url` / `body`) so the control plane's existing updater
- * consumes it with no code change — an operator just sets
+ * consumes it with no code change. An operator just sets
  * `OTTERDEPLOY_UPDATE_MANIFEST_URL` to this URL. See
  * packages/api/src/routers/system/release-source.ts.
  */
@@ -214,7 +214,7 @@ async function manifest(env: Env): Promise<Response> {
     });
   }
 
-  // Same bootstrap reasoning as `fallback` — proxy the API this manifest is
+  // Same bootstrap reasoning as `fallback`: proxy the API this manifest is
   // modelled on, so polling instances get a real answer from day zero.
   const upstream = await fetch(
     `https://api.github.com/repos/${env.FALLBACK_REPO}/releases/latest`,
@@ -239,12 +239,12 @@ async function manifest(env: Env): Promise<Response> {
 /**
  * One datapoint per request. Two questions this answers:
  *
- *   installs  — count where blob1 = 'install.sh'
- *   active    — count DISTINCT index1 where blob1 = 'versions.json', last 24h
+ *   installs: count where blob1 = 'install.sh'
+ *   active: count DISTINCT index1 where blob1 = 'versions.json', last 24h
  *
  * `index1` is a truncated SHA-256 of the client IP. It is never stored or
  * logged in the clear and can't be reversed to an address, but it is stable
- * enough within a window to deduplicate one host polling every few minutes —
+ * enough within a window to deduplicate one host polling every few minutes,
  * which is the whole "how many people are running this" number.
  */
 async function record(request: Request, env: Env, route: Route): Promise<void> {

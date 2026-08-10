@@ -14,12 +14,12 @@ interface StepKindProps {
   onDbViewChange: (open: boolean) => void;
   /** Called with the chosen kind AFTER its defaults are seeded, so the wizard
    *  can advance. Takes the id because the flow (and therefore the next step)
-   *  is derived from it — reading the store here would still hold the previous
+   *  is derived from it. Reading the store here would still hold the previous
    *  kind on this tick. */
   onChosen: (kindId: string) => void;
 }
 
-// Only reseed the ports row on a kind switch while it's still pristine —
+// Only reseed the ports row on a kind switch while it's still pristine,
 // one of the two known default shapes. A row the operator touched survives.
 function isPristinePorts(ports: Port[]): boolean {
   const json = JSON.stringify(ports);
@@ -42,7 +42,7 @@ export function StepKind({ dbView, onDbViewChange, onChosen }: StepKindProps) {
         const k = SERVICE_KINDS.find((x) => x.id === id);
         if (k) {
           // Docker-image services derive their name from the image basename
-          // (image step) — seeding the source kind's id ("docker") ships a
+          // (image step), seeding the source kind's id ("docker") ships a
           // service literally named docker when nobody notices.
           //
           // AUTO_WRITE: these are placeholders the wizard wrote, not answers

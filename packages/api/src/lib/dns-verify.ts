@@ -1,14 +1,14 @@
 /**
  * DNS TXT-record verification. Used to prove the operator controls a
- * domain before otterdeploy writes a Caddy/ACME route for it — without
+ * domain before otterdeploy writes a Caddy/ACME route for it. Without
  * this gate, anyone could type someone else's domain into the settings
  * page and trigger a Let's Encrypt cert request for a name they don't
  * own. (Rate-limited at the ACME side, but still noise the operator
  * shouldn't be able to create.)
  *
  * We use a TXT record (Vercel/Railway/Render pattern) instead of an
- * A-record check (Coolify's approach) because TXT proves intent —
- * an A record might already be pointing at the install for unrelated
+ * A-record check (Coolify's approach) because TXT proves intent.
+ * An A record might already be pointing at the install for unrelated
  * reasons (CDN, shared IP, etc.) and shouldn't grant publishing rights.
  */
 
@@ -18,7 +18,7 @@ export const VERIFY_TXT_PREFIX = "_otterdeploy-verify";
 
 export interface VerifyOutcome {
   ok: boolean;
-  /** What we looked up — surfaces in the UI so the operator knows the
+  /** What we looked up. Surfaces in the UI so the operator knows the
    *  exact record name to add to their DNS. */
   recordName: string;
   /** What we expected the TXT value to be. */
@@ -54,7 +54,7 @@ export async function verifyDomainTxt(input: {
 
   if (lookup.isErr()) {
     // An authoritative "no such record" collapses to "we couldn't find the
-    // record yet" — the caller surfaces it to the UI as "DNS hasn't
+    // record yet": the caller surfaces it to the UI as "DNS hasn't
     // propagated; try again in a minute." Anything else means we never got
     // an answer at all, which is a different message.
     if (DnsRecordMissing.is(lookup.error)) {

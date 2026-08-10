@@ -1,6 +1,6 @@
 /**
  * Masked secret field with eye-reveal + copy. The plaintext is never on the
- * row (the list procedures don't return it) — the first reveal/copy lazily
+ * row (the list procedures don't return it). The first reveal/copy lazily
  * calls the passed `fetchSecret` (an RBAC-gated `reveal` procedure) and
  * caches the result for the component's lifetime.
  */

@@ -1,5 +1,5 @@
 /**
- * Firewall view — CrowdSec IP-reputation decisions, rendered as a tab inside
+ * Firewall view: CrowdSec IP-reputation decisions, rendered as a tab inside
  * the Edge Logs page (an edge-level concern: cluster-wide / identity-blind, so
  * it sits beside Access + Events at the org scope). Follows the same full-height
  * instrument layout as those views: header + status pill, a hairline toolbar,
@@ -38,7 +38,7 @@ export function FirewallView() {
   const configured = Boolean(s?.configured);
   // The firewall is usable whenever the agent answers over the Docker socket
   // (reachable) OR the bouncer env is set (configured). Decisions are read AND
-  // written purely via `cscli` exec, independent of the CROWDSEC_* env — so a
+  // written purely via `cscli` exec, independent of the CROWDSEC_* env, so a
   // running agent must surface its blocked IPs even when the server process
   // lacks those vars. Gating the Decisions view on `configured` alone hid every
   // blocked IP: a block from the edge landed in CrowdSec but never showed here.
@@ -129,7 +129,7 @@ function FirewallHeader({ configured, reachable }: { configured: boolean; reacha
         )}
       </div>
       <p className="mt-0.5 text-[13px] text-muted-foreground">
-        CrowdSec IP-reputation decisions enforced at the Caddy edge — banned IPs, ranges, and the
+        CrowdSec IP-reputation decisions enforced at the Caddy edge: banned IPs, ranges, and the
         community blocklist. Identity-blind; runs before the auth wall.
       </p>
     </div>

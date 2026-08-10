@@ -1,7 +1,7 @@
 /**
  * Word-splitting for Compose's string-form `command:` / `entrypoint:`.
  *
- * The Compose spec says a string here is split into a list — the same shape as
+ * The Compose spec says a string here is split into a list. The same shape as
  * the array form. It is NOT `/bin/sh -c <string>`; that is DOCKERFILE shell-form
  * semantics, and applying it here broke every image carrying its own
  * ENTRYPOINT, because the wrapper became the entrypoint's first argument.
@@ -21,7 +21,7 @@ interface Scan {
 
 /** Read a quoted run starting AFTER the opening quote. Only double quotes
  *  process backslash escapes, matching POSIX shells. An unterminated quote
- *  runs to end-of-input rather than throwing — a compose file is not a shell,
+ *  runs to end-of-input rather than throwing. A compose file is not a shell,
  *  and failing the whole parse over a stray quote helps nobody. */
 function scanQuoted(input: string, from: number, quote: '"' | "'"): Scan {
   let value = "";

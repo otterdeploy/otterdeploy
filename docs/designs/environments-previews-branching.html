@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Environments, Previews &amp; DB Branching — otterdeploy</title>
+    <title>Environments, Previews &amp; DB Branching: otterdeploy</title>
     <style>
       :root {
         --ink: #141412;
@@ -295,7 +295,7 @@
         grid-template-columns: 1fr;
         gap: 14px;
         margin: 18px 0;
-        /* Size each panel to its own content — stretching leaves the shorter
+        /* Size each panel to its own content. Stretching leaves the shorter
            one with a dead band under its last row. */
         align-items: start;
       }
@@ -320,7 +320,7 @@
         gap: 8px;
         margin: 10px 0 0;
       }
-      /* An arrow must never be the last thing on a wrapped line — it travels
+      /* An arrow must never be the last thing on a wrapped line, it travels
          with the step it points at. */
       .pair {
         display: inline-flex;
@@ -499,7 +499,7 @@
           copy-on-write database branching.
         </p>
         <div class="meta">
-          <span class="tag accent">plan — not implemented</span>
+          <span class="tag accent">plan, not implemented</span>
           <span class="tag">verified against code at 71e61110</span>
           <span class="tag accent">all decisions settled</span>
           <span class="tag">otterdeploy</span>
@@ -531,15 +531,15 @@
       </p>
 
       <p>
-        The second was a genuine defect, and is <b>fixed</b> — it shipped as P0. The header nav
+        The second was a genuine defect, and is <b>fixed</b>, it shipped as P0. The header nav
         resolved the default environment by string-matching the slug <code>"production"</code> and
         falling back to <code>environments[0]</code> from a live query with no
         <code>.orderBy()</code>, while ignoring <code>project.environmentId</code>, the
         main-environment pointer that already existed in the schema.
         <code>variables.tsx:52</code> ran the same query <em>with</em> an explicit sort and
         commented that &ldquo;the collection isn't intrinsically ordered&rdquo;; the header nav was
-        the one place that omitted it. Resolution is now authority-first — pointer, then the
-        <code>production</code> convention, then a deterministically sorted first row — in
+        the one place that omitted it. Resolution is now authority-first, pointer, then the
+        <code>production</code> convention, then a deterministically sorted first row: in
         <code>features/shell/environment-default.ts</code>, with thirteen tests whose load-bearing
         assertions are about order independence: the same set in a different sequence must resolve
         identically, and a new environment arriving at the front of the list must not change the
@@ -547,7 +547,7 @@
       </p>
 
       <p>
-        The first is not a defect — it is the absence of a feature. No resource table carries an
+        The first is not a defect. It is the absence of a feature. No resource table carries an
         <code>environmentId</code>; only <code>project</code>, <code>serviceEnvVar</code> and
         <code>projectEnvVar</code> do. Environments name a variable scope. The switcher sits in the
         global breadcrumb and so implies a filter it never applies.
@@ -560,8 +560,8 @@
         every database per pull request, and produced four concrete failures: unscoped teardown
         destroying other repos' same-numbered previews, closed PRs leaking containers and volumes,
         preview migrations running against production databases, and preview builds superseding
-        production's running deployment row. What remains — <code>environment</code> as a variable
-        scope with a 1:1 project pointer — is the residue of that retreat, which is also why the
+        production's running deployment row. What remains, <code>environment</code> as a variable
+        scope with a 1:1 project pointer. Is the residue of that retreat, which is also why the
         switcher looks like it should filter.
       </div>
 
@@ -583,25 +583,25 @@
         <div class="layer">
           <span class="lbl" style="border-color: var(--accent); color: var(--accent)">preview</span>
           <span class="res">postgres</span>
-          <span class="desc"><code>preview_id</code> set — a branch this PR owns</span>
+          <span class="desc"><code>preview_id</code> set. A branch this PR owns</span>
         </div>
-        <div class="fall">↓ no row — fall outward</div>
+        <div class="fall">↓ no row: fall outward</div>
         <div class="layer">
           <span class="lbl">environment</span>
           <span class="res">postgres</span>
-          <span class="desc"><code>environment_id</code> set — staging's own database</span>
+          <span class="desc"><code>environment_id</code> set. Staging's own database</span>
         </div>
-        <div class="fall">↓ no row — fall outward</div>
+        <div class="fall">↓ no row: fall outward</div>
         <div class="layer">
           <span class="lbl">base</span>
           <span class="res">postgres</span>
-          <span class="desc">both null — the project's original resource</span>
+          <span class="desc">both null: the project's original resource</span>
         </div>
       </div>
 
       <p>
-        Because references are late-bound by resource <em>name</em> —
-        <code>DATABASE_URL = ${{postgres.DATABASE_URL}}</code> resolves at deploy time — the same
+        Because references are late-bound by resource <em>name</em>.
+        <code>DATABASE_URL = ${{postgres.DATABASE_URL}}</code> resolves at deploy time, the same
         manifest produces different wiring per scope with no user-authored change. That property
         already exists in <code>lib/variables/resolver.ts</code>; this plan widens it from two
         levels to three.
@@ -625,7 +625,7 @@ preview
         preview branches from production because there is nothing else it could branch from.
       </p>
 
-      <h3>Mirroring — staging does not drift</h3>
+      <h3>Mirroring, staging does not drift</h3>
 
       <p>
         Staging follows production. A change to production reaches staging too, and staging only
@@ -640,7 +640,7 @@ preview
         <code>resolveEnvironment</code> (<code>stack/manifest/merge.ts</code>) implements exactly
         the semantics above. Both <code>manifest.diff</code> and <code>manifest.apply</code> already
         call it with the target environment (<code>router-manifest.ts:78,127,206</code>), and seven
-        tests pin the rules — including
+        tests pin the rules, including
         <em>&ldquo;inherits unchanged when the env block is missing&rdquo;</em>, which is mirroring
         stated as a test.
       </div>
@@ -657,7 +657,7 @@ preview
           </tr>
           <tr>
             <td>Key absent</td>
-            <td><b>Inherits base unchanged</b> — this is what &ldquo;mirrors&rdquo; means</td>
+            <td><b>Inherits base unchanged</b>: this is what &ldquo;mirrors&rdquo; means</td>
           </tr>
           <tr>
             <td>Scalar present</td>
@@ -669,7 +669,7 @@ preview
           </tr>
           <tr>
             <td>Array present</td>
-            <td>Replaces wholesale — no per-element merge</td>
+            <td>Replaces wholesale, no per-element merge</td>
           </tr>
           <tr>
             <td>Value is <code>null</code></td>
@@ -685,7 +685,7 @@ preview
       <p>
         What is actually missing is narrower than it first appears: apply resolves the manifest per
         environment, but the resources it writes to are not environment-scoped, so a staging apply
-        lands on production's rows. Scoping the write target is the work — not building an override
+        lands on production's rows. Scoping the write target is the work, not building an override
         system.
       </p>
 
@@ -693,7 +693,7 @@ preview
         One consequence to decide deliberately: when production changes, staging should not silently
         reconcile underneath a running system. The safe shape is that propagation lands in staging
         as a <em>pending change</em> on the existing pending-changes bar, and the operator deploys
-        it — the same path every other manifest edit already takes. That keeps &ldquo;we should be
+        it: the same path every other manifest edit already takes. That keeps &ldquo;we should be
         able to change it on staging as well&rdquo; true without turning a production edit into an
         unattended staging deploy.
       </p>
@@ -770,7 +770,7 @@ preview
                   </div>
                   <span class="pill st2">running</span>
                 </div>
-                <div class="dsc">staging data — not production's</div>
+                <div class="dsc">staging data, not production's</div>
               </div>
               <div class="node">
                 <div class="hd">
@@ -927,14 +927,14 @@ preview
           <tr>
             <td>Naming</td>
             <td>
-              <code>runtimeServiceName</code> / <code>previewHostLabel</code> — preview scope only
+              <code>runtimeServiceName</code> / <code>previewHostLabel</code>: preview scope only
             </td>
             <td class="mono">lib/environment/scoping.ts</td>
           </tr>
           <tr>
             <td>ZFS pool</td>
             <td>
-              <b>Provisioned by the installer</b> — installs <code>zfsutils</code>, creates a
+              <b>Provisioned by the installer</b>: installs <code>zfsutils</code>, creates a
               sparse-image pool, sets <code>autotrim</code>, creates <code>&lt;pool&gt;/pg</code>,
               writes <code>BRANCH_ZFS_POOL</code>
             </td>
@@ -943,7 +943,7 @@ preview
           <tr>
             <td>Pool lifecycle</td>
             <td>
-              <b>Built</b> — health, trim, grow, and a pre-branch headroom guard already called on
+              <b>Built</b>. Health, trim, grow, and a pre-branch headroom guard already called on
               the branch path
             </td>
             <td class="mono">system-health/branch-pool.ts</td>
@@ -951,7 +951,7 @@ preview
           <tr>
             <td>Host execution</td>
             <td>
-              <b>Built</b> — <code>runOnHost</code> nsenters PID 1 via a privileged helper,
+              <b>Built</b>, <code>runOnHost</code> nsenters PID 1 via a privileged helper,
               explicitly for <code>zpool</code>/<code>zfs</code>
             </td>
             <td class="mono">system-health/host-run.ts</td>
@@ -959,7 +959,7 @@ preview
           <tr>
             <td><b>ZFS driver</b></td>
             <td>
-              <b>The one missing piece</b> — <code>resolveSnapshotDriver</code> carries a
+              <b>The one missing piece</b>: <code>resolveSnapshotDriver</code> carries a
               <code>TODO(P3)</code> and returns <code>copyDriver</code> unconditionally, so
               <code>auto</code> and explicit <code>zfs</code> both fall back
             </td>
@@ -968,7 +968,7 @@ preview
           <tr>
             <td><b>Swarm branching</b></td>
             <td>
-              <b>Throws 501</b> — because both branch transports are node-local (<code
+              <b>Throws 501</b>, because both branch transports are node-local (<code
                 >docker exec</code
               >
               on the local socket; <code>runOnHost</code> on the manager)
@@ -983,7 +983,7 @@ preview
           <tr>
             <td>Env-scoped resources</td>
             <td>Do not exist</td>
-            <td class="mono">—</td>
+            <td class="mono">–</td>
           </tr>
         </table>
       </div>
@@ -996,7 +996,7 @@ preview
       <h2 id="lifecycle">Preview lifecycle</h2>
 
       <p>
-        The guards matter more than the happy path. Teardown is never gated on the opt-in — a
+        The guards matter more than the happy path. Teardown is never gated on the opt-in, a
         service that turned previews off after a preview was already running must still have it torn
         down, or containers and branched databases leak. And a failed branch must never reach
         <em>running</em>.
@@ -1006,7 +1006,7 @@ preview
         <div class="st"><b>Pending</b><span>PR opened</span></div>
         <div class="st"><b>Provisioning</b><span>job claimed</span></div>
         <div class="st"><b>Branching</b><span>opted-in DB referenced</span></div>
-        <div class="st blocked"><b>Blocked</b><span>branch failed — never falls back</span></div>
+        <div class="st blocked"><b>Blocked</b><span>branch failed, never falls back</span></div>
         <div class="st"><b>Building</b><span>image build</span></div>
         <div class="st"><b>Running</b><span>container healthy</span></div>
         <div class="st"><b>Paused</b><span>idle, resumable</span></div>
@@ -1064,7 +1064,7 @@ Pending → Provisioning → Branching → Building → Running
           <tr>
             <td><span class="pill edge">edge</span></td>
             <td>Base database deleted while preview clones exist</td>
-            <td>Not reachable — a <code>copy</code> branch is an independent volume</td>
+            <td>Not reachable: a <code>copy</code> branch is an independent volume</td>
             <td>
               New under ZFS: a clone pins its origin snapshot. Refuse the delete while branches
               exist, or <code>zfs promote</code> to reparent; teardown destroys clones before
@@ -1103,7 +1103,7 @@ Pending → Provisioning → Branching → Building → Running
             <td><span class="pill edge">edge</span></td>
             <td>Previews turned off while one is live</td>
             <td>Teardown deliberately not gated, so it still runs</td>
-            <td>Keep — this is correct and must not regress</td>
+            <td>Keep. This is correct and must not regress</td>
           </tr>
           <tr>
             <td><span class="pill edge">edge</span></td>
@@ -1158,7 +1158,7 @@ Pending → Provisioning → Branching → Building → Running
         <code>branchOne</code> deletes the branch resource when the copy fails so a retry is
         possible (<code>git/preview-db.ts:277</code>), and <code>branchProjectDatabases</code> is
         best-effort per database. Between the failure and a retry the preview has no scoped row, so
-        name-based resolution finds the base — and the preview's migrations and writes land on
+        name-based resolution finds the base, and the preview's migrations and writes land on
         production data. On swarm this is not a window but a permanent condition, because
         <code>branchDatabase</code> throws. The fix is not better logging; it is that a preview with
         a <em>required</em> branch must not reach a running state without it.
@@ -1212,7 +1212,7 @@ Pending → Provisioning → Branching → Building → Running
         The target is Neon's branching model: a branch is instant, shares blocks with its origin
         until written to, and is cheap enough that every open pull request can have one. On
         self-hosted Postgres in a container, the mechanism that gives that is a filesystem-level
-        snapshot and clone of PGDATA — <code>zfs snapshot</code> followed by <code>zfs clone</code>.
+        snapshot and clone of PGDATA: <code>zfs snapshot</code> followed by <code>zfs clone</code>.
       </p>
 
       <p>
@@ -1222,8 +1222,8 @@ Pending → Provisioning → Branching → Building → Running
         <em
           >&ldquo;<code>zfs</code> clones the raw PGDATA volume at the volume layer, before the
           branch container boots&rdquo;</em
-        >
-        — whereas <code>copy</code> must dump and restore a layer up, with both containers running.
+        >:
+        whereas <code>copy</code> must dump and restore a layer up, with both containers running.
         Implementing the driver is the work; designing the interface is not.
       </p>
 
@@ -1241,7 +1241,7 @@ Pending → Provisioning → Branching → Building → Running
               Databases today get a plain Docker named volume
               (<code>otterdeploy-pgdata-&lt;project&gt;-&lt;resource&gt;</code>,
               <code>view-helpers.ts:79</code>). A volume that is not on ZFS cannot be cloned, so
-              provisioning has to create a dataset per database and bind it — a change to database
+              provisioning has to create a dataset per database and bind it. A change to database
               <em>creation</em>, not only to branching.
             </td>
           </tr>
@@ -1257,7 +1257,7 @@ Pending → Provisioning → Branching → Building → Running
             <td>Driver selection becomes per-database</td>
             <td>
               <code>resolveSnapshotDriver()</code> is called once for the whole batch
-              (<code>preview-db.ts:144</code>). With mixed hosts — some databases on ZFS, some not —
+              (<code>preview-db.ts:144</code>). With mixed hosts (some databases on ZFS, some not)
               it has to resolve per base database instead.
             </td>
           </tr>
@@ -1265,14 +1265,14 @@ Pending → Provisioning → Branching → Building → Running
             <td>Snapshot consistency</td>
             <td>
               A ZFS snapshot of a running Postgres is crash-consistent; the clone replays WAL on
-              first boot. Acceptable, and the same guarantee a power cut gives — but issue a
+              first boot. Acceptable, and the same guarantee a power cut gives, but issue a
               <code>CHECKPOINT</code> first so recovery is short rather than arbitrary.
             </td>
           </tr>
           <tr>
             <td>A clone pins its origin snapshot</td>
             <td>
-              ZFS will not destroy a snapshot that a clone depends on. See below — this is the
+              ZFS will not destroy a snapshot that a clone depends on. See below. This is the
               teardown hazard the copy path does not have.
             </td>
           </tr>
@@ -1283,7 +1283,7 @@ Pending → Provisioning → Branching → Building → Running
 
       <p>
         The installer. <code>scripts/install.sh</code> is already the one place that touches the
-        host as root — it installs packages across the debian, rhel and arch families, installs
+        host as root: it installs packages across the debian, rhel and arch families, installs
         Docker, and writes the compose stack. Adding ZFS packages and creating the dataset root
         belongs there, not in the application, which never has host privileges and cannot create a
         pool.
@@ -1291,7 +1291,7 @@ Pending → Provisioning → Branching → Building → Running
 
       <div class="callout">
         <strong>The control-plane database is not a branch source.</strong>
-        <code>install.sh</code> provisions otterdeploy's own Postgres —
+        <code>install.sh</code> provisions otterdeploy's own Postgres.
         <code>postgres:17-alpine</code> on the <code>otterdeploy-postgres-data</code> named volume,
         pinned to 17 because 18+ rejects the data mount. That is the platform's internal database:
         it holds projects, resources and deployments, it is never referenced by a
@@ -1315,7 +1315,7 @@ Pending → Provisioning → Branching → Building → Running
           <tr>
             <td>Spare block device</td>
             <td>
-              A real pool. Instant branching with no meaningful overhead — the intended
+              A real pool. Instant branching with no meaningful overhead: the intended
               configuration.
             </td>
           </tr>
@@ -1330,7 +1330,7 @@ Pending → Provisioning → Branching → Building → Running
           <tr>
             <td>No ZFS kernel module</td>
             <td>
-              Not possible at any level — some VPS kernels simply do not ship it.
+              Not possible at any level: some VPS kernels simply do not ship it.
               <code>copy</code> remains, previews stay expensive on large databases, and nothing
               breaks.
             </td>
@@ -1339,8 +1339,8 @@ Pending → Provisioning → Branching → Building → Running
       </div>
 
       <p>
-        Two consequences for the rollout. Upgrading an existing install must never require ZFS —
-        every database already on a plain volume keeps working on <code>copy</code>, which is
+        Two consequences for the rollout. Upgrading an existing install must never require ZFS.
+        Every database already on a plain volume keeps working on <code>copy</code>, which is
         exactly why driver selection has to become per-database rather than per-host. And the
         installer's ZFS step is opt-in and skippable, because an operator who declines it should get
         a working platform with slower branching, not a failed install.
@@ -1354,7 +1354,7 @@ Pending → Provisioning → Branching → Building → Running
       </p>
 
       <p>
-        <b>A cap on concurrent previews.</b> This is already a known gap —
+        <b>A cap on concurrent previews.</b> This is already a known gap.
         <code>pr-previews.md</code> lists &ldquo;per-project preview caps&rdquo; as outstanding
         alongside COW itself. Idle teardown bounds how <em>long</em> a preview lives; nothing bounds
         how <em>many</em> exist, so a busy repository can open twenty pull requests and provision
@@ -1362,7 +1362,7 @@ Pending → Provisioning → Branching → Building → Running
         what happens when it is hit: <b>refuse the new preview and say so on the pull request</b>,
         rather than evicting the oldest. Eviction would tear down a preview someone is actively
         reviewing to make room for one nobody has looked at yet. A refusal that names the cap is
-        honest and actionable; a silent eviction is neither. The same rule as idle GC applies —
+        honest and actionable; a silent eviction is neither. The same rule as idle GC applies,
         never a silent cap.
       </p>
 
@@ -1373,7 +1373,7 @@ Pending → Provisioning → Branching → Building → Running
         <code>["push", "pull_request"]</code> only (<code>git/manifest.ts:128</code>), so
         <code>issue_comment</code> has to be added to the event list and the handler switch, then
         routed into the same provisioning job the <code>pull_request</code> path uses. Everything
-        downstream — branch, build, route, comment, teardown — is unchanged.
+        downstream (branch, build, route, comment, teardown) is unchanged.
       </p>
 
       <div class="callout risk">
@@ -1383,7 +1383,7 @@ Pending → Provisioning → Branching → Building → Running
         and clone a database on someone else's infrastructure. The trigger must verify the
         commenter's association with the repository (<code>author_association</code>, or an explicit
         permission lookup) before it does anything, and previews created this way still count
-        against the cap — otherwise the cap is bypassable by anyone with a keyboard.
+        against the cap: otherwise the cap is bypassable by anyone with a keyboard.
       </div>
 
       <div class="callout">
@@ -1428,7 +1428,7 @@ Pending → Provisioning → Branching → Building → Running
           <tr>
             <td>
               The control plane is a plain <code>docker compose</code> stack, not
-              <code>docker stack deploy</code> — there is no <code>deploy:</code> or
+              <code>docker stack deploy</code>. There is no <code>deploy:</code> or
               <code>placement:</code> block in <code>docker-compose.prod.yml</code>
             </td>
             <td>
@@ -1450,17 +1450,17 @@ Pending → Provisioning → Branching → Building → Running
         So Swarm needs no branching-specific work at all: services scale across the cluster,
         databases stay on the manager, and the <code>501</code> is deleted because the case it
         guarded against no longer occurs. <code>placementServerId</code> already exists and already
-        means exactly this — a hard placement constraint for a resource whose volume does not move
+        means exactly this. A hard placement constraint for a resource whose volume does not move
         with it.
       </p>
 
       <div class="callout risk">
         <strong>The one case this does not cover: a database pinned to a worker.</strong>
         Placement is operator-controlled, so someone can pin a database to a node that is not the
-        control-plane host — and then neither transport can reach it. That is a configuration
+        control-plane host, and then neither transport can reach it. That is a configuration
         conflict, and it should surface where the conflict is created rather than as a failed branch
         hours later: refuse to enable preview branching on a database pinned off-host, and refuse to
-        move a branch-enabled database off-host. If it does slip through, Blocked catches it — the
+        move a branch-enabled database off-host. If it does slip through, Blocked catches it, the
         preview refuses rather than falling back to production.
       </div>
 
@@ -1468,7 +1468,7 @@ Pending → Provisioning → Branching → Building → Running
         Making <code>copy</code> talk to the database over the overlay hostname instead of
         <code>docker exec</code> would lift that restriction entirely, since the overlay reaches
         every node. It is a genuine simplification and worth doing eventually, but it is no longer
-        on the critical path — it buys off-host databases, not Swarm support.
+        on the critical path: it buys off-host databases, not Swarm support.
       </p>
 
       <h3>Clone lifetimes</h3>
@@ -1476,8 +1476,8 @@ Pending → Provisioning → Branching → Building → Running
       <p>
         Under <code>copy</code> a branch is an ordinary independent volume, so destroying a base
         database is unaffected by any preview. Under ZFS it is not: every open preview's clone holds
-        its origin snapshot alive, and ZFS refuses to destroy a snapshot — or the dataset holding it
-        — while a clone depends on it. This is the one place where copy-on-write changes an
+        its origin snapshot alive, and ZFS refuses to destroy a snapshot, or the dataset holding it,
+        while a clone depends on it. This is the one place where copy-on-write changes an
         operation that has nothing to do with previews, so it gets designed rather than discovered.
       </p>
 
@@ -1485,7 +1485,7 @@ Pending → Provisioning → Branching → Building → Running
         The bookkeeping this needs already exists. <code>databaseResource</code> carries
         <code>branch_strategy</code> and <code>branch_snapshot_ref</code>
         (<code>schema/project.ts:363,366</code>), and teardown already passes the stored ref back to
-        the driver (<code>preview-teardown.ts:114</code>) rather than recomputing it — the same
+        the driver (<code>preview-teardown.ts:114</code>) rather than recomputing it: the same
         record-it-don't-recompute lesson as the preview slug. What is missing is the guard and the
         ordering.
       </p>
@@ -1500,7 +1500,7 @@ Pending → Provisioning → Branching → Building → Running
             <td><b>Deleting a base database refuses while live branches exist</b></td>
             <td>
               A precondition in <code>resource-delete.ts</code>, checked <em>before</em> anything is
-              stripped — not a failure handler. Today the flow removes the database from the
+              stripped, not a failure handler. Today the flow removes the database from the
               manifest first, on purpose, so that a partial teardown diffs as a recoverable delete
               rather than a phantom create. If the ZFS destroy is instead allowed to fail at step
               three, the manifest entry is already gone while the dataset is still on disk. The
@@ -1511,7 +1511,7 @@ Pending → Provisioning → Branching → Building → Running
           <tr>
             <td><b>The refusal names the previews, and flags pinned ones</b></td>
             <td>
-              Ordinarily this heals itself — previews are reaped at
+              Ordinarily this heals itself: previews are reaped at
               <code>auto_teardown_at</code>, so the block is temporary and waiting is a valid
               action. A pinned preview (<code>auto_teardown_at</code> NULL) never expires and pins
               the database indefinitely, so those must be named separately: they need a human, not
@@ -1540,7 +1540,7 @@ Pending → Provisioning → Branching → Building → Running
               <b>Never <code>zfs promote</code> a preview clone</b>
             </td>
             <td>
-              Promotion would reparent the clone so the base becomes deletable — and it is the wrong
+              Promotion would reparent the clone so the base becomes deletable, and it is the wrong
               answer here. It makes an ephemeral PR preview the origin holder of production's
               blocks, inverting the lifetime relationship: the short-lived thing now pins the
               long-lived one, and the preview cannot be torn down without another promotion. The
@@ -1553,7 +1553,7 @@ Pending → Provisioning → Branching → Building → Running
       <div class="callout risk">
         <strong>The failure mode to design against is an operator who cannot act.</strong>
         &ldquo;Delete this database&rdquo; returning a filesystem error about dependent clones is
-        unactionable — nothing in the UI connects a ZFS dataset to someone's open pull request. A
+        unactionable, nothing in the UI connects a ZFS dataset to someone's open pull request. A
         refusal that says
         <em
           >&ldquo;3 preview branches depend on this database: PR 128, PR 131, PR 140
@@ -1566,7 +1566,7 @@ Pending → Provisioning → Branching → Building → Running
       <h2 id="naming">Naming contract</h2>
 
       <p>
-        Every scope must produce distinct container, volume, host and route names — and the base
+        Every scope must produce distinct container, volume, host and route names, and the base
         scope must keep its current names byte-for-byte, or every existing deployment is recreated
         on upgrade.
       </p>
@@ -1593,7 +1593,7 @@ export function scopeSuffix(scope: Scope): string {
         </li>
         <li>
           <b>Environment slugs need a reserved list.</b> An environment slugged
-          <code>pr-128</code> would collide with a preview suffix — reject at create time.
+          <code>pr-128</code> would collide with a preview suffix. Reject at create time.
         </li>
         <li>
           <b>Three partial unique indexes</b> replace the current two: base (<code>both null</code
@@ -1608,32 +1608,32 @@ export function scopeSuffix(scope: Scope): string {
 
       <div class="card">
         <p>
-          <b>P0 — Fix the default environment. <em>(shipped)</em></b> Resolve from
+          <b>P0: Fix the default environment. <em>(shipped)</em></b> Resolve from
           <code>project.environmentId</code>, then slug <code>production</code>, then a
           deterministically sorted first row. Independent of everything else; ships now.
         </p>
         <p>
-          <b>P1 — Scope union and migration. <em>(in progress)</em></b> Generalize
+          <b>P1: Scope union and migration. <em>(in progress)</em></b> Generalize
           <code>PreviewScope</code> to <code>Scope</code>, with the main environment rendering as
           base so no running container is renamed; reserve slugs that would collide with a preview's
           generated name; add <code>environment_id</code> to <code>resource</code> with the three
-          partial indexes. No backfill — see below.
+          partial indexes. No backfill: see below.
         </p>
         <p>
-          <b>P2 — Environment-scoped resources and mirroring.</b> Scope-aware resource lists, graph,
+          <b>P2: Environment-scoped resources and mirroring.</b> Scope-aware resource lists, graph,
           reconcile and naming, so an apply resolved for staging writes to staging's rows. The
           overlay and merge already exist; this phase points the write target at the right scope and
           surfaces inherited changes on the pending-changes bar.
         </p>
         <p style="margin-bottom: 0">
-          <b>P3 — Previews that are cheap <em>and</em> reliable.</b> Shipped as one phase, because a
+          <b>P3: Previews that are cheap <em>and</em> reliable.</b> Shipped as one phase, because a
           preview that is trustworthy but expensive still will not get used. Durable provisioning:
           branching and teardown move out of the webhook into jobs keyed on
           <code>(preview, sha)</code>, with the closing claim that makes teardown-vs-build
           deterministic and the Blocked state that stops a failed branch reaching production.
           Instant branching: ZFS-backed PGDATA on database creation, the copy-on-write driver behind
           the existing <code>resolveSnapshotDriver</code> seam, per-database driver selection so ZFS
-          and non-ZFS databases coexist, and the clone-lifetime rules — delete guard,
+          and non-ZFS databases coexist, and the clone-lifetime rules: delete guard,
           clone-before-snapshot teardown, orphan recording. <code>copy</code> stays as the fallback
           for every database not on a dataset. Runtime parity costs almost nothing: databases pin to
           the control-plane host, both existing transports are then correct under Swarm unchanged,
@@ -1647,15 +1647,15 @@ export function scopeSuffix(scope: Scope): string {
         and <code>environment_id IS NULL</code> are the same state. Every existing row is therefore
         already correct the moment the column is added, and the migration is purely additive: one
         nullable column, one narrowed partial index, two new indexes, and no <code>UPDATE</code>.
-        The earlier concern — a partial backfill leaving the graph reading empty, indistinguishable
-        from data loss — cannot occur because no rows are rewritten.
+        The earlier concern: a partial backfill leaving the graph reading empty, indistinguishable
+        from data loss: cannot occur because no rows are rewritten.
       </div>
 
       <p>
         The one ordering detail that survives: the recreated base index is <em>narrower</em> than
         the one it replaces (<code>preview_id is null</code> becomes
         <code>preview_id is null and environment_id is null</code>), so it indexes a subset of the
-        same rows. If the old index held, the new one holds — the drop-and-recreate cannot fail on
+        same rows. If the old index held, the new one holds. The drop-and-recreate cannot fail on
         pre-existing data. Reversing it still requires dropping the indexes before the column, or
         uniqueness is transiently violated mid-migration.
       </p>
@@ -1672,7 +1672,7 @@ export function scopeSuffix(scope: Scope): string {
           <code>bun run typecheck</code> and <code>bun run test</code> clean across the workspace.
         </li>
         <li>
-          <b>Unit:</b> <code>scopeSuffix</code> returns <code>""</code> for base — assert
+          <b>Unit:</b> <code>scopeSuffix</code> returns <code>""</code> for base, assert
           byte-identical names against a fixture captured before the change.
         </li>
         <li>
@@ -1728,7 +1728,7 @@ export function scopeSuffix(scope: Scope): string {
 
       <p>
         Specifications leak at the joints, not in the middle. Each of these was underspecified
-        enough that two people implementing it would have made different, both-defensible choices —
+        enough that two people implementing it would have made different, both-defensible choices,
         which is the definition of a gap worth closing before code.
       </p>
 
@@ -1741,7 +1741,7 @@ export function scopeSuffix(scope: Scope): string {
           <tr>
             <td>A preview is already Running and a new push's re-branch fails</td>
             <td>
-              The running container keeps serving its existing branch — that data is still valid —
+              The running container keeps serving its existing branch (that data is still valid)
               and only the new rollout is withheld. Blocked applies to reaching a running state, not
               to leaving one. Tearing down a working review environment because a later branch
               failed is worse than the failure.
@@ -1751,15 +1751,15 @@ export function scopeSuffix(scope: Scope): string {
             <td>Cap scope, default, and whether pinning bypasses it</td>
             <td>
               Per project, defaulting from an instance setting alongside
-              <code>PREVIEW_IDLE_TEARDOWN_HOURS</code>. <b>Pinned previews count against it</b> —
-              otherwise pinning is a silent bypass. Comment-triggered previews count too, for the
+              <code>PREVIEW_IDLE_TEARDOWN_HOURS</code>. <b>Pinned previews count against it</b>.
+              Otherwise pinning is a silent bypass. Comment-triggered previews count too, for the
               same reason.
             </td>
           </tr>
           <tr>
             <td>Which commenters may trigger a preview</td>
             <td>
-              <code>OWNER</code>, <code>MEMBER</code>, <code>COLLABORATOR</code> — write access or
+              <code>OWNER</code>, <code>MEMBER</code>, <code>COLLABORATOR</code>: write access or
               better. <code>CONTRIBUTOR</code> and <code>NONE</code> are refused, so a drive-by
               commenter on a public repository cannot provision compute. A refusal
               <b>reacts to the comment rather than replying</b>, so the bot cannot be made to spam a
@@ -1770,7 +1770,7 @@ export function scopeSuffix(scope: Scope): string {
             <td>How per-database driver selection knows the substrate</td>
             <td>
               Recorded on the base database at creation, not probed at branch time. A probe races
-              with pool changes and would make branching non-deterministic —
+              with pool changes and would make branching non-deterministic.
               <code>branchStrategy</code> already exists on the branch row; the base needs the
               equivalent.
             </td>
@@ -1780,7 +1780,7 @@ export function scopeSuffix(scope: Scope): string {
             <td>
               The environment row plus an empty <code>environments.&lt;slug&gt;</code> block. Apply
               already resolves per environment, so an empty overlay means &ldquo;identical to
-              base&rdquo; with no special-casing — inheritance is the absence of an override, not a
+              base&rdquo; with no special-casing: inheritance is the absence of an override, not a
               copy.
             </td>
           </tr>
@@ -1827,11 +1827,11 @@ export function scopeSuffix(scope: Scope): string {
         </p>
         <p>
           <b>A failed database branch blocks the preview.</b> No container starts, the PR comment
-          says why, and the retry is explicit. This is the fix for the silent fallback — a preview
+          says why, and the retry is explicit. This is the fix for the silent fallback, a preview
           must never reach a running state bound to production data.
         </p>
         <p>
-          <b>Branching works in Swarm too — the 501 goes away.</b> A runtime an operator can select
+          <b>Branching works in Swarm too. The 501 goes away.</b> A runtime an operator can select
           must not have a feature hole in it. Blocked stays as the guard for a branch that genuinely
           fails, but &ldquo;you chose Swarm&rdquo; is not a failure and must never be the reason a
           preview cannot branch.
@@ -1854,7 +1854,7 @@ export function scopeSuffix(scope: Scope): string {
       <p>
         No decisions. Every choice this plan depends on has been made, and the remaining unknown is
         a property of the hosts rather than of the design: whether a given machine can carry a ZFS
-        pool at all. That is discovered by the installer at install time, not decided here — a host
+        pool at all. That is discovered by the installer at install time, not decided here, a host
         with no ZFS module gets <code>copy</code> and a working platform, and nothing in the plan
         waits on the answer.
       </p>
@@ -1867,12 +1867,12 @@ export function scopeSuffix(scope: Scope): string {
 
       <p>
         Swarm is explicitly <em>not</em> deferred. Branching works on both runtimes or the runtime
-        switch is a trap — an operator who turns on Swarm to scale services should not silently lose
+        switch is a trap. An operator who turns on Swarm to scale services should not silently lose
         preview databases.
       </p>
 
       <footer>
-        Plan only — no source changes. Generated from a read of the codebase at
+        Plan only, no source changes. Generated from a read of the codebase at
         <code>71e61110</code>; every file reference above was verified, not inferred.
       </footer>
     </div>

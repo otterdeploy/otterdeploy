@@ -73,7 +73,7 @@ export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
   const [totpCode, setTotpCode] = useState("");
   const [password, setPassword] = useState("");
   // Which credential this account can present. The server accepts either
-  // (verifyStepUpCredential) — asking for a code from someone who never set up
+  // (verifyStepUpCredential), asking for a code from someone who never set up
   // an authenticator is a form that can't be filled in.
   const sessionQ = useQuery(sessionQuery);
   const twoFactorEnabled = Boolean(
@@ -141,8 +141,8 @@ export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
     managerConfirmation: role === "manager" ? managerConfirmation : undefined,
   };
   const credentialReady = twoFactorEnabled ? /^\d{6}(\d{2})?$/.test(totpCode) : password.length > 0;
-  // Track whatever enrollment is still in flight — preferring the one this
-  // session just created — so progress survives a reload or a reopened dialog
+  // Track whatever enrollment is still in flight. Preferring the one this
+  // session just created, so progress survives a reload or a reopened dialog
   // instead of living only in `created`.
   const rows: EnrollmentSummary[] = enrollments.data ?? [];
   const tracked =
@@ -150,7 +150,7 @@ export function JoinTokenPanel({ role, onRoleChange }: JoinTokenPanelProps) {
     rows.find((row) => row.status === "redeemed") ??
     rows.find((row) => row.status === "active");
 
-  // Gate and explanation are one value — see submitBlocker. While the session is
+  // Gate and explanation are one value. See submitBlocker. While the session is
   // still loading we hold submission rather than guess at twoFactorEnabled, which
   // would render the wrong credential field and reject on the server.
   const blockedReason = submitBlocker({

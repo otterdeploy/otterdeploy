@@ -1,5 +1,5 @@
 /**
- * Public-exposure orchestration for the Service primitive — `exposeService` /
+ * Public-exposure orchestration for the Service primitive: `exposeService` /
  * `unexposeService`. Split out of handlers.ts to keep that file under the line
  * cap; re-exported from there so the router import path is unchanged.
  */
@@ -54,7 +54,7 @@ async function refreshRouteUpstreams(
   }
 }
 
-/** Resolve the host expose *would* mint when nothing else is serving — the
+/** Resolve the host expose *would* mint when nothing else is serving. The
  *  chain resource-override → project → org → local → sslip fallback. Kept
  *  separate from the insert so the caller can inspect `source` (and refuse the
  *  sslip fallback) before anything is written. */
@@ -64,14 +64,14 @@ async function refreshRouteUpstreams(
  * Normally the resource name. For a compose stack's NAMESAKE service it is the
  * stack's name instead, because the resource name carries a dedup suffix the
  * operator never chose: a stack and its main service almost always share a name
- * (`drizzle-gateway` containing service `drizzle-gateway` — true of 51 of the
+ * (`drizzle-gateway` containing service `drizzle-gateway`, true of 51 of the
  * 54 catalog templates), names are unique per project, so the child lands as
  * `drizzle-gateway-service` and the URL became
  * `drizzle-gateway-service-store.…`.
  *
  * Using the stack's name is safe rather than clever: it is itself a resource
  * name in this project, so it is already unique, and the platform ALREADY
- * treats the compose key as canonical for addressing — `internal_hostname` on
+ * treats the compose key as canonical for addressing. `internal_hostname` on
  * that same row is the un-suffixed `drizzle-gateway`. This makes the public
  * name agree with the internal one instead of exposing a disambiguator.
  *
@@ -103,7 +103,7 @@ async function resolveGeneratedDomain(
   const resourceSlug = await generatedHostLabel(record);
   // Walk the chain (resource override → project → org → sslip). The
   // per-resource `publicDomain` column on serviceResource is what feeds
-  // resourceOverride — operators who already typed a literal FQDN in
+  // resourceOverride: operators who already typed a literal FQDN in
   // the service settings get it back untouched.
   const sources = (await loadDomainSourcesForProject(input.projectId)) ?? {
     resourceOverride: null,
@@ -120,7 +120,7 @@ async function resolveGeneratedDomain(
   );
 }
 
-/** Nothing live — either a first expose or every host is still a pending
+/** Nothing live. Either a first expose or every host is still a pending
  *  custom. Mint the already-resolved host so expose actually exposes
  *  something.
  *
@@ -140,7 +140,7 @@ async function insertGeneratedRoute(
     upstreamHost: record.service.serviceName,
     upstreamPort,
     // ACME only when the resolver decided the domain is verified and not
-    // a sslip fallback — same gate as the DB path.
+    // a sslip fallback: same gate as the DB path.
     usesAcme: resolved.verified && resolved.source !== "sslip-fallback",
     enabled: true,
   };
@@ -207,7 +207,7 @@ export async function exposeService(
   }
 
   // A service can carry several hosts (one proxy_route each). Expose no
-  // longer wipes-and-reinserts a single route — that would drop the
+  // longer wipes-and-reinserts a single route: that would drop the
   // operator's custom domains and their guests. It brings already-verified
   // hosts back live, and guarantees at least one live host by minting the
   // generated one whenever nothing else is serving.
@@ -217,7 +217,7 @@ export async function exposeService(
   let routes = await listProxyRoutesByResourceId(input.resourceId);
   if (!routes.some((r) => r.enabled)) {
     const resolved = await resolveGeneratedDomain(input, record, sanitizeSlug(project.slug));
-    // No real domain resolved — the only host we could publish on is the
+    // No real domain resolved. The only host we could publish on is the
     // throwaway sslip.io fallback. Refuse unless the operator explicitly opted
     // in; the UI turns this into a "publish on <host>?" confirmation so a
     // service is never silently made public on a temporary URL.
@@ -265,7 +265,7 @@ export async function exposeService(
  * This is the "Generate Domain" button, not a toggle: it always yields a
  * generated host, where `exposeService` only mints one when nothing else is
  * already serving. Asking for the host IS the opt-in, so there is no sslip
- * confirmation prompt in the way — the returned view says plainly which kind
+ * confirmation prompt in the way: the returned view says plainly which kind
  * of host was minted and the card explains what that means.
  *
  * Idempotent: a service that already has its generated host gets that row
@@ -310,7 +310,7 @@ export async function generateServiceDomain(
   await setPublicExposure({
     resourceId: input.resourceId,
     // The generated host becomes the advertised one only when nothing else
-    // has claimed primary — an operator's custom domain outranks it.
+    // has claimed primary. An operator's custom domain outranks it.
     enabled: true,
     publicDomain: (await settlePrimaryRoute(input.resourceId, after)) ?? resolved.fqdn,
   });
@@ -327,7 +327,7 @@ export async function unexposeService(
   const ctx = await loadResource(input);
   if (ctx.isErr()) return Result.err(ctx.error);
 
-  // Disable every host without deleting the rows — the operator's custom
+  // Disable every host without deleting the rows: the operator's custom
   // domains, their verification, and their guests survive so a later
   // re-expose brings them straight back.
   await setRoutesEnabledForResource(input.resourceId, false);

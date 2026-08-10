@@ -2,7 +2,7 @@
  * Custom-certificate installation for the Caddy edge.
  *
  * Operator-uploaded certs live in the DB (chain in the clear, key AES-GCM
- * encrypted — see packages/db/src/schema/certificates.ts). Caddy can only
+ * encrypted: see packages/db/src/schema/certificates.ts). Caddy can only
  * serve them from FILES, so on every reconcile we materialize each servable
  * cert under the host dir that is bind-mounted into the edge container at
  * `/etc/caddy` (`${OTTERDEPLOY_DATA_DIR}/caddy` in docker-compose.prod.yml):
@@ -18,7 +18,7 @@
  * emission (its row is flipped to installState="error" with the reason), so a
  * broken cert can never fail the global Caddy load and take other routes
  * down. Deployments whose data dir isn't shared with the edge container (or
- * isn't writable at all — bare dev) therefore surface "install failed"
+ * isn't writable at all. Bare dev) therefore surface "install failed"
  * honestly instead of pretending the cert is live.
  */
 
@@ -60,7 +60,7 @@ export interface ServableCustomCert {
 
 interface ServableRow {
   id: CustomCertificateId;
-  /** Plain string off the select — branded to OrganizationId in toServable
+  /** Plain string off the select, branded to OrganizationId in toServable
    *  (the schema column carries no $type brand). */
   organizationId: string;
   hostname: string;
@@ -78,7 +78,7 @@ function toServable(
     id: row.id,
     organizationId: row.organizationId as OrganizationId,
     hostname: row.hostname,
-    // subject column stores the one-line DN ("CN=x, O=y") — extract the CN.
+    // subject column stores the one-line DN ("CN=x, O=y"), extract the CN.
     subjectCN: row.subject?.match(/(?:^|, )CN=([^,]+)/)?.[1] ?? null,
     sans: row.sans,
     certPath: `${CADDY_CERTS_CONTAINER_DIR}/${row.id}/cert.pem`,
@@ -104,7 +104,7 @@ async function listServableRows(): Promise<ServableRow[]> {
 }
 
 /**
- * DB-only view of the servable certs (no file writes) — used by the read-only
+ * DB-only view of the servable certs (no file writes). Used by the read-only
  * per-project Caddyfile render so it shows the same `tls` lines reconcile
  * emits, without touching disk on every page view.
  */

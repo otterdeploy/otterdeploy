@@ -1,7 +1,7 @@
 /**
  * Pull-request reads against the GitHub API.
  *
- * Split from `github-app.ts` to keep that file under its line cap — it already
+ * Split from `github-app.ts` to keep that file under its line cap. It already
  * carries app auth, installation lookup, repo listing, commit status and PR
  * comments. Anything that only READS a pull request belongs here.
  */
@@ -15,12 +15,12 @@ import { apiBaseUrlForHost, getInstallationToken, ghFetch } from "./github-app";
  *
  * Parsed rather than cast: a cast asserts a shape we have not checked, so a
  * changed or truncated response would surface as `undefined` deep inside the
- * preview path — a build for `head.sha = undefined` — instead of here, at the
+ * preview path (a build for `head.sha = undefined`) instead of here, at the
  * boundary, with a message naming the field.
  */
 const pullRequestHeadSchema = z.object({
   head: z.object({ ref: z.string().min(1), sha: z.string().min(1) }),
-  // Presentation only — `nullish` throughout so a missing field degrades the
+  // Presentation only: `nullish` throughout so a missing field degrades the
   // card, never the build.
   title: z.string().nullish(),
   html_url: z.string().nullish(),

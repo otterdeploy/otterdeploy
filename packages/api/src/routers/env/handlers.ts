@@ -3,8 +3,8 @@
  *
  * Envs are created standalone (no projectId) and attached to a project by
  * the subsequent `project.create` call that supplies the env's id. Org
- * scoping for reads is through `project.organizationId` via inner join —
- * standalone envs are intentionally invisible to `list` / `get` until a
+ * scoping for reads is through `project.organizationId` via inner join.
+ * Standalone envs are intentionally invisible to `list` / `get` until a
  * project claims them.
  */
 
@@ -65,7 +65,7 @@ export async function createEnv(input: {
   // unhelpful "Result.tryPromise catch handler threw" with no clue what the
   // underlying DB error was. We map the unique-violation case to a typed
   // conflict and everything else to a typed DB error carrying the cause
-  // message — the router logs the cause and returns 500 with detail.
+  // message: the router logs the cause and returns 500 with detail.
   const insert = await Result.tryPromise({
     try: () =>
       createEnvRecord({
@@ -85,7 +85,7 @@ export async function createEnv(input: {
   }
   // Give the environment its mirror: an EMPTY `environments.<slug>` overlay,
   // which resolves to a manifest identical to base and keeps tracking it. Only
-  // meaningful once the env is attached to a project — a standalone env has no
+  // meaningful once the env is attached to a project. A standalone env has no
   // manifest to overlay onto yet.
   if (input.projectId && input.organizationId) {
     await ensureEnvironmentOverlay(
@@ -101,7 +101,7 @@ export async function createEnv(input: {
  *
  * Refuses a non-empty environment unless `cascade` is set. The refusal is the
  * point: a resource whose `environment_id` no longer resolves matches no scope
- * query at all — not base, not any live environment — so it disappears from
+ * query at all (not base, not any live environment) so it disappears from
  * every list and graph while its container keeps running. The operator confirms
  * what will be destroyed, and only then does the delete take the resources with
  * it.
@@ -127,7 +127,7 @@ export async function deleteEnv(
   }
   // Drop the overlay too. Left behind it is inert, but re-creating an
   // environment with the same slug would silently inherit the deleted one's
-  // overrides — a "new" environment that is not a clean mirror, with nothing
+  // overrides: a "new" environment that is not a clean mirror, with nothing
   // on screen explaining why.
   if (owned?.projectId) {
     await dropEnvironmentOverlay(

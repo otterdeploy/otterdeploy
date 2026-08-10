@@ -5,7 +5,7 @@ import { source } from "@/lib/source";
 
 /**
  * The sitemap, generated from the same `source` the docs navigation is built
- * from — so a page can't exist in the sidebar and be missing here, which is
+ * from, so a page can't exist in the sidebar and be missing here, which is
  * the usual way a hand-maintained sitemap goes stale.
  *
  * Served at /sitemap.xml; the filename uses `[.]` because TanStack Router
@@ -39,8 +39,8 @@ export const Route = createFileRoute("/sitemap.xml")({
           if (page.url === docsRoute) continue;
           entries.push({
             loc: absoluteUrl(page.url),
-            // The generated OpenAPI operation pages are reference material —
-            // real, indexable, but not what anyone should land on first.
+            // The generated OpenAPI operation pages are reference material.
+            // Real, indexable, but not what anyone should land on first.
             priority: page.url.startsWith(`${docsRoute}/openapi`) ? "0.3" : "0.6",
           });
         }

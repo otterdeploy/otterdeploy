@@ -17,14 +17,14 @@ Each node also carries an availability you control:
 
 | Availability | Effect |
 | --- | --- |
-| `active` | Normal — eligible for new tasks |
+| `active` | Normal: eligible for new tasks |
 | `drain` | Existing tasks move off; no new ones scheduled |
 | `pause` | Keeps what it has; no new tasks |
 
 Drain a node before you reboot or resize it, and its work moves rather than
 disappearing.
 
-Node status — `ready`, `draining`, `down` — is the cluster's own view, reported
+Node status (`ready`, `draining`, `down`) is the cluster's own view, reported
 as-is.
 
 ## Adding a node
@@ -58,7 +58,7 @@ than defaulting to a reassuring "protected":
 | `applied` | The nftables baseline is in place |
 | `unsupported` | ufw or firewalld was already managing the host and took precedence |
 | `failed` | The install attempt errored |
-| `unknown` | Predates the feature, or ran an older provision — drift, not a claim |
+| `unknown` | Predates the feature, or ran an older provision: drift, not a claim |
 
 `unknown` is deliberately not a pass. It means nobody has checked.
 
@@ -78,15 +78,15 @@ Deploy, crash, host-pressure and anomaly events go to channels you configure:
 
 `slack` · `discord` · `email` · `webhook` · `telegram` · `pagerduty` · `push`
 
-A channel is `active`, `paused`, or `disconnected` — the last meaning it was
+A channel is `active`, `paused`, or `disconnected`. The last meaning it was
 created but never confirmed, like a Telegram bot that hasn't been linked.
 Degraded delivery is derived from recent failures rather than stored, so a
 channel that starts failing shows it without you re-testing.
 
 ## Raw Docker
 
-An escape hatch onto the daemon's own inventory — containers, images, networks,
-volumes — with inspect and prune. It sits one level below the product surfaces
+An escape hatch onto the daemon's own inventory. Containers, images, networks,
+volumes: with inspect and prune. It sits one level below the product surfaces
 on purpose: it's for the times the abstraction is in your way, not a peer of
 the Servers page.
 
@@ -103,7 +103,7 @@ append-only, with an outcome of `success`, `failure` or `denied`, and is
 filterable and queryable.
 
 Conservative rules run over recent audit rows and raise a notification for
-denial bursts and mass deletions — the events you want to hear about from the
+denial bursts and mass deletions: the events you want to hear about from the
 system rather than notice yourself a week later.
 
 ```bash

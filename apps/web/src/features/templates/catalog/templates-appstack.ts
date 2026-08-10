@@ -7,7 +7,7 @@ export const APPSTACK_TEMPLATES: StackTemplate[] = [
     id: "hasura",
     name: "Hasura",
     description:
-      "Instant GraphQL over Postgres — introspects the schema and serves queries, mutations and subscriptions with row-level permissions, no resolvers to write.",
+      "Instant GraphQL over Postgres. Introspects the schema and serves queries, mutations and subscriptions with row-level permissions, no resolvers to write.",
     category: "data",
     includes: ["hasura", "db"],
     requiredEnv: [
@@ -54,7 +54,7 @@ volumes:
     id: "temporal",
     name: "Temporal",
     description:
-      "Durable workflow engine — long-running processes survive crashes, deploys and retries because state lives in the server, not your process. Ships with the web UI.",
+      "Durable workflow engine. Long-running processes survive crashes, deploys and retries because state lives in the server, not your process. Ships with the web UI.",
     category: "automation",
     includes: ["temporal", "ui", "db"],
     requiredEnv: [
@@ -107,7 +107,7 @@ volumes:
     id: "nats",
     name: "NATS",
     description:
-      "Messaging for services — pub/sub, request/reply and JetStream persistence in one small Go binary. A lighter answer than Kafka when you want a queue, not a log platform.",
+      "Messaging for services: pub/sub, request/reply and JetStream persistence in one small Go binary. A lighter answer than Kafka when you want a queue, not a log platform.",
     category: "data",
     includes: ["nats"],
     requiredEnv: [],
@@ -135,13 +135,13 @@ volumes:
     id: "baserow",
     name: "Baserow",
     description:
-      "Spreadsheet-shaped database with a REST API — an open-source Airtable. Single image bundling web, API and worker; data and uploads persist to one named volume.",
+      "Spreadsheet-shaped database with a REST API: an open-source Airtable. Single image bundling web, API and worker; data and uploads persist to one named volume.",
     category: "data",
     includes: ["baserow"],
     requiredEnv: [
       {
         key: "BASEROW_PUBLIC_URL",
-        description: "Public base URL — the frontend calls the API at this address.",
+        description: "Public base URL. The frontend calls the API at this address.",
       },
       {
         key: "SECRET_KEY",

@@ -6,7 +6,7 @@
  * byte-progress line every few seconds.
  *
  * Deploy paths feed these lines into `deployment_log` so the operator can SEE
- * a long image download instead of a silent gap — and so the zero-task stale
+ * a long image download instead of a silent gap, and so the zero-task stale
  * check (`isBuildStillLogging`) keeps the deployment "building" while bytes
  * are still flowing instead of flipping a slow pull to "failed".
  */
@@ -14,7 +14,7 @@ import type { ImagePullEvent } from "./image-pull";
 
 const DEFAULT_INTERVAL_MS = 2_000;
 
-// Per-layer chatter — aggregated into the throttled byte line instead of
+// Per-layer chatter, aggregated into the throttled byte line instead of
 // logged verbatim. Anything else ("Pulling from …", "Digest: …",
 // "Status: …", "Already present", registry error text) passes through.
 const LAYER_NOISE =
@@ -30,11 +30,11 @@ export interface PullLineSummarizer {
 export function createPullLineSummarizer(
   intervalMs: number = DEFAULT_INTERVAL_MS,
 ): PullLineSummarizer {
-  // Docker reports bytes per layer id — the cross-layer sum is what reads as
+  // Docker reports bytes per layer id. The cross-layer sum is what reads as
   // "one download" to the operator.
   const current = new Map<string, number>();
   const total = new Map<string, number>();
-  // Start the throttle clock now — the pass-through headline ("Pulling from
+  // Start the throttle clock now. The pass-through headline ("Pulling from
   // library/postgres") already confirms the pull started, so the first byte
   // line can wait a full interval.
   let lastEmit = Date.now();

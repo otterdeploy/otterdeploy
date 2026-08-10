@@ -12,7 +12,7 @@
  * - Request counts zero-fill (0 requests is a real measurement); p95 is null
  *   in an empty bucket.
  *
- * `projectId` is typed `string` and cast at the oRPC call boundary — same
+ * `projectId` is typed `string` and cast at the oRPC call boundary. Same
  * convention as `use-resource-metrics`.
  */
 
@@ -22,8 +22,8 @@ import { orpc } from "@/shared/server/orpc";
 
 import { METRIC_WINDOWS } from "./use-resource-metrics";
 
-/** Metrics-page look-back windows. Extends the per-resource list with 7d —
- *  the real retention bound (`resource_metric` and the edge-log partitions
+/** Metrics-page look-back windows. Extends the per-resource list with 7d.
+ *  The real retention bound (`resource_metric` and the edge-log partitions
  *  are both pruned after 7 days). */
 export const PROJECT_METRIC_WINDOWS = [...METRIC_WINDOWS, { label: "7d", minutes: 10080 }] as const;
 
@@ -169,9 +169,9 @@ const EMPTY_REQUESTS: RequestSummary = {
 export interface ProjectRequestMetrics {
   rows: RequestRow[];
   summary: RequestSummary;
-  /** 0 ⇒ the project routes no public HTTP hosts — nothing can chart here. */
+  /** 0 ⇒ the project routes no public HTTP hosts, nothing can chart here. */
   hostCount: number;
-  /** "ring" ⇒ served from the in-memory buffer (persistence off) — history
+  /** "ring" ⇒ served from the in-memory buffer (persistence off): history
    *  is much shorter than the selected window may suggest. */
   source: "db" | "ring" | null;
   /** True when the fetch cap truncated the window (old buckets undercount). */

@@ -4,7 +4,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 /**
  * The version row at the top of the docs sidebar.
  *
- * It used to render a ⇅ chevron so it read as a version switcher — but there
+ * It used to render a ⇅ chevron so it read as a version switcher, but there
  * is exactly one docs version, and clicking it did nothing. An affordance that
  * doesn't afford anything is the same lie as a fake status, and DESIGN.md's
  * second principle is being honest about system state. So this is a label: it
@@ -13,7 +13,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
  *
  * The number is injected at build time from the newest release tag (see
  * `__DOCS_VERSION__` in vite.config.ts) rather than typed in here. It was
- * hardcoded to `v0.1.0` while releases had reached v0.7.0 — the same dishonesty
+ * hardcoded to `v0.1.0` while releases had reached v0.7.0. The same dishonesty
  * the comment above argues against, just harder to notice. When no tag can be
  * resolved the row renders nothing, because a wrong version is worse than none.
  */

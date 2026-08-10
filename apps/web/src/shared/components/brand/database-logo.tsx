@@ -25,7 +25,7 @@ interface Props {
 /**
  * Engines whose brand ink flips between themes (MySQL teal, MongoDB ink,
  * MariaDB navy all vanish on the dark canvas). Selected via the app theme
- * hook — `resolvedTheme` also tracks the OS when theme="system".
+ * hook. `resolvedTheme` also tracks the OS when theme="system".
  */
 const themedBrands: Record<
   Extract<DatabaseBrand, "mysql" | "mongodb" | "mariadb">,
@@ -124,7 +124,7 @@ function ClickHouseMark({ size }: { size: number }) {
       <rect x="2" y="3" width="4" height="18" rx="1" fill="#FFCC01" />
       <rect x="8" y="3" width="4" height="18" rx="1" fill="#FFCC01" />
       <rect x="14" y="3" width="4" height="11" rx="1" fill="#FFCC01" />
-      {/* currentColor, not #111 — the dark cap must stay visible on the dark canvas */}
+      {/* currentColor, not #111: the dark cap must stay visible on the dark canvas */}
       <rect x="14" y="16" width="8" height="5" rx="1" fill="currentColor" />
     </svg>
   );

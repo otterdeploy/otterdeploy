@@ -71,7 +71,7 @@ export async function renderProjectFromRows(projectId: ProjectId): Promise<Stack
     listDatabaseResourceRecords(projectId),
     listServiceRecordsByProject(projectId),
   ]);
-  // Base rows only — a preview's branch DB reuses the base name and would
+  // Base rows only: a preview's branch DB reuses the base name and would
   // collide with (and overwrite) the base entry in the rendered stack.
   const databases = databaseRecords.filter((r) => r.resource.previewId == null);
 

@@ -1,5 +1,5 @@
 /**
- * AccessWall CSS — form half (centered card, inputs, buttons, footer,
+ * AccessWall CSS: form half (centered card, inputs, buttons, footer,
  * responsive). Concatenated after `accessWallBaseCss`.
  */
 

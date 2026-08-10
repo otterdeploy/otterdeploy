@@ -17,7 +17,7 @@ import { dirname, resolve, sep } from "node:path";
 let availability: Promise<boolean> | null = null;
 
 /**
- * Whether the data root exists and is writable. Memoized — created `0700` on
+ * Whether the data root exists and is writable. Memoized. Created `0700` on
  * first call (the tree is secret-bearing). Returns `false` (never throws) when
  * `/data` isn't writable, so callers can guard a write/cleanup without a
  * try/catch and the whole feature gracefully no-ops in dev.
@@ -30,15 +30,15 @@ export function dataRootAvailable(): Promise<boolean> {
 }
 
 /**
- * Recursively delete `path` — but ONLY if it resolves INSIDE `DATA_ROOT` *and*
+ * Recursively delete `path`, but ONLY if it resolves INSIDE `DATA_ROOT` *and*
  * ends with `id`. Cheap insurance against a path bug nuking the wrong tree
  * (borrowed from Coolify's `endsWith(uuid)` guard): a derivation that returns
  * `""`, `"/"`, or someone else's directory fails one of the two checks and the
  * call becomes a no-op instead of an `rm -rf`.
  *
  * This is the ONLY guarded-delete in the codebase on purpose. It used to be
- * copy-pasted at each call site, which is how a guard quietly loses a clause —
- * every new caller must go through here rather than re-spelling the check.
+ * copy-pasted at each call site, which is how a guard quietly loses a clause.
+ * Every new caller must go through here rather than re-spelling the check.
  *
  * `root + sep` (not bare `root`) is what stops `/data/otterdeploy-evil` from
  * passing as a child of `/data/otterdeploy`. Best-effort: never throws, so a
@@ -66,7 +66,7 @@ export async function removeProjectDir(id: ProjectId): Promise<void> {
 /**
  * Ensure the parent dir exists and return the on-disk path where an uploaded
  * source tarball should land for a `source: "upload"` build. Returns null when
- * the data folder isn't writable — the whole feature requires the shared data
+ * the data folder isn't writable. The whole feature requires the shared data
  * dir (the same gate the git-clone path degrades under), so the caller rejects
  * the upload with a clear message rather than staging into a void. The caller
  * streams the request body into this path (with its own size cap).

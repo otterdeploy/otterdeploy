@@ -1,7 +1,7 @@
 /**
  * Display helpers and small form/badge primitives shared across the backups
  * feature. All formatters operate directly on the contract-inferred DTO types
- * (no parallel hand-written view models) — the page maps raw bytes/timestamps
+ * (no parallel hand-written view models): the page maps raw bytes/timestamps
  * into display strings here rather than into a duplicate interface.
  */
 import {
@@ -46,10 +46,10 @@ export function encLabel(e: EncryptionValue): string {
 }
 
 export function relTime(d: Date | string | null): string {
-  if (!d) return "—";
+  if (!d) return "–";
   const t = typeof d === "string" ? new Date(d).getTime() : d.getTime();
   const diff = Date.now() - t;
-  if (!Number.isFinite(diff)) return "—";
+  if (!Number.isFinite(diff)) return "–";
   const future = diff < 0;
   const s = Math.max(0, Math.round(Math.abs(diff) / 1000));
   const fmt = (n: number, unit: string) => (future ? `in ${n}${unit}` : `${n}${unit} ago`);
@@ -62,13 +62,13 @@ export function relTime(d: Date | string | null): string {
 }
 
 export function absTime(d: Date | string | null): string {
-  if (!d) return "—";
+  if (!d) return "–";
   const date = typeof d === "string" ? new Date(d) : d;
   return `${date.toISOString().slice(0, 19).replace("T", " ")} UTC`;
 }
 
 export function fmtDuration(ms: number | null): string {
-  if (ms == null) return "—";
+  if (ms == null) return "–";
   const total = Math.round(ms / 1000);
   const m = Math.floor(total / 60);
   const s = total % 60;
@@ -76,14 +76,14 @@ export function fmtDuration(ms: number | null): string {
 }
 
 export function fmtBytes(bytes: number | null): string {
-  if (bytes == null || bytes <= 0) return "—";
+  if (bytes == null || bytes <= 0) return "–";
   const mb = bytes / 1e6;
   if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
   if (mb >= 1) return `${mb.toFixed(0)} MB`;
   return `${(mb * 1024).toFixed(0)} KB`;
 }
 
-/** When a run happened — the most specific timestamp it has reached. */
+/** When a run happened. The most specific timestamp it has reached. */
 export function backupWhen(b: Backup): Date | string | null {
   return b.completedAt ?? b.startedAt ?? b.createdAt;
 }

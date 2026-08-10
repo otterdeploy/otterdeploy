@@ -1,7 +1,7 @@
 /**
  * Live provisioning-log transport. Onboarding output is ephemeral (no DB
  * table) so we keep a small in-process scrollback ring per active provision and
- * fan lines out over Redis pub/sub — same Bun `RedisClient` mechanism the
+ * fan lines out over Redis pub/sub: same Bun `RedisClient` mechanism the
  * deployment log tail uses (deployment/log-stream.ts). The runner and the
  * stream handler usually share a process, but going through Redis keeps it
  * correct if the API is ever scaled to more than one instance.
@@ -20,7 +20,7 @@ export interface ProvisionLine {
 }
 
 const channel = (serverId: ServerId) => `server:${serverId}:provision`;
-/** Sentinel line that closes any attached stream — published on terminal. */
+/** Sentinel line that closes any attached stream, published on terminal. */
 const END = "\0OTTER_PROVISION_END";
 const RING_MAX = 500;
 /** Keep the scrollback ring (including its terminal marker) this long after a
@@ -52,7 +52,7 @@ function publish(serverId: ServerId, entry: ProvisionLine): void {
 /** Append a line to the ring and fan it out live. Fire-and-forget. */
 export function emitProvisionLine(serverId: ServerId, line: string): void {
   // A pending drop timer means the previous run for this server already ended;
-  // a new emit is therefore a fresh run (e.g. a retry) — cancel the drop and
+  // a new emit is therefore a fresh run (e.g. a retry). Cancel the drop and
   // start from a clean ring so old scrollback doesn't bleed into it.
   const pendingDrop = dropTimers.get(serverId);
   if (pendingDrop) {
@@ -118,14 +118,14 @@ export async function* streamProvisionLogs(
       if (parsed.line === END) ended = true;
       else buffer.push(parsed);
     } catch {
-      // Defensive only — we're the sole writer and JSON.stringify.
+      // Defensive only: we're the sole writer and JSON.stringify.
     }
     wake();
   });
 
   try {
     // Replay scrollback. A ring that already carries the END marker means the
-    // run finished before we subscribed (a fast fail/complete) — yield what it
+    // run finished before we subscribed (a fast fail/complete). Yield what it
     // logged, then fall through to a clean end rather than blocking on live
     // lines that will never arrive.
     for (const entry of rings.get(serverId) ?? []) {

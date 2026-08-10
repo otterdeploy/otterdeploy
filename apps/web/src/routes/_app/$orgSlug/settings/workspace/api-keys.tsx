@@ -44,13 +44,13 @@ function RouteComponent() {
   const { user } = Route.useRouteContext();
   const organizationId = organization.id;
 
-  // Reuse the cached members query to resolve the viewer's role — only
+  // Reuse the cached members query to resolve the viewer's role. Only
   // owners/admins can create, toggle or delete the workspace's keys.
   const members = useMembers(organizationId);
   const myRole = members.data?.find((m) => m.userId === user.id)?.role;
   const canManage = myRole === "owner" || myRole === "admin";
 
-  // Shared collection scoped to the viewed org — the `eq` filter forwards as a
+  // Shared collection scoped to the viewed org. The `eq` filter forwards as a
   // subset load, so this both fetches and subscribes. `isLoading` is true only
   // on the first fetch of this org's subset.
   const { data: keys, isLoading } = useLiveQuery(
@@ -94,7 +94,7 @@ function RouteComponent() {
           strokeWidth={2}
           className="size-3.5 shrink-0"
         />
-        <span>Keys are shown once at creation and cannot be recovered — store them securely.</span>
+        <span>Keys are shown once at creation and cannot be recovered. Store them securely.</span>
       </div>
 
       {isLoading ? (

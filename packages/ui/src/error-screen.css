@@ -2,7 +2,7 @@
  * Styling for `@otterdeploy/ui/error-screen`.
  *
  * Lives beside the component rather than in either app's stylesheet, because
- * the component is useless without it — a consumer that imports one and forgets
+ * the component is useless without it. A consumer that imports one and forgets
  * the other renders an unstyled screen. Import once from the app's Tailwind
  * entry:
  *
@@ -13,7 +13,7 @@
  */
 
 /* Tailwind auto-detection skips node_modules, and a workspace package resolves
-   through it — so without this the component's classes are never scanned and
+   through it, so without this the component's classes are never scanned and
    the utilities below get tree-shaken out, leaving an unstyled error screen in
    production while dev looks fine. Declared here rather than in each app's
    stylesheet so importing this file is all a consumer has to do. */

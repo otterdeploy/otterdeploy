@@ -7,11 +7,11 @@ import { triggerDeploy } from "@otterdeploy/jobs";
 /**
  * Reconcile a compose stack declared in the project manifest. Called by the
  * manifest reconciler (routers/project/manifest-apply.ts) when a `compose`
- * create change is applied — the staged-then-Deploy twin of the one-shot
+ * create change is applied. The staged-then-Deploy twin of the one-shot
  * `compose.create` handler.
  *
  * The manifest stages the stack (the compose_resource row + its swarm services
- * don't exist yet — only the manifest entry does); THIS is where the row is
+ * don't exist yet. Only the manifest entry does); THIS is where the row is
  * created and the stack deployed. Inline stacks deploy here; git stacks enqueue
  * a build that deploys on completion. Failures fold into a ManifestApplySkipError
  * so a bad stack doesn't abort the whole apply. See docs/designs/compose.md.
@@ -130,7 +130,7 @@ async function createGitStackFromManifest(
         projectId,
         // Stamp the environment like every other create path. Unstamped rows
         // are only visible because MAIN additionally owns NULL (a legacy
-        // allowance in inEnvironmentScope) — a non-main environment would
+        // allowance in inEnvironmentScope): a non-main environment would
         // never see this stack.
         environmentId: project.environmentId,
         name,
@@ -206,7 +206,7 @@ async function createInlineStackFromManifest(
     try: () =>
       createComposeRecord({
         projectId,
-        // See the git branch above — same reason.
+        // See the git branch above, same reason.
         environmentId: project.environmentId,
         name,
         source: "inline",
@@ -229,7 +229,7 @@ async function createInlineStackFromManifest(
     );
   }
 
-  // `build:` services can't deploy directly (no image yet) — route through the
+  // `build:` services can't deploy directly (no image yet). Route through the
   // build worker (materializes the file tree, builds, deploys on completion).
   if (services.some((s) => s.hasBuild)) {
     const enq = await enqueueInlineComposeBuild({

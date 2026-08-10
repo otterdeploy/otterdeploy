@@ -1,5 +1,5 @@
 /**
- * Read queries for `preview` rows — the first-class PR-preview entity.
+ * Read queries for `preview` rows. The first-class PR-preview entity.
  * Lifecycle writes (ensure/close) live in git/preview-env.ts next to the
  * webhook orchestration; these getters serve the deploy path, the builder
  * and the previews API.
@@ -17,7 +17,7 @@ export async function getPreviewById(id: PreviewId): Promise<PreviewRow | undefi
   return row;
 }
 
-/** Open previews for a project, oldest first — feeds the graph satellites. */
+/** Open previews for a project, oldest first, feeds the graph satellites. */
 export async function listActivePreviewsByProject(projectId: ProjectId): Promise<PreviewRow[]> {
   return db
     .select()

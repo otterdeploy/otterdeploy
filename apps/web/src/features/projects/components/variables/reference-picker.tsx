@@ -1,5 +1,5 @@
 /**
- * Reference picker dropdown — the Railway-style "Add Reference" surface
+ * Reference picker dropdown: the Railway-style "Add Reference" surface
  * for the env-var editor.
  *
  * Reads from `project.refs.list` and renders one row per available
@@ -15,7 +15,7 @@
  *     "postgres-replica"
  *
  * Filter input narrows by substring match against `key`, `sourceName`,
- * or the full token — same fuzzy intuition as Railway's picker.
+ * or the full token: same fuzzy intuition as Railway's picker.
  */
 
 import { useState, useMemo } from "react";
@@ -44,10 +44,10 @@ interface RefGroup {
 
 export interface ReferencePickerProps {
   /** Accepts either a branded project id or the plain string the
-   *  caller has on hand — branded types are launder via `as never` at
+   *  caller has on hand. Branded types are launder via `as never` at
    *  the query-options call so both shapes work. */
   projectId: string;
-  /** Hide the row whose token equals this — used when the picker is
+  /** Hide the row whose token equals this. Used when the picker is
    *  opened from a field whose value already IS one specific token. */
   excludeToken?: string | null;
   /** Called once the user clicks a row. Receives the token to insert. */
@@ -77,7 +77,7 @@ function SourceIcon({
     return <Icon className="size-4 shrink-0" />;
   }
   // Generic monospace `{ }` glyph for service / project / environment
-  // sources — they share the same neutral treatment.
+  // sources: they share the same neutral treatment.
   return <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{"{ }"}</span>;
 }
 
@@ -171,8 +171,8 @@ export function ReferencePicker({
         ) : (
           groups.map((g) => (
             <div key={g.key} className="mb-1 last:mb-0">
-              {/* Group header names the owner — a resource, or the shared
-                  project/environment scope — so each token's origin is clear. */}
+              {/* Group header names the owner: a resource, or the shared
+                  project/environment scope, so each token's origin is clear. */}
               <div className="flex items-center gap-2 px-3 py-1.5">
                 <SourceIcon kind={g.kind} engine={g.engine} />
                 <span className="text-[11.5px] font-semibold text-foreground">{g.label}</span>
@@ -193,7 +193,7 @@ export function ReferencePicker({
                   <span className="font-mono text-[11.5px]">{r.key}</span>
                   <span className="ml-auto flex items-center gap-2">
                     {/* Platform-generated (HOST/PORT/URL/DOMAIN/DATABASE_URL/…)
-                        vs the service's own env keys — tagged so they're not
+                        vs the service's own env keys. Tagged so they're not
                         mistaken for each other. */}
                     {r.platform && (
                       <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] tracking-wide text-muted-foreground/70 uppercase">

@@ -36,7 +36,7 @@ export async function renameResource(
   // Only a PENDING resource may be renamed. A deployed one has its container,
   // swarm service and volume names derived from this name (buildContainerName
   // / buildVolumeName), so renaming the manifest key alone would repoint the
-  // project at infrastructure that doesn't exist — and for a database, away
+  // project at infrastructure that doesn't exist, and for a database, away
   // from the volume holding its data.
   const envScope = await resolveProjectEnvironmentScope(scope.projectId, null);
   if (envScope) {
@@ -47,7 +47,7 @@ export async function renameResource(
       return {
         ok: false,
         code: "rejected",
-        message: `"${input.from}" is already deployed. Renaming a running resource isn't supported yet — its container and volume names are derived from this name.`,
+        message: `"${input.from}" is already deployed. Renaming a running resource isn't supported yet. Its container and volume names are derived from this name.`,
       };
     }
   }
@@ -74,7 +74,7 @@ export async function renameResource(
       ? {
           ok: false,
           code: "rejected",
-          message: "The manifest changed underneath you — reload and retry.",
+          message: "The manifest changed underneath you. Reload and retry.",
         }
       : { ok: false, code: "not-found" };
   }

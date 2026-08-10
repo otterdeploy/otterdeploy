@@ -1,12 +1,12 @@
 /**
  * Canonical framework/language identity for git-sourced services.
  *
- * A service's framework is a static property of its repo — it's detected
+ * A service's framework is a static property of its repo. It's detected
  * once, at build time (the builder already clones + analyses the repo), and
  * stored on the service row. The graph and resource panels READ that stored
  * value; they never re-derive it from the git provider's API.
  *
- * Single source of truth — `FRAMEWORK_KINDS` is the one tuple every layer
+ * Single source of truth: `FRAMEWORK_KINDS` is the one tuple every layer
  * derives from, so the set can't drift:
  *   - the zod enum on the resource contract (packages/api/.../contract/resource.ts)
  *   - the DB column type ($type<FrameworkKind>() on service_resource.framework)
@@ -14,7 +14,7 @@
  *   - the web's brand-logo map (apps/web/.../framework-logo.tsx)
  *
  * Keep this file zod-free so it can be consumed from layers that don't (and
- * shouldn't) depend on a validation library — mirrors `build-config.ts`.
+ * shouldn't) depend on a validation library. Mirrors `build-config.ts`.
  */
 
 export const FRAMEWORK_KINDS = [
@@ -46,7 +46,7 @@ export type Framework = (typeof FRAMEWORK_KINDS)[number];
 export type FrameworkKind = Framework | null;
 
 /**
- * Frameworks whose default build artifact is a client-rendered bundle —
+ * Frameworks whose default build artifact is a client-rendered bundle.
  * `vite` here means "vite with no SSR meta-framework on top" (the pkg
  * detector already prefers next/nuxt/remix/astro/sveltekit over vite).
  * These want SPA index.html fallback when served statically.
@@ -61,7 +61,7 @@ export function isSpaFramework(framework: string | null | undefined): boolean {
 /**
  * Conventional listen port per server framework. The runtime injects no
  * `PORT` env, so the container port a service exposes must match what the
- * app binds by default — which makes this a lookup, not a question to ask
+ * app binds by default, which makes this a lookup, not a question to ask
  * the user. Absent entries (static-artifact frameworks) have no server port.
  */
 const FRAMEWORK_DEFAULT_PORTS: Readonly<Partial<Record<Framework, number>>> = {
@@ -100,7 +100,7 @@ export interface PackageJsonLike {
  * Node-only and intentionally finer-grained than railpack's own provider
  * detection (which collapses e.g. astro/express → "node", sveltekit → "vite").
  * Returns "node" for a Node app with no recognised framework, and `null` when
- * there's no `package.json` at all — callers fall back to railpack's
+ * there's no `package.json` at all. Callers fall back to railpack's
  * language-level detection for non-Node services (go/python/rust/ruby).
  *
  * Order matters: more specific signals win (next before react, sveltekit/

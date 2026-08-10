@@ -104,8 +104,8 @@ describe("effectiveListedStatus", () => {
     expect(effectiveListedStatus("failed", false)).toBe("failed");
     expect(effectiveListedStatus("removed", false)).toBe("removed");
     expect(effectiveListedStatus("superseded", false)).toBe("superseded");
-    // A cancel is an outcome, not an in-flight row a newer deploy replaced —
-    // it must not be rewritten to `superseded` once something newer lands.
+    // A cancel is an outcome, not an in-flight row a newer deploy replaced.
+    // It must not be rewritten to `superseded` once something newer lands.
     expect(effectiveListedStatus("cancelled", false)).toBe("cancelled");
   });
 
@@ -254,7 +254,7 @@ describe("listProjectDeployments", () => {
   });
 });
 
-describe("matchesStatusFilter — cancelled", () => {
+describe("matchesStatusFilter, cancelled", () => {
   test("is filterable on its own so stopped builds are findable in history", () => {
     expect(matchesStatusFilter("cancelled", "cancelled", true)).toBe(true);
     expect(matchesStatusFilter("cancelled", "cancelled", false)).toBe(true);

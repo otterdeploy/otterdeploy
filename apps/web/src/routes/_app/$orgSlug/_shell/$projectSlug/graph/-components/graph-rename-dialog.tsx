@@ -4,13 +4,13 @@
  * Only offered for resources that have never been created. A deployed one has
  * its container, swarm service and volume names derived from its name, so
  * renaming the manifest key would repoint the project at infrastructure that
- * doesn't exist — the server refuses it, and the menu doesn't offer it.
+ * doesn't exist. The server refuses it, and the menu doesn't offer it.
  *
  * The rename itself is a manifest edit: the key moves and every
  * `${service:old.…}` / `${database:old.…}` ref that addressed it is rewritten
  * in the same write (see routers/project/manifest-rename.ts). Nothing deploys.
  *
- * Rendered by GraphCanvas as a SIBLING of the menu — the DropdownMenu unmounts
+ * Rendered by GraphCanvas as a SIBLING of the menu. The DropdownMenu unmounts
  * the moment the item is clicked, so a dialog nested inside would go with it.
  * Same target-driven shape as graph-node-delete.tsx.
  */
@@ -38,7 +38,7 @@ import { Input } from "@/shared/components/ui/input";
 import { toastMessage } from "@/shared/lib/errors";
 import { orpc } from "@/shared/server/orpc";
 
-/** The manifest's key grammar, minus the trailing hyphen it wrongly allows —
+/** The manifest's key grammar, minus the trailing hyphen it wrongly allows.
  *  `mariadb-` sanitizes to `mariadb` when Docker names are derived, which
  *  collides with a real `mariadb` and fails the create forever. */
 function nameIssue(value: string): string | null {

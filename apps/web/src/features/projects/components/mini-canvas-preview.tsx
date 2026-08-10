@@ -14,7 +14,7 @@ export function MiniCanvasPreview({ services, databases, routes, className }: Pr
   // (the project list grid) don't collide on `<defs>`.
   const reactId = useId();
   const dotPatternId = `mini-dots-${reactId}`;
-  // A project's resources are services AND databases — the thumbnail used to
+  // A project's resources are services AND databases. The thumbnail used to
   // only draw a rect per database, so a project with 2 services + 0-1
   // databases rendered as an almost-empty box. Draw one node per resource
   // (services first, then databases) up to the cap.

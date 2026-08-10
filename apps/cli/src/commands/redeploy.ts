@@ -45,7 +45,7 @@ async function announceAndWait(
     return;
   }
 
-  // `succeeded`, not `ok` — `ok` is the outcome printer imported above.
+  // `succeeded`, not `ok`: `ok` is the outcome printer imported above.
   const { ok: succeeded, outcomes } = await waitForDeployments({
     client: ctx.client,
     projectId: ctx.projectId,
@@ -62,7 +62,7 @@ async function announceAndWait(
 }
 
 // A git-sourced service: rebuild from the head of its bound branch (same path
-// as `build`). Image-sourced services have nothing to build — point the user at
+// as `build`). Image-sourced services have nothing to build. Point the user at
 // `restart` / an image change instead of a raw error code.
 async function redeployService(
   ctx: ResourceContext,
@@ -78,7 +78,7 @@ async function redeployService(
     if (error instanceof ORPCError && error.code === "NOT_GIT_SOURCED") {
       // Both recoveries are real and different, so both are offered.
       abort(
-        `${ctx.resourceName} runs a prebuilt image — there is nothing to rebuild.`,
+        `${ctx.resourceName} runs a prebuilt image, so there is nothing to rebuild.`,
         `run \`${cmd(`restart ${ctx.resourceName}`)}\` to roll it with the current image`,
         `or change its image tag and run \`${cmd("deploy")}\``,
       );
@@ -91,7 +91,7 @@ async function redeployService(
 
 // A compose stack: `compose.redeploy` re-clones at branch HEAD (git stacks),
 // rebuilds any `build:` services, and re-applies the stack. It returns a
-// coarse {ok,error,status} rather than a deployment id — the stack resource's
+// coarse {ok,error,status} rather than a deployment id: the stack resource's
 // own deployment rows are what `--wait` follows.
 async function redeployCompose(
   ctx: ResourceContext,
@@ -137,7 +137,7 @@ export const redeployCommand = defineCommand({
   },
   async run({ args }) {
     const timeoutMs = parseTimeout(args.timeout);
-    // No kind filter — resolve first, then dispatch on the resource type so a
+    // No kind filter: resolve first, then dispatch on the resource type so a
     // stack and a service share one verb (the audit's missing `redeploy`).
     const ctx = await resolveResource(args, args.resource);
     const opts = { wait: Boolean(args.wait), timeoutMs, json: Boolean(args.json) };
@@ -154,10 +154,10 @@ export const redeployCommand = defineCommand({
     // no-op redeploy of a database looked like a success.
     //
     // A database runs a prebuilt engine image, so there is genuinely nothing to
-    // rebuild — but say what DOES work, the way the image-sourced service path
+    // rebuild, but say what DOES work, the way the image-sourced service path
     // above does. An error that only names the refusal is a dead end.
     abort(
-      `${ctx.resourceName} is a ${ctx.resourceType} — redeploy rebuilds from source, and an engine image has none.`,
+      `${ctx.resourceName} is a ${ctx.resourceType}. Redeploy rebuilds from source, and an engine image has none.`,
       `run \`${cmd(`restart ${ctx.resourceName}`)}\` to roll it with the current image and env`,
       "or change its engine version to move it to a new image",
     );

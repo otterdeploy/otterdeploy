@@ -8,23 +8,23 @@ import type {
 import type { JsonObject } from "@otterdeploy/shared/json";
 
 /**
- * Webhooks — the org's HTTP event surface, both directions. Distinct from
+ * Webhooks: the org's HTTP event surface, both directions. Distinct from
  * notification channels (./notification-channel.ts): a channel routes a
  * human-readable message to a chat/email destination; a webhook delivers the
  * raw signed event payload to a machine, and an inbound endpoint receives one.
  *
- *   webhook — one outbound subscription: a target URL + the platform events it
- *     wants (same catalog ids as notification subscriptions —
+ *   webhook: one outbound subscription: a target URL + the platform events it
+ *     wants (same catalog ids as notification subscriptions,
  *     packages/api/src/routers/notifications/events.ts). Every payload is
  *     signed with HMAC-SHA256 over the raw body (`X-Otterdeploy-Signature:
  *     sha256=<hex>`); `encryptedSecret` is the AES-GCM ciphertext of the
  *     signing key (packages/jobs/src/delivery/secret-crypto.ts).
  *
- *   webhook_delivery — append-only log, one row PER ATTEMPT (BullMQ retries
+ *   webhook_delivery: append-only log, one row PER ATTEMPT (BullMQ retries
  *     write their own rows), powering the card stats (total/success-rate/last)
  *     and the recent-deliveries table (code/attempt/latency).
  *
- *   inbound_endpoint — a unique unauthenticated URL
+ *   inbound_endpoint: a unique unauthenticated URL
  *     (`POST /api/webhooks/in/<token>`) external systems call to trigger an
  *     action. Requests must carry a valid HMAC signature for the endpoint's
  *     secret; an optional source-IP allowlist narrows callers further.
@@ -61,7 +61,7 @@ export const inboundEndpointStatusEnum = pgEnum("inbound_endpoint_status", ["act
 export const inboundEndpointActionEnum = pgEnum("inbound_endpoint_action", ["redeploy", "none"]);
 
 // ---------------------------------------------------------------------------
-// webhook — one outbound event subscription
+// webhook: one outbound event subscription
 // ---------------------------------------------------------------------------
 
 export const webhook = pgTable(
@@ -80,7 +80,7 @@ export const webhook = pgTable(
     // create; revealable to update-permitted members via `webhooks.reveal`.
     encryptedSecret: text("encrypted_secret").notNull(),
     // Subscribed catalog event ids (e.g. "deploy.failed"). Owned by the API's
-    // PLATFORM_EVENTS catalog, not an FK — same idiom as
+    // PLATFORM_EVENTS catalog, not an FK: same idiom as
     // notification_subscription.event_id, just denormalized onto the row.
     events: text("events").array().notNull().default([]),
     status: webhookStatusEnum("status").notNull().default("active"),
@@ -94,7 +94,7 @@ export const webhook = pgTable(
 );
 
 // ---------------------------------------------------------------------------
-// webhook_delivery — append-only, one row per delivery ATTEMPT
+// webhook_delivery: append-only, one row per delivery ATTEMPT
 // ---------------------------------------------------------------------------
 
 export const webhookDelivery = pgTable(
@@ -134,7 +134,7 @@ export const webhookDelivery = pgTable(
 );
 
 // ---------------------------------------------------------------------------
-// inbound_endpoint — unique URL that triggers an action when called
+// inbound_endpoint: unique URL that triggers an action when called
 // ---------------------------------------------------------------------------
 
 export const inboundEndpoint = pgTable(
@@ -158,7 +158,7 @@ export const inboundEndpoint = pgTable(
     encryptedSecret: text("encrypted_secret").notNull(),
     action: inboundEndpointActionEnum("action").notNull().default("redeploy"),
     // The service resource a `redeploy` action targets. SET NULL on resource
-    // deletion — the endpoint survives but degrades to "no target" (invoke
+    // deletion: the endpoint survives but degrades to "no target" (invoke
     // then records only).
     resourceId: text("resource_id")
       .$type<ResourceId>()

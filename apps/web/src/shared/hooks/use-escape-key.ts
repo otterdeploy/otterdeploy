@@ -8,7 +8,7 @@
  *
  * `enabled` is what keeps this to ONE step. Every open level would otherwise
  * hear the same keydown and close together, jumping from a deployment straight
- * to the bare graph — so a level passes `false` while it has a child open and
+ * to the bare graph, so a level passes `false` while it has a child open and
  * lets the child answer instead.
  */
 

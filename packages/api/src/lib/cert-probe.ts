@@ -1,15 +1,15 @@
 /**
- * TLS certificate probe — opens a TLS connection to the Caddy edge with the
+ * TLS certificate probe: opens a TLS connection to the Caddy edge with the
  * domain as SNI and reads the leaf certificate it presents. This is the
  * ground-truth view of what's actually served (ACME/Let's Encrypt, `tls
  * internal` self-signed, expired, or mismatched), with no dependency on
- * Caddy's filesystem or admin API — Caddy has no "list all certs" endpoint.
+ * Caddy's filesystem or admin API. Caddy has no "list all certs" endpoint.
  *
  * We connect to the edge directly (single-node: loopback; multi-node: the
  * platform server IP) rather than to the public domain, so Cloudflare-proxied
  * domains still report the ORIGIN cert Caddy serves, not Cloudflare's. SNI
  * (`servername`) is what makes Caddy pick the right cert. `rejectUnauthorized`
- * is off so we can still read self-signed/expired certs — we're inspecting,
+ * is off so we can still read self-signed/expired certs. We're inspecting,
  * not trusting.
  */
 
@@ -49,7 +49,7 @@ interface ProbeResult {
 }
 
 /** Open one TLS connection and resolve the presented leaf cert (or an error
- *  string). Never rejects — failure is returned, not thrown. */
+ *  string). Never rejects. Failure is returned, not thrown. */
 function connectAndRead(opts: {
   host: string;
   port: number;
@@ -98,7 +98,7 @@ function connectAndRead(opts: {
   });
 }
 
-/** The leaf-cert fields we read — a structural subset of node's
+/** The leaf-cert fields we read. A structural subset of node's
  *  PeerCertificate, so the pure shaping logic can be unit-tested with plain
  *  objects (no live socket). */
 export interface RawCert {

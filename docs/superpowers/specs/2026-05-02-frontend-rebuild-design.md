@@ -1,22 +1,22 @@
-# Frontend Rebuild — Design Spec
+# Frontend Rebuild: Design Spec
 
 **Date:** 2026-05-02
 **Status:** Draft
 **Branch:** `feat/v2-rebuild`
 **Companion to:** [`2026-04-07-otterdeploy-paas-v1-design.md`](./2026-04-07-otterdeploy-paas-v1-design.md)
 
-This spec covers only the `apps/web` rebuild. Resource model, runtime, and API surface are unchanged — see the v1 PaaS spec.
+This spec covers only the `apps/web` rebuild. Resource model, runtime, and API surface are unchanged. See the v1 PaaS spec.
 
 ---
 
 ## 1. Goal & Non-Goals
 
-**Goal.** Rebuild `apps/web` so otterdeploy feels like a serious, performant PaaS — a tool a solo dev, an agency, or an internal platform team would happily run every day. Match Railway's information architecture and Linear's polish, on top of coss ui primitives.
+**Goal.** Rebuild `apps/web` so otterdeploy feels like a serious, performant PaaS: a tool a solo dev, an agency, or an internal platform team would happily run every day. Match Railway's information architecture and Linear's polish, on top of coss ui primitives.
 
 **Non-goals.**
 - Not changing the API contract or domain model.
 - Not building observability dashboards in v1 (v1.1).
-- Not building light theme in v1 (v1.1 — but tokens are already var-driven so it costs days, not weeks).
+- Not building light theme in v1 (v1.1, but tokens are already var-driven so it costs days, not weeks).
 - Not building a templates marketplace (later).
 
 ---
@@ -35,7 +35,7 @@ We design for **all three** with progressive disclosure. The canvas-first flow i
 
 ## 3. Design direction
 
-**Shape:** Workbench — outer icon rail (workspace) + inner icon rail (project) + main content + right-side drawer for detail. Top breadcrumb with environment switcher.
+**Shape:** Workbench: outer icon rail (workspace) + inner icon rail (project) + main content + right-side drawer for detail. Top breadcrumb with environment switcher.
 
 **DNA:** Railway (canvas-as-centerpiece, mini-canvas previews, drawer-over-canvas, long-scroll settings with sticky TOC, persistent activity rail). Linear (smooth animations, ⌘K-first, keyboard shortcuts visible everywhere). Plane (open-source-grade dense list aesthetics).
 
@@ -52,7 +52,7 @@ We design for **all three** with progressive disclosure. The canvas-first flow i
 | Screen | Path | Tier | Purpose |
 |---|---|---|---|
 | Projects | `/` | v1 | Project list with mini-canvas previews. Default landing. |
-| Servers | `/servers` | v1 | Swarm nodes — add (paste join token), monitor (CPU/mem/disk), drain, remove. |
+| Servers | `/servers` | v1 | Swarm nodes: add (paste join token), monitor (CPU/mem/disk), drain, remove. |
 | Routing | `/routing` | v1 | Global Caddyfile root: admin socket, ACME/cert issuer, `local_certs`, layer4 root, redirects, wildcards. |
 | Volumes | `/volumes` | v1.1 | Persistent volumes across all projects, last backup, attached service. |
 | Activity | `/activity` | v1 | Workspace audit log: who deployed/changed/SSHed. Filter by actor, project, kind. |
@@ -74,8 +74,8 @@ We design for **all three** with progressive disclosure. The canvas-first flow i
 
 ### Caddy file scoping
 
-- `/routing` (workspace) edits the **global Caddyfile root block** — the part already produced by `buildCaddyfile` in `packages/api/src/caddy/builder.ts`.
-- `/project/$id/networking` edits **that project's fragment** — the part produced by `buildProjectFragment`.
+- `/routing` (workspace) edits the **global Caddyfile root block**: the part already produced by `buildCaddyfile` in `packages/api/src/caddy/builder.ts`.
+- `/project/$id/networking` edits **that project's fragment**: the part produced by `buildProjectFragment`.
 - The reconciler composes: read enabled `proxy_routes` from DB, group by project, render fragments, concat, push to Caddy admin API. UI shows fragment-level diff before applying.
 
 ### Drawers, modals, overlays (used everywhere)
@@ -146,10 +146,10 @@ Compact intent per screen. Visual fidelity in implementation; this is enough to 
 
 ### Canvas (`/project/$id`)
 - React Flow with custom nodes:
-  - `GroupNode` — titled container (resizable, droppable). Replaces ad-hoc layout.
-  - `ServiceNode` — image/repo, status pill, hostname row.
-  - `DatabaseNode` — engine icon, status, attached `VolumeNode` cards beneath.
-  - `RoutingNode` — Caddy as a first-class node showing public domains.
+  - `GroupNode`: titled container (resizable, droppable). Replaces ad-hoc layout.
+  - `ServiceNode`: image/repo, status pill, hostname row.
+  - `DatabaseNode`: engine icon, status, attached `VolumeNode` cards beneath.
+  - `RoutingNode`: Caddy as a first-class node showing public domains.
 - Floating bottom-left controls (coss `Toolbar`): zoom in/out/fit, undo/redo, mini-map toggle.
 - Top-right "+ Add" button → coss `Sheet`.
 - Click any node → service/database drawer.
@@ -157,7 +157,7 @@ Compact intent per screen. Visual fidelity in implementation; this is enough to 
 ### Logs (`/project/$id/logs`)
 - Filter row (coss `InputGroup` + service multi-select via coss `Combobox` + time range coss `Calendar` popover).
 - Main pane: a `@wterm/react` `Terminal` driven by `@wterm/ghostty` core, fed by a SSE/WebSocket log stream. Scrollback handled by Ghostty.
-- Right rail (sticky): **project-scoped** activity feed — recent deployments and status events for *this project* (not workspace-wide). Uses coss `Avatar` + status icons. (Workspace-wide audit lives at `/activity`.)
+- Right rail (sticky): **project-scoped** activity feed, recent deployments and status events for *this project* (not workspace-wide). Uses coss `Avatar` + status icons. (Workspace-wide audit lives at `/activity`.)
 
 ### Networking (`/project/$id/networking`)
 - Two-column: routes list (coss `Table`) + selected route form (coss `Form`/`Field`).
@@ -183,9 +183,9 @@ Compact intent per screen. Visual fidelity in implementation; this is enough to 
 
 ---
 
-## 7. Component conventions — strict rules
+## 7. Component conventions: strict rules
 
-1. **coss ui only.** `apps/web/src/components/ui/*` is the source of truth. We compose; we do not reimplement. If a primitive is missing, file a TODO and use the closest coss equivalent — do not handroll a div-with-tailwind replacement.
+1. **coss ui only.** `apps/web/src/components/ui/*` is the source of truth. We compose; we do not reimplement. If a primitive is missing, file a TODO and use the closest coss equivalent. Do not handroll a div-with-tailwind replacement.
 2. **Feature folder structure.** All product surfaces live under `apps/web/src/features/<feature>/`. A feature folder owns:
    ```
    features/<feature>/
@@ -195,7 +195,7 @@ Compact intent per screen. Visual fidelity in implementation; this is enough to 
      types.ts    ← Feature-local types
      index.ts    ← Public exports for the feature
    ```
-   Routes (`routes/_dashboard/...`) are thin — they import from features, do route-level data prep (loaders, search params), and render.
+   Routes (`routes/_dashboard/...`) are thin. They import from features, do route-level data prep (loaders, search params), and render.
 3. **No business logic in route files.** Loaders are fine; data shaping is not. Push to `features/<feature>/hooks/` or `packages/api`.
 4. **Queries live in `packages/api`** (existing rule). Frontend never builds DB queries.
 5. **Result-pattern propagation.** `.isOk()` / `.isErr()` from the API; never `.unwrap()` (existing rule). Surface errors via coss `Alert` or `Toast`.
@@ -208,7 +208,7 @@ Compact intent per screen. Visual fidelity in implementation; this is enough to 
 - Use coss tokens (Cal.com-inspired CSS vars). Override the dark palette in `apps/web/src/index.css`.
 - Defaults: Inter (sans), Geist Mono (mono), Inter (heading).
 - otterdeploy accent: warm amber/orange gradient reserved for primary buttons and the brand mark. Status colors use coss's `success` / `warning` / `destructive` / `info` tokens (don't introduce new ones).
-- Dark-first via `class="dark"` on `<html>`. Light theme exists as a v1.1 toggle — keep tokens var-driven so the switch is one class, not a redesign.
+- Dark-first via `class="dark"` on `<html>`. Light theme exists as a v1.1 toggle. Keep tokens var-driven so the switch is one class, not a redesign.
 
 ---
 
@@ -221,7 +221,7 @@ Compact intent per screen. Visual fidelity in implementation; this is enough to 
 | Mutation feedback | < 16ms | Optimistic update on every write via TanStack Query `onMutate` |
 | Live updates | < 500ms after server event | Existing `use-invalidation-socket.ts` driving `queryClient.invalidateQueries` |
 | Long lists | smooth at 10k items | `@tanstack/react-virtual` for Activity, Deployments, Variables, Logs scrollback |
-| Animations | locked 60fps | Use `motion/react` (existing); never animate width/height — use transform/opacity |
+| Animations | locked 60fps | Use `motion/react` (existing); never animate width/height. Use transform/opacity |
 
 ---
 
@@ -240,20 +240,20 @@ No other additions. React Flow, Tailwind v4, coss UI, TanStack Router/Query, oRP
 
 **Keep, audit only**
 - `apps/web/src/lib/auth.ts`, `utils/orpc.ts`, `main.tsx`, `routes/__root.tsx`, `hooks/use-invalidation-socket.ts`
-- `components/ui/*` (this is coss — the entire library is in-tree by design)
-- `features/auth/*` source flow — restyle with coss `Form`/`Field`/`Button` to drop the indigo/red ad-hoc styling
-- `routes/auth/*` — restyle, same content
-- `features/project-flow/*` React Flow scaffolding — keep, but redesign all node components and add `GroupNode`, `RoutingNode`, `VolumeNode`
+- `components/ui/*` (this is coss: the entire library is in-tree by design)
+- `features/auth/*` source flow: restyle with coss `Form`/`Field`/`Button` to drop the indigo/red ad-hoc styling
+- `routes/auth/*`: restyle, same content
+- `features/project-flow/*` React Flow scaffolding: keep, but redesign all node components and add `GroupNode`, `RoutingNode`, `VolumeNode`
 
 **Rewrite**
-- `routes/_dashboard/index.tsx` — current ad-hoc Tailwind cream-card layout → coss `Card` grid with mini-canvas previews
-- `routes/_dashboard/layout.tsx` — currently a bare `<Outlet/>`; becomes the workspace shell (outer rail + breadcrumb)
-- `routes/_dashboard/project/layout.tsx` — currently a bare `<Outlet/>`; becomes the project shell (inner rail + breadcrumb env switcher)
-- `components/header.tsx`, `mode-toggle.tsx`, `theme-provider.tsx`, `user-menu.tsx` — fold into the new shell components
+- `routes/_dashboard/index.tsx`: current ad-hoc Tailwind cream-card layout → coss `Card` grid with mini-canvas previews
+- `routes/_dashboard/layout.tsx`: currently a bare `<Outlet/>`; becomes the workspace shell (outer rail + breadcrumb)
+- `routes/_dashboard/project/layout.tsx`: currently a bare `<Outlet/>`; becomes the project shell (inner rail + breadcrumb env switcher)
+- `components/header.tsx`, `mode-toggle.tsx`, `theme-provider.tsx`, `user-menu.tsx`: fold into the new shell components
 
 **Delete**
 - `routes/_dashboard/playground.tsx` (test bed for env switcher, no longer needed)
-- `features/environment-switcher/` (entire folder) — replaced by a new `features/env-switcher/` that renders as a top-bar dropdown using coss `Select`. Old folder deleted; the new folder shares no code.
+- `features/environment-switcher/` (entire folder): replaced by a new `features/env-switcher/` that renders as a top-bar dropdown using coss `Select`. Old folder deleted; the new folder shares no code.
 - `features/project-flow/components/database-resource.tsx` and `resource.tsx` get rewritten in place (functionally a delete + new file)
 
 ---
@@ -271,7 +271,7 @@ No other additions. React Flow, Tailwind v4, coss UI, TanStack Router/Query, oRP
 - Dark theme only
 
 **v1.1**
-- Observability (project metrics dashboards) — adds inner-rail item back
+- Observability (project metrics dashboards): adds inner-rail item back
 - Volumes (workspace screen)
 - Metrics tab in service drawer
 - Light theme toggle
@@ -340,17 +340,17 @@ apps/web/src/
 
 ## 14. Testing
 
-- **Pure logic** (canvas layout helpers, fragment diffing, virtual list selectors) — vitest unit tests.
-- **Routes** — TanStack Router has built-in test utilities; one smoke test per route confirming it renders, loaders fire, and primary CTA exists.
-- **Visual regression** — out of scope for v1; revisit after launch.
-- **End-to-end** — manual against a local Swarm; codify in v1.1.
+- **Pure logic** (canvas layout helpers, fragment diffing, virtual list selectors): vitest unit tests.
+- **Routes**: TanStack Router has built-in test utilities; one smoke test per route confirming it renders, loaders fire, and primary CTA exists.
+- **Visual regression**: out of scope for v1; revisit after launch.
+- **End-to-end**: manual against a local Swarm; codify in v1.1.
 
 ---
 
 ## 15. Open questions / risks
 
-1. **GroupNode in React Flow.** Railway's grouped layout is non-trivial — drag a service into a group, persist membership, allow group resize. React Flow has a `parentNode` concept; verify it covers our needs before committing. (Risk: medium. Mitigation: prototype groups in week 1.)
+1. **GroupNode in React Flow.** Railway's grouped layout is non-trivial: drag a service into a group, persist membership, allow group resize. React Flow has a `parentNode` concept; verify it covers our needs before committing. (Risk: medium. Mitigation: prototype groups in week 1.)
 2. **Ghostty WASM bundle weight.** ~400KB is fine if lazy-loaded, but every Logs route mount paying that cost is not. Confirm one-shot init across the app, not per-route.
 3. **Caddy fragment diffing UX.** "Show me what my Caddy file looks like" is a power-user feature; the diff renderer needs to be readable to non-power users too. Likely uses `diff2html` or a hand-rolled coss `Card` line-diff.
 4. **Mobile.** Out of scope for v1. Hard cutoff: < 1024px shows a coss `Empty` saying "otterdeploy is desktop-only for now."
-5. **Theme switch infrastructure.** We commit to dark-first but token-var-driven. The switch must not require restyling — just `class="dark"` toggle. Verify coss tokens cover everything we use.
+5. **Theme switch infrastructure.** We commit to dark-first but token-var-driven. The switch must not require restyling. Just `class="dark"` toggle. Verify coss tokens cover everything we use.

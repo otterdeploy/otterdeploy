@@ -101,7 +101,7 @@ const urlCmd = defineCommand({
       // The password is inside these URLs and is never recoverable, so the
       // one-shot warning sits directly above them, not buried after.
       out();
-      warn("Shown once — the password is not stored and cannot be re-fetched.");
+      warn("Shown once. The password is not stored and cannot be re-fetched.");
       panel(
         [
           `internal  ${minted.internalUrl}`,
@@ -174,7 +174,7 @@ const credsList = defineCommand({
         paint("id", c.id),
         dim(c.scope),
         stateLabel(c.status),
-        // Which timestamp matters depends on the status — an active credential's
+        // Which timestamp matters depends on the status. An active credential's
         // expiry, a revoked one's revocation.
         dim(
           c.status === "active"
@@ -208,7 +208,7 @@ const credsRevoke = defineCommand({
     if (!args.yes) {
       note(dim("Active sessions using this credential are terminated."));
       const proceed = await confirm(`Revoke ${args.credentialId} on ${resourceName}?`);
-      if (!proceed) abort("Aborted — nothing was revoked.");
+      if (!proceed) abort("Aborted. Nothing was revoked.");
     }
     const { revoked } = await client.database.ephemeralRevoke({
       resourceId,

@@ -1,5 +1,5 @@
 /**
- * List a project's open PR previews with per-service deployment state — the
+ * List a project's open PR previews with per-service deployment state. The
  * data behind the graph's preview satellite cards. One row per preview; one
  * service entry per opted-in git service bound to the preview's repo (the
  * same predicate the deployer uses, so the card set always matches what the
@@ -54,7 +54,7 @@ export interface PreviewEntry {
   paused: boolean;
   autoTeardownAt: string | null;
   dbBranched: boolean;
-  /** How many platform DBs this preview's services actually connect to — the
+  /** How many platform DBs this preview's services actually connect to. The
    *  branch control is only meaningful (and only offered) when > 0. */
   branchableDbCount: number;
   services: PreviewServiceEntry[];
@@ -75,7 +75,7 @@ export async function listProjectPreviews(
   if (previews.length === 0) return Result.ok([]);
 
   // Branchable-DB count depends only on (project, repo), not the individual
-  // preview — memoize so N previews on one repo don't recompute it N times.
+  // preview: memoize so N previews on one repo don't recompute it N times.
   const branchableByRepo = new Map<string, number>();
   const branchableCount = async (
     gitRepoId: (typeof previews)[number]["gitRepoId"],
@@ -91,7 +91,7 @@ export async function listProjectPreviews(
 
   const out: PreviewEntry[] = [];
   for (const row of previews) {
-    // The services this preview builds — the deployer's own opt-in predicate.
+    // The services this preview builds. The deployer's own opt-in predicate.
     const services = await db
       .select({ resourceId: resource.id, name: resource.name })
       .from(resource)
@@ -165,7 +165,7 @@ export async function listProjectPreviews(
       services: services.map((svc) => {
         const dep = latestByResource.get(svc.resourceId);
         const route = routes.find((r) => r.resourceId === svc.resourceId);
-        // A paused preview's containers are stopped — report "paused", not the
+        // A paused preview's containers are stopped. Report "paused", not the
         // last-known running/building status.
         const status = row.paused ? "paused" : (dep?.status ?? "none");
         return {

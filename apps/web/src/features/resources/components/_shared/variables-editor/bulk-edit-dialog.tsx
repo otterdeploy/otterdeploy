@@ -1,4 +1,4 @@
-// Bulk edit dialog — pre-fills with the current draft as a `.env` body so
+// Bulk edit dialog: pre-fills with the current draft as a `.env` body so
 // the operator can edit inline OR paste over the top. Apply runs a single
 // replaceAll on the draft (baselines for unchanged keys survive so the
 // per-row status pills still tell the truth).
@@ -34,7 +34,7 @@ export function BulkEditDialog({ open, rows, onClose, onApply }: BulkEditDialogP
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       {/* Keying on `open` remounts the body on every reopen, so the textarea
-          re-seeds from the live draft — cancel really cancels, with no
+          re-seeds from the live draft, cancel really cancels, with no
           useEffect-reset. Editing stays sticky while the dialog is open. */}
       {open && <BulkEditBody key={String(open)} rows={rows} onClose={onClose} onApply={onApply} />}
     </Dialog>
@@ -72,7 +72,7 @@ function BulkEditBody({ rows, onClose, onApply }: Omit<BulkEditDialogProps, "ope
         <DialogTitle>Bulk edit · variables</DialogTitle>
         <DialogDescription>
           Paste a <span className="font-mono">.env</span> or edit inline. Comments and blank lines
-          are ignored. Applying replaces the current draft — save afterwards to commit.
+          are ignored. Applying replaces the current draft. Save afterwards to commit.
         </DialogDescription>
       </DialogHeader>
 

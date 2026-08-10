@@ -1,5 +1,5 @@
 /**
- * Webhooks page — Outbound (signed event POSTs + recent-deliveries log) and
+ * Webhooks page: Outbound (signed event POSTs + recent-deliveries log) and
  * Inbound (unique trigger URLs) behind line tabs, backed by the
  * `outboundCollection` / `inboundCollection` (oRPC `webhooks` router).
  * Outbound webhooks fire on the same platform-event catalog notifications
@@ -84,7 +84,7 @@ function RouteComponent() {
           draft.events = values.events as OutboundWebhook["events"];
         })
       : outboundCollection.insert({
-          // Optimistic placeholder — the real row (server id, minted secret)
+          // Optimistic placeholder: the real row (server id, minted secret)
           // replaces this on the post-create refetch.
           id: crypto.randomUUID() as OutboundWebhook["id"],
           url: values.url,

@@ -2,15 +2,15 @@
  * SSO provider reads, scoped to the caller's ACTIVE organization.
  *
  * Writes (register/update/delete) deliberately still go straight to
- * better-auth's own `/sso/*` endpoints from the client — they are single-object
+ * better-auth's own `/sso/*` endpoints from the client. They are single-object
  * operations the plugin already authorizes per provider (`checkProviderAccess`
  * → `isOrgAdmin`), so wrapping them would add a second authorization path to
  * keep correct for no gain.
  *
  * The LIST is different, and is why this router exists. The plugin's
  * `/sso/providers` returns every provider the caller can administer across ALL
- * their organizations. That is correctly authorized — no other tenant's config
- * is reachable — but a workspace settings page has no business receiving a
+ * their organizations. That is correctly authorized, no other tenant's config
+ * is reachable, but a workspace settings page has no business receiving a
  * different workspace's identity-provider metadata, and a `.filter()` in the
  * browser is presentation, never a boundary. This narrows on the server so the
  * extra rows never cross the wire.
@@ -25,7 +25,7 @@ import { organizationIdField } from "../project/contract/shared";
  * Mirrors the plugin's already-redacted view. Note what is ABSENT and must stay
  * absent: `clientSecret`, and the full `clientId` (only its last four
  * characters are exposed). The raw `sso_provider.oidc_config` column is never
- * read into this shape — see packages/db/src/schema/auth.ts.
+ * read into this shape. See packages/db/src/schema/auth.ts.
  */
 const ssoProviderViewSchema = z.object({
   providerId: z.string(),

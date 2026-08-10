@@ -1,5 +1,5 @@
 /**
- * Input shapes for `service.*` — what a caller may send.
+ * Input shapes for `service.*`: what a caller may send.
  *
  * Separate from ./contract-schemas.ts (what a service looks like coming back)
  * because the two drift for good reasons: an input accepts partials and
@@ -39,7 +39,7 @@ export const createServiceInput = z.object({
 
   // Image-sourced services must publish at least one port (otherwise
   // there's nothing to route to). Git-sourced services may publish zero
-  // ports at create time — the user might be building a worker. Enforced
+  // ports at create time. The user might be building a worker. Enforced
   // in the handler since zod can't see `source` from inside the array.
   ports: z.array(servicePortInputSchema),
   env: z.array(z.object({ key: z.string().regex(envKeyRegex), value: z.string() })).optional(),
@@ -72,7 +72,7 @@ export const createServiceInput = z.object({
     })
     .optional(),
 
-  // Lifecycle hooks — exec-form shell commands, run in order off the new
+  // Lifecycle hooks. Exec-form shell commands, run in order off the new
   // image. preDeploy runs before the rollout (db migrations); postDeploy
   // after the new replicas are live (cache warmup, smoke checks).
   preDeploy: z.array(z.string()).nullable().optional(),
@@ -118,7 +118,7 @@ export const updateServiceInput = z.object({
     })
     .optional(),
 
-  // Lifecycle hooks — see createServiceInput. Null clears; omitted leaves
+  // Lifecycle hooks. See createServiceInput. Null clears; omitted leaves
   // the stored value untouched (patch semantics).
   preDeploy: z.array(z.string()).nullable().optional(),
   postDeploy: z.array(z.string()).nullable().optional(),
@@ -137,7 +137,7 @@ export const rollbackServiceInput = z.object({
 });
 
 // `service.build` returns just the id of the pending deployment row it
-// enqueued — the UI watches it via the Deployments tab / SSE log stream.
+// enqueued: the UI watches it via the Deployments tab / SSE log stream.
 export const buildServiceOutput = z.object({
   deploymentId: z.string(),
 });
@@ -179,7 +179,7 @@ export const listDomainsInput = z.object({
 });
 
 // Persistent volume mounts. A container path (absolute) backed by a docker
-// named volume that survives redeploys — first-class storage for a plain
+// named volume that survives redeploys: first-class storage for a plain
 // service, the thing the compose detour used to be required for.
 const mountPathField = z.string().min(1).regex(/^\//, "mount path must be absolute (start with /)");
 
@@ -202,7 +202,7 @@ export const removeMountInput = z.object({
   mountPath: mountPathField,
 });
 
-/** Container port this host routes to. Optional — omitted means "the
+/** Container port this host routes to. Optional, omitted means "the
  *  service's primary HTTP port", which is what a single-port service wants.
  *  An explicit value must be one of the service's declared ports. */
 const targetPortField = z.number().int().min(1).max(65535);
@@ -222,7 +222,7 @@ export const updateDomainInput = z.object({
   port: targetPortField.optional(),
 });
 
-/** Pre-flight for the add form — answers "can I have this host?" without
+/** Pre-flight for the add form. Answers "can I have this host?" without
  *  writing anything, so the field can say Available/Taken as you type. */
 export const checkDomainInput = z.object({
   projectId: projectIdField,

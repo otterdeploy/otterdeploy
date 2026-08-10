@@ -1,5 +1,5 @@
 /**
- * The confirm dialog behind the graph context menu's "Delete" — so a
+ * The confirm dialog behind the graph context menu's "Delete", so a
  * right-click can finish the job in place instead of dropping the operator on
  * a Settings tab to hunt for the danger zone.
  *
@@ -10,7 +10,7 @@
  *   - database → stage the removal from `manifest.databases`
  *                (features/resources/components/postgres/tabs/settings/danger-zone)
  *     Both go through `useStageManifestChange`, so teardown happens on the next
- *     Deploy like every other pending change — which is why the copy says
+ *     Deploy like every other pending change, which is why the copy says
  *     "staged", not "destroyed".
  *   - compose  → `orpc.compose.delete`, which IS immediate, with the same
  *                `Deleted <name>` toast the compose panel shows.
@@ -44,7 +44,7 @@ interface DeleteCopy {
 }
 
 /** Per-kind consequence copy. Only the three kinds the menu offers Delete for
- *  appear here — anything else leaves the dialog closed. Staged kinds must not
+ *  appear here, anything else leaves the dialog closed. Staged kinds must not
  *  claim the resource is gone: nothing is torn down until the next Deploy. */
 const DELETE_COPY: Partial<Record<ResourceKind, DeleteCopy>> = {
   service: {
@@ -54,7 +54,7 @@ const DELETE_COPY: Partial<Record<ResourceKind, DeleteCopy>> = {
   },
   database: {
     description:
-      "This stages the deletion of the database, its volume, and its proxy route. Nothing is torn down until you Deploy — and once it is, the data is unrecoverable.",
+      "This stages the deletion of the database, its volume, and its proxy route. Nothing is torn down until you Deploy, and once it is, the data is unrecoverable.",
     pendingLabel: "Staging…",
   },
   compose: {
@@ -72,12 +72,12 @@ export function GraphNodeDeleteDialog({
   /** The node to delete; null keeps the dialog closed. */
   target: ResourceFlowNode | null;
   projectId: ProjectId;
-  /** Clear the pending-delete target — cancel, or a finished delete. */
+  /** Clear the pending-delete target. Cancel, or a finished delete. */
   onClose: () => void;
 }) {
   const navigate = useNavigate();
   // The open detail panel, if any. A delete that kills the resource the panel
-  // is showing must not leave the operator parked on a dead route — the danger
+  // is showing must not leave the operator parked on a dead route. The danger
   // zones navigate away via their panel's onClose, so do the same here.
   const panelMatch = useMatch({
     from: "/_app/$orgSlug/_shell/$projectSlug/graph/$resourceId",
@@ -94,7 +94,7 @@ export function GraphNodeDeleteDialog({
     onClose();
     const params = panelMatch?.params;
     // The $resourceId param is either the real resource id or the node id
-    // (`${kind}:${name}`) for a not-yet-applied ghost — match both.
+    // (`${kind}:${name}`) for a not-yet-applied ghost, match both.
     if (!params) return;
     if (params.resourceId !== node.id && params.resourceId !== node.data.resourceId) return;
     void navigate({

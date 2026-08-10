@@ -1,17 +1,17 @@
 import type { Readable } from "node:stream";
 
 /**
- * Apply orchestrator — the self-replacement crux.
+ * Apply orchestrator. The self-replacement crux.
  *
  * A compose stack can't `up` itself and survive: recreating the `server`
- * container kills the process mid-command. So the real path is Coolify's trick —
- * launch a DETACHED, auto-removing HELPER container (docker CLI + compose,
+ * container kills the process mid-command. So the real path is Coolify's trick.
+ * Launch a DETACHED, auto-removing HELPER container (docker CLI + compose,
  * socket + install-dir mounted) that bumps the pinned version and runs
  * `compose pull && up -d`. The server hands off, ends the progress stream, and
  * the browser polls /health for the new container (Dokploy's reconnection loop).
  *
  * The dry-run path replaces the helper with an in-process simulation that emits
- * the same progress phases and flips nothing — so the entire flow is exercisable
+ * the same progress phases and flips nothing, so the entire flow is exercisable
  * locally with no real newer image and no restart. Chosen by resolveDryRun()
  * (dev-default ON), so `bun dev` is safe out of the box.
  */
@@ -52,7 +52,7 @@ const WATCH_DEADLINE_MS = 15 * 60 * 1_000;
 
 /** Disk the update must have free before it touches the running stack. A full
  *  `compose pull`/`up` can corrupt redis's AOF and half-recreate the stack,
- *  leaving no control plane — so we refuse (after trying to reclaim) below this.
+ *  leaving no control plane, so we refuse (after trying to reclaim) below this.
  *  The server image alone is ~1.2 GB; 2 GB covers a worst-case re-pull + recreate. */
 const UPDATE_DISK_RESERVE_BYTES = 2 * 1024 ** 3;
 
@@ -64,7 +64,7 @@ const UPDATE_DISK_RESERVE_BYTES = 2 * 1024 ** 3;
 /**
  * Boot-time settlement of a handed-off update. The helper recreates the stack
  * out-of-band, so the terminal outcome can only be written by the NEW server
- * once it's up — this compares the booted version against the persisted
+ * once it's up. This compares the booted version against the persisted
  * target and settles the snapshot. Call once during server bootstrap.
  */
 export async function finalizeUpdateRunOnBoot(): Promise<void> {
@@ -75,13 +75,13 @@ export async function finalizeUpdateRunOnBoot(): Promise<void> {
 
 /**
  * Post-update image sweep. Every version bump leaves the previous release's
- * server/builder/caddy images behind, and nothing ever collected them — a
+ * server/builder/caddy images behind, and nothing ever collected them: a
  * long-lived install accumulates a full ~1.4 GB image set per update until the
  * disk guard trips or an operator runs a manual reclaim.
  *
  * Deliberately fire-and-forget: this runs during bootstrap, and an image prune
  * on a busy daemon can take tens of seconds. Blocking here would delay the
- * control plane coming back for no benefit — the space is not needed yet.
+ * control plane coming back for no benefit: the space is not needed yet.
  * Failures are logged and dropped; the disk guard remains the backstop.
  *
  * NOTE: `reclaimSpace(["images"])` prunes every image unused by any container,
@@ -103,7 +103,7 @@ function reclaimAfterUpdate(version: string): void {
 
 /**
  * Operator escape hatch (`system.cancelUpdate`): reset a run that's wedged at
- * `running` — the classic case is a real cutover whose helper died without
+ * `running`: the classic case is a real cutover whose helper died without
  * replacing this server, leaving `isRunning()` true forever. Best-effort tears
  * down any lingering updater helper, then flips the run to `failed` so a fresh
  * update can start. No-op if nothing is running.
@@ -112,14 +112,14 @@ export async function cancelUpdate(): Promise<{ cancelled: boolean; reason: stri
   if (!state.isRunning()) return { cancelled: false, reason: "no-run" };
   await removeUpdaterContainers({ runningToo: true });
   state.cancel(
-    "Update reset by operator — the cutover did not complete, and the control plane is still on the previous version.",
+    "Update reset by operator. The cutover did not complete, and the control plane is still on the previous version.",
   );
   return { cancelled: true, reason: "reset" };
 }
 
 /** Remove exited updater helpers left behind by a completed cutover (the happy
  *  path kills this process before it can clean up, so the container lingers).
- *  Skips a still-running helper — that would be a live cutover. */
+ *  Skips a still-running helper. That would be a live cutover. */
 async function sweepUpdaterContainers(): Promise<void> {
   await removeUpdaterContainers({ runningToo: false });
 }
@@ -164,7 +164,7 @@ async function simulate(target: string): Promise<void> {
   const from = currentVersion();
   state.emit(
     "validate",
-    `Dry run — simulating update from ${from} to ${target}. No containers will be touched.`,
+    `Dry run. Simulating update from ${from} to ${target}. No containers will be touched.`,
   );
   await sleep(400);
   for (const image of IMAGES) {
@@ -211,7 +211,7 @@ async function applyReal(target: string): Promise<void> {
   const helperImage = env.OTTERDEPLOY_UPDATE_HELPER_IMAGE;
   const docker = Docker.fromEnv();
 
-  // Disk preflight — BEFORE any handoff or pull. A full disk mid-update can
+  // Disk preflight: BEFORE any handoff or pull. A full disk mid-update can
   // corrupt redis's AOF and leave a half-recreated stack with no control plane
   // (the exact brick this hardening prevents). Try to reclaim unused images +
   // cache first; if still short, ABORT while everything is still running.
@@ -223,7 +223,7 @@ async function applyReal(target: string): Promise<void> {
   if (!headroom.ok) {
     state.finish(
       false,
-      `Update aborted before touching the stack — ${headroom.reason}. Free disk space and retry.`,
+      `Update aborted before touching the stack: ${headroom.reason}. Free disk space and retry.`,
     );
     return;
   }
@@ -241,7 +241,7 @@ async function applyReal(target: string): Promise<void> {
 
   state.emit(
     "recreate",
-    "Launching detached update helper. The control plane will restart when the new images are running — this page will reconnect automatically.",
+    "Launching detached update helper. The control plane will restart when the new images are running. This page will reconnect automatically.",
   );
 
   // Mark handoff BEFORE starting the helper: once compose recreates `server`,
@@ -277,8 +277,8 @@ async function applyReal(target: string): Promise<void> {
   // On the happy path the helper recreates `server`, this process is killed
   // mid-watch, and the NEW server settles the run on boot. The watchdog exists
   // for the UNhappy path: the helper fails (disk full, bad pull, wait-timeout)
-  // WITHOUT replacing us, so we survive and must record the failure ourselves —
-  // otherwise the run stays "running" forever and every future apply reports
+  // WITHOUT replacing us, so we survive and must record the failure ourselves.
+  // Otherwise the run stays "running" forever and every future apply reports
   // "already-running". Resolve the id via inspect (well-typed, matches the rest
   // of the codebase); skip the watchdog only if we can't (nothing else to do).
   const idRes = await helper.inspect();
@@ -287,7 +287,7 @@ async function applyReal(target: string): Promise<void> {
 }
 
 /** Poll the detached helper to its exit; record the terminal outcome the old
- *  server would otherwise never write. A no-op on the happy path — this process
+ *  server would otherwise never write. A no-op on the happy path. This process
  *  is gone before the loop notices success. */
 async function watchCutover(docker: Docker, helperId: string, target: string): Promise<void> {
   const container = docker.containers.getContainer(helperId);
@@ -296,18 +296,18 @@ async function watchCutover(docker: Docker, helperId: string, target: string): P
     while (Date.now() < deadlineAt) {
       await sleep(WATCH_POLL_MS);
       const inspected = await container.inspect();
-      if (inspected.isErr()) continue; // transient socket blip — let the deadline decide
+      if (inspected.isErr()) continue; // transient socket blip: let the deadline decide
       const st = inspected.value.State;
       if (st?.Running !== false) continue; // still pulling / recreating
       // Helper has exited. If it succeeded AND we somehow booted the target,
-      // it's done; otherwise the cutover did not replace us — a failure.
+      // it's done; otherwise the cutover did not replace us, a failure.
       const exitCode = st?.ExitCode ?? 0;
       const reachedTarget = currentVersion() === target || isNewer(currentVersion(), target);
       const logs = await readHelperLogs(container);
       if (exitCode === 0 && reachedTarget) {
         state.emit(
           "done",
-          `Update to ${target} complete — control plane is running ${currentVersion()}.`,
+          `Update to ${target} complete. Control plane is running ${currentVersion()}.`,
           "success",
         );
         state.finish(true);
@@ -323,7 +323,7 @@ async function watchCutover(docker: Docker, helperId: string, target: string): P
       await container.remove({ force: true });
       return;
     }
-    const msg = `Update to ${target} did not complete within ${Math.round(WATCH_DEADLINE_MS / 60_000)} minutes. The control plane is still running the previous version — inspect the update helper container for details.`;
+    const msg = `Update to ${target} did not complete within ${Math.round(WATCH_DEADLINE_MS / 60_000)} minutes. The control plane is still running the previous version. Inspect the update helper container for details.`;
     state.emit("done", msg, "error");
     state.finish(false, msg);
     await container.remove({ force: true });
@@ -332,7 +332,7 @@ async function watchCutover(docker: Docker, helperId: string, target: string): P
   }
 }
 
-/** Tail the helper's combined output for the failure message. Best-effort — an
+/** Tail the helper's combined output for the failure message. Best-effort. An
  *  empty string when logs can't be read. */
 async function readHelperLogs(
   container: ReturnType<Docker["containers"]["getContainer"]>,

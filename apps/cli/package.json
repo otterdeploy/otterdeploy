@@ -56,5 +56,5 @@
     "node": ">=20"
   },
   "//": "All deps are devDependencies: they're bundled into dist/index.js at build time (bun build), so the published package installs nothing. The workspace packages are needed at build/typecheck/test time and must be declared for CI's frozen install to resolve them.",
-  "//bin": "`otd` is the short alias. NOT `od` — that is POSIX octal-dump (/usr/bin/od) on every macOS and Linux box, and a global npm bin dir usually precedes /usr/bin on PATH, so claiming it would shadow a standard tool. Both names point at the same bundle; lib/name.ts echoes back whichever one was invoked."
+  "//bin": "`otd` is the short alias. NOT `od`, which is POSIX octal-dump (/usr/bin/od) on every macOS and Linux box, and a global npm bin dir usually precedes /usr/bin on PATH, so claiming it would shadow a standard tool. Both names point at the same bundle; lib/name.ts echoes back whichever one was invoked."
 }

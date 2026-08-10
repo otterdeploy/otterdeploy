@@ -5,7 +5,7 @@
  * od-5j8.11 gates the manager's 2377/7946/4789 behind the `otterdeploy_peers`
  * set so swarm ports are never world-reachable. But provisioning only ever
  * applied a ruleset to the NEW node (provision-host-firewall.ts, over that
- * node's SSH session) — nothing re-applied the manager's. So the manager's
+ * node's SSH session). Nothing re-applied the manager's. So the manager's
  * INPUT chain dropped the join before Docker could complete it, surfacing as
  * the daemon's "Timeout was reached before node joined".
  *
@@ -13,7 +13,7 @@
  * necessarily the one we SSH to: a host with a floating or secondary IP accepts
  * SSH on one address while the default route sources outbound traffic from
  * another. We therefore ask the node which source it will use to reach the
- * manager (`ip route get`) instead of assuming `server.host` — admitting the
+ * manager (`ip route get`) instead of assuming `server.host`. Admitting the
  * SSH address alone leaves the join dropped exactly as before.
  *
  * Runs on the host via runOnHost(), whose contract is that the script is fixed,
@@ -36,7 +36,7 @@ export function egressProbeScript(managerIp: string): string {
 /**
  * Add `ips` to the manager's peer set and persist them, reverting the file if
  * the edit wouldn't parse. Returns "" when there is nothing safe to add. Pure
- * and exactly assertable — see manager-peers.test.ts.
+ * and exactly assertable: see manager-peers.test.ts.
  */
 export function managerPeerScript(ips: readonly string[]): string {
   const safe = filterIpv4Peers(ips);
@@ -88,8 +88,8 @@ async function resolveNodeEgressIp(
 /**
  * Resolve the node's egress address and admit it to the manager's peer set.
  *
- * The whole pre-join step in one call, so the runner stays a straight line —
- * its branching budget is already spent on the provisioning flow itself.
+ * The whole pre-join step in one call, so the runner stays a straight line.
+ * Its branching budget is already spent on the provisioning flow itself.
  */
 export async function admitNodeToManager(
   session: SshSession,
@@ -105,7 +105,7 @@ export async function admitNodeToManager(
 
 /**
  * Best-effort: never fails the provision. A manager that can't be reconfigured
- * still lets the join proceed — it just fails later at the daemon, the same way
+ * still lets the join proceed. It just fails later at the daemon, the same way
  * it did before this existed, and we say so rather than pretending it worked.
  */
 async function allowPeersOnManager(
@@ -114,7 +114,7 @@ async function allowPeersOnManager(
 ): Promise<void> {
   const script = managerPeerScript(ips);
   if (!script) {
-    onLine("   · no IPv4 address to admit — skipping manager firewall update");
+    onLine("   · no IPv4 address to admit, skipping manager firewall update");
     return;
   }
   onLine("── admitting node to the manager's swarm-port allowlist ──");
@@ -130,7 +130,7 @@ async function allowPeersOnManager(
     return;
   }
   if (out.includes("peer-set-absent")) {
-    onLine("   · manager has no otterdeploy peer set — nothing to admit");
+    onLine("   · manager has no otterdeploy peer set, nothing to admit");
     return;
   }
   if (out.includes("peer-persist-reverted")) {

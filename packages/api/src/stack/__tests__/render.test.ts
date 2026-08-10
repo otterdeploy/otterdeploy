@@ -1,4 +1,5 @@
 import type { JsonObject } from "@otterdeploy/shared/json";
+
 import { describe, expect, it } from "vite-plus/test";
 
 import { STACK_FILE_SCHEMA_VERSION, stackFileSchema, type StackFile } from "../schema";
@@ -66,7 +67,7 @@ describe("stack/render/applyEngineDefaults", () => {
     // rather than a constant. From 18 the official image owns a
     // version-specific subdirectory and takes the parent dir; 17 and earlier
     // take `.../data`. Hard-coding either one made this test fail the moment
-    // the catalog default moved — which is the wrong signal, since the change
+    // the catalog default moved, which is the wrong signal, since the change
     // in behaviour was intentional and correct.
     const major = Number(/postgres:(\d+)/.exec(service.image ?? "")?.[1]);
     const expected = major >= 18 ? "/var/lib/postgresql" : "/var/lib/postgresql/data";
@@ -159,7 +160,7 @@ describe("stack/render/toComposeYaml", () => {
     expect(a).toBe(b);
 
     // Reordering keys in the source object should NOT change the emitted
-    // YAML — keys are alpha-sorted on the way out.
+    // YAML: keys are alpha-sorted on the way out.
     const reordered: StackFile = {
       services: minimalPostgresFile().services,
       version: STACK_FILE_SCHEMA_VERSION,
@@ -170,7 +171,7 @@ describe("stack/render/toComposeYaml", () => {
 
   it("round-trips: rendered → YAML → parsed compose carries identity in deploy.labels", () => {
     // The renderer projects the x-otterdeploy identity into deploy.labels (pure
-    // compose — nothing parses our output back in), NOT an x-otterdeploy block.
+    // compose, nothing parses our output back in), NOT an x-otterdeploy block.
     // Assert it survives the full render → YAML → parse round-trip as structured
     // labels (the string form is covered by the projection test above).
     const file = applyEngineDefaults(minimalPostgresFile());

@@ -50,7 +50,7 @@ export function HostFilter({
             size="sm"
             className="h-8 w-[210px] justify-between gap-1.5 px-2.5 text-[12px] font-normal"
             // Deployment hostnames share a long prefix, so a truncated trigger
-            // can read identically for two different selections — the full
+            // can read identically for two different selections. The full
             // value has to be recoverable without reopening the popover.
             title={value.length ? value.join("\n") : "All hosts"}
           >

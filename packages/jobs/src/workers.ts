@@ -9,10 +9,10 @@ import { jobs as defaultJobs } from "./registry";
 
 /**
  * Spin up a Worker per registered job + (re)schedule any cron jobs. Returns
- * a `stop()` to call on shutdown — it drains in-flight work, closes workers,
+ * a `stop()` to call on shutdown. It drains in-flight work, closes workers,
  * and disconnects.
  *
- * `opts.jobs` overrides the default registry — used by apps that should
+ * `opts.jobs` overrides the default registry, used by apps that should
  * only run a subset (e.g. apps/builder runs only `deploy.triggered`,
  * apps/server runs everything else). Passing a replacement for an
  * existing job by name lets a process supply its own handler (the

@@ -1,5 +1,5 @@
 /**
- * The Table-browse layout for the Data studio — a left rail (table search +
+ * The Table-browse layout for the Data studio: a left rail (table search +
  * SQL-console entry + table list) beside the shared results panel. Driven by
  * the {@link DataStudioController}.
  */
@@ -39,7 +39,7 @@ export function TableBrowserView({
 
   return (
     <div className="flex h-full min-h-0 w-full">
-      {/* Left rail — tables + a way into the SQL console. Persistent from `sm`
+      {/* Left rail, tables + a way into the SQL console. Persistent from `sm`
           up; below that a fixed 14rem rail would leave ~150px for the grid
           itself, so it moves into the sheet below instead. */}
       <div className="hidden w-56 shrink-0 flex-col border-r bg-muted/20 sm:flex">
@@ -56,7 +56,7 @@ export function TableBrowserView({
         </SheetContent>
       </Sheet>
 
-      {/* Main — filters + grid + pagination */}
+      {/* Main: filters + grid + pagination */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Stands in for the hidden rail: names the open table and opens the
             picker. Only below `sm`, where the rail isn't on screen. */}
@@ -77,7 +77,7 @@ export function TableBrowserView({
   );
 }
 
-/** Rail body — shared verbatim by the persistent `sm`+ column and the mobile
+/** Rail body, shared verbatim by the persistent `sm`+ column and the mobile
  *  sheet, so the two can't drift. */
 function RailContent({ studio, onPick }: { studio: DataStudioController; onPick?: () => void }) {
   const t = studio.table;
@@ -159,7 +159,7 @@ function TableListRail({ studio, onPick }: { studio: DataStudioController; onPic
             <span className="min-w-0 flex-1 truncate" title={`${tbl.schema}.${tbl.name}`}>
               {tbl.schema === "public" ? tbl.name : `${tbl.schema}.${tbl.name}`}
             </span>
-            {/* Planner estimate (pg_class.reltuples) — never a count(*). */}
+            {/* Planner estimate (pg_class.reltuples), never a count(*). */}
             {tbl.estimatedRows != null ? (
               <span className="shrink-0 font-mono text-[10px] font-normal text-muted-foreground/60">
                 ~{compactCount(tbl.estimatedRows)}
@@ -177,7 +177,7 @@ const COMPACT_COUNT_FORMAT = new Intl.NumberFormat("en", {
   maximumFractionDigits: 1,
 });
 
-/** 1234 → "1.2K" — the rail is narrow, and the estimate is approximate anyway. */
+/** 1234 → "1.2K": the rail is narrow, and the estimate is approximate anyway. */
 function compactCount(n: number): string {
   return COMPACT_COUNT_FORMAT.format(n);
 }

@@ -1,18 +1,18 @@
 /**
  * Emit compose-compatible YAML from a StackFile.
  *
- * The compose YAML is a one-way export — disaster-recovery snapshot,
+ * The compose YAML is a one-way export. Disaster-recovery snapshot,
  * `docker stack deploy -c` fallback, audit artifact. The DB is the
  * source of truth; nothing parses this output back in. So everything
  * we emit should be pure compose.
  *
  * We project the otterdeploy identity bits (kind, resource.id,
  * project.id, engine) into `deploy.labels` so tools that only see the
- * compose subset — `docker service ls --filter label=...`, `docker
- * inspect`, third-party operators — can still find and group resources
+ * compose subset: `docker service ls --filter label=...`, `docker
+ * inspect`, third-party operators: can still find and group resources
  * we own without parsing custom extensions. Other otterdeploy
  * metadata (preDeploy, buildConfig, publicEnabled, …) is *not*
- * mirrored into the YAML — read it from the manifest / UI / CLI
+ * mirrored into the YAML: read it from the manifest / UI / CLI
  * instead.
  *
  * Determinism: keys are sorted alphabetically before emit so two

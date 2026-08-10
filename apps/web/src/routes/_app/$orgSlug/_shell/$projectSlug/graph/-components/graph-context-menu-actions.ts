@@ -3,10 +3,10 @@
  * out of the route's GraphCanvas so that component stays under the
  * line/complexity caps. Restart/redeploy reuse the exact same oRPC surfaces
  * + toasts as the node's own hover toolbar (resource-card-node.tsx) and
- * compose's own Redeploy button (compose/panel.tsx) — same action, just
+ * compose's own Redeploy button (compose/panel.tsx). Same action, just
  * reachable without hovering/opening the panel first. Delete acts in place
  * too: it raises the confirm dialog over the graph rather than routing to a
- * Settings tab. It still implements no new delete logic — this hook only
+ * Settings tab. It still implements no new delete logic. This hook only
  * holds the pending-delete target, and graph-node-delete.tsx runs each kind's
  * existing danger-zone path behind the same type-the-name confirm.
  */
@@ -39,7 +39,7 @@ export interface UseGraphContextMenuArgs {
   navigate: ReturnType<typeof useNavigate>;
   fitView: ReturnType<typeof useReactFlow>["fitView"];
   overlay: ReturnType<typeof useResourceOverlay>;
-  /** Same navigation a left-click uses — reused so "Open" behaves identically. */
+  /** Same navigation a left-click uses. Reused so "Open" behaves identically. */
   openNode: (node: ResourceFlowNode) => void;
 }
 
@@ -54,10 +54,10 @@ export function useGraphContextMenu({
 }: UseGraphContextMenuArgs) {
   const [target, setTarget] = useState<GraphContextMenuTarget | null>(null);
   // The node whose delete confirm is open. Held here (not in the menu) because
-  // the menu unmounts the moment Delete is clicked — GraphCanvas renders
+  // the menu unmounts the moment Delete is clicked. GraphCanvas renders
   // GraphNodeDeleteDialog with this as a sibling of the menu.
   const [deleteTarget, setDeleteTarget] = useState<ResourceFlowNode | null>(null);
-  // Same reason as deleteTarget — the menu unmounts on click, so the dialog is
+  // Same reason as deleteTarget: the menu unmounts on click, so the dialog is
   // rendered as its sibling by GraphCanvas.
   const [cloneTarget, setCloneTarget] = useState<ResourceFlowNode | null>(null);
   const [renameTarget, setRenameTarget] = useState<ResourceFlowNode | null>(null);
@@ -90,7 +90,7 @@ export function useGraphContextMenu({
       close();
       // Services get the richer, filterable project Logs page; databases and
       // compose stacks have no per-service log stream there (their container
-      // logs live on the resource panel's own Deployments tab instead — the
+      // logs live on the resource panel's own Deployments tab instead. The
       // panel opens there by default already).
       if (node.data.kind === "service" && node.data.resourceId) {
         void navigate({
@@ -170,7 +170,7 @@ export function useGraphContextMenu({
   const onNodeContextMenu = (event: React.MouseEvent, node: { data: unknown; id: string }) => {
     event.preventDefault();
     // React Flow's generic handler types the node as the untyped base
-    // `Node` — this canvas only ever renders `ResourceNode`, which always
+    // `Node`: this canvas only ever renders `ResourceNode`, which always
     // gets `ResourceNodeData` (see nodeTypes in graph-flow.tsx).
     setTarget({
       kind: "node",

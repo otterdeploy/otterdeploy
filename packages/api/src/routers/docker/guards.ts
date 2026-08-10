@@ -1,6 +1,6 @@
 /**
  * Pure refusal guards for destructive docker-raw operations. Kept free of the
- * docker client so they unit-test like firewall/decision.ts — the service
+ * docker client so they unit-test like firewall/decision.ts: the service
  * layer gathers the facts (usage counts, attachment lists, network flags) and
  * these decide yes/no with an operator-readable reason.
  */
@@ -10,7 +10,7 @@ export type GuardResult = { ok: true } | { ok: false; reason: string };
 /**
  * Image removal: refuse while containers (running OR stopped) still reference
  * the image, unless the caller passed `force`. Even with force the daemon
- * itself still rejects images backing a *running* container — force only
+ * itself still rejects images backing a *running* container. Force only
  * covers stopped references and multi-tag untagging.
  */
 export function guardImageRemoval(opts: { inUseBy: number; force: boolean }): GuardResult {
@@ -25,7 +25,7 @@ export function guardImageRemoval(opts: { inUseBy: number; force: boolean }): Gu
 
 /**
  * Volume removal: never removable while any container (running or stopped)
- * mounts it — there is no safe force path; a forced remove of an attached
+ * mounts it. There is no safe force path; a forced remove of an attached
  * volume is data loss with extra steps.
  */
 export function guardVolumeRemoval(opts: { attachedTo: string[] }): GuardResult {
@@ -40,7 +40,7 @@ export function guardVolumeRemoval(opts: { attachedTo: string[] }): GuardResult 
   return { ok: true };
 }
 
-/** Docker's own plumbing networks — deleting these breaks the daemon/swarm. */
+/** Docker's own plumbing networks, deleting these breaks the daemon/swarm. */
 const BUILTIN_NETWORKS = new Set(["bridge", "host", "none", "ingress", "docker_gwbridge"]);
 
 /**

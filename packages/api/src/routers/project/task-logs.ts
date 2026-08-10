@@ -1,6 +1,6 @@
 /**
  * Stream logs for one specific swarm task. Used by the deployment-detail
- * panel — clicking a row in Recent deployments opens the logs for THAT task's
+ * panel, clicking a row in Recent deployments opens the logs for THAT task's
  * container, not the currently-running one.
  *
  * Unlike tailResourceLogs there's no respawn-polling loop: a task is a single
@@ -34,7 +34,7 @@ interface TaskLogsRef {
   tail?: number;
 }
 
-// Surface the instance's own progress messages first — swarm reports
+// Surface the instance's own progress messages first. Swarm reports
 // "preparing", "pulling image", "starting", and the eventual Err on failure;
 // plain-docker carries the container's human status line. Without these the
 // operator only sees the container's own stdout, which is empty until the
@@ -45,7 +45,7 @@ async function* emitInstancePreamble(
   if (instance.state) {
     yield {
       stream: "system",
-      line: `State: ${instance.state}${instance.message ? ` — ${instance.message}` : ""}`,
+      line: `State: ${instance.state}${instance.message ? `: ${instance.message}` : ""}`,
       ts: nowIso(),
     };
   }
@@ -82,7 +82,7 @@ export async function* tailTaskLogs(
   const docker = Docker.fromEnv();
   try {
     // Enumerate the resource's instances (swarm tasks or docker containers).
-    // Filtering on the service alone is enough — if the id doesn't show up here
+    // Filtering on the service alone is enough. If the id doesn't show up here
     // the caller's snooping at another resource.
     const instancesResult = await listResourceInstances(docker, serviceName);
     if (instancesResult.isErr()) {
@@ -98,7 +98,7 @@ export async function* tailTaskLogs(
     if (!instance) {
       yield {
         stream: "system",
-        line: `Instance ${input.taskId.slice(0, 12)} not found on ${serviceName} — it may have been replaced by a newer deploy.`,
+        line: `Instance ${input.taskId.slice(0, 12)} not found on ${serviceName}. It may have been replaced by a newer deploy.`,
         ts: nowIso(),
       };
       return;
@@ -109,12 +109,12 @@ export async function* tailTaskLogs(
     yield* emitInstancePreamble(instance);
 
     if (!containerId) {
-      // No container has been created yet — task is still pending/preparing.
+      // No container has been created yet. Task is still pending/preparing.
       // The state line above tells the user where we are; nothing more to
       // stream until docker has a container id.
       yield {
         stream: "system",
-        line: "No container assigned to this task yet — re-open this row once preparing completes.",
+        line: "No container assigned to this task yet: re-open this row once preparing completes.",
         ts: nowIso(),
       };
       return;

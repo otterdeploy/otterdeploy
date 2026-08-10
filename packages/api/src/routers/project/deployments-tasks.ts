@@ -1,5 +1,5 @@
 /**
- * Per-deployment task tray — the swarm tasks scheduled under a single
+ * Per-deployment task tray: the swarm tasks scheduled under a single
  * deployment id, newest first. Used by the Deployments tab to show the
  * retry cascade for one push.
  */

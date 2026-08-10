@@ -2,7 +2,7 @@
  * Which routes belong on which node's edge.
  *
  * With a proxy per node (see routers/server/provision-node-proxy), each edge
- * must serve exactly the services running on its own machine — and nothing
+ * must serve exactly the services running on its own machine, and nothing
  * else. Two failure modes to avoid, in opposite directions:
  *
  *   - A route on the WRONG node answers with a certificate it can obtain but a
@@ -12,7 +12,7 @@
  *     why. Unplaced routes therefore fall back to the control-plane edge, which
  *     is where everything lives today, rather than vanishing.
  *
- * Pure and exactly assertable — the whole point is that the split is decided
+ * Pure and exactly assertable: the whole point is that the split is decided
  * here rather than inferred inside a template.
  */
 
@@ -53,7 +53,7 @@ export function routesForNode(
 }
 
 /**
- * Every domain, mapped to the server that should answer for it — the input a
+ * Every domain, mapped to the server that should answer for it. The input a
  * DNS reconciler needs, and what an operator has to be told when a service is
  * pinned somewhere its domain doesn't point.
  *
@@ -69,7 +69,7 @@ export function domainOwners(all: readonly RoutePlacement[]): Map<string, string
 }
 
 /**
- * Domains whose serving node changed between two reconciles — the set whose DNS
+ * Domains whose serving node changed between two reconciles. The set whose DNS
  * has to move. Moving a pinned service is not complete until this is empty or
  * acted on.
  */

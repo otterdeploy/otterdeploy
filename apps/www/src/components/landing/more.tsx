@@ -5,7 +5,7 @@ import { CHIP_GROUPS } from "./content";
 import { Band, Container, Mono } from "./primitives";
 
 /**
- * Everything the showcase didn't have room for — names only, grouped.
+ * Everything the showcase didn't have room for, names only, grouped.
  *
  * The first draft of this page listed all of it with a sentence each, and it
  * ran for nine screens. A self-hoster comparing platforms wants to scan for

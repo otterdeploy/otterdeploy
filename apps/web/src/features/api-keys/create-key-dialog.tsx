@@ -57,7 +57,7 @@ export function CreateKeyDialog({
 
       // Optimistic insert: `onInsert` mints the key server-side and hands the
       // one-time plaintext token back via `onKey`. Close instantly; surface the
-      // result async — TanStack DB rolls the row back on reject.
+      // result async: TanStack DB rolls the row back on reject.
       const createdAt = new Date();
       const tx = apiKeysCollection.insert(
         {

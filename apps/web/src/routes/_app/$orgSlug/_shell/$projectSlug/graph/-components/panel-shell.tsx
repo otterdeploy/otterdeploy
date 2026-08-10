@@ -2,8 +2,8 @@
  * The right-hand drawer every graph detail panel renders inside (resource,
  * PR preview).
  *
- * It deliberately lives in the GRAPH layout — the parent route, whose chunk is
- * already loaded by the time you can click a node — not in the code-split
+ * It deliberately lives in the GRAPH layout. The parent route, whose chunk is
+ * already loaded by the time you can click a node, not in the code-split
  * `$resourceId` / `preview/$previewId` children. So a node click slides the
  * drawer in on the same frame, and the child's route chunk plus its
  * `service.get` / manifest queries fill in behind a skeleton.
@@ -11,7 +11,7 @@
  * Before this, the drawer's motion.div was owned by the child route: nothing
  * appeared until that chunk AND its loader had resolved, and with the router's
  * `defaultPendingMs: 150` + `defaultPendingMinMs: 500` the only feedback in
- * that window was the tiny global RoutePending spinner — dropped into the
+ * that window was the tiny global RoutePending spinner. Dropped into the
  * bottom-right corner of the canvas where nobody notices it. The panel then
  * animated in *after* the wait, which read as "click, nothing, jump".
  *
@@ -19,7 +19,7 @@
  * child: `close()` animates the drawer out and pans the graph back to its
  * overview at the same time, and only navigates once the slide-out finishes.
  * Navigating first would make TanStack's <Outlet> render null immediately,
- * leaving the exit animation nothing to animate — the panel would just vanish.
+ * leaving the exit animation nothing to animate: the panel would just vanish.
  * Children reach it via {@link useGraphPanelClose}.
  */
 
@@ -38,7 +38,7 @@ const noop = () => {};
 const GraphPanelCloseContext = createContext<() => void>(noop);
 
 /**
- * Close the containing graph drawer — animated slide-out, then the route
+ * Close the containing graph drawer. Animated slide-out, then the route
  * change. Available to anything rendered inside {@link GraphPanelShell},
  * including a route's `pendingComponent`, so the close button works while the
  * panel is still loading.
@@ -67,7 +67,7 @@ export function GraphPanelShell({
   children: ReactNode;
 }) {
   const navigate = useNavigate();
-  // Same ReactFlow instance the canvas uses (shared provider) — lets close pan
+  // Same ReactFlow instance the canvas uses (shared provider). Lets close pan
   // the graph back to the overview AT THE SAME TIME the drawer slides out,
   // instead of after the route change (which now waits for the slide-out).
   const { fitView } = useReactFlow();
@@ -78,7 +78,7 @@ export function GraphPanelShell({
     setClosing(true);
     // Same 400ms as the drawer spring's settle. The route-change refit in
     // useDetailPanelRefit still fires when navigation lands, but by then the
-    // camera is already there — so it's a no-op, not a second delayed pan.
+    // camera is already there, so it's a no-op, not a second delayed pan.
     void fitView({ padding: 0.2, duration: 400 });
   };
 

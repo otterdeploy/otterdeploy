@@ -35,8 +35,8 @@ async function resolveServiceContainerId(
  *
  * Strategy: snapshot first (the container might already exist by the time
  * we're called), then wait on `container.start` events filtered to the
- * service's label until the deadline. The combination is intentional —
- * pure event-wait would miss a container that started in the window
+ * service's label until the deadline. The combination is intentional.
+ * Pure event-wait would miss a container that started in the window
  * between service.create completing and our subscribe; pure poll wastes
  * 250ms cycles in the common case where the container is seconds away.
  */
@@ -82,7 +82,7 @@ export async function* tailContainerBootLogs(input: {
   try {
     // Wait for the first container backing this service to enter `start`.
     // Drops a ~3s polling window down to a single event hop in the common
-    // case — `container.start` typically arrives within tens of ms of swarm
+    // case: `container.start` typically arrives within tens of ms of swarm
     // scheduling the task. Bounded at 3s so a stuck service surfaces as a
     // clean "no container yet" instead of hanging the create stream.
     const containerId = await waitForRunningContainer(
@@ -108,7 +108,7 @@ export async function* tailContainerBootLogs(input: {
       try {
         stream.destroy?.();
       } catch {
-        // best-effort — the demuxer's for-await will end either way.
+        // best-effort: the demuxer's for-await will end either way.
       }
     };
 

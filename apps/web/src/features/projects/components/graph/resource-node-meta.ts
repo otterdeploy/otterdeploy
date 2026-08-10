@@ -98,7 +98,7 @@ export const kindMeta: Record<ResourceKind, { label: string; icon: IconType; ico
       iconColor: "text-blue-700 dark:text-blue-300",
     },
     // Neutral tile on purpose (One Voice rule): a preview chip is chrome,
-    // not an action/selection — Signal Blue stays reserved.
+    // not an action/selection: Signal Blue stays reserved.
     preview: {
       label: "Preview",
       icon: GitPullRequestIcon,
@@ -125,14 +125,14 @@ export const statusMeta: Record<
     pillClass: "bg-destructive/12 text-destructive",
     dotClass: "bg-destructive shadow-[0_0_0_3px] shadow-destructive/20",
   },
-  // Deliberately stopped — calm neutral pill, no glow, so a paused service
+  // Deliberately stopped. Calm neutral pill, no glow, so a paused service
   // never wears the green "running" dot it did before it was scaled to zero.
   paused: {
     label: "paused",
     pillClass: "bg-muted text-muted-foreground",
     dotClass: "bg-muted-foreground/50",
   },
-  // Enqueued, waiting for the builder to start — amber like building (both
+  // Enqueued, waiting for the builder to start. Amber like building (both
   // in-flight) but no active glow, since no work is happening yet.
   queued: {
     label: "queued",
@@ -142,7 +142,7 @@ export const statusMeta: Record<
 };
 
 /**
- * Roll a stack's per-service states up to one header summary — WITHOUT
+ * Roll a stack's per-service states up to one header summary. WITHOUT
  * collapsing them. The summary says "2/3 running"; the cards below say which 2.
  * Worst-state-wins for the dot colour so a single failure colours the header.
  */

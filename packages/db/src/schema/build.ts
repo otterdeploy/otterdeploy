@@ -1,7 +1,7 @@
 import type { ContainerRegistryId, DeploymentId } from "@otterdeploy/shared/id";
 
 /**
- * Build pipeline schema — container registries and deployment logs.
+ * Build pipeline schema. Container registries and deployment logs.
  *
  * The build pipeline (apps/builder) consumes the queue jobs already emitted
  * by the Phase 1 git webhook receiver, clones the repo at the push SHA,
@@ -10,13 +10,13 @@ import type { ContainerRegistryId, DeploymentId } from "@otterdeploy/shared/id";
  *
  * Two tables live here:
  *
- *   container_registry — per-org credentials used both by the builder
+ *   container_registry: per-org credentials used both by the builder
  *     (to `docker push`) and by `resolveRegistryAuth` (so the swarm
  *     daemon can `docker pull` the same image at deploy time). Passwords
  *     are stored encrypted via `encryptSecret` (HKDF-derived AES-GCM
- *     keyed off BETTER_AUTH_SECRET — see packages/api/src/lib/crypto.ts).
+ *     keyed off BETTER_AUTH_SECRET: see packages/api/src/lib/crypto.ts).
  *
- *   deployment_log — append-only stream of build-time output. Each row
+ *   deployment_log: append-only stream of build-time output. Each row
  *     is a single line so the UI can paginate and the live tail (Redis
  *     pub/sub channel) can replay missed lines without scanning a JSONB
  *     blob. Rows are written by the builder; the platform never edits.
@@ -39,8 +39,8 @@ export const containerRegistryAuthEnum = pgEnum("container_registry_auth", ["pas
 
 /**
  * One row per (org, host, username). Multiple users on the same host are
- * supported — an org might keep a CI bot account separate from a personal
- * one — but the (host, username) pair must be unique within an org so the
+ * supported: an org might keep a CI bot account separate from a personal
+ * one, but the (host, username) pair must be unique within an org so the
  * UI can present a stable "default" credential per host.
  *
  * `encryptedPassword` is the AES-GCM ciphertext + nonce blob as a base64url
@@ -58,7 +58,7 @@ export const containerRegistry = pgTable(
       .references(() => organization.id, { onDelete: "cascade" }),
     /** Operator-visible label, e.g. "GHCR (ci-bot)". */
     displayName: text("display_name").notNull(),
-    /** Registry hostname — "ghcr.io", "docker.io", "registry:5000". */
+    /** Registry hostname: "ghcr.io", "docker.io", "registry:5000". */
     host: text("host").notNull(),
     /** Username/login (or the literal "x-access-token" for some hosts). */
     username: text("username").notNull(),
@@ -121,7 +121,7 @@ export const deploymentLog = pgTable(
     ts: timestamp("ts").defaultNow().notNull(),
   },
   (table) => [
-    // The hot read path is "give me lines for deployment X after seq Y" —
+    // The hot read path is "give me lines for deployment X after seq Y",
     // a composite (deploymentId, seq) index serves both ordering and
     // pagination cursors in a single scan.
     index("deployment_log_deployment_seq_idx").on(table.deploymentId, table.seq),

@@ -91,7 +91,7 @@ const nodeSchema = z.object({
   hostname: z.string(),
   role: z.string(),
   availability: z.string(),
-  /** Node status.state — "ready", "down", … */
+  /** Node status.state: "ready", "down", … */
   state: z.string(),
   addr: z.string().nullable(),
   /** True on the current swarm leader. */
@@ -214,7 +214,7 @@ export const dockerContract = {
     prune: oc
       .errors(serverError)
       .meta({ path: `${basePath}/images/prune`, tag, method: "POST" })
-      // Dangling-only by design — pruning tagged-but-unused images from the
+      // Dangling-only by design, pruning tagged-but-unused images from the
       // debug page would eat the deploy cache.
       .input(z.object({}))
       .output(z.object({ imagesDeleted: z.number(), reclaimedBytes: z.number() })),
@@ -265,7 +265,7 @@ export const dockerContract = {
       .errors(serverError)
       .meta({ path: `${basePath}/nodes`, tag, method: "GET" })
       .input(z.object({}))
-      // `swarm:false` under the plain-docker runtime — the UI uses it to
+      // `swarm:false` under the plain-docker runtime: the UI uses it to
       // decide whether a node selector makes sense at all.
       .output(z.object({ swarm: z.boolean(), nodes: z.array(nodeSchema) })),
   },

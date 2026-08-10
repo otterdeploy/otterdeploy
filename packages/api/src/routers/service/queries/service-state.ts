@@ -3,7 +3,7 @@
  * pause/resume replica flip, and the public-exposure mirrors.
  *
  * Split out of `service.ts`: none of these are part of the patchable spec
- * surface that `updateServiceRecord` owns — they are written by the runtime
+ * surface that `updateServiceRecord` owns. They are written by the runtime
  * and edge paths instead.
  */
 import type { ResourceId, ServerId } from "@otterdeploy/shared/id";
@@ -26,7 +26,7 @@ export async function bumpForceUpdateCounter(resourceId: ResourceId): Promise<nu
 /**
  * Atomically flip the pause state: pause writes (replicas: 0, pausedReplicas:
  * previous count); resume writes (replicas: restored count, pausedReplicas:
- * null). Kept separate from `updateServiceRecord` — pausedReplicas is runtime
+ * null). Kept separate from `updateServiceRecord`. pausedReplicas is runtime
  * lifecycle state, not part of the patchable spec surface.
  */
 export async function setServiceReplicaState(
@@ -44,7 +44,7 @@ export async function setServiceReplicaState(
 /**
  * Pin a resource to a server, or clear the pin. Writes the `resource` row (not
  * `service_resource`) because placement applies to databases and compose
- * members too — every resource type is scheduled the same way.
+ * members too: every resource type is scheduled the same way.
  */
 export async function setResourcePlacement(
   resourceId: ResourceId,
@@ -71,7 +71,7 @@ export async function setPublicExposure(input: {
 
 /** Update only the denormalized primary-domain mirror, leaving the
  *  publicEnabled toggle untouched. Used when the operator picks a new
- *  primary among several hosts — the set of routes (and thus reachability)
+ *  primary among several hosts: the set of routes (and thus reachability)
  *  doesn't change, just which host the panel/graph/views surface. */
 export async function setServicePublicDomain(resourceId: ResourceId, publicDomain: string | null) {
   const [updated] = await db

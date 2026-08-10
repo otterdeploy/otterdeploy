@@ -29,7 +29,7 @@ describe("recordAuditChanges", () => {
   });
 
   // A handler calling this outside the oRPC middleware (background job, test)
-  // must not throw — auditing is never allowed to break the operation.
+  // must not throw. Auditing is never allowed to break the operation.
   test("is a no-op without a draft", () => {
     const ctx: { auditDraft?: AuditDraft } = {};
     expect(() => recordAuditChanges(ctx, { before: { a: 1 }, after: { a: 2 } })).not.toThrow();

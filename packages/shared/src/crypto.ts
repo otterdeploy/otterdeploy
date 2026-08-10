@@ -1,7 +1,7 @@
 /**
  * Constant-time string comparison. Used wherever we compare a
  * client-supplied secret (HMAC signature, signed-state nonce) against a
- * server-computed value — branching on character mismatch leaks length
+ * server-computed value, branching on character mismatch leaks length
  * via timing.
  *
  * Lengths-differ short-circuit is intentional: equal-length strings
@@ -44,8 +44,8 @@ export async function sha256Hex(value: string): Promise<string> {
 
 /**
  * URL-safe base64 (RFC 4648 §5), unpadded. The wire encoding for every
- * secret-bearing token this codebase mints — signed auth tokens, git OAuth
- * state, the health-agent token, and both AES-GCM envelope formats — so the
+ * secret-bearing token this codebase mints, signed auth tokens, git OAuth
+ * state, the health-agent token, and both AES-GCM envelope formats, so the
  * alphabet and padding rules have to be identical on the signing and verifying
  * side of each one. Kept here rather than reaching for `Buffer` so the browser
  * bundle can use it too.
@@ -72,7 +72,7 @@ export function base64UrlDecode(s: string): Uint8Array {
 /**
  * Cryptographically-strong random secret as a URL-safe base64 string (no
  * padding). Used to pre-fill secret-shaped template/compose variables (e.g.
- * `POSTGRES_PASSWORD`) so the operator never hand-types a password — the same
+ * `POSTGRES_PASSWORD`) so the operator never hand-types a password: the same
  * convenience the Postgres provisioner gives itself with
  * `randomBytes(18).toString("base64url")`. `bytes` sets the entropy (default 24
  * → 32 chars). Isomorphic: `getRandomValues` + `btoa` exist in both the browser
@@ -86,7 +86,7 @@ export function randomSecret(bytes = 24): string {
 
 /**
  * HMAC-SHA256 of a UTF-8 string (or raw bytes) as lowercase hex. The one
- * canonical implementation for webhook payload signing/verification — the
+ * canonical implementation for webhook payload signing/verification: the
  * outbound delivery job (packages/jobs) signs with it and the API's inbound
  * verifier + tests use the same function, so both sides can never drift.
  */

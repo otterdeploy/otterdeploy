@@ -1,5 +1,5 @@
 /**
- * Exporter registry — each resource type publishes a `Record<string, string>`
+ * Exporter registry: each resource type publishes a `Record<string, string>`
  * of variables that other resources can reference via `${{<Name>.<VAR>}}`.
  *
  * Exporters are pure given their input rows; recursion (for service refs
@@ -54,7 +54,7 @@ export interface ServiceExportInput {
  *   - URL  = http://<host>:<port>  (only if primary port is http; internal)
  *   - DOMAIN     = primary public domain          (only if exposed)
  *   - PUBLIC_URL = https://<primary-domain>        (only if exposed)
- *   - DOMAINS    = every public domain, comma-joined (only if exposed) — so a
+ *   - DOMAINS    = every public domain, comma-joined (only if exposed), so a
  *                  consumer can wire up all of them, not just the primary
  */
 export function serviceExports(input: ServiceExportInput): Record<string, string> {
@@ -75,7 +75,7 @@ export function serviceExports(input: ServiceExportInput): Record<string, string
     }
   }
 
-  // Public domains — omitted (not empty) when the service has no route yet, so
+  // Public domains, omitted (not empty) when the service has no route yet, so
   // the tokens simply don't appear rather than resolving to blank strings.
   const domains = input.domains ?? [];
   const primaryDomain = domains[0];

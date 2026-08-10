@@ -2,7 +2,7 @@ import { cx, Mono, StateChip, VisualFrame } from "./primitives";
 
 /**
  * Showcase visuals, part two: routes, environment resolution, and previews.
- * Same rules as visuals-deploy.tsx — HTML rather than screenshots, and every
+ * Same rules as visuals-deploy.tsx. HTML rather than screenshots, and every
  * state word is one the product really uses.
  */
 

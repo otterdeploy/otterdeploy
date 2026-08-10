@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 // Unlike github-app-repos.test.ts / github-app-writeback.test.ts (which mock
 // @otterdeploy/shared/egress-policy entirely to keep those tests focused on
-// URL/method/body wiring), this file deliberately does NOT mock it — it
+// URL/method/body wiring), this file deliberately does NOT mock it. It
 // proves `ghFetch` (the wrapper od-skk routed routers/git/inspect.ts and
 // inspect-github.ts's tenant-facing fetches through) fails closed for real
 // against loopback, cloud metadata, RFC1918, and a hostname that resolves to
@@ -37,8 +37,8 @@ describe("ghFetch → real (unmocked) fail-closed egress policy", () => {
     await expect(ghFetch(url)).rejects.toThrow(
       /GitHub API request blocked by outbound egress policy/i,
     );
-    // IP literals are recognized by net.isIP before any DNS lookup happens —
-    // this proves the denial is real (address-range check), not an artifact
+    // IP literals are recognized by net.isIP before any DNS lookup happens.
+    // This proves the denial is real (address-range check), not an artifact
     // of a stubbed resolver.
     expect(dnsLookup).not.toHaveBeenCalled();
   });
@@ -63,7 +63,7 @@ describe("ghFetch → real (unmocked) fail-closed egress policy", () => {
     );
   });
 
-  it("rejects a plain-http target — these call sites stay https-only", async () => {
+  it("rejects a plain-http target. These call sites stay https-only", async () => {
     await expect(ghFetch("http://api.github.com/x")).rejects.toThrow(
       /GitHub API request blocked by outbound egress policy/i,
     );

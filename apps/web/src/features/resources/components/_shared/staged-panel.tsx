@@ -1,5 +1,5 @@
 /**
- * Shape of a resource that's pending creation — a staged-create ghost on the
+ * Shape of a resource that's pending creation. A staged-create ghost on the
  * graph that the operator hasn't applied yet.
  *
  * There's no backend resource behind one of these, so `details` carries the

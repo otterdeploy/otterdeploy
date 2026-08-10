@@ -21,7 +21,7 @@ import { Chips, LiveBadge, RANGES, type Range, Segmented, toggleSet } from "./ed
 import { HostFilter } from "./host-filter";
 
 /**
- * Edge events view — the operational log plane (Phase 3). Caddy's default
+ * Edge events view: the operational log plane (Phase 3). Caddy's default
  * logger: TLS/ACME certificate lifecycle and reverse_proxy upstream errors,
  * scoped to the caller's domains. Mirrors the access-log view's full-bleed
  * table; no histogram/percentiles (these are discrete events, not requests).
@@ -53,7 +53,7 @@ export function EdgeEventsView({ projectId }: { projectId?: string }) {
 
   const data = query.data;
   const rows = data?.rows ?? [];
-  // No hostStats here — derive the filter options from the rows themselves
+  // No hostStats here: derive the filter options from the rows themselves
   // (each event's host plus any batch domains).
   const hostOptions = (() => {
     const set = new Set<string>();
@@ -73,7 +73,7 @@ export function EdgeEventsView({ projectId }: { projectId?: string }) {
           <LiveBadge live={live} />
         </div>
         <p className="mt-0.5 text-[13px] text-muted-foreground">
-          Caddy's operational log — TLS/ACME certificate lifecycle and upstream errors. Live-tailed
+          Caddy's operational log: TLS/ACME certificate lifecycle and upstream errors. Live-tailed
           from the proxy's default logger.
         </p>
       </div>

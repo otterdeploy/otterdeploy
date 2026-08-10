@@ -1,5 +1,5 @@
 /**
- * Right-click context menus for the graph canvas — one for a resource node
+ * Right-click context menus for the graph canvas: one for a resource node
  * (service/database/stack), one for empty canvas. Follows the established
  * "invisible fixed-position trigger + controlled DropdownMenu" pattern from
  * `shared/components/data-grid/data-grid-context-menu.tsx` (the only other
@@ -39,7 +39,7 @@ export type GraphContextMenuTarget =
 export interface GraphContextMenuActions {
   onOpen: (node: ResourceFlowNode) => void;
   /** Preview lifecycle, reachable without opening the panel's Settings tab.
-   *  Teardown is deliberately absent — it is destructive and keeps its
+   *  Teardown is deliberately absent. It is destructive and keeps its
    *  type-to-confirm surface in the panel. */
   onPreviewRebuild: (previewId: string) => void;
   onPreviewPause: (previewId: string) => void;
@@ -56,7 +56,7 @@ export interface GraphContextMenuActions {
   onFitView: () => void;
 }
 
-/** Node kinds that show a context menu at all — a preview satellite or a
+/** Node kinds that show a context menu at all. A preview satellite or a
  *  compose sub-service card has its own click affordances and no standalone
  *  resource to act on here. */
 function isActionableKind(kind: string): kind is "service" | "database" | "compose" {
@@ -124,8 +124,8 @@ function PaneMenuItems({
 }
 
 /**
- * A preview's own actions. These all existed already — buried in the panel's
- * Settings tab, three clicks and a tab-switch from the graph — so the satellite
+ * A preview's own actions. These all existed already. Buried in the panel's
+ * Settings tab, three clicks and a tab-switch from the graph, so the satellite
  * offered nothing but "Open" on right-click.
  *
  * Teardown is deliberately NOT here. It destroys an environment and keeps its
@@ -213,7 +213,7 @@ function NodeMenuItems({
   }
 
   // A ghost (staged, pending create) or an unapplied resource has no
-  // resourceId yet — nothing runs, so restart/logs/hostname/delete would be
+  // resourceId yet, nothing runs, so restart/logs/hostname/delete would be
   // fake affordances. Open still works (it renders the manifest draft).
   const isReal = !!data.resourceId && data.pending !== "delete";
   const restartLabel = data.kind === "compose" ? "Redeploy" : "Restart";

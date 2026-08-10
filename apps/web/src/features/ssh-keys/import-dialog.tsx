@@ -80,7 +80,7 @@ export function ImportKeyDialog({
         <DialogHeader>
           <DialogTitle>{t("sshKeys.importTitle")}</DialogTitle>
           <DialogDescription>
-            Paste a public key. Only the public half is stored — keep the private key on your own
+            Paste a public key. Only the public half is stored. Keep the private key on your own
             machine.
           </DialogDescription>
         </DialogHeader>

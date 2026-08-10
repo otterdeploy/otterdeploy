@@ -15,7 +15,7 @@ import { client, queryClient } from "@/shared/server/orpc";
  * create alone routes through the server (oRPC) because the plugin forbids
  * setting `permissions` from the browser. All four are wired as the collection's
  * own handlers, so the page just reads via a live query and mutates the
- * collection — no separate hooks.
+ * collection, no separate hooks.
  *
  * Single shared collection rather than one-per-org: consumers scope it by adding
  * `eq(k.organizationId, …)` to their live query. TanStack DB forwards that filter
@@ -23,7 +23,7 @@ import { client, queryClient } from "@/shared/server/orpc";
  * `organizationId` to fetch (and cache) the right subset. The plugin's list is
  * already filtered server-side by that id; we stamp it back onto each row so the
  * client-side `eq` filter matches. `queryFn` projects the verbose plugin row down
- * to the fields the UI uses — the row type (and so the insert shape) is inferred
+ * to the fields the UI uses. The row type (and so the insert shape) is inferred
  * from that projection.
  */
 const organizationIdSchema = z.string().min(1);
@@ -34,7 +34,7 @@ function apiKeysSubsetKey(organizationId: string) {
 }
 
 const apiKeysQueryOptions = queryCollectionOptions({
-  // Stable id — persistedCollectionOptions keys the SQLite table off it; a
+  // Stable id: persistedCollectionOptions keys the SQLite table off it; a
   // random per-load id would never round-trip (see project.ts).
   id: "api-keys",
   syncMode: "on-demand",
@@ -76,7 +76,7 @@ const apiKeysQueryOptions = queryCollectionOptions({
       transaction.mutations.map(async (m) => {
         const row = m.modified;
         // `create` wants seconds-until-expiry; the optimistic row holds the
-        // resolved `expiresAt` — recover the delta.
+        // resolved `expiresAt`, recover the delta.
         const expiresIn = row.expiresAt
           ? Math.round((new Date(row.expiresAt).getTime() - Date.now()) / 1000)
           : null;
@@ -88,7 +88,7 @@ const apiKeysQueryOptions = queryCollectionOptions({
             : {}),
         });
         // Hand the one-time plaintext token to the UI before we resolve; it's
-        // never stored on the row. (Metadata is `unknown` at this boundary —
+        // never stored on the row. (Metadata is `unknown` at this boundary,
         // the reader narrows at runtime, no callback attached means no-op.)
         const onKey = metadataOnKey(m.metadata);
         onKey?.(created.key);
@@ -131,7 +131,7 @@ const apiKeysQueryOptions = queryCollectionOptions({
 
 type ApiKeyRow = Parameters<typeof apiKeysQueryOptions.getKey>[0];
 
-// Call `createCollection` inside each branch — the persisted and plain option
+// Call `createCollection` inside each branch. The persisted and plain option
 // objects are different types (see project.ts for the full type note).
 export const apiKeysCollection = persistence
   ? createCollection(

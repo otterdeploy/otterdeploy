@@ -30,7 +30,7 @@ describe("createPullLineSummarizer", () => {
     vi.useFakeTimers();
     try {
       const s = createPullLineSummarizer(2_000);
-      // First layer events land inside the initial interval — all quiet.
+      // First layer events land inside the initial interval, all quiet.
       expect(s.push(event({ id: "a", status: "Pulling fs layer" }))).toBeNull();
       expect(
         s.push(
@@ -61,7 +61,7 @@ describe("createPullLineSummarizer", () => {
         ),
       ).toBe("Pulling postgres:18-alpine: 5.0 MB of 12.0 MB");
 
-      // Emitting resets the throttle — the very next layer event is quiet again.
+      // Emitting resets the throttle: the very next layer event is quiet again.
       expect(
         s.push(
           event({
@@ -83,7 +83,7 @@ describe("createPullLineSummarizer", () => {
       const s = createPullLineSummarizer(2_000);
       expect(s.push(event({ id: "a", status: "Pulling fs layer" }))).toBeNull();
       vi.advanceTimersByTime(2_001);
-      // Interval elapsed but zero known bytes — a "0.0 MB" line says nothing.
+      // Interval elapsed but zero known bytes: a "0.0 MB" line says nothing.
       expect(s.push(event({ id: "a", status: "Waiting" }))).toBeNull();
     } finally {
       vi.useRealTimers();

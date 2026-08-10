@@ -69,7 +69,7 @@ import { platformSettingsRouter } from "./platform-settings-router";
 // (the caller's own session/API-key org), NEVER from `input.organizationId`.
 // The path/input still carries `organizationId` (REST needs it in the URL,
 // and the contract types it as required) but it is intentionally unused for
-// authorization or data access — trusting it let one org's owner/admin
+// authorization or data access, trusting it let one org's owner/admin
 // read or mutate ANY other org's base domain, Cloudflare config, or member
 // list just by editing the id in the request. See od-5j8.8.
 export const organizationRouter = {
@@ -165,13 +165,13 @@ export const organizationRouter = {
     },
   ),
 
-  // ─── Platform-wide settings (control-plane domain + email transport)
-  //     — see ./platform-settings-router
+  // ─── Platform-wide settings (control-plane domain + email transport):
+  //     see ./platform-settings-router
   ...platformSettingsRouter,
 
   // ─── Members + invitations (better-auth org plugin) ───────────────
   // organizationId passed to auth.api.* below is always context.activeOrganizationId,
-  // never input.organizationId — better-auth's own handlers additionally
+  // never input.organizationId: better-auth's own handlers additionally
   // re-derive/re-check the caller's membership in that org, but we don't
   // rely on that alone: this router's own scope guard must hold on its own.
   listMembers: orgScopedProcedure.organization.listMembers.handler(async ({ context }) => {

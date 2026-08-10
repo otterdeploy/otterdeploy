@@ -28,7 +28,7 @@ import type { AuditFields } from "evlog";
  * `next()` resolves. Inner middlewares are free to build a new context object
  * (that is what `next({ context })` does), so a field the handler assigns on
  * *its* context may not be the field the outer middleware holds. A mutable
- * draft passed by reference survives any number of shallow merges — both
+ * draft passed by reference survives any number of shallow merges. Both
  * layers point at the same object. It is created per procedure invocation, not
  * per request, so two calls in one request can never inherit each other's diff.
  */
@@ -99,14 +99,14 @@ export function recordAuditChanges(
     includeBefore: options.includeSnapshots ?? false,
     includeAfter: options.includeSnapshots ?? false,
   });
-  // An update that changed nothing still deserves its row — it says someone
-  // tried — but an empty patch adds nothing, so leave `changes` null.
+  // An update that changed nothing still deserves its row. It says someone
+  // tried, but an empty patch adds nothing, so leave `changes` null.
   if (diff.patch.length === 0) return;
   draft.changes = diff;
 }
 
 /**
- * Record a key-level diff over a map whose values must never be stored — env
+ * Record a key-level diff over a map whose values must never be stored, env
  * vars, and anything else shaped like a secret bag.
  *
  * The generic path would depend on a key name matching {@link REDACTED_KEYS};

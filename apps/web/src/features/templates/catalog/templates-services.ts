@@ -8,7 +8,7 @@ export const SERVICES_TEMPLATES: StackTemplate[] = [
     id: "browserless",
     name: "Browserless",
     description:
-      "Headless Chrome as a service — point Puppeteer or Playwright at it over websocket for screenshots, PDFs and scraping, without shipping a browser inside your own image.",
+      "Headless Chrome as a service. Point Puppeteer or Playwright at it over websocket for screenshots, PDFs and scraping, without shipping a browser inside your own image.",
     category: "devtools",
     includes: ["browserless"],
     requiredEnv: [
@@ -59,7 +59,7 @@ services:
     id: "it-tools",
     name: "IT Tools",
     description:
-      "The utility drawer — hash and JWT decoders, UUID and password generators, cron parsers, base64, regex testers, colour converters. Everything runs client-side once loaded.",
+      "The utility drawer: hash and JWT decoders, UUID and password generators, cron parsers, base64, regex testers, colour converters. Everything runs client-side once loaded.",
     category: "devtools",
     includes: ["it-tools"],
     requiredEnv: [],
@@ -78,7 +78,7 @@ services:
     id: "drizzle-gateway",
     name: "Drizzle Gateway",
     description:
-      "Self-hosted Drizzle Studio — browse and edit any Postgres, MySQL or SQLite database in the browser, with the schema rendered the way Drizzle sees it.",
+      "Self-hosted Drizzle Studio. Browse and edit any Postgres, MySQL or SQLite database in the browser, with the schema rendered the way Drizzle sees it.",
     category: "devtools",
     includes: ["drizzle-gateway"],
     requiredEnv: [
@@ -109,7 +109,7 @@ volumes:
     id: "cloudbeaver",
     name: "CloudBeaver",
     description:
-      "DBeaver in the browser — a full SQL console with schema navigation, ER diagrams and query history across Postgres, MySQL, SQLite and more, shared by a team.",
+      "DBeaver in the browser: a full SQL console with schema navigation, ER diagrams and query history across Postgres, MySQL, SQLite and more, shared by a team.",
     category: "devtools",
     includes: ["cloudbeaver"],
     requiredEnv: [],
@@ -134,7 +134,7 @@ volumes:
     id: "soketi",
     name: "Soketi",
     description:
-      "Pusher-compatible websocket server — keep the Pusher client SDKs and point them here instead. Drop-in realtime for Laravel Echo, Rails and anything speaking the protocol.",
+      "Pusher-compatible websocket server. Keep the Pusher client SDKs and point them here instead. Drop-in realtime for Laravel Echo, Rails and anything speaking the protocol.",
     category: "data",
     includes: ["soketi"],
     requiredEnv: [
@@ -168,7 +168,7 @@ services:
     id: "mosquitto",
     name: "Mosquitto",
     description:
-      "The reference MQTT broker — tiny, fast, and what most IoT and device fleets speak. Persists retained messages and subscriptions to a named volume.",
+      "The reference MQTT broker: tiny, fast, and what most IoT and device fleets speak. Persists retained messages and subscriptions to a named volume.",
     category: "data",
     includes: ["mosquitto"],
     requiredEnv: [],
@@ -195,13 +195,13 @@ volumes:
     id: "pocket-id",
     name: "Pocket ID",
     description:
-      "OIDC provider built around passkeys — no passwords to store or reset. Small enough to put in front of internal tools without running a full identity platform.",
+      "OIDC provider built around passkeys, so there are no passwords to store or reset. Small enough to put in front of internal tools without running a full identity platform.",
     category: "security",
     includes: ["pocket-id"],
     requiredEnv: [
       {
         key: "APP_URL",
-        description: "Public base URL — issued tokens and OIDC discovery are built from it.",
+        description: "Public base URL. Issued tokens and OIDC discovery are built from it.",
       },
     ],
     logoBrand: "Pocket ID",

@@ -1,14 +1,14 @@
 /**
  * Stack-file contract slice.
  *
- * `diff` is read-only — calls the renderer over current rows and returns
+ * `diff` is read-only. Calls the renderer over current rows and returns
  * the YAML + a unified diff vs the saved stackFile.
  * `save` writes a YAML blob to the project's stackFile column with an
  * optimistic-lock check on stackFileVersion.
  * `apply` reads the saved stackFile, parses it, and pushes the env-var
  * changes through the existing database extra-env mutator so the running
  * swarm services pick up the new values. Other fields (image, ports,
- * healthcheck, new services) are not yet apply-driven — they still flow
+ * healthcheck, new services) are not yet apply-driven, they still flow
  * through resource CRUD.
  */
 

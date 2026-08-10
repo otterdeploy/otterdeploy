@@ -2,7 +2,7 @@
  * Transport bindings for cloning a set of resources. Behaviour lives in
  * ./clone; this file only maps inputs, permissions, and errors.
  *
- * Cloning creates resources, so it takes `service: ["create"]` — the same
+ * Cloning creates resources, so it takes `service: ["create"]`. The same
  * permission a hand-made service needs. A member who cannot create one service
  * must not be able to create nine by copying them.
  */

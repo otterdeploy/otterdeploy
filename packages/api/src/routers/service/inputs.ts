@@ -1,5 +1,5 @@
 /**
- * Handler input types — kept separate from `handlers.ts` to keep the
+ * Handler input types: kept separate from `handlers.ts` to keep the
  * orchestration file readable.
  *
  * The wire shape is the single source of truth: `Create*`/`Update*` are
@@ -7,7 +7,7 @@
  * actually validates (and the branded id fields survive, since the
  * contract uses `zId`, not a plain `z.string()`). Handlers layer two
  * things on top of the wire shape via intersection:
- *   1. `organizationId` — injected server-side from the request context,
+ *   1. `organizationId`, injected server-side from the request context,
  *      so it's never part of the public input.
  *   2. internal-caller-only fields (set by the manifest reconciler, not
  *      exposed on the HTTP contract): `skipBuildBindingCheck`, the extra
@@ -29,7 +29,7 @@ import type { createServiceInput, updateServiceInput } from "./contract-inputs";
 
 type OrgId = OrganizationId;
 
-// Supersets of the wire `restart`/`resources` objects — the manifest
+// Supersets of the wire `restart`/`resources` objects: the manifest
 // reconciler sets fields (window, disk/swap/pids) that the public contract
 // doesn't yet expose but the record adapters below still read.
 interface RestartInput {
@@ -61,7 +61,7 @@ export interface ResourceRef {
   resourceId: ResourceId;
 }
 
-/** Project-scoped addressing — used by `listServices`. */
+/** Project-scoped addressing. Used by `listServices`. */
 export interface ProjectRef {
   projectId: ProjectId;
   organizationId: OrgId;
@@ -73,13 +73,13 @@ export interface CreateServiceInput extends Omit<
 > {
   organizationId: OrgId;
   /** Environment this service is created in. Omitted means the project's main
-   *  environment — names only collide within one environment. */
+   *  environment: names only collide within one environment. */
   environmentId?: EnvironmentId;
   /**
    * Skip the up-front git build-binding gate (gitRepoId / containerRegistryId
    * / imageRepository). The manifest reconciler sets this: a git service
    * should still be CREATED (as a `pending:initial` row that skips swarm) on
-   * a project that hasn't bound its registry yet — the missing binding is
+   * a project that hasn't bound its registry yet. The missing binding is
    * reported later as a non-fatal "build not started" skip, not a hard
    * create failure. The direct `service.create` endpoint leaves this unset
    * so it keeps failing fast with MISSING_BUILD_BINDING.
@@ -111,7 +111,7 @@ export interface UpdateServiceInput extends Omit<
   gitRepoId?: GitRepoId | null;
   branch?: string | null;
   /** Root directory in the repo the builder builds from. Internal-caller-only
-   *  like the rest of the git binding — the Source card edits it by staging a
+   *  like the rest of the git binding: the Source card edits it by staging a
    *  manifest, and the reconciler brings it here. */
   sourceSubdir?: string | null;
   imageRepository?: string | null;
@@ -119,7 +119,7 @@ export interface UpdateServiceInput extends Omit<
 }
 
 // ---------------------------------------------------------------------------
-// Adapters — translate handler inputs into the loose payload shapes that
+// Adapters: translate handler inputs into the loose payload shapes that
 // the queries module expects. Keeps the `null`/`undefined` choreography
 // (used for "explicit clear" vs "leave alone") out of the orchestration.
 //

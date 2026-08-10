@@ -25,7 +25,7 @@ import { Result } from "better-result";
 import { log, parseError } from "evlog";
 
 // These callbacks run on the public ingress (the tunnel in dev), then bounce
-// the browser back to the dashboard. That target is the WEB origin — the
+// the browser back to the dashboard. That target is the WEB origin. The
 // VERIFIED control-plane FQDN when the operator has set one (keeps the raw
 // server IP out of browser redirects); otherwise the env resolution: in dev
 // BETTER_AUTH_URL is the API host, so prefer PUBLIC_WEB_URL when set (prod
@@ -33,7 +33,7 @@ import { log, parseError } from "evlog";
 const dashboardUrl = () =>
   resolveCanonicalWebOrigin((env.PUBLIC_WEB_URL ?? env.BETTER_AUTH_URL).replace(/\/$/, ""));
 
-// `returnTo` is a signed, sanitized app-relative path — when present, the
+// `returnTo` is a signed, sanitized app-relative path. When present, the
 // operator gets dropped back where they started the connect (e.g. the deploy
 // wizard) instead of the Git providers page.
 const resultRedirectUrl = async (params: {
@@ -147,7 +147,7 @@ export const githubManifestCallbackHandler: Handler = async (c) => {
     },
   });
 
-  // Carry the install state forward — same orgId + userId + returnTo — so
+  // Carry the install state forward (same orgId + userId + returnTo) so
   // the install-callback can finish wiring this org's first installation.
   // Mint fresh because the manifest-leg state has already burned most
   // of its 15-minute TTL.

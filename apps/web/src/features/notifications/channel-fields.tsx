@@ -79,7 +79,7 @@ function FieldError({ message }: { message?: string }) {
   return <p className="text-[11px] text-destructive">{message}</p>;
 }
 
-/** The input set below the type picker — adapts to the selected channel kind. */
+/** The input set below the type picker, adapts to the selected channel kind. */
 export function ChannelFields({
   kind,
   target,

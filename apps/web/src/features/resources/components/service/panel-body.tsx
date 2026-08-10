@@ -1,5 +1,5 @@
 /**
- * Tab content body for {@link ServiceResourcePanel} — pulled into a sibling
+ * Tab content body for {@link ServiceResourcePanel}, pulled into a sibling
  * module so that component stays under the line/complexity caps. Purely
  * presentational; all state (active tab, logs-visited latch, live service
  * view) is owned by the panel and passed in.
@@ -74,14 +74,14 @@ export function ServicePanelBody({
   return (
     <div className="relative min-h-0 flex-1">
       <div className="h-full overflow-y-auto">
-        {/* Plain container, not the animated <TabsContents> — panels snap to
+        {/* Plain container, not the animated <TabsContents>: panels snap to
             their content instead of the height-spring "drop-in" on every
             tab switch. */}
         <div className="relative">
-          {/* Runtime tabs only mount their live components once deployed —
-              they query tasks/metrics by resourceId, which doesn't exist
+          {/* Runtime tabs only mount their live components once deployed.
+              They query tasks/metrics by resourceId, which doesn't exist
               for a staged create. Overview/Deployments/Metrics stay
-              unmount-on-leave — they're pollers; unmounting stops their
+              unmount-on-leave. They're pollers; unmounting stops their
               intervals while hidden. */}
           {!pending && (
             <TabsContent value="overview" className="px-6 pt-5 pb-6">
@@ -143,7 +143,7 @@ export function ServicePanelBody({
       </div>
 
       {/* Logs + Terminal fill this region absolutely. Both stay mounted
-          across tab switches — Logs via CSS `hidden` (display:none keeps its
+          across tab switches: Logs via CSS `hidden` (display:none keeps its
           effects running, so its SSE stream + buffered lines survive and it
           never re-flashes "connecting"); Terminal via Activity (its PTY +
           scrollback survive). Logs mounts on first visit (`logsVisited`) so

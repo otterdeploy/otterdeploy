@@ -53,12 +53,12 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          // grid-cols-[minmax(0,1fr)], not grid-cols-1 — a bare `1fr` track
+          // grid-cols-[minmax(0,1fr)], not grid-cols-1: a bare `1fr` track
           // takes its automatic minimum from content, so wide children (a long
           // title, a code block, a table) stretch the dialog past max-w-sm.
           "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 grid-cols-[minmax(0,1fr)] gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-[50ms] outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           // A tall form (Add server runs ~1200px) in a centred dialog with no
-          // height cap hangs off BOTH ends of a phone screen — half the fields
+          // height cap hangs off BOTH ends of a phone screen. Half the fields
           // above the top edge, the submit buttons below the bottom, and no way
           // to reach either, because the page behind is what scrolls. Cap the
           // popup to the viewport and let its own content scroll.
@@ -74,7 +74,7 @@ function DialogContent({
         {children}
         {showCloseButton && (
           // Sticky, not absolute: the popup is now the scroll container, and an
-          // absolutely-positioned close sits at the top of the CONTENT — it
+          // absolutely-positioned close sits at the top of the CONTENT. It
           // scrolls out of sight the moment a tall dialog is scrolled. Parked
           // in the first grid cell at zero height so it overlays the header
           // instead of taking a row of its own, and pinned there while the rest

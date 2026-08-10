@@ -3,7 +3,7 @@
  *
  * These pages are the first thing anyone outside the team ever sees, they are
  * server-rendered strings with no component test harness, and nothing else in
- * the suite touches them — so a regression here ships silently. Each test pins
+ * the suite touches them, so a regression here ships silently. Each test pins
  * a decision that was made deliberately and would be easy to undo by accident.
  */
 
@@ -20,7 +20,7 @@ const wall = (hasPin = false) =>
   );
 
 describe("one accent", () => {
-  // The wall used to set hue 300 — a violet found nowhere else in the product,
+  // The wall used to set hue 300. A violet found nowhere else in the product,
   // on its most public screen. DESIGN.md mandates a single accent.
   const pages = [
     ["wall", wall()],
@@ -87,7 +87,7 @@ describe("the sign-in wall", () => {
 
 describe("failure pages", () => {
   test("an expired link offers the way back its copy promises", () => {
-    // The detail says "try opening the protected site again" — without this
+    // The detail says "try opening the protected site again". Without this
     // there is nothing to click.
     const html = String(
       <ErrorPage status={400} title="Link expired" detail="…" retryHost={DOMAIN} />,

@@ -1,7 +1,7 @@
 /**
  * Traffic rollup for the project graph's corner chip: pure helpers that
  * summarize the live edge-log stats (`edgeLogs.routeStats`) into total rps +
- * worst p95. Domains themselves are Networking-tab data — they don't render
+ * worst p95. Domains themselves are Networking-tab data. They don't render
  * on the graph.
  */
 
@@ -16,7 +16,7 @@ export interface HostTraffic {
   p95: number;
 }
 
-/** "1.2k", "312", "42.1", "0.03" — compact rps for labels and the live chip. */
+/** "1.2k", "312", "42.1", "0.03": compact rps for labels and the live chip. */
 export function formatRps(rps: number): string {
   if (rps >= 10_000) return `${(rps / 1000).toFixed(0)}k`;
   if (rps >= 1000) return `${(rps / 1000).toFixed(1)}k`;
@@ -27,7 +27,7 @@ export function formatRps(rps: number): string {
 
 /**
  * Corner-chip rollup: total rps + worst p95 across hosts that actually saw
- * traffic. `null` when nothing did — the chip is omitted entirely rather than
+ * traffic. `null` when nothing did. The chip is omitted entirely rather than
  * rendering zeros (no invented data).
  */
 export function summarizeTraffic(

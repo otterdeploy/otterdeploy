@@ -10,7 +10,7 @@ import { EdgeLogsView } from "./edge-logs-view";
  * Edge logs page. The per-request **access** log is always shown. The
  * operational **events** plane (cert/ACME lifecycle, upstream errors) spans the
  * whole edge, so it's only offered at the org level (no `projectId`) behind the
- * shared animated `line` tabs — a single project's view stays focused on its
+ * shared animated `line` tabs: a single project's view stays focused on its
  * own traffic. The page owns the viewport height so the active view fills it.
  *
  * Org scope drives the active tab off the URL (`?tab=`) via `tab` /

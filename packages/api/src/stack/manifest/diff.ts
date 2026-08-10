@@ -1,6 +1,6 @@
 /**
  * Plan-only diff between a resolved manifest and the project's current
- * resource state. Pure function — does not write.
+ * resource state. Pure function: does not write.
  *
  * The reconciler in Phase 4b/c will execute these change items; for
  * Phase 4a the same routine powers `manifest.diff` so users get a
@@ -28,7 +28,7 @@ export type ChangeResource = "service" | "database" | "env" | "compose";
 
 /**
  * Payload attached to a diff entry: summary fields on creates, a `fields`
- * map on updates, env metadata on env changes. JSON-shaped — the diff rides
+ * map on updates, env metadata on env changes. JSON-shaped. The diff rides
  * oRPC to the web's pending-changes UI, which should converge on this type
  * rather than respelling it. `FieldChanges` and `ComposeServiceSummary[]`
  * (compose creates enriched by router-manifest.ts) join the index explicitly
@@ -83,7 +83,7 @@ export interface CurrentService {
   env: Record<string, string>;
   publicEnabled: boolean;
   // Per-service PR-preview opt-in (serviceResource.previewsEnabled). Diffed
-  // only when the manifest declares `previews` — see diffGitBinding.
+  // only when the manifest declares `previews`: see diffGitBinding.
   previewsEnabled: boolean;
   // New manifest-tracked fields. Null/undefined means "not set on the
   // current resource"; diff treats them like any other field.
@@ -101,7 +101,7 @@ export interface CurrentDatabase {
   engine: DatabaseEngine;
   publicEnabled: boolean;
   // PR-preview branching opt-in (databaseResource.previewBranching). Diffed
-  // only when the manifest declares `previews` — same convention as services.
+  // only when the manifest declares `previews`: same convention as services.
   previewBranching: boolean;
   extraEnv: Record<string, string>;
 }
@@ -109,7 +109,7 @@ export interface CurrentDatabase {
 /**
  * Current-state view of a compose stack. Only identity is tracked: compose
  * stacks are diffed at create granularity (see {@link diffComposes}), so the
- * diff never needs the stack's contents — just whether one by this name
+ * diff never needs the stack's contents. Just whether one by this name
  * already exists.
  */
 export interface CurrentCompose {
@@ -129,14 +129,14 @@ export interface DiffOptions {
    * Resolve `${database:…}` / `${service:…}` refs in declared env values the
    * same way apply's write path will (null = unresolvable). Apply stores the
    * RESOLVED value in the env rows, so without this a declared ref never
-   * text-matches its row — a phantom "update" that survived every apply.
+   * text-matches its row: a phantom "update" that survived every apply.
    */
   resolveEnvValue?: (raw: string) => string | null;
 }
 
 /**
  * A declared env map, normalized for the declared-only convention: `undefined`
- * OR an empty `{}` both mean "live-managed" — the env editor owns the keys and
+ * OR an empty `{}` both mean "live-managed". The env editor owns the keys and
  * the diff/apply must not touch them. Nobody writes `env: {}` to mean "wipe
  * everything"; historically it just marked "no env declared at create time",
  * and treating it as authoritative staged a delete for every live-added var.
@@ -194,7 +194,7 @@ export function diffManifest(
 //   - No UPDATE. The stack's `${VAR}` values and per-service env become
 //     editable, real resources only AFTER the first deploy (each compose
 //     service materializes as its own service_resource). Editing the file
-//     itself rides the stack's own redeploy, not the manifest — so the diff
+//     itself rides the stack's own redeploy, not the manifest, so the diff
 //     never emits a compose update and can't manufacture a phantom one.
 //   - No DELETE. Stacks created before compose joined the manifest live in
 //     current state but not in any saved manifest; emitting deletes for them
@@ -280,7 +280,7 @@ function diffService(
 
   // Declared-only, same convention as database extraEnv: an absent (or empty)
   // env map means the live env editor owns the keys. Diffing it as `{}` staged
-  // a phantom delete for EVERY live-added var — for a service whose vars were
+  // a phantom delete for EVERY live-added var. For a service whose vars were
   // set post-create, that was the entire env, pending forever.
   const declaredEnv = declaredEnvOf(desired.env);
   const envChanges =
@@ -347,7 +347,7 @@ function diffDatabase(
 
   // Same declared-only convention as publicEnabled: an absent extraEnv means
   // the live env editor owns the keys. Diffing an absent map as `{}` used to
-  // stage a phantom delete for every live-added key — and Apply wiped them
+  // stage a phantom delete for every live-added key, and Apply wiped them
   // (rolling the container for good measure).
   const envChanges =
     desired.extraEnv === undefined

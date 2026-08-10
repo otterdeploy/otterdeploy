@@ -1,6 +1,6 @@
 /**
  * Service create/update phases of the manifest reconciler. Split from the rest
- * of the phases because each per-service step is heavier — env-ref resolution,
+ * of the phases because each per-service step is heavier. Env-ref resolution,
  * domain seeding on create, and the pending-build enqueue on update.
  */
 import type { ResourceId } from "@otterdeploy/shared/id";
@@ -56,7 +56,7 @@ async function createOneService(
     builds.push({ resourceId: created.value.resourceId, name: change.name });
   }
   // Seed manifest-declared public domains onto the freshly-created service
-  // (create-time only). Failures are non-fatal skips — the service itself is
+  // (create-time only). Failures are non-fatal skips. The service itself is
   // already created; a bad/portless domain shouldn't roll that back.
   if (created.isOk() && spec.domains?.length) {
     for (const s of await seedServiceDomains({

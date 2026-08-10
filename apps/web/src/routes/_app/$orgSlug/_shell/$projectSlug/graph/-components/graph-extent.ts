@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState, type RefObject } from "react";
 
 import type { CoordinateExtent, Node, NodeChange } from "@xyflow/react";
 
-import { CARD_W } from "./laid-out-nodes";
+import { CARD_W, computeLaidOutNodes } from "./laid-out-nodes";
 
 interface XY {
   x: number;
@@ -47,7 +47,7 @@ function expandToMinimum(min: number, max: number): [number, number] {
 
 /**
  * `nodeExtent` clamps a node's *position*, which React Flow treats as its
- * top-left corner — so the far edges subtract a card so a card dropped at the
+ * top-left corner, so the far edges subtract a card so a card dropped at the
  * limit still sits fully inside the world rather than hanging out of it.
  */
 export function computeGraphExtents(positions: Iterable<XY>): GraphExtents {
@@ -86,7 +86,7 @@ export function computeGraphExtents(positions: Iterable<XY>): GraphExtents {
   };
 }
 
-interface Size {
+export interface Size {
   width: number;
   height: number;
 }
@@ -96,13 +96,13 @@ interface Size {
  * size React Flow measured for it.
  *
  * Two jobs in one pass so a node keeps its object identity unless something
- * about it actually changed — the graph leans on reference stability to keep
+ * about it actually changed. The graph leans on reference stability to keep
  * re-renders to the dragged card alone (see laid-out-nodes.ts).
  *
  * Positions saved before the canvas was bounded can sit anywhere, and
  * `nodeExtent` only clamps a drag in progress; without the clamp an existing
  * stray stays stray and keeps dragging `fitView` out with it. The sizes matter
- * because MiniMap skips any node it can't measure — and since this graph is
+ * because MiniMap skips any node it can't measure, and since this graph is
  * controlled, the only way a size reaches the node objects is for us to put it
  * there.
  */
@@ -133,9 +133,13 @@ export function applyBounds(
 /**
  * Remembers the dimensions React Flow reports. `onNodesChange` previously threw
  * `dimensions` changes away and kept only positions, so no node ever carried a
- * size — which is why the minimap rendered an empty rectangle.
+ * size, which is why the minimap rendered an empty rectangle.
+ *
+ * Called by GraphCanvas rather than by useBoundedGraph, because the layout pass
+ * needs these too: real sizes are what let the overlap guarantee separate the
+ * cards that are actually on screen instead of dagre's estimates of them.
  */
-function useNodeDimensions() {
+export function useNodeDimensions() {
   const [measured, setMeasured] = useState<ReadonlyMap<string, Size>>(() => new Map());
   const capture = useCallback((changes: NodeChange[]) => {
     setMeasured((prev) => {
@@ -161,11 +165,11 @@ function useNodeDimensions() {
  * from where cards currently sit would let the bounds grow every time someone
  * dragged toward the edge, which is exactly how the canvas ended up unbounded.
  */
-export function useBoundedGraph(
+function useBoundedGraph(
   nodes: Node[],
   layoutCache: RefObject<{ sig: string; positions: Map<string, { x: number; y: number }> }>,
-): GraphExtents & { nodes: Node[]; captureDimensions: (changes: NodeChange[]) => void } {
-  const { measured, capture } = useNodeDimensions();
+  measured: ReadonlyMap<string, Size>,
+): GraphExtents & { nodes: Node[] } {
   const sig = layoutCache.current.sig;
   const extents = useMemo(
     () => computeGraphExtents(layoutCache.current.positions.values()),
@@ -176,5 +180,50 @@ export function useBoundedGraph(
     () => applyBounds(nodes, extents.nodeExtent, measured),
     [nodes, extents.nodeExtent, measured],
   );
-  return { ...extents, nodes: bounded, captureDimensions: capture };
+  return { ...extents, nodes: bounded };
+}
+
+/**
+ * Everything between "here are the nodes" and "here is what React Flow
+ * renders": measure, place (dagre + drags + the overlap guarantee), bound.
+ *
+ * One hook rather than three calls in GraphCanvas because the order between
+ * them matters and is easy to get wrong. The measured sizes have to reach the
+ * LAYOUT, not just the minimap, or the overlap pass separates estimates instead
+ * of cards. It also keeps the route component under its line cap.
+ */
+export function usePlacedNodes(
+  args: Omit<Parameters<typeof computeLaidOutNodes>[0], "measured"> & {
+    layoutCache: RefObject<{ sig: string; positions: Map<string, XY> }>;
+  },
+): GraphExtents & {
+  nodes: Node[];
+  measured: ReadonlyMap<string, Size>;
+  captureDimensions: (changes: NodeChange[]) => void;
+} {
+  const { measured, capture } = useNodeDimensions();
+  const { dragging, dragged, liveNodes, liveEdges, renderedNodesRef, layoutCache } = args;
+
+  // Reads/writes the render-cache refs during render on purpose. Mid-drag it
+  // must return the exact set last rendered (no flicker) and it accumulates
+  // dagre positions across renders; promoting either to state reintroduces the
+  // flicker/jitter the cache prevents. See laid-out-nodes.ts.
+  /* oxlint-disable react-hooks-js/refs -- deliberate render cache (anti-flicker) */
+  const laidOut = useMemo(
+    () =>
+      computeLaidOutNodes({
+        dragging,
+        dragged,
+        liveNodes,
+        liveEdges,
+        renderedNodesRef,
+        layoutCache,
+        measured,
+      }),
+    [dragging, dragged, liveNodes, liveEdges, renderedNodesRef, layoutCache, measured],
+  );
+  /* oxlint-enable react-hooks-js/refs */
+
+  const bounded = useBoundedGraph(laidOut, layoutCache, measured);
+  return { ...bounded, measured, captureDimensions: capture };
 }

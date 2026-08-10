@@ -9,7 +9,7 @@
  * failed" arriving as a toast after Save tells the operator nothing about
  * which of seven fields is wrong. The rule this encodes: the client and the
  * server run the SAME schema, so the client can be honest immediately and the
- * server stays the authority — never two hand-written validators that drift.
+ * server stays the authority, never two hand-written validators that drift.
  *
  * `zod` only. Nothing here may import a server module, or the import is no
  * longer safe from the browser.
@@ -20,7 +20,7 @@ import * as z from "zod";
 /**
  * One allowlist entry: a bare IPv4/IPv6 address or a CIDR block.
  *
- * Hostnames are deliberately unmatched — a name that resolves to a public
+ * Hostnames are deliberately unmatched. A name that resolves to a public
  * address at validation time can be re-bound to a private one afterwards,
  * which is the whole SSRF this allowlist has to not reopen.
  *
@@ -51,14 +51,14 @@ export const egressAllowlistField = z
   .string()
   .trim()
   .superRefine((raw, ctx) => {
-    // superRefine, not refine, because the message names the offending entry —
+    // superRefine, not refine, because the message names the offending entry:
     // "asssad is not a bare IP" is actionable, "Invalid input" is not, and
     // refine's second argument cannot depend on the value.
     const bad = firstInvalidAllowlistEntry(raw);
     if (bad === null) return;
     ctx.addIssue({
       code: "custom",
-      message: `"${bad}" is not a bare IP or CIDR — hostnames are not accepted here`,
+      message: `"${bad}" is not a bare IP or CIDR. Hostnames are not accepted here`,
     });
   });
 
@@ -67,7 +67,7 @@ export const edgeLogRetentionDaysField = z.number().int().min(1).max(365);
 export const geoipUrlField = z.url({ message: "must be a full URL, including https://" });
 export const builderConcurrencyField = z.number().int().min(1).max(32);
 
-/** The operator-editable half of the Runtime card — everything the Save button
+/** The operator-editable half of the Runtime card, everything the Save button
  *  sends, minus the organization id the contract adds. The web form validates
  *  against exactly this. */
 export const runtimeSettingsDraftSchema = z.object({

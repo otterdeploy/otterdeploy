@@ -19,7 +19,7 @@ export function ThemeToggle() {
     try {
       localStorage.setItem("theme", next ? "dark" : "light");
     } catch {
-      // Private mode or storage disabled — the toggle still works for this
+      // Private mode or storage disabled: the toggle still works for this
       // page load, it just won't be remembered.
     }
   };
@@ -33,7 +33,7 @@ export function ThemeToggle() {
     >
       {/* Which icon shows is decided by the `dark` class, not by React state.
           Reading the theme into state would mean rendering the wrong icon
-          until the first effect ran — a visible flip on every page load. */}
+          until the first effect ran. A visible flip on every page load. */}
       <HugeiconsIcon icon={Moon02Icon} className="size-4 dark:hidden" />
       <HugeiconsIcon icon={Sun03Icon} className="hidden size-4 dark:block" />
     </button>

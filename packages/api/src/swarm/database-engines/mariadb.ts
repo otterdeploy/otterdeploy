@@ -10,7 +10,7 @@ export const mariadbAdapter: DatabaseEngineAdapter = {
   defaultImage: `${meta.dockerImage}:${meta.defaultTag}`,
   port: meta.defaultPort,
   // MariaDB writes its datadir to /var/lib/mysql (same path the MySQL image
-  // uses — MariaDB ships compatible aliasing).
+  // uses, MariaDB ships compatible aliasing).
   mountTarget: "/var/lib/mysql",
   reservedEnvKeys: new Set([
     "MARIADB_ROOT_PASSWORD",
@@ -26,7 +26,7 @@ export const mariadbAdapter: DatabaseEngineAdapter = {
     "MYSQL_PASSWORD",
   ]),
   buildEnv: ({ username, password, databaseName }) => [
-    // Use MARIADB_* for forward-compat — image v11+ prefers them. Setting
+    // Use MARIADB_* for forward-compat. Image v11+ prefers them. Setting
     // root password to the user password keeps things simple; if operators
     // need separation they can override via extraEnv (we filter root pwd
     // out of reservedEnvKeys above so the override sticks).

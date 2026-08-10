@@ -1,12 +1,12 @@
 /**
- * od-5j8.8 — hostile-path coverage for the organization-settings tenant
+ * od-5j8.8: hostile-path coverage for the organization-settings tenant
  * boundary.
  *
  * Before this fix, every procedure in this router (`settings`,
  * `setBaseDomain`, `verifyBaseDomain`, `setCloudflareConfig`,
  * `autoConfigureBaseDomain`, `listMembers`, `removeMember`,
  * `updateMemberRole`, `listInvitations`, `cancelInvitation`) read
- * `input.organizationId` — a client-supplied REST path param — and used it
+ * `input.organizationId` (a client-supplied REST path param) and used it
  * directly for the DB/better-auth call. The RBAC middleware
  * (`requirePermission`) only ever validated the CALLER's own active-org
  * permission, never that `input.organizationId` matched it. Net effect: any
@@ -17,7 +17,7 @@
  * These tests drive the real oRPC procedures end-to-end (via
  * `createProcedureClient`, with a hand-built `Context` standing in for a
  * real session) and prove that a caller whose ACTIVE org is org A, but whose
- * INPUT claims org B, only ever touches org A's data — never org B's, and
+ * INPUT claims org B, only ever touches org A's data, never org B's, and
  * never a leak/500 in between.
  */
 import type { OrganizationId } from "@otterdeploy/shared/id";
@@ -46,7 +46,7 @@ const orgB = "org_b" as OrganizationId;
 
 // ── In-memory "two tenants" fixture ─────────────────────────────────────
 // Keyed by whichever organizationId the router actually calls the handler
-// with — this is what makes the assertions meaningful: if the router ever
+// with: this is what makes the assertions meaningful: if the router ever
 // regresses to trusting `input.organizationId` again, these mocks return
 // ORG B's data for a call the test drives with an org-A actor, and the
 // test fails.
@@ -96,7 +96,7 @@ vi.mock("../handlers", async (importOriginal) => {
   };
 });
 
-// RBAC is covered elsewhere (authz/__tests__/capability.test.ts) — always
+// RBAC is covered elsewhere (authz/__tests__/capability.test.ts). Always
 // grant it here so these tests isolate the tenant-scope question.
 vi.mock("@otterdeploy/auth", () => ({
   auth: { api: { hasPermission: vi.fn(async () => ({ success: true })) } },

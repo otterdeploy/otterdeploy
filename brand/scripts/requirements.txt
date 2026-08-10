@@ -1,4 +1,4 @@
-# Build-time only — the brand asset generator, never the app.
+# Build-time only, the brand asset generator, never the app.
 fonttools==4.60.1
 brotli==1.2.0        # woff2 decompression for fonttools
 uharfbuzz==0.55.0    # real shaping, so the wordmark outlines match the running UI

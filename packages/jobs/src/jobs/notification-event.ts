@@ -14,7 +14,7 @@ import {
  *   - fan-out (default): deliver to all `active` channels subscribed to
  *     (organizationId, eventId) via the subscription matrix.
  *   - test (`channelId` set): deliver to that one channel regardless of its
- *     subscriptions — the "Test" / "Send test" button. Still logged.
+ *     subscriptions: the "Test" / "Send test" button. Still logged.
  */
 import { and, eq } from "drizzle-orm";
 import * as z from "zod";
@@ -100,7 +100,7 @@ export const notificationEventJob = defineJob({
       },
     });
 
-    // In-app inbox fan-out (the header bell) — same subscription gate as the
+    // In-app inbox fan-out (the header bell): same subscription gate as the
     // channels, one row per org member. Runs BEFORE channel delivery and is
     // deduped on the job id, so a retried job never double-writes the inbox.
     if (
@@ -110,7 +110,7 @@ export const notificationEventJob = defineJob({
         subscribedChannelCount: channels.length,
       })
     ) {
-      // The BullMQ job id is stable across retries — the dedupe key. The
+      // The BullMQ job id is stable across retries. The dedupe key. The
       // fallback (id-less jobs shouldn't happen for queued work) is unique
       // per call so it can never suppress a later, different occurrence.
       const occurrence = job.id ? `job:${job.id}` : `evt:${payload.eventId}:${Date.now()}`;

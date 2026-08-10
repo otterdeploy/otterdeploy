@@ -1,7 +1,7 @@
 /**
  * Turn a resource's `placementServerId` into a swarm node id at deploy time.
  *
- * Deliberately does no work when the resource is unpinned — the common case
+ * Deliberately does no work when the resource is unpinned. The common case
  * costs zero docker calls.
  *
  * What happens when a pin can't be resolved differs by what the resource
@@ -97,7 +97,7 @@ async function resolvePlacementNodeId(input: {
 
 /**
  * Placement for a resource with a local volume. Throws rather than deploying
- * a stateful service away from its data — see the module note.
+ * a stateful service away from its data: see the module note.
  */
 async function requirePlacementNodeId(input: {
   placementServerId: ServerId | string | null | undefined;
@@ -110,14 +110,14 @@ async function requirePlacementNodeId(input: {
     throw new Error(
       `Refusing to deploy "${input.resourceName}" away from its data: ${resolution.reason} ` +
         `Bring that server back, or clear the placement pin to let it schedule elsewhere ` +
-        `(its existing volume will NOT follow — restore from a backup instead).`,
+        `(its existing volume will NOT follow, restore from a backup instead).`,
     );
   }
   return outcome;
 }
 
 /**
- * Placement for a resource identified by project rather than org — the shape
+ * Placement for a resource identified by project rather than org: the shape
  * the deploy path actually has. Resolves the owning organization first so the
  * server lookup stays tenant-scoped; skipped entirely when unpinned, so an
  * unpinned deploy pays for neither query.
@@ -127,7 +127,7 @@ export async function resolvePlacementForProject(input: {
   projectId: ProjectId;
   /** Named in the failure message for a stateful resource. */
   resourceName: string;
-  /** True for anything owning a local volume — see the module note. */
+  /** True for anything owning a local volume: see the module note. */
   stateful: boolean;
 }): Promise<PlacementOutcome> {
   if (!input.placementServerId) return UNPINNED;
@@ -149,7 +149,7 @@ export async function resolvePlacementForProject(input: {
 }
 
 /**
- * Placement read straight off the resource row — the entry point for deploy
+ * Placement read straight off the resource row. The entry point for deploy
  * paths that hold a resource id and nothing else. One join covers both the pin
  * and the owning organization, so the server lookup stays tenant-scoped.
  *
@@ -158,7 +158,7 @@ export async function resolvePlacementForProject(input: {
  */
 export async function resolvePlacementForResource(input: {
   resourceId: ResourceId | string;
-  /** True for anything owning a local volume — see the module note. */
+  /** True for anything owning a local volume: see the module note. */
   stateful: boolean;
 }): Promise<PlacementOutcome> {
   const [row] = await db
@@ -172,7 +172,7 @@ export async function resolvePlacementForResource(input: {
     .where(eq(resource.id, input.resourceId as ResourceId))
     .limit(1);
 
-  // A missing row is the caller's problem, not a placement failure — deploying
+  // A missing row is the caller's problem, not a placement failure. Deploying
   // unpinned is the honest answer here rather than inventing a constraint.
   if (!row?.placementServerId) return UNPINNED;
 

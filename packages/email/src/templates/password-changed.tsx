@@ -13,7 +13,7 @@ interface PasswordChangedEmailProps {
 
 /**
  * Security notice sent after a password is changed or reset completes. Not an
- * action email — it's a heads-up with a recovery path if it wasn't the user.
+ * action email: it's a heads-up with a recovery path if it wasn't the user.
  */
 export function PasswordChangedEmail({
   username = "there",
@@ -38,7 +38,7 @@ export function PasswordChangedEmail({
       <Para>The password on your otterdeploy account was just updated.</Para>
       <DataTable rows={rows} />
       <Footnote>
-        Wasn&apos;t you? Secure your account right away — reset your password and review active
+        Wasn&apos;t you? Secure your account right away. Reset your password and review active
         sessions.
       </Footnote>
       <BrandButton href={secureUrl}>Secure my account</BrandButton>

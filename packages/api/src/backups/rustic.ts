@@ -1,6 +1,6 @@
 import { env } from "@otterdeploy/env/server";
 /**
- * Thin wrapper around the `rustic` CLI (v0.11.3, GNU x86_64 — vendored into the
+ * Thin wrapper around the `rustic` CLI (v0.11.3, GNU x86_64, vendored into the
  * server image, see apps/server/Dockerfile). rustic is the ONLY backup engine:
  * dedup + incremental + zstd + repo-key encryption, driven entirely by
  * shell-outs. No restic-Go, no napi, no fallback tool.
@@ -32,7 +32,7 @@ import type { RusticRepo } from "./backends";
 /** Where run progress/errors are surfaced (matches the engine's log closure). */
 type LogFn = (stream: "stdout" | "stderr" | "system", line: string) => void | Promise<void>;
 
-/** Result of a stdin backup — the fields the engine writes onto the run row. */
+/** Result of a stdin backup: the fields the engine writes onto the run row. */
 export interface BackupStdinResult {
   /** 64-hex snapshot id (goes to `storagePath`). */
   snapshotId: string;
@@ -44,7 +44,7 @@ export interface BackupStdinResult {
   durationMs: number;
 }
 
-/** GFS keep policy for `forget` — maps 1:1 onto rustic's `--keep-*` flags. */
+/** GFS keep policy for `forget`. Maps 1:1 onto rustic's `--keep-*` flags. */
 export interface ForgetSpec {
   keepLast?: number;
   keepDaily?: number;
@@ -142,7 +142,7 @@ export class RusticCli {
     opts: { stdin?: Readable; stdout?: Writable } = {},
   ): Promise<string> {
     const base = join(tmpdir(), `rustic-${randomBytes(12).toString("hex")}`);
-    // `-P <base>` reads `<base>.toml` (verified) — write with the extension,
+    // `-P <base>` reads `<base>.toml` (verified). Write with the extension,
     // pass the extensionless base.
     await writeFile(`${base}.toml`, this.profileToml(), { mode: 0o600 });
     try {
@@ -158,7 +158,7 @@ export class RusticCli {
       const child = spawn(this.binary, args, {
         stdio: [opts.stdin ? "pipe" : "ignore", "pipe", "pipe"],
         // Inherit PATH etc.; NO_COLOR strips ANSI so logs + error text stay clean.
-        // No secrets ride on env or argv — the password lives in the profile.
+        // No secrets ride on env or argv: the password lives in the profile.
         // oxlint-disable-next-line node/no-process-env -- inherit host env for the child; per-call additions only.
         env: { ...process.env, NO_COLOR: "1" },
       });
@@ -223,7 +223,7 @@ export class RusticCli {
       await this.run(["init"]);
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause);
-      // rustic aborts a re-init with "Config file already exists" — treat as OK.
+      // rustic aborts a re-init with "Config file already exists". Treat as OK.
       if (/already (exists|initialized)/i.test(message)) return;
       throw cause;
     }
@@ -294,7 +294,7 @@ export class RusticCli {
     try {
       stdout = await this.run(["snapshots", snapshotId, "--json"]);
     } catch {
-      // rustic exits non-zero when the id matches nothing — treat as absent.
+      // rustic exits non-zero when the id matches nothing: treat as absent.
       return false;
     }
     try {

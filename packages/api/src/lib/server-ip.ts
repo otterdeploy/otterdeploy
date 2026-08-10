@@ -1,22 +1,22 @@
 /**
- * First-boot resolver for `platform_settings.server_ip` — the public IP
+ * First-boot resolver for `platform_settings.server_ip`: the public IP
  * embedded in sslip.io fallback domains (`<ip>.sslip.io`). Without it the
  * resolver in `./domains.ts` degrades to `127.0.0.1`, so "public" services
  * publish a loopback URL that's reachable from nowhere.
  *
  * Precedence (every boot):
- *   1. Operator override (env SERVER_IP) — authoritative, re-applied each
+ *   1. Operator override (env SERVER_IP): authoritative, re-applied each
  *      boot so changing the env actually takes effect.
- *   2. Already-persisted value — sticky; a detected/typed IP is never
+ *   2. Already-persisted value: sticky; a detected/typed IP is never
  *      silently overwritten.
- *   3. Auto-detect from a public-IP echo service — only when `allowDetect`
+ *   3. Auto-detect from a public-IP echo service: only when `allowDetect`
  *      (production). A dev box's WAN IP isn't reachable on :443, so dev
  *      skips detection rather than persist a misleading address.
- *   4. A local non-internal IPv4 — when the echo services can't be reached at
+ *   4. A local non-internal IPv4: when the echo services can't be reached at
  *      all. Better than the loopback the resolver would otherwise fall to.
  *
- * Unlike Coolify — which takes the IP the operator typed when adding a
- * server over SSH and never calls an echo service — otterdeploy runs *on*
+ * Unlike Coolify, which takes the IP the operator typed when adding a
+ * server over SSH and never calls an echo service. Otterdeploy runs *on*
  * the single node it deploys to, so there's no "add server" step to carry
  * the IP. Detection fills that gap; the env override mirrors Coolify's
  * operator-provided value for when detection is wrong (NAT, multi-homed).
@@ -35,7 +35,7 @@ export interface EnsureServerIpResult {
   source: ServerIpSource;
 }
 
-// Plain-text echo services — the response body is the caller's public IP.
+// Plain-text echo services: the response body is the caller's public IP.
 // Tried in order; first that answers with something IP-shaped wins.
 const IP_ECHO_SERVICES = [
   "https://api.ipify.org",
@@ -45,7 +45,7 @@ const IP_ECHO_SERVICES = [
 
 const IPV4 = /^(\d{1,3}\.){3}\d{1,3}$/;
 
-/** Loose check — rejects HTML/error bodies, not a full RFC validation. */
+/** Loose check. Rejects HTML/error bodies, not a full RFC validation. */
 function looksLikeIp(value: string): boolean {
   if (IPV4.test(value)) return true;
   // ipv6: only hex + colons, and at least one colon.
@@ -68,7 +68,7 @@ async function detectPublicIp(): Promise<string | null> {
 }
 
 /**
- * od-bad: last resort before giving up — the first non-internal IPv4 this
+ * od-bad: last resort before giving up: the first non-internal IPv4 this
  * container can see. Runs when the echo services are unreachable (no egress,
  * blocked outbound, air-gapped LAN install), where the alternative is
  * `domains.ts` degrading every generated domain to `127.0.0.1.sslip.io`: a URL
@@ -78,7 +78,7 @@ async function detectPublicIp(): Promise<string | null> {
  *
  * Docker caveat: in a bridged container this sees the container's own address
  * on the compose network, not the host's. That's why `install.sh` writes
- * SERVER_IP from the host (precedence #1) — this only carries an install where
+ * SERVER_IP from the host (precedence #1): this only carries an install where
  * that didn't happen.
  */
 function detectLocalIp(): string | null {
@@ -117,17 +117,17 @@ export async function ensureServerIp(opts: {
     return { ip: override, source: "override" };
   }
 
-  // 2. Keep a value we already have — detected or typed, it's trusted.
+  // 2. Keep a value we already have. Detected or typed, it's trusted.
   if (row?.serverIp) return { ip: row.serverIp, source: "existing" };
 
-  // 3. Nothing on record — detect (production only) and persist.
+  // 3. Nothing on record: detect (production only) and persist.
   const detected = opts.allowDetect ? await detectPublicIp() : null;
   if (detected) {
     await persist(detected);
     return { ip: detected, source: "detected" };
   }
 
-  // 4. No public answer — fall back to a local interface rather than let the
+  // 4. No public answer: fall back to a local interface rather than let the
   //    resolver silently mint loopback domains.
   const local = opts.allowDetect ? detectLocalIp() : null;
   if (local) {

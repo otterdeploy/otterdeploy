@@ -49,13 +49,13 @@ describe("runnableDestinationIds", () => {
     expect(runnableDestinationIds(ids, rows)).toEqual(ids);
   });
 
-  it("drops disabled destinations — this is what makes `disable` real", () => {
+  it("drops disabled destinations. This is what makes `disable` real", () => {
     const ids = [dest("d_local"), dest("d_s3")];
     const rows = [row("d_local", "disabled"), row("d_s3", "active")];
     expect(runnableDestinationIds(ids, rows)).toEqual([dest("d_s3")]);
   });
 
-  it("keeps `degraded` destinations — health, not operator intent", () => {
+  it("keeps `degraded` destinations, health, not operator intent", () => {
     const ids = [dest("d_s3")];
     expect(runnableDestinationIds(ids, [row("d_s3", "degraded")])).toEqual([dest("d_s3")]);
   });

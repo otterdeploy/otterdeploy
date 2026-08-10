@@ -5,10 +5,10 @@ import { Button } from "@/shared/components/ui/button";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
 /**
- * Placeholder for the resource drawer while its contents are still resolving —
- * the route's code-split chunk, the `service.get` runtime view, a cold resource
+ * Placeholder for the resource drawer while its contents are still resolving.
+ * The route's code-split chunk, the `service.get` runtime view, a cold resource
  * collection, or a just-staged ghost whose manifest hasn't landed. Mirrors the
- * real panel's layout — header tile + title, status bar, tab row, body cards —
+ * real panel's layout (header tile + title, status bar, tab row, body cards)
  * so the drawer slides in with shape rather than blank.
  *
  * `onClose` renders the header's close button, so a panel that is slow to load

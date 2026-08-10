@@ -1,8 +1,8 @@
 /**
- * Webhooks feature — outbound signed-event POSTs + inbound trigger endpoints.
+ * Webhooks feature: outbound signed-event POSTs + inbound trigger endpoints.
  * Types are inferred straight from the oRPC contract via the collections so
  * the UI can't drift from the server. The event vocabulary is the SAME
- * catalog notifications uses — import EVENTS from that feature, never fork it.
+ * catalog notifications uses, import EVENTS from that feature, never fork it.
  */
 import { env } from "@otterdeploy/env/web";
 

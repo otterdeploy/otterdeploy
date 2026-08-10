@@ -5,7 +5,7 @@
  *
  * Used by the graph view to draw edges between consuming services and the
  * databases / other services they depend on. Cheap enough to recompute on
- * every read — the project's env-var set is small.
+ * every read. The project's env-var set is small.
  */
 import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
@@ -55,7 +55,7 @@ export async function listProjectDependencies(
     })
     .from(serviceEnvVar)
     .innerJoin(resource, eq(resource.id, serviceEnvVar.serviceResourceId))
-    // Base rows only — preview overrides must not fabricate base graph edges.
+    // Base rows only: preview overrides must not fabricate base graph edges.
     .where(and(eq(resource.projectId, input.projectId), isNull(serviceEnvVar.previewId)));
 
   // Dedupe edges via a "source|target" key. A service referencing the same
@@ -65,7 +65,7 @@ export async function listProjectDependencies(
 
   for (const ev of envVars) {
     const parsed = parseValue(ev.value);
-    // Unparseable values aren't this endpoint's concern — they show up as
+    // Unparseable values aren't this endpoint's concern. They show up as
     // validation errors via the service.env.set/bulkSet paths.
     if (!parsed.ok) continue;
 

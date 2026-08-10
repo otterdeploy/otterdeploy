@@ -1,5 +1,5 @@
 /**
- * Resource metrics oRPC contract — recent CPU/memory/network samples for a
+ * Resource metrics oRPC contract: recent CPU/memory/network samples for a
  * service node, fed from the `resource_metric` time series.
  */
 import { oc } from "@orpc/contract";
@@ -30,7 +30,7 @@ const platformInput = z.object({
   windowMinutes: z.number().int().positive().max(1440).default(60),
 });
 
-// Project-wide aggregate. Max window = 7 days — the metric retention bound
+// Project-wide aggregate. Max window = 7 days: the metric retention bound
 // (hourly-cleanup prunes `resource_metric` after METRIC_RETENTION_DAYS = 7).
 const projectAggregateInput = z.object({
   projectId: zId(ID_PREFIX.project),
@@ -43,7 +43,7 @@ const projectAggregateInput = z.object({
  *  where only half the fleet sampled reads as partial rather than as a dip. */
 const aggregatePointSchema = z.object({
   ts: z.date(),
-  /** Sum of Docker-style CPU percents (of one core) — can exceed 100. */
+  /** Sum of Docker-style CPU percents (of one core): can exceed 100. */
   cpuPct: z.number(),
   /** Summed working-set bytes across reporting containers. */
   memBytes: z.number(),

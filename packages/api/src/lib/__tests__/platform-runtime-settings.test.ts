@@ -176,7 +176,7 @@ describe("CrowdSec", () => {
 });
 
 describe("Twilio", () => {
-  test("mixes a stored SID with the env token — each field resolves on its own", async () => {
+  test("mixes a stored SID with the env token. Each field resolves on its own", async () => {
     withRow({ twilioAccountSid: "AC-stored" });
     expect(await twilioConfig()).toEqual({
       accountSid: "AC-stored",

@@ -25,8 +25,8 @@ export async function listServersByOrg(organizationId: OrgId): Promise<ServerRec
  *
  * Edge reconciliation is install-wide because the config a node needs is
  * defined by what it must STOP serving as much as what it must start. A node
- * whose only service just moved away has no routes and no org with routes —
- * scoping the sweep to orgs that currently have routes would skip exactly the
+ * whose only service just moved away has no routes and no org with routes.
+ * Scoping the sweep to orgs that currently have routes would skip exactly the
  * node holding the stale one, and it would keep answering for a domain it no
  * longer runs.
  */
@@ -126,8 +126,8 @@ export async function patchServerProvision(input: {
 }
 
 /**
- * Record the host-firewall + native-bouncer provisioning outcome (od-5j8.11)
- * — written by provision-runner.ts on join and by the reapplyFirewall
+ * Record the host-firewall + native-bouncer provisioning outcome (od-5j8.11):
+ * written by provision-runner.ts on join and by the reapplyFirewall
  * remediation path. Separate from patchServerProvision so a firewall-only
  * remediation run (which doesn't touch provisionStatus) can't accidentally
  * clobber the swarm-join lifecycle fields.
@@ -187,7 +187,7 @@ export async function deleteServerRecord(input: {
   organizationId: OrgId;
 }): Promise<{ id: ServerId; unpinnedResources: number } | undefined> {
   // placement_server_id carries no FK (resource is org-scoped through project,
-  // server is org-scoped directly — there is no single parent to cascade from),
+  // server is org-scoped directly. There is no single parent to cascade from),
   // so the pin has to be released here. Left dangling, every affected resource
   // would resolve its placement to a server that no longer exists: a stateless
   // one would deploy unpinned with a confusing warning forever, and a database
@@ -215,7 +215,7 @@ export async function deleteServerRecord(input: {
       .where(and(eq(server.id, input.serverId), eq(server.organizationId, input.organizationId)))
       .returning({ id: server.id });
 
-    // Server wasn't ours — roll the unpin back rather than quietly editing
+    // Server wasn't ours. Roll the unpin back rather than quietly editing
     // another org's resources.
     if (!deleted) {
       tx.rollback();

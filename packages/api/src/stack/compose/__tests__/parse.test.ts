@@ -92,7 +92,7 @@ services:
     if (!web) throw new Error("expected a web service");
     expect(web.image).toBeNull();
     expect(web.build).toEqual({ context: "./web" });
-    // Word-split, NOT `/bin/sh -c` — see command-string.ts. This assertion
+    // Word-split, NOT `/bin/sh -c`: see command-string.ts. This assertion
     // used to encode the wrapper, which is how the Authentik restart loop
     // shipped with a green suite.
     expect(web.command).toEqual(["node", "server.js"]);

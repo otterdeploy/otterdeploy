@@ -1,9 +1,9 @@
 /**
  * Backup execution engine. Streams the run's source straight into `rustic`
- * (dedup + incremental + zstd + repo-key encryption — see rustic.ts) as backup
+ * (dedup + incremental + zstd + repo-key encryption, see rustic.ts) as backup
  * stdin, so nothing is buffered in RAM:
  *   `database`: a logical dump exec'd inside the DB's own container (no creds on
- *               the wire — see exec.ts);
+ *               the wire: see exec.ts);
  *   `volume`  : a tar of a named Docker volume streamed out of a read-only
  *               helper container (see volume.ts).
  * One repo per (resource × destination); each run is one tagged snapshot.
@@ -96,7 +96,7 @@ async function produceArchive(
       : ctx.resourceName;
   const containerId = await findResourceContainerId(docker, ctx.resourceId);
   if (!containerId) {
-    throw new Error(`No running container for service ${serviceName} — is the database up?`);
+    throw new Error(`No running container for service ${serviceName}: is the database up?`);
   }
   await log("system", `Exec into ${serviceName} (${containerId.slice(0, 12)})`);
 
@@ -108,8 +108,8 @@ async function produceArchive(
 }
 
 /**
- * Execute a queued backup run end-to-end. Always resolves — terminal status is
- * written to the row and surfaced via the log stream — so callers can fire it
+ * Execute a queued backup run end-to-end. Always resolves. Terminal status is
+ * written to the row and surfaced via the log stream, so callers can fire it
  * detached without unhandled rejections.
  */
 export async function executeBackup(backupId: string): Promise<void> {
@@ -149,7 +149,7 @@ export async function executeBackup(backupId: string): Promise<void> {
     await cli.ensureInit();
     await log("system", `Streaming into repo ${repoId}`);
 
-    // Pipe the live dump/tar straight into `rustic backup -` — rustic dedups,
+    // Pipe the live dump/tar straight into `rustic backup -`. Rustic dedups,
     // compresses (zstd), and encrypts under the repo key. Draining the stream
     // is what lets the dump/tar exit be observed, so the exit check comes after.
     const result = await cli.backupStdin({
@@ -158,8 +158,8 @@ export async function executeBackup(backupId: string): Promise<void> {
       tags: ["otterdeploy", `backup:${ctx.backupId}`, `schedule:${ctx.scheduleId ?? "manual"}`],
     });
 
-    // The snapshot is only trustworthy if the source producer exited cleanly —
-    // a failed pg_dump/tar can still end its stdout, leaving rustic a truncated
+    // The snapshot is only trustworthy if the source producer exited cleanly.
+    // A failed pg_dump/tar can still end its stdout, leaving rustic a truncated
     // archive it happily snapshots. Fail the run so a partial backup never
     // reads as succeeded.
     const dumpExit = await source.exitCode;
@@ -181,7 +181,7 @@ export async function executeBackup(backupId: string): Promise<void> {
     });
     await log(
       "system",
-      `Backup succeeded — snapshot ${result.snapshotId.slice(0, 12)} (+${result.addedBytes} B)`,
+      `Backup succeeded: snapshot ${result.snapshotId.slice(0, 12)} (+${result.addedBytes} B)`,
     );
     await emitPlatformEvent({
       organizationId: ctx.organizationId,

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 /**
  * Trailing-edge debounce over a value. The input stays instant; whatever the
- * returned value keys — a query, a parse, a registry lookup — waits a beat so
+ * returned value keys (a query, a parse, a registry lookup) waits a beat so
  * a keystroke doesn't become a request.
  *
  * Debounce the *value*, not the handler: the visible field and the work it

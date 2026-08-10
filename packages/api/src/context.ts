@@ -26,7 +26,7 @@ export interface RequestContext {
   broadcast: (resource: string) => void;
   /**
    * Slot for a handler's before/after diff, injected per procedure invocation
-   * by `traceProcedure` — not by `createContext`, so it is never shared between
+   * by `traceProcedure`, not by `createContext`, so it is never shared between
    * two calls. Declared optional here so handler code compiles without
    * depending on middleware type inference. See audit/changes.ts.
    */
@@ -55,7 +55,7 @@ export async function createContext({
     activeOrganizationId: (session?.session.activeOrganizationId ??
       apiKey?.organizationId ??
       null) as OrgId | null,
-    // Raw request headers — carried so org-scoped middleware can delegate
+    // Raw request headers, carried so org-scoped middleware can delegate
     // role/permission checks to better-auth's `auth.api.hasPermission`
     // (which resolves the active member from the session cookie/bearer).
     headers,

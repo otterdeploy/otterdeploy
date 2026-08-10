@@ -2,11 +2,11 @@
  * Snapshots of THIS database, and the restore that reads from them.
  *
  * Restore used to be reachable only from the global Backups page, as an
- * unlabelled icon on a backup row — which is backwards. "Restore" is something
+ * unlabelled icon on a backup row, which is backwards. "Restore" is something
  * you do to a database, so it belongs on the database, next to everything else
  * that acts on it.
  *
- * Scope note: `backups.restore` takes only `{ id, mode, confirm }` — it restores
+ * Scope note: `backups.restore` takes only `{ id, mode, confirm }`. It restores
  * a snapshot in place, over the source it was taken from. Restoring one
  * database's snapshot INTO a different database would need a target on that
  * contract, so this deliberately lists only this resource's own snapshots
@@ -29,7 +29,7 @@ export function BackupsCard({ resourceId }: { resourceId: string }) {
   const { data: allBackups } = useLiveQuery((q) => q.from({ b: backupsCollection }));
 
   // Only this database's own snapshots, newest first, and only ones that
-  // actually completed — a running or failed run has nothing to restore from.
+  // actually completed: a running or failed run has nothing to restore from.
   const snapshots = useMemo(
     () =>
       allBackups
@@ -41,7 +41,7 @@ export function BackupsCard({ resourceId }: { resourceId: string }) {
   return (
     <SettingsCard
       title="Snapshots"
-      description="Restore this database from one of its backups. The restore overwrites the live database — you confirm by typing its name."
+      description="Restore this database from one of its backups. The restore overwrites the live database. You confirm by typing its name."
     >
       {snapshots.length === 0 ? (
         <p className="px-4 py-3 text-[12px] text-muted-foreground">
@@ -57,7 +57,7 @@ export function BackupsCard({ resourceId }: { resourceId: string }) {
                   {new Date(snapshot.createdAt).toLocaleString()}
                 </span>
                 <span className="truncate font-mono text-[11px] text-muted-foreground">
-                  {snapshot.destinationName ?? "—"}
+                  {snapshot.destinationName ?? "–"}
                   {snapshot.method ? ` · ${snapshot.method}` : ""}
                 </span>
               </span>

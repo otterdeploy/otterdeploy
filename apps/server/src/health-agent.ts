@@ -1,16 +1,16 @@
 /**
- * Health agent — the per-node reporter role of the unified server image
+ * Health agent: the per-node reporter role of the unified server image
  * (docs/designs/server-health-agent.md). Deployed by the control plane as a
  * swarm GLOBAL service (one task per node); samples the node it runs on with
  * the same getHostHealth() the local path uses and POSTs the snapshot to the
  * control-plane ingest route.
  *
  * Deliberately imports ONLY system-health/host-health (DB-free; raw
- * process.env) — this process must boot with no DATABASE_URL, no validated
+ * process.env): this process must boot with no DATABASE_URL, no validated
  * env, nothing but a docker socket and three env vars:
  *   HEALTH_AGENT_INGEST_URL  where to POST (e.g. http://<ip>:3000/api/agent/health)
  *   HEALTH_AGENT_TOKEN       HMAC token minted by the reconciler
- *   OTTERDEPLOY_NODE_HOSTNAME  swarm-templated {{.Node.Hostname}} — the
+ *   OTTERDEPLOY_NODE_HOSTNAME  swarm-templated {{.Node.Hostname}}: the
  *     attribution key; falls back to os.hostname() (the container id in a
  *     container, so the template matters in swarm).
  */

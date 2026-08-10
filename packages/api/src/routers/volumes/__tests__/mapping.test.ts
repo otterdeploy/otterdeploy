@@ -74,7 +74,7 @@ function index(input?: {
   });
 }
 
-describe("mapVolume — container label resolution", () => {
+describe("mapVolume: container label resolution", () => {
   test("mounting container with otterdeploy.resource.id resolves via 'container'", () => {
     const idx = index({
       containers: [
@@ -148,7 +148,7 @@ describe("mapVolume — container label resolution", () => {
   });
 });
 
-describe("mapVolume — passive claims", () => {
+describe("mapVolume: passive claims", () => {
   test("database volume with no container is claimed by naming convention", () => {
     const result = mapVolume("otterdeploy-pgdata-helio-main_db", index());
     expect(result.refCount).toBe(0);
@@ -193,7 +193,7 @@ describe("mapVolume — passive claims", () => {
   });
 });
 
-describe("mapVolume — orphan detection", () => {
+describe("mapVolume: orphan detection", () => {
   test("unreferenced and unclaimed volume is an orphan", () => {
     const result = mapVolume("random-leftover", index());
     expect(result.refCount).toBe(0);

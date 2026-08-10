@@ -49,8 +49,8 @@ describe("withEnvironmentOverlay", () => {
   });
 
   it("returns the SAME object when the overlay already exists", () => {
-    // Identity is the caller's signal that no manifest write is needed —
-    // re-creating an environment must not bump the version and light up a
+    // Identity is the caller's signal that no manifest write is needed.
+    // Re-creating an environment must not bump the version and light up a
     // pending change on every other client.
     const once = withEnvironmentOverlay(base, "staging");
     const twice = withEnvironmentOverlay(once, "staging");

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * `/impeccable hooks <on|off|status|reset>` — manage the design hook
+ * `/impeccable hooks <on|off|status|reset>`. Manage the design hook
  * via the `hook` key of .impeccable/config.json and .impeccable/config.local.json
  * in the current project.
  *

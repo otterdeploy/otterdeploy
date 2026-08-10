@@ -1,6 +1,6 @@
 /**
  * Periodic blocklist refresher. On each tick it re-imports every enabled list
- * whose `intervalMinutes` has elapsed — so the imported decisions are refreshed
+ * whose `intervalMinutes` has elapsed, so the imported decisions are refreshed
  * before they expire (`durationHours`). Mirrors the metrics sampler's start/stop
  * shape; wired into the server bootstrap. See docs/designs/deployment-protection.md.
  */

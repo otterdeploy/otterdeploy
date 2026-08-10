@@ -8,7 +8,7 @@ import { describe, expect, test } from "vite-plus/test";
  * better-auth freezes that URL at module load from env (which defaults to
  * `http://<ip>:3000`), a control plane reached at a real domain would send
  * operators to a different origin, over http, with a port. These cover the
- * rebase that fixes it — including the failure modes, since a login that sends
+ * rebase that fixes it, including the failure modes, since a login that sends
  * you somewhere stale beats a login that 500s.
  */
 
@@ -82,7 +82,7 @@ describe("withCanonicalDeviceOrigin", () => {
     });
     const out = await withCanonicalDeviceOrigin(DEVICE_PATH, deviceResponse(BODY));
     const json = (await out.json()) as Record<string, string>;
-    // Stale origin, but still a working login — not a 500.
+    // Stale origin, but still a working login, not a 500.
     expect(json.verification_uri).toBe("http://10.0.0.4:3000/device");
   });
 });

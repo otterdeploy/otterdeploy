@@ -14,7 +14,7 @@
  * `context.activeOrganizationId` before responding. Same reasoning as the
  * members router: better-auth re-checks membership itself, but this router's
  * own scope guard has to hold on its own, and a workspace settings page should
- * never receive another workspace's identity-provider metadata — not because
+ * never receive another workspace's identity-provider metadata, not because
  * it is a leak (the caller administers both) but because filtering in the
  * browser is presentation, and presentation must never be load-bearing.
  */
@@ -63,8 +63,8 @@ export const ssoRouter = {
     if (res.isErr()) throw res.error;
 
     const providers = (res.value.providers ?? [])
-      // The scope guard. Org-less (personal) providers fall out here too —
-      // they belong to no workspace, so they are not this page's business.
+      // The scope guard. Org-less (personal) providers fall out here too.
+      // They belong to no workspace, so they are not this page's business.
       .filter((p) => p.organizationId === context.activeOrganizationId)
       .map(toProviderView);
 

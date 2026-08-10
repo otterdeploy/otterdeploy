@@ -7,7 +7,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 /**
- * 404 screen — wired into the router as `defaultNotFoundComponent` (see main.tsx).
+ * 404 screen, wired into the router as `defaultNotFoundComponent` (see main.tsx).
  * Renders for any unmatched route in the Otterdeploy control panel.
  */
 export function NotFound() {

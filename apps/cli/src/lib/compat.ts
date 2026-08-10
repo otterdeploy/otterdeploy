@@ -1,17 +1,17 @@
 /**
  * Notice when this CLI and the control plane have drifted apart, and say so
- * once — plainly — at the end of the command.
+ * once (plainly) at the end of the command.
  *
  * Releases are lockstepped onto one `v*.*.*` tag, but the halves still travel
  * separately: this binary arrives through npm on a laptop, the control plane
  * through the in-app updater on someone's VPS. Nothing keeps them in step, and
- * the failure mode when they diverge is deeply unhelpful — a `NOT_FOUND` on a
+ * the failure mode when they diverge is deeply unhelpful. A `NOT_FOUND` on a
  * procedure the server has simply never heard of, indistinguishable from a
  * missing project.
  *
  * The server states its generation on every response it sends
  * (packages/api/src/routers/system/compat.ts); this module just remembers what
- * came back and renders one line. It never issues a request of its own — a
+ * came back and renders one line. It never issues a request of its own. A
  * version check that costs a round trip on every command would be a worse tax
  * than the problem it solves.
  */
@@ -33,7 +33,7 @@ let reported = false;
  * Record the compat headers off any control-plane response.
  *
  * Called for every response, so a command that makes ten calls converges on the
- * last one's answer rather than the first — which is what you want mid-update,
+ * last one's answer rather than the first, which is what you want mid-update,
  * when the version genuinely changes underneath a running command.
  */
 export function observeCompatHeaders(headers: Headers): void {
@@ -41,7 +41,7 @@ export function observeCompatHeaders(headers: Headers): void {
   minCliVersion = headers.get(MIN_CLI_VERSION_HEADER) ?? minCliVersion;
 }
 
-/** Test seam — the module-level record is per-process state. */
+/** Test seam: the module-level record is per-process state. */
 export function resetCompatState(): void {
   serverVersion = null;
   minCliVersion = null;

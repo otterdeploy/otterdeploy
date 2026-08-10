@@ -1,5 +1,5 @@
 /**
- * od-5j8.1.1 — proves the REAL better-auth signup hook
+ * od-5j8.1.1: proves the REAL better-auth signup hook
  * (packages/auth/src/index.ts databaseHooks.user.create) against a real
  * PostgreSQL 17, for a brand-new install:
  *
@@ -24,7 +24,7 @@
  * IMPORTANT: `@otterdeploy/env/server` validates `process.env` once, at
  * module load. Every env var this suite needs (DATABASE_URL, secrets, the
  * bootstrap token, ...) is therefore set BEFORE the dynamic `import()` of
- * `@otterdeploy/auth` in `beforeAll` — a static top-level import would run
+ * `@otterdeploy/auth` in `beforeAll`: a static top-level import would run
  * too early and see the wrong (or missing) environment.
  */
 import type { auth as AuthInstance } from "@otterdeploy/auth";
@@ -47,14 +47,14 @@ const BOOTSTRAP_TOKEN_HEADER = "x-otterdeploy-bootstrap-token";
  * This suite's only environment boundary, kept in one place. `@otterdeploy/env`
  * validates the server schema when its module is first evaluated, so every
  * variable has to be *written* before the dynamic `import("@otterdeploy/auth")`
- * in `beforeAll` pulls it in. The validated `env` object can't do this itself —
- * it only reads. Takes the database URL because that one isn't known until the
+ * in `beforeAll` pulls it in. The validated `env` object can't do this itself.
+ * It only reads. Takes the database URL because that one isn't known until the
  * ephemeral database has been created.
  */
 /* oxlint-disable node/no-process-env -- seeds the vars @otterdeploy/env validates at import time */
 function seedServerEnv(databaseUrl: string): void {
   process.env.DATABASE_URL = databaseUrl;
-  // Deliberately unreachable — RedisCache degrades to a no-op cache miss and
+  // Deliberately unreachable: RedisCache degrades to a no-op cache miss and
   // never throws (see packages/db/src/cache.ts).
   process.env.REDIS_URL = "redis://127.0.0.1:65535/0";
   process.env.BETTER_AUTH_URL = "http://localhost:3000";
@@ -83,7 +83,7 @@ async function attempt<T>(
   }
 }
 
-describe.skipIf(!canRun)("bootstrap (fresh install) — real better-auth hook + Postgres 17", () => {
+describe.skipIf(!canRun)("bootstrap (fresh install): real better-auth hook + Postgres 17", () => {
   let instance: PostgresInstance;
   let databaseUrl: string;
   let dropDb: () => Promise<void>;
@@ -187,7 +187,7 @@ describe.skipIf(!canRun)("bootstrap (fresh install) — real better-auth hook + 
       token: BOOTSTRAP_TOKEN,
     });
     expect(result.ok).toBe(false);
-    // The completion marker survived the owner's deletion — that's what
+    // The completion marker survived the owner's deletion. That's what
     // keeps bootstrap closed.
     const [settings] =
       await sql`select bootstrap_completed_at from platform_settings where id = 'platform'`;
@@ -201,7 +201,7 @@ describe.skipIf(!canRun)("bootstrap (fresh install) — real better-auth hook + 
 
   test("4a. a pending invitee may sign up (invite-only, post-bootstrap)", async () => {
     // Seed the invitation fixture directly (org + inviter + a pending
-    // invitation row) — independent of the owner deleted above; this test
+    // invitation row): independent of the owner deleted above; this test
     // only exercises the "hasPendingInvitation" branch of decideRegistration.
     inviterId = `usr_it_${randomUUID().replace(/-/g, "").slice(0, 20)}`;
     await sql`

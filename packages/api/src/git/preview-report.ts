@@ -1,5 +1,5 @@
 /**
- * Report preview state back to GitHub — the sticky status-table comment plus
+ * Report preview state back to GitHub. The sticky status-table comment plus
  * the `otterdeploy/preview` commit status. Renders from a fresh DB snapshot on
  * every call, so any caller (PR webhook, build worker) converges the comment
  * to the truth rather than appending phase-specific text.
@@ -128,7 +128,7 @@ export async function report(input: ReportInput): Promise<void> {
   if (!state || !state.installationId || !state.owner || !state.repo) return;
 
   await syncComment(state, input.phase === "closed");
-  // A closed PR keeps its last commit status — GitHub shows it against the
+  // A closed PR keeps its last commit status. GitHub shows it against the
   // head commit, and flipping it on teardown would repaint merged PRs red.
   if (input.phase === "building") {
     await syncCommitStatus(state);
@@ -151,7 +151,7 @@ export async function reportPreviewBuildOutcome(deploymentId: DeploymentId): Pro
       if (!dep?.previewId) return;
       const [row] = await db.select().from(preview).where(eq(preview.id, dep.previewId)).limit(1);
       if (!row) return;
-      // A push during the build superseded this deployment — the newer
+      // A push during the build superseded this deployment. The newer
       // build's own report owns the comment now.
       if (dep.gitSha && row.headSha && dep.gitSha !== row.headSha) return;
       await report({

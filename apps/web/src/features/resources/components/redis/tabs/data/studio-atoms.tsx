@@ -1,5 +1,5 @@
 /**
- * Shared atoms + pure helpers for the Redis data studio — the type badge,
+ * Shared atoms + pure helpers for the Redis data studio: the type badge,
  * empty / skeleton states, TTL + JSON formatting, the SCAN-page merge, and the
  * oRPC error reader. Imported by the studio parts and the tab body.
  */

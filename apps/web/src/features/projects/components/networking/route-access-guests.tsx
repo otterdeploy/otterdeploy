@@ -1,5 +1,5 @@
 /**
- * Guests section for the route access controls — email invites with a
+ * Guests section for the route access controls: email invites with a
  * one-time code + per-guest session length. Split out of
  * route-access-controls.tsx to keep that file under the max-lines cap.
  */
@@ -81,7 +81,7 @@ export function GuestsSection({ routeId }: { routeId: string }) {
     [routeId],
   );
 
-  // Optimistic invite — the form closes the instant the row lands in the
+  // Optimistic invite: the form closes the instant the row lands in the
   // collection; tanstack/db rolls it back (with a toast) if the server rejects.
   // No per-invite pending flag: `adding` is purely the form's open/closed state.
   const form = useForm({
@@ -113,7 +113,7 @@ export function GuestsSection({ routeId }: { routeId: string }) {
     <section className="flex flex-col gap-3">
       <SectionHeader
         title="Guests"
-        hint="Invite people by email — they get a one-time code to sign in, no account, for the session length you pick."
+        hint="Invite people by email. They get a one-time code to sign in, no account, for the session length you pick."
       />
 
       <div className="overflow-hidden rounded-md border">

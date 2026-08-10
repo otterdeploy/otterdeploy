@@ -4,7 +4,7 @@ import * as z from "zod";
 export const env = createEnv({
   clientPrefix: "VITE_",
   client: {
-    // API base URL. Optional at build time — a self-hosted install's public URL
+    // API base URL. Optional at build time. A self-hosted install's public URL
     // isn't known when `vite build` bakes this in, and the server serves the
     // built SPA from the SAME origin (apps/server/Dockerfile stages it at
     // ./public). So when it's unset we resolve to the page's own origin at
@@ -14,7 +14,7 @@ export const env = createEnv({
     // `globalThis.location` exists; the optional access keeps a non-browser
     // build/eval from throwing (the "" it yields is never used off-browser).
     // Set the env only when the web and
-    // API are on different origins — dev (web :3001 / server :3000) or any
+    // API are on different origins. Dev (web :3001 / server :3000) or any
     // split-origin deploy.
     VITE_SERVER_URL: z
       .url()

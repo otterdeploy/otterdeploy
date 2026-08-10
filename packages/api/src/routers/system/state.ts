@@ -1,5 +1,5 @@
 /**
- * Transient apply run-state — in-memory, single-node (the aeroplane pattern).
+ * Transient apply run-state. In-memory, single-node (the aeroplane pattern).
  *
  * An update runs at most once at a time, so one module-level `activeRun` holds
  * the status + accumulated progress events, and a tiny pub/sub lets the oRPC
@@ -33,7 +33,7 @@ export interface UpdateRunSnapshot {
   startedAt: string | null;
   finishedAt: string | null;
   targetVersion: string | null;
-  /** True when the run handed off to a detached helper (real path) — the
+  /** True when the run handed off to a detached helper (real path). The
    *  server is being recreated, so the stream won't carry the final result;
    *  the client polls /health and re-reads the snapshot instead. */
   handedOff: boolean;
@@ -64,7 +64,7 @@ function notify(): void {
   for (const wake of listeners) wake();
 }
 
-/** Best-effort persist — never throws, so a read-only data dir (dev) can't
+/** Best-effort persist, never throws, so a read-only data dir (dev) can't
  *  fail an update. */
 async function persist(): Promise<void> {
   await Result.tryPromise({
@@ -127,7 +127,7 @@ export function finish(ok: boolean, error?: string): void {
 /**
  * Operator escape hatch: force a stuck run to a terminal `failed` state so the
  * feature un-wedges and a fresh update can start. This is the only recovery for
- * a real cutover whose detached helper died WITHOUT replacing this server — the
+ * a real cutover whose detached helper died WITHOUT replacing this server: the
  * old process survives with `status:"running"` forever, so every subsequent
  * apply short-circuits to `already-running`. Emits a visible line first so any
  * re-attached progress viewer explains what happened. No-op (returns false) if
@@ -141,7 +141,7 @@ export function cancel(reason: string): boolean {
 }
 
 /** Replay accumulated events then tail new ones until the run is terminal (and
- *  fully drained) or the client aborts. A handoff also ends the stream — the
+ *  fully drained) or the client aborts. A handoff also ends the stream. The
  *  server is going away. */
 export async function* streamProgress(
   signal: AbortSignal | undefined,
@@ -172,7 +172,7 @@ export async function* streamProgress(
   }
 }
 
-/** Read the persisted snapshot from disk — used after a restart to recover the
+/** Read the persisted snapshot from disk. Used after a restart to recover the
  *  final outcome of a real cutover. Null if absent/unreadable. */
 async function readPersistedSnapshot(): Promise<UpdateRunSnapshot | null> {
   const res = await Result.tryPromise({
@@ -184,14 +184,14 @@ async function readPersistedSnapshot(): Promise<UpdateRunSnapshot | null> {
 
 /**
  * Settle a handed-off run after the cutover. The old server dies the moment
- * the helper recreates the stack, so nobody ever wrote a terminal outcome —
- * the snapshot stayed "running" forever and the UI showed a perpetually
+ * the helper recreates the stack, so nobody ever wrote a terminal outcome.
+ * The snapshot stayed "running" forever and the UI showed a perpetually
  * in-flight update. Called once on server boot: if the persisted run is still
  * running+handedOff, compare the version we ACTUALLY booted as against the
  * target, restore the run in memory (so updateState/progress serve the real
  * outcome), and persist the terminal state.
  *
- * Returns true only when THIS call settled a handed-off run as succeeded — the
+ * Returns true only when THIS call settled a handed-off run as succeeded. The
  * one moment an update is known to be complete, which callers use to schedule
  * post-update work. False on every subsequent boot, so that work runs once.
  */
@@ -207,8 +207,8 @@ export async function finalizeHandedOffRun(bootedVersion: string): Promise<boole
   emit(
     "done",
     reachedTarget
-      ? `Update to ${snap.targetVersion} complete — control plane is running ${bootedVersion}.`
-      : `Control plane came back on ${bootedVersion}, expected ${snap.targetVersion} — the cutover may have failed or rolled back.`,
+      ? `Update to ${snap.targetVersion} complete. Control plane is running ${bootedVersion}.`
+      : `Control plane came back on ${bootedVersion}, expected ${snap.targetVersion}. The cutover may have failed or rolled back.`,
     reachedTarget ? "success" : "error",
   );
   finish(

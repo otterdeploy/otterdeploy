@@ -12,7 +12,7 @@ import { basePath, proxyRouteIdField, resourceNotFoundErrors, tag } from "./shar
 
 // ─── Access PIN (NetBird-style shared code) ─────────────────────────
 /** Whether the route currently has an access PIN configured. Never the PIN
- *  or its hash — just the toggle state for the settings UI. */
+ *  or its hash: just the toggle state for the settings UI. */
 const accessPinStatusSchema = z.object({ enabled: z.boolean() });
 
 const getAccessPinInput = z.object({ routeId: proxyRouteIdField });

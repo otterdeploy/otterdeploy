@@ -12,14 +12,14 @@
  *      public GHCR); stored credentials ride along as basic auth for
  *      private repositories.
  *   2. For the first few tags, GET the manifest to enrich with the
- *      content digest (Docker-Content-Digest header) and — when the
- *      response is a single-arch image manifest — the compressed image
+ *      content digest (Docker-Content-Digest header) and: when the
+ *      response is a single-arch image manifest. The compressed image
  *      size (config + layer sizes). Multi-arch indexes only expose
  *      per-platform sizes behind another round-trip, so size is
  *      honestly omitted for them rather than guessed.
  *
  * `host`/`apiHost` here is tenant-supplied (a registry credential's host
- * field, or an image ref's host segment) — every network call goes through
+ * field, or an image ref's host segment). Every network call goes through
  * {@link egressFetch}, which resolves and validates every address (denying
  * loopback/private/link-local/metadata ranges by default, plus the control
  * plane's own identity unconditionally) and pins the connection to the
@@ -49,7 +49,7 @@ export {
   type ImageRef,
 } from "./tag-parse";
 
-/** Max tags returned per call — the wizard browser is a picker, not a mirror. */
+/** Max tags returned per call. The wizard browser is a picker, not a mirror. */
 export const TAG_PAGE_LIMIT = 50;
 /** How many tags get the extra manifest round-trip for digest/size. */
 const TAG_META_LIMIT = 12;
@@ -93,18 +93,14 @@ async function timedFetch(
 ): Promise<Result<EgressResponse, RegistryTagsError>> {
   try {
     const denylist = await controlPlaneEgressDenylist();
-    const res = await egressFetch(
-      url,
-      omitUndefined({ headers }),
-      {
-        maxRedirects: 5,
-        maxBytes: 10 * 1024 * 1024,
-        timeoutMs: FETCH_TIMEOUT_MS,
-        denyHosts: denylist.blockedHosts,
-        denyAddresses: denylist.blockedAddresses,
-        allowAddresses: await egressAllowlist(),
-      },
-    );
+    const res = await egressFetch(url, omitUndefined({ headers }), {
+      maxRedirects: 5,
+      maxBytes: 10 * 1024 * 1024,
+      timeoutMs: FETCH_TIMEOUT_MS,
+      denyHosts: denylist.blockedHosts,
+      denyAddresses: denylist.blockedAddresses,
+      allowAddresses: await egressAllowlist(),
+    });
     return Result.ok(res);
   } catch (err) {
     const message =
@@ -129,20 +125,20 @@ function statusError(input: {
     return new RegistryTagsError({
       status,
       message: hasCredentials
-        ? `${host} rejected the credentials for ${repository} (${status}) — check the registry credential's access to this repository`
-        : `${repository} on ${host} requires authentication — add a registry credential to browse private repositories`,
+        ? `${host} rejected the credentials for ${repository} (${status}). Check the registry credential's access to this repository`
+        : `${repository} on ${host} requires authentication: add a registry credential to browse private repositories`,
     });
   }
   if (status === 404) {
     return new RegistryTagsError({
       status,
-      message: `${repository} was not found on ${host} — check the image name (private repositories can also read as 404)`,
+      message: `${repository} was not found on ${host}. Check the image name (private repositories can also read as 404)`,
     });
   }
   if (status === 429) {
     return new RegistryTagsError({
       status,
-      message: `${host} rate-limited the request (429) — try again in a bit, or add a registry credential to raise the limit`,
+      message: `${host} rate-limited the request (429): try again in a bit, or add a registry credential to raise the limit`,
     });
   }
   return new RegistryTagsError({
@@ -153,7 +149,7 @@ function statusError(input: {
 
 /**
  * Follow a 401's WWW-Authenticate challenge and return the Authorization
- * header value for retrying — bearer token exchange (anonymous when no
+ * header value for retrying: bearer token exchange (anonymous when no
  * credentials) or plain basic auth.
  */
 async function authorize(input: {
@@ -186,7 +182,7 @@ async function authorize(input: {
   try {
     tokenUrl = buildTokenUrl({
       ...challenge,
-      // The bare challenge may carry no scope — ask for pull on this repo.
+      // The bare challenge may carry no scope. Ask for pull on this repo.
       scope: challenge.scope ?? `repository:${repository}:pull`,
     });
   } catch {
@@ -251,7 +247,7 @@ async function enrichTags(input: {
 /**
  * List a repository's tags. `username`/`password` empty → anonymous
  * (public images). Failures come back as typed errors with operator-
- * readable messages — rate limits, private repos, and unreachable hosts
+ * readable messages: rate limits, private repos, and unreachable hosts
  * each say what actually happened.
  */
 export async function fetchRegistryTags(input: {

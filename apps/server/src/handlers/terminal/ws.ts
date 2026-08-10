@@ -22,19 +22,19 @@ import {
 } from "./pty";
 
 // ---------------------------------------------------------------------------
-// WebSocket handler — wired by index.ts: app.get("/pty", terminalWebSocketHandler);
+// WebSocket handler, wired by index.ts: app.get("/pty", terminalWebSocketHandler);
 //
 // od-5j8.9 redesign. The upgrade no longer authenticates from ambient
-// cookies/bearer tokens at all — it:
+// cookies/bearer tokens at all: it:
 //   1. Validates Origin against the configured control-plane origin(s)
-//      (kills cross-site WebSocket hijacking outright — see ./origin.ts).
+//      (kills cross-site WebSocket hijacking outright. See ./origin.ts).
 //   2. Consumes a single-use ticket (`?ticket=…`, minted by the authenticated,
-//      step-up-verified `terminal.mintTicket` oRPC call — see
+//      step-up-verified `terminal.mintTicket` oRPC call. See
 //      packages/api/src/routers/terminal/{index,tickets,authorize}.ts). The
 //      ticket already carries the authorized target; the upgrade no longer
 //      accepts a client-supplied `?container=`/`?host=1` at all, so there is
 //      nothing left for a client to substitute.
-// A denial at either step is a plain HTTP 401/403 — the socket never opens
+// A denial at either step is a plain HTTP 401/403. The socket never opens
 // and no backend is spawned.
 // ---------------------------------------------------------------------------
 
@@ -49,7 +49,7 @@ function ptyEvents(claims: TerminalTicketClaims, target: Target): WSEvents {
     backend: null as PtyBackend | null,
     cols: 80,
     rows: 24,
-    // Recorded once — a real backend either started (open worth auditing) or
+    // Recorded once: a real backend either started (open worth auditing) or
     // never did (nothing to audit a close for).
     opened: false,
   };
@@ -75,12 +75,12 @@ function ptyEvents(claims: TerminalTicketClaims, target: Target): WSEvents {
           // Bun ServerWebSocket.send: >0 = bytes sent, -1 = queued
           // (backpressure), 0 = dropped (socket closed or over
           // backpressureLimit). Writing into a dropped socket leaks the
-          // PTY process — kill the backend when we see 0.
+          // PTY process: kill the backend when we see 0.
           const bytes = typeof chunk === "string" ? new TextEncoder().encode(chunk) : chunk;
           const r = raw.send(bytes);
           if (r > 0) return;
           if (r === 0) {
-            bpLog.warn("[pty] send dropped — disposing backend");
+            bpLog.warn("[pty] send dropped, disposing backend");
             state.backend?.dispose();
             state.backend = null;
             return;
@@ -202,7 +202,7 @@ export const terminalWebSocketHandler: MiddlewareHandler = async (c, next) => {
   // behavior when no upgrade is possible.
   if (c.req.header("upgrade")?.toLowerCase() !== "websocket") return next();
 
-  // 1. Origin — cheap, and the one check a malicious cross-site page can
+  // 1. Origin: cheap, and the one check a malicious cross-site page can
   // never spoof. Runs before touching Redis.
   const origin = c.req.header("origin");
   if (!isTrustedOrigin(origin, env.CORS_ORIGIN, c.req.header("host"))) {
@@ -212,10 +212,10 @@ export const terminalWebSocketHandler: MiddlewareHandler = async (c, next) => {
     return c.json({ message: "Origin not allowed" }, 403);
   }
 
-  // 2. Single-use ticket — the only accepted proof of authorization. No
+  // 2. Single-use ticket. The only accepted proof of authorization. No
   // cookie/bearer/API-key fallback: this transport authenticates real users
   // only, via `terminal.mintTicket` (session + step-up already verified
-  // there). No `?container=`/`?host=1` either — the target comes exclusively
+  // there). No `?container=`/`?host=1` either: the target comes exclusively
   // from the ticket, so there is no client-controlled field left to
   // substitute a different target into.
   const ticket = c.req.query("ticket");
@@ -224,7 +224,7 @@ export const terminalWebSocketHandler: MiddlewareHandler = async (c, next) => {
     return c.json({ message: "Missing ticket" }, 401);
   }
 
-  // Same derivation the mint side used — `ticketBindingIp` is deliberately the
+  // Same derivation the mint side used. `ticketBindingIp` is deliberately the
   // single source for both ends (see its doc comment for why X-Forwarded-For
   // alone made every upgrade fail with ip_mismatch behind Cloudflare).
   const consumed = await consumeTerminalTicket(ticket, {

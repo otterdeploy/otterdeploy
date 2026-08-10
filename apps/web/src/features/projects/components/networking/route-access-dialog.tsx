@@ -2,7 +2,7 @@
  * Access controls for one route, in a dialog.
  *
  * These four sections (guests, PIN, share link, bypass token) are a full
- * editing surface — inlined in a table row they ran ~700px tall and clipped
+ * editing surface. Inlined in a table row they ran ~700px tall and clipped
  * their own copy at the column edge. A dialog is the same affordance the route
  * policy editor already uses from this table, so the row stays scannable and
  * the controls get the width they were designed for.
@@ -47,7 +47,7 @@ export function RouteAccessButton({
           <DialogDescription>
             Who can reach <span className="font-mono">{domain}</span>.{" "}
             {isProtected
-              ? "The wall is on — visitors must satisfy one of the methods below."
+              ? "The wall is on. Visitors must satisfy one of the methods below."
               : "The wall is off, so this deployment is public and these methods are not enforced. Turn on Protection to apply them."}
           </DialogDescription>
         </DialogHeader>

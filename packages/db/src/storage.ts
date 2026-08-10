@@ -1,21 +1,21 @@
 /**
  * Backup archive storage. Abstracts the destination types behind
- * put/get/remove so callers don't branch on type. Built on files-sdk — one
+ * put/get/remove so callers don't branch on type. Built on files-sdk, one
  * `Files` handle per destination, three backends:
  *
  *   - local → files-sdk/fs      (root = config.path; pure node:fs, auto-mkdir)
- *   - s3    → files-sdk/bun-s3   (Bun.S3Client natively — NO @aws-sdk)
+ *   - s3    → files-sdk/bun-s3   (Bun.S3Client natively, NO @aws-sdk)
  *   - sftp  → files-sdk/sftp     (host/port/username/auth + root = basePath)
  *
  * `bun-s3` drives Bun's built-in S3 client, so S3 stays SDK-free without any
  * hand-rolled SigV4. `fs` and `bun-s3` pull nothing native; the only optional
- * dep is `ssh2-sftp-client` for the sftp backend — lazy-imported below so an
+ * dep is `ssh2-sftp-client` for the sftp backend. Lazy-imported below so an
  * absent (optional) install only fails sftp runs, never local/s3 or this
  * module's load.
  *
  * Errors are values, not exceptions: every operation returns a
  * `Result<_, StorageError>`. Config validation, the lazy sftp import, and the
- * underlying files-sdk calls all surface as a `StorageError` — files-sdk
+ * underlying files-sdk calls all surface as a `StorageError`. Files-sdk
  * rejections are captured via `Result.tryPromise`, so there is no raw
  * try/catch anywhere in this module.
  */
@@ -30,7 +30,7 @@ export type DestinationType = "s3" | "local" | "sftp";
 
 export interface ResolvedDestination {
   type: DestinationType;
-  /** Destination settings straight from the jsonb column — validated field by
+  /** Destination settings straight from the jsonb column, validated field by
    *  field at use (`str()` / the per-type checks in `filesFor`). */
   config: JsonObject;
   /** Decrypted secret creds (empty for `local`). */
@@ -149,7 +149,7 @@ async function filesFor(dest: ResolvedDestination): Promise<Result<Files, Storag
     case "sftp": {
       return sftpParams(dest).andThenAsync(async (p) => {
         // files-sdk/sftp statically imports `ssh2-sftp-client`, so it's loaded
-        // lazily — an absent optional install fails ONLY sftp runs (with an
+        // lazily: an absent optional install fails ONLY sftp runs (with an
         // actionable message), never local/s3 or this module's load.
         const mod = await Result.tryPromise({
           try: () => import("files-sdk/sftp"),
@@ -157,7 +157,7 @@ async function filesFor(dest: ResolvedDestination): Promise<Result<Files, Storag
             new StorageError({
               op: "config",
               destType: "sftp",
-              reason: "SFTP support requires the `ssh2-sftp-client` package — run `bun install`",
+              reason: "SFTP support requires the `ssh2-sftp-client` package: run `bun install`",
               cause,
             }),
         });
@@ -202,7 +202,7 @@ export async function putArchive(
           cause,
         }),
       // NOTE: storagePath is the RELATIVE key for every backend, including
-      // local — the old hand-rolled code stored the absolute filesystem path
+      // local: the old hand-rolled code stored the absolute filesystem path
       // for `local`. Existing local backups need a one-time storagePath migration.
     }).then((r) => r.map(() => ({ storagePath: key }))),
   );

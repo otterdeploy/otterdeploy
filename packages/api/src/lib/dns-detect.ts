@@ -4,7 +4,7 @@
  * Two questions the "add a domain" flow needs before it can be helpful:
  *
  *   1. WHICH PROVIDER. If it's Cloudflare we can offer one-click DNS setup
- *      instead of making someone copy records by hand — the single biggest
+ *      instead of making someone copy records by hand: the single biggest
  *      source of "my domain doesn't work" (docs/gap-audit-railway-networking.md
  *      §3). Detection is deliberately separate from whether we hold a token:
  *      knowing it's Cloudflare is what lets us say "connect your account" to
@@ -22,7 +22,7 @@ import { DnsRecordMissing, resolveAddressesRobust, resolveNsRobust } from "./dns
 export type DnsProvider = "cloudflare" | "unknown";
 
 /**
- * Nameserver suffixes we can act on. Only Cloudflare for now — the one we have
+ * Nameserver suffixes we can act on. Only Cloudflare for now. The one we have
  * an API client for. A provider we can merely NAME buys the operator nothing,
  * so this list stays tied to what we can actually automate.
  */
@@ -32,7 +32,7 @@ const PROVIDER_NS_SUFFIXES: ReadonlyArray<{ provider: DnsProvider; suffix: strin
 
 export interface DnsProviderInfo {
   provider: DnsProvider;
-  /** The zone apex that actually answered NS — what a Cloudflare zone is keyed
+  /** The zone apex that actually answered NS: what a Cloudflare zone is keyed
    *  on, and what the UI should name ("add these records to acme.com"). */
   zone: string | null;
   nameservers: string[];
@@ -48,7 +48,7 @@ export interface DnsProviderInfo {
  * `a.b.acme.co.uk` → `a.b.acme.co.uk`, `b.acme.co.uk`, `acme.co.uk`, `co.uk`.
  * Deliberately not a public-suffix-list parse: we are not deciding what is
  * registrable, we are finding the label that answers NS, and asking in
- * longest-first order means a delegated subzone is found before its parent —
+ * longest-first order means a delegated subzone is found before its parent,
  * which is the correct answer when someone has delegated `dev.acme.com`
  * separately.
  *
@@ -76,8 +76,8 @@ export function providerFromNameservers(nameservers: readonly string[]): DnsProv
 /**
  * Walk up from `domain` until something answers NS, then name the provider.
  *
- * A miss at one level is not a failure — `waves.acme.com` legitimately has no
- * NS of its own — so only a total absence of answers counts as a failed lookup.
+ * A miss at one level is not a failure: `waves.acme.com` legitimately has no
+ * NS of its own, so only a total absence of answers counts as a failed lookup.
  */
 export async function detectDnsProvider(domain: string): Promise<DnsProviderInfo> {
   const candidates = zoneCandidates(domain);
@@ -87,7 +87,7 @@ export async function detectDnsProvider(domain: string): Promise<DnsProviderInfo
     const lookup = await resolveNsRobust(candidate);
     if (lookup.isErr()) {
       // A definitive miss is EXPECTED for every level below the apex, so it
-      // is NOT a transport error — keep climbing. Only a resolver we couldn't
+      // is NOT a transport error. Keep climbing. Only a resolver we couldn't
       // reach makes "no level answered" untrustworthy, which is what
       // `lookupFailed` reports.
       if (!DnsRecordMissing.is(lookup.error)) sawTransportError = true;
@@ -122,7 +122,7 @@ export async function detectDnsProvider(domain: string): Promise<DnsProviderInfo
  * same way regardless of who owns the address, and there is no IP-range list to
  * keep in sync.
  *
- * `null` means "cannot tell" — no addresses resolved yet, or no expected origin
+ * `null` means "cannot tell", no addresses resolved yet, or no expected origin
  * configured. Callers must not render that as "not proxied".
  */
 export async function detectProxied(input: {

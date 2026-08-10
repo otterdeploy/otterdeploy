@@ -1,5 +1,5 @@
 /**
- * The three menu item lists behind the header's workspace nav — organizations,
+ * The three menu item lists behind the header's workspace nav, organizations,
  * projects, environments.
  *
  * They live apart from `header-nav.tsx` because each list is rendered TWICE:
@@ -20,7 +20,7 @@ import { isMainEnvironment } from "@/features/shell/environment-default";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/shared/components/ui/dropdown-menu";
 import { cn } from "@/shared/lib/utils";
 
-/** Shape shared by every item list — one object built in `HeaderNav` and
+/** Shape shared by every item list: one object built in `HeaderNav` and
  *  spread into both the desktop trail and the collapsed mobile menu. */
 export interface NavLists {
   orgs: { id: string; name: string; slug: string }[];
@@ -32,7 +32,7 @@ export interface NavLists {
   onCreateProject: () => void;
   environments: { id: string; name: string; slug: string }[];
   currentEnvSlug?: string;
-  /** `project.environmentId` — the project's main environment, badged in the
+  /** `project.environmentId`: the project's main environment, badged in the
    *  list so "which one is production" is answerable without opening Settings.
    *  Null for a project that has none. */
   mainEnvironmentId?: string | null;

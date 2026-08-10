@@ -1,6 +1,6 @@
 /**
- * Live memory/disk utilization from a node's last health report — the honest
- * counterpart to the allocation bars (reserved ≠ used). "—" until a report
+ * Live memory/disk utilization from a node's last health report: the honest
+ * counterpart to the allocation bars (reserved ≠ used). "–" until a report
  * lands; a warning dot when the reporter has gone quiet (stale). Fed by
  * server.health (docs/designs/server-health-agent.md).
  */
@@ -11,7 +11,7 @@ const tone = (pct: number) =>
 
 export function LiveHealthCell({ health }: { health: ServerHealthEntry | null }) {
   if (!health?.health) {
-    return <span className="font-mono text-[11px] text-muted-foreground/40">—</span>;
+    return <span className="font-mono text-[11px] text-muted-foreground/40">–</span>;
   }
   const mem = health.health.memory.usedPct;
   const disk = health.health.disk?.usedPct ?? null;
@@ -30,7 +30,7 @@ export function LiveHealthCell({ health }: { health: ServerHealthEntry | null })
       {health.stale && (
         <span
           className="size-1.5 rounded-full bg-warning"
-          title="Last report is stale — the node's health agent has gone quiet."
+          title="Last report is stale. The node's health agent has gone quiet."
         />
       )}
     </div>

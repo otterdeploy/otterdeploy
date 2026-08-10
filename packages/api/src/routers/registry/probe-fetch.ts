@@ -1,16 +1,16 @@
 /**
- * HTTP plumbing for the registry connection probe — the timed fetch wrapper
+ * HTTP plumbing for the registry connection probe: the timed fetch wrapper
  * and the thrown-error → operator-readable-message mapping. Split out of
  * test-connection.ts, which keeps the /v2/ handshake logic.
  *
  * `host` (and, for a bearer challenge, the token endpoint `realm`) is
- * tenant-supplied — an org can type any string as a registry host, and a
+ * tenant-supplied: an org can type any string as a registry host, and a
  * malicious/misconfigured registry's `WWW-Authenticate` header can point
  * the token realm anywhere. Both go through {@link egressFetch}, which
  * resolves and validates every address (denying loopback/private/link-local/
  * metadata ranges by default, plus the control plane's own identity
- * unconditionally) and pins the connection to the validated address —
- * see packages/shared/src/egress-policy.ts.
+ * unconditionally) and pins the connection to the validated address.
+ * See packages/shared/src/egress-policy.ts.
  */
 
 import type { EgressResponse } from "@otterdeploy/shared/egress-policy";
@@ -79,7 +79,7 @@ function fetchFailure(host: string, err: unknown): RegistryProbeError {
   }
   // The egress policy fails closed with its own honest message (denied
   // address, denied scheme, control-plane target, redirect cap, timeout,
-  // ...) — surface it as-is rather than falling through to the generic
+  // ...): surface it as-is rather than falling through to the generic
   // "unknown network error" mapping below.
   if (err instanceof EgressPolicyError) {
     return new RegistryProbeError({ status: undefined, message: `${host}: ${err.message}` });
@@ -91,19 +91,19 @@ function fetchFailure(host: string, err: unknown): RegistryProbeError {
   if (isDnsFailure(codes, text)) {
     return new RegistryProbeError({
       status: undefined,
-      message: `DNS lookup failed for ${host} — check the host for typos`,
+      message: `DNS lookup failed for ${host}. Check the host for typos`,
     });
   }
   if (isConnectionRefused(codes, text)) {
     return new RegistryProbeError({
       status: undefined,
-      message: `Connection refused by ${host} — is the registry listening on 443?`,
+      message: `Connection refused by ${host}: is the registry listening on 443?`,
     });
   }
   if (isTlsFailure(codes, text)) {
     return new RegistryProbeError({
       status: undefined,
-      message: `TLS handshake with ${host} failed — the registry's certificate isn't trusted`,
+      message: `TLS handshake with ${host} failed. The registry's certificate isn't trusted`,
     });
   }
   return new RegistryProbeError({

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Per-file audit triage — computes the evidence sheet for every tracked source
+ * Per-file audit triage: computes the evidence sheet for every tracked source
  * file and assigns a review tier.
  *
  * The codebase is ~1600 reviewable source files. Reviewing them in file order
@@ -10,7 +10,7 @@
  * when something already points at it, and opens it knowing what to look for.
  *
  * It NEVER decides a file is fine. A clean sheet means "no detector fired",
- * which is the start of a review, not the end of one — axis 3 (boundary
+ * which is the start of a review, not the end of one. Axis 3 (boundary
  * honesty) and axis 8 (comment integrity) are invisible to grep.
  *
  *   bun scripts/audit/triage.ts              # full run, writes .audit/
@@ -60,7 +60,7 @@ function renderDossier(sheet: FileSheet): string {
 function renderWorklist(sheets: FileSheet[], tiers: FileSheet[][]): string {
   const [t0, t1, t2, t3] = tiers;
   const bullets = (rows: FileSheet[] = []): string[] =>
-    rows.map((s) => `- \`${s.path}\` — ${s.flags.join("; ")}`);
+    rows.map((s) => `- \`${s.path}\`, ${s.flags.join("; ")}`);
   return [
     "# Audit worklist (generated)",
     "",
@@ -74,9 +74,9 @@ function renderWorklist(sheets: FileSheet[], tiers: FileSheet[][]): string {
     `| 3 | Cycle member, or high-stakes path with any signal | ${t3?.length ?? 0} |`,
     `| 2 | Clone group, double cast, or 3+ signals | ${t2?.length ?? 0} |`,
     `| 1 | One or two signals | ${t1?.length ?? 0} |`,
-    `| 0 | No detector fired — read, but expect it to be quick | ${t0?.length ?? 0} |`,
+    `| 0 | No detector fired. Read, but expect it to be quick | ${t0?.length ?? 0} |`,
     "",
-    "## Tier 3 — review first",
+    "## Tier 3: review first",
     "",
     ...bullets(t3),
     "",
@@ -110,7 +110,7 @@ function main(): void {
     try {
       sheets.push(assessFile(path, readFileSync(join(ROOT, path), "utf8"), cross));
     } catch {
-      // Unreadable (symlink, race with a checkout) — skip rather than abort a
+      // Unreadable (symlink, race with a checkout): skip rather than abort a
       // 1600-file run for one file.
     }
   }

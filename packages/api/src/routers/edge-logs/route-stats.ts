@@ -1,7 +1,7 @@
 /**
  * Pure merge for the `edgeLogs.routeStats` procedure: join a project's proxy
  * routes (host → owning resource) with the per-host stats the edge-log query
- * computed over the window. Every route comes back — hosts with no traffic are
+ * computed over the window. Every route comes back. Hosts with no traffic are
  * zero-filled rather than dropped, so the Traffic tab can list a quiet host
  * honestly instead of pretending it doesn't exist.
  */
@@ -29,7 +29,7 @@ const quiet: RouteTraffic = { rps: 0, errorRate: 0, p50: 0, p95: 0 };
 
 /**
  * One output row per route, keyed by host. Stats for hosts outside the route
- * list are ignored (they can't occur — the query is scoped to these hosts —
+ * list are ignored (they can't occur (the query is scoped to these hosts)
  * but a stale stat must never invent a route). Busiest hosts first, then
  * alphabetical so the zero-traffic tail is stable. Generic so a caller's
  * branded `resourceId` type survives the merge.

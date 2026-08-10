@@ -1,6 +1,6 @@
 /**
  * Notification emitters for the deployment lifecycle. Each fans a `deploy.*`
- * event out to subscribed notification channels and is best-effort — never
+ * event out to subscribed notification channels and is best-effort, never
  * throws into the deploy path (emitPlatformEvent swallows its own errors).
  */
 import type { DeploymentId, OrganizationId, ResourceId } from "@otterdeploy/shared/id";
@@ -32,7 +32,7 @@ async function resolveDeployContext(resourceId: ResourceId): Promise<{
 
 /**
  * Fan a `deploy.started` event out to subscribed notification channels.
- * Best-effort — never throws into the deploy path. Call this right after a
+ * Best-effort, never throws into the deploy path. Call this right after a
  * deployment row is created, from EVERY path that inserts one: insertDeployment
  * (databases), manifest-apply (service create/deploy), and handle-push (git
  * push).
@@ -48,7 +48,7 @@ export async function emitDeployStarted(input: {
     organizationId: info.organizationId,
     eventId: "deploy.started",
     title: "Deploy started",
-    message: `${info.resourceName} — ${input.reason}`,
+    message: `${info.resourceName}: ${input.reason}`,
     data: {
       deploymentId: input.deploymentId,
       resource: info.resourceName,

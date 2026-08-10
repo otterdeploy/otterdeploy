@@ -27,7 +27,7 @@ otterdeploy add database postgres --engine postgres
   five above are the whole `database_engine` enum.
 </Callout>
 
-Provisioning reports live progress — image pull, then provision — rather than a
+Provisioning reports live progress (image pull, then provision) rather than a
 spinner that resolves into either "ready" or nothing.
 
 ## Connecting a service
@@ -43,8 +43,8 @@ fill it in at deploy time:
 }
 ```
 
-Individual fields are addressable too — `url`, `host`, `port`, `username`,
-`password`, `database` — so you can compose a string yourself when a library
+Individual fields are addressable too: `url`, `host`, `port`, `username`,
+`password`, `database`, so you can compose a string yourself when a library
 insists:
 
 ```json
@@ -61,7 +61,7 @@ a preview's own database copy when it runs in a preview. See
 ## Reaching it from outside
 
 By default a database is only reachable inside the cluster. To connect from
-your laptop or an external tool, expose it at layer 4 — the same Caddy edge
+your laptop or an external tool, expose it at layer 4: the same Caddy edge
 routes raw TCP to it.
 
 Use this deliberately. An exposed database is on the public internet, protected
@@ -71,8 +71,8 @@ blocks.
 ## Ephemeral credentials
 
 Short-lived roles can be issued for a database instead of handing out the main
-credentials. They expire on their own — Postgres's `VALID UNTIL` stops new
-logins at expiry — and a sweeper runs every minute to terminate live sessions
+credentials. They expire on their own: Postgres's `VALID UNTIL` stops new
+logins at expiry, and a sweeper runs every minute to terminate live sessions
 and drop the role behind them.
 
 ## Backups
@@ -82,7 +82,7 @@ Databases are backed up by logical dump, encrypted, on a schedule you set. See
 
 ## Browsing the data
 
-Each database resource has a **Data** tab — you don't need to expose it or
+Each database resource has a **Data** tab. You don't need to expose it or
 reach for a separate client to look inside.
 
 | Engine | What you get |
@@ -98,11 +98,11 @@ network to make this work.
 
 ### Reads and writes are separate permissions
 
-- **`database: read`** — list tables, collections, keys.
-- **`database: query`** — run a SQL query. Postgres runs it in a **read-only
+- **`database: read`**, list tables, collections, keys.
+- **`database: query`**, run a SQL query. Postgres runs it in a **read-only
   session** (`default_transaction_read_only=on`), so a write in the console
   errors at the server rather than relying on the UI to stop you.
-- **`database: write`** — `execute` for arbitrary statements, and `mutateRow`
+- **`database: write`**, `execute` for arbitrary statements, and `mutateRow`
   for grid edits, which builds its statement from structured input rather than
   passing your text through.
 
@@ -112,11 +112,11 @@ the actual SQL.
 
 ## Templates
 
-Eighteen curated compose stacks ship in the dashboard's template gallery —
+Eighteen curated compose stacks ship in the dashboard's template gallery,
 Gitea, n8n, Metabase, Authentik, Plausible, Umami, Vaultwarden, MinIO,
 RabbitMQ, Meilisearch, NocoDB, Directus, Ghost, Twenty, Excalidraw,
 Uptime Kuma, RustFS and a Grafana + Prometheus pair.
 
-Each template declares the environment it needs — with a hint for generating
-each secret — before it will deploy, so you don't get a stack that comes up and
+Each template declares the environment it needs. With a hint for generating
+each secret: before it will deploy, so you don't get a stack that comes up and
 then fails on a missing key.

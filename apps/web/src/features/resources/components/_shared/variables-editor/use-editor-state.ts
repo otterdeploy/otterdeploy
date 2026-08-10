@@ -14,7 +14,7 @@ export interface DraftRow {
   key: string;
   value: string;
   isSecret: boolean;
-  // The server-side state we're diffing against — null when this row was
+  // The server-side state we're diffing against. Null when this row was
   // added in the current draft.
   baseline: { key: string; value: string; isSecret: boolean } | null;
   // Deleted rows are kept in state so an undo / save can re-include them;
@@ -65,7 +65,7 @@ export function useEditorState({ serverEnv, serverSecretKeys }: UseEditorStateAr
   const [rows, setRows] = useState<DraftRow[]>(() => rowsFromServer(serverEnv, serverSecretKeys));
 
   // Re-baseline when the server snapshot changes AND we have no pending
-  // edits — otherwise an unrelated invalidate would clobber the operator's
+  // edits: otherwise an unrelated invalidate would clobber the operator's
   // in-progress draft.
   const lastServerKey = useRef("");
   const snapshotKey = JSON.stringify({ serverEnv, serverSecretKeys });
@@ -114,7 +114,7 @@ export function useEditorState({ serverEnv, serverSecretKeys }: UseEditorStateAr
 
   const discard = () => setRows(rowsFromServer(serverEnv, serverSecretKeys));
 
-  // Stamp the current draft as the new baseline — called after a successful
+  // Stamp the current draft as the new baseline, called after a successful
   // save so ADDED/EDITED chips, the "N added" badge and Save/Discard clear
   // immediately. The refetch that follows the save's invalidation re-baselines
   // to the identical server snapshot (the effect above sees no pending rows),
@@ -129,7 +129,7 @@ export function useEditorState({ serverEnv, serverSecretKeys }: UseEditorStateAr
         })),
     );
 
-  // Bulk replace — used by Raw mode commit and Paste dialog merge.
+  // Bulk replace, used by Raw mode commit and Paste dialog merge.
   // Preserves baselines for keys that already existed so the per-row
   // status pill still tells the truth.
   const replaceAll = (next: { key: string; value: string; isSecret: boolean }[]) =>

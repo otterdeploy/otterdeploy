@@ -1,5 +1,5 @@
 /**
- * Previews sub-router — list, lifecycle controls (rebuild/pause/keep-alive/
+ * Previews sub-router: list, lifecycle controls (rebuild/pause/keep-alive/
  * teardown), DB branching, and per-preview env overrides. Split out of the
  * project router index, which mounts this under `project.previews`.
  */

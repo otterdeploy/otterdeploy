@@ -1,7 +1,7 @@
 /**
  * Adapts the graph's node list into the clone dialog's candidate list.
  *
- * Split out of GraphCanvas purely for its line budget — the mapping is the
+ * Split out of GraphCanvas purely for its line budget: the mapping is the
  * only thing here. Every applied node is offered, not just the one that was
  * right-clicked: cloning a service without the database it references is the
  * mistake this dialog exists to catch, and it can only be caught if the
@@ -28,7 +28,7 @@ export function GraphCloneDialog({
   target: ResourceFlowNode | null;
   onClose: () => void;
 }) {
-  // A ghost or unapplied node has no resourceId — there is nothing to copy.
+  // A ghost or unapplied node has no resourceId. There is nothing to copy.
   const candidates: CloneCandidate[] = nodes
     .filter((n) => !!n.data.resourceId && CLONEABLE.has(n.data.kind))
     .map((n) => ({

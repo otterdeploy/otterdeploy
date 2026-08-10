@@ -56,7 +56,7 @@ import { CLI_VERSION } from "./version";
  * whole registration step.
  *
  * Order is the order help prints them, which is roughly the order a user meets
- * them — sign in, set up a project, then operate it.
+ * them: sign in, set up a project, then operate it.
  */
 const GROUPS: CommandGroup[] = [
   {
@@ -159,7 +159,7 @@ async function subsOf(cmd: CommandDef): Promise<SubCommandsDef | null> {
  * Walk the typed path through the command tree.
  *
  * Aborts on the first token that isn't a real command, with suggestions scoped
- * to *that* level — `otd domains frobnicate` is compared against domains' five
+ * to *that* level: `otd domains frobnicate` is compared against domains' five
  * subcommands, not against the 34 top-level ones.
  *
  * Returns the group whose help should be shown when the path stops on a group
@@ -177,7 +177,7 @@ async function walkCommandPath(): Promise<{ group: CommandDef } | null> {
     if (match !== undefined) {
       current = await resolve(match);
       const subs = await subsOf(current);
-      if (!subs) return null; // a leaf — every remaining token is one of its args
+      if (!subs) return null; // a leaf, so every remaining token is one of its args
       walked.push(token);
       level = subs;
       continue;
@@ -199,10 +199,10 @@ async function walkCommandPath(): Promise<{ group: CommandDef } | null> {
 
 /**
  * Preflight, before handing off to citty, for the cases citty routes through
- * its error path — where it prints the full help text followed by a raw
+ * its error path: where it prints the full help text followed by a raw
  * `CLIError` message and a misleading exit code.
  *
- *   bare invocation   root help on stdout, exit 0 — asking for help isn't an error
+ *   bare invocation   root help on stdout, exit 0, asking for help isn't an error
  *   -v / --version    the version alone, so `$(otd -v)` is usable
  *   unknown command   one line naming the closest real command, exit 1
  *   bare group        that group's commands, exit 0
@@ -213,7 +213,7 @@ async function preflight(): Promise<void> {
       out(CLI_VERSION);
       process.exit(0);
     }
-    // Bare, or flags only — there is no root command to run.
+    // Bare, or flags only: there is no root command to run.
     await showUsage(main);
     process.exit(0);
   }
@@ -232,6 +232,6 @@ async function preflight(): Promise<void> {
 await preflight();
 
 // Every leaf command runs inside the shared error boundary (friendly messages,
-// 401 re-auth, non-zero exit) — see lib/errors.ts. `showUsage` replaces citty's
+// 401 re-auth, non-zero exit): see lib/errors.ts. `showUsage` replaces citty's
 // renderer with the grouped one in lib/help.ts.
 void runMain(wrapCommand(main), { showUsage });

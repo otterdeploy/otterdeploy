@@ -3,7 +3,7 @@
  *
  * The graph renders a brand logo per service. The framework is a static
  * property of the repo, and the builder already clones + analyses that repo
- * on every build — so we capture the framework HERE, from local files, and
+ * on every build, so we capture the framework HERE, from local files, and
  * persist it on the service row. The graph then reads the stored value. We
  * never call the git provider's API for it (that path was anonymous-rate-
  * limited at 60/hr and hammered on the graph's 5s poll).
@@ -12,7 +12,7 @@
  *
  *   1. The cloned `package.json` (at the service's sourceSubdir). Run the same
  *      dependency heuristic the wizard preview uses
- *      (`detectFrameworkFromPkg`) — it's finer-grained than railpack's own
+ *      (`detectFrameworkFromPkg`): it's finer-grained than railpack's own
  *      detection (distinguishes astro/sveltekit/hono/nest/express/…, which
  *      railpack collapses to "node"/"vite"). A *specific* hit wins.
  *
@@ -66,7 +66,7 @@ const NODE_RUNTIME_FRAMEWORKS: Record<string, FrameworkKind> = {
 };
 
 /** Language provider (railpack spells Go "golang") → framework. Unknown
- *  providers (e.g. php — no logo today) map to nothing. */
+ *  providers (e.g. php, no logo today) map to nothing. */
 const PROVIDER_FRAMEWORKS: Record<string, FrameworkKind> = {
   node: "node",
   golang: "go",
@@ -79,7 +79,7 @@ const PROVIDER_FRAMEWORKS: Record<string, FrameworkKind> = {
  * Map railpack's analysis to a `FrameworkKind`. `metadata.nodeRuntime` carries
  * the node-level framework (next/nuxt/vite/remix/bun/node); `detectedProviders`
  * (or `metadata.providers`) carries the language (railpack spells Go "golang").
- * Unknown providers (e.g. php — no logo today) → null.
+ * Unknown providers (e.g. php, no logo today) → null.
  */
 function frameworkFromRailpackInfo(info: RailpackInfo | null): FrameworkKind {
   if (!info || info.success === false) return null;
@@ -109,7 +109,7 @@ export async function detectServiceFramework(opts: {
   buildDir?: string;
   sink: LogSink;
 }): Promise<FrameworkKind> {
-  // 1. Local package.json heuristic — finest granularity for Node services.
+  // 1. Local package.json heuristic: finest granularity for Node services.
   //    Always the app's own package.json (its subdir), even when the build ran
   //    from the workspace root.
   const pkg = await readJsonFile<PackageJsonLike>(
@@ -121,7 +121,7 @@ export async function detectServiceFramework(opts: {
     return fromPkg;
   }
 
-  // 2. railpack's analysis — non-Node languages + bun + plain node. Written by
+  // 2. railpack's analysis. Non-Node languages + bun + plain node. Written by
   //    `railpack prepare` into the build dir (the repo root for a workspace
   //    service, else the service's subdir), so read it from there.
   const info = await readJsonFile<RailpackInfo>(

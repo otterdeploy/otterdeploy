@@ -3,11 +3,11 @@ import { DATA_ROOT } from "@otterdeploy/shared/paths";
  * Build work-dir retention. A failed build's clone is KEPT (under the host data
  * folder) so an operator can inspect what went wrong; successful builds are
  * cleaned immediately. This sweep caps the disk those kept clones can hold by
- * reclaiming any build dir older than the TTL — run opportunistically at the
+ * reclaiming any build dir older than the TTL. Run opportunistically at the
  * start of each build. See docs/designs/data-folder.md.
  *
  * No-op when the data folder isn't in use (dev / tmpdir fallback): the builds
- * dir won't exist, so there's nothing to sweep — and ephemeral tmpdir work dirs
+ * dir won't exist, so there's nothing to sweep, and ephemeral tmpdir work dirs
  * are cleaned on failure anyway (only `persistent` dirs are kept).
  */
 import { readdir, rm, rmdir, stat } from "node:fs/promises";
@@ -22,13 +22,13 @@ const CACHE_DIR = join(DATA_ROOT, "buildx-cache");
 const BUILD_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 /** How long an unused layer-cache dir lingers before it's reclaimed. The cache
  *  is touched on every build that uses it (`--cache-to`), so its mtime tracks
- *  last use — a repo not built in this window sheds its cache. Generous because
+ *  last use. A repo not built in this window sheds its cache. Generous because
  *  the cache is pure speedup: dropping a live one only costs one slow rebuild. */
 const CACHE_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14d
 
 /**
  * Remove build dirs whose mtime is older than {@link BUILD_TTL_MS}. Build clones
- * now live two levels deep — `builds/<projectId>/<deploymentId>` — so this walks
+ * now live two levels deep (`builds/<projectId>/<deploymentId>`) so this walks
  * each project's bucket, prunes stale deployment dirs, then drops the project
  * bucket once it's empty (`rmdir` fails on a non-empty dir, which we ignore).
  * Best-effort + racy-safe: a vanished/locked entry is skipped, never thrown.
@@ -58,7 +58,7 @@ export async function pruneStaleBuilds(now = Date.now()): Promise<void> {
               await rm(dir, { recursive: true, force: true });
             }
           } catch {
-            // entry vanished or is mid-use — leave it for the next sweep
+            // entry vanished or is mid-use. Leave it for the next sweep
           }
         }),
       );
@@ -94,7 +94,7 @@ export async function pruneStaleBuildCache(now = Date.now(), cacheDir = CACHE_DI
           await rm(dir, { recursive: true, force: true });
         }
       } catch {
-        // entry vanished or is mid-use — leave it for the next sweep
+        // entry vanished or is mid-use. Leave it for the next sweep
       }
     }),
   );

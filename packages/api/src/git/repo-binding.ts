@@ -1,6 +1,6 @@
 /**
  * Resolve a `git_repo` binding (by id) into everything a build needs to CLONE
- * it: the clone URL, owner/repo, default branch, and — crucially — the GitHub
+ * it: the clone URL, owner/repo, default branch, and (crucially) the GitHub
  * *numeric* installation id for minting a short-lived clone token on PRIVATE
  * repos.
  *
@@ -68,7 +68,7 @@ export async function resolveRepoCloneBinding(id: GitRepoId): Promise<RepoCloneB
       .limit(1);
     if (!inst) {
       throw new RepoBindingError(
-        `git_installation ${repo.installationId} not found — reconnect GitHub in Settings → Git Providers`,
+        `git_installation ${repo.installationId} not found, reconnect GitHub in Settings → Git Providers`,
       );
     }
     githubInstallationId = inst.installationId;

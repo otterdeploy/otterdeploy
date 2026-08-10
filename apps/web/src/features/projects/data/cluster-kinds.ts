@@ -1,4 +1,4 @@
-// Infra/cluster metadata types — split out of service-kinds.ts to keep that
+// Infra/cluster metadata types: split out of service-kinds.ts to keep that
 // file focused on the create-wizard picker data. Re-exported from
 // service-kinds.ts so existing import paths keep working.
 

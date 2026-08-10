@@ -119,7 +119,7 @@ async function* streamOrgCollectionEvents(
   };
 
   // The loop below parks in an `await` between events, and `generator.return()`
-  // — what the transport calls on client disconnect — cannot interrupt an
+  // (what the transport calls on client disconnect) cannot interrupt an
   // await: it only takes effect at the next `yield`, which in a quiet org
   // never comes. Every closed orgStream therefore parked its dedicated Redis
   // subscriber connection forever (~145 leaked clients over three days of

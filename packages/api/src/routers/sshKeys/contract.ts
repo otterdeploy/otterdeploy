@@ -1,6 +1,6 @@
 /**
  * SSH keys oRPC contract. Org-scoped CRUD for Git deploy keys + node-management
- * keys. The private half is NEVER part of any output schema — generate/rotate
+ * keys. The private half is NEVER part of any output schema. Generate/rotate
  * return only the public row (the private key is encrypted at rest and used
  * server-side to authenticate; operators copy the PUBLIC key to their Git host).
  */

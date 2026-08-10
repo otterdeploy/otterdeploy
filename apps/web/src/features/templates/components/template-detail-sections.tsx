@@ -21,8 +21,8 @@ import type { TemplateEnvVar } from "../catalog";
 /**
  * What the operator will actually have to type for this variable.
  *
- * This column used to print `generateHint` — strings like
- * `openssl rand -base64 32` — which told them to hand-generate a value the
+ * This column used to print `generateHint`. Strings like
+ * `openssl rand -base64 32`, which told them to hand-generate a value the
  * wizard fills in two clicks later, on a step whose own copy says secrets are
  * auto-generated. Two surfaces contradicting each other about one value.
  *
@@ -71,10 +71,10 @@ export function IncludedServicesTable({ parsed }: { parsed: ParsedCompose }) {
                   {svc.image}
                 </TableCell>
                 <TableCell className="font-mono text-xs">
-                  {svc.ports.length > 0 ? svc.ports.map((p) => p.target).join(", ") : "—"}
+                  {svc.ports.length > 0 ? svc.ports.map((p) => p.target).join(", ") : "–"}
                 </TableCell>
                 <TableCell className="font-mono text-xs text-muted-foreground">
-                  {volumes.length > 0 ? volumes.join(", ") : "—"}
+                  {volumes.length > 0 ? volumes.join(", ") : "–"}
                 </TableCell>
               </TableRow>
             );
@@ -90,7 +90,7 @@ export function RequiredEnvTable({ requiredEnv }: { requiredEnv: TemplateEnvVar[
   if (requiredEnv.length === 0) {
     return (
       <p className="rounded-lg bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground ring-1 ring-foreground/10">
-        No required variables — this template deploys with safe defaults.
+        No required variables. This template deploys with safe defaults.
       </p>
     );
   }

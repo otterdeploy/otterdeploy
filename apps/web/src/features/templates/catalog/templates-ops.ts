@@ -12,7 +12,7 @@ export const OPS_TEMPLATES: StackTemplate[] = [
     requiredEnv: [
       {
         key: "N8N_ENCRYPTION_KEY",
-        description: "Encrypts stored credentials — losing it locks you out of them.",
+        description: "Encrypts stored credentials. Losing it locks you out of them.",
         generateHint: "openssl rand -base64 32",
       },
       {
@@ -43,7 +43,7 @@ volumes:
     id: "uptime-kuma",
     name: "Uptime Kuma",
     description:
-      "Self-hosted uptime monitoring with status pages and notifications. Single service, zero required configuration — the first visit creates the admin user.",
+      "Self-hosted uptime monitoring with status pages and notifications. Single service, zero required configuration. The first visit creates the admin user.",
     category: "observability",
     includes: ["uptime-kuma"],
     requiredEnv: [],
@@ -70,13 +70,13 @@ volumes:
     id: "beszel",
     name: "Beszel",
     description:
-      "Lightweight monitoring hub — CPU, memory, disk, network and per-container stats, with history and alerts, in one small Go binary. The hub only displays data: each machine you want charted runs a Beszel agent, and the hub hands you its install command when you add the system.",
+      "Lightweight monitoring hub: CPU, memory, disk, network and per-container stats, with history and alerts, in one small Go binary. The hub only displays data. Each machine you want charted runs a Beszel agent, and the hub hands you its install command when you add the system.",
     category: "observability",
     includes: ["beszel"],
     requiredEnv: [
       {
         key: "APP_URL",
-        description: "Public base URL of the hub — used in alert emails and OAuth redirects.",
+        description: "Public base URL of the hub. Used in alert emails and OAuth redirects.",
       },
     ],
     logoBrand: "Beszel",

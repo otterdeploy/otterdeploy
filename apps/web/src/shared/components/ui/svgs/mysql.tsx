@@ -6,7 +6,7 @@ import { MysqlDark } from "./mysql-dark";
 import { MysqlLight } from "./mysql-light";
 
 /**
- * Theme-aware MySQL dolphin — the brand teal (#00546B) vanishes on the dark
+ * Theme-aware MySQL dolphin: the brand teal (#00546B) vanishes on the dark
  * canvas, so this delegates to the dark/light pair. Prefer importing
  * `MysqlDark` / `MysqlLight` directly when the caller already knows the
  * resolved theme (e.g. the `DatabaseLogo` brand resolver).

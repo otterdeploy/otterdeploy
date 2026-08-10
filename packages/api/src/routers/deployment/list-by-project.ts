@@ -1,12 +1,12 @@
 /**
- * Project-wide deployment list — every base deployment across the project's
+ * Project-wide deployment list: every base deployment across the project's
  * resources, newest first, with resource name/kind joined in.
  *
  * Status model (shares the vocabulary of `listResourceDeployments` but a
  * cheaper derivation, since this list spans many resources and polls):
  *
  *   1. Non-latest rows whose stored status never settled past
- *      running/building/pending read as `superseded` — a newer deploy
+ *      running/building/pending read as `superseded`. A newer deploy
  *      replaced them. Terminal stored statuses (failed/removed/superseded)
  *      are kept as-is: a failed build stays visibly *failed* in the
  *      project-wide history (this feed exists to spot them), unlike the
@@ -14,7 +14,7 @@
  *   2. The latest row per resource, when stored in-flight-or-live
  *      (pending/building/running), is refined against the live docker task
  *      states via the same `deriveDeploymentStatus` the per-resource list
- *      uses — so crash loops show `crashed` and fresh deploys show
+ *      uses, so crash loops show `crashed` and fresh deploys show
  *      `starting`, and the lazy building→running reconcile still fires.
  *      Docker being unreachable degrades to the stored status, never a 500.
  *
@@ -77,7 +77,7 @@ export interface ProjectDeploymentItem {
 }
 
 /** Stored statuses that mean "this row was (or still is) the live/in-flight
- *  one" — the states a NEWER deploy invalidates into `superseded`. */
+ *  one": the states a NEWER deploy invalidates into `superseded`. */
 const IN_FLIGHT_OR_LIVE: ReadonlySet<DeploymentRow["status"]> = new Set([
   "pending",
   "building",
@@ -99,7 +99,7 @@ export function effectiveListedStatus(
 
 /** Does a row match the effective-status filter? `building` covers stored
  *  `pending` too (both render as in-flight). Single source of truth for the
- *  filter semantics — used by the list and unit-tested directly. */
+ *  filter semantics, used by the list and unit-tested directly. */
 export function matchesStatusFilter(
   filter: ProjectDeploymentsStatusFilter,
   stored: DeploymentRow["status"],
@@ -140,8 +140,8 @@ interface JoinedRow {
 }
 
 /**
- * Refine the page's latest in-flight/live rows against live task states —
- * one docker instance-list per distinct resource (never per row). Returns a
+ * Refine the page's latest in-flight/live rows against live task states.
+ * One docker instance-list per distinct resource (never per row). Returns a
  * map of deploymentId → derived status for the rows it could refine; anything
  * missing keeps its effective stored status. Also fires the lazy
  * building→running success reconcile, same as the per-resource list.
@@ -176,7 +176,7 @@ async function refineLatestStatuses(
       }
       refined.set(row.id, derived);
     } catch {
-      // Docker unreachable / transient failure — show the stored status
+      // Docker unreachable / transient failure: show the stored status
       // rather than failing the whole page.
     }
   }
@@ -194,7 +194,7 @@ export async function listProjectDeployments(
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
 
-  // Base rows only — preview deployments (and preview-scoped branched
+  // Base rows only: preview deployments (and preview-scoped branched
   // resources) live on the preview panel, not the project feed. `snapshot`
   // (the full config jsonb) is deliberately not selected.
   const conditions: SQL[] = [
@@ -206,7 +206,7 @@ export async function listProjectDeployments(
   else {
     // Project-wide feed: hide compose stack CHILDREN. One stack deploy writes
     // a stack-level row (the rollout as a unit) plus a per-service row per
-    // child — showing both duplicates every stack deploy in the ledger. The
+    // child, showing both duplicates every stack deploy in the ledger. The
     // child rows stay reachable through their own resource (explicit
     // `resourceId` filter / the child service's Deployments tab).
     conditions.push(isNull(serviceResource.stackId));
@@ -244,7 +244,7 @@ export async function listProjectDeployments(
 
   // First row per resource in the desc ordering is that resource's newest.
   // (A `since` window can only hide a resource entirely, never its newest row
-  // while showing older ones — max(createdAt) is in any window that has rows.)
+  // while showing older ones: max(createdAt) is in any window that has rows.)
   const latestByResource = new Map<ResourceId, DeploymentId>();
   for (const row of rows) {
     if (!latestByResource.has(row.resourceId)) latestByResource.set(row.resourceId, row.id);

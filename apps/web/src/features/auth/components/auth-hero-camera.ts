@@ -4,7 +4,7 @@
  *
  * The scene is staged with two independent cameras on purpose. The horizon is a
  * ground plane seen from a fixed low eye, while the craft is art-directed
- * straight onto the canvas — anchor point and radius as fractions of the
+ * straight onto the canvas: anchor point and radius as fractions of the
  * surface. Deriving the craft from the ground camera would chain its size and
  * position to the horizon and leave no way to compose the panel.
  */

@@ -78,7 +78,7 @@ export const ListIcon = make(LeftToRightListBulletIcon);
 export const LinkIcon = make(Link01Icon);
 export const PinOffIcon = make(HiPinOff);
 
-// file-type glyphs — map specific kinds where Hugeicons has them, else File01
+// file-type glyphs: map specific kinds where Hugeicons has them, else File01
 export const FileIcon = make(File01Icon);
 export const File = make(File01Icon);
 export const FileArchive = make(File01Icon);

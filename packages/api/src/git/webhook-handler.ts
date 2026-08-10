@@ -6,7 +6,7 @@
  * the HTTP edge (apps/server/src/webhooks/github.ts) so this module stays
  * unit-testable.
  *
- * Each event has its own handler file — see ./handle-* siblings.
+ * Each event has its own handler file. See ./handle-* siblings.
  */
 
 import type {
@@ -30,7 +30,7 @@ interface HandleArgs {
   event: string;
   /** Parsed JSON body. */
   payload: unknown;
-  /** GitHub delivery id — for log correlation. */
+  /** GitHub delivery id: for log correlation. */
   deliveryId: string;
 }
 

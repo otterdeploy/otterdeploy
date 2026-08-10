@@ -1,10 +1,10 @@
 /**
- * Remote-host provisioning steps — the bash a fresh host runs to become a
+ * Remote-host provisioning steps: the bash a fresh host runs to become a
  * swarm worker: probe → prerequisites → Docker → `docker swarm join`. The
  * script builders are pure (unit-tested); `runRemoteProvision` sequences them
  * over a live `SshSession`. Manager-side concerns (ensuring the primary is a
  * swarm, minting the join token, verifying the node appeared) live in the job
- * that calls this — they use the local Docker socket, not SSH.
+ * that calls this. They use the local Docker socket, not SSH.
  *
  * Design: docs/designs/server-onboarding.md
  */
@@ -15,7 +15,7 @@ export type Privilege = "root" | "sudo" | "none";
 
 export interface ProbeResult {
   osId: string;
-  /** The host's own `hostname` — how it will appear in `docker node ls`, so the
+  /** The host's own `hostname`. How it will appear in `docker node ls`, so the
    *  manager-side verify step can find the freshly-joined node. */
   hostname: string;
   privilege: Privilege;
@@ -63,7 +63,7 @@ export function prereqScript(sudo: string): string {
   ].join("\n");
 }
 
-/** Install Docker Engine via the official convenience script (idempotent — skips
+/** Install Docker Engine via the official convenience script (idempotent, skips
  *  if already present), then enable + start the daemon. */
 export function dockerInstallScript(sudo: string): string {
   const S = sudo ? `${sudo} ` : "";
@@ -81,7 +81,7 @@ export function dockerInstallScript(sudo: string): string {
 }
 
 /** Join the shared swarm. `managerAddr` is "<ip>:2377"; `token` is the worker
- *  (or manager) join token — both sourced from OUR daemon, never operator
+ *  (or manager) join token: both sourced from OUR daemon, never operator
  *  input. Leaves any pre-existing swarm first so a re-provision is clean. When
  *  `advertiseAddr` is set (mesh mode) the node advertises its mesh IP so overlay
  *  traffic between nodes rides the mesh, not the public interface. */
@@ -97,7 +97,7 @@ export function swarmJoinScript(
     "set -euo pipefail",
     "STATE=$(docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null || echo unknown)",
     'if [ "$STATE" = "active" ]; then',
-    '  echo "node already in a swarm — leaving it first"',
+    '  echo "node already in a swarm, leaving it first"',
     `  ${S}docker swarm leave --force || true`,
     "fi",
     `${S}docker swarm join --token ${token}${advertise} ${managerAddr}`,
@@ -112,7 +112,7 @@ export type MeshProvider = "tailscale" | "netbird";
  * echo the node's mesh IP as `OTTER_MESH_IP=`. Tailscale reports it via
  * `tailscale ip -4`; NetBird exposes it on the `wt0` interface. The mesh IP
  * becomes the swarm advertise address so inter-node traffic stays on the mesh.
- * `authKey` is a secret (the tailnet auth key / netbird setup key) — it's
+ * `authKey` is a secret (the tailnet auth key / netbird setup key). It's
  * single-quoted; keys are URL-safe base64-ish and never contain a quote.
  */
 export function meshInstallScript(
@@ -127,7 +127,7 @@ export function meshInstallScript(
    * node an internal hostname with no per-service API call and no external
    * DNS; Caddy fans the wildcard back out by Host header.
    *
-   * Requires the setup key to carry `allow_extra_dns_labels` — otherwise the
+   * Requires the setup key to carry `allow_extra_dns_labels`. Otherwise the
    * management server rejects the label at registration. Omit for the
    * paste-your-own-key path, where we can't know the key allows labels.
    * Design: docs/designs/vpn-mesh.md
@@ -172,8 +172,8 @@ export function meshInstallScript(
   ].join("\n");
 }
 
-/** A single lowercase DNS label. Anything else is dropped rather than escaped
- *  — a bad label is a config mistake, not something to smuggle into a shell. */
+/** A single lowercase DNS label. Anything else is dropped rather than escaped.
+ *  A bad label is a config mistake, not something to smuggle into a shell. */
 function isSafeDnsLabel(label: string | null | undefined): label is string {
   return label != null && /^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$/.test(label);
 }
@@ -186,7 +186,7 @@ export function parseMeshAddress(output: string): string | null {
 
 /**
  * Install Cloudflare Tunnel (cloudflared) as a host-network container running
- * the operator's tunnel — the Coolify pattern for reaching a NAT'd server / an
+ * the operator's tunnel. The Coolify pattern for reaching a NAT'd server / an
  * ingress path without opening ports. `token` is the connector token (secret).
  * Requires Docker (runs after the Docker step).
  */
@@ -251,7 +251,7 @@ export interface RemoteProvisionInput {
     authKey: string;
     /** Self-hosted netbird management URL; omit for the hosted service. */
     managementUrl?: string | null;
-    /** Wildcard DNS label to register (NetBird, managed-key path only) — see
+    /** Wildcard DNS label to register (NetBird, managed-key path only): see
      *  meshInstallScript. Omitted on the paste-your-own-key path. */
     dnsLabel?: string | null;
   };
@@ -292,7 +292,7 @@ export async function runRemoteProvision(
   const probe = parseProbe((await session.runScript(probeScript(), onLine)).output);
   if (probe.privilege === "none") {
     throw new Error(
-      "the SSH user is neither root nor has passwordless sudo — grant sudo (or use root) and retry.",
+      "the SSH user is neither root nor has passwordless sudo. Grant sudo (or use root) and retry.",
     );
   }
   const sudo = probe.privilege === "sudo" ? "sudo" : "";

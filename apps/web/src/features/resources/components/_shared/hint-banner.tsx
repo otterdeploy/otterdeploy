@@ -3,7 +3,7 @@
 // The link is a real action: it opens the shared ReferencePicker (the same
 // `${{Source.KEY}}` list the per-row { } button uses) in a popover, and a
 // pick is forwarded to the editor via `onPick` so a pre-filled row appears.
-// Copy adapts to the panel kind — a database panel talks about connecting
+// Copy adapts to the panel kind: a database panel talks about connecting
 // the database to services, a service panel about pulling in another
 // resource's values.
 
@@ -24,10 +24,10 @@ export function VariableRefHint({
   onDismiss: () => void;
   /** Project whose references the picker lists. */
   projectId: string;
-  /** Receives the picked `${{Source.KEY}}` token — the tab inserts it as a
+  /** Receives the picked `${{Source.KEY}}` token, the tab inserts it as a
    *  new editor row. */
   onPick: (token: string) => void;
-  /** Which panel the banner sits on — drives the copy. */
+  /** Which panel the banner sits on. Drives the copy. */
   context?: "database" | "service";
 }) {
   const [open, setOpen] = useState(false);

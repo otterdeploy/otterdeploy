@@ -30,7 +30,7 @@ async function confirmRemoval(kind: string, name: string, yes: boolean | undefin
   // the two makes the prompt honest about what is about to happen right now.
   warn(`The next deploy will DELETE the live ${kind}.`);
   if (!(await confirm(`Remove ${kind} ${name} from the config?`))) {
-    abort("Aborted — the config was not changed.");
+    abort("Aborted. The config was not changed.");
   }
 }
 

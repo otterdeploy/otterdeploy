@@ -12,7 +12,7 @@
  *   subscribe promise on a cold connect (the same 1.3.x flakiness the builder's
  *   warmUpClients guards against). Because scrollback was awaited BEHIND that
  *   subscribe, the whole backfill stalled for in-progress (non-terminal)
- *   deployments — the logs only appeared once the build went terminal (which
+ *   deployments: the logs only appeared once the build went terminal (which
  *   skips the subscribe). Polling the DB the builder already writes to every
  *   ~250ms is reliable, needs no second Redis client, and tails near-live.
  *   Every line carries its DB `seq` as the event id, so a client reconnect
@@ -45,7 +45,7 @@ export interface DeploymentLogLine {
 interface StreamInput {
   deploymentId: DeploymentId;
   organizationId: OrgId;
-  /** Resume cursor from the client's `lastEventId` — skip scrollback rows at
+  /** Resume cursor from the client's `lastEventId`. Skip scrollback rows at
    *  or before this seq so a reconnect doesn't replay the whole log. */
   afterSeq?: number | null;
 }
@@ -60,8 +60,8 @@ const TERMINAL_STATUSES: ReadonlySet<string> = new Set([
 
 /**
  * Look up the deployment + verify the requesting org owns the
- * project it belongs to. Returns null when not found / not owned —
- * the caller closes the stream with an empty result, no info-leak.
+ * project it belongs to. Returns null when not found / not owned.
+ * The caller closes the stream with an empty result, no info-leak.
  */
 async function authorizeDeployment(input: StreamInput) {
   const [row] = await db
@@ -115,14 +115,14 @@ async function currentStatus(deploymentId: DeploymentId): Promise<string | null>
     .from(deployment)
     .where(eq(deployment.id, deploymentId))
     .limit(1)
-    // Fresh read — a cached status would keep the tail polling after the build
+    // Fresh read. A cached status would keep the tail polling after the build
     // already reached a terminal state (or end it early on a stale terminal).
     .$withCache(false);
   return row?.status ?? null;
 }
 
 /** A disconnected client can't stop the poll loop through `generator.return()`
- *  until the next yield — and a quiet tail may never yield. Without this check
+ *  until the next yield, and a quiet tail may never yield. Without this check
  *  a deployment stuck in a non-terminal status keeps the poll (two uncached
  *  queries a second) alive forever per abandoned tab (od-664). */
 function clientGone(signal?: AbortSignal): boolean {
@@ -140,7 +140,7 @@ export async function* streamDeploymentLogs(
   let lastSeq =
     typeof input.afterSeq === "number" && Number.isFinite(input.afterSeq) ? input.afterSeq : 0;
 
-  // Scrollback FIRST — renders the existing log immediately, with no Redis
+  // Scrollback FIRST: renders the existing log immediately, with no Redis
   // dependency in the critical path.
   for (const line of await fetchLogsAfter(input.deploymentId, lastSeq, "build")) {
     if (line.seq != null) lastSeq = line.seq;

@@ -1,9 +1,9 @@
 /**
- * Certificates router — org-wide TLS: live inventory probes, custom cert
+ * Certificates router: org-wide TLS: live inventory probes, custom cert
  * upload/replace/delete (installed through the shared Caddy reconcile pass),
  * and the trusted-CA store. All procedures are RBAC-gated on the
  * `certificate` resource (members: read-only). Private keys never appear in
- * any output — the contract has no field for them.
+ * any output: the contract has no field for them.
  */
 import type { UserId } from "@otterdeploy/shared/id";
 import type * as z from "zod";

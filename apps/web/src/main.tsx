@@ -1,4 +1,4 @@
-// Must run before any feature code — installs crypto.randomUUID over plain HTTP
+// Must run before any feature code. Installs crypto.randomUUID over plain HTTP
 // (insecure context), where the browser doesn't provide it natively.
 import "./lib/random-uuid-polyfill";
 import ReactDOM from "react-dom/client";
@@ -19,8 +19,8 @@ installReactScanIfEnabled();
 
 // Fallback shown while a route's beforeLoad/loader resolves and the route
 // defines no pendingComponent of its own. Without this, a navigation whose
-// data hasn't resolved just holds the previous screen with zero feedback —
-// the "I clicked and nothing happened for seconds" symptom.
+// data hasn't resolved just holds the previous screen with zero feedback.
+// The "I clicked and nothing happened for seconds" symptom.
 function RoutePending() {
   return (
     <div className="flex min-h-[40vh] w-full items-center justify-center">

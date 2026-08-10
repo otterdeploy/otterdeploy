@@ -281,7 +281,7 @@ function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
       onClick={toggleSidebar}
       title={t("shell.toggleSidebar")}
       className={cn(
-        // md:flex, not shadcn's sm:flex — the persistent sidebar itself only
+        // md:flex, not shadcn's sm:flex. The persistent sidebar itself only
         // exists from `md` (below that it's the off-canvas Sheet, and
         // useIsMobile's breakpoint is 768px too). At sm:flex the rail also
         // rendered inside the mobile Sheet, as a stray 4px strip hanging off

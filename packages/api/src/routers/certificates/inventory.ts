@@ -1,5 +1,5 @@
 /**
- * Org-wide certificate inventory — live TLS probes of every enabled public
+ * Org-wide certificate inventory: live TLS probes of every enabled public
  * domain in the org (the exact probe the per-project Networking tab uses).
  * Ground truth, never cached; served leaves are tagged with any stored
  * custom cert whose fingerprint matches. Split out of handlers.ts, which

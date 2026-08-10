@@ -4,8 +4,8 @@
  * Two convergence signals, because a service reaches "up" two different ways:
  *   - GIT builds / redeploys / rollbacks insert a `deployment` row that walks
  *     pending → building → running|failed. The list READ reconciles stale rows.
- *   - IMAGE services provisioned by a manifest apply get NO deployment row —
- *     the reconciler creates the container directly. Their signal is the
+ *   - IMAGE services provisioned by a manifest apply get NO deployment row.
+ *     The reconciler creates the container directly. Their signal is the
  *     resource's runtime tasks (collapsed state: running | building | error).
  *
  * We follow the newest deployment row when there is one, and fall back to the
@@ -32,14 +32,14 @@ export interface WaitOutcome {
 
 const POLL_INTERVAL_MS = 2_500;
 // Nothing scheduled at all (no deployment row AND no task) for this long means
-// the container never came up — an image pull failure or a scheduling error
+// the container never came up. An image pull failure or a scheduling error
 // that produces no failed task to observe.
 const NOTHING_SCHEDULED_GRACE_MS = 120_000;
 const DEFAULT_TIMEOUT_MS = 30 * 60_000;
 const BUILD_LOG_TAIL_LINES = 40;
 // The build-log stream self-terminates only when the deployment's STORED status
 // is terminal. A build whose worker died can be DERIVED "failed" while stored
-// "building", in which case the server enters an infinite live-tail — so cap
+// "building", in which case the server enters an infinite live-tail, so cap
 // the scrollback drain rather than consuming it unconditionally.
 const BUILD_LOG_DRAIN_MS = 4_000;
 const DRAIN_TICK_MS = 200;
@@ -77,12 +77,12 @@ export function evaluateDeployment(newest: DeploymentRow): Phase {
   if (newest.status === "running") {
     return { kind: "success", label: "running", deploymentId: newest.id };
   }
-  // pending / building / starting — and superseded / removed, where a newer
+  // pending / building / starting, and superseded / removed, where a newer
   // roll should soon own the wait: keep polling.
   return { kind: "progress", label: newest.status };
 }
 
-// IMAGE services get no deployment row — the container is created directly, so
+// IMAGE services get no deployment row. The container is created directly, so
 // the runtime task rollup (running | building | error) is the only signal.
 export function evaluateTasks(tasks: TaskRow[], elapsedMs: number): Phase {
   if (tasks.some((t) => t.state === "running")) {
@@ -115,7 +115,7 @@ function evaluate(newest: DeploymentRow | undefined, tasks: TaskRow[], elapsedMs
 
 // Drain the build-log stream's scrollback and print the tail. The stream may
 // NOT self-terminate (see BUILD_LOG_DRAIN_MS), so each next() is raced against
-// a ticker and the whole drain is bounded by a deadline — never a bare
+// a ticker and the whole drain is bounded by a deadline, never a bare
 // `for await`, which would hang on a still-"building" stored status.
 async function printBuildLogTail(client: CliClient, deploymentId: string): Promise<void> {
   const lines: string[] = [];
@@ -148,7 +148,7 @@ async function printBuildLogTail(client: CliClient, deploymentId: string): Promi
   // Indented under the failure it explains, with a dim rule so the log is
   // clearly transcript rather than something the CLI is saying.
   out();
-  line(dim(`build log — last ${lines.length} line${lines.length === 1 ? "" : "s"}`));
+  line(dim(`build log, last ${lines.length} line${lines.length === 1 ? "" : "s"}`));
   for (const text of lines) line(dim(text));
   out();
 }
@@ -220,7 +220,7 @@ export async function waitForDeployments(opts: {
           settled.add(state);
           return;
         }
-        // progress — log only on transition, so a slow build prints one line
+        // progress: log only on transition, so a slow build prints one line
         // per phase change instead of one line per poll.
         if (!json && phase.label !== state.lastPhase) {
           row([stateGlyph(phase.label), state.target.name, stateLabel(phase.label)]);
@@ -233,7 +233,7 @@ export async function waitForDeployments(opts: {
     if (!json) {
       for (const failure of failures) {
         fail(
-          `${failure.name}: ${failure.label}${failure.errorMessage ? ` — ${failure.errorMessage}` : ""}`,
+          `${failure.name}: ${failure.label}${failure.errorMessage ? `: ${failure.errorMessage}` : ""}`,
         );
         // A build failure has a log worth showing inline; a runtime failure
         // doesn't, so point at the command that would show one.

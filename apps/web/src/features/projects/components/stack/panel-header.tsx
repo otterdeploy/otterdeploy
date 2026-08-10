@@ -1,5 +1,5 @@
 /**
- * Header strip for the StackCodePanel — tab switcher + collapse chevron.
+ * Header strip for the StackCodePanel: tab switcher + collapse chevron.
  */
 
 import { ArrowDown01Icon, ArrowUp01Icon, CodeIcon } from "@hugeicons/core-free-icons";

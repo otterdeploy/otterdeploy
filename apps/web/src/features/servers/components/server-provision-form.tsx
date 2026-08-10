@@ -27,7 +27,7 @@ import { ProvisionFooter } from "./server-provision-footer";
  * Non-secret fields carried over when re-adding a failed server.
  *
  * One-time passwords and mesh auth keys are deliberately never stored, so a
- * failed run using either can't be retried in place — this lets the operator
+ * failed run using either can't be retried in place. This lets the operator
  * re-add it without retyping everything except the secret itself.
  */
 export interface ProvisionInitialValues {
@@ -135,7 +135,7 @@ export function ProvisionForm({
 
 /**
  * Promoting a second machine to manager is the intuitive move and the wrong
- * one — see ../quorum. Warn at the point of choosing, with the count this
+ * one: see ../quorum. Warn at the point of choosing, with the count this
  * install actually has.
  */
 function ManagerQuorumWarning() {

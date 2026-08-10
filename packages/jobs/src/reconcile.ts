@@ -13,18 +13,18 @@ import { deployment, deploymentLog, project, resource } from "@otterdeploy/db/sc
  *
  * On builder boot we run two passes, guarded so only one process does the work:
  *
- *   Pass A — orphan detection. Scan the `deploy.triggered` queue for every job
+ *   Pass A. Orphan detection. Scan the `deploy.triggered` queue for every job
  *   still in flight (waiting/active/delayed/paused) and union the
  *   `deploymentIds` they own. Any `pending`/`building` row NOT owned by a live
  *   job is an orphan from a crashed run → mark it `failed`. The
  *   `status IN ('pending','building')` guard in the UPDATE's WHERE clause makes
  *   this safe against a concurrent worker that picks the row up first.
  *
- *   Pass B — duplicate `running` collapse. If a crash left two `running`
+ *   Pass B. Duplicate `running` collapse. If a crash left two `running`
  *   deployments for the same resource, keep the newest and `supersede` the rest.
  *
  * Each reset row gets a best-effort `deploy.failed` platform event (via the
- * in-package trigger — importing @otterdeploy/api would invert the dependency),
+ * in-package trigger, importing @otterdeploy/api would invert the dependency),
  * a `system` deployment-log line, and a warn evlog line. Notifications are
  * fire-and-forget: they must never throw out of reconcile.
  */
@@ -40,9 +40,9 @@ const LOCK_KEY = "otterdeploy:reconcile:deploy:lock";
 const LOCK_TTL_MS = 60_000;
 
 const INTERRUPTED_MESSAGE =
-  "Interrupted by restart — the build process exited before this deployment finished.";
+  "Interrupted by restart. The build process exited before this deployment finished.";
 
-/** The handful of `db` methods reconcile touches — narrowed so tests can pass a
+/** The handful of `db` methods reconcile touches, narrowed so tests can pass a
  *  hand-rolled mock without dragging in the full drizzle type surface. */
 type DbLike = Pick<typeof DbClient, "select" | "update" | "insert">;
 type GetQueueLike = typeof GetQueueFn;
@@ -56,7 +56,7 @@ export interface ReconcileOptions {
    *  passes a few minutes so it can never race the insert-then-enqueue window
    *  of a deploy that's being created right now; builder boot keeps 0. */
   minAgeMs?: number;
-  /** Override the run-once lock — defaults to a Redis SET NX PX on the shared
+  /** Override the run-once lock. Defaults to a Redis SET NX PX on the shared
    *  connection. Tests inject this to exercise the not-acquired branch without
    *  Redis. Returns a release fn, or null when the lock is already held. */
   acquireLock?: () => Promise<(() => Promise<void>) | null>;
@@ -77,7 +77,7 @@ export interface ReconcileSummary {
 /** Default lock: SET key token NX PX ttl via Bun's built-in Redis client.
  *  Returns a release fn (best-effort compare-and-DEL) or null when another
  *  process holds it. Raw `send()` is used so we can pass the NX/PX flags and
- *  run the release Lua — Bun's typed `.set()` doesn't expose them. */
+ *  run the release Lua. Bun's typed `.set()` doesn't expose them. */
 async function defaultAcquireLock(): Promise<(() => Promise<void>) | null> {
   // Imported lazily so that pulling in the reconcile module (e.g. in unit
   // tests with an injected lock) doesn't require the Redis env.
@@ -213,7 +213,7 @@ async function reconcileDuplicateRunning(db: DbLike): Promise<number> {
     .where(eq(deployment.status, "running"))
     .orderBy(deployment.resourceId, desc(deployment.createdAt));
 
-  // Keep the newest per (resourceId, previewId) — a running PR preview and
+  // Keep the newest per (resourceId, previewId). A running PR preview and
   // the base deployment of the same service are BOTH legitimately running,
   // and two different PRs' previews are too. Keying on resourceId alone made
   // a fresh preview supersede production's running row.
@@ -257,7 +257,7 @@ async function recordReset(
     .values({
       deploymentId,
       stream: "system",
-      line: `interrupted by restart — marked failed (${message})`,
+      line: `interrupted by restart; marked failed (${message})`,
     })
     .catch(() => undefined);
 

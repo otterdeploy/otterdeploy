@@ -1,17 +1,17 @@
 /**
- * Live project event stream — push-side replacement for `useLiveQuery`
+ * Live project event stream. Push-side replacement for `useLiveQuery`
  * polling on the resource/deployments/logs pages.
  *
  * The server subscribes to the docker event bus, filters events to the
  * caller's project (via the `otterdeploy.project` label on the underlying
  * service), and yields one slim event per change. Frontend consumers
- * react by invalidating the queries that own the affected data — the
+ * react by invalidating the queries that own the affected data. The
  * actual data fetches still go through the existing oRPC endpoints, so
  * payloads don't pass through this channel.
  *
  * The event shape is intentionally tiny: a verb + which thing changed.
- * Anything that needs more context comes from a follow-up read query —
- * keeps the push channel cheap to maintain and easy to reason about.
+ * Anything that needs more context comes from a follow-up read query.
+ * Keeps the push channel cheap to maintain and easy to reason about.
  */
 
 import { eventIterator, oc } from "@orpc/contract";
@@ -32,7 +32,7 @@ const projectEventSchema = z.union([
   z.object({
     kind: z.literal("task"),
     /** Lifecycle transition reported by docker (`update`, `create`,
-     *  `remove`). The frontend doesn't need the full state machine — it
+     *  `remove`). The frontend doesn't need the full state machine. It
      *  just refetches the deployment + tasks views. */
     action: z.string(),
     resourceId: resourceIdField,
@@ -45,20 +45,20 @@ const projectEventSchema = z.union([
     kind: z.literal("route"),
     /** A proxy route was created or updated (enabled, protection, policy, cert
      *  state, DNS verification). Routes change from places the UI never
-     *  touches — the reconciler, and cert/ACME promotion off the edge log — so
+     *  touches (the reconciler, and cert/ACME promotion off the edge log) so
      *  without this the Networking view only refreshed when something else
      *  happened to invalidate it.
      *
      *  Unlike every other event here, this one carries the ROW rather than an
-     *  id. Route rows are exactly what `proxyRoute.list` returns — a plain
-     *  select, no runtime derivation — so the writer already holds the truth
+     *  id. Route rows are exactly what `proxyRoute.list` returns. A plain
+     *  select, no runtime derivation, so the writer already holds the truth
      *  and the client can apply it without a round trip. Deployments cannot do
      *  this: their status is derived from live docker task state per read, so
      *  a pushed row would be stale the moment it was sent. */
     action: z.enum(["created", "updated"]),
     /** Dates are coerced because this row crossed a JSON boundary: the bus
      *  publishes with JSON.stringify, so every timestamp arrives as a string
-     *  and a plain z.date() would reject the event — silently, since a failed
+     *  and a plain z.date() would reject the event. Silently, since a failed
      *  output validation ends the stream rather than logging a bad row. */
     route: proxyRouteSchema.extend({
       createdAt: z.coerce.date(),
@@ -71,7 +71,7 @@ const projectEventSchema = z.union([
   z.object({
     kind: z.literal("route"),
     action: z.literal("removed"),
-    /** Deletes carry the key only — there is no row left to describe. */
+    /** Deletes carry the key only. There is no row left to describe. */
     routeId: z.string(),
     resourceId: resourceIdField.nullable(),
   }),

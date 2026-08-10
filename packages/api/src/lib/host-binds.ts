@@ -4,13 +4,13 @@
  * Compose stacks are otherwise jailed to their own materialized directory:
  * `resolveBindSource` (./compose-materialize.ts) rewrites every bind source to
  * a path inside the stack tree, and a stack with no materialized tree at all
- * has its binds dropped. That default is deliberate and stays — a stack that
+ * has its binds dropped. That default is deliberate and stays. A stack that
  * could name any host path could mount `/`, `/root/.ssh`, or another tenant's
  * data directory into a container it controls.
  *
  * This is the narrow exception: an explicit set of paths, matched exactly, that
  * a compose file may bind anyway. Everything not listed is still denied, and
- * extending the list is a code change that goes through review — a user cannot
+ * extending the list is a code change that goes through review. A user cannot
  * grant themselves a new path by editing their compose file.
  *
  * READ THIS BEFORE ADDING AN ENTRY. There is no template provenance in the
@@ -19,19 +19,19 @@
  * ship" from "a compose file a user pasted". Every entry here is granted to
  * every compose stack on the install.
  *
- * THIS MODULE MUST STAY BROWSER-SAFE — no `node:` imports. The compose parser
+ * THIS MODULE MUST STAY BROWSER-SAFE, no `node:` imports. The compose parser
  * reaches it (parse → normalize → here), and the parser runs in the SPA: the
  * template detail dialog parses a template's compose client-side to render it.
  * Importing `node:path` here for one `normalize()` call shipped a bundle whose
  * shim has no such export, and every template dialog died on
- * "Ur.normalize is not a function" — the whole template catalog, not just the
+ * "Ur.normalize is not a function". The whole template catalog, not just the
  * stacks that bind a host path.
  */
 
 interface HostBindGrant {
   /** Forced onto the mount regardless of what the compose file asked for. */
   readOnly: boolean;
-  /** Why this path is listed — shown in no UI, read by the next person here. */
+  /** Why this path is listed. Shown in no UI, read by the next person here. */
   reason: string;
 }
 
@@ -58,7 +58,7 @@ export interface AllowedHostBind {
 /**
  * Collapse `//`, `.` and `..` in an absolute POSIX path.
  *
- * Hand-rolled rather than `node:path` — see the module note above. It is also
+ * Hand-rolled rather than `node:path`: see the module note above. It is also
  * the more correct choice for the job: this normalizes a path that will be
  * handed to the DOCKER DAEMON, which is POSIX regardless of what the API
  * process runs on, so platform-dependent separator handling would be wrong.
@@ -83,7 +83,7 @@ function normalizeAbsolute(source: string): string {
  *
  * Matched on the normalized path so `/var/run//docker.sock` and
  * `/var/run/./docker.sock` cannot slip past by spelling. Relative sources are
- * never host binds — they belong to the stack tree — so they never match.
+ * never host binds (they belong to the stack tree) so they never match.
  */
 export function allowedHostBind(source: string): AllowedHostBind | null {
   if (!source.startsWith("/")) return null;

@@ -30,7 +30,7 @@ export const Route = createFileRoute("/device")({
 });
 
 /** First present error message across the device-flow requests. Mirrors the
- *  `error?.message ?? …` chain — Error.message is always a string, so the first
+ *  `error?.message ?? …` chain: Error.message is always a string, so the first
  *  present error wins. */
 function firstErrorMessage(
   ...errors: ({ message: string } | null | undefined)[]
@@ -49,7 +49,7 @@ function DevicePairingPage() {
   // We do that as a one-shot query keyed on the entered code; it runs once
   // when the page mounts with a prefilled code, and again when the user
   // edits it back to a valid length. Failures here mean "code expired or
-  // unknown" — surfaced to the user via `claim.error`.
+  // unknown", surfaced to the user via `claim.error`.
   const claim = useQuery({
     enabled: code.length > 0,
     queryKey: authQueryKeys.deviceClaim(code),

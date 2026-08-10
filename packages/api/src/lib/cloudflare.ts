@@ -1,5 +1,5 @@
 /**
- * Thin Cloudflare API v4 client — just enough to support the
+ * Thin Cloudflare API v4 client: just enough to support the
  * "auto-configure DNS for an otterdeploy-managed apex" flow.
  *
  * Scoped to three operations:
@@ -11,13 +11,13 @@
  *                      zone (idempotent: if a matching record name+type
  *                      exists, we PATCH it instead of POSTing a duplicate)
  *
- * Token storage is the caller's problem — this module never touches the
+ * Token storage is the caller's problem. This module never touches the
  * database. The token is passed in per call so the DB layer can decide
  * about encryption-at-rest separately.
  *
  * Every operation returns `Result<_, CloudflareError>` rather than throwing.
- * These calls fail routinely and unexceptionally — a rotated token, a zone the
- * operator no longer has access to, a Cloudflare 5xx — and every caller is
+ * These calls fail routinely and unexceptionally. A rotated token, a zone the
+ * operator no longer has access to, a Cloudflare 5xx, and every caller is
  * already Result-shaped, so a thrown error just meant a `try`/`catch` adapter
  * at each site. Transport and body-parse failures are captured too, so nothing
  * here rejects.
@@ -51,7 +51,7 @@ interface CFEnvelope<T> {
 }
 
 /**
- * One request, returning the WHOLE envelope — pagination needs `result_info`,
+ * One request, returning the WHOLE envelope: pagination needs `result_info`,
  * which {@link cfFetch} discards. Both live here so the `success`/`errors`
  * unwrapping is spelled exactly once.
  */
@@ -80,7 +80,7 @@ async function cfEnvelope<T>(
   if (res.isErr()) return Result.err(res.error);
 
   // Cloudflare answers JSON even for its error responses, but an edge/proxy in
-  // front of it may not — an HTML error page here would otherwise surface as a
+  // front of it may not. An HTML error page here would otherwise surface as a
   // raw SyntaxError from a module that promises not to throw.
   const body = await Result.tryPromise({
     try: () => res.value.json() as Promise<CFEnvelope<T>>,
@@ -124,7 +124,7 @@ export interface CloudflareZone {
  * Ask Cloudflare what it thinks of this token.
  *
  * An `Err` means Cloudflare rejected the request outright (or we couldn't
- * reach it). An `Ok` means it answered — but the token is only usable when
+ * reach it). An `Ok` means it answered, but the token is only usable when
  * `active` is true; Cloudflare reports a disabled or expired token as a
  * successful response carrying a non-`"active"` status. Callers must check
  * both, which is why the status string is returned rather than folded into a
@@ -140,7 +140,7 @@ export async function verifyCloudflareToken(
 export async function listCloudflareZones(
   token: string,
 ): Promise<Result<CloudflareZone[], CloudflareError>> {
-  // The token may be scoped to a single zone — in which case `/zones`
+  // The token may be scoped to a single zone. In which case `/zones`
   // still works and just returns that one zone. Iterate pages so a
   // multi-zone token returns the full list; per_page=50 is the upper
   // bound that doesn't trigger rate limits for normal use.
@@ -177,7 +177,7 @@ export async function upsertCloudflareDnsRecord(input: {
   type: "A" | "TXT" | "CNAME";
   name: string;
   content: string;
-  /** Cloudflare proxy (orange-cloud). Default false — for DNS-only A/CNAME
+  /** Cloudflare proxy (orange-cloud). Default false: for DNS-only A/CNAME
    *  records that the operator wants the cert issued directly against.
    *  TXT records ignore this. */
   proxied?: boolean;

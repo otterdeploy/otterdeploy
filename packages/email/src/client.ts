@@ -13,13 +13,13 @@ import { resolveTransport } from "./transport";
 export interface SendEmailOptions {
   to: string | string[];
   subject: string;
-  /** Plain-text alternative. The HTML part is ALWAYS rendered from `react` — we
+  /** Plain-text alternative. The HTML part is ALWAYS rendered from `react`. We
    *  never accept raw HTML strings; every email is a React Email component. */
   text?: string;
   react?: React.ReactElement;
   from?: string;
   replyTo?: string;
-  /** Per-call Resend API key. Overrides the platform transport entirely — lets
+  /** Per-call Resend API key. Overrides the platform transport entirely. Lets
    * a notification channel bring its own key without touching server config. */
   apiKey?: string;
 }
@@ -41,7 +41,7 @@ export async function sendEmail(options: SendEmailOptions) {
 
   const transport = await resolveTransport();
 
-  // No provider configured anywhere — fail with an actionable message instead
+  // No provider configured anywhere: fail with an actionable message instead
   // of a cryptic upstream 502. Callers that treat email as best-effort (invites,
   // notifications) already catch and log; the ones that surface it (test email,
   // password reset) now show the operator exactly what to do.

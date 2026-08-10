@@ -1,7 +1,7 @@
 /**
  * Disposal sweeper for ephemeral database credentials. `VALID UNTIL` already
  * blocks new logins the moment a credential expires; this finishes the job on
- * a 60s tick — terminates lingering sessions, drops the role, stamps
+ * a 60s tick: terminates lingering sessions, drops the role, stamps
  * `revokedAt`. Failures (e.g. container down) are logged and retried on the
  * next tick, never thrown.
  */

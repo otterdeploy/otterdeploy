@@ -1,8 +1,8 @@
 /**
  * Owns the /pty WebSocket lifecycle for one terminal session: minting a
- * fresh single-use ticket (od-5j8.9) before every connect attempt — initial
- * open AND each reconnect, since a ticket is burned the moment it's used —
- * prompting for step-up re-authentication when the server says there's no
+ * fresh single-use ticket (od-5j8.9) before every connect attempt. Initial
+ * open AND each reconnect, since a ticket is burned the moment it's used.
+ * Prompting for step-up re-authentication when the server says there's no
  * live grant, and the usual reconnect-with-backoff + control-frame handling.
  * Split out of the `TerminalSession` component so that component stays
  * render/layout-focused; this hook is the connection state machine.
@@ -25,7 +25,7 @@ export type ConnState =
   | { kind: "closed"; code?: number; reason?: string }
   | { kind: "error"; message: string };
 
-// Reconnect backoff bounds. Start at 1s and double up to 30s — same curve the
+// Reconnect backoff bounds. Start at 1s and double up to 30s. Same curve the
 // upstream @wterm/core WebSocketTransport uses, minus the all-binary protocol
 // that's incompatible with our text/binary frame discriminator.
 const RECONNECT_BASE_MS = 1000;
@@ -42,7 +42,7 @@ function notImplementedMessage(source: SessionSource): string | null {
     case "container":
       return null;
     case "ssh":
-      // Local SSH has a real backend — only remote SSH is missing.
+      // Local SSH has a real backend. Only remote SSH is missing.
       if (source.mode === "local") return null;
       return (
         `\r\n${c(`[ssh backend not implemented]`)}\r\n` +
@@ -69,8 +69,8 @@ interface Options {
  *
  * A caller that builds `source` inline hands back a new object every render.
  * As the connection effect's dependency, that tore the WebSocket down and
- * reopened it on each render — which the UI rendered as an endless
- * "connection lost — reconnecting" while the server was perfectly healthy.
+ * reopened it on each render, which the UI rendered as an endless
+ * "connection lost, reconnecting" while the server was perfectly healthy.
  * Callers should memoize anyway; this makes forgetting harmless instead of
  * fatal. A genuine target change still produces a new key, so switching
  * container or replica reconnects exactly as it should.
@@ -84,7 +84,7 @@ function useStableSource(source: SessionSource): SessionSource {
 export function useShellConnection(target: SessionSource, { write, onConnChange }: Options) {
   const wsRef = useRef<WebSocket | null>(null);
   // Flips true on the FIRST byte written from any source (server data, the
-  // reconnect-lost banner, the not-implemented notice, …) and never resets —
+  // reconnect-lost banner, the not-implemented notice, …) and never resets:
   // a later reconnect after real output already has scrollback on screen.
   const [hasOutput, setHasOutput] = useState(false);
   const hasOutputRef = useRef(false);
@@ -99,7 +99,7 @@ export function useShellConnection(target: SessionSource, { write, onConnChange 
   const [stepUpPromptOpen, setStepUpPromptOpen] = useState(false);
 
   // Pinned in refs so the connect effect doesn't re-run on every parent
-  // render — re-running would tear down and reopen the WebSocket, which is
+  // render. Re-running would tear down and reopen the WebSocket, which is
   // what makes two sessions to the same host clobber each other.
   const writeRef = useRef(write);
   useEffect(() => {
@@ -142,7 +142,7 @@ export function useShellConnection(target: SessionSource, { write, onConnChange 
 
     const update = (next: ConnState) => onConnChangeRef.current?.(next);
 
-    // Mint a ticket right before every connect attempt — a dropped
+    // Mint a ticket right before every connect attempt: a dropped
     // connection needs a fresh one, the old one is single-use even on
     // success. `STEP_UP_REQUIRED` means there's no live re-auth grant;
     // prompt for one and retry exactly once.
@@ -153,7 +153,7 @@ export function useShellConnection(target: SessionSource, { write, onConnChange 
       });
       if (first.isOk()) return first.value.ticket;
       // A missing step-up grant is the ONE recoverable failure here. Anything
-      // else — denied authorization, a dead network — is the caller's to
+      // else (denied authorization, a dead network) is the caller's to
       // report, so it propagates rather than being retried behind a prompt.
       if (!(first.error instanceof StepUpRequiredError)) throw first.error;
       // Rejects on teardown (see the cleanup), which surfaces to the caller as
@@ -175,7 +175,7 @@ export function useShellConnection(target: SessionSource, { write, onConnChange 
       // Everything that can reject a frame lives in one place: a non-string
       // payload, unparseable JSON, and JSON that isn't a ServerMessage all
       // come back as null. A peer can put anything on this socket, so none of
-      // those is exceptional — they just mean "ignore this frame".
+      // those is exceptional. They just mean "ignore this frame".
       const decoded = Result.try({
         try: () => {
           if (typeof e.data !== "string") return null;
@@ -219,7 +219,7 @@ export function useShellConnection(target: SessionSource, { write, onConnChange 
       if (ticket.isErr()) {
         update({ kind: "error", message: ticket.error });
         writeVisible(`\r\n\x1b[31m[${ticket.error}]\x1b[0m\r\n`);
-        // No auto-reconnect — retrying immediately would just re-prompt for
+        // No auto-reconnect, retrying immediately would just re-prompt for
         // step-up (or re-hit the same authorization denial) in a loop. The
         // caller can retry by opening a new session.
         return;
@@ -237,8 +237,8 @@ export function useShellConnection(target: SessionSource, { write, onConnChange 
       ws.onerror = () => update({ kind: "error", message: "WebSocket error" });
       ws.onclose = (e) => {
         if (disposed) return;
-        // Code 1000 is a deliberate server-side end (the shell exited) —
-        // leave it closed. Any other code is an abnormal drop, so reconnect
+        // Code 1000 is a deliberate server-side end (the shell exited).
+        // Leave it closed. Any other code is an abnormal drop, so reconnect
         // with exponential backoff. The server spawns a fresh shell per
         // connection, so this starts a new session rather than resuming.
         if (e.code === 1000) {
@@ -248,7 +248,7 @@ export function useShellConnection(target: SessionSource, { write, onConnChange 
         attempt += 1;
         update({ kind: "reconnecting", attempt });
         writeVisible(
-          `\r\n\x1b[33m[connection lost — reconnecting in ${Math.round(reconnectDelay / 1000)}s…]\x1b[0m\r\n`,
+          `\r\n\x1b[33m[connection lost, reconnecting in ${Math.round(reconnectDelay / 1000)}s…]\x1b[0m\r\n`,
         );
         reconnectTimer = setTimeout(() => void connect(), reconnectDelay);
         reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX_MS);
@@ -262,7 +262,7 @@ export function useShellConnection(target: SessionSource, { write, onConnChange 
     return () => {
       disposed = true;
       if (reconnectTimer) clearTimeout(reconnectTimer);
-      // Cancel a step-up prompt this instance is waiting on — never let a
+      // Cancel a step-up prompt this instance is waiting on, never let a
       // stale waiter resolve into a socket open after the effect tore down.
       stepUpWaiterRef.current?.reject(new Error("disposed"));
       stepUpWaiterRef.current = null;

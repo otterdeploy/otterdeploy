@@ -1,7 +1,7 @@
 /**
  * Parse + normalize a user-supplied Docker Compose file into `ParsedCompose`.
  *
- * Compose is permissive — every field has 2-3 accepted spellings. We accept the
+ * Compose is permissive. Every field has 2-3 accepted spellings. We accept the
  * common real-world shapes and collapse them into one normal form (see
  * `./types`). Unsupported constructs become non-fatal `warnings`; only a
  * structurally broken file (bad YAML, no services, a service with neither image
@@ -27,7 +27,7 @@ class ComposeParseError extends Error {
 }
 
 /** Build a `ComposeParseError` from a thrown `yaml` parse error message. The
- *  message reliably embeds "at line N, column M" — parse it from there.
+ *  message reliably embeds "at line N, column M": parse it from there.
  *  (`Result.try` wraps the thrown error, so `linePos`/instanceof aren't
  *  reliable; the message survives.) Drops the wrapper prefix and the multi-line
  *  code snippet that follows the colon. */
@@ -48,7 +48,7 @@ function collectServices(servicesMap: Obj, warnings: string[]): ParsedComposeSer
   const services: ParsedComposeService[] = [];
   for (const [name, svc] of Object.entries(servicesMap)) {
     if (!isObj(svc)) {
-      warnings.push(`service "${name}" is not a mapping — skipped`);
+      warnings.push(`service "${name}" is not a mapping. Skipped`);
       continue;
     }
     services.push(normalizeService(name, svc, warnings));
@@ -59,7 +59,7 @@ function collectServices(servicesMap: Obj, warnings: string[]): ParsedComposeSer
 export function parseCompose(yaml: string): Result<ParsedCompose, ComposeParseError> {
   // The `yaml` package resolves anchors + `<<` merge keys (which compose uses
   // and Bun.YAML mishandles) and gives ACCURATE line/column on errors (Bun's
-  // are bogus — constant regardless of input).
+  // are bogus, constant regardless of input).
   const raw = Result.try(() => parseYaml(yaml, { merge: true }) as unknown);
   if (raw.isErr()) {
     return Result.err(yamlParseError(raw.error.message));

@@ -1,7 +1,7 @@
 /**
  * Add / edit a notification channel. Channel type is picked from a pill row
  * (locked in edit mode); the field set below adapts to the selected kind.
- * Submits raw form values — the page maps them onto the create/update
+ * Submits raw form values: the page maps them onto the create/update
  * collection mutation. In edit mode the destination + secret start blank: leave
  * them empty to keep the stored values (the list only ever exposes a masked
  * target, never the secret).
@@ -49,7 +49,7 @@ function editingDefaults(editing: Channel | null): ChannelFormValues {
     if (typeof v === "string") config[k] = v;
     else if (typeof v === "number" || typeof v === "boolean") config[k] = String(v);
   }
-  // target + secret stay blank in edit mode — the list only exposes a masked
+  // target + secret stay blank in edit mode, the list only exposes a masked
   // target and never the secret.
   return {
     kind: editing?.kind ?? "slack",
@@ -86,7 +86,7 @@ export function ChannelDialog({
   });
 
   // Re-seed the form when the dialog opens (edit hydrates name/kind/config;
-  // create resets to slack). No useEffect — reset runs in the open handler.
+  // create resets to slack). No useEffect. Reset runs in the open handler.
   const handleOpenChange = (next: boolean) => {
     if (next) form.reset(editingDefaults(editing));
     onOpenChange(next);
@@ -183,7 +183,7 @@ export function ChannelDialog({
   );
 }
 
-/** Kind pill picker — locked in edit mode (a channel can't change type). */
+/** Kind pill picker, locked in edit mode (a channel can't change type). */
 function KindPicker({
   value,
   isEdit,
@@ -238,7 +238,7 @@ function targetFormatError(kind: ChannelKind, target: string): string | null {
   return null;
 }
 
-/** SMTP host/port checks — only relevant for the email + SMTP combo. */
+/** SMTP host/port checks, only relevant for the email + SMTP combo. */
 function smtpErrors(config: Record<string, string>, isEdit: boolean): Record<string, string> {
   const errs: Record<string, string> = {};
   if (!isEdit && !(config.host ?? "").trim()) errs.host = "SMTP host is required";

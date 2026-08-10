@@ -1,6 +1,6 @@
 ---
 title: Backups and restore
-description: Encrypted, scheduled snapshots of databases, volumes and stacks — to storage you control.
+description: Encrypted, scheduled snapshots of databases, volumes and stacks, to storage you control.
 ---
 
 Backups are taken with [rustic](https://rustic.cli.rs/), encrypted with a key
@@ -10,7 +10,7 @@ derived per repository, and written to a destination you own.
 
 | Type | Where it writes |
 | --- | --- |
-| `s3` | Object storage — bucket, region, endpoint and prefix |
+| `s3` | Object storage: bucket, region, endpoint and prefix |
 | `local` | A filesystem path on the host |
 | `sftp` | A remote host over SSH |
 
@@ -32,7 +32,7 @@ run needs them.
 | `stack` | A whole compose stack |
 
 The source picker offers both databases and the live volume inventory from the
-daemon — including orphans, so a volume whose owning resource is gone can still
+daemon, including orphans, so a volume whose owning resource is gone can still
 be captured before you delete it.
 
 ## Schedules and retention
@@ -47,7 +47,7 @@ plus a retention class of `short`, `standard`, `long` or `archive`.
 
 The scheduler scans the schedule table **every minute** and the database is the
 source of truth, so an edited cron expression or retention rule takes effect
-immediately — there is no repeatable job to re-register.
+immediately: there is no repeatable job to re-register.
 
 ```bash
 otterdeploy backups list
@@ -64,7 +64,7 @@ distinguishable from scheduled ones in the history.
 ## Reading a run
 
 Every run keeps its own log lines across three streams: `stdout`, `stderr` and
-`system`. Expanding a run in the dashboard reads them on demand — there is no
+`system`. Expanding a run in the dashboard reads them on demand. There is no
 preview stub, so an empty log means the run genuinely produced no output.
 
 Status values are real states, not a spinner: a run that failed says so and
@@ -73,7 +73,7 @@ keeps the output that explains why.
 ## Restore
 
 Restore a snapshot back into a resource. Treat it as a real operation with real
-consequences — it overwrites the target — and read the run log afterwards
+consequences (it overwrites the target) and read the run log afterwards
 rather than assuming a clean exit.
 
 <Callout title="Practise it">

@@ -104,7 +104,7 @@ export function ConsoleEnrollCard() {
             >
               app.crowdsec.net
             </a>{" "}
-            — unlocks the larger community blocklist + curated lists. The public lists above need no
+            unlocks the larger community blocklist and curated lists. The public lists above need no
             account.
           </p>
         </div>

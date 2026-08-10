@@ -1,10 +1,10 @@
 /**
- * od-5j8.3 — Docker daemon inspection surfaces are redacted.
+ * od-5j8.3: Docker daemon inspection surfaces are redacted.
  *
  * Invariant under test: raw Docker Engine API responses (container / image /
- * volume / network inspect, and free-text log tails) carry host secrets —
- * env vars, bind-mount host paths, command lines, labels, driver options —
- * that must never reach a non-install-admin caller. `safe-view.ts`'s
+ * volume / network inspect, and free-text log tails) carry host secrets.
+ * Env vars, bind-mount host paths, command lines, labels, driver options.
+ * That must never reach a non-install-admin caller. `safe-view.ts`'s
  * allowlisting functions are the only path a daemon inspect result may take
  * to a router response; every router handler that reaches the daemon must
  * still be gated to the installation principal.
@@ -44,7 +44,7 @@ describe("[od-5j8.3] safe-view allowlists survive hostile / obfuscated placement
         Image: "app:latest",
         Env: ["OK=1"],
       },
-      // Fields safeContainerInspect has no slot for at all — the allowlist
+      // Fields safeContainerInspect has no slot for at all. The allowlist
       // approach means these are dropped by construction, not by a denylist
       // that could miss a new one.
       GraphDriver: { Data: { UpperDir: "/secrets/upper", MergedDir: "/secrets/merged" } },
@@ -76,7 +76,7 @@ describe("[od-5j8.3] safe-view allowlists survive hostile / obfuscated placement
   test("prototype-pollution-shaped daemon payloads do not corrupt the safe view or throw", () => {
     // A hostile/compromised daemon (or MITM'd socket) answering with
     // `__proto__`/`constructor` keys must not pollute the shared Object
-    // prototype or crash inspection — it should simply be ignored like any
+    // prototype or crash inspection: it should simply be ignored like any
     // other unexpected field.
     const hostile = JSON.parse(
       '{"Id":"c1","Name":"/svc","__proto__":{"polluted":true},"constructor":{"prototype":{"polluted":true}},"Config":{"Image":"app"},"State":{"Status":"running"}}',
@@ -84,7 +84,7 @@ describe("[od-5j8.3] safe-view allowlists survive hostile / obfuscated placement
     expect(() => safeContainerInspect(hostile)).not.toThrow();
     const safe = safeContainerInspect(hostile);
     expect(safe.id).toBe("c1");
-    // Object.prototype genuinely holds arbitrary runtime values — UnknownRecord
+    // Object.prototype genuinely holds arbitrary runtime values. UnknownRecord
     // is the honest view for a pollution probe.
     expect((Object.prototype as UnknownRecord).polluted).toBeUndefined();
   });

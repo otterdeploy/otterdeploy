@@ -1,7 +1,7 @@
 /**
  * Live tag browser for the Image step. Queries `registry.listTags`
  * (Docker Registry v2 tags/list + per-tag manifest lookups) for the image
- * currently typed — anonymous for public images, the picked/auto-matched
+ * currently typed: anonymous for public images, the picked/auto-matched
  * stored credential for private ones. Picking a row fills the wizard's
  * `tag` field; everything shown (digest, size) comes from the registry,
  * never fabricated. Failures render the server's honest message (rate
@@ -115,7 +115,7 @@ function TagList({
       )}
       {truncated && (
         <p className="mt-1.5 text-[11px] text-muted-foreground">
-          Showing the first {tags.length} tags — this repository has more. Type the exact tag if it
+          Showing the first {tags.length} tags. This repository has more. Type the exact tag if it
           isn't listed.
         </p>
       )}
@@ -150,7 +150,7 @@ function ListingStatus({
   if (isError) {
     return (
       <p className="mt-2 text-[11px] text-destructive">
-        Tag listing failed{error instanceof Error ? ` — ${error.message}` : ""}
+        Tag listing failed{error instanceof Error ? `: ${error.message}` : ""}
       </p>
     );
   }
@@ -181,7 +181,7 @@ export function ImageTagBrowser({ image, registryId, tag, onPick }: ImageTagBrow
 
   const listing = useQuery(
     orpc.registry.listTags.queryOptions({
-      // The branded ContainerRegistryId is opaque client-side — same cast
+      // The branded ContainerRegistryId is opaque client-side. Same cast
       // idiom the source step uses for GitRepoId.
       input: {
         image: debouncedImage,
@@ -203,7 +203,7 @@ export function ImageTagBrowser({ image, registryId, tag, onPick }: ImageTagBrow
       <div className="mt-5">
         <SectionHeader
           title="Available tags"
-          sub="Live from the registry — pick one to fill the tag field. Registries return tags in name order, not push order."
+          sub="Live from the registry. Pick one to fill the tag field. Registries return tags in name order, not push order."
         />
       </div>
 

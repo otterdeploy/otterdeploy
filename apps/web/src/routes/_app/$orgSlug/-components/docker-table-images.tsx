@@ -20,7 +20,7 @@ import { formatBytes, shortId, splitRef, timeAgoSeconds } from "./docker-format"
 import { Panel, type QueryLike } from "./docker-panel";
 import { RowActionButton } from "./docker-tables";
 
-/** Local row type — mirrors the docker contract output shape. */
+/** Local row type: mirrors the docker contract output shape. */
 interface Image {
   id: string;
   repoTags: string[];
@@ -34,7 +34,7 @@ export function ImagesTable({ query }: { query: QueryLike<Image> }) {
   const [removeFor, setRemoveFor] = useState<Image | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
 
-  // Selection spans the WHOLE list, not the current page — paging away from a
+  // Selection spans the WHOLE list, not the current page, paging away from a
   // selection and back must not silently drop it.
   const selection = useTableSelection(query.data ?? [], (img) => img.id);
 
@@ -86,7 +86,7 @@ export function ImagesTable({ query }: { query: QueryLike<Image> }) {
                   {repo}
                 </TableCell>
                 <TableCell className="font-mono text-xs text-muted-foreground">
-                  {tag || "—"}
+                  {tag || "–"}
                 </TableCell>
                 <TableCell className="font-mono text-xs text-muted-foreground">
                   {shortId(img.id)}
@@ -96,7 +96,7 @@ export function ImagesTable({ query }: { query: QueryLike<Image> }) {
                 </TableCell>
                 <TableCell>
                   {img.containers < 0 ? (
-                    <span className="text-muted-foreground">—</span>
+                    <span className="text-muted-foreground">–</span>
                   ) : inUse ? (
                     <Badge variant="secondary" className="bg-success/10 text-success">
                       {img.containers}

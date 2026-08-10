@@ -1,6 +1,6 @@
 /**
  * Decrypt at-rest secrets (Resend key / SMTP password) configured in platform
- * settings. This is the read side of `packages/api/src/lib/crypto.ts` — the
+ * settings. This is the read side of `packages/api/src/lib/crypto.ts`. The
  * key derivation MUST match byte-for-byte so blobs encrypted by the API
  * decrypt here. Duplicated (like `packages/jobs/.../secret-crypto.ts`) because
  * the email package is a leaf shared by auth/jobs/api and can't import the API

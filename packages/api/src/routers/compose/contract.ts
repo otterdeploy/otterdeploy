@@ -1,5 +1,5 @@
 /**
- * oRPC contract for `type: compose` resources — a Docker Compose stack. See
+ * oRPC contract for `type: compose` resources: a Docker Compose stack. See
  * docs/designs/compose.md.
  */
 import { oc } from "@orpc/contract";
@@ -15,7 +15,7 @@ const composeServiceSummarySchema = z.object({
   image: z.string().nullable(),
   hasBuild: z.boolean(),
   ports: z.array(z.number()),
-  // Older rows (pre-volumes) won't carry this — default to [] so the view
+  // Older rows (pre-volumes) won't carry this. Default to [] so the view
   // validates against historical data without a migration.
   volumes: z.array(z.string()).default([]),
 });
@@ -37,7 +37,7 @@ const composeViewSchema = z.object({
   exposed: z.array(composeExposedSchema).default([]),
 });
 
-/** Stateless parse for the wizard preview — never touches the DB. */
+/** Stateless parse for the wizard preview, never touches the DB. */
 const parsePreviewSchema = z.object({
   valid: z.boolean(),
   error: z.string().nullable(),
@@ -46,7 +46,7 @@ const parsePreviewSchema = z.object({
   errorColumn: z.number().nullable(),
   /** Compose's top-level `name:`, if the file declares one. */
   name: z.string().nullable(),
-  /** `${VAR}` refs the file uses — the wizard asks the user to fill these in. */
+  /** `${VAR}` refs the file uses, the wizard asks the user to fill these in. */
   vars: z.array(z.object({ name: z.string(), default: z.string().nullable() })),
   services: z.array(composeServiceSummarySchema),
   warnings: z.array(z.string()),
@@ -92,7 +92,7 @@ export const composeContract = {
     .input(
       z.object({
         projectId: projectIdField,
-        /** Optional — derived from the file's `name:` / first service / repo. */
+        /** Optional, derived from the file's `name:` / first service / repo. */
         name: z.string().max(63).optional(),
         /** `inline` = paste the file; `git` = build it from the project repo. */
         source: z.enum(["inline", "git"]).default("inline"),
@@ -102,11 +102,11 @@ export const composeContract = {
          *  (Dockerfiles/build contexts, env_file targets, bind-mounted scripts).
          *  When set, `composePath` names which entry is the compose file. */
         files: z.array(z.object({ path: z.string(), content: z.string() })).optional(),
-        /** Bound repo id (git source) — the repo picker's selection. Clones via
+        /** Bound repo id (git source). The repo picker's selection. Clones via
          *  the GitHub App installation token, so private repos work. Preferred
          *  over `gitRepoUrl`. */
         gitRepoId: z.string().optional(),
-        /** Public GitHub repo URL (git source) — legacy paste path; used when no
+        /** Public GitHub repo URL (git source): legacy paste path; used when no
          *  `gitRepoId` is bound. */
         gitRepoUrl: z.string().optional(),
         /** Branch (git source; default the repo's main). */
@@ -117,7 +117,7 @@ export const composeContract = {
         /** Root directory within the repo the stack builds from (git source;
          *  the compose file + `build:` contexts resolve relative to it). */
         sourceSubdir: z.string().optional(),
-        /** Values for the file's `${VAR}` refs — written as project variables. */
+        /** Values for the file's `${VAR}` refs, written as project variables. */
         variables: z
           .array(
             z.object({
@@ -156,7 +156,7 @@ export const composeContract = {
 
   // Replace the stored compose YAML of an INLINE stack, re-parse it, and keep
   // the project manifest in lockstep. Takes effect on the next redeploy. Git
-  // stacks are rejected — their file lives in the repo.
+  // stacks are rejected. Their file lives in the repo.
   updateContent: oc
     .errors({
       NOT_FOUND: sharedErrors.NOT_FOUND,

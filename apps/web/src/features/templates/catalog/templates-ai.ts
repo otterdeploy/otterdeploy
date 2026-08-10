@@ -6,7 +6,7 @@ export const AI_TEMPLATES: StackTemplate[] = [
     id: "open-webui",
     name: "Open WebUI + Ollama",
     description:
-      "Self-hosted chat UI over a local Ollama runtime — models, prompts and history stay on your server. Pulls models on demand into a named volume; no external API key needed.",
+      "Self-hosted chat UI over a local Ollama runtime. Models, prompts and history stay on your server. Pulls models on demand into a named volume; no external API key needed.",
     category: "ai",
     includes: ["open-webui", "ollama"],
     requiredEnv: [
@@ -46,13 +46,13 @@ volumes:
     id: "litellm",
     name: "LiteLLM",
     description:
-      "One OpenAI-compatible endpoint in front of every LLM provider — routing, budgets, keys and spend tracking. Backed by its own Postgres for keys and usage records.",
+      "One OpenAI-compatible endpoint in front of every LLM provider: routing, budgets, keys and spend tracking. Backed by its own Postgres for keys and usage records.",
     category: "ai",
     includes: ["litellm", "db"],
     requiredEnv: [
       {
         key: "LITELLM_MASTER_KEY",
-        description: "Admin key for the proxy — issues and revokes every other virtual key.",
+        description: "Admin key for the proxy. It issues and revokes every other virtual key.",
       },
       {
         key: "POSTGRES_PASSWORD",

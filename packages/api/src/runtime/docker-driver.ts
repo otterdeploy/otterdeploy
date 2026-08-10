@@ -1,8 +1,8 @@
 /**
- * Plain-Docker runtime driver — the DEFAULT, single-node backend. Runs each
+ * Plain-Docker runtime driver: the DEFAULT, single-node backend. Runs each
  * service/database as an ordinary container on a per-project user-defined
  * BRIDGE network, with container-name DNS (exactly what Docker Compose gives
- * you — no Swarm overlay/VIP/manager required).
+ * you, no Swarm overlay/VIP/manager required).
  *
  * Mapping vs Swarm:
  *   - service     → one `docker create` + `start` container; `update` recreates.
@@ -64,7 +64,7 @@ export const dockerDriver: RuntimeDriver = {
   async provision(spec) {
     const docker = Docker.fromEnv();
     const networkName = await ensureBridgeNetwork(docker, spec.projectSlug);
-    // replicas:0 = scaled to zero (stopped) — plain Docker has no replica count,
+    // replicas:0 = scaled to zero (stopped). Plain Docker has no replica count,
     // so honor it by ensuring no container runs.
     if (spec.replicas === 0) {
       await removeContainerByName(docker, spec.serviceName);
@@ -110,7 +110,7 @@ export const dockerDriver: RuntimeDriver = {
         health: null,
       };
     }
-    // Recreate — plain Docker has no in-place rolling update. Stop the old
+    // Recreate: plain Docker has no in-place rolling update. Stop the old
     // container, start the new one (brief blip).
     await removeContainerByName(docker, spec.serviceName);
     await pullWithDeployLog(docker, spec);
@@ -151,7 +151,7 @@ export const dockerDriver: RuntimeDriver = {
     if (inputs.length === 0) return result;
     const docker = Docker.fromEnv();
     // ONE list over all managed containers, then match each requested service
-    // to its container by exact name — replaces the per-service `inspect` that
+    // to its container by exact name: replaces the per-service `inspect` that
     // opened a fresh Docker connection + lookup for every item in the list.
     const list = await docker.containers.list({
       all: true,

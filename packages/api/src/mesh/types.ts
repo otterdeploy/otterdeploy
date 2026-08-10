@@ -3,8 +3,8 @@
  *
  * NetBird is the reference implementation (`./netbird.ts`); Tailscale slots in
  * behind the same interface. The two providers differ in exactly one
- * architecturally interesting place — how a private hostname resolves inside
- * the mesh — and that difference is confined to `privateHostFor()` plus the
+ * architecturally interesting place: how a private hostname resolves inside
+ * the mesh, and that difference is confined to `privateHostFor()` plus the
  * flags the node agent joins with. Everything above this interface (the oRPC
  * router, provisioning, the Caddy reconciler, the UI) is provider-blind.
  *
@@ -23,13 +23,13 @@ export interface MeshIdentity {
    *  org's IdP domain). Null when the provider doesn't expose one. */
   accountLabel: string | null;
   /**
-   * The DNS zone peers resolve under — "netbird.cloud" by default, but
+   * The DNS zone peers resolve under. "netbird.cloud" by default, but
    * accounts can change it and self-hosted deployments commonly do. Read from
    * the API, never assumed: getting this wrong silently breaks every private
    * hostname we generate.
    */
   peerDomain: string;
-  /** How `peerDomain` was determined — surfaced in the UI so an operator can
+  /** How `peerDomain` was determined. Surfaced in the UI so an operator can
    *  tell a confirmed zone from a fallback guess. */
   peerDomainSource: "account-settings" | "peer-dns-label" | "default";
   /** Peers currently registered on the account (for the status card). */
@@ -72,7 +72,7 @@ export interface MintNodeKeyOptions {
   groupIds: string[];
   /**
    * Permit the peer to register extra DNS labels. Required for the wildcard
-   * label that gives private services their internal hostnames — the
+   * label that gives private services their internal hostnames. The
    * management server REJECTS labels at registration if the key doesn't allow
    * them, so this is not optional for node keys.
    */
@@ -96,7 +96,7 @@ export interface AccessPolicySpec {
 export interface MeshProviderClient {
   readonly kind: MeshProviderKind;
 
-  /** whoami — proves the credential works and returns the cacheable facts. */
+  /** whoami: proves the credential works and returns the cacheable facts. */
   verify(): Promise<MeshIdentity>;
 
   listGroups(): Promise<MeshGroup[]>;
@@ -120,8 +120,8 @@ export interface MeshProviderClient {
 
 /**
  * Any provider-API failure, carrying enough to render an honest message.
- * `status` is the HTTP status when the call reached the provider at all —
- * null means we never got a response (DNS failure, unreachable self-hosted
+ * `status` is the HTTP status when the call reached the provider at all.
+ * Null means we never got a response (DNS failure, unreachable self-hosted
  * management server, timeout), which is a materially different problem for
  * the operator and must not be reported as "invalid credentials".
  */
@@ -135,7 +135,7 @@ export class MeshProviderError extends TaggedError("MeshProviderError")<{
   }
 
   /** True when the credential itself is the problem (as opposed to reachability
-   *  or a provider-side outage) — drives "re-authenticate" vs "retry" in the UI. */
+   *  or a provider-side outage): drives "re-authenticate" vs "retry" in the UI. */
   get isAuthFailure(): boolean {
     return this.status === 401 || this.status === 403;
   }

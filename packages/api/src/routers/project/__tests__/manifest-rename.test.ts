@@ -4,7 +4,7 @@
  * A name is an address: other resources reach this one through
  * `${database:primary.url}` / `${service:api.host}`. Moving the manifest key
  * without rewriting those refs leaves a document that still validates and
- * breaks at deploy time on an unresolvable ref — the worst place to find out.
+ * breaks at deploy time on an unresolvable ref. The worst place to find out.
  */
 
 import { describe, expect, it } from "vite-plus/test";
@@ -56,7 +56,7 @@ describe("rewriteRefsInValue", () => {
 
   it("does not rewrite the same name under a different kind", () => {
     // A service and a database may not share a name, but the rewrite must not
-    // rely on that — it targets one kind.
+    // rely on that: it targets one kind.
     expect(rewriteRefsInValue("${service:api.host}", "database", "api", "core")).toBe(
       "${service:api.host}",
     );
@@ -141,7 +141,7 @@ describe("renameInManifest", () => {
     expect(out).toEqual({ ok: false, error: { code: "name-taken" } });
   });
 
-  it("refuses a name used by a DIFFERENT kind — one DNS namespace", () => {
+  it("refuses a name used by a DIFFERENT kind, one DNS namespace", () => {
     // `${service:x.host}` and a database called `x` would be two answers to
     // the same question.
     const out = renameInManifest({

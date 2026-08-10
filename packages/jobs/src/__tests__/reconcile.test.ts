@@ -1,6 +1,6 @@
 /**
- * Unit tests for boot-time deploy reconciliation. Everything is injected —
- * no Postgres, no Redis — so these run in plain `bun test`.
+ * Unit tests for boot-time deploy reconciliation. Everything is injected,
+ * no Postgres, no Redis, so these run in plain `bun test`.
  *
  * The db mock is a tiny in-memory store of deployment rows plus a join table
  * for org/resource/project name resolution. It implements only the drizzle
@@ -57,7 +57,7 @@ function rowById(rows: Row[], id: string): Row {
 function makeDb(rows: Row[], joins: Record<string, JoinInfo> = {}) {
   const logLines: Array<{ deploymentId: string; line: string }> = [];
 
-  // running rows pre-sorted (resourceId asc, createdAt desc) — the order
+  // running rows pre-sorted (resourceId asc, createdAt desc): the order
   // reconcile relies on to keep the newest per resource.
   const runningSorted = () =>
     rows
@@ -84,7 +84,7 @@ function makeDb(rows: Row[], joins: Record<string, JoinInfo> = {}) {
   // drizzle-orm: { __allowed } = inArray (orphans), { __eq } = eq status
   // (running), { __id } = eq id (join).
   // UnknownRecord: the projection's values are drizzle column objects and the
-  // builder is a heterogeneous bag of chainable methods — runtime values, not
+  // builder is a heterogeneous bag of chainable methods, runtime values, not
   // JSON.
   const select = (projection: UnknownRecord) => {
     const isJoinSelect = "organizationId" in projection;
@@ -174,7 +174,7 @@ void mock.module("drizzle-orm", () => ({
   desc: (col: unknown) => col,
 }));
 
-// Real schema (pure table defs — no env) spread through, but override
+// Real schema (pure table defs, no env) spread through, but override
 // `deployment` so its `id` column carries a marker the stubbed eq() recognises.
 const realSchema = await import("@otterdeploy/db/schema");
 void mock.module("@otterdeploy/db/schema", () => ({
@@ -276,7 +276,7 @@ describe("reconcileInterruptedDeployments", () => {
     expect(firstRow(rows).status).toBe("failed");
   });
 
-  test("(d) mixed batch — only unreferenced rows reset", async () => {
+  test("(d) mixed batch: only unreferenced rows reset", async () => {
     const { db, rows } = makeDb([
       { id: "d1", resourceId: "r1", status: "building", createdAt: 1 },
       { id: "d2", resourceId: "r2", status: "pending", createdAt: 1 },
@@ -318,7 +318,7 @@ describe("reconcileInterruptedDeployments", () => {
     expect(rowById(rows, "solo").status).toBe("running");
   });
 
-  test("(f) idempotency — second run does nothing", async () => {
+  test("(f) idempotency: second run does nothing", async () => {
     const { db, rows } = makeDb([{ id: "d1", resourceId: "r1", status: "building", createdAt: 1 }]);
     const { getQueue } = makeGetQueue([]);
 

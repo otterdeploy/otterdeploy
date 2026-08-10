@@ -130,7 +130,7 @@ await auth.api.addMember({
 
 ### Removing Members
 
-Use `removeMember({ memberIdOrEmail })`. The last owner cannot be removed — assign ownership to another member first.
+Use `removeMember({ memberIdOrEmail })`. The last owner cannot be removed, assign ownership to another member first.
 
 ### Updating Member Roles
 
@@ -201,7 +201,7 @@ const { data } = await authClient.organization.getInvitationURL({
 // Share data.url via any channel
 ```
 
-This endpoint does not call `sendInvitationEmail` — handle delivery yourself.
+This endpoint does not call `sendInvitationEmail`, handle delivery yourself.
 
 ### Invitation Configuration
 

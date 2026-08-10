@@ -12,12 +12,12 @@ schemas. The duplication can largely be collapsed.
 
 ## What exists today (three parallel definitions of the same shape)
 
-1. **Wire / validation source of truth** — `contract.ts`
+1. **Wire / validation source of truth**: `contract.ts`
    - `createServiceInput`, `updateServiceInput`, `servicePortInputSchema`,
      plus inline `restart` / `healthcheck` / `resources` zod objects.
    - These are the runtime validators oRPC actually enforces.
 
-2. **Handler input types** — `inputs.ts` (the file in question)
+2. **Handler input types**: `inputs.ts` (the file in question)
    - `CreateServiceInput`, `UpdateServiceInput`, `RestartInput`,
      `HealthcheckInput`, `ResourcesInput`, `PortInput`, `ResourceRef`,
      `ProjectRef`.
@@ -26,7 +26,7 @@ schemas. The duplication can largely be collapsed.
    - Plus the `toCreateRecordPayload` / `toUpdateRecordPatch` adapters that
      manually fan each field out to the DB column payload.
 
-3. **Persistence source of truth** — `packages/db/src/schema/project.ts`
+3. **Persistence source of truth**: `packages/db/src/schema/project.ts`
    (`serviceResource` table)
    - `restartCondition`, `restartMaxAttempts`, `healthcheckCmd`, `cpuLimit`,
      etc. The adapters in (2) map (1)→(3) by hand.
@@ -55,11 +55,11 @@ consistency gap, not a deliberate architectural choice.
 brand types, which the handler boundary casts in."*
 
 That concern is real for **`createSelectSchema`** (drizzle-zod 1.0-beta drops
-`$type<…>` brands on `text` columns — documented in `project.ts:14-20`). But it
+`$type<…>` brands on `text` columns, documented in `project.ts:14-20`). But it
 does **not** apply to the hand-authored **contract input** schemas here:
 
 - `projectIdField` / `resourceIdField` = `zId(prefix)` (`shared/id.ts:136`),
-  which `.transform((s) => s as Id<P>)` — i.e. `z.infer` of these fields is the
+  which `.transform((s) => s as Id<P>)`: i.e. `z.infer` of these fields is the
   **branded** `ProjectId` / `ResourceId`, not a bare `string`.
 
 So `z.infer<typeof createServiceInput>` would already carry the brands. The
@@ -67,7 +67,7 @@ manual interfaces aren't buying brand-safety that `z.infer` lacks.
 
 ## What's genuinely different about the handler input type
 
-Two real reasons the handler type isn't *identical* to the contract input —
+Two real reasons the handler type isn't *identical* to the contract input,
 but neither requires re-declaring the whole shape:
 
 1. **`organizationId` is injected server-side** from `context.activeOrganizationId`
@@ -107,7 +107,7 @@ export type UpdateServiceInput = z.infer<typeof updateServiceInput> & {
 ```
 
 (If the internal-only fields should also be validated, add them to the zod
-schemas as `.optional()` and drop them from the intersection — better still.)
+schemas as `.optional()` and drop them from the intersection, better still.)
 
 This deletes `RestartInput` / `HealthcheckInput` / `ResourcesInput` /
 `PortInput` and removes the drift risk between the validator and the type.
@@ -127,11 +127,11 @@ from the column shape:
   never come from the client.
 
 So the adapters (`toCreateRecordPayload` / `toUpdateRecordPatch`) are doing real
-work — that nesting→flat + unit translation is legitimate and should stay. The
+work. That nesting→flat + unit translation is legitimate and should stay. The
 redundant part is the **interfaces**, not the adapters.
 
 Where derive-from-table *would* pay off is the **output** `serviceSchema` in
-`contract.ts` (currently fully hand-written, lines 59-84) — that mirrors the
+`contract.ts` (currently fully hand-written, lines 59-84): that mirrors the
 column shape much more closely and is the better candidate for
 `createSelectSchema(serviceResource).extend({...})`, matching how
 `project`/`server`/`env` already do it. Watch the same brand caveat noted in
@@ -144,5 +144,5 @@ column shape much more closely and is the better candidate for
 - **Medium:** migrate `serviceSchema` output to `createSelectSchema`, aligning
   with the other routers.
 - **Leave alone:** the nesting→flat adapters and the `numeric` `.toString()`
-  handling — these encode real impedance between wire and DB and aren't
+  handling: these encode real impedance between wire and DB and aren't
   "boilerplate to delete."

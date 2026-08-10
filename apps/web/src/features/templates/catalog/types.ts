@@ -1,7 +1,7 @@
 /**
  * Typed catalog of deployable stack templates.
  *
- * Every entry carries the exact compose YAML the compose wizard stages — no
+ * Every entry carries the exact compose YAML the compose wizard stages, no
  * synthetic metadata. The catalog is honesty-gated by catalog.test.ts: each
  * compose must round-trip the repo's own parser (`parseCompose`) with zero
  * warnings, `includes` must equal the parsed service names, and `requiredEnv`
@@ -32,7 +32,7 @@ export const TEMPLATE_CATEGORIES: { id: TemplateCategoryId; label: string }[] = 
 ];
 
 export interface TemplateEnvVar {
-  /** `${KEY}` ref in the compose file — required (no `:-default`). */
+  /** `${KEY}` ref in the compose file, required (no `:-default`). */
   key: string;
   description: string;
   /** How to produce a good value, e.g. `openssl rand -base64 32`. Shown mono. */
@@ -44,12 +44,12 @@ export interface StackTemplate {
   name: string;
   description: string;
   category: TemplateCategoryId;
-  /** Compose service names — unit-tested to match the parsed file exactly. */
+  /** Compose service names: unit-tested to match the parsed file exactly. */
   includes: string[];
   requiredEnv: TemplateEnvVar[];
   /** SvglLogo search string; renders a monogram tile when no brand mark exists. */
   logoBrand: string;
   docsUrl: string;
-  /** The deployable compose file — the exact YAML handed to the compose wizard. */
+  /** The deployable compose file: the exact YAML handed to the compose wizard. */
   compose: string;
 }

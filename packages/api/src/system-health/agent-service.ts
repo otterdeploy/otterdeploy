@@ -1,15 +1,15 @@
 /**
  * Health-agent lifecycle (docs/designs/server-health-agent.md):
  *
- *  - startLocalHealthSampler — every 60s, sample THIS machine with
+ *  - startLocalHealthSampler: every 60s, sample THIS machine with
  *    getHostHealth() and upsert into server_health_sample for the bootstrap
  *    localhost row(s). Runs under every runtime; on the single-host default
  *    this alone makes per-server health complete.
  *
- *  - startHealthAgentReconciler — swarm runtime only: ensure the
+ *  - startHealthAgentReconciler: swarm runtime only: ensure the
  *    `otterdeploy-health-agent` GLOBAL service exists (one task per node,
  *    including late joiners). The spec is hand-built, not routed through
- *    buildServiceSpec — the agent is platform infrastructure, not an app
+ *    buildServiceSpec: the agent is platform infrastructure, not an app
  *    service, and it needs Mode.Global which the app builder doesn't emit.
  *    Drift (image or ingest URL changed, e.g. after a platform update)
  *    recreates the service, which also re-mints the token.
@@ -39,7 +39,7 @@ const RECONCILE_INTERVAL_MS = 10 * 60 * 1000;
 
 async function sampleLocalHost(): Promise<void> {
   // The bootstrap convention: every org gets a `localhost` row for the
-  // machine the control plane runs on. Match by host, not hostname — the
+  // machine the control plane runs on. Match by host, not hostname. The
   // hostname column mirrors os.hostname() but `host` is the stable key.
   const rows = await db
     .select({
@@ -79,7 +79,7 @@ function agentImage(): string {
 }
 
 /** Where agents POST. Prefers the explicit override (odd topologies, private
- *  networks), else the platform serverIp — which multi-node installs need
+ *  networks), else the platform serverIp, which multi-node installs need
  *  populated anyway for public URLs. */
 async function resolveIngestUrl(): Promise<string | null> {
   // oxlint-disable-next-line node/no-process-env -- deploy-time escape hatch, not part of validated env
@@ -103,7 +103,7 @@ function buildAgentServiceSpec(image: string, ingestUrl: string, token: string) 
     Labels: {
       "otterdeploy.managed": "true",
       "otterdeploy.role": "health-agent",
-      // Drift keys — reconcile compares these instead of diffing the spec.
+      // Drift keys: reconcile compares these instead of diffing the spec.
       "otterdeploy.agent.image": image,
       "otterdeploy.agent.ingest": ingestUrl,
     },
@@ -136,7 +136,7 @@ async function reconcileAgentService(): Promise<void> {
     log.warn({
       healthAgent: {
         event: "reconcile-skipped",
-        reason: "no server IP on record — set it on the Instance page",
+        reason: "no server IP on record: set it on the Instance page",
       },
     });
     return;

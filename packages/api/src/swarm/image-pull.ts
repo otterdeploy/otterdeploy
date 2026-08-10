@@ -2,7 +2,7 @@
  * Streams docker image pull progress as an async generator.
  *
  * docker.pull() returns a newline-delimited JSON stream. Each line is one
- * event from the engine — examples:
+ * event from the engine: examples:
  *   {"status":"Pulling from library/postgres","id":"18-alpine"}
  *   {"status":"Pulling fs layer","progressDetail":{},"id":"a1b2c3"}
  *   {"status":"Downloading","progressDetail":{"current":1234,"total":56789},"progress":"[>   ]  1.2MB/56.7MB","id":"a1b2c3"}
@@ -11,7 +11,7 @@
  *
  * We pass each event through unfiltered so the UI can show layer-level
  * activity. If the image is already present locally, docker still emits
- * `Already exists` events for each layer — the operator sees an instant
+ * `Already exists` events for each layer. The operator sees an instant
  * cached pull and the create proceeds.
  *
  * Errors during pull surface as `{ error: "...", errorDetail: {...} }`
@@ -41,7 +41,7 @@ export interface ImagePullEvent {
  * match the registry host in the image ref or the daemon rejects the auth
  * (ghcr.io credentials won't work on docker.io).
  *
- * `null` means "anonymous pull" — public images go through this path.
+ * `null` means "anonymous pull". Public images go through this path.
  */
 export interface RegistryAuth {
   username: string;
@@ -70,11 +70,11 @@ function toEvent(image: string, line: DockerPullLine): ImagePullEvent {
 }
 
 // Yield pull-progress events for `image`. If the image already exists
-// locally, emits a single synthetic `Already present` event and returns —
+// locally, emits a single synthetic `Already present` event and returns,
 // no network round-trip wasted. Pass `auth` to authenticate against a
 // private registry (ghcr.io PAT, AWS ECR token, etc.); omit it for public
 // images. `skipIfPresent: false` forces the registry pull even when a local
-// image exists — the runtime driver uses it so redeploys of a mutable tag
+// image exists. The runtime driver uses it so redeploys of a mutable tag
 // (postgres:18-alpine) pick up the newer digest.
 export async function* streamImagePull(
   docker: Docker,
@@ -113,7 +113,7 @@ export async function* streamImagePull(
   for await (const line of readNdjson<DockerPullLine>(stream)) {
     yield toEvent(image, line);
     if (line.error || line.errorDetail) {
-      // Surface the error event and stop iterating — caller decides whether
+      // Surface the error event and stop iterating, caller decides whether
       // to throw.
       return;
     }

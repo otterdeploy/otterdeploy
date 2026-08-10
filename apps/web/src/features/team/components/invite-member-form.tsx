@@ -3,7 +3,7 @@
  * only (the Team page gates rendering).
  *
  * Calls `authClient.organization.inviteMember` directly so we get the real
- * invitation id back and can always offer a copyable accept link — email
+ * invitation id back and can always offer a copyable accept link. Email
  * delivery is best-effort (a self-hosted install may have no transport
  * configured), so the link is the reliable path. The email field validates
  * against the loaded members + pending invites so an existing member or a
@@ -77,7 +77,7 @@ export function InviteMemberForm({ organizationId }: { organizationId: string })
       void queryClient.invalidateQueries({ queryKey: [...invitationsSubsetKey(organizationId)] });
 
       // Use the real invitation id from the response so the accept link always
-      // works — even when no email was delivered.
+      // works. Even when no email was delivered.
       const inviteId = res.data?.id;
       if (inviteId) {
         setSent({ email, url: acceptInviteUrl(inviteId) });

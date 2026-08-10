@@ -1,6 +1,6 @@
 /**
  * Tear down a preview when its PR closes: destroy the preview-scoped service
- * containers, destroy + delete the branched databases (container AND volume —
+ * containers, destroy + delete the branched databases (container AND volume,
  * a branch's data is disposable), then drop the preview's proxy routes and
  * reconcile Caddy.
  *
@@ -29,10 +29,10 @@ export interface ClosedPreview {
   id: PreviewId;
   projectId: ProjectId;
   projectSlug: string;
-  /** The preview's repo — teardown must only destroy containers named for
+  /** The preview's repo. Teardown must only destroy containers named for
    *  THIS repo's PR, never another repo's same-numbered preview. */
   gitRepoId: GitRepoId;
-  /** The preview's repo-qualified slug (`<repoSlug>-pr-<N>`) — byte-identical
+  /** The preview's repo-qualified slug (`<repoSlug>-pr-<N>`). Byte-identical
    *  to what create used, so branch container/volume names resolve. */
   slug: string;
   prNumber: number;
@@ -46,7 +46,7 @@ export async function teardownPreview(input: ClosedPreview, rlog?: RequestLogger
   };
 
   // 1. Destroy the preview's service containers (preview-scoped names).
-  // Scoped to services bound to THIS preview's repo — the `pr-<n>` container
+  // Scoped to services bound to THIS preview's repo. The `pr-<n>` container
   // suffix is repo-agnostic, so an unscoped sweep would destroy another
   // repo's live same-numbered preview. Deliberately NOT gated on
   // previewsEnabled: a service that opted out after a preview deployed must
@@ -89,8 +89,8 @@ export async function teardownPreview(input: ClosedPreview, rlog?: RequestLogger
 }
 
 /** Destroy + delete a preview's branched databases (container + volume + row).
- *  Branch DBs are named with the preview's full slug (`<repoSlug>-pr-<N>`) —
- *  the same string create used — so destroy targets the real container. Shared
+ *  Branch DBs are named with the preview's full slug (`<repoSlug>-pr-<N>`).
+ *  The same string create used, so destroy targets the real container. Shared
  *  by teardown and the DB-branch disable/reset controls. */
 export async function destroyPreviewBranchDbs(
   input: { id: PreviewId; projectId: ProjectId; projectSlug: string; slug: string },

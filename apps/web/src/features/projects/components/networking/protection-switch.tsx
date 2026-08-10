@@ -1,7 +1,7 @@
 /**
  * The auth-wall (deployment protection) toggle for one HTTP route. Shared
  * by the Routes-table cell and the Networking → Access tab. Mutates the
- * shared `proxyRoutesCollection` — the optimistic flip is instant and rolls
+ * shared `proxyRoutesCollection`: the optimistic flip is instant and rolls
  * back (with a toast) if the server rejects.
  */
 
@@ -17,7 +17,7 @@ import { Switch } from "@/shared/components/ui/switch";
  *
  * "public" and "login required" differ by eight monospace characters, so an
  * intrinsically-sized label moved the switch out from under the pointer on
- * every toggle — and in the Routes table it resized the shared column with it.
+ * every toggle, and in the Routes table it resized the shared column with it.
  * Both call sites get the fixed box from here rather than repeating the width.
  */
 export function ProtectionStateLabel({ isProtected }: { isProtected: boolean }) {

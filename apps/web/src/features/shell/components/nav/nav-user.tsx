@@ -171,7 +171,7 @@ export function NavUser({ user }: { user: User }) {
                   <HugeiconsIcon icon={CommandLineIcon} strokeWidth={2} />
                   {t("user.connectCli")}
                 </DropdownMenuItem>
-                {/* Links, not dialogs (od-u63.7) — the settings pages already own
+                {/* Links, not dialogs (od-u63.7): the settings pages already own
                     this UI (SessionsCard / TwoFactorCard), so the menu just
                     navigates there instead of duplicating it in a popover. */}
                 <DropdownMenuItem

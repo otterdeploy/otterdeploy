@@ -161,7 +161,7 @@ describe("registration admission", () => {
   });
 
   test("SSO cannot create the FIRST account even when it vouches", () => {
-    // Pre-bootstrap is email/password-only — an OAuth callback can't carry the
+    // Pre-bootstrap is email/password-only. An OAuth callback can't carry the
     // one-time installer token, so an SSO callback must not seize ownership of
     // a fresh install.
     expect(
@@ -210,7 +210,7 @@ describe("isSsoCallbackPath", () => {
   });
 
   test("is not fooled by a path that merely mentions the callback", () => {
-    // Prefix-matching is deliberate, but it must anchor at the start — a
+    // Prefix-matching is deliberate, but it must anchor at the start. A
     // crafted path that embeds the callback later must not pass.
     expect(isSsoCallbackPath("/sign-up/email?next=/sso/callback/okta")).toBe(false);
     expect(isSsoCallbackPath("/evil/sso/callback/okta")).toBe(false);

@@ -11,7 +11,7 @@ import en from "../../../../../packages/i18n/src/locales/en.json";
 import es from "../../../../../packages/i18n/src/locales/es.json";
 import { buildTourSteps } from "./steps";
 
-// Both chapters' steps — the widest set the tour can show.
+// Both chapters' steps: the widest set the tour can show.
 const allSteps = buildTourSteps({
   orgSlug: "acme",
   projectSlug: "storefront",
@@ -21,7 +21,10 @@ const allSteps = buildTourSteps({
 
 // The per-step copy shape the assertions probe. `| undefined` because the
 // whole point of the test is that a step's copy may be missing from a locale.
-interface StepCopy { title?: string; description?: string }
+interface StepCopy {
+  title?: string;
+  description?: string;
+}
 const locales = { en, es } as Record<
   string,
   { tour: { steps: Record<string, StepCopy | undefined> } }
@@ -46,7 +49,7 @@ describe("tour copy", () => {
   }
 
   it("no step defines copy the script never shows", () => {
-    // The reverse direction — every step HAS copy — is a type error now
+    // The reverse direction (every step HAS copy) is a type error now
     // (TourStepId is `keyof Translation["tour"]["steps"]`), so this only has
     // to catch copy left behind after a step is removed.
     const scripted = new Set<string>(allSteps.map((s) => s.id));

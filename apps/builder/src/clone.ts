@@ -38,8 +38,8 @@ export interface CloneResult {
 /**
  * Work dir for a build: `<DATA_ROOT>/builds/<projectId>/<deploymentId>` when the
  * data folder is writable (predictable + inspectable + cap-able), else an ephemeral
- * `tmpdir()` so local dev — where `/data` isn't writable and no
- * `OTTERDEPLOY_DATA_DIR` is set — keeps working unchanged. Either way the dir is
+ * `tmpdir()` so local dev: where `/data` isn't writable and no
+ * `OTTERDEPLOY_DATA_DIR` is set. Keeps working unchanged. Either way the dir is
  * empty, which `git clone <url> <dir>` requires.
  */
 export async function resolveWorkDir(
@@ -66,7 +66,7 @@ export async function cloneRepoAtSha(opts: {
   projectId: ProjectId;
   /** Names the build's work dir under the data folder. */
   deploymentId: DeploymentId;
-  /** Empty string when cloning a public repo — no token to inject. */
+  /** Empty string when cloning a public repo, no token to inject. */
   installationToken: string;
   /** How the repo is bound. `github_app` cloning failures point the user at
    *  reconnecting GitHub (a revoked/narrowed install fails the clone here);
@@ -78,7 +78,7 @@ export async function cloneRepoAtSha(opts: {
   const url = opts.installationToken
     ? injectToken(opts.cloneUrl, opts.installationToken)
     : opts.cloneUrl;
-  // Don't register an empty string as a secret — LogSink would mask
+  // Don't register an empty string as a secret. LogSink would mask
   // every empty stretch of output.
   const secrets = opts.installationToken ? [opts.installationToken] : [];
 
@@ -94,10 +94,10 @@ export async function cloneRepoAtSha(opts: {
     const detail = truncate(clone.tail, 500);
     if (opts.bindingKind === "github_app") {
       // A live install whose token minted but whose repo access was narrowed or
-      // revoked fails right here — make the remedy explicit instead of leaking a
+      // revoked fails right here. Make the remedy explicit instead of leaking a
       // raw "Authentication failed" / "Repository not found" from git.
       throw new Error(
-        `git clone failed (exit ${clone.exitCode}) — the GitHub App installation may have lost access to this repository (removed or repo de-selected). Reconnect GitHub in Settings → Git. Details: ${detail}`,
+        `git clone failed (exit ${clone.exitCode}). The GitHub App installation may have lost access to this repository (removed or repo de-selected). Reconnect GitHub in Settings → Git. Details: ${detail}`,
       );
     }
     throw new Error(`git clone failed (exit ${clone.exitCode}): ${detail}`);
@@ -114,7 +114,7 @@ export async function cloneRepoAtSha(opts: {
   });
   if (fetch.exitCode !== 0) {
     // Not fatal: the depth-1 clone already has the branch tip and that's
-    // often the same commit. Log it and continue with `git reset` — if
+    // often the same commit. Log it and continue with `git reset`: if
     // the SHA truly isn't reachable that step will fail clearly.
     opts.sink.system(
       `git fetch ${opts.sha.slice(0, 7)} failed (exit ${fetch.exitCode}); falling back to branch tip`,

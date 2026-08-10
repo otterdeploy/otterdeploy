@@ -93,9 +93,9 @@ const removeVolume = defineCommand({
     if (!args.yes) {
       // Say what survives as well as what changes: the data is kept, which is
       // the fact that decides whether this is safe to run.
-      note(dim("The volume's data is kept — the container just stops seeing it."));
+      note(dim("The volume's data is kept. The container just stops seeing it."));
       const proceed = await confirm(`Detach ${mountPath} from ${ctx.resourceName}?`);
-      if (!proceed) abort("Aborted — nothing was detached.");
+      if (!proceed) abort("Aborted. Nothing was detached.");
     }
     await ctx.client.service.mounts.remove({
       projectId: ctx.projectId,

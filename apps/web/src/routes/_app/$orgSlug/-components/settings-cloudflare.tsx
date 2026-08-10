@@ -28,7 +28,7 @@ export function CloudflareCard({ organizationId }: { organizationId: Organizatio
   const isConfigured = settingsQuery.data?.cloudflareTokenConfigured ?? false;
   const currentZoneId = settingsQuery.data?.cloudflareZoneId ?? null;
 
-  // `setCloudflareConfig` is `organization:update` — owner/admin only. Reading
+  // `setCloudflareConfig` is `organization:update`. Owner/admin only. Reading
   // the settings is not, so a member may SEE whether Cloudflare is wired up;
   // they just can't change it. Without this they got the whole three-step
   // connect flow and a raw "The actor does not have the required permission."
@@ -176,7 +176,7 @@ function CloudflareConnectForm({
                         {
                           onSuccess: (result) => {
                             // Auto-select when the token is scoped to a single
-                            // zone — the common case. Saves a dropdown click.
+                            // zone: the common case. Saves a dropdown click.
                             const only =
                               result.length === 1 ? result[0] : undefined;
                             if (only) form.setFieldValue("zoneId", only.id);

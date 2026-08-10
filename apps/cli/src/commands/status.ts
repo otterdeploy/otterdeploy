@@ -54,7 +54,7 @@ export const statusCommand = defineCommand({
     const localBlob = JSON.stringify(manifest);
     const serverBlob = JSON.stringify(current.manifest);
 
-    // Two independent questions, reported as two separate facts — conflating
+    // Two independent questions, reported as two separate facts. Conflating
     // them was the old output's flaw. "Is my file the same as the server's
     // saved manifest?" and "is what's running the same as that manifest?" fail
     // for different reasons and have different fixes.
@@ -77,7 +77,7 @@ export const statusCommand = defineCommand({
     }
 
     // Independently, surface drift in the running RESOURCES vs the
-    // current server manifest — meaning a delete or update done via
+    // current server manifest, meaning a delete or update done via
     // the UI since the last apply.
     const diff = await client.project.manifest.diff({
       projectId: project.id,

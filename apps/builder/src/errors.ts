@@ -1,7 +1,7 @@
 /**
  * Tagged errors for the build pipeline. Each fallible step yields one of
  * these in the `Result.gen` flow (see `pipeline.ts`) instead of throwing a
- * bare `Error`, so failures stay typed and attributable — the deployment row
+ * bare `Error`, so failures stay typed and attributable. The deployment row
  * is marked failed off the error's `message`, and `_tag` lets callers branch.
  *
  * `PipelineLoadError` (the load-step error) lives in `load.ts` alongside the
@@ -14,7 +14,7 @@ import { TaggedError } from "better-result";
 
 /** Join an Error's `.cause` chain into one message. Drizzle wraps the real
  *  driver error (connection refused, `relation … does not exist`, …) as the
- *  `.cause` of its opaque "Failed query: …" — so without walking the chain the
+ *  `.cause` of its opaque "Failed query: …", so without walking the chain the
  *  actual reason never reaches the deployment's stored errorMessage, leaving
  *  operators staring at "Failed query" with no cause. Capped at a few levels
  *  and de-duplicated so a message that already embeds its cause isn't doubled. */
@@ -44,7 +44,7 @@ export class BuildStepError extends TaggedError("BuildStepError")<{
   }
 }
 
-/** The deployment row carries no gitSha / gitRef — it isn't a git-triggered
+/** The deployment row carries no gitSha / gitRef. It isn't a git-triggered
  *  build, so there's nothing to check out. */
 export class InvalidDeploymentError extends TaggedError("InvalidDeploymentError")<{
   deploymentId: DeploymentId;
@@ -53,12 +53,12 @@ export class InvalidDeploymentError extends TaggedError("InvalidDeploymentError"
   constructor(deploymentId: DeploymentId) {
     super({
       deploymentId,
-      message: "deployment has no gitSha / gitRef — not a git-triggered build",
+      message: "deployment has no gitSha / gitRef, so it is not a git-triggered build",
     });
   }
 }
 
-/** `redeployOne` returned an error — the swarm spec couldn't be re-applied. */
+/** `redeployOne` returned an error. The swarm spec couldn't be re-applied. */
 export class SwarmUpdateError extends TaggedError("SwarmUpdateError")<{
   message: string;
   cause: unknown;
@@ -68,7 +68,7 @@ export class SwarmUpdateError extends TaggedError("SwarmUpdateError")<{
   }
 }
 
-/** A pre/post-deploy lifecycle hook failed — either the env couldn't be
+/** A pre/post-deploy lifecycle hook failed. Either the env couldn't be
  *  resolved, the hook container couldn't launch, or a command exited non-zero.
  *  A failed pre-deploy hook aborts the rollout; a failed post-deploy hook marks
  *  the deployment failed even though the new replicas are already live. */

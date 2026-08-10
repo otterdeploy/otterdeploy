@@ -7,9 +7,9 @@
  * the container is up (no waiting on the next list poll).
  *
  * Deliberately NOT used by:
- *  - `setPostgresPublic` — public access is edge-only (a Caddy layer4 route);
+ *  - `setPostgresPublic`: public access is edge-only (a Caddy layer4 route);
  *    it never rolls the container at all.
- *  - `ensureSwarmRuntimeForRecord` (runtime recovery) — that path *provisions*
+ *  - `ensureSwarmRuntimeForRecord` (runtime recovery): that path *provisions*
  *    a missing container and has its own race close-out (wasCreated) + grace
  *    logic around the deployment row.
  */
@@ -27,7 +27,7 @@ export async function rollDatabaseContainer(
   args: {
     record: DatabaseResourceRecord;
     projectSlug: string;
-    /** Image the rolled container must run — extension-resolved by the
+    /** Image the rolled container must run. Extension-resolved by the
      *  caller (never a bare engine default; see resolvePostgresImage). */
     image: string;
     reason: "env-change" | "restart" | "redeploy";
@@ -102,7 +102,7 @@ export async function rollDatabaseContainer(
     throw err;
   }
 
-  // The driver waited for the rolled container — persist the running flip now
+  // The driver waited for the rolled container: persist the running flip now
   // so the graph pill, panel badge and Deployments card agree immediately.
   if (rolled.status === "running") {
     await reconcileDeploySuccess([deployment.id], record.resource.id);

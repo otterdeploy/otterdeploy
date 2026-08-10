@@ -1,5 +1,5 @@
 /**
- * Org-scoped destination orchestration — the destination half of the backups
+ * Org-scoped destination orchestration. The destination half of the backups
  * service, split out of `service.ts` to keep that file under the max-lines cap
  * (same split as `queries.ts` / `destination-queries.ts`).
  *
@@ -66,7 +66,7 @@ export async function listDestinations(input: OrgRef): Promise<DestinationRow[]>
  * Enable or disable a destination. Disabling is operator intent: the scheduler
  * skips it on future runs while its existing snapshots stay restorable.
  *
- * Guarded so the org can never reach zero active destinations — see
+ * Guarded so the org can never reach zero active destinations. See
  * `canDisableManagedDestination`. The guard applies to every destination, not
  * just the managed one: disabling the last active S3 bucket is just as silent a
  * failure as disabling the last local one.
@@ -164,7 +164,7 @@ export async function updateDestination(
     // The managed row's location belongs to the platform. Renaming it is fine
     // (handled below, `config` untouched), but repointing it is not: the path is
     // derived from DATA_ROOT and a user-supplied one could be unwritable, on a
-    // volume without space, or — worst — already holding another org's repos.
+    // volume without space, or (worst) already holding another org's repos.
     const guard = await getDestinationGuardFields({
       organizationId: input.organizationId,
       id: input.id,
@@ -203,7 +203,7 @@ export async function deleteDestination(
 ): Promise<
   Result<{ ok: true }, DestinationNotFoundError | DestinationInUseError | DestinationManagedError>
 > {
-  // The managed row is never deletable — that is the whole point of it: an org
+  // The managed row is never deletable. That is the whole point of it: an org
   // must never be able to reach zero destinations and land back in the
   // "configure a local backup before you can do anything" state. Disable it
   // instead (setDestinationEnabled), which stops new backups without dropping
@@ -242,7 +242,7 @@ export async function deleteDestination(
  * Validates a stored destination credential: required config keys are present
  * and the encrypted secret decrypts cleanly. A failed validation is a typed
  * error (`DestinationTestFailedError`), not a success payload. This is a
- * structural check, not a live connectivity probe — real head-bucket/list
+ * structural check, not a live connectivity probe. Real head-bucket/list
  * lands with the execution engine once an S3 client exists.
  */
 export async function testDestination(

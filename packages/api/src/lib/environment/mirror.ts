@@ -1,7 +1,7 @@
 /**
  * Creating an environment that mirrors the project.
  *
- * "Staging mirrors production" is not a copy taken once — it is a standing
+ * "Staging mirrors production" is not a copy taken once. It is a standing
  * relationship. A change to the base manifest reaches every environment that
  * has not overridden that key, and an environment differs only where the
  * operator deliberately made it differ.
@@ -17,12 +17,12 @@
  *   value null      → deletes the key
  *
  * So creating a mirrored environment writes an EMPTY overlay block. Empty means
- * "override nothing", which resolves to a manifest identical to base — no
+ * "override nothing", which resolves to a manifest identical to base, no
  * copying, no special case, and no drift by construction. Both `manifest.diff`
  * and `manifest.apply` already resolve per environment, so the environment
  * becomes deployable the moment the block exists.
  *
- * The alternative — deep-copying the base into the overlay at create time —
+ * The alternative (deep-copying the base into the overlay at create time)
  * would look identical on day one and then silently stop tracking production on
  * day two, which is the behaviour this is specifically meant to avoid.
  */
@@ -43,7 +43,7 @@ export function withEnvironmentOverlay(manifest: Manifest, slug: string): Manife
     ...manifest,
     environments: {
       ...manifest.environments,
-      // Empty on purpose — see the module note. This is the mirror.
+      // Empty on purpose: see the module note. This is the mirror.
       [slug]: {},
     },
   };

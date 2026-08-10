@@ -1,5 +1,5 @@
 /**
- * Source step — confirms the project's source binding (gitRepoId +
+ * Source step: confirms the project's source binding (gitRepoId +
  * productionBranch) and lets the operator paste a public Git URL on the
  * spot if no installation has been connected.
  *
@@ -9,15 +9,15 @@
  * `form.setFieldValue("repo", repoId)` whenever the PublicRepoCTA
  * succeeds. The BindingSummary reads the form field via `useStore` so
  * the UI flips from CTA → green confirmation in the same render that
- * setFieldValue fires — no query invalidation in the critical path.
+ * setFieldValue fires, no query invalidation in the critical path.
  *
  * The `useBindingSummary` query still loads (a) installations for the
  * "no provider connected" empty state, (b) repo metadata for displaying
  * the bound row's `fullName`. Neither is used to gate the binding
  * check itself.
  *
- * Everything the wizard *derives* from the binding — service name,
- * monorepo root, service type — lives in `useSourceDefaults`, driven by
+ * Everything the wizard *derives* from the binding. Service name,
+ * monorepo root, service type: lives in `useSourceDefaults`, driven by
  * the field listeners below rather than by effects watching queries.
  */
 
@@ -42,7 +42,7 @@ import {
 
 export function StepSource() {
   const form = useFormContext();
-  // Reactive read — these re-render the step the instant setFieldValue
+  // Reactive read. These re-render the step the instant setFieldValue
   // fires from the PublicRepoCTA below.
   const repo = useStore(form.store, (s) => s.values.repo as string);
   const branch = useStore(form.store, (s) => s.values.branch as string);
@@ -56,7 +56,7 @@ export function StepSource() {
   const summary = useBindingSummary(projectSlug);
   // Resolve the bound repo's owner/repo from the DB (no GitHub call), so the
   // binding card shows the real name even for public-URL bindings that aren't
-  // in any installation repo list — and regardless of GitHub rate limits.
+  // in any installation repo list, and regardless of GitHub rate limits.
   // Without this it falls back to the raw gitRepo_… id.
   const repoMeta = useQuery({
     ...orpc.git.getRepo.queryOptions({
@@ -87,8 +87,8 @@ export function StepSource() {
 
   return (
     <>
-      {/* Headless fields. `repo` and `root` are written programmatically —
-          by the binding card and the folder picker below — and TanStack Form
+      {/* Headless fields. `repo` and `root` are written programmatically.
+          By the binding card and the folder picker below, and TanStack Form
           only dispatches a field's listeners while that field is mounted, so
           these are what make `setFieldValue` the trigger for the
           repo-derived defaults. `onMount` covers a binding the wizard was
@@ -130,7 +130,7 @@ export function StepSource() {
         onChangeRepo={defaults.clearBinding}
       />
 
-      {/* Service config only appears once a repo is bound — paste/connect a
+      {/* Service config only appears once a repo is bound, paste/connect a
           source first, we check it, then this reveals. No point configuring a
           service with nothing to build. */}
       {repo && (
@@ -141,7 +141,7 @@ export function StepSource() {
           <RepoCheck gitRepoId={repo} root={root} />
           <Card className="mt-2.5 rounded-md">
             <CardContent className="relative flex flex-col gap-3">
-              {/* Detected-framework badge — top-right of the card. Glowing comet
+              {/* Detected-framework badge: top-right of the card. Glowing comet
                   loader while inspecting, the framework logo once detected. */}
               <DetectedFrameworkBadge
                 gitRepoId={repo}
@@ -151,7 +151,7 @@ export function StepSource() {
               <ServiceTypeSelector
                 kindId={kindId}
                 onChange={(next) => {
-                  // The operator chose a type — stop auto-defaulting it from the
+                  // The operator chose a type: stop auto-defaulting it from the
                   // detected framework.
                   defaults.pinKind();
                   form.setFieldValue("kindId", next);

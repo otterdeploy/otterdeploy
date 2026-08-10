@@ -1,7 +1,7 @@
 /**
- * Trusted CAs tab — inventory of uploaded CA certificates with view/download.
+ * Trusted CAs tab. Inventory of uploaded CA certificates with view/download.
  *
- * HONEST SCOPE: nothing in the generated edge config consumes this pool —
+ * HONEST SCOPE: nothing in the generated edge config consumes this pool.
  * Caddy proxies services over plain HTTP on the internal network, so there's
  * no upstream TLS verification to feed it into. The copy says so. Rows are
  * useful as a shared store (download the PEM, reference it from a project's
@@ -92,9 +92,9 @@ export function TrustedCasTable({
         <EmptyHeader>
           <EmptyTitle>{t("certificates.noCas")}</EmptyTitle>
           <EmptyDescription>
-            Store CA certificates here as a shared inventory — view and download the PEM whenever
-            you need it. The generated edge config doesn't consume this pool (services are proxied
-            over plain HTTP internally); reference a CA from a project's custom Caddy config if an
+            Store CA certificates here as a shared inventory. View and download the PEM whenever you
+            need it. The generated edge config doesn't consume this pool (services are proxied over
+            plain HTTP internally); reference a CA from a project's custom Caddy config if an
             upstream needs TLS verification.
           </EmptyDescription>
         </EmptyHeader>
@@ -112,7 +112,7 @@ export function TrustedCasTable({
   return (
     <div className="flex flex-col gap-2">
       <p className="text-xs text-muted-foreground">
-        Inventory only — nothing in the generated edge config consumes this pool today. Download the
+        Inventory only. Nothing in the generated edge config consumes this pool today. Download the
         PEM or reference it from a project's custom Caddy config.
       </p>
       <div className="overflow-hidden rounded-lg border">
@@ -168,7 +168,7 @@ function CaRow({
         className="max-w-64 truncate font-mono text-[11px] text-muted-foreground"
         title={ca.subject ?? ""}
       >
-        {ca.subject ?? "—"}
+        {ca.subject ?? "–"}
       </TableCell>
       <TableCell className="font-mono text-[11px] text-muted-foreground">
         {truncateMiddle(ca.fingerprint256, 29)}

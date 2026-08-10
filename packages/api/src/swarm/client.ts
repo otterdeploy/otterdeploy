@@ -172,7 +172,7 @@ export async function connectCaddyToNetwork(
   }
 
   if (!container) {
-    // Caddy not running — skip silently, it'll connect on next provision.
+    // Caddy not running: skip silently, it'll connect on next provision.
     return;
   }
 
@@ -199,7 +199,7 @@ export async function connectCaddyToNetwork(
  *
  * The per-project bridge networks are connected to Caddy dynamically at deploy
  * time (`ensureBridgeNetwork` → `connectCaddyToNetwork`). But a RECREATED Caddy
- * container — image update, `docker compose up -d`, the in-app updater — rejoins
+ * container (image update, `docker compose up -d`, the in-app updater) rejoins
  * only its compose networks and drops every dynamically-added project bridge, so
  * all deployed services 502 until something re-connects them. Running this on
  * each reconcile (incl. the server-boot reconcile) makes a Caddy restart

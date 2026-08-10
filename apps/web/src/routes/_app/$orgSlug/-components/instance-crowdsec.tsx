@@ -1,9 +1,9 @@
 /**
- * CrowdSec card — the bouncer credentials that wire the IP-reputation gate into
+ * CrowdSec card: the bouncer credentials that wire the IP-reputation gate into
  * the generated Caddyfile. Saving re-renders the edge immediately.
  *
  * Deliberately honest about its limit: the control plane can write the config
- * and reconcile Caddy, but it cannot start the CrowdSec agent container — that
+ * and reconcile Caddy, but it cannot start the CrowdSec agent container; that
  * is `docker compose --profile firewall up -d` on the host. So this card
  * reports whether the gate is configured, and the Firewall page reports whether
  * the agent is actually answering. Claiming a single "enabled" state would be
@@ -50,11 +50,11 @@ function crowdsecView(raw: CrowdsecSettings | undefined) {
 /** The three states the gate can be in, said plainly. Kept out of the JSX so
  *  the card stays readable and the wording lives in one place. */
 function enforcementDescription(input: { effective: boolean; enabled: boolean }): string {
-  if (input.effective) return "On — the crowdsec gate is rendered into every site block.";
+  if (input.effective) return "On. The gate is rendered into every site block.";
   if (input.enabled) {
     return "Credentials incomplete, so no gate is rendered. Add the LAPI URL and bouncer key below.";
   }
-  return "Off — credentials are kept, but no gate is rendered.";
+  return "Off. Credentials are kept, but no gate is rendered.";
 }
 
 /** The switch, plus the badge that admits the credentials came from env rather
@@ -124,7 +124,7 @@ export function CrowdsecCard({ organizationId }: { organizationId: OrganizationI
     <SettingsSection
       icon={ShieldIcon}
       title="CrowdSec"
-      description="IP-reputation enforcement at the edge. Saving re-renders the Caddyfile — the agent container itself is started by the compose firewall profile on the host."
+      description="IP-reputation enforcement at the edge. Saving re-renders the Caddyfile. The agent container itself is started by the compose firewall profile on the host."
     >
       <SettingsRow
         title="Edge enforcement"
@@ -140,7 +140,7 @@ export function CrowdsecCard({ organizationId }: { organizationId: OrganizationI
       />
       <SettingsRow
         title="LAPI URL"
-        description="The agent's address on the install network — http://crowdsec:8080 for the bundled compose service."
+        description="The agent's address on the install network. Use http://crowdsec:8080 for the bundled compose service."
         control={
           <Input
             value={urlValue}

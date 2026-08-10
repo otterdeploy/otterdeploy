@@ -1,5 +1,5 @@
 /**
- * Project-aggregate metrics overview — the four headline cards at the top of
+ * Project-aggregate metrics overview: the four headline cards at the top of
  * the metrics page: CPU and memory summed across every container in the
  * project (`metrics.projectAggregate`), and request rate / p95 latency across
  * all of the project's public hosts (`edgeLogs.requestSeries`).
@@ -50,9 +50,9 @@ export function ProjectMetricsSection({ projectId, windowMinutes }: ProjectMetri
 
   const aggBody = (chart: ReactNode): ReactNode => {
     if (agg.isLoading && !aggHasData) return <ChartSkeleton />;
-    if (agg.isError && !aggHasData) return <ChartNote>Couldn’t load samples — retrying.</ChartNote>;
+    if (agg.isError && !aggHasData) return <ChartNote>Couldn’t load samples. Retrying.</ChartNote>;
     if (!aggHasData) {
-      return <ChartNote>No samples in this window yet — sampled every 30s.</ChartNote>;
+      return <ChartNote>No samples in this window yet. Sampled every 30s.</ChartNote>;
     }
     return chart;
   };
@@ -60,10 +60,10 @@ export function ProjectMetricsSection({ projectId, windowMinutes }: ProjectMetri
   const reqBody = (chart: ReactNode): ReactNode => {
     if (req.isLoading && req.rows.length === 0) return <ChartSkeleton />;
     if (req.isError && req.rows.length === 0) {
-      return <ChartNote>Couldn’t load edge logs — retrying.</ChartNote>;
+      return <ChartNote>Couldn’t load edge logs. Retrying.</ChartNote>;
     }
     if (req.hostCount === 0) {
-      return <ChartNote>No public traffic — services are internal.</ChartNote>;
+      return <ChartNote>No public traffic. Services are internal.</ChartNote>;
     }
     if (!reqHasTraffic) return <ChartNote>No requests in this window.</ChartNote>;
     return chart;
@@ -76,12 +76,12 @@ export function ProjectMetricsSection({ projectId, windowMinutes }: ProjectMetri
   return (
     <div className="flex flex-col gap-2">
       <div className="grid gap-3 md:grid-cols-2">
-        {/* CPU — sum of Docker-style per-container percents (of one core), so
+        {/* CPU: sum of Docker-style per-container percents (of one core), so
             the project total can exceed 100% and the axis auto-fits. */}
         <MetricCard
           icon={CpuIcon}
           title="CPU"
-          value={agg.summary.latestCpuPct != null ? formatPercent(agg.summary.latestCpuPct) : "—"}
+          value={agg.summary.latestCpuPct != null ? formatPercent(agg.summary.latestCpuPct) : "–"}
           stats={
             aggHasData
               ? [
@@ -101,11 +101,11 @@ export function ProjectMetricsSection({ projectId, windowMinutes }: ProjectMetri
           )}
         </MetricCard>
 
-        {/* Memory — summed working-set bytes across reporting containers. */}
+        {/* Memory, summed working-set bytes across reporting containers. */}
         <MetricCard
           icon={RamMemoryIcon}
           title="Memory"
-          value={agg.summary.latestMemBytes != null ? formatBytes(agg.summary.latestMemBytes) : "—"}
+          value={agg.summary.latestMemBytes != null ? formatBytes(agg.summary.latestMemBytes) : "–"}
           stats={aggHasData ? [{ label: "peak", value: formatBytes(agg.summary.memPeak) }] : []}
         >
           {aggBody(
@@ -117,12 +117,12 @@ export function ProjectMetricsSection({ projectId, windowMinutes }: ProjectMetri
           )}
         </MetricCard>
 
-        {/* Request rate — bucketed rps from the edge access logs across every
+        {/* Request rate, bucketed rps from the edge access logs across every
             public host the project routes. Zero is a real measurement. */}
         <MetricCard
           icon={EarthIcon}
           title="Request rate"
-          value={reqHasTraffic ? formatRps(req.summary.avgRps) : "—"}
+          value={reqHasTraffic ? formatRps(req.summary.avgRps) : "–"}
           stats={
             reqHasTraffic
               ? [
@@ -144,12 +144,12 @@ export function ProjectMetricsSection({ projectId, windowMinutes }: ProjectMetri
           )}
         </MetricCard>
 
-        {/* P95 latency — per-bucket p95 from the same edge-log window; empty
+        {/* P95 latency: per-bucket p95 from the same edge-log window; empty
             buckets are gaps (a percentile of zero requests doesn't exist). */}
         <MetricCard
           icon={Clock01Icon}
           title="P95 latency"
-          value={req.summary.latestP95 != null ? formatMs(req.summary.latestP95) : "—"}
+          value={req.summary.latestP95 != null ? formatMs(req.summary.latestP95) : "–"}
           stats={reqHasTraffic ? [{ label: "max", value: formatMs(req.summary.maxP95) }] : []}
         >
           {reqBody(
@@ -164,13 +164,13 @@ export function ProjectMetricsSection({ projectId, windowMinutes }: ProjectMetri
 
       {req.source === "ring" && windowMinutes > 60 ? (
         <p className="text-xs text-muted-foreground">
-          Edge-log persistence is off — request cards only cover the in-memory buffer, which is
+          Edge-log persistence is off. Request cards only cover the in-memory buffer, which is
           shorter than the selected window.
         </p>
       ) : null}
       {req.sampled ? (
         <p className="text-xs text-muted-foreground">
-          High traffic volume — request cards are computed over the most recent 10,000 requests, so
+          High traffic volume. Request cards are computed over the most recent 10,000 requests, so
           the oldest buckets may undercount.
         </p>
       ) : null}

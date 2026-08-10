@@ -9,7 +9,7 @@ import {
  * SPIKE: client-side SQLite persistence for TanStack DB collections.
  *
  * The browser engine is wa-sqlite running in a dedicated Web Worker over an
- * OPFS-backed database (OPFSCoopSyncVFS — no COOP/COEP or SharedArrayBuffer
+ * OPFS-backed database (OPFSCoopSyncVFS, no COOP/COEP or SharedArrayBuffer
  * required; the worker + `.wasm` ship as one self-contained bundled asset that
  * Vite loads via `new Worker(new URL(...))`).
  *

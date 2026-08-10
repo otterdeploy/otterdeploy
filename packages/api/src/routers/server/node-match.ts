@@ -12,7 +12,7 @@ export type NodeAvailability = "active" | "drain" | "pause";
  * Resolve the swarm node backing a server row. Matches the swarm-reported
  * hostname against the row's OS hostname first, then the friendly name
  * (the bootstrap row is named "localhost" while its real OS hostname lives
- * in `hostname` — same candidate order as the stats aggregation).
+ * in `hostname`: same candidate order as the stats aggregation).
  */
 export function matchSwarmNode(
   nodes: Node[],
@@ -49,7 +49,7 @@ export function buildAvailabilityUpdate(
 export type NodeRole = "manager" | "worker";
 
 /**
- * Build the promote/demote payload — same full-NodeSpec carry-over as
+ * Build the promote/demote payload. Same full-NodeSpec carry-over as
  * buildAvailabilityUpdate (docker REPLACES the whole spec), so the role flip
  * keeps the node's availability and labels intact.
  */

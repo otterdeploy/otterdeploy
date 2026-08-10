@@ -1,5 +1,5 @@
 /**
- * The project-wide deployments table — commit-first rows (status / service /
+ * The project-wide deployments table: commit-first rows (status / service /
  * commit / author / duration / when) with a hover-revealed Roll back action on
  * eligible history rows (see `deployment-row.tsx`). Loading / error / empty
  * states plus the "N of M · Load more" footer follow the audit table idiom.
@@ -95,7 +95,7 @@ export function DeploymentsTableSection({
               ? "Try a wider time window or clear the resource / status filters."
               : emptyVariant === "window"
                 ? "Widen the time window to see older deploys."
-                : "Every build and deploy across this project lands here — push to a connected repo or deploy a resource from the graph."}
+                : "Every build and deploy across this project lands here. Push to a connected repo, or deploy a resource from the graph."}
           </EmptyDescription>
         </EmptyHeader>
       </Empty>

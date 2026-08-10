@@ -2,14 +2,14 @@
  * Shared parsers for the raw streams docker hands us.
  *
  * Every docker stream consumer used to hand-roll its own framing/line
- * buffering — the 8-byte multiplex demuxer lived in both resource-logs and
+ * buffering: the 8-byte multiplex demuxer lived in both resource-logs and
  * boot-logs, and newline-JSON reading was reimplemented in image-pull and
  * the event-bus drain. These are the single canonical versions:
  *
- *   - `demuxDockerStream`   — 8-byte multiplexed container/service log frames
- *   - `splitDockerTimestamp`— peel the ISO ts docker prepends (timestamps=true)
- *   - `readNdjson`          — newline-delimited JSON (image pull, `/events`)
- *   - `readLines`           — newline-delimited raw lines
+ *   - `demuxDockerStream`: 8-byte multiplexed container/service log frames
+ *   - `splitDockerTimestamp`: peel the ISO ts docker prepends (timestamps=true)
+ *   - `readNdjson`: newline-delimited JSON (image pull, `/events`)
+ *   - `readLines`: newline-delimited raw lines
  */
 
 export interface DockerLogChunk {
@@ -51,7 +51,7 @@ export async function* demuxDockerStream(
 
       const combined = partial[which] + payload;
       const lines = combined.split("\n");
-      // Last entry may be a partial line — stash it for the next chunk.
+      // Last entry may be a partial line, stash it for the next chunk.
       const lastIdx = lines.length - 1;
       partial[which] = lines[lastIdx] ?? "";
       for (let i = 0; i < lastIdx; i++) {
@@ -110,7 +110,7 @@ export async function* readLines(
 
 /**
  * Read a newline-delimited JSON stream and yield each parsed object.
- * Unparseable lines are skipped — docker occasionally batches multiple JSON
+ * Unparseable lines are skipped. Docker occasionally batches multiple JSON
  * objects on a line or emits status noise we don't care about.
  */
 export async function* readNdjson<T>(stream: NodeJS.ReadableStream): AsyncGenerator<T, void, void> {

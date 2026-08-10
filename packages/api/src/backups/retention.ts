@@ -1,11 +1,11 @@
 /**
- * Residual storage-ceiling retention — the pure decision layer for the ONE
+ * Residual storage-ceiling retention: the pure decision layer for the ONE
  * retention control rustic can't express natively.
  *
  * GFS pruning (keep the newest per day/week/month/year) and the hard max-age cut
  * now belong to `rustic forget` (`--keep-daily/-weekly/-monthly/-yearly` +
  * `--keep-within <N>d`); the scheduler drives that per repo. The only knob with
- * no native rustic flag is a byte ceiling — `maxStorageGb` — so it stays here as
+ * no native rustic flag is a byte ceiling (`maxStorageGb`) so it stays here as
  * a residual: given the snapshots rustic kept (newest-first), pick the oldest
  * survivors to drop until the total fits.
  *
@@ -19,7 +19,7 @@
  */
 
 export interface RetentionPolicy {
-  /** Storage ceiling in GB — prune oldest survivors until total fits. */
+  /** Storage ceiling in GB: prune oldest survivors until total fits. */
   maxStorageGb: number | null;
 }
 

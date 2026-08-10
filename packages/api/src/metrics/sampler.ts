@@ -5,7 +5,7 @@ import type { ResourceId } from "@otterdeploy/shared/id";
  * `resource_metric`, keyed by the `otterdeploy.resource.id` label.
  *
  * CPU% needs two stats frames (a delta), so we stream the Docker stats API and
- * read the second frame — its `precpu_stats` is populated from the first, which
+ * read the second frame. Its `precpu_stats` is populated from the first, which
  * a one-shot read can't give us. Each sample closes its stream immediately.
  */
 import type { Readable } from "node:stream";
@@ -156,7 +156,7 @@ export async function sampleAllContainers(): Promise<void> {
     }
 
     // Emit health.degraded / health.recovered on any flip vs the last tick.
-    // Best-effort — guarded so it can never break sampling.
+    // Best-effort, guarded so it can never break sampling.
     await recordHealthObservations(healthObserved).catch(() => undefined);
   } catch (cause) {
     log.error({

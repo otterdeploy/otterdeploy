@@ -1,5 +1,5 @@
 /**
- * Sync tab — honest coming-soon surface. No sync-source backend exists yet
+ * Sync tab. Honest coming-soon surface. No sync-source backend exists yet
  * (Plan 7 follow-up), so every provider renders as not-connected with a
  * disabled Connect button; nothing here invents state.
  */
@@ -38,7 +38,7 @@ export function SyncIntegrations() {
       <div className="mb-5 rounded-md border bg-card px-4 py-3">
         <div className="text-sm text-foreground/80">No sync sources connected.</div>
         <div className="text-xs text-muted-foreground">
-          Provider integrations aren't available yet — they're on the roadmap.
+          Provider integrations aren't available yet.
         </div>
       </div>
 

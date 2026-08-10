@@ -61,7 +61,7 @@ export async function saveProjectStack(input: {
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
 
-  // Bun.YAML.parse throws on syntactically invalid YAML — wrap so callers
+  // Bun.YAML.parse throws on syntactically invalid YAML. Wrap so callers
   // get a typed Result instead of an exception.
   let parsed: unknown;
   try {

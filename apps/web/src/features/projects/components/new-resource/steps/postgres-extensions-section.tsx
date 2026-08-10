@@ -23,12 +23,12 @@ export function PostgresExtensionsSection() {
 
   const toggleExtension = (name: string, on: boolean) => {
     const next = on ? [...extensions, name] : extensions.filter((e) => e !== name);
-    // Block image-incompatible combinations before they reach the manifest —
+    // Block image-incompatible combinations before they reach the manifest,
     // pgvector / PostGIS / TimescaleDB each pin a different image.
     const resolved = resolvePostgresImage(next, "postgres");
     if (!resolved.ok) {
       toast.error(
-        `Can't combine these extensions — they need different images: ${resolved.conflict.join(", ")}`,
+        `Can't combine these extensions. They need different images: ${resolved.conflict.join(", ")}`,
       );
       return;
     }
@@ -39,7 +39,7 @@ export function PostgresExtensionsSection() {
     <>
       <SectionHeader
         title="Extensions"
-        sub="Enable extensions on the postgres instance — you can change these later"
+        sub="Enable extensions on the postgres instance. You can change these later."
       />
       <Card className="mt-2.5 rounded-md">
         <CardContent>

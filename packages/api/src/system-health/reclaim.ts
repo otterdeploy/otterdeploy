@@ -1,9 +1,9 @@
 /**
- * Space reclamation — the one-click fixes behind the health recommendations.
+ * Space reclamation: the one-click fixes behind the health recommendations.
  * Three deliberately safe targets:
  *
  *   images      → `image prune` with dangling=false (all images unused by any
- *                 container — old deploy images live here; re-pulled if needed)
+ *                 container: old deploy images live here; re-pulled if needed)
  *   build-cache → BuildKit cache prune (idle entries only; next build re-warms)
  *   containers  → stopped containers, LIMITED to otterdeploy-managed ones so a
  *                 shared host's other stopped containers are never touched
@@ -66,7 +66,7 @@ async function pruneOne(docker: Docker, target: ReclaimTarget): Promise<ReclaimR
 }
 
 /** Run the requested prunes in sequence (they contend on the daemon anyway).
- *  Per-target failures are reported, never thrown — a locked build cache must
+ *  Per-target failures are reported, never thrown. A locked build cache must
  *  not stop the image prune from freeing space. */
 export async function reclaimSpace(targets: ReclaimTarget[]): Promise<{
   results: ReclaimResult[];

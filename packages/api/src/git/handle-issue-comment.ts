@@ -1,5 +1,5 @@
 /**
- * `issue_comment` webhook — the on-demand `@otterdeploy preview` trigger.
+ * `issue_comment` webhook: the on-demand `@otterdeploy preview` trigger.
  *
  * Lets a repository with automatic previews turned OFF ask for one anyway. It
  * resolves the pull request the comment sits on, then hands off to the SAME
@@ -7,7 +7,7 @@
  * route, comment, cap and teardown all behave identically. Nothing about a
  * comment-triggered preview is special once it exists.
  *
- * Order of checks is deliberate — cheapest and most-restrictive first, so a
+ * Order of checks is deliberate. Cheapest and most-restrictive first, so a
  * drive-by comment on a public repository costs a regex and nothing else:
  *
  *   1. Is it a PR comment at all (not a plain issue)?
@@ -56,7 +56,7 @@ function shouldTrigger(ev: IssueCommentEvent, deliveryId: string): boolean {
         repo: ev.repository?.full_name,
         prNumber: ev.issue.number,
       },
-      msg: `preview command refused — ${refusalReason(ev.comment?.author_association)}`,
+      msg: `preview command refused: ${refusalReason(ev.comment?.author_association)}`,
     });
     return false;
   }

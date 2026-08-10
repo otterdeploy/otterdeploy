@@ -1,11 +1,11 @@
 /**
- * Inbound-endpoint request guards — pure logic, no I/O, unit-tested in
+ * Inbound-endpoint request guards. Pure logic, no I/O, unit-tested in
  * __tests__/inbound-guard.test.ts.
  *
  *   - IP allowlist: exact IPv4/IPv6 match + IPv4 CIDR ranges. An empty list
  *     allows any source (the HMAC signature is always required regardless).
  *   - Rate limiter: fixed-size sliding window per key, in-memory. Light by
- *     design — it protects the control plane from a misconfigured CI loop,
+ *     design: it protects the control plane from a misconfigured CI loop,
  *     not from a determined attacker (that's the firewall's job).
  */
 

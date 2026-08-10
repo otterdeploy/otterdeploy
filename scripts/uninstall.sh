@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# otterdeploy uninstaller — removes the platform and (as much as you choose of)
+# otterdeploy uninstaller: removes the platform and (as much as you choose of)
 # everything it created. DESTRUCTIVE and IRREVERSIBLE.
 #
 # Run with NO flags to pick interactively what to delete, then type "wipe":
@@ -43,7 +43,7 @@ for a in "$@"; do case "$a" in
   --keep-swarm)    KEEP_SWARM=true ;;
   --keep-docker)   KEEP_DOCKER=true ;;
   --remove-docker) KEEP_DOCKER=false ;;
-  # Print the header block only — bounded by the first non-comment line, so
+  # Print the header block only, bounded by the first non-comment line, so
   # editing the header can't leak code into --help (it previously did).
   -h|--help)       sed -n '2,${/^[^#]/q;p;}' "$0"; exit 0 ;;
   *) echo "unknown arg: $a (try --help)"; exit 1 ;;
@@ -67,7 +67,7 @@ run()  { if $DRY_RUN; then printf '   + %s\n' "$*"; else printf '   $ %s\n' "$*"
 sh_()  { if $DRY_RUN; then printf '   + %s\n' "$*"; else printf '   $ %s\n' "$*"; $SUDO sh -c "$*"; fi; }
 D()    { $SUDO docker "$@"; }
 
-# Every prompt reads from /dev/tty, never stdin — this script is served at
+# Every prompt reads from /dev/tty, never stdin. This script is served at
 # get.otterdeploy.com/uninstall.sh, so under `curl | bash` stdin IS the piped
 # script. A plain `read` there consumes the script's own source as the operator's
 # answers: the selection prompts get garbage (which silently flips what gets
@@ -75,7 +75,7 @@ D()    { $SUDO docker "$@"; }
 # On a destructive, irreversible script that is not an acceptable failure mode.
 TTY=""; [ -r /dev/tty ] && TTY=/dev/tty
 
-# No terminal and no explicit intent (CI, cron, `| bash < /dev/null`) — refuse
+# No terminal and no explicit intent (CI, cron, `| bash < /dev/null`): refuse
 # rather than fall through to the defaults, which delete volumes, the data
 # directory and the ZFS pool. Unattended callers must say so with --yes.
 if [ -z "$TTY" ] && ! $DRY_RUN && ! $ASSUME_YES; then
@@ -93,7 +93,7 @@ ask_yn() {
   case "$ans" in [Yy]*) return 0 ;; *) return 1 ;; esac
 }
 # resolve one selectable var: if unset, ask (interactive) or take the default.
-# choose VAR "Question" YESVAL DEFAULTKEY  — sets VAR to YESVAL / (not YESVAL).
+# choose VAR "Question" YESVAL DEFAULTKEY: sets VAR to YESVAL / (not YESVAL).
 pick() { # pick VARNAME prompt default(Y|N) meaning:  sets VARNAME=true/false
   local __var="$1" __q="$2" __def="$3"
   [ -n "${!__var}" ] && return 0                          # already set by a flag
@@ -217,4 +217,4 @@ else
   [ -f /etc/docker/daemon.json ] && run $SUDO rm -f /etc/docker/daemon.json || true
 fi
 
-step "Done — otterdeploy removed from this host."
+step "Done: otterdeploy removed from this host."

@@ -15,7 +15,7 @@
  * The build sequence is a `Result.gen` flow: every fallible step yields a
  * tagged error (see `./errors` + `PipelineLoadError`) rather than throwing a
  * bare `Error`, so `runBuildSteps` returns a typed `Result` instead of
- * rejecting. The pipeline never throws to the caller — a failure marks the row
+ * rejecting. The pipeline never throws to the caller: a failure marks the row
  * failed + logs, and surfaces the message. The handler iterates a batch of
  * deployments and must keep going if one fails. The individual steps live in
  * `./pipeline-steps`.
@@ -71,7 +71,7 @@ interface WorkDirRef {
 
 /** On success the value is the immutable `:<sha>` image tag the deployment
  *  now points at; on failure it's the surfaced error message (the row has
- *  already been marked failed). The pipeline never rejects — a batch handler
+ *  already been marked failed). The pipeline never rejects. A batch handler
  *  must keep going if one deployment fails. */
 export async function runBuildPipeline(opts: {
   deploymentId: DeploymentId;
@@ -100,7 +100,7 @@ export async function runBuildPipeline(opts: {
   // above reclaims it after BUILD_TTL_MS.
   if (work.path) {
     if (outcome.isErr() && work.persistent) {
-      sink.system(`build failed — work dir kept for inspection: ${work.path}`);
+      sink.system(`build failed; work dir kept for inspection: ${work.path}`);
     } else {
       await rm(work.path, { recursive: true, force: true }).catch(() => undefined);
     }
@@ -109,13 +109,13 @@ export async function runBuildPipeline(opts: {
   return outcome;
 }
 
-/** The build sequence as a Result flow — each `yield*` unwraps an Ok value or
+/** The build sequence as a Result flow. Each `yield*` unwraps an Ok value or
  *  short-circuits the whole flow with its tagged error. Returns the immutable
  *  `:<sha>` image tag the deployment now points at. */
 /**
  * The preview may have been torn down (idle reaper / manual / PR close) while
  * this build ran. Rolling now would recreate containers for a closed preview
- * with no routes — an orphan nothing reaps, so the roll is skipped instead.
+ * with no routes: an orphan nothing reaps, so the roll is skipped instead.
  */
 async function previewClosedDuringBuild(
   previewId: Parameters<typeof isPreviewActive>[0] | null,
@@ -130,7 +130,7 @@ function runBuildSteps(
   work: WorkDirRef,
 ): Promise<Result<string, BuildPipelineError>> {
   return Result.gen(async function* () {
-    // Compose stacks build N services from one repo — a separate path that
+    // Compose stacks build N services from one repo. A separate path that
     // reuses the same builders per build-context. Image-only stacks never
     // enqueue a build, so reaching here means there's at least one `build:`.
     const isCompose = yield* await Result.tryPromise({
@@ -154,13 +154,13 @@ function runBuildSteps(
       `build start: project=${ctx.project.slug} resource=${ctx.resource.name} sha=${ctx.deployment.gitSha ?? ctx.deployment.sourceSha ?? "unknown"}`,
     );
 
-    // Source acquisition differs by kind — git clones a repo, upload extracts a
-    // tarball the CLI staged — but both produce a populated work dir + an image
+    // Source acquisition differs by kind: git clones a repo, upload extracts a
+    // tarball the CLI staged, but both produce a populated work dir + an image
     // tag, and everything downstream is source-agnostic.
     let sourceDir: string;
     let buildTag: string;
     if (ctx.service.source === "upload") {
-      // No commit sha for an uploaded source — tag the image by the unique
+      // No commit sha for an uploaded source: tag the image by the unique
       // deployment id instead.
       buildTag = opts.deploymentId;
       const extracted = yield* await step("extract", () =>
@@ -181,7 +181,7 @@ function runBuildSteps(
       const repo = ctx.repo;
       buildTag = gitSha;
 
-      // Public-URL bindings carry no installationId — clone over anonymous HTTPS.
+      // Public-URL bindings carry no installationId. Clone over anonymous HTTPS.
       // Installation-backed bindings mint a short-lived token + inject it. Use the
       // GitHub-side numeric id (resolved in load.ts), NOT repo.installationId,
       // which is the internal git_installation.id FK the token API can't resolve.
@@ -246,12 +246,12 @@ function runBuildSteps(
 
     yield* await step("image-ready", () => markImageReady(opts.deploymentId, image.shaTag));
     // Image build is done; everything from here (rollout + health watch) is the
-    // deploy phase — tag it so it lands in Deploy Logs, not Build Logs.
+    // deploy phase. Tag it so it lands in Deploy Logs, not Build Logs.
     sink.setPhase("deploy");
-    sink.system(`image-ready: ${image.shaTag} — updating swarm service`);
+    sink.system(`image-ready: ${image.shaTag}; updating swarm service`);
 
     // Capture the detected framework from the just-analysed work tree (local
-    // files only — package.json + railpack's --info-out). Stored on the row so
+    // files only: package.json + railpack's --info-out). Stored on the row so
     // the graph renders the brand logo without ever calling the git API. Never
     // throws: returns null if nothing was detected. Read before cleanup rm's
     // the clone dir.
@@ -263,7 +263,7 @@ function runBuildSteps(
     });
 
     // Preview builds must NOT write the base serviceResource.image (it's shared
-    // with production — writing it would repoint production at the preview's
+    // with production, writing it would repoint production at the preview's
     // image). They carry the built tag as a spec override instead. Base builds
     // update the row as before; `imageDigest` + `framework` describe THIS
     // build and are only persisted on the base row.

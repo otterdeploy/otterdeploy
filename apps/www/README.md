@@ -5,7 +5,7 @@ Marketing landing page **and** documentation for Otterdeploy, served at
 
 ## Stack
 
-- **TanStack Start** (SSR + prerender) — same router family as `apps/web`
+- **TanStack Start** (SSR + prerender), same router family as `apps/web`
 - **Fumadocs** (`fumadocs-core` / `fumadocs-ui` / `fumadocs-mdx`) for docs
 - **Tailwind v4**, reusing `apps/web`'s brand tokens (see `src/styles/app.css`)
 
@@ -32,7 +32,7 @@ bun dev:www          # via turbo + portless (www.otterdeploy)
 PORT=3002 bunx --bun vite dev    # from apps/www
 ```
 
-## TODO — interactive API reference (OpenAPI)
+## TODO: interactive API reference (OpenAPI)
 
 The server already emits an OpenAPI 3.1 spec from the oRPC contracts
 (`apps/server/src/index.ts`, `OpenAPIHandler` + `OpenAPIReferencePlugin`),
@@ -49,4 +49,4 @@ reference:
    `fumadocs-openapi`'s page generator.
 
 See https://fumadocs.dev/docs/integrations/openapi (and the **Without RSC**
-variant — TanStack Start does not use React Server Components).
+variant: TanStack Start does not use React Server Components).

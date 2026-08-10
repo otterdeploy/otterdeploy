@@ -3,18 +3,18 @@
  * origin.
  *
  * WHY THIS EXISTS: better-auth's deviceAuthorization plugin types
- * `verificationUri` as `z.string().optional()` — a plain string, read once when
+ * `verificationUri` as `z.string().optional()`: a plain string, read once when
  * the plugin is constructed (see packages/auth/src/index.ts). It cannot be a
  * callback, so the URL it hands the CLI is frozen at module load from
  * `CORS_ORIGIN[0] ?? BETTER_AUTH_URL`. On a default install those are
  * `http://<server-ip>:3000` (scripts/install.sh), so the operator copies
  * `otterdeploy login https://deploy.acme.com` out of the dashboard and the CLI
- * then sends them to `http://1.2.3.4:3000/device` to approve it — a different
+ * then sends them to `http://1.2.3.4:3000/device` to approve it. A different
  * origin, over plain http, with a port. A domain verified *after* boot never
  * shows up at all until the process restarts.
  *
  * So we fix it on the way out: the plugin still builds the URLs, and this
- * swaps their origin for `resolveCanonicalWebOrigin()` — the verified
+ * swaps their origin for `resolveCanonicalWebOrigin()`: the verified
  * control-plane FQDN when one exists, otherwise exactly what it returns today.
  * Path, query (`user_code`) and every other field are preserved.
  *

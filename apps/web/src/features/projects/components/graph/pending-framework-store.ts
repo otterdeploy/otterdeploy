@@ -1,12 +1,12 @@
 /**
  * Instant framework brand mark for a just-staged (ghost) service node.
  *
- * The framework is *persisted* on the resource row — but only after a build,
+ * The framework is *persisted* on the resource row, but only after a build,
  * and a freshly-staged create has no resource row at all yet. The create
  * wizard, however, already knows the framework: `git.inspectRepo` returned it
  * while the operator picked the repo/root. This store carries that
  * client-known value from the wizard to the graph so the ghost node renders
- * the right logo (Next.js, Vite, …) the instant it appears — no round-trip,
+ * the right logo (Next.js, Vite, …) the instant it appears, no round-trip,
  * no waiting for a build.
  *
  * It's a hint, not a source of truth: once the real resource lands (with its
@@ -52,7 +52,7 @@ export function clearPendingFramework(projectId: string, key: string) {
   if (m?.delete(key)) emit(projectId);
 }
 
-/** Drop every framework hint for a project — called on Discard, alongside
+/** Drop every framework hint for a project. Called on Discard, alongside
  *  clearing the applied-creates store, so a discarded staged service leaves no
  *  stale brand-logo hint behind. */
 export function clearPendingFrameworksForProject(projectId: string) {

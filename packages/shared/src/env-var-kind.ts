@@ -9,17 +9,17 @@
  * describes what the operator will have to supply) read this, so they cannot
  * drift again. It lives in @otterdeploy/shared rather than in the web app
  * because the template generator will eventually need it server-side to mark
- * each `requiredEnv` entry autofilled — see docs/designs/template-registry.md.
+ * each `requiredEnv` entry autofilled: see docs/designs/template-registry.md.
  *
  * This is a heuristic on the KEY NAME, deliberately. Coolify's equivalent
  * (`SERVICE_PASSWORD_X`, `SERVICE_FQDN_X`) only fires when a template author
  * wrote the magic prefix, so a pasted third-party compose file gets nothing.
- * Matching on the name means any compose file benefits with zero authoring —
- * at the cost of the occasional miss (`ROOT_PW`) or false positive. Every
+ * Matching on the name means any compose file benefits with zero authoring.
+ * At the cost of the occasional miss (`ROOT_PW`) or false positive. Every
  * seeded value stays editable, so a wrong guess costs an edit, never a deploy.
  */
 
-/** Credential-looking keys — filled with a strong random value, masked. */
+/** Credential-looking keys, filled with a strong random value, masked. */
 const SECRET_RE =
   /(SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|API_?KEY|ACCESS_?KEY|CREDENTIAL|DSN|SALT|WEBHOOK|SIGNING)/i;
 
@@ -28,7 +28,7 @@ const SECRET_RE =
  *
  * It used to sit in `SECRET_RE` as a bare substring, which made every key of
  * any product with "auth" in its name a secret: Authentik's stack masked
- * `AUTHENTIK_POSTGRESQL__NAME` and `__USER` — a database name and a username —
+ * `AUTHENTIK_POSTGRESQL__NAME` and `__USER` (a database name and a username)
  * while the URL-precedence rule below existed only to rescue `NEXTAUTH_URL`
  * from the same over-match. Bounding the token fixes the cause; the real
  * credentials still match on their own terms (`AUTHENTIK_SECRET_KEY` via
@@ -37,7 +37,7 @@ const SECRET_RE =
 const AUTH_RE = /(^|_)AUTH($|_)/i;
 
 /**
- * `…_KEY` is a credential too — `N8N_ENCRYPTION_KEY`, `MEILI_MASTER_KEY`,
+ * `…_KEY` is a credential too. `N8N_ENCRYPTION_KEY`, `MEILI_MASTER_KEY`,
  * `TOTP_VAULT_KEY` all went unfilled because the pattern above only knows
  * `API_KEY`/`ACCESS_KEY`.
  *
@@ -50,7 +50,7 @@ const AUTH_RE = /(^|_)AUTH($|_)/i;
 const KEY_RE = /(^|_)KEY($|_)|[A-Z0-9]_KEY$/i;
 
 /**
- * Password spellings the main pattern misses — `MASTERPASS`, `DB_PASS`,
+ * Password spellings the main pattern misses: `MASTERPASS`, `DB_PASS`,
  * `PASSPHRASE`. Word-bounded so `BYPASS` and `COMPASS` stay plain.
  */
 const PASS_RE = /(^|_)(PASS|MASTERPASS|PASSPHRASE)($|_)/i;
@@ -66,7 +66,7 @@ const NOT_A_GENERATED_KEY_RE = /(LICENSE|LICENCE|PUBLIC|SSH|HOST|PGP|GPG|DEPLOY)
  */
 const URL_RE = /(^|_)(URL|URI|ORIGIN|FQDN|DOMAIN|HOSTNAME|ENDPOINT|SITE|BASE)($|_)/i;
 
-/** Keys that name a host without a scheme — `SERVER_HOST`, `PUBLIC_HOST`. */
+/** Keys that name a host without a scheme: `SERVER_HOST`, `PUBLIC_HOST`. */
 const HOST_RE = /(^|_)HOST($|_)/i;
 
 export type EnvVarKind = "secret" | "url" | "host" | "plain";
@@ -74,10 +74,10 @@ export type EnvVarKind = "secret" | "url" | "host" | "plain";
 /**
  * What the platform can fill in.
  *
- *   secret — a strong random value
- *   url    — `https://<the FQDN this stack will publish at>`
- *   host   — that FQDN, bare
- *   plain  — nothing; the operator has to know this one
+ *   secret: a strong random value
+ *   url: `https://<the FQDN this stack will publish at>`
+ *   host: that FQDN, bare
+ *   plain, nothing; the operator has to know this one
  *
  * URL/host win over secret so `NEXTAUTH_URL` and `AUTH_DOMAIN` are treated as
  * addresses rather than credentials.
@@ -103,7 +103,7 @@ export function isAutofilledKey(key: string): boolean {
 
 /** The value to seed, given the public FQDN the stack will publish at.
  *  `null` when the platform can't fill this one, or when the host isn't known
- *  yet (no exposed service) — the caller falls back to leaving it blank. */
+ *  yet (no exposed service): the caller falls back to leaving it blank. */
 export function autofillValue(
   key: string,
   ctx: { randomSecret: () => string; publicHost: string | null },

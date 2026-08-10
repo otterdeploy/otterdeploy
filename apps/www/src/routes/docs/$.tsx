@@ -56,7 +56,7 @@ const serverLoader = createServerFn({ method: "GET" })
 
     const pageTree = await source.serializePageTree(source.getPageTree());
 
-    // OpenAPI pages are virtual (no MDX collection) — hand the renderer its
+    // OpenAPI pages are virtual (no MDX collection). Hand the renderer its
     // resolved props directly instead of going through the client loader.
     // `staticSource` widens the union to `PageData`, so narrow the data to the
     // OpenAPI shape the `openapi` page type guarantees at runtime.
@@ -73,7 +73,7 @@ const serverLoader = createServerFn({ method: "GET" })
     }
 
     // `title` / `description` are surfaced for the head tags. The body still
-    // renders them from the client loader's frontmatter — these are the same
+    // renders them from the client loader's frontmatter. These are the same
     // values, read on the server so the crawler sees them in the HTML rather
     // than after hydration.
     const data = page.data as { title?: string; description?: string };
@@ -89,7 +89,7 @@ const serverLoader = createServerFn({ method: "GET" })
 
 // Our MDX overrides are a static map (`getMDXComponents` is a plain function,
 // not a real hook), so resolve them once at module scope. This also keeps the
-// renderer callback below free of any `use*`-shaped call — fumadocs invokes it
+// renderer callback below free of any `use*`-shaped call. Fumadocs invokes it
 // inside its own internal `Renderer`, which a hooks linter can't see as a
 // component boundary.
 const mdxComponents = getMDXComponents();

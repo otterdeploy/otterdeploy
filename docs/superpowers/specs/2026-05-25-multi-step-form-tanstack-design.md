@@ -1,14 +1,14 @@
-# Multi-Step Resource Wizard — TanStack Form Refactor
+# Multi-Step Resource Wizard: TanStack Form Refactor
 
 ## Problem
 
 The `ResourceWizard` in `apps/web/src/features/projects/components/new-resource/` already runs on TanStack Form, but three things are painful enough to rework:
 
-1. **Step components take `AnyFieldApi` props.** The wizard wraps every step in nested `<form.Field>` render-prop pyramids — `step: source` is seven `form.Field` calls deep (`src → repo → branch → root → autoDeploy → previewBranches → name → component`). Adding a field to a step means editing the wizard, the step props interface, and the step body. Field names are untyped (`AnyFieldApi`).
-2. **No per-step validation gate.** The form is configured with `validators: { onChange: resourceSchema }`, so the entire schema validates on every keystroke regardless of which step is visible. `canAdvance` is hand-rolled for `kind` and `version` only — every other step's "Continue" lets invalid data through and surfaces it later (or not at all).
+1. **Step components take `AnyFieldApi` props.** The wizard wraps every step in nested `<form.Field>` render-prop pyramids: `step: source` is seven `form.Field` calls deep (`src → repo → branch → root → autoDeploy → previewBranches → name → component`). Adding a field to a step means editing the wizard, the step props interface, and the step body. Field names are untyped (`AnyFieldApi`).
+2. **No per-step validation gate.** The form is configured with `validators: { onChange: resourceSchema }`, so the entire schema validates on every keystroke regardless of which step is visible. `canAdvance` is hand-rolled for `kind` and `version` only. Every other step's "Continue" lets invalid data through and surfaces it later (or not at all).
 3. **Step state in `useState` only.** Browser refresh, back/forward, and deep-linking all reset the wizard to `step: kind`. There is no way to share a URL pointing at a specific step.
 
-Branching (DB / source / docker step lists) is fine as-is — out of scope to rework.
+Branching (DB / source / docker step lists) is fine as-is. Out of scope to rework.
 
 ## Scope
 
@@ -17,7 +17,7 @@ Refactor the new-resource wizard so step components own their layout but never r
 **Out of scope for v1:**
 
 - Persisting form values across page refresh (only the step id is persisted, via the URL). Values reset on reload until we add sessionStorage in a follow-up.
-- Wiring Create to the real `resource.create` oRPC procedure — the current `onSubmit` `console.log` no-op stays.
+- Wiring Create to the real `resource.create` oRPC procedure: the current `onSubmit` `console.log` no-op stays.
 - Mobile-specific stepper redesign.
 - Touching the branching flow shape (still DB vs source vs docker step arrays).
 
@@ -48,9 +48,9 @@ features/projects/components/new-resource/
 │   ├── variables.ts
 │   ├── version.ts
 │   └── index.ts               (resourceSchema = merged, STEP_SCHEMAS map, resourceDefaults)
-├── steps/                     EXISTING — rewritten
+├── steps/                     EXISTING: rewritten
 │   ├── index.tsx              (Stepper + Step type + STEP_IDS + barrel exports)
-│   ├── kind.tsx               (no props — uses useFormContext)
+│   ├── kind.tsx               (no props: uses useFormContext)
 │   ├── source.tsx
 │   ├── builder.tsx
 │   ├── image.tsx
@@ -63,13 +63,13 @@ features/projects/components/new-resource/
 │   └── review.tsx             (form.Subscribe to render summary)
 ├── flows.ts                   NEW   DB_STEPS / SOURCE_STEPS / DOCKER_STEPS + flowFor(kind)
 ├── wizard.tsx                 RENAMED from new-resource-wizard.tsx
-├── new-resource-dialogs.tsx   existing — unchanged
-├── overlay-provider.tsx       existing — unchanged
-├── form-primitives.tsx        existing — unchanged (SectionHeader, builderCardClass, etc.)
-└── icons.tsx                  existing — unchanged
+├── new-resource-dialogs.tsx   existing, unchanged
+├── overlay-provider.tsx       existing, unchanged
+├── form-primitives.tsx        existing, unchanged (SectionHeader, builderCardClass, etc.)
+└── icons.tsx                  existing, unchanged
 ```
 
-**Schema.ts at the package root is deleted** — replaced by `schemas/index.ts`.
+**Schema.ts at the package root is deleted**, replaced by `schemas/index.ts`.
 
 ### 1. `form-context.ts`
 
@@ -102,7 +102,7 @@ export const { useAppForm, withForm } = createFormHook({
 
 ### 2. `form-fields/*`
 
-One file per bound primitive. Each component pulls its field via `useFieldContext` and renders every error from `field.state.meta.errors` (the array — never `errors[0]`).
+One file per bound primitive. Each component pulls its field via `useFieldContext` and renders every error from `field.state.meta.errors` (the array, never `errors[0]`).
 
 ```tsx
 // form-fields/text-field.tsx
@@ -134,11 +134,11 @@ export function TextField({ label, type = "text", placeholder }: {
 }
 ```
 
-Composite fields (`PortsField`, `VariablesField`, `LinkedSecretsField`) follow the same pattern over arrays / records — the existing ~200-line variables table in `step-variables.tsx` moves into `form-fields/variables-field.tsx`, and the step file becomes a layout shell with `<SectionHeader>` + `<form.AppField name="variables">{(f) => <f.VariablesField />}</form.AppField>` + the linked-secrets card.
+Composite fields (`PortsField`, `VariablesField`, `LinkedSecretsField`) follow the same pattern over arrays / records: the existing ~200-line variables table in `step-variables.tsx` moves into `form-fields/variables-field.tsx`, and the step file becomes a layout shell with `<SectionHeader>` + `<form.AppField name="variables">{(f) => <f.VariablesField />}</form.AppField>` + the linked-secrets card.
 
-### 3. `schemas/*` — discriminated union on `__step`
+### 3. `schemas/*`, discriminated union on `__step`
 
-The form carries a `__step` field whose value matches the current wizard step. `resourceFormSchema` is a `z.discriminatedUnion("__step", [...])` where each arm is the slice of requirements for one step. Each arm is **cumulative** — it requires every field needed up to and including that step. Arms are plain `z.object` (default `.strip()` behavior); extra fields the form is holding for later steps are silently ignored, which is exactly what we want.
+The form carries a `__step` field whose value matches the current wizard step. `resourceFormSchema` is a `z.discriminatedUnion("__step", [...])` where each arm is the slice of requirements for one step. Each arm is **cumulative**. It requires every field needed up to and including that step. Arms are plain `z.object` (default `.strip()` behavior); extra fields the form is holding for later steps are silently ignored, which is exactly what we want.
 
 This collapses three previously separate concepts into one:
 
@@ -251,7 +251,7 @@ const handleContinue = async () => {
   form.setFieldValue("__step", nextStep);
   const result = await form.validate("change");
   if (result.errors.length > 0) {
-    // form.validate already populated field meta — leave __step on the next
+    // form.validate already populated field meta. Leave __step on the next
     // step's id so the discriminated union keeps checking the right arm as
     // the user fixes issues. Stay on the current step visually.
     return;
@@ -277,7 +277,7 @@ const form = useAppForm({
 });
 ```
 
-Both `onChange` and `onSubmit` use the same union — `onChange` is now safe because each arm only requires the slice of fields for the active step, so untouched fields don't generate errors. The user gets live feedback on the fields visible right now and nothing else.
+Both `onChange` and `onSubmit` use the same union: `onChange` is now safe because each arm only requires the slice of fields for the active step, so untouched fields don't generate errors. The user gets live feedback on the fields visible right now and nothing else.
 
 **Stepper failure indicator:** the Stepper computes per-step failure by trial-parsing the union with the alternate `__step` value:
 
@@ -328,7 +328,7 @@ export function flowFor(kind: ServiceKind | null) {
 ```
 
 ```tsx
-// wizard.tsx body (step rendering — replaces the entire pyramid block)
+// wizard.tsx body (step rendering, replaces the entire pyramid block)
 {step === "kind"       && <StepKind />}
 {step === "source"     && <StepSource />}
 {step === "builder"    && <StepBuilder />}
@@ -342,7 +342,7 @@ export function flowFor(kind: ServiceKind | null) {
 {step === "review"     && <StepReview />}
 ```
 
-Step files have no prop drilling — they grab the form via `useFormContext()` and render bound fields by name.
+Step files have no prop drilling. They grab the form via `useFormContext()` and render bound fields by name.
 
 ### 7. Step in URL
 
@@ -389,11 +389,11 @@ function ResourceWizardBody({ step, goTo, layout, ... }: ResourceWizardProps & S
 
 The route renders `<PageResourceWizard>`; `new-resource-dialogs.tsx` renders `<DialogResourceWizard>`. Both hooks are now unconditional within their respective component.
 
-**Deep-link guard:** `PageResourceWizard` runs an effect on `step` / `kind` change — if the current step isn't in `flowFor(kind)`, it calls `navigate({ search: (s) => ({ ...s, step: "kind" }) })`.
+**Deep-link guard:** `PageResourceWizard` runs an effect on `step` / `kind` change. If the current step isn't in `flowFor(kind)`, it calls `navigate({ search: (s) => ({ ...s, step: "kind" }) })`.
 
 ## Data flow
 
-1. Route loader has no work — `validateSearch` parses `?kind` and `?step`.
+1. Route loader has no work: `validateSearch` parses `?kind` and `?step`.
 2. Wizard mounts, calls `useAppForm` with `resourceDefaults` (or `{ ...resourceDefaults, __step: search.step ?? "kind", kindId: search.kind ?? "", name: search.kind ?? "" }` when `?kind` is present).
 3. User edits fields → bound `<f.TextField>` calls `field.handleChange` → form state updates → `onChange: resourceFormSchema` re-validates against the current `__step` arm only.
 4. User clicks Continue → wizard sets `__step` to the next step's id, awaits `form.validate("change")`. If any errors, the user stays on the current step but the union now checks the new arm, so fields needed for the next step start surfacing errors.
@@ -403,7 +403,7 @@ The route renders `<PageResourceWizard>`; `new-resource-dialogs.tsx` renders `<D
 ## Error handling
 
 - **Per-step Zod failures** surface inline on each field (multiple errors per field rendered as separate `<FieldError>`).
-- **Final submit Zod failure** keeps the user on `review` — the review arm fails, no submit happens, every missing field shows its error. The Stepper marks a step as failing by trial-parsing the union with that step's id swapped in: `!resourceFormSchema.safeParse({ ...values, __step: stepId }).success`.
+- **Final submit Zod failure** keeps the user on `review`: the review arm fails, no submit happens, every missing field shows its error. The Stepper marks a step as failing by trial-parsing the union with that step's id swapped in: `!resourceFormSchema.safeParse({ ...values, __step: stepId }).success`.
 - **Network failure on create** (when wired) sets a wizard-level error banner via local state. The form does not lose values.
 
 ## Testing

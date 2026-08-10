@@ -1,6 +1,6 @@
 /**
  * Remove-volume confirmation with an in-use guard: a mounted or
- * platform-claimed volume can't be confirmed away from here — the dialog
+ * platform-claimed volume can't be confirmed away from here. The dialog
  * explains who holds it instead of offering a doomed button. The server
  * re-checks the same rule (`IN_USE`), so the guard can't be bypassed.
  */
@@ -34,7 +34,7 @@ function blockReason(volume: VolumeRow): string | null {
   }
   if (volume.attachedTo.length > 0) {
     const owner = volume.attachedTo[0];
-    return `It belongs to the ${owner.resourceType} "${owner.resourceName}" in ${owner.projectSlug}. Delete the resource instead — removing its volume here would destroy its data.`;
+    return `It belongs to the ${owner.resourceType} "${owner.resourceName}" in ${owner.projectSlug}. Delete the resource instead. Removing its volume here would destroy its data.`;
   }
   return null;
 }
@@ -63,7 +63,7 @@ export function RemoveVolumeDialog({
         const data = err.data as { reason?: string } | undefined;
         toast.error(data?.reason ?? "Volume is in use");
       } else if (err instanceof ORPCError && err.code === "NOT_FOUND") {
-        // Already gone (raced a prune / another operator) — refresh handled
+        // Already gone (raced a prune / another operator): refresh handled
         // by the data layer's invalidation.
         toast.info(t("volumes.alreadyRemoved"));
         onOpenChange(false);

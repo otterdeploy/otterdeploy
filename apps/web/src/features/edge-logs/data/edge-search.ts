@@ -4,7 +4,7 @@
 //
 // Param value → visible tab:
 //   logs     → Access  (per-request access log)
-//   caddy    → Events  (Caddy operational events — cert/ACME, upstream errors)
+//   caddy    → Events  (Caddy operational events, cert/ACME, upstream errors)
 //   firewall → Firewall (CrowdSec decisions / sources)
 
 import * as z from "zod";

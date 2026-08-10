@@ -1,7 +1,7 @@
 import type * as z from "zod";
 
 /**
- * Notification channels router — channel CRUD + the event/channel subscription
+ * Notification channels router: channel CRUD + the event/channel subscription
  * matrix. Mutations are RBAC-gated on the `notificationChannel` resource.
  * Secrets are AES-GCM encrypted at rest (shared crypto in @otterdeploy/jobs);
  * `test` and real platform events both fan out through `triggerPlatformEvent`.
@@ -208,8 +208,8 @@ export const notificationsRouter = {
 
   // ─── in-app inbox (the header bell) ─────────────────────────────────
   // User-scoped reads/writes on the caller's own `notification` rows. An
-  // API-key actor has no session user and therefore no personal inbox —
-  // reads come back empty and writes are no-ops rather than 401s, so a
+  // API-key actor has no session user and therefore no personal inbox.
+  // Reads come back empty and writes are no-ops rather than 401s, so a
   // key-driven client polling shared endpoints never trips on this one.
   inbox: {
     list: orgScopedProcedure.notifications.inbox.list.handler(async ({ input, context }) => {

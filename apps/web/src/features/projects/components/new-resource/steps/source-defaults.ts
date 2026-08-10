@@ -22,13 +22,13 @@ function edited(form: WizardForm, field: "name" | "root" | "ports" | "spa" | "va
 }
 
 export interface SourceDefaults {
-  /** A repo was bound — or the step mounted onto an existing binding. */
+  /** A repo was bound, or the step mounted onto an existing binding. */
   onRepoBound: (gitRepoId: string) => Promise<void>;
-  /** The operator browsed to a different folder — re-detect there. */
+  /** The operator browsed to a different folder: re-detect there. */
   onRootPicked: (root: string) => Promise<void>;
-  /** The operator chose a service type — detection stops moving it. */
+  /** The operator chose a service type: detection stops moving it. */
   pinKind: () => void;
-  /** "Change repo" — drop the binding and everything derived from it. */
+  /** "Change repo". Drop the binding and everything derived from it. */
   clearBinding: () => void;
 }
 
@@ -56,7 +56,7 @@ export function useSourceDefaults(form: WizardForm): SourceDefaults {
   /**
    * Pre-select the service type from the detected framework: an SPA/static
    * framework (Vite, Astro, …) → "Static site", a server framework → "Web
-   * app". Only ever moves between those two — `frameworkDefaultServiceType`
+   * app". Only ever moves between those two. `frameworkDefaultServiceType`
    * answers "app" or "static" and nothing else, so letting it near a worker,
    * scheduled job or one-off would overwrite a choice the operator made on
    * the Kind step (and put the Networking step back into the flow).
@@ -74,7 +74,7 @@ export function useSourceDefaults(form: WizardForm): SourceDefaults {
   /**
    * Prefill the runtime answers the detected framework already knows:
    *
-   *   - the conventional listen port — nothing injects `PORT` for a
+   *   - the conventional listen port, nothing injects `PORT` for a
    *     git-built service, so the correct value is a lookup, not a guess
    *   - SPA routing for a Vite/React/Vue build, so the Networking step
    *     opens with the toggle already right
@@ -103,7 +103,7 @@ export function useSourceDefaults(form: WizardForm): SourceDefaults {
   };
 
   /**
-   * Seed the Variables step from the repo's `.env.example` — keys only, values
+   * Seed the Variables step from the repo's `.env.example`, keys only, values
    * blank, credential-looking keys locked.
    *
    * `isDirty` is the whole guard. The previous version lived in the Variables
@@ -111,7 +111,7 @@ export function useSourceDefaults(form: WizardForm): SourceDefaults {
    * mounts while it's the current step, so the ref died on every Continue and
    * came back false: clear the list, step away, step back, and the keys were
    * refilled underneath you. Written with `AUTO_WRITE` the rows stay pristine,
-   * so any human edit — typing a value, adding a row, emptying the list —
+   * so any human edit (typing a value, adding a row, emptying the list)
    * latches this off for good, across remounts and re-binds alike.
    */
   const applyVariables = async (gitRepoId: string, path: string): Promise<void> => {
@@ -156,7 +156,7 @@ export function useSourceDefaults(form: WizardForm): SourceDefaults {
   const onRootPicked = async (root: string): Promise<void> => {
     const gitRepoId = form.getFieldValue("repo");
     if (!gitRepoId) return;
-    // A different folder can be a different framework — port, SPA and the
+    // A different folder can be a different framework. Port, SPA and the
     // `.env.example` are as root-dependent as the service type is.
     await applyKind(gitRepoId, root);
     await applyRuntime(gitRepoId, root);
@@ -173,7 +173,7 @@ export function useSourceDefaults(form: WizardForm): SourceDefaults {
     // above no-ops on an empty id, so this doesn't need to suppress it.
     form.setFieldValue("repo", "");
     form.setFieldValue("repoFullName", "", AUTO_WRITE);
-    // Empty branch re-seeds from the new repo's real default — forcing
+    // Empty branch re-seeds from the new repo's real default. Forcing
     // "main" here would mask a master/develop default.
     form.setFieldValue("branch", "", AUTO_WRITE);
     form.setFieldValue("root", "", AUTO_WRITE);

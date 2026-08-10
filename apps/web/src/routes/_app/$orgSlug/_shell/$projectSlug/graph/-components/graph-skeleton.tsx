@@ -1,6 +1,6 @@
 /**
- * First-load placeholder for the resource graph. Mirrors the real canvas — a
- * dotted background with a few node-sized cards wired together — so opening a
+ * First-load placeholder for the resource graph. Mirrors the real canvas, a
+ * dotted background with a few node-sized cards wired together, so opening a
  * project paints instantly instead of flashing an empty canvas while the
  * resource / dependency / diff fetches resolve. Only shown on the very first
  * load of a project's resources; warm re-opens read from the collection cache

@@ -1,4 +1,4 @@
-# CLI gap closure — `otterdeploy` (apps/cli)
+# CLI gap closure: `otterdeploy` (apps/cli)
 
 Started as an audit (2026-07-11): the CLI shipped 14 commands touching 2 of ~20
 API routers, with real bugs and a fully-open `/pty` shell. This document records
@@ -17,8 +17,8 @@ what was closed. The command surface is now 33 commands across the full API.
   retry; env tokens and non-TTY fall through with guidance.
 - **No org selection**: added `org list` / `org use`; `whoami` shows the active
   org and works for `otter_` API-key actors.
-- **`status --json`** emitted a placeholder string — now real drift JSON.
-- **Version** was hardcoded `0.0.0` — now sourced from `package.json`.
+- **`status --json`** emitted a placeholder string: now real drift JSON.
+- **Version** was hardcoded `0.0.0`: now sourced from `package.json`.
 
 ## New commands (all backed by existing API procedures)
 
@@ -56,7 +56,7 @@ addition to `resource-logs.ts`).
 - `package.json` → `0.1.0`, publishable to npm. `bun run build` bundles the CLI
   into a single dependency-free `dist/index.js` (Node ≥20 or Bun); a tag-triggered
   workflow (`.github/workflows/cli-publish.yml`) publishes via npm trusted
-  publishing (OIDC). Distributed via npm only — a `bun --compile` standalone
+  publishing (OIDC). Distributed via npm only: a `bun --compile` standalone
   binary bakes in the whole runtime (~100 MB), which isn't worth it for a thin
   API-client CLI.
 - Shell completions (`bash`/`zsh`/`fish`, generated from the live command tree),

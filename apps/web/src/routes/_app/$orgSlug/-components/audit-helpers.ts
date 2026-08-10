@@ -1,8 +1,8 @@
 import type { AuditEvent } from "@/features/audit/data/audit";
 
 /**
- * Color family for an action's leading dot, keyed off the action's verb —
- * actions are RPC paths (`<resource>.<verb>`, e.g. "projects.create",
+ * Color family for an action's leading dot, keyed off the action's verb.
+ * Actions are RPC paths (`<resource>.<verb>`, e.g. "projects.create",
  * "servers.setAvailability"), so the verb is the last dot-segment.
  *
  * Families follow the demo's ACTION_COLORS intent: creations read as info,
@@ -13,7 +13,7 @@ export type ActionTone = "create" | "destroy" | "update" | "auth" | "caution" | 
 
 const TONE_VERBS: Array<[ActionTone, RegExp]> = [
   ["destroy", /^(delete|remove|revoke|destroy|disconnect|uninstall|teardown|purge|block|deny)/],
-  // `rotate` rides with create — it mints a new credential (demo colors it info).
+  // `rotate` rides with create, it mints a new credential (demo colors it info).
   ["create", /^(create|add|register|generate|connect|install|invite|grant|enable|import|upload|rotate)/],
   ["caution", /^(rollback|restore|pause|resume|redeploy|retry|recheck|cancel|stop|drain)/],
   ["auth", /^(login|logout|sign[-]?in|sign[-]?out|mfa|session|verify|impersonate|auth)/],
@@ -39,7 +39,7 @@ const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
 
 export function timeAgo(iso: string): string {
   const t = Date.parse(iso);
-  if (Number.isNaN(t)) return "—";
+  if (Number.isNaN(t)) return "–";
   const diff = (t - Date.now()) / 1000;
   const abs = Math.abs(diff);
   for (const [unit, secs] of RELATIVE_UNITS) {

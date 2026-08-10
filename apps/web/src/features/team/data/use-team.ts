@@ -1,6 +1,6 @@
 /**
  * Team (organization membership) data, modelled as two org-scoped, authClient-
- * backed TanStack DB collections — same shape as `apiKeysCollection`. Members and
+ * backed TanStack DB collections: same shape as `apiKeysCollection`. Members and
  * invitations both ride better-auth's organization client
  * (`authClient.organization.*`); list/remove/cancel/invite are wired as the
  * collections' own handlers so consumers just read via a live query and mutate
@@ -12,7 +12,7 @@
  * the `organizationId` to fetch (and cache) the right subset. The plugin's list
  * is already filtered server-side by that id; we stamp it back onto each row so
  * the client-side `eq` matches. Row (and insert) types are inferred from the
- * `queryFn` projections — never hand-written.
+ * `queryFn` projections, never hand-written.
  *
  * `useMembers` / `useInvitations` remain exported as thin `useLiveQuery`
  * wrappers (returning `{ data, isLoading }`) so existing consumers compile
@@ -41,12 +41,12 @@ function membersSubsetKey(organizationId: string) {
 }
 
 /** React-query key for one org's invitations subset. Must extend the
- *  collection's base prefix `["org", "invitations"]` — see membersSubsetKey. */
+ *  collection's base prefix `["org", "invitations"]`. See membersSubsetKey. */
 export function invitationsSubsetKey(organizationId: string) {
   return ["org", "invitations", organizationId] as const;
 }
 
-/** The browser URL an invitee opens to accept — same path the emailed link
+/** The browser URL an invitee opens to accept. Same path the emailed link
  *  points at. Lets admins copy/share it manually when email isn't delivered
  *  (placeholder RESEND_API_KEY in dev, or just sharing via Slack). */
 export function acceptInviteUrl(invitationId: string): string {
@@ -55,7 +55,7 @@ export function acceptInviteUrl(invitationId: string): string {
 }
 
 const membersQueryOptions = queryCollectionOptions({
-  // Stable id — keys the persisted SQLite table (see projectCollection).
+  // Stable id: keys the persisted SQLite table (see projectCollection).
   id: "team-members",
   syncMode: "on-demand",
   queryKey: (opts) => {
@@ -118,11 +118,11 @@ const membersQueryOptions = queryCollectionOptions({
   getKey: (item) => item.id,
 });
 
-/** Row type recovered from the config (`getKey`'s item) — the `queryFn`
+/** Row type recovered from the config (`getKey`'s item): the `queryFn`
  *  projection's element type, since the queryKey here is a function. */
 type MemberRow = Parameters<typeof membersQueryOptions.getKey>[0];
 
-// Two-branch createCollection with pinned generics — see projectCollection
+// Two-branch createCollection with pinned generics: see projectCollection
 // (features/projects/data/project.ts) for why the ternary can't be inlined.
 export const membersCollection = persistence
   ? createCollection(
@@ -135,7 +135,7 @@ export const membersCollection = persistence
   : createCollection(membersQueryOptions);
 
 const invitationsQueryOptions = queryCollectionOptions({
-  // Stable id — keys the persisted SQLite table (see projectCollection).
+  // Stable id: keys the persisted SQLite table (see projectCollection).
   id: "team-invitations",
   syncMode: "on-demand",
   queryKey: (opts) => {
@@ -205,7 +205,7 @@ const invitationsQueryOptions = queryCollectionOptions({
   getKey: (item) => item.id,
 });
 
-/** Row type recovered from the config (`getKey`'s item) — see MemberRow. */
+/** Row type recovered from the config (`getKey`'s item): see MemberRow. */
 type InviteRow = Parameters<typeof invitationsQueryOptions.getKey>[0];
 
 export const invitationsCollection = persistence
@@ -218,7 +218,7 @@ export const invitationsCollection = persistence
     )
   : createCollection(invitationsQueryOptions);
 
-/** Row types inferred from the collections — never hand-written. */
+/** Row types inferred from the collections, never hand-written. */
 export type TeamMember = (typeof membersCollection.toArray)[number];
 export type PendingInvite = (typeof invitationsCollection.toArray)[number];
 
@@ -231,7 +231,7 @@ export function useMembers(organizationId: string) {
 }
 
 /**
- * Can this viewer administer the workspace itself — settings, members, keys?
+ * Can this viewer administer the workspace itself. Settings, members, keys?
  *
  * `owner`/`admin` is exactly the role set that carries `organization:update`
  * server-side (packages/auth/src/permissions.ts), which is what every
@@ -240,7 +240,7 @@ export function useMembers(organizationId: string) {
  * only learns at the submit that they were never allowed got a raw
  * "The actor does not have the required permission." for their trouble.
  *
- * Presentation only — `requirePermission({ organization: ["update"] })` on the
+ * Presentation only: `requirePermission({ organization: ["update"] })` on the
  * procedure is the boundary.
  */
 export function useCanManageWorkspace(organizationId: string, userId: string): boolean {

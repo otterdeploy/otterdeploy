@@ -1,7 +1,7 @@
 /**
- * Two-factor card — shows the live TOTP state from the session and hands the
+ * Two-factor card: shows the live TOTP state from the session and hands the
  * actual enable/verify/backup-codes/disable flow to the existing shell dialog
- * (imported, not duplicated: the multi-step flow is dialog-shaped by design —
+ * (imported, not duplicated: the multi-step flow is dialog-shaped by design,
  * the secret + backup codes should be a focused modal moment, not inline).
  * 2FA only applies to credential accounts (better-auth twoFactor plugin), so
  * social-only users get an honest hint instead of a dead button.
@@ -45,8 +45,8 @@ export function TwoFactorCard() {
         </div>
       ) : !hasCredential ? (
         <div className="p-4 text-[12.5px] leading-relaxed text-muted-foreground">
-          Two-factor applies to password sign-in. Your account uses a linked provider — manage
-          second factors with that provider instead.
+          Two-factor applies to password sign-in. Your account uses a linked provider. Manage second
+          factors with that provider instead.
         </div>
       ) : (
         <div className="flex items-center justify-between gap-4 px-4 py-3.5">

@@ -1,5 +1,5 @@
 /**
- * SQL-console execution history — a per-database localStorage ring of the last
+ * SQL-console execution history: a per-database localStorage ring of the last
  * {@link HISTORY_LIMIT} statements the user ran (successes AND failures), for
  * the toolbar's History popover. Browser-local like the snippet store; nothing
  * here touches the server. The ring math is pure (tested); the hook wraps it
@@ -26,7 +26,7 @@ export interface QueryHistoryEntry {
 }
 
 /** Prepend `entry`, cap at {@link HISTORY_LIMIT} (newest first). Re-running a
- *  statement records a NEW entry — history is a log, not a set. */
+ *  statement records a NEW entry: history is a log, not a set. */
 export function pushHistory(
   entries: QueryHistoryEntry[],
   entry: QueryHistoryEntry,
@@ -52,7 +52,7 @@ function saveHistory(resourceId: string, entries: QueryHistoryEntry[]) {
   try {
     localStorage.setItem(storageKey(resourceId), JSON.stringify(entries));
   } catch {
-    /* storage full / unavailable — history is best-effort */
+    /* storage full / unavailable: history is best-effort */
   }
 }
 

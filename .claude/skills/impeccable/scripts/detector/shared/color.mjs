@@ -3,13 +3,13 @@
 function isNeutralColor(color) {
   if (!color || color === 'transparent') return true;
 
-  // rgb/rgba — use channel spread. Threshold 30 ≈ 11.7% of the 0–255 range.
+  // rgb/rgba: use channel spread. Threshold 30 ≈ 11.7% of the 0–255 range.
   const rgb = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
   if (rgb) {
     return (Math.max(+rgb[1], +rgb[2], +rgb[3]) - Math.min(+rgb[1], +rgb[2], +rgb[3])) < 30;
   }
 
-  // oklch()/lch() — chroma is the second numeric component.
+  // oklch()/lch(): chroma is the second numeric component.
   // oklch chroma is ~0–0.4 in sRGB gamut; >= 0.02 reads as tinted, not gray.
   // lch chroma is ~0–150; >= 3 reads as tinted. jsdom emits both formats
   // literally (it does NOT convert them to rgb).
@@ -18,7 +18,7 @@ function isNeutralColor(color) {
   const lch = color.match(/lch\(\s*[\d.]+%?\s*([\d.-]+)/i);
   if (lch) return parseFloat(lch[1]) < 3;
 
-  // oklab()/lab() — a and b are signed axes; chroma = sqrt(a² + b²).
+  // oklab()/lab(): a and b are signed axes; chroma = sqrt(a² + b²).
   // oklab a/b are ~-0.4..0.4, threshold 0.02. lab a/b are ~-128..127, threshold 3.
   const oklab = color.match(/oklab\(\s*[\d.]+%?\s*([\d.-]+)\s+([\d.-]+)/i);
   if (oklab) {
@@ -31,13 +31,13 @@ function isNeutralColor(color) {
     return Math.hypot(a, b) < 3;
   }
 
-  // hsl/hsla — saturation is the second numeric component (percent).
+  // hsl/hsla: saturation is the second numeric component (percent).
   // Modern jsdom usually converts hsl() to rgb, but handle it directly for
   // safety across versions and for any engine that preserves the format.
   const hsl = color.match(/hsla?\(\s*[\d.-]+\s*,?\s*([\d.]+)%/i);
   if (hsl) return parseFloat(hsl[1]) < 10;
 
-  // hwb(hue whiteness% blackness%) — a pixel is fully gray when
+  // hwb(hue whiteness% blackness%): a pixel is fully gray when
   // whiteness + blackness >= 100; chroma-like saturation = 1 - (w+b)/100.
   const hwb = color.match(/hwb\(\s*[\d.-]+\s+([\d.]+)%\s+([\d.]+)%/i);
   if (hwb) {
@@ -45,7 +45,7 @@ function isNeutralColor(color) {
     return (1 - Math.min(100, w + b) / 100) < 0.1;
   }
 
-  // Unknown / unrecognized format — err on the side of DETECTING rather
+  // Unknown / unrecognized format: err on the side of DETECTING rather
   // than silently skipping. This is the opposite of the previous default,
   // which was the root cause of the oklch bug.
   return false;

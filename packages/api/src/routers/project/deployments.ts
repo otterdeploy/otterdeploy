@@ -1,5 +1,5 @@
 /**
- * Deployment lifecycle — one row per logical "push" of a resource to swarm.
+ * Deployment lifecycle: one row per logical "push" of a resource to swarm.
  *
  * Hooked from the resource lifecycle:
  *   - postgres.create        → reason="create"
@@ -13,7 +13,7 @@
  * That's how `listTasksForDeployment` groups task history into deployments.
  *
  * Status starts at "pending"/"building" and is derived live from the
- * underlying tasks when the UI reads the list — see `listResourceDeployments`
+ * underlying tasks when the UI reads the list. See `listResourceDeployments`
  * in ./deployments-list. The notification emitters live in ./deployments-emit.
  */
 import type { DeploymentId, OrganizationId, PreviewId, ResourceId } from "@otterdeploy/shared/id";
@@ -41,7 +41,7 @@ export interface DeploymentRow {
     | "rollback";
   status: "pending" | "building" | "running" | "failed" | "cancelled" | "superseded" | "removed";
   /** Full resource config at the moment of this deploy. Used by rollback to
-   *  reproduce the prior state — service env, ports, command, healthcheck,
+   *  reproduce the prior state: service env, ports, command, healthcheck,
    *  database extraEnv + publicEnabled, etc. Shape is kind-specific and
    *  validated at the rollback site, not here. */
   snapshot: JsonObject;
@@ -65,8 +65,8 @@ interface InsertInput {
    *  deploys pass their preview id. */
   previewId?: PreviewId;
   /** Initial lifecycle status. Defaults to "building" (git-sourced deploys go
-   *  straight into a build). Deploys that never build — compose stacks rolling
-   *  out prebuilt/pulled images — pass "pending" so the UI doesn't claim a
+   *  straight into a build). Deploys that never build. Compose stacks rolling
+   *  out prebuilt/pulled images. Pass "pending" so the UI doesn't claim a
    *  build is happening. */
   status?: "pending" | "building";
   /** Snapshot the deployment is built from. Pass the resource's full
@@ -75,8 +75,8 @@ interface InsertInput {
   /** Provenance of the commit this deployment puts (or re-puts) into service.
    *  Builds resolve it from GitHub; a rollback inherits it from the deployment
    *  it restores, because the image it re-launches WAS built from that commit.
-   *  Omitted for deploys with no commit behind them (databases, image pulls) —
-   *  the card then falls back to the resource's own mark. */
+   *  Omitted for deploys with no commit behind them (databases, image pulls).
+   *  The card then falls back to the resource's own mark. */
   git?: {
     sha?: string | null;
     ref?: string | null;
@@ -120,7 +120,7 @@ export async function insertDeployment(input: InsertInput): Promise<DeploymentRo
   return row;
 }
 
-/** Mark an existing deployment terminal (failed) — used when provisioning
+/** Mark an existing deployment terminal (failed). Used when provisioning
  *  throws before swarm can take over the lifecycle. Most state transitions
  *  happen lazily via task observation in the list endpoint instead. */
 export async function markDeploymentFailed(
@@ -177,12 +177,12 @@ export async function deleteDeploymentById(deploymentId: DeploymentId): Promise<
 }
 
 /** The most-recent deployment for a resource (stored row status, no docker).
- *  Cheap single-row read — the service-resource view uses it so the graph
+ *  Cheap single-row read. The service-resource view uses it so the graph
  *  node can reflect build-time states (pending/building/failed) that produce
  *  zero swarm tasks and so never show up in the live-task rollup. */
 export async function getLatestDeploymentForResource(
   resourceId: ResourceId,
-  // Base rows by default — a PR preview's deployments must not surface as the
+  // Base rows by default: a PR preview's deployments must not surface as the
   // production card's "latest". Pass the preview id to read that scope.
   previewId: PreviewId | null = null,
 ): Promise<DeploymentRow | null> {
@@ -200,7 +200,7 @@ export async function getLatestDeploymentForResource(
   return row ?? null;
 }
 
-/** Latest BASE deployment per resource for a SET of resources — one query
+/** Latest BASE deployment per resource for a SET of resources. One query
  *  instead of N `getLatestDeploymentForResource` calls (the project-resources
  *  list fired one per resource). `DISTINCT ON (resourceId)` with a
  *  resourceId-then-createdAt-desc order picks the newest row per resource.
@@ -220,7 +220,7 @@ export async function getLatestDeploymentsForResources(
 }
 
 /** Load one deployment by id, scoped to its resource. Returns null when the
- *  row is missing or belongs to a different resource — the scope guard keeps
+ *  row is missing or belongs to a different resource. The scope guard keeps
  *  rollback from replaying another resource's image. */
 export async function getResourceDeploymentById(
   resourceId: ResourceId,

@@ -32,8 +32,8 @@ function searchValue(target: PickerTarget): string {
 }
 
 /**
- * One destination. The transport lives in `detail` as a quiet trailing hint —
- * present when you look for it, never something you have to navigate by.
+ * One destination. The transport lives in `detail` as a quiet trailing hint.
+ * Present when you look for it, never something you have to navigate by.
  */
 export function TargetRow({
   target,

@@ -1,11 +1,11 @@
 /**
- * Org-wide build activity — what is queued or building right now, across every
+ * Org-wide build activity. What is queued or building right now, across every
  * project in the organization.
  *
  * This exists because the app-status rollup (apps/web/src/shared/lib/app-status.ts)
  * is PROJECT-scoped: `useProjectDeployStatus` only reports while you are inside
  * a project route, so the header could never answer "is anything building
- * anywhere?" — the question an operator actually asks. This endpoint answers it
+ * anywhere?": the question an operator actually asks. This endpoint answers it
  * from one query instead of N project polls.
  *
  * Deliberately narrow: the two in-flight statuses, enough joined context to name
@@ -33,7 +33,7 @@ import { and, asc, eq, gte, inArray, isNull } from "drizzle-orm";
  * `STRANDED_AFTER_MS` in use-deploy-status.ts): the builder kills its helper at
  * that wall, so nothing alive can still be building beyond it. A row left
  * `pending`/`building` past that point is one whose helper died without
- * repairing it — real, and the reason the indicator needs a ceiling. Without one
+ * repairing it: real, and the reason the indicator needs a ceiling. Without one
  * a single stranded row pins the header pill on forever, and an always-on
  * indicator is furniture you learn to ignore.
  */
@@ -58,12 +58,12 @@ export interface DeployActivityItem {
 }
 
 export interface DeployActivity {
-  /** Oldest first — the queue reads top-to-bottom in the order it will drain. */
+  /** Oldest first: the queue reads top-to-bottom in the order it will drain. */
   items: DeployActivityItem[];
   building: number;
   queued: number;
   /**
-   * Queued work with nothing consuming it — the builder is down or wedged.
+   * Queued work with nothing consuming it. The builder is down or wedged.
    *
    * This is the signal a bare count cannot give you: "3 queued" is normal
    * behind an active build and alarming behind nothing. Same discriminator the
@@ -139,7 +139,7 @@ export async function getDeployActivity(input: {
     else queued += 1;
   }
 
-  // Counts come from the full result, the list from the page — so the pill
+  // Counts come from the full result, the list from the page, so the pill
   // stays truthful ("12 queued") even when the popover shows the first 20.
   const items: DeployActivityItem[] = rows.slice(0, input.limit).map((row) => ({
     id: row.id,
@@ -156,7 +156,7 @@ export async function getDeployActivity(input: {
     createdAt: row.createdAt.toISOString(),
   }));
 
-  // Only worth asking when there is a backlog to be stalled — an idle org
+  // Only worth asking when there is a backlog to be stalled. An idle org
   // should not touch Redis on every poll.
   const builderStalled = queued > 0 && !(await anyBuildActive());
 

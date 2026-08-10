@@ -1,7 +1,7 @@
 /**
  * Access-PIN entry (NetBird-style): the wall page offers a numeric PIN field
  * when the protected route has one configured; a correct entry mints the
- * host-only __otter_pin cookie. Split out of ./guest (email OTP) — same
+ * host-only __otter_pin cookie. Split out of ./guest (email OTP): same
  * conventions: guarded handler, JSON in/out, rate-limited, never leaks
  * whether the failure was "no PIN configured" vs "wrong PIN".
  */
@@ -30,7 +30,7 @@ import {
 } from "./shared";
 
 /** forward_auth helper: true when the request carries a valid pin cookie
- *  whose fingerprint matches the route's CURRENT hash — so a rotated or
+ *  whose fingerprint matches the route's CURRENT hash, so a rotated or
  *  removed PIN revokes every outstanding cookie on the next request. */
 export async function pinCookieAllows(
   c: Context,
@@ -56,10 +56,10 @@ export const deployPinVerifyHandler: Handler = guard(
       return c.json({ ok: false, error: "Invalid PIN" }, 401);
     }
 
-    // Count the attempt BEFORE verifying — a capped window per (domain, ip)
+    // Count the attempt BEFORE verifying. A capped window per (domain, ip)
     // is what makes the small numeric space safe against online guessing.
     if (!(await underPinRateLimit(host, clientIpOf(c)))) {
-      return c.json({ ok: false, error: "Too many attempts — try again later" }, 429);
+      return c.json({ ok: false, error: "Too many attempts, try again later" }, 429);
     }
 
     const org = await resolveProtectedDomainOrg(host);

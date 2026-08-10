@@ -10,7 +10,7 @@ import { getAllQueues } from "@otterdeploy/jobs";
  *
  * API request latency / error rate are deliberately NOT here: those live in
  * evlog wide events with no queryable aggregation store, so surfacing them would
- * need an evlog rollup drain — a separate effort, flagged not faked.
+ * need an evlog rollup drain, a separate effort, flagged not faked.
  */
 import { and, asc, eq, gte, sql } from "drizzle-orm";
 
@@ -23,7 +23,7 @@ export interface QueueSnapshot {
   completed: number;
 }
 
-/** Live per-queue job counts (straight from BullMQ, no DB) — current backlog. */
+/** Live per-queue job counts (straight from BullMQ, no DB), current backlog. */
 export async function currentQueueSnapshot(): Promise<QueueSnapshot[]> {
   const snaps = await Promise.all(
     getAllQueues().map(async (q) => {
@@ -43,7 +43,7 @@ export async function currentQueueSnapshot(): Promise<QueueSnapshot[]> {
 
 /**
  * Sample aggregate (summed-across-queues) backlog into `platform_metric`. Called
- * on the metrics sampler tick. Best-effort — a Redis/DB hiccup must never break
+ * on the metrics sampler tick. Best-effort: a Redis/DB hiccup must never break
  * the tick, so it swallows errors.
  */
 export async function samplePlatformMetrics(): Promise<void> {

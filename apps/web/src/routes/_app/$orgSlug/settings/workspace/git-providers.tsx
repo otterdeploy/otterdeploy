@@ -3,7 +3,7 @@ import * as z from "zod";
 
 // Moved out of the settings zone into the operational sidebar (Workspace
 // group): a source connection is what deploy-on-push runs on, not one-time
-// configuration. Shim only — the typed search params MUST be forwarded, since
+// configuration. Shim only: the typed search params MUST be forwarded, since
 // a GitHub install round-trip started before this move lands back here with
 // `?git_install=ok|error` and the page needs `returnTo` to finish the flow.
 const searchSchema = z.object({

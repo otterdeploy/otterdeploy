@@ -2,7 +2,7 @@
  * The re-authentication step in front of node enrollment.
  *
  * Asks for whichever credential the account actually has: an authenticator
- * code when 2FA is enrolled, the account password otherwise — the same choice
+ * code when 2FA is enrolled, the account password otherwise. The same choice
  * the server makes in `verifyStepUpCredential`, and the same one terminal
  * step-up presents. It previously asked everyone for a TOTP code, so an
  * operator who had never set up an authenticator saw a field they could not
@@ -22,7 +22,7 @@ import type { JoinRole } from "./join-token-panel";
 /**
  * The exact string an operator must type to confirm a manager enrollment.
  * Exported so the panel's submit gate and this form's hint can never drift
- * apart — previously the requirement lived only in a placeholder, which
+ * apart: previously the requirement lived only in a placeholder, which
  * disappears on the first keystroke and left a dead button unexplained.
  */
 export const MANAGER_CONFIRMATION = "ENROLL MANAGER";
@@ -56,7 +56,7 @@ export function submitBlocker(input: {
 export interface StepUpFormProps {
   role: JoinRole;
   /** Whether the signed-in account has an authenticator app enrolled. Decides
-   *  which credential this form asks for — the server accepts whichever one
+   *  which credential this form asks for: the server accepts whichever one
    *  the account actually has (verifyStepUpCredential). */
   twoFactorEnabled: boolean;
   totpCode: string;

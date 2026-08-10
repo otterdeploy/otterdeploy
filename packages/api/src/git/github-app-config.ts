@@ -6,9 +6,9 @@
  *
  * Three flavours, depending on what the caller knows:
  *
- *   - by provider id          — the row id itself
- *   - by installation id      — joined via `git_installation.providerId`
- *   - by external app id      — webhook routing via the
+ *   - by provider id: the row id itself
+ *   - by installation id, joined via `git_installation.providerId`
+ *   - by external app id: webhook routing via the
  *                                X-GitHub-Hook-Installation-Target-ID header
  *
  * Plus an "if present" variant for the org's GitHub provider, used by the
@@ -56,8 +56,8 @@ export async function loadGithubAppForInstallation(
   return loadGithubAppForProvider(inst.providerId);
 }
 
-/** Look up by org's GitHub provider row, if any. Returns null when absent
- *  — the connect callback uses this to fail with a typed error rather than
+/** Look up by org's GitHub provider row, if any. Returns null when absent.
+ *  The connect callback uses this to fail with a typed error rather than
  *  blowing up on a missing row. */
 export async function loadGithubAppForOrgIfPresent(orgId: OrgId): Promise<GithubAppConfig | null> {
   const [row] = await db

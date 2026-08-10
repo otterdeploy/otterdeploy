@@ -1,5 +1,5 @@
 /**
- * Provisioning runner — drives a fresh host from pending → ready. Runs as a
+ * Provisioning runner: drives a fresh host from pending → ready. Runs as a
  * BullMQ `server.provision` job (handler wired in apps/server, which has the
  * manager socket + SSH). It mints the join token from the local manager socket,
  * installs a mesh agent if requested, SSHes out and runs the install+join steps
@@ -56,7 +56,7 @@ export interface EnqueueProvisionInput {
 
 /** Encrypt the secrets and enqueue the provision job. */
 export async function enqueueProvision(input: EnqueueProvisionInput): Promise<void> {
-  // "server-secrets" — ephemeral, job-payload-lifetime credentials (one-time
+  // "server-secrets": ephemeral, job-payload-lifetime credentials (one-time
   // password / mesh auth key / Cloudflare tunnel token), domain-separated
   // from the persistent "ssh-keys" material decrypted below.
   const enc = (v: string | undefined) =>
@@ -130,7 +130,7 @@ export async function runProvisionJob(payload: ProvisionServerPayload): Promise<
       password: password ?? undefined,
     });
 
-    // od-5j8.11's peer set gates the manager's 2377/7946 — the node has to be
+    // od-5j8.11's peer set gates the manager's 2377/7946. The node has to be
     // admitted BEFORE it joins, or the daemon just times out. Uses the node's
     // egress address (not necessarily payload.host, which may be a floating IP
     // the box never sources traffic from), falling back to the SSH address.
@@ -174,7 +174,7 @@ export async function runProvisionJob(payload: ProvisionServerPayload): Promise<
         },
         emit,
       );
-      // od-5j8.11: the host-level nftables baseline — "every node, not just
+      // od-5j8.11: the host-level nftables baseline: "every node, not just
       // the primary". Also best-effort; recorded on the row so a failure
       // shows up as drift instead of silently vanishing.
       const peers = await resolveFirewallPeers(organizationId, payload.host);
@@ -261,20 +261,20 @@ async function resolveJoinTarget(
   role: "manager" | "worker",
 ): Promise<{ joinToken: string; managerAddr: string }> {
   const tokens = await getSwarmJoinTokens();
-  if (tokens.managerAddr === "—") {
+  if (tokens.managerAddr === "–") {
     throw new Error(
       "The primary host isn't a Docker Swarm manager yet. Run in swarm mode (DEPLOY_RUNTIME=swarm) and deploy once so the swarm initialises, then add servers.",
     );
   }
   // A loopback manager address only works when the new node joins over a mesh
-  // that carries the manager too — otherwise it's unreachable.
+  // that carries the manager too. Otherwise it's unreachable.
   if (meshProvider === "none" && /^(127\.|0\.0\.0\.0|::1\b|localhost)/.test(tokens.managerAddr)) {
     throw new Error(
       `The swarm advertises a loopback manager address (${tokens.managerAddr}); a remote node can't reach it. Re-initialise the swarm on the primary's routable/mesh IP, or add the server over a mesh.`,
     );
   }
   const joinToken = role === "manager" ? tokens.manager : tokens.worker;
-  if (joinToken === "—") throw new Error("The daemon returned no swarm join token.");
+  if (joinToken === "–") throw new Error("The daemon returned no swarm join token.");
   return { joinToken, managerAddr: tokens.managerAddr };
 }
 
@@ -288,12 +288,12 @@ async function resolvePrivateKey(
   if (sshKeyId) {
     const key = await getSshKeyInOrg({ id: sshKeyId as SshKeyId, organizationId });
     if (!key?.privateKeyCiphertext) {
-      throw new Error("The selected SSH key has no private half stored — pick a generated key.");
+      throw new Error("The selected SSH key has no private half stored. Pick a generated key.");
     }
     return decryptForDomain(key.privateKeyCiphertext, "ssh-keys");
   }
   if (!hasPassword) {
-    throw new Error("No SSH credential supplied — choose a managed key or enter a password.");
+    throw new Error("No SSH credential supplied: choose a managed key or enter a password.");
   }
   return undefined;
 }

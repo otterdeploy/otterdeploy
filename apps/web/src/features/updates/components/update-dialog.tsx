@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 /**
- * The one update modal — confirm → live progress → done, all in a dialog (not
+ * The one update modal. Confirm → live progress → done, all in a dialog (not
  * inline). Opened from the banner, the header button, or the Platform card via
  * the UpdateProvider. Reads the shared status so it always reflects the latest
  * check.
@@ -98,7 +98,7 @@ export function UpdateDialog({
           {!active && (
             <DialogDescription>
               {status.dryRun
-                ? "Dry-run mode: this simulates the full update and streams progress, but changes nothing — no images are pulled and the control plane will not restart."
+                ? "Dry-run mode: this simulates the full update and streams progress, but changes nothing. No images are pulled and the control plane will not restart."
                 : "This pulls the new images and restarts the control plane. The dashboard will be briefly unavailable and this page will reconnect automatically when it's back."}
             </DialogDescription>
           )}

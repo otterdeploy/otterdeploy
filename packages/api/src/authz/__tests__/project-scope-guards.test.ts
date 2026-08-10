@@ -6,7 +6,7 @@ import { describe, expect, test } from "vite-plus/test";
 
 // The guards module imports `@otterdeploy/db`, whose client validates the full
 // server env at import time. Satisfy the required vars before the dynamic
-// import below so the module graph loads (no real DB is ever touched — every
+// import below so the module graph loads (no real DB is ever touched, every
 // guard takes an injected `client`). Same pattern as tokens.test.ts.
 // oxlint-disable-next-line node/no-process-env -- test env setup boundary: satisfy required vars so the guards' module graph (which imports @otterdeploy/db) loads.
 process.env.DATABASE_URL ??= "postgres://test/test";
@@ -35,7 +35,7 @@ import type { Context } from "../../context";
 // Test doubles
 // ---------------------------------------------------------------------------
 
-/** Minimal context factory — only the fields the guards read. The rest of the
+/** Minimal context factory: only the fields the guards read. The rest of the
  *  Context surface is irrelevant to project-scope enforcement, so we cast. */
 function ctx(apiKey: ApiKeyActor | null, activeOrganizationId = "org_1"): Context {
   return { apiKey, activeOrganizationId } as unknown as Context;
@@ -60,7 +60,7 @@ const allKey: ApiKeyActor = {
   projectScope: "all",
 };
 
-// Branded id fixtures — validated through zId (never `as never`). Values are
+// Branded id fixtures, validated through zId (never `as never`). Values are
 // opaque to the guards (the db mock ignores them); only the prefix must match.
 const RESOURCE_ID = zId(ID_PREFIX.resource).parse("resource_1");
 const BACKUP_ID = zId(ID_PREFIX.backup).parse("bak_1");
@@ -73,7 +73,7 @@ const ENV_ID = zId(ID_PREFIX.environment).parse("env_1");
  *  is awaited as a thenable. */
 function dbReturning(rows: Array<{ projectId: string | null }>) {
   let queried = false;
-  // The chain's values are builder methods (functions), not data — a
+  // The chain's values are builder methods (functions), not data. A
   // string-keyed bag of runtime values is exactly what UnknownRecord is for.
   const chain: UnknownRecord = {};
   const passthrough = () => chain;

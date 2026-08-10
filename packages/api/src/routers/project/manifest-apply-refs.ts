@@ -69,7 +69,7 @@ export async function loadRefTable(projectId: ProjectId): Promise<RefTable> {
  * Diff-time companion to {@link resolveEnv}: resolve one declared env value
  * the way the write path will, or null when it can't be (missing resource,
  * unsupported ref, `${secret}`). The diff compares this against the stored
- * row — apply writes RESOLVED values, so comparing raw ref text guaranteed a
+ * row: apply writes RESOLVED values, so comparing raw ref text guaranteed a
  * permanent phantom "update".
  */
 export function makeEnvRefResolver(refs: RefTable): (raw: string) => string | null {
@@ -98,7 +98,7 @@ export function resolveEnv(
             resource: "env",
             name: `${serviceName}.${key}`,
             reason:
-              "declared as ${secret} but no value set — run `otterdeploy env set` before applying",
+              "declared as ${secret} but no value set. Run `otterdeploy env set` before applying",
           }),
         );
         continue;
@@ -159,7 +159,7 @@ function resolveServiceRef(
     return whole;
   }
   if (tail === "host") return svcRef.host;
-  // service-env and port refs land here — Phase 5 will extend the ref table;
+  // service-env and port refs land here. Phase 5 will extend the ref table;
   // for now they remain unresolved.
   unresolved.push(whole);
   return whole;

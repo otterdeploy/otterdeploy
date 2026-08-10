@@ -49,7 +49,7 @@ export function Panel<T>({
 }: {
   query: QueryLike<T>;
   headers: string[];
-  /** Extra header cell rendered BEFORE `headers` — the select-all checkbox on
+  /** Extra header cell rendered BEFORE `headers`. The select-all checkbox on
    *  tables that support multi-select. It owns its own <TableHead>. */
   leadingHead?: React.ReactNode;
   emptyTitle: string;

@@ -18,8 +18,8 @@ export { type PtyBackend, type StartArgs, type StartError } from "./pty-backend"
 
 const docker = Docker.fromEnv();
 
-// Rate-limited logger. Backpressure / dropped-frame events come in floods —
-// log the first event in each window, every Nth after, summarize at window end.
+// Rate-limited logger. Backpressure / dropped-frame events come in floods.
+// Log the first event in each window, every Nth after, summarize at window end.
 export function sampleLogger({ every, windowMs }: { every: number; windowMs: number }) {
   let count = 0;
   let windowStart = 0;
@@ -131,8 +131,8 @@ export function toShellInput(raw: unknown): string | Buffer {
 }
 
 // Send a schema-typed control message as a JSON text frame. Control messages
-// are low-frequency, so the void-returning WSContext.send is fine here —
-// the PTY data hot path uses raw.send() for backpressure status instead.
+// are low-frequency, so the void-returning WSContext.send is fine here.
+// The PTY data hot path uses raw.send() for backpressure status instead.
 export function sendControl(ws: WSContext, msg: ServerMessage): void {
   ws.send(JSON.stringify(msg));
 }
@@ -170,8 +170,8 @@ export async function startShell(
     case "container":
       return startContainerExec({ ...args, containerId: target.id });
     case "host":
-      // Host-shell access is only reached via an explicit `?host=1` switch
-      // — never as a silent fallback for missing parameters, since that
+      // Host-shell access is only reached via an explicit `?host=1` switch,
+      // never as a silent fallback for missing parameters, since that
       // would let a frontend bug accidentally hand out a server shell.
       return startHostShell(args);
   }

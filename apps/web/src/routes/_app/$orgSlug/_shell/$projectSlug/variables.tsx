@@ -1,11 +1,11 @@
 /**
- * Variables — Infisical-style overview matrix + per-env table + bulk-edit
+ * Variables: Infisical-style overview matrix + per-env table + bulk-edit
  * modal (with cross-env apply + drag-drop .env import + .env download) +
  * sync integrations. Data wired to
  * `orpc.project.envVar.{list,upsert,delete,bulkReplace}`.
  *
- * Tabs are dynamic — one per project environment (whatever slugs the org has
- * set up). The Sync tab is an honest coming-soon provider list — the
+ * Tabs are dynamic. One per project environment (whatever slugs the org has
+ * set up). The Sync tab is an honest coming-soon provider list. The
  * sync-source backend is a separate Plan 7 follow-up, so nothing there
  * pretends to be connected. The matrix / per-env table / bulk editor / sync
  * UI each live in `-components/`.
@@ -38,7 +38,7 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/variabl
   component: VariablesRoute,
   // Warm the eager env collection on hover (intent-preload) so the tab renders
   // from cache instead of fetching on mount. Non-blocking + best-effort.
-  // `variablesCollection` is syncMode "on-demand" — preload() is a no-op there
+  // `variablesCollection` is syncMode "on-demand". Preload() is a no-op there
   // (it loads when a live query subscribes with its filters), so don't call it.
   loader: () => {
     void envCollection.preload();
@@ -60,7 +60,7 @@ function VariablesRoute() {
     [projectId],
   );
 
-  // Map<envId, EnvVarRow[]> — what each tab + the overview matrix render.
+  // Map<envId, EnvVarRow[]>. What each tab + the overview matrix render.
   // Populated by the per-env subscribers below; the on-demand
   // `variablesCollection` loads one (projectId, environmentId) subset each.
   const [byEnv, setByEnv] = useState<Map<string, EnvVarRow[]>>(new Map());
@@ -72,7 +72,7 @@ function VariablesRoute() {
     });
   };
 
-  // Union of every key seen in any env — the rows of the overview
+  // Union of every key seen in any env: the rows of the overview
   // matrix. Sorted alphabetically so the order matches the demo.
   const allKeys = (() => {
     const set = new Set<string>();
@@ -119,7 +119,7 @@ function VariablesRoute() {
         </TabsList>
 
         {/* One subscriber per env keeps `byEnv` in sync with the
-            on-demand collection — each loads its own (projectId,
+            on-demand collection: each loads its own (projectId,
             environmentId) subset. Headless: renders nothing. */}
         {envRefs.map((env) => (
           <EnvVarsSubscriber

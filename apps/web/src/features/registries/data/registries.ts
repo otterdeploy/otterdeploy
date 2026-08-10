@@ -1,13 +1,13 @@
 /**
  * Container registry credentials for the active org. Org-global (the
  * server scopes `registry.list` to the active organization), so this is
- * an eager collection mirroring `projectCollection` — the page just reads
+ * an eager collection mirroring `projectCollection`: the page just reads
  * via a live query and mutates the collection.
  *
  * All four procedures exist on the contract; create/update return the
  * fresh view row, so we refetch after each to replace the optimistic
  * temp row with the server's canonical one (masked fields, normalized
- * host, server id). The row type is inferred from the list projection —
+ * host, server id). The row type is inferred from the list projection,
  * reference it elsewhere as `(typeof registryCollection.toArray)[number]`.
  */
 
@@ -20,8 +20,8 @@ import { persistence } from "@/shared/db/sqlite-persistence";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 /**
- * The plaintext password rides on the mutation's metadata side channel —
- * it's never stored on the row itself. `PendingMutation.metadata` is
+ * The plaintext password rides on the mutation's metadata side channel.
+ * It's never stored on the row itself. `PendingMutation.metadata` is
  * `unknown`, so narrow at runtime instead of asserting a shape.
  */
 function metadataPassword(metadata: unknown): string | undefined {
@@ -33,7 +33,7 @@ function metadataPassword(metadata: unknown): string | undefined {
 }
 
 const registryQueryOptions = queryCollectionOptions({
-  // Stable id so the OPFS-backed SQLite table survives page loads — see
+  // Stable id so the OPFS-backed SQLite table survives page loads. See
   // projectCollection for why persistence never round-trips without one.
   id: "registries",
   ...orpc.registry.list.queryOptions({ input: undefined }),
@@ -67,7 +67,7 @@ const registryQueryOptions = queryCollectionOptions({
     await Promise.all(
       transaction.mutations.map(async (m) => {
         const c = m.changes;
-        // Empty string password means "leave existing in place" — the
+        // Empty string password means "leave existing in place". The
         // server treats "" the same as omitted, so send it only when
         // non-empty ("" collapses to undefined and gets stripped).
         const password = metadataPassword(m.metadata);
@@ -98,7 +98,7 @@ const registryQueryOptions = queryCollectionOptions({
 
 type RegistryRow = Awaited<ReturnType<typeof orpc.registry.list.call>>[number];
 
-// Two-branch createCollection + pinned generics — see projectCollection for why.
+// Two-branch createCollection + pinned generics: see projectCollection for why.
 export const registryCollection = persistence
   ? createCollection(
       persistedCollectionOptions<RegistryRow, string | number>({

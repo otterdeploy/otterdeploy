@@ -3,7 +3,7 @@
  * to colour each line's text and its left rail. Kept separate from the viewer
  * so the heuristic is easy to reuse and read on its own.
  *
- * Severity is derived from the line's *content*, not its stream — build tools
+ * Severity is derived from the line's *content*, not its stream. Build tools
  * (git, docker/buildkit, vite, bun) write ordinary progress to stderr, so the
  * stream is a useless error signal. We look for the markers those tools
  * actually print: `error:`/`ERROR`/`✖` (+ stack frames so a whole trace reads
@@ -22,11 +22,11 @@ const SEVERITY_PATTERNS: ReadonlyArray<readonly [Exclude<LogSeverity, "normal">,
       /(^|[^a-z])(error|fatal|panic|failed|failure|exception|traceback)([^a-z]|$)/i,
       /\b[A-Z]\w*Error\b/, // TypeError, ReferenceError, …
       /[✖✗⨯❌🛑⛔]/, // cross/stop marks tools & apps prefix errors with (U+2716/2717/2A2F/274C/1F6D1/26D4)
-      /^at\s+\S/, // stack frame — keeps a whole trace one contiguous red block
+      /^at\s+\S/, // stack frame; keeps a whole trace one contiguous red block
       /^\.\.\.\s*\d+\s*lines? matching/i,
       /^cause:/i,
       /exit code:\s*[1-9]/i,
-      /\bexit(?:ed)?\b[^)\n]*\(?\s*[1-9]\d*\)?/i, // "Exited (1)", "exited with code 137" — any non-zero container exit
+      /\bexit(?:ed)?\b[^)\n]*\(?\s*[1-9]\d*\)?/i, // "Exited (1)", "exited with code 137", any non-zero container exit
       /\binvalid environment variables\b/i, // t3-env / zod env validation crash header (often only marked by an ❌ emoji)
       /\bdid not complete successfully\b/i,
     ],
@@ -38,7 +38,7 @@ const SEVERITY_PATTERNS: ReadonlyArray<readonly [Exclude<LogSeverity, "normal">,
       /(^|[^a-z])(warn|warning|deprecated)([^a-z]|$)/i,
       /^\(!\)/,
       /\[plugin\b/i,
-      // Config-complaint sentences — a runtime library reporting absent config
+      // Config-complaint sentences: a runtime library reporting absent config
       // without using an error/warn keyword (Upstash: "The 'url' property is
       // missing or undefined in your Redis config.", ioredis: "REDIS_URL is
       // not set", our own "Email isn't configured"). Under the old
@@ -51,25 +51,25 @@ const SEVERITY_PATTERNS: ReadonlyArray<readonly [Exclude<LogSeverity, "normal">,
     "info",
     [
       /^\[?(info|notice)\]?[:\s-]/i,
-      // Same `[info]`/`[notice]` tag, but not line-initial — syslog-style
+      // Same `[info]`/`[notice]` tag, but not line-initial: syslog-style
       // tools (nginx's error_log, most daemons) prefix it with their own
       // timestamp first: `2026/07/25 12:00:00 [notice] 1#1: start worker
       // process`. Without this, the tag never matched (the `^` anchor
       // above only fires when the tag IS the first thing on the line), the
       // content heuristic fell through to "normal", and the stream-based
       // fallback in use-project-log-stream's `inferLevel` painted every one
-      // of these WARN — nginx logs its notice-level boot chatter to stderr,
+      // of these WARN: nginx logs its notice-level boot chatter to stderr,
       // so a perfectly healthy boot read as a wall of orange warnings.
       /\[(info|notice)\]/i,
     ],
   ],
 ];
 
-// A stack-trace frame — `    at fn (file:line:col)`. Leading whitespace is
+// A stack-trace frame: `    at fn (file:line:col)`. Leading whitespace is
 // kept because grouping runs on the ANSI-stripped (un-trimmed) line.
 const STACK_FRAME = /^\s*at\s+\S/;
 
-// Net `{` minus `}` on a line — how the current object dump's depth changes.
+// Net `{` minus `}` on a line: how the current object dump's depth changes.
 // Good enough for log dumps; we don't try to skip braces inside string values.
 function netBraces(text: string): number {
   let depth = 0;
@@ -82,8 +82,8 @@ function netBraces(text: string): number {
 }
 
 /**
- * Collapse a multi-line thrown error — its header, stack frames, and the
- * `{ … }` object dump most runtimes print (cause, digest, code, …) — into a
+ * Collapse a multi-line thrown error: its header, stack frames, and the
+ * `{ … }` object dump most runtimes print (cause, digest, code, …): into a
  * single logical event. Returns a per-line flag (index-aligned to `lines`)
  * marking the *head* of each event, so callers count incidents instead of
  * lines and "next error" steps between traces rather than stack frames.
@@ -103,7 +103,7 @@ export function markEventHeads(
     const { severity, text } = lines[i];
     if (inEvent && (depth > 0 || STACK_FRAME.test(text))) {
       depth = Math.max(0, depth + netBraces(text));
-      continue; // body line — belongs to the open event, not a head
+      continue; // body line; belongs to the open event, not a head
     }
     if (severity === "error" || severity === "warn") {
       heads[i] = true;
@@ -118,7 +118,7 @@ export function markEventHeads(
 }
 
 /**
- * Structured (JSON) logs — pino, bunyan, authentik, … — carry severity in a
+ * Structured (JSON) logs (pino, bunyan, authentik, …) carry severity in a
  * `level` field the keyword heuristic can't see (and scanning the raw JSON for
  * words like "error" false-positives on field names). Read the level directly,
  * supporting both string levels ("error", "warning") and pino's numeric scale
@@ -149,11 +149,11 @@ export function classifyLogSeverity(line: string): LogSeverity {
   const s = line.trim();
   if (!s) return "normal";
   // A `$ …` line is the builder echoing the command it's about to run, not tool
-  // output — never treat it as an error. Otherwise a flag literal that merely
+  // output, never treat it as an error. Otherwise a flag literal that merely
   // *contains* an error word (e.g. `railpack prepare … --error-missing-start`)
   // trips the error bucket and paints a perfectly healthy command line red.
   if (s.startsWith("$ ")) return "info";
-  // Structured logs declare their own severity — authoritative when present.
+  // Structured logs declare their own severity, authoritative when present.
   const structured = severityFromStructuredLevel(s);
   if (structured !== null) return structured;
   for (const [severity, patterns] of SEVERITY_PATTERNS) {
@@ -170,7 +170,7 @@ export const SEVERITY_TEXT: Record<LogSeverity, string> = {
   normal: "text-foreground/85",
 };
 
-// The rounded left rail is the severity indicator — a colored pill for
+// The rounded left rail is the severity indicator. A colored pill for
 // error/warn/info/success, a faint hairline for ordinary output so every
 // line still sits on a consistent rail (matches the table-row pattern).
 export const SEVERITY_BAR: Record<LogSeverity, string> = {

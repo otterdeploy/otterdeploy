@@ -4,7 +4,7 @@
  * implicit node, said honestly.
  *
  * Install-admin only, and it says so by disappearing. Both reads below are
- * `docker.*`, which is install-admin in its entirety — the service Settings
+ * `docker.*`, which is install-admin in its entirety. The service Settings
  * tab is a project-level surface any member can open, so without the gate
  * this row fired two guaranteed 403s on mount and then rendered "Couldn't
  * read cluster placement." at a viewer who could do nothing about it. There
@@ -110,7 +110,7 @@ function NodeBox({
         {Array.from({ length: running }).map((_, i) => (
           <span key={i} className="inline-block size-2.5 rounded-xs bg-chart-2" />
         ))}
-        {running === 0 && <span className="text-[10px] text-muted-foreground">—</span>}
+        {running === 0 && <span className="text-[10px] text-muted-foreground">–</span>}
       </div>
       {note && <div className="mt-1 text-[10px] text-muted-foreground">{note}</div>}
     </div>

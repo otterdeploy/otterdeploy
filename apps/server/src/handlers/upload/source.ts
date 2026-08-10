@@ -15,7 +15,7 @@ import { MAX_SOURCE_UPLOAD_BYTES } from "@otterdeploy/api/security/body-limit";
 import { Result } from "better-result";
 
 /**
- * `POST /api/services/:resourceId/source` — receive an uploaded source tarball
+ * `POST /api/services/:resourceId/source`: receive an uploaded source tarball
  * for a `source: "upload"` service, stage it on the shared data dir, and enqueue
  * the build. This is a raw Hono route (not oRPC) because the body is a binary
  * stream, mirroring the raw webhook routes. Auth: the CLI's bearer session token
@@ -50,7 +50,7 @@ async function streamBodyToFile(c: Context, path: string): Promise<string> {
         throw new Error(`source tarball exceeds the ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB limit`);
       }
       hasher.update(value);
-      // FileSink.write returns a number, or a Promise on backpressure — await
+      // FileSink.write returns a number, or a Promise on backpressure, await
       // handles both and satisfies no-floating-promises.
       await writer.write(value);
     }
@@ -123,7 +123,7 @@ export async function uploadSourceHandler(c: Context): Promise<Response> {
   }
 
   // Record the tarball's content hash so the deploy carries a stable source
-  // identifier (the upload analog of a commit sha). Best-effort — a write
+  // identifier (the upload analog of a commit sha). Best-effort: a write
   // failure here must not strand or fail an otherwise-good upload.
   const sourceSha = staged.value;
   await setUploadDeploymentSourceSha(deploymentId, sourceSha).catch(() => undefined);

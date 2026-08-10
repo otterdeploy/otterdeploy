@@ -5,8 +5,8 @@ import { Band, Container, Field, Mono } from "./primitives";
  * The one-picture fold: sources on the left, the platform in the middle, live
  * endpoints on the right, and the three things it stands on underneath.
  *
- * It earns its space by answering the question a feature list can't — "what IS
- * this thing" — in about two seconds.
+ * It earns its space by answering the question a feature list can't: "what IS
+ * this thing": in about two seconds.
  */
 export function Platform() {
   return (
@@ -19,8 +19,8 @@ export function Platform() {
               A repo goes in. A running, routed, backed-up service comes out.
             </h2>
             <p className="mx-auto mt-4 max-w-[52ch] text-[0.9375rem] leading-relaxed text-pretty text-muted-foreground">
-              Build, edge, data, logs, previews and backups are one install on machines you own —
-              not six services you wire together and then maintain.
+              Build, edge, data, logs, previews and backups are one install on machines you own, not
+              six services you wire together and then maintain.
             </p>
           </div>
 

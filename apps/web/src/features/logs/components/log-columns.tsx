@@ -1,7 +1,7 @@
 // Headless TanStack column model for the project logs table. Rendering (the
 // virtualized flex rows) lives in logs-table-view; here we only describe
 // columns, sorting, and per-cell content. Every row is a single fixed-height
-// line — full entries open in the side detail panel (row click), never inline,
+// line: full entries open in the side detail panel (row click), never inline,
 // so the virtualizer's rows stay uniform and can't overlap.
 
 import type { ColumnDef } from "@tanstack/react-table";
@@ -27,7 +27,7 @@ const levelRank = (lv: LogLevel) => LOG_LEVELS.indexOf(lv);
  * translated aria-labels: `header`/`cell` are called as plain functions by
  * TanStack Table, not rendered as components, so a hook inside them would be
  * illegal. Taking `t` as a parameter keeps the strings translated and lets the
- * caller — which IS a component — own the subscription to language changes.
+ * caller (which IS a component) own the subscription to language changes.
  */
 export function makeLogColumns(t: TFunction): ColumnDef<LogLine>[] {
   return [
@@ -105,7 +105,7 @@ export function makeLogColumns(t: TFunction): ColumnDef<LogLine>[] {
         // virtualizer's post-paint measurement can't reliably repaint that under
         // a bursty live tail, so tall rows smeared over each other into an
         // unreadable overlap. Click a row to read the whole entry (pretty-printed
-        // JSON, metadata) in the side detail panel — that overlays the table
+        // JSON, metadata) in the side detail panel: that overlays the table
         // instead of reflowing it.
         const firstBreak = msg.indexOf("\n");
         const summary = firstBreak === -1 ? msg : msg.slice(0, firstBreak);

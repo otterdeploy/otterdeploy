@@ -11,7 +11,7 @@ export const resources = {
 export const supportedLngs = Object.keys(resources) as Array<keyof typeof resources>;
 
 /**
- * Endonyms — each language named in itself, which is what a language switcher
+ * Endonyms: each language named in itself, which is what a language switcher
  * should show: someone looking for German is looking for "Deutsch".
  */
 export const languageNames: Record<(typeof supportedLngs)[number], string> = {

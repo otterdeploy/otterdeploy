@@ -69,7 +69,7 @@ function checkColors(opts) {
     // exists to suppress contrast noise on inline links and unstyled controls,
     // where the element has no own background and the contrast against the
     // ancestor surface is already the intended visual. When the element has
-    // its own opaque background and direct text, it is a styled button — and
+    // its own opaque background and direct text, it is a styled button, and
     // contrast on its own surface is a real, frequent bug worth flagging.
     const isStyledButton = (tag === 'a' || tag === 'button')
       && hasDirectText
@@ -83,7 +83,7 @@ function checkColors(opts) {
     // ancestor is a gradient, against every gradient stop (use the worst case).
     const bgs = effectiveBg ? [effectiveBg] : (effectiveBgStops && effectiveBgStops.length ? effectiveBgStops : null);
     if (bgs) {
-      // Gray on colored background — flag if every stop is chromatic
+      // Gray on colored background: flag if every stop is chromatic
       const textLum = relativeLuminance(textColor);
       const isGray = !hasChroma(textColor, 20) && textLum > 0.05 && textLum < 0.85;
       if (isGray && bgs.every(b => hasChroma(b, 40))) {
@@ -91,7 +91,7 @@ function checkColors(opts) {
         findings.push({ id: 'gray-on-color', snippet: `text ${colorToHex(textColor)} on bg ${bgLabel}` });
       }
 
-      // Low contrast (WCAG AA) — worst case across all bg stops
+      // Low contrast (WCAG AA): worst case across all bg stops
       const ratios = bgs.map(b => contrastRatio(textColor, b));
       let worstIdx = 0;
       for (let i = 1; i < ratios.length; i++) if (ratios[i] < ratios[worstIdx]) worstIdx = i;
@@ -104,14 +104,14 @@ function checkColors(opts) {
         // comparing against gradient-stop fallback). In jsdom mode the
         // detector can't resolve `var(--X)` color tokens, so a dark
         // section sitting between the text and the body's decorative
-        // gradient is invisible to us — we end up measuring contrast
+        // gradient is invisible to us. We end up measuring contrast
         // against the body's paper-grain noise instead of the real
         // local bg. Real low-contrast bugs use alpha=1 and have a
         // resolvable opaque ancestor; semi-transparent Tailwind tokens
         // like `text-paper/60` on `bg-ink` sections are the FP pattern.
         const isAlphaFallbackFP = !DETECTOR_IS_BROWSER && !effectiveBg && (textColor.a != null && textColor.a < 1);
         if (!isAlphaFallbackFP) {
-          findings.push({ id: 'low-contrast', snippet: `${ratio.toFixed(1)}:1 (need ${threshold}:1) — text ${colorToHex(textColor)} on ${colorToHex(bgs[worstIdx])}` });
+          findings.push({ id: 'low-contrast', snippet: `${ratio.toFixed(1)}:1 (need ${threshold}:1), text ${colorToHex(textColor)} on ${colorToHex(bgs[worstIdx])}` });
         }
       }
     }
@@ -169,9 +169,9 @@ const HEADING_TAGS = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
 //
 // Triggers when ALL of the following hold for the sibling:
 //   • size 32–128px on both axes (not too small, not a hero image)
-//   • aspect ratio 0.7–1.4 (squarish — excludes wide thumbnails / pill badges)
+//   • aspect ratio 0.7–1.4 (squarish, excludes wide thumbnails / pill badges)
 //   • has a non-transparent background-color, background-image, OR a visible border
-//     (covers solid colors, white-with-border, gradients — anything that visually
+//     (covers solid colors, white-with-border, gradients, anything that visually
 //      defines a tile)
 //   • border-radius < width/2 (excludes round avatars; rounded squares pass)
 //   • contains an <svg> or icon-class <i> element that's smaller than the tile
@@ -208,7 +208,7 @@ function checkIconTile(opts) {
   if (iconChildWidth && iconChildWidth >= siblingWidth * 0.95) return [];
 
   // Vertical stacking: tile must end above where the heading starts.
-  // (Allow the check to skip when both top/bottom are 0 — jsdom layout case.)
+  // (Allow the check to skip when both top/bottom are 0, jsdom layout case.)
   if (headingTop && siblingBottom && siblingBottom > headingTop + 4) return [];
 
   const text = (headingText || '').trim().slice(0, 60);
@@ -255,20 +255,20 @@ function checkItalicSerif(opts) {
 }
 
 // Color saturation check. Returns true when the color has visible
-// chroma — i.e., it's an "accent color" rather than near-neutral.
+// chroma: i.e., it's an "accent color" rather than near-neutral.
 // Handles rgb()/rgba(), #hex, oklch(), and hsl(). var() refs are
 // expected to be pre-resolved by the caller.
 function isAccentColor(cssColor) {
   if (!cssColor) return false;
   const s = String(cssColor).trim();
-  // rgb / rgba — direct channel-distance check.
+  // rgb / rgba: direct channel-distance check.
   const rgbM = /rgba?\(\s*(\d+)\s*,?\s+|\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(s.replace(/rgba?\(\s*/, 'rgb(').replace(/,/g, ', '));
   const rgbStrict = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(s);
   if (rgbStrict) {
     const r = +rgbStrict[1], g = +rgbStrict[2], b = +rgbStrict[3];
     return (Math.max(r, g, b) - Math.min(r, g, b)) >= 40;
   }
-  // #hex — 3, 4, 6, or 8 digit.
+  // #hex: 3, 4, 6, or 8 digit.
   const hexM = /^#([0-9a-f]{3,8})\b/i.exec(s);
   if (hexM) {
     let h = hexM[1];
@@ -281,7 +281,7 @@ function isAccentColor(cssColor) {
       return (Math.max(r, g, b) - Math.min(r, g, b)) >= 40;
     }
   }
-  // oklch(L C H) — chroma C is what matters. Typical neutral grays
+  // oklch(L C H): chroma C is what matters. Typical neutral grays
   // have C < 0.02; visible accents are 0.05+. CSS minification can
   // collapse spaces between L% and C ("oklch(43%.15 34)"), so we
   // extract all numbers and take the second rather than matching a
@@ -293,7 +293,7 @@ function isAccentColor(cssColor) {
       return !Number.isNaN(c) && c >= 0.05;
     }
   }
-  // hsl(H, S%, L%) — saturation > 20% reads as accent.
+  // hsl(H, S%, L%): saturation > 20% reads as accent.
   const hslM = /hsla?\(\s*[\d.]+\s*,\s*([\d.]+)%/i.exec(s);
   if (hslM) {
     const sat = parseFloat(hslM[1]);
@@ -315,16 +315,16 @@ function checkHeroEyebrow(opts) {
   if (headingTag !== 'h1') return [];
   // We previously gated on headingFontSize >= 48 to anchor "hero scale".
   // But modern hero h1s use clamp() / vw / var(--text-*), none of which
-  // jsdom can resolve — the computed value comes back as "2em" or
+  // jsdom can resolve. The computed value comes back as "2em" or
   // "var(--text-9xl)" and parseFloat returns 2 or NaN. The gate fails
   // on virtually every Tailwind v4 / framework build. The other gates
   // (sibling text 2-60 chars, font-size ≤ 14px, accent-bold OR
   // tracked-caps) are tight enough to avoid false positives on non-
-  // hero h1s — a tiny tan label directly above any h1 is the
+  // hero h1s: a tiny tan label directly above any h1 is the
   // antipattern regardless of how big the h1 ends up.
   if (!siblingTag) return [];
   // An h2 above an h1 is a different anti-pattern (heading hierarchy / dual
-  // headings) — never an eyebrow.
+  // headings), never an eyebrow.
   if (HEADING_TAGS.has(siblingTag)) return [];
 
   const text = (siblingText || '').trim();
@@ -336,7 +336,7 @@ function checkHeroEyebrow(opts) {
     || (/[A-Z]/.test(text) && !/[a-z]/.test(text));
   const isClassicTracked = isUppercased && siblingLetterSpacing >= 1.6;
 
-  // Branch B: modern accent-bold eyebrow — sentence case, low
+  // Branch B: modern accent-bold eyebrow, sentence case, low
   // tracking, but bold + accent-colored. The style choices changed;
   // the pattern is the same kicker-above-headline anti-pattern.
   const weight = Number(siblingFontWeight) || 400;
@@ -424,7 +424,7 @@ function checkGlow(opts) {
     const color = parseRgb(colorMatch[0]);
     if (!color || !hasChroma(color, 30)) continue;
 
-    // Extract px values — in computed style: "color Xpx Ypx BLURpx [SPREADpx]"
+    // Extract px values: in computed style: "color Xpx Ypx BLURpx [SPREADpx]"
     const afterColor = shadow.substring(shadow.indexOf(colorMatch[0]) + colorMatch[0].length);
     const beforeColor = shadow.substring(0, shadow.indexOf(colorMatch[0]));
     const pxVals = [...beforeColor.matchAll(/([\d.]+)px/g), ...afterColor.matchAll(/([\d.]+)px/g)]
@@ -671,7 +671,7 @@ function resolveBackground(el, win, customPropMap) {
     //   • on body/html: assume white. Body-level gradients are almost
     //     always decorative texture (paper grain, noise) on top of a
     //     solid bg-color the page set via `background: var(--paper)`
-    //     shorthand — which jsdom can't decompose into bg-color. The
+    //     shorthand, which jsdom can't decompose into bg-color. The
     //     downstream gradient-stops fallback path produces catastrophic
     //     false positives in this case (gradient noise stops have
     //     accidental browns/blacks that look like card backgrounds).
@@ -702,7 +702,7 @@ function resolveGradientStops(el, win) {
       if (stops.length > 0) return stops;
     }
     if (!DETECTOR_IS_BROWSER) {
-      // jsdom doesn't decompose `background:` shorthand — peek at the raw inline style
+      // jsdom doesn't decompose `background:` shorthand, peek at the raw inline style
       const rawStyle = current.getAttribute?.('style') || '';
       const bgMatch = rawStyle.match(/background(?:-image)?\s*:\s*([^;]+)/i);
       if (bgMatch && /gradient/i.test(bgMatch[1])) {
@@ -746,7 +746,7 @@ function resolveBorderRadiusPx(el, style, widthPx, win) {
 
 // ─── Section 5: Element Adapters ────────────────────────────────────────────
 
-// Browser adapters — call getComputedStyle/getBoundingClientRect on live DOM
+// Browser adapters: call getComputedStyle/getBoundingClientRect on live DOM
 
 function checkElementBordersDOM(el) {
   const tag = el.tagName.toLowerCase();
@@ -765,7 +765,7 @@ function checkElementBordersDOM(el) {
 
 function checkElementColorsDOM(el) {
   const tag = el.tagName.toLowerCase();
-  // No early SAFE_TAGS bail here — checkColors() does its own gating that
+  // No early SAFE_TAGS bail here: checkColors() does its own gating that
   // includes the styled-button exception for <a> / <button> with their own
   // opaque background. Bailing here would prevent that exception from firing.
   const rect = el.getBoundingClientRect();
@@ -865,7 +865,7 @@ function checkElementHeroEyebrowDOM(el) {
 // CSS vars (font-weight: var(--font-weight-bold), font-size:
 // var(--text-xs), letter-spacing: var(--tracking-widest)), so without
 // resolution every style-based check silently fails on Tailwind v4
-// builds — the values come back as literal "var(--font-weight-bold)"
+// builds. The values come back as literal "var(--font-weight-bold)"
 // strings and parseFloat returns NaN.
 function buildCustomPropMap(document) {
   const map = new Map();
@@ -914,7 +914,7 @@ function resolveVarRefs(raw, customPropMap, depth = 0) {
 
 // OKLCH → sRGB conversion (Björn Ottosson's matrices). L in 0..1 (or %),
 // C in 0..~0.4 typical, H in degrees. Returns clamped {r,g,b,a:1} in 0..255.
-// Needed because jsdom doesn't compute oklch() values — getComputedStyle
+// Needed because jsdom doesn't compute oklch() values. GetComputedStyle
 // returns the literal "oklch(...)" string. Without this, the entire
 // Tailwind v4 color palette (which is OKLCH-based) is invisible to the
 // detector's contrast / color checks.
@@ -1132,11 +1132,11 @@ function checkElementGlowDOM(el) {
   const tag = el.tagName.toLowerCase();
   const style = getComputedStyle(el);
   if (!style.boxShadow || style.boxShadow === 'none') return [];
-  // Use parent's background — glow radiates outward, so the surrounding context matters
+  // Use parent's background. Glow radiates outward, so the surrounding context matters
   // If resolveBackground returns null (gradient), try to infer from the gradient colors
   let parentBg = el.parentElement ? resolveBackground(el.parentElement) : resolveBackground(el);
   if (!parentBg) {
-    // Gradient background — sample its colors to determine if it's dark
+    // Gradient background: sample its colors to determine if it's dark
     let cur = el.parentElement;
     while (cur && cur.nodeType === 1) {
       const bgImage = getComputedStyle(cur).backgroundImage || '';
@@ -1218,7 +1218,7 @@ const QUALITY_TEXT_TAGS = new Set(['p', 'li', 'td', 'th', 'dd', 'blockquote', 'f
 
 // Resolve a CSS font-size value to pixels by walking up the parent chain.
 // Browsers resolve em/rem/% to px in getComputedStyle, but jsdom returns the
-// specified value verbatim — so for the Node path we walk parents ourselves.
+// specified value verbatim, so for the Node path we walk parents ourselves.
 function resolveFontSizePx(el, win) {
   const chain = []; // raw font-size strings, leaf → root
   let cur = el;
@@ -1238,7 +1238,7 @@ function resolveFontSizePx(el, win) {
     else if (v.endsWith('rem')) px = num * 16;
     else if (v.endsWith('em')) px = num * px;
     else if (v.endsWith('%')) px = (num / 100) * px;
-    else px = num; // unitless — already resolved
+    else px = num; // unitless: already resolved
   }
   return px;
 }
@@ -1337,7 +1337,7 @@ function textDescendantsFlushSides(el, rect) {
 
 // Pure quality checks. Most run on computed CSS and DOM-only inputs (work in
 // jsdom and the browser). Two checks (line-length, cramped-padding) gate on
-// element rect dimensions, which jsdom can't compute — pass `rect: null` from
+// element rect dimensions, which jsdom can't compute. Pass `rect: null` from
 // the Node adapter to skip those.
 //
 // Both adapters resolve font-size, line-height and letter-spacing to pixels
@@ -1361,7 +1361,7 @@ function checkQuality(opts) {
   // Vertical and horizontal thresholds are independent because line-height
   // already provides built-in vertical breathing room (the line box is taller
   // than the cap height), but horizontal has no equivalent. Both scale with
-  // font-size — bigger text demands proportionally more padding.
+  // font-size: bigger text demands proportionally more padding.
   //   vertical:   max(4px, fontSize × 0.3)
   //   horizontal: max(8px, fontSize × 0.5)
   const isInlineCode = tag === 'code' && !(el.closest && el.closest('pre'));
@@ -1386,7 +1386,7 @@ function checkQuality(opts) {
       const vThresh = Math.max(4, fontSize * 0.3);
       const hThresh = Math.max(8, fontSize * 0.5);
 
-      // Emit at most one finding per element — pick whichever axis is worse.
+      // Emit at most one finding per element. Pick whichever axis is worse.
       if (vMin < vThresh) {
         findings.push({ id: 'cramped-padding', snippet: `${vMin}px vertical padding (need ≥${vThresh.toFixed(1)}px for ${fontSize}px text)` });
       } else if (hMin < hThresh) {
@@ -1402,7 +1402,7 @@ function checkQuality(opts) {
   //
   // Distinct from cramped-padding: that rule needs the element itself to
   // have direct text (hasDirectText). This rule targets the OPPOSITE
-  // shape — a container with NO direct text, only children — which is
+  // shape (a container with NO direct text, only children) which is
   // exactly what cramped-padding misses (a section wrapping a label +
   // list lands a free pass).
   //
@@ -1434,8 +1434,8 @@ function checkQuality(opts) {
         left:   borderW.left   > 0 && !cssColorIsTransparent(style.borderLeftColor),
       };
       // Outline detection. jsdom decomposes `border` shorthand into
-      // border{Top,…}Width/Color but does NOT decompose `outline` —
-      // the longhands come back empty when the value was set via the
+      // border{Top,…}Width/Color but does NOT decompose `outline`.
+      // The longhands come back empty when the value was set via the
       // shorthand. Fall back to parsing `style.outline` ourselves.
       let outlineW = parseFloat(style.outlineWidth) || 0;
       let outlineStyleVal = style.outlineStyle || '';
@@ -1473,7 +1473,7 @@ function checkQuality(opts) {
         // them has its own padding, the visual flush is broken on that
         // side. Classic example: a column-flow card frame where the
         // top child (header) has padding-top:12 and the bottom child
-        // (footer) has padding-bottom:8 — the parent's padding:0 doesn't
+        // (footer) has padding-bottom:8. The parent's padding:0 doesn't
         // matter; nothing is actually flush. The `any-child-insulates`
         // heuristic accepts some false negatives (a card with one heavily
         // padded middle child won't flag) for far fewer false positives.
@@ -1558,7 +1558,7 @@ function checkQuality(opts) {
 
   // --- Body text touching viewport edge --- (browser-only: needs rect)
   // Catches the failure mode where the agent ships body paragraphs
-  // with NO container providing horizontal padding — text bleeds
+  // with NO container providing horizontal padding: text bleeds
   // directly to the viewport edge. Different from cramped-padding,
   // which requires a colored/bordered container. Here the failure
   // is the absence of the container entirely.
@@ -1645,7 +1645,7 @@ function checkQuality(opts) {
       const trackingEm = letterSpacingPx / fontSize;
       if (trackingEm <= -0.05) {
         const excerpt = (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 40);
-        findings.push({ id: 'extreme-negative-tracking', snippet: `letter-spacing: ${trackingEm.toFixed(2)}em — "${excerpt}"` });
+        findings.push({ id: 'extreme-negative-tracking', snippet: `letter-spacing: ${trackingEm.toFixed(2)}em, "${excerpt}"` });
       }
     }
   }
@@ -1658,7 +1658,7 @@ function checkElementQualityDOM(el) {
   const style = getComputedStyle(el);
   const hasDirectText = [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim().length > 10);
   const textLen = el.textContent?.trim().length || 0;
-  // Browser getComputedStyle resolves everything to px — direct parseFloat
+  // Browser getComputedStyle resolves everything to px. Direct parseFloat
   // works.
   const fontSize = parseFloat(style.fontSize) || 16;
   const lineHeightPx = resolveLengthPx(style.lineHeight, fontSize);
@@ -1696,9 +1696,9 @@ function checkPageQualityDOM() {
   return checkPageQualityFromDoc(document).map(f => ({ type: f.id, detail: f.snippet }));
 }
 
-// Node adapters — take pre-extracted jsdom computed style
+// Node adapters: take pre-extracted jsdom computed style
 
-// jsdom doesn't lay out OR resolve em/rem/% to px — so we pre-resolve every
+// jsdom doesn't lay out OR resolve em/rem/% to px, so we pre-resolve every
 // CSS length the rule needs ourselves (walking the parent chain for
 // font-size inheritance), and pass `rect: null` to skip the two rules that
 // genuinely need element rects (line-length, cramped-padding).
@@ -1755,7 +1755,7 @@ function checkElementColors(el, style, tag, window, customPropMap, hasAnchorInhe
   // Anchor-inherit FP workaround: jsdom's UA stylesheet has `:link { color:
   // blue }` at high specificity. The page's `a { color: inherit }` rule
   // (Tailwind v4 preflight) loses to jsdom even though it WINS in real
-  // browsers (Chrome's UA wraps :link in :where() — zero specificity).
+  // browsers (Chrome's UA wraps :link in :where(), zero specificity).
   // When the page declares the inherit rule AND we see jsdom's default
   // link blue on an anchor, walk to the nearest non-anchor ancestor and
   // use its color instead.
@@ -1801,7 +1801,7 @@ function checkElementIconTile(el, tag, window) {
   if (!sibling) return [];
 
   const sibStyle = window.getComputedStyle(sibling);
-  // jsdom doesn't lay out — read explicit pixel dimensions from CSS instead.
+  // jsdom doesn't lay out. Read explicit pixel dimensions from CSS instead.
   const sibWidth = parseFloat(sibStyle.width) || 0;
   const sibHeight = parseFloat(sibStyle.height) || 0;
 
@@ -1900,13 +1900,13 @@ function checkElementGlow(tag, style, effectiveBg) {
 
 // ─── Section 6: Page-Level Checks ───────────────────────────────────────────
 
-// Browser page-level checks — use document/getComputedStyle globals
+// Browser page-level checks. Use document/getComputedStyle globals
 
 function checkTypography() {
   const findings = [];
 
   // Walk actual text-bearing elements and tally font usage by *computed style*.
-  // This is much more accurate than scanning CSS rules — it ignores rules that
+  // This is much more accurate than scanning CSS rules. It ignores rules that
   // exist in the stylesheet but apply to nothing (e.g. demo classes showing
   // anti-patterns), and counts what the user actually sees.
   const fontUsage = new Map(); // primary font name → count of elements
@@ -2005,7 +2005,7 @@ function checkLayout() {
   return findings;
 }
 
-// Node page-level checks — take document/window as parameters
+// Node page-level checks. Take document/window as parameters
 
 function checkPageTypography(doc, win) {
   const findings = [];
@@ -2153,7 +2153,7 @@ function checkPageLayout(doc, win) {
 }
 
 // ─── Cream / beige palette (the default "tasteful" AI surface) ────────────────
-// A warm, lightly-tinted off-white page background — light, with R≥G≥B and a
+// A warm, lightly-tinted off-white page background: light, with R≥G≥B and a
 // small warm tint (not white, not a strong color). The current reflex surface.
 function isCreamColor(rgb) {
   if (!rgb) return false;
@@ -2166,7 +2166,7 @@ function isCreamColor(rgb) {
 
 // Tailwind background utilities that render as a warm off-white surface. The
 // static engine doesn't fetch Tailwind's CSS, so a `bg-amber-50` on <body>
-// resolves to nothing in computed style — catch it from the class list
+// resolves to nothing in computed style. Catch it from the class list
 // instead. Candidate tokens map to their actual Tailwind hex and are still
 // filtered through isCreamColor, so neutral grays (stone) and over-saturated
 // shades drop out on their own.
@@ -2196,7 +2196,7 @@ function checkCreamPalette(doc, win) {
   const html = doc.documentElement;
   const getCS = (el) => (win ? win.getComputedStyle(el) : getComputedStyle(el));
 
-  // 1. Computed background — covers inline / <style> / linked CSS, and Tailwind
+  // 1. Computed background. Covers inline / <style> / linked CSS, and Tailwind
   //    once it's actually rendered (browser path).
   let bg = readOwnBackgroundColor(body, getCS(body));
   if (!bg || bg.a === 0) {
@@ -2207,7 +2207,7 @@ function checkCreamPalette(doc, win) {
     return findings;
   }
 
-  // 2. Tailwind class fallback — for the static path, where utility classes
+  // 2. Tailwind class fallback: for the static path, where utility classes
   //    never resolve to computed CSS.
   for (const el of [body, html]) {
     const tok = creamFromClassList(el && el.getAttribute ? el.getAttribute('class') : '');
@@ -2223,7 +2223,7 @@ function checkCreamPalette(doc, win) {
 // Fires when a *long* headline is set at display size and actually dominates
 // the viewport. A punchy one- or two-word headline at the same size is a
 // legitimate stylistic choice, and a large-but-contained two-line hero should
-// pass too — length and viewport share together are the tell.
+// pass too. Length and viewport share together are the tell.
 const OVERSIZED_H1_FONT_PX = 72;
 const OVERSIZED_H1_MIN_CHARS = 40;
 const OVERSIZED_H1_MIN_VIEWPORT_HEIGHT_RATIO = 0.28;
@@ -2285,7 +2285,7 @@ function shadowMaxBlurPx(boxShadow, { minAlpha = 0 } = {}) {
     if (shadowLayerAlpha(layer) < minAlpha) continue;
     // Strip colors and keywords (rgba()/hsl()/hex/named/inset/px), leaving the
     // ordered length tokens: offsetX offsetY blur [spread]. Static jsdom keeps
-    // unitless zeros ("0 0 24px"); browsers normalize to px ("0px 0px 24px") —
+    // unitless zeros ("0 0 24px"); browsers normalize to px ("0px 0px 24px"),
     // both reduce to the same numbers here.
     const cleaned = layer.replace(CSS_COLOR_TOKEN_RE, ' ').replace(/\b[a-z]+\b/gi, ' ');
     const nums = [...cleaned.matchAll(/-?\d*\.?\d+/g)].map(m => parseFloat(m[0]));
@@ -2568,7 +2568,7 @@ function checkElementTextOverflowDOM(el) {
   const tag = el.tagName.toLowerCase();
   if (TEXT_OVERFLOW_SKIP_TAGS.has(tag)) return [];
   if (!isRenderedForBrowserRule(el)) return [];
-  // Only the element that actually owns overflowing text — not its ancestors,
+  // Only the element that actually owns overflowing text, not its ancestors,
   // which inherit a wider scrollWidth from the spilling descendant.
   const hasDirectText = [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim().length > 0);
   if (!hasDirectText) return [];

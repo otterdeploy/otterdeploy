@@ -22,7 +22,7 @@ export const serviceTaskSchema = z.object({
    *  status up per service); null for a plain single-service resource. */
   service: z.string().nullable().default(null),
   state: z.enum(["running", "building", "error"]),
-  /** Raw docker task state — "running" / "starting" / "preparing" / "failed"
+  /** Raw docker task state: "running" / "starting" / "preparing" / "failed"
    *  / "shutdown" / etc. The graph uses the collapsed `state` above; the
    *  deployment-detail panel surfaces the raw value so the operator can
    *  tell "still pulling the image" from "fully started". */
@@ -34,16 +34,16 @@ export const serviceTaskSchema = z.object({
   nodeId: z.string().nullable(),
   /** Last reported message from the orchestrator. */
   message: z.string().nullable(),
-  /** Status.Err — the human-readable reason a task entered a failed state. */
+  /** Status.Err: the human-readable reason a task entered a failed state. */
   error: z.string().nullable(),
   /** Container id assigned to this task, if any. Available once swarm has
-   *  reached at least "preparing" — earlier states (new / pending) have no
+   *  reached at least "preparing". Earlier states (new / pending) have no
    *  container yet. */
   containerId: z.string().nullable(),
   /** Container exit code, when the task is in a terminal state. */
   exitCode: z.number().int().nullable(),
   timestamp: z.string().nullable(),
-  // Restart contribution for this task — plain Docker: the container's own
+  // Restart contribution for this task: plain Docker: the container's own
   // RestartCount; swarm: 1 for a retired task. The graph sums it per service.
   restarts: z.number().int().default(0),
 });

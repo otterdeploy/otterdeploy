@@ -1,11 +1,11 @@
 /**
- * od-5j8.12 — query-layer coverage for sealed SERVICE env vars, mirroring
+ * od-5j8.12: query-layer coverage for sealed SERVICE env vars, mirroring
  * `routers/project/queries/__tests__/project-env-sealed.test.ts`:
  * `upsertServiceEnvVar` encrypts on write whenever the FINAL state is sealed
  * (sticky, one-way), and `bulkReplaceServiceEnvVars` never deletes or
  * overwrites an existing sealed row. Real AES-GCM (already unit-tested in
  * `lib/__tests__/crypto.test.ts`) against a hand-rolled fluent mock of
- * `@otterdeploy/db` — no real database needed.
+ * `@otterdeploy/db`, no real database needed.
  */
 import { describe, expect, test, vi } from "vite-plus/test";
 
@@ -72,7 +72,7 @@ import { bulkReplaceServiceEnvVars, upsertServiceEnvVar } from "../env";
 
 const serviceResourceId = "resource_svc" as never;
 
-describe("upsertServiceEnvVar — sealed write path", () => {
+describe("upsertServiceEnvVar, sealed write path", () => {
   test("encrypts with the env-vars domain key when sealed: true", async () => {
     nextSelectRows = [];
     lastInsertReturn = [
@@ -105,7 +105,7 @@ describe("upsertServiceEnvVar — sealed write path", () => {
     expect(await decryptForDomain(row.value, "env-vars")).toBe("plaintext-token");
   });
 
-  test("sealing is sticky across writes — omitting `sealed` on a later call doesn't unseal", async () => {
+  test("sealing is sticky across writes. Omitting `sealed` on a later call doesn't unseal", async () => {
     nextSelectRows = [{ sealed: true }];
     lastInsertReturn = [
       {
@@ -137,7 +137,7 @@ describe("upsertServiceEnvVar — sealed write path", () => {
   });
 });
 
-describe("bulkReplaceServiceEnvVars — sealed rows survive wholesale replace", () => {
+describe("bulkReplaceServiceEnvVars, sealed rows survive wholesale replace", () => {
   test("an existing sealed row is preserved verbatim; a smuggled overwrite for its key is dropped", async () => {
     const existingSealed = {
       id: "sev_sealed",

@@ -1,6 +1,6 @@
 /**
- * Instance settings (od-u63.7 label-only rename; path unchanged — this file
- * still lives at `/settings/instance/general`) — install-wide configuration,
+ * Instance settings (od-u63.7 label-only rename; path unchanged, this file
+ * still lives at `/settings/instance/general`). Install-wide configuration,
  * one level above any workspace (the Coolify "instance settings" analog).
  * Everything here edits the platform_settings singleton: the control-plane
  * domain (the dashboard's own address), the public IP behind sslip.io
@@ -12,7 +12,7 @@
  * Delivery credentials are deliberately NOT here: the email transport and the
  * Twilio/FCM keys are configured on Workspace → Notifications, beside the
  * channels that consume them. They still write the same platform_settings
- * singleton — only the surface moved.
+ * singleton: only the surface moved.
  */
 
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
@@ -39,14 +39,14 @@ function InstanceRoute() {
     <Page width="narrow">
       <PageHeader
         title="Instance"
-        description="Install-wide configuration for this server — applies to every workspace."
+        description="Install-wide configuration for this server. Applies to every workspace."
       />
 
       <UpdatesCard />
       <ControlPlaneCard organizationId={organization.id} />
       <ServerIpCard organizationId={organization.id} />
       <EdgeDefaultsCard organizationId={organization.id} />
-      {/* Identity before enforcement before knobs — who gets in is the setting
+      {/* Identity before enforcement before knobs: who gets in is the setting
           an operator comes here for most often. */}
       <AccessCard organizationId={organization.id} />
       <SocialSignInCard organizationId={organization.id} />

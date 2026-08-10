@@ -1,5 +1,5 @@
 /**
- * The CLI's presentation layer — the one place terminal output is decided.
+ * The CLI's presentation layer. The one place terminal output is decided.
  *
  * Commands import from here and nowhere else for output:
  *

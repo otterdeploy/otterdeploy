@@ -1,6 +1,6 @@
-# Project secrets rework — design
+# Project secrets rework: design
 
-**Status:** draft — awaiting review
+**Status:** draft, awaiting review
 **Author:** Jefferson (with Claude)
 **Replaces:** the mocked `VariablesTabBody` inside the resource detail panel
 
@@ -17,22 +17,22 @@ operator workflow Doppler / Infisical / Vercel established:
 - **Matrix overview** across environments (production / staging / preview) so
   a missing secret in one env is visible at a glance.
 - **Per-environment detail** with row-level edit / delete / copy.
-- **Bulk paste** for `.env` files — the highest-leverage operator action.
+- **Bulk paste** for `.env` files: the highest-leverage operator action.
 - **Project-scoped secrets** that services explicitly subscribe to, plus the
   existing `${{Resource.VAR}}` template syntax for service-to-service refs.
 
 ## Decisions locked in via brainstorm
 
-1. **Surface scope** — new project-level page at
+1. **Surface scope**: new project-level page at
    `/$orgSlug/$projectSlug/secrets`. The resource Variables tab becomes a
    filtered, read-only-ish view that links back here.
-2. **Sharing model** — *both* (1) explicit per-service subscription to
+2. **Sharing model**: *both* (1) explicit per-service subscription to
    project-scoped vars, and (2) inline `${{Resource.VAR}}` references
    (already wired server-side).
-3. **Encryption at rest** — out of scope for v1. Plaintext in Postgres; rely
+3. **Encryption at rest**: out of scope for v1. Plaintext in Postgres; rely
    on disk encryption. A `valueEncrypted` migration can come later without
    API breakage.
-4. **v1 cut** — Matrix overview, per-env detail, bulk paste, add / edit /
+4. **v1 cut**: Matrix overview, per-env detail, bulk paste, add / edit /
    delete, project vs service scope, masking. Defer: Sync tab, audit log,
    commit history, secret rotation.
 
@@ -57,7 +57,7 @@ projectEnvVar (
 
 -- Explicit per-service subscription to a project var. Without a row here the
 -- service does NOT receive the var, even if it exists at the project level.
--- This is the "I like option 2 + 3" choice — sharing is opt-in per service.
+-- This is the "I like option 2 + 3" choice. Sharing is opt-in per service.
 projectEnvSubscription (
   id                pes_xxx             PK
   serviceResourceId r_xxx               FK service_resource (cascade)
@@ -90,7 +90,7 @@ When the swarm task is composed for a service in a given environment:
 3. Overlay every `serviceEnvVar` row matching `(serviceResourceId, environmentId)`.
    Per-service value wins over inherited project value with the same key.
 4. Run the existing `${{Resource.VAR}}` template expansion on values (handles
-   the service-to-service ref case — REF_MISSING / REF_CYCLE already work).
+   the service-to-service ref case, REF_MISSING / REF_CYCLE already work).
 
 ## API
 
@@ -129,7 +129,7 @@ project.secrets.subscribe({ serviceResourceId, keys: string[] })
 ```
 
 The existing `service.env.{list,set,unset,bulkSet}` procedures stay and
-operate on `serviceEnvVar` — but `setEnvInput` / `bulkEnvInput` gain an
+operate on `serviceEnvVar`, but `setEnvInput` / `bulkEnvInput` gain an
 `environmentId` parameter.
 
 ## UI
@@ -156,7 +156,7 @@ Status glyphs match the screenshots:
 - ✓ green: set
 - ✗ red: missing in this env but exists elsewhere
 - ○ amber: present-but-empty value
-- — muted: not yet declared in this env
+-, muted: not yet declared in this env
 
 Per-env tab (`Production` / `Staging` / `Preview`):
 
@@ -211,11 +211,11 @@ unknown chars surface as inline errors next to the bad line.
 
 The tab inside the resource detail panel becomes a two-section view:
 
-1. **Subscribed from project** — list of `projectEnvVar` rows the service is
+1. **Subscribed from project**: list of `projectEnvVar` rows the service is
    currently subscribed to, with key/value/scope and a `Manage subscriptions`
    button that opens a key-picker drawer (multi-select against
    `project.secrets.list`).
-2. **Service-only** — `serviceEnvVar` rows for the current env, inline edit
+2. **Service-only**: `serviceEnvVar` rows for the current env, inline edit
    same as the project page.
 
 Both sections show a small `Open project secrets →` link in the header that
@@ -230,7 +230,7 @@ navigates to the new page filtered to the relevant env.
 ```
 
 Search param: `?q=...` for the search box. State for "reveal" lives in
-local state — never persisted.
+local state, never persisted.
 
 ## File layout
 
@@ -280,13 +280,13 @@ apps/web/src/routes/_app/$orgSlug/$projectSlug/graph/$resourceId.tsx
 - Bulk apply is transactional per-environment: all-or-nothing for that env.
 - Deleting a `projectEnvVar` cascades to subscriptions; the operator gets a
   confirmation listing affected services. Subscriptions don't cascade-delete
-  when a service is removed — the service row's `ON DELETE CASCADE` handles it.
+  when a service is removed. The service row's `ON DELETE CASCADE` handles it.
 
 ## Out of scope (v1)
 
 - Encryption at rest (column or external KMS)
 - Audit log / commit history (the "3 Commits" indicator)
-- Sync tab — external sources (Vault, 1Password, AWS Secrets Manager)
+- Sync tab: external sources (Vault, 1Password, AWS Secrets Manager)
 - Secret rotation flows
 - Per-secret access policy (RBAC beyond the existing org gate)
 - Folders / paths (the screenshots' folder icon)
@@ -316,6 +316,6 @@ Each step ships as its own PR-sized change; we sanity-check between them.
   in the service Variables tab; references show inline in their consuming
   var value with a syntax hint.
 - **Empty-value semantics.** Doppler treats `KEY=` as set-but-empty; Vercel
-  treats it as missing. We follow Doppler — `KEY=` is "set, value is empty
+  treats it as missing. We follow Doppler: `KEY=` is "set, value is empty
   string" (amber ○). Truly missing is "no row" (red ✗ when present in another
-  env, muted — otherwise).
+  env, muted: otherwise).

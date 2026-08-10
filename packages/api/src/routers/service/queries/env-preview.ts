@@ -2,7 +2,7 @@
  * Preview-scoped service env overrides.
  *
  * Split out of `env.ts`: these rows are keyed by (service, preview) and are
- * overlaid by the resolver on top of the base rows — they never surface in the
+ * overlaid by the resolver on top of the base rows: they never surface in the
  * base env editors, views, refs, or manifest state.
  */
 import type { PreviewId, ResourceId } from "@otterdeploy/shared/id";

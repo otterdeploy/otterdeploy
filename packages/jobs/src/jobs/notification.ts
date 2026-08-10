@@ -31,7 +31,7 @@ export const sendNotificationJob = defineJob({
       notification: { step: "send", userId: payload.userId, type: payload.type },
     });
 
-    // Every notification — regardless of channel — leaves an in-app row so it
+    // Every notification (regardless of channel) leaves an in-app row so it
     // shows up in the user's activity feed. This is the durable record.
     const [row] = await db
       .insert(notification)

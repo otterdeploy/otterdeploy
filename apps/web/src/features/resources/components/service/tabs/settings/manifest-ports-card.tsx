@@ -1,6 +1,6 @@
 /**
  * Ports card for a *pending-create* service. Ports are otherwise only settable
- * in the create wizard — once a service is staged there's no live "service
+ * in the create wizard. Once a service is staged there's no live "service
  * ports" endpoint to edit (the runtime cards need a real resource). So here we
  * edit the manifest entry's `ports` array directly; the reconciler applies them
  * on Deploy (manifest-apply-services). A port marked `http` + primary is what
@@ -33,7 +33,7 @@ interface ManifestPort {
 /**
  * One staged port row.
  *
- * Extracted from ManifestPortsCard's render, which was 152 lines — over the
+ * Extracted from ManifestPortsCard's render, which was 152 lines. Over the
  * cap, and the row's own markup (three conditional affordances) was the bulk
  * of it. Pulling it out leaves the card reading as "list, then add form".
  */

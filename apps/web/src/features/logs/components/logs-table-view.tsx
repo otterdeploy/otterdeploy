@@ -1,5 +1,5 @@
 /**
- * The virtualized log table itself — the scroll container, sticky header,
+ * The virtualized log table itself: the scroll container, sticky header,
  * windowed rows and the "jump to latest" pill. Split out of the logs route so
  * the route's component stays small; all live-tail wiring (table instance,
  * virtualizer, follow state) is owned by the route and threaded in as props.
@@ -7,7 +7,7 @@
  * MODULE-LEVEL React Compiler opt-out, load-bearing together with the same
  * directive in the logs route: every component here reads mutable state off
  * the referentially-stable virtualizer instance (getVirtualItems,
- * getTotalSize), which the compiler would cache on first render — see the
+ * getTotalSize), which the compiler would cache on first render. See the
  * comment in the route component for the observed production failure.
  */
 "use no memo";
@@ -75,7 +75,7 @@ export function LogsTableView({
       >
         {/* Raw <table> (not the shadcn Table wrapper) so there's no
             overflow-x container div between the scroll element and the
-            grid table — that wrapper turns overflow-y into a nested scroll
+            grid table: that wrapper turns overflow-y into a nested scroll
             context and breaks the sticky header + virtualizer. */}
         <table className="grid w-full caption-bottom text-sm">
           <LogsTableHeader table={table} />
@@ -164,7 +164,7 @@ interface LogsTableBodyProps {
 function LogsTableBody({ rows, virtualizer, selectedId, onSelect }: LogsTableBodyProps) {
   // React Compiler opt-out, and it is LOAD-BEARING: the compiler memoizes
   // `virtualizer.getTotalSize()` / `getVirtualItems()` on their only visible
-  // dependency — the referentially-stable virtualizer instance — so it cached
+  // dependency (the referentially-stable virtualizer instance) so it cached
   // the FIRST render's values forever (observed in prod: tbody committed at
   // 25px, one row's height, while the instance reported 5950). TanStack
   // Virtual mutates interior state and notifies via its own rerender; the
@@ -192,7 +192,7 @@ function LogsTableBody({ rows, virtualizer, selectedId, onSelect }: LogsTableBod
           >
             {row.getVisibleCells().map((cell, i) => {
               const isMsg = cell.column.id === "message";
-              // The select checkbox acts on the row itself — a click there must
+              // The select checkbox acts on the row itself: a click there must
               // not also open the detail panel, including clicks on the cell
               // padding around the small control.
               const isControl = cell.column.id === "select";

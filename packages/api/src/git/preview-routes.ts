@@ -1,9 +1,9 @@
 /**
- * Preview-environment proxy routes — the `web-pr-13-<project>.<base>` hosts
+ * Preview-environment proxy routes: the `web-pr-13-<project>.<base>` hosts
  * that make a PR's containers reachable (docs/designs/pr-previews.md §7.4).
  *
  * Minted when the PR webhook ensures the env (so the host exists by the time
- * the build converges — Caddy 502s until the container is up, which the PR
+ * the build converges. Caddy 502s until the container is up, which the PR
  * comment reflects as "Building"), refreshed on synchronize, deleted on
  * teardown. Preview-scoped rows (`proxy_route.previewId`) are invisible to
  * the base domain flows (expose/domains-card read `previewId IS NULL`),
@@ -39,7 +39,7 @@ export interface EnsurePreviewRoutesInput {
 /**
  * Mint (or refresh) one generated route per publicly-exposed git service the
  * PR rebuilds. Returns whether anything changed so the caller can decide to
- * reconcile Caddy. Idempotent per (environment, resource) — synchronize
+ * reconcile Caddy. Idempotent per (environment, resource): synchronize
  * reuses the existing host.
  */
 export async function ensurePreviewRoutes(input: EnsurePreviewRoutesInput): Promise<boolean> {
@@ -90,7 +90,7 @@ export async function ensurePreviewRoutes(input: EnsurePreviewRoutesInput): Prom
     }
 
     // The preview host walks the same chain as the base generated host, with
-    // the pr-suffixed label — never the per-resource publicDomain override
+    // the pr-suffixed label, never the per-resource publicDomain override
     // (that literal FQDN belongs to production).
     const resolved = resolvePublicDomain(
       {

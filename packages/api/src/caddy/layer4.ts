@@ -15,7 +15,7 @@ export function sanitizeMatcherName(domain: string): string {
 }
 
 // The layer4 routing for public databases lives in a `layer4` *listener
-// wrapper*, not a standalone listener — it wraps the HTTP server's existing
+// wrapper*, not a standalone listener: it wraps the HTTP server's existing
 // :443 listener (the trailing `tls` wrapper terminates everything the layer4
 // wrapper doesn't consume). So public Postgres rides on :443 by TLS-SNI next
 // to HTTP, with no second port. Emitted inside the global `{ }` block.
@@ -70,7 +70,7 @@ export function buildLayer4SiteBlocks(layer4Routes: ProxyRouteInput[]): string[]
   }
   const acmeDomains = layer4Routes.filter((r) => r.usesAcme).map((r) => r.domain);
   if (acmeDomains.length > 0) {
-    // No explicit `tls` block — Caddy defaults to ACME using the global
+    // No explicit `tls` block: Caddy defaults to ACME using the global
     // email + the default Let's Encrypt issuer.
     lines.push("");
     lines.push(`${acmeDomains.join(", ")} {`);

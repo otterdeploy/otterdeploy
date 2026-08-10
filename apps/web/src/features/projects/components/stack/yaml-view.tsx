@@ -1,7 +1,7 @@
 /**
  * Read-only YAML view with a line-number gutter + lightweight token
  * coloring (comments, keys, strings, numbers, booleans). Intentionally
- * no editor dependency yet — once Step 2 lands and this becomes
+ * no editor dependency yet: once Step 2 lands and this becomes
  * editable we can swap in CodeMirror without changing the panel shell.
  */
 
@@ -21,7 +21,7 @@ interface Token {
 type TokenKind = "comment" | "key" | "string" | "number" | "boolean" | "punct" | "plain";
 
 // Light-mode shades are solid -700 tones (not the dark mode's translucent
-// -300s) — the -300/NN pairing was tuned for a dark code-block background and
+// -300s): the -300/NN pairing was tuned for a dark code-block background and
 // reads as near-invisible light gray on the light theme's near-white
 // surface. -700 clears WCAG AA (>=4.5:1) against `--background` (#fbfbfa)
 // with room to spare; dark mode keeps the original values unchanged.
@@ -36,7 +36,7 @@ const KIND_CLASS: Record<TokenKind, string> = {
 };
 
 function tokenize(line: string): Token[] {
-  // Hash comments win — the rest of the line is a single comment token.
+  // Hash comments win: the rest of the line is a single comment token.
   const hash = line.indexOf("#");
   if (hash >= 0) {
     const before = line.slice(0, hash);

@@ -1,5 +1,5 @@
 /**
- * MongoDB data-viewer fetching hooks — the React-Query layer over
+ * MongoDB data-viewer fetching hooks. The React-Query layer over
  * `database.mongoCollections` / `database.mongoDocuments`. `resourceId` is typed
  * `string` and cast to the branded oRPC input at the boundary, mirroring the
  * redis + postgres viewers.
@@ -8,7 +8,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { orpc } from "@/shared/server/orpc";
 
-/** Collections (with estimated counts) — drives the collection picker. */
+/** Collections (with estimated counts). Drives the collection picker. */
 export function useMongoCollections(resourceId: string) {
   return useQuery(
     orpc.database.mongoCollections.queryOptions({

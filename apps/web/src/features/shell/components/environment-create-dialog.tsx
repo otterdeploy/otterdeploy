@@ -43,7 +43,7 @@ export function EnvironmentCreateDialog({ projectId, open, onOpenChange }: Props
       const slug = value.slug;
       const id = createId(ID_PREFIX.environment);
 
-      // Optimistic insert — the row is already in the collection, so close
+      // Optimistic insert: the row is already in the collection, so close
       // instantly. tx.isPersisted.promise rolls the row back on reject.
       const tx = envCollection.insert(
         newPersistentEnvRow({

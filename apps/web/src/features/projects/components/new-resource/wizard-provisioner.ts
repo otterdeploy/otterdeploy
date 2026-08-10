@@ -45,14 +45,14 @@ export interface ServiceCreatePayload {
   root: string;
   // Bound repo as portable "owner/repo" + its branch, threaded into the
   // manifest so the created service is actually bound. Undefined for image
-  // sources (and for a git service the operator left unbound — apply then
+  // sources (and for a git service the operator left unbound, apply then
   // surfaces the clear "no git repo binding" skip rather than silently
   // creating an unbuildable service).
   repo?: string;
   branch?: string;
   // Framework detected on the Source step (git.inspectRepo). Carried so the
   // ghost node can show its brand logo before the built resource lands with the
-  // persisted value. Optional — undefined when nothing was detected.
+  // persisted value. Optional, undefined when nothing was detected.
   framework?: Framework | null;
 }
 
@@ -76,12 +76,12 @@ export function useResourceProvisioner({
   onComplete?: () => void;
 }) {
   const stage = useStageManifestChange(projectId, {
-    successToast: "Resource staged — review and Apply",
+    successToast: "Resource staged. Review and Apply.",
   });
   const navigate = useNavigate();
 
   // After a create stages, close the dialog and drop the operator on the
-  // graph — that's where the new node lives (as a pending "ghost" until
+  // graph: that's where the new node lives (as a pending "ghost" until
   // applied) and where the pending-changes bar's Apply button sits.
   // Without this the wizard just closed in place and the resource appeared
   // "nowhere". useStageManifestChange owns the staged/failed toasts, so
@@ -119,7 +119,7 @@ export function useResourceProvisioner({
   const runServiceCreate = async (payload: ServiceCreatePayload) => {
     try {
       // Git-sourced services build with railpack straight into the swarm
-      // node's docker daemon — no container registry required. A project
+      // node's docker daemon, no container registry required. A project
       // may still bind an external registry (for remote/multi-node pulls);
       // when it does, the builder pushes there, but it's never a gate on
       // creating the service.
@@ -131,7 +131,7 @@ export function useResourceProvisioner({
       // A public port row with no typed hostname publishes at the
       // server-derived FQDN (the same one the Networking/Review steps
       // previewed). Resolve it now so the staged manifest carries a real
-      // `domains` seed — failing that, refuse to create rather than silently
+      // `domains` seed, failing that, refuse to create rather than silently
       // shipping the "public" service internal-only.
       let derivedPublicHost: string | null = null;
       if (payload.ports.some((p) => p.public && p.port > 0 && p.host.trim() === "")) {
@@ -143,7 +143,7 @@ export function useResourceProvisioner({
           derivedPublicHost = preview.fqdn;
         } catch {
           toast.error(
-            "Couldn't resolve a public hostname for this service — nothing was created. Type a hostname on the Networking step or turn Public off.",
+            "Couldn't resolve a public hostname for this service, so nothing was created. Type a hostname on the Networking step or turn Public off.",
           );
           return;
         }
@@ -157,14 +157,14 @@ export function useResourceProvisioner({
         },
       }));
       // Seed the ghost node's brand logo from the framework the wizard already
-      // detected — the manifest is framework-free, so this client hint carries
+      // detected: the manifest is framework-free, so this client hint carries
       // it until the real resource lands with its persisted value.
       if (payload.framework) {
         setPendingFramework(projectId, `service:${payload.name}`, payload.framework);
       }
       finish();
     } catch {
-      // See runDatabaseCreate — stage hook owns failure toasts.
+      // See runDatabaseCreate. Stage hook owns failure toasts.
     }
   };
 

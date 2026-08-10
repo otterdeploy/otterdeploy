@@ -1,10 +1,10 @@
 /**
- * "Sign in with SSO" — the enterprise-identity-provider entry point on the
+ * "Sign in with SSO": the enterprise-identity-provider entry point on the
  * sign-in page.
  *
  * Distinct from `SocialSignIn` next to it: that renders a fixed set of buttons
  * for social providers the INSTALL has configured (GitHub, Google, GitLab).
- * This one is per-workspace and discovered at runtime — the user types an email,
+ * This one is per-workspace and discovered at runtime. The user types an email,
  * the server matches its domain against a registered `sso_provider` row and
  * redirects to whichever IdP owns it. There is nothing to render a button for
  * up front, because the set of providers is a property of the address.

@@ -2,7 +2,7 @@
  * NetBird Management API client.
  *
  * Works identically against the hosted service (https://api.netbird.io) and a
- * self-hosted management server — the base URL is the ONLY difference, which
+ * self-hosted management server: the base URL is the ONLY difference, which
  * is why "BYO hosted" and "BYO self-hosted" are one provider rather than two.
  *
  * Two details that are easy to get wrong and expensive to debug:
@@ -50,7 +50,7 @@ const REQUEST_TIMEOUT_MS = 15_000;
 export interface NetbirdClientOptions {
   /** Management API base, e.g. https://api.netbird.io or a self-hosted URL. */
   managementUrl: string;
-  /** Personal access token (plaintext — decrypt at the call site). */
+  /** Personal access token (plaintext, decrypt at the call site). */
   token: string;
   /** Injectable for tests. */
   fetchImpl?: typeof fetch;
@@ -87,7 +87,7 @@ export class NetbirdClient implements MeshProviderClient {
       response = await this.fetchImpl(url, {
         method: init?.method ?? "GET",
         headers: {
-          // NetBird PATs use the `Token` scheme — `Bearer` is only for IdP JWTs.
+          // NetBird PATs use the `Token` scheme. `Bearer` is only for IdP JWTs.
           Authorization: `Token ${this.token}`,
           Accept: "application/json",
           ...(init?.body ? { "Content-Type": "application/json" } : {}),
@@ -96,7 +96,7 @@ export class NetbirdClient implements MeshProviderClient {
         signal: controller.signal,
       });
     } catch (err) {
-      // Never reached the provider — a reachability problem, NOT a credential
+      // Never reached the provider. A reachability problem, NOT a credential
       // problem. Reporting this as "invalid token" sends operators chasing the
       // wrong thing, so `status` stays null and the message says what happened.
       const reason = err instanceof Error ? err.message : String(err);
@@ -215,14 +215,14 @@ export class NetbirdClient implements MeshProviderClient {
 
   async ensureAccessPolicy(spec: AccessPolicySpec): Promise<void> {
     // NetBird is zero-trust: nothing is reachable until a policy says so. We
-    // therefore never widen access implicitly — an empty source set means the
+    // therefore never widen access implicitly: an empty source set means the
     // operator hasn't chosen who may connect, and the correct outcome is no
     // policy at all rather than a permissive one.
     if (spec.sourceGroupIds.length === 0 || spec.destinationGroupIds.length === 0) return;
 
     const body = {
       name: spec.name,
-      description: "Managed by otterdeploy — access to private services",
+      description: "Managed by otterdeploy: access to private services",
       enabled: true,
       rules: [
         {

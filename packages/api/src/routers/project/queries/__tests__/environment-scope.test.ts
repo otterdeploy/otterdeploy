@@ -23,8 +23,8 @@ describe("resolveEnvironmentScope", () => {
   });
 
   // The distinction that matters: only main inherits the unstamped (NULL) rows.
-  // Getting isMain wrong for staging would show it production's resources —
-  // the exact bug this scoping exists to prevent.
+  // Getting isMain wrong for staging would show it production's resources.
+  // The exact bug this scoping exists to prevent.
   it("marks a non-main environment as not-main", () => {
     expect(resolveEnvironmentScope({ environmentId: MAIN }, STAGING)).toEqual({
       environmentId: STAGING,

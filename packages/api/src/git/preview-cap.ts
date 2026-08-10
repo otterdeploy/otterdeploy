@@ -3,7 +3,7 @@
  *
  * Idle teardown (`preview-reaper.ts`) bounds how LONG a preview lives. Nothing
  * bounded how MANY existed, so a busy repository could open twenty pull
- * requests and provision twenty databases — the disk cost scales with review
+ * requests and provision twenty databases: the disk cost scales with review
  * activity rather than with anything the operator chose.
  *
  * Two rules make this behave the way an operator expects:
@@ -15,7 +15,7 @@
  *   2. **An existing preview is never re-capped.** A push to an already-open PR
  *      updates its preview, so it must pass even when the project is at or over
  *      the cap. Refusing there would strand an in-flight review at a stale
- *      commit — the cap would break the previews it was meant to protect.
+ *      commit: the cap would break the previews it was meant to protect.
  *
  * Pinned previews count. So do comment-triggered ones. A cap that some route
  * can sidestep is not a cap, and pinning is exactly what someone would reach
@@ -41,7 +41,7 @@ export type PreviewCapVerdict =
  * May this project open ONE more preview for (repo, pr)?
  *
  * Existing previews for the same (repo, pr) are excluded from the count and
- * short-circuit to allowed — see rule 2 above.
+ * short-circuit to allowed. See rule 2 above.
  *
  * This is a check-then-act, so two pull requests opened in the same instant can
  * both observe a free slot and land at cap+1. That is deliberate: the cap is a
@@ -69,7 +69,7 @@ export async function checkPreviewCap(input: {
       ),
     )
     .limit(1);
-  // Already has a preview — this is a synchronize, not a new slot.
+  // Already has a preview. This is a synchronize, not a new slot.
   if (existing.length > 0) return { allowed: true };
 
   // `state = 'active'` is the occupancy test, not `paused`: a paused preview has
@@ -99,7 +99,7 @@ export async function checkPreviewCap(input: {
  */
 export function previewCapMessage(verdict: { cap: number; current: number }): string {
   return [
-    `**Preview not created** — this project is at its limit of ${verdict.cap} concurrent previews (${verdict.current} open).`,
+    `**Preview not created**. This project is at its limit of ${verdict.cap} concurrent previews (${verdict.current} open).`,
     "",
     "Close or tear down another preview to free a slot, or raise the limit in Settings → Instance.",
   ].join("\n");
@@ -114,7 +114,7 @@ export function previewCapMessage(verdict: { cap: number; current: number }): st
  * repo instead.
  *
  * Best-effort and never throws. A repo with no App installation (a public fork,
- * a soft-revoked install) cannot be commented on at all — the refusal is still
+ * a soft-revoked install) cannot be commented on at all. The refusal is still
  * logged, which is what the operator sees.
  */
 export async function reportPreviewCapRefusal(input: {

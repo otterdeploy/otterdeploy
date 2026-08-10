@@ -9,7 +9,7 @@ import { MeshProviderError } from "../types";
 /**
  * Index into a fixture array, failing loudly when the element is missing.
  *
- * Replaces `calls[0]!` — a bare non-null assertion turns "the code under test
+ * Replaces `calls[0]!`. A bare non-null assertion turns "the code under test
  * made fewer requests than expected" into "cannot read properties of
  * undefined", which names the symptom and hides the cause. This names the
  * cause.
@@ -81,7 +81,7 @@ describe("resolvePeerDomain", () => {
 
   it("falls back to the zone observed on a real peer", () => {
     // Self-hosted deployments commonly leave dns_domain unset while using a
-    // non-default zone — an assumed netbird.cloud would break every hostname.
+    // non-default zone: an assumed netbird.cloud would break every hostname.
     expect(
       resolvePeerDomain({ id: "a" }, [{ id: "p", dns_label: "host.netbird.selfhosted" }]),
     ).toEqual({ domain: "netbird.selfhosted", source: "peer-dns-label" });
@@ -176,7 +176,7 @@ describe("error classification", () => {
 describe("removePeer", () => {
   it("treats an already-deleted peer as success", async () => {
     // Teardown must be idempotent: a retried server delete shouldn't fail
-    // because the peer is already gone — that IS the desired end state.
+    // because the peer is already gone. That IS the desired end state.
     const { impl } = stubFetch([{ status: 404, text: "" }]);
     await expect(
       new NetbirdClient({

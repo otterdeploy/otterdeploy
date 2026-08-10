@@ -1,7 +1,7 @@
 /**
  * Wait-for primitives over the docker event bus.
  *
- * These replace poll loops in consumers — instead of "every 2s, re-query
+ * These replace poll loops in consumers: instead of "every 2s, re-query
  * docker until the thing exists", you `await waitForServiceCreate(name)`
  * and the promise resolves the moment docker emits the event. Each helper
  * still takes a deadline so callers can bound the wait without writing
@@ -17,7 +17,7 @@ interface WaitOptions {
    *  with a clear timeout error so callers can render a sensible message
    *  instead of hanging the request. */
   timeoutMs: number;
-  /** Optional abort signal — useful for tying the wait to a streaming
+  /** Optional abort signal: useful for tying the wait to a streaming
    *  request that's already wired to AbortController. */
   signal?: AbortSignal;
 }

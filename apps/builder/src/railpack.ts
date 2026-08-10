@@ -16,7 +16,7 @@
  * For static sites (Vite / React / Vue / Angular) Railpack produces an
  * image that runs Caddy to serve the built assets with SPA history
  * fallback. Railpack keys this off the `RAILPACK_SPA_OUTPUT_DIR` env var
- * (read at `prepare` time) pointing at the build output dir — NOT the
+ * (read at `prepare` time) pointing at the build output dir, NOT the
  * Cloud-Foundry-style `Staticfile` that nixpacks used; railpack ignores
  * that file. When `spa` is set we pass `--env RAILPACK_SPA_OUTPUT_DIR=
  * <staticRoot>` to `prepare` (default `dist`, Vite's output), and expose
@@ -46,7 +46,7 @@ import { runProcess } from "./run-process";
 
 /** Frontend image that executes the BuildKit plan. Pinned to an explicit tag
  *  (NOT `latest`) and kept in lockstep with the railpack CLI version installed
- *  in the Dockerfile (ARG RAILPACK_VERSION) — the plan format and the frontend
+ *  in the Dockerfile (ARG RAILPACK_VERSION): the plan format and the frontend
  *  that runs it must agree, or BuildKit fails with cryptic errors like
  *  "secret RAILPACK_SPA_OUTPUT_DIR: not found". Bump both together. */
 const RAILPACK_FRONTEND = "ghcr.io/railwayapp/railpack-frontend:v0.35.0";
@@ -94,8 +94,8 @@ export async function railpackBuild(opts: {
   });
 
   // Package-manager pinning: rewrite the repo's `packageManager` field before
-  // railpack reads it. This is the one lever that works across every manager —
-  // bun resolves its version from `packageManager` via mise, while pnpm/yarn/
+  // railpack reads it. This is the one lever that works across every manager.
+  // Bun resolves its version from `packageManager` via mise, while pnpm/yarn/
   // npm are installed by Corepack, which reads the same field directly. An env
   // override (RAILPACK_PACKAGES) only reaches the bun/mise path, not Corepack,
   // so we rewrite the field itself. Applies an explicit override (UI/manifest)
@@ -130,7 +130,7 @@ export async function railpackBuild(opts: {
     }),
     env: {
       // Must match the value `prepare` baked into the plan (see
-      // buildPrepareArgs) — the secret mount reads it from this process env.
+      // buildPrepareArgs): the secret mount reads it from this process env.
       NODE_OPTIONS: `--max-old-space-size=${nodeBuildMaxOldSpaceMb()}`,
       ...(spaOutputDir ? { RAILPACK_SPA_OUTPUT_DIR: spaOutputDir } : {}),
     },
@@ -154,7 +154,7 @@ const OOM_SIGNATURE =
 function buildFailureMessage(exitCode: number, tail: string): string {
   if (OOM_SIGNATURE.test(tail)) {
     return (
-      `railpack build failed (exit ${exitCode}) — the server ran out of memory during the build. ` +
+      `railpack build failed (exit ${exitCode}): the server ran out of memory during the build. ` +
       "Free up memory (Instance → Server health → Reclaim space), add 2–4 GB of swap, " +
       "or build heavy apps on a bigger machine. The build itself was killed by the kernel, " +
       "not by a code error."
@@ -166,7 +166,7 @@ function buildFailureMessage(exitCode: number, tail: string): string {
 interface BuildLayout {
   /** Service subdir (monorepo), or null when building from the repo root. */
   subdir: string | null;
-  /** Repo root declares a package workspace — a subdir service builds from root. */
+  /** Repo root declares a package workspace: a subdir service builds from root. */
   isWorkspace: boolean;
   /** Build context dir passed to railpack/buildx. */
   buildDir: string;
@@ -183,13 +183,13 @@ interface BuildLayout {
  *
  * Monorepo workspaces: when the service lives in a subdirectory of a workspace
  * repo (npm/yarn/bun `workspaces`, or pnpm-workspace.yaml), railpack MUST
- * analyse and build from the repo ROOT — that's where the lockfile, the
+ * analyse and build from the repo ROOT. That's where the lockfile, the
  * workspace catalog, and the sibling `packages/*` the app depends on live.
  * Pointed at the subdir alone it misdetects the package manager (no lockfile /
  * `packageManager` field there → falls back to npm) and the buildx context is
  * missing every workspace dependency, so install dies (e.g. `npm error
  * Unsupported URL Type "catalog:"`). We keep the root as the context and target
- * the app via cd-wrapped build/start commands (see `resolveBuildCommands`) —
+ * the app via cd-wrapped build/start commands (see `resolveBuildCommands`).
  * Railpack's own recommended monorepo flow (https://railpack.com/languages/node).
  *
  * A subdir NOT inside a workspace (a self-contained app folder with its own
@@ -214,7 +214,7 @@ async function resolveBuildLayout(opts: {
     ? opts.config.staticRoot?.trim() || DEFAULT_STATIC_ROOT
     : null;
   // For a workspace build the context is the repo root, so the app's output
-  // sits under its subdir — prepend it. Guard against a staticRoot that ALREADY
+  // sits under its subdir. Prepend it. Guard against a staticRoot that ALREADY
   // carries the subdir (older configs stored the repo-root-relative
   // `<subdir>/dist`): prepending again produced `apps/web/apps/web/dist` and the
   // COPY step failed. Only prepend when it isn't already subdir-qualified.
@@ -240,7 +240,7 @@ async function resolveBuildLayout(opts: {
  * Non-workspace builds: pass the user's build command through unchanged and let
  * railpack auto-detect the start command. Workspace builds: derive both from the
  * app's own package.json and run them inside its subdir (node resolves the
- * hoisted root node_modules) — railpack analysing the root finds no start script
+ * hoisted root node_modules): railpack analysing the root finds no start script
  * and would fail `--error-missing-start`.
  */
 async function resolveBuildCommands(opts: {
@@ -253,7 +253,7 @@ async function resolveBuildCommands(opts: {
   const configBuild = opts.configBuildCommand?.trim() || null;
 
   if (!isWorkspace || !subdir) {
-    // railpack auto-detects the start command for a single-app build — except it
+    // railpack auto-detects the start command for a single-app build. Except it
     // mis-detects TanStack Start (SSR, builds to `.output/`) as a static site and
     // bakes a `COPY /app/dist` that never exists. tanstackStartCommand forces the
     // app's own start script in that case (server deploy), else returns null and
@@ -287,7 +287,7 @@ async function resolveBuildCommands(opts: {
  * Assemble the `railpack prepare` args. `--error-missing-start` fails the build
  * LOUDLY at analysis time when railpack can't find a way to start the app,
  * instead of emitting a runnable-less image that builds fine but exits on boot
- * (surfacing only as an opaque "swarm convergence failed" much later — railpack
+ * (surfacing only as an opaque "swarm convergence failed" much later, railpack
  * instead prints an actionable message: add a `start` script, a `main` field, or
  * set RAILPACK_SPA_OUTPUT_DIR for a static site). A static SPA rides on the
  * `--env RAILPACK_SPA_OUTPUT_DIR` flag, which railpack reads at prepare time.
@@ -303,7 +303,7 @@ function nodeBuildMaxOldSpaceMb(): number {
     const totalMb = Math.floor(kb / 1024);
     if (totalMb > 0) return Math.max(1024, Math.min(Math.floor(totalMb * 0.6), 6144));
   } catch {
-    // /proc unavailable (non-Linux, restricted) — fall through to the default.
+    // /proc unavailable (non-Linux, restricted): fall through to the default.
   }
   return 2048;
 }
@@ -311,7 +311,7 @@ function nodeBuildMaxOldSpaceMb(): number {
 /**
  * Providers that ship files as-is: they run no build step, so whatever is in
  * the repo is what gets served. Asking one of these to serve a build *output*
- * directory is a contradiction — nothing will ever create it.
+ * directory is a contradiction. Nothing will ever create it.
  */
 const NON_BUILDING_PROVIDERS = new Set(["staticfile"]);
 
@@ -322,8 +322,8 @@ const NON_BUILDING_PROVIDERS = new Set(["staticfile"]);
  * The incident: a service configured `spa` with output `dist` logged
  * `SPA mode: serving "dist" via Caddy with history fallback`, and only
  * afterwards did railpack report `↳ Detected Staticfile`. The Staticfile
- * provider's entire build was `caddy fmt --overwrite Caddyfile` — it never runs
- * a bundler — so the image shipped a Caddy rooted at a `dist/` that did not
+ * provider's entire build was `caddy fmt --overwrite Caddyfile`. It never runs
+ * a bundler, so the image shipped a Caddy rooted at a `dist/` that did not
  * exist. Every request 404'd. The two log lines contradicted each other on
  * screen, in order, and the build proceeded anyway.
  *
@@ -354,7 +354,7 @@ export function assertProviderCanServeSpa(opts: {
     `This service is set to serve the build output directory "${spaOutputDir}", but Railpack ` +
       `detected only the ${offending.join(", ")} provider, which runs no build step and would ` +
       `serve an empty directory. Railpack usually falls back to Staticfile when it cannot find a ` +
-      `project manifest — check that the root directory contains the package.json (or Dockerfile) ` +
+      `project manifest. Check that the root directory contains the package.json (or Dockerfile) ` +
       `for this app.`,
   );
 }
@@ -412,7 +412,7 @@ function buildBuildxArgs(opts: {
       ? ["--secret", "id=RAILPACK_SPA_OUTPUT_DIR,env=RAILPACK_SPA_OUTPUT_DIR"]
       : []),
     // prepare always injects NODE_OPTIONS (the build memory guard), which the
-    // generated plan consumes as a build secret — same mechanism as the SPA
+    // generated plan consumes as a build secret. Same mechanism as the SPA
     // output dir. Without this flag every railpack build fails with
     // "failed to solve: secret NODE_OPTIONS: not found".
     "--secret",

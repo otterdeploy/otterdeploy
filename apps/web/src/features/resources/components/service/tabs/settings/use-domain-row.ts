@@ -1,6 +1,6 @@
 /**
- * Every mutation a single domain row can fire — recheck, set-primary,
- * update, remove, and the Cloudflare auto-configure — plus the toasts they
+ * Every mutation a single domain row can fire. Recheck, set-primary,
+ * update, remove, and the Cloudflare auto-configure. Plus the toasts they
  * report through.
  *
  * Split out of ./domain-row so that component stays about layout: the row
@@ -23,7 +23,7 @@ export interface DomainRowActionsApi {
   remove: { run: () => void };
   update: { run: (value: { domain: string; port: number }) => void; pending: boolean };
   autoConfigure: { run: () => void; pending: boolean };
-  /** Any write in flight — the row disables its actions on this. */
+  /** Any write in flight, the row disables its actions on this. */
   busy: boolean;
 }
 
@@ -36,7 +36,7 @@ export function useDomainRow({
 }: {
   input: { projectId: ProjectId; resourceId: ResourceId };
   routeId: string;
-  /** Current hostname — only used to word the toasts. */
+  /** Current hostname: only used to word the toasts. */
   domain: string;
   onSettled: () => Promise<void>;
   /** Called after a successful rename so the row can leave edit mode. */
@@ -50,7 +50,7 @@ export function useDomainRow({
       if (!res.ownershipVerified) {
         toast.warning(`TXT ownership proof for ${res.domain} was not found yet`);
       } else if (res.dnsState === "pointed") {
-        toast.success(`${res.domain} points here — certificate will issue`);
+        toast.success(`${res.domain} points here. Certificate will issue`);
       } else if (res.dnsState === "proxied") {
         toast.success(`${res.domain} is proxied via Cloudflare`);
       } else {
@@ -65,7 +65,7 @@ export function useDomainRow({
     ...orpc.service.domains.autoConfigureDns.mutationOptions(),
     onSuccess: () => {
       toast.success(`DNS records created for ${domain}`);
-      // Records exist now, so the ownership check can actually pass — run it
+      // Records exist now, so the ownership check can actually pass. Run it
       // rather than making the operator find Recheck themselves.
       recheck.mutate(route);
     },

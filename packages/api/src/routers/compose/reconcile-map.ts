@@ -100,21 +100,21 @@ export function composeVolumeName(stackName: string, volumeName: string): string
 /**
  * Compose mounts → the runtime's mount records.
  *
- * NAMED VOLUMES were previously dropped here — the loop skipped everything that
+ * NAMED VOLUMES were previously dropped here. The loop skipped everything that
  * was not a bind, and the comment claimed they were "left as-is". They were not
  * left anywhere. Nothing mounted them, so a service either fell back to an
  * ANONYMOUS volume created by its image's own VOLUME directive (a fresh, empty
- * one on every redeploy — silent data loss for rustfs and every bundled
+ * one on every redeploy: silent data loss for rustfs and every bundled
  * Postgres) or got no persistence at all. Vaultwarden is the only reason this
  * surfaced: it refuses to start without a real mount at /data and said so.
  *
  * Bind mounts still need a materialized file tree (`stackDir`, multi-file
- * inline stacks); named volumes need nothing — docker creates them on first
+ * inline stacks); named volumes need nothing. Docker creates them on first
  * use, and a deterministic name means a redeploy reattaches the same data.
  *
  * ALLOWLISTED HOST BINDS are checked before the `stackDir` guard, and that
  * order is the whole fix. A single-file stack (every catalog template) has no
- * materialized tree, so the guard dropped its binds outright — the Dozzle
+ * materialized tree, so the guard dropped its binds outright. The Dozzle
  * template asked for the docker socket, silently got no mount at all, and
  * crash-looped on "Could not connect to any Docker Engine". See ../../lib/
  * host-binds.ts for what is listed and why the list is short.
@@ -179,8 +179,8 @@ export function toServiceFields(
   >;
   ports: CreateServiceInput["ports"];
   env: Array<{ key: string; value: string; isSecret: boolean }>;
-  /** Named volumes, allowlisted host binds, and — for a multi-file inline stack
-   *  — binds resolved into the materialized tree. Seeded on create; only the
+  /** Named volumes, allowlisted host binds, and. For a multi-file inline stack.
+   *  Binds resolved into the materialized tree. Seeded on create; only the
    *  allowlisted host binds are re-applied on update (reconcile-materialize). */
   mounts: MappedMount[];
 } {
@@ -198,7 +198,7 @@ export function toServiceFields(
     value,
     isSecret: isSecretKey(key),
   }));
-  // First http-ish port (tcp) is the primary — the one a public domain fronts.
+  // First http-ish port (tcp) is the primary, the one a public domain fronts.
   const seenPorts = new Set<number>();
   let primaryAssigned = false;
   const ports: CreateServiceInput["ports"] = [];
@@ -242,13 +242,13 @@ export function toServiceFields(
  * `authentik` + `server` → `authentik-server`, not `server`. Compose service
  * keys are written for the file's own scope, so half the catalog names its main
  * container `server`, `web`, `app` or `db`. Those became the resource name AND,
- * through it, the generated host — so Authentik's UI landed on
+ * through it, the generated host, so Authentik's UI landed on
  * `server-store.<ip>.sslip.io`, which says nothing about what it serves and
  * collides with the next stack that also has a `server`.
  *
  * The exception is the namesake: a single-service stack named after its service
  * (`rustfs` containing `rustfs`) would otherwise become `rustfs-rustfs`. There
- * the stack's own name IS the answer, so the child takes it — and the stack
+ * the stack's own name IS the answer, so the child takes it, and the stack
  * resource already owns that name, which is what the numeric fallback below is
  * for. This replaces the old `-service` suffix, which put a disambiguator the
  * operator never chose into every URL.
@@ -266,7 +266,7 @@ export async function pickResourceName(
   // The namesake case ALWAYS lands here: the stack resource already owns that
   // exact name, so candidate 0 can never be free for it. `-service` says what
   // the row is; `-2` implies a sibling that does not exist (and is what shipped
-  // for a moment — `vaultwarden-2`).
+  // for a moment: `vaultwarden-2`).
   const candidateAt = (i: number) =>
     i === 0 ? base : i === 1 ? `${base}-service` : `${base}-${i}`;
   for (let i = 0; i < 50; i++) {
@@ -278,6 +278,6 @@ export async function pickResourceName(
       .limit(1);
     if (!exists) return candidate;
   }
-  // Extremely unlikely — fall back to a stack-scoped suffix.
+  // Extremely unlikely: fall back to a stack-scoped suffix.
   return `${base}-${composeName.length}`;
 }

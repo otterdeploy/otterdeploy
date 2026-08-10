@@ -37,7 +37,7 @@ import { ClusterStatTiles, FilterPill, ServersPending } from "../-components/ser
 import { ServersTable } from "../-components/servers-table";
 
 // Pulled out of ServersRoute (rather than inline IIFEs) to keep the
-// component's own branching under the complexity budget — these are pure
+// component's own branching under the complexity budget. These are pure
 // reshapes with no hook or JSX involvement.
 function toMapBy<T>(items: readonly T[], keyOf: (item: T) => string): Map<string, T> {
   const map = new Map<string, T>();
@@ -126,7 +126,7 @@ function ProjectFilters({
   );
 }
 
-// `tab` picks the section (Overview / Raw Docker / Install health — the
+// `tab` picks the section (Overview / Raw Docker / Install health, the
 // latter merged in from the standalone Platform page, od-u63.4); `dockerTab`
 // is forwarded from the old `/docker?tab=` deep links so a specific Docker
 // sub-tab (containers/images/volumes/networks/tasks) stays reachable through
@@ -138,7 +138,7 @@ type ServersTab = (typeof SERVERS_TABS)[number];
  * Raw Docker (`docker.*` + `volumes.*`) and Install health (`metrics.platform`)
  * are install-admin in their entirety, so both tabs are omitted for anyone
  * else. Overview is org-scoped (`server.list` / `stats` / `health` /
- * `swarmNodes`) and stays — except the local-host health card, which is
+ * `swarmNodes`) and stays. Except the local-host health card, which is
  * `system.hostHealth`; see `LocalHostHealth` in -components/servers-install-admin.
  */
 const SERVERS_TABS_INSTALL_ADMIN: ReadonlySet<string> = new Set<ServersTab>([
@@ -147,7 +147,7 @@ const SERVERS_TABS_INSTALL_ADMIN: ReadonlySet<string> = new Set<ServersTab>([
 ]);
 
 /** A `?tab=docker` deep link must not reach the plane a hidden trigger just
- *  removed — otherwise the tab is "hidden" but the 403 is one URL away. */
+ *  removed. Otherwise the tab is "hidden" but the 403 is one URL away. */
 function resolveServersTab(tab: ServersTab, isInstallAdmin: boolean): ServersTab {
   if (isInstallAdmin || !SERVERS_TABS_INSTALL_ADMIN.has(tab)) return tab;
   return "overview";
@@ -165,7 +165,7 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/servers")({
     await serverCollection.preload();
     // Warm the Install health tab's platform-metrics query on hover
     // (intent-preload), same as the standalone Platform page used to.
-    // Non-blocking + best-effort — and skipped entirely for viewers who can't
+    // Non-blocking + best-effort, and skipped entirely for viewers who can't
     // open that tab, since a loader prefetch fires on navigation regardless of
     // which tab is rendered.
     if (context.isInstallAdmin) {
@@ -200,9 +200,9 @@ function ServersRoute() {
     () => serverClusterStatsCollection,
   );
   // Latest per-server health snapshots (local sampler + swarm agents, 30s
-  // poll) — feeds the Live column and the row detail sheet.
+  // poll): feeds the Live column and the row detail sheet.
   const { data: healthArr = [] } = useLiveQuery(() => serverHealthCollection);
-  // Live swarm topology (10s poll) — quorum card, leader markers, and the
+  // Live swarm topology (10s poll). Quorum card, leader markers, and the
   // sheet's role/membership actions. `swarm: false` on plain docker.
   const { data: swarmArr = [] } = useLiveQuery(() => swarmNodesCollection);
   const swarmView = swarmArr[0] ?? null;
@@ -288,7 +288,7 @@ function ServersRoute() {
           if (!open) setOpenServerId(null);
         }}
       />
-      {/* Keyed so a re-add remounts the form — TanStack Form reads
+      {/* Keyed so a re-add remounts the form. TanStack Form reads
           defaultValues on mount only, so a live prop change wouldn't apply. */}
       <ServerCreateDialog
         key={addDialog.formKey}

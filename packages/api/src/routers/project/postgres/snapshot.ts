@@ -6,7 +6,7 @@
  * read it back, write the fields onto the resource row, and trigger a
  * normal redeploy without having to re-derive anything.
  *
- * `kind` is the discriminator — the resource detail handler reads it to
+ * `kind` is the discriminator. The resource detail handler reads it to
  * know which snapshot reader to apply (postgres vs service vs future
  * engines). Bump the version any time the shape changes incompatibly so
  * old snapshots can be migrated or refused with a clear error.
@@ -27,7 +27,7 @@ export type PostgresSnapshotV1 = {
   internalHostname: string;
   extraEnv: Record<string, string>;
   /** Enabled extensions at snapshot time. Optional so snapshots written
-   *  before the extensions feature still parse — treat absent as []. */
+   *  before the extensions feature still parse. Treat absent as []. */
   extensions?: string[];
 };
 

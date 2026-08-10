@@ -1,10 +1,10 @@
 /**
- * Per-channel delivery history — opened from the channel card ("View
+ * Per-channel delivery history, opened from the channel card ("View
  * deliveries" / clicking the stats row). Answers "what actually went through
  * THIS destination?": a 7-day per-event breakdown up top, then the raw
  * delivery log (newest first, keyset load-more) with provider errors inline.
  * Backed by `notifications.deliveries`; all rows are real `notification_
- * delivery` records — no synthesized history.
+ * delivery` records, no synthesized history.
  */
 import type { ReactNode } from "react";
 
@@ -61,7 +61,7 @@ export function DeliveryHistoryDialog({ open, onOpenChange, channel }: DeliveryH
   });
 
   const pages = query.data?.pages ?? [];
-  // The 7d breakdown is identical on every page — read it off the first.
+  // The 7d breakdown is identical on every page. Read it off the first.
   const breakdown = pages[0]?.breakdown7d ?? [];
   const items = pages.flatMap((p) => p.items);
 
@@ -137,7 +137,7 @@ function Breakdown({ rows }: { rows: DeliveriesPage["breakdown7d"] }) {
       <SectionLabel>{t("notifications.eventsLast7Days")}</SectionLabel>
       {rows.length === 0 ? (
         <p className="text-[12px] text-muted-foreground">
-          Nothing in the last 7 days — older deliveries are listed below.
+          Nothing in the last 7 days. Older deliveries are listed below.
         </p>
       ) : (
         <div className="overflow-hidden rounded-md border">

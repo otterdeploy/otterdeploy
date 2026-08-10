@@ -8,8 +8,8 @@ import { ProjectVisual } from "./visuals-project";
 /**
  * The feature showcase: four panels, each one claim with the interface that
  * backs it up. Panels alternate sides so the eye zig-zags down the page
- * instead of scanning one column, and the visual is always the larger half —
- * this is the part of the page that has to show rather than tell.
+ * instead of scanning one column, and the visual is always the larger half.
+ * This is the part of the page that has to show rather than tell.
  */
 
 interface PanelProps {
@@ -65,7 +65,7 @@ export function Showcase() {
         id="deploy"
         eyebrow="deploy"
         title="Connect a repo. Push. That's the deploy."
-        body="The repo is inspected, the framework is detected, and Railpack builds it — no Dockerfile to write and keep current, though it'll use yours if there is one. The image rolls out as a Swarm service, the old one drains, and the whole thing is one log you can watch."
+        body="The repo is inspected, the framework is detected, and Railpack builds it, no Dockerfile to write and keep current, though it'll use yours if there is one. The image rolls out as a Swarm service, the old one drains, and the whole thing is one log you can watch."
         points={[
           "Next.js, Astro, Go, Rust, static",
           "Dockerfile when you want it",
@@ -78,7 +78,7 @@ export function Showcase() {
         id="project"
         eyebrow="projects"
         title="Your services, drawn the way you think about them"
-        body="A project is a canvas: services, databases and compose stacks, with the wiring between them visible. Click a node for its logs, metrics, variables and domains — no hunting through tabs to find out what's actually running."
+        body="A project is a canvas: services, databases and compose stacks, with the wiring between them visible. Click a node for its logs, metrics, variables and domains, no hunting through tabs to find out what's actually running."
         points={[
           "Live status per node",
           "Compose stacks as one resource",
@@ -92,7 +92,7 @@ export function Showcase() {
         id="edge"
         eyebrow="edge"
         title="Domains that tell you the truth"
-        body="Point a domain at your box and the Caddy edge picks it up, issues the certificate and starts routing. When something isn't right, it says which part — the DNS hasn't propagated, or the certificate is still being issued."
+        body="Point a domain at your box and the Caddy edge picks it up, issues the certificate and starts routing. When something isn't right, it says which part. The DNS hasn't propagated, or the certificate is still being issued."
         points={["Automatic HTTPS", "Multi-domain routing", "Password-wall a deployment"]}
         visual={<RoutesVisual />}
       />
@@ -101,7 +101,7 @@ export function Showcase() {
         id="data"
         eyebrow="data"
         title="Databases your services can just ask for"
-        body="Provision Postgres, Redis, MariaDB, MongoDB or ClickHouse next to the app that needs it. Reference it by name and the connection string is filled in at deploy — nothing copied, nothing to rotate by hand. Secrets can be sealed so even the API won't read them back."
+        body="Provision Postgres, Redis, MariaDB, MongoDB or ClickHouse next to the app that needs it. Reference it by name and the connection string is filled in at deploy. Nothing copied, nothing to rotate by hand. Secrets can be sealed so even the API won't read them back."
         points={["Five engines", "Encrypted backups", "Restore to any snapshot"]}
         visual={<EnvVisual />}
         flip
@@ -111,7 +111,7 @@ export function Showcase() {
         id="previews"
         eyebrow="previews"
         title="Every pull request gets its own URL"
-        body="Open a PR and it comes up on its own deployment, with its own database copy if you want one. The link goes on the pull request. Close it and everything is torn down — and anything left idle is reaped without you remembering to."
+        body="Open a PR and it comes up on its own deployment, with its own database copy if you want one. The link goes on the pull request. Close it and everything is torn down, and anything left idle is reaped without you remembering to."
         points={["Per-PR deployments", "Optional database branching", "Automatic teardown"]}
         visual={<PreviewVisual />}
       />

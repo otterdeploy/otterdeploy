@@ -3,12 +3,12 @@ import { Docker } from "@otterdeploy/docker";
 export interface SwarmJoinTokens {
   worker: string;
   manager: string;
-  /** "<ip>:2377" — what the operator pastes after the token in
+  /** "<ip>:2377": what the operator pastes after the token in
    *  `docker swarm join --token … <managerAddr>`. */
   managerAddr: string;
 }
 
-const UNKNOWN = "—";
+const UNKNOWN = "–";
 const SWARM_PORT = 2377;
 
 interface SwarmInspect {
@@ -45,7 +45,7 @@ export async function getSwarmJoinTokens(): Promise<SwarmJoinTokens> {
       const swarmInfo = (info.value as DockerInfo).Swarm;
       const nodeAddr = swarmInfo?.NodeAddr;
       if (nodeAddr) {
-        // NodeAddr is bare IP — swarm port is the well-known 2377.
+        // NodeAddr is bare IP. Swarm port is the well-known 2377.
         managerAddr = nodeAddr.includes(":") ? nodeAddr : `${nodeAddr}:${SWARM_PORT}`;
       } else {
         const remote = swarmInfo?.RemoteManagers?.[0]?.Addr;

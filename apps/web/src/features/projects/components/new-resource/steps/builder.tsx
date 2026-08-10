@@ -28,7 +28,7 @@ const BUILDERS: Builder[] = [
   {
     id: "railpack",
     name: "Railpack",
-    sub: "Auto-detect — Node, Python, Go, Rust, Ruby…",
+    sub: "Auto-detect: Node, Python, Go, Rust, Ruby…",
     popular: true,
     langs: ["node", "python", "go", "rust", "ruby", "php", "elixir"],
   },
@@ -129,7 +129,7 @@ export function StepBuilder() {
     <>
       <SectionHeader
         title="How should we build it?"
-        sub="Auto-detected from your repo — change it if you need to"
+        sub="Auto-detected from your repo. Change it if you need to."
       />
 
       <DetectionBanner />

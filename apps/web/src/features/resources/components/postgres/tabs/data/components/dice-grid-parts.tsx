@@ -4,7 +4,7 @@
  * the row-detail slot.
  *
  * Split out of dice-grid.tsx because every one of these carried branching (or
- * lines) the grid component itself was being charged for — the adapter file is
+ * lines) the grid component itself was being charged for. The adapter file is
  * now just the wiring between the query result and the vendored DiceUI grid,
  * while the pieces that decide *what* a value/row/selection is live here.
  */

@@ -3,10 +3,10 @@
  * the `edge_event` table behind the live ring, so cert/ACME + upstream-error
  * events survive restarts and outlive the 5k in-memory window. Events are sparse
  * (vs. the high-volume access log), so this is a plain drizzle table with
- * DELETE-based retention — no partitioning.
+ * DELETE-based retention, no partitioning.
  *
  * Mirrors persist.ts (buffer + interval flush + retention sweep) and is started
- * from startEdgeLogPersistence so it shares the EDGE_LOG_PERSIST toggle — no
+ * from startEdgeLogPersistence so it shares the EDGE_LOG_PERSIST toggle, no
  * separate bootstrap wiring.
  */
 

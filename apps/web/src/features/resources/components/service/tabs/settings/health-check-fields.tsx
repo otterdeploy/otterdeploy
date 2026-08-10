@@ -1,5 +1,5 @@
 /**
- * Input row for the health-check card — the probe path plus the interval /
+ * Input row for the health-check card. The probe path plus the interval /
  * timeout / retries number fields. Split out of `health-check-card.tsx` to
  * keep that module within the file-size budget.
  */

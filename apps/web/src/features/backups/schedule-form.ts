@@ -1,6 +1,6 @@
 /**
  * Form state for the schedule editor: typed values, defaults, the optimistic
- * create/update mutation, and the `useScheduleForm` hook. No JSX — the field
+ * create/update mutation, and the `useScheduleForm` hook. No JSX. The field
  * layout lives in `./schedule-fields`.
  */
 import { useForm } from "@tanstack/react-form";
@@ -63,7 +63,7 @@ const NEW_SCHEDULE: ScheduleFormValues = {
  * Which destination a brand-new schedule starts with.
  *
  * Prefers the platform-managed local one: it always exists and needs no setup,
- * which is the whole point of it — creating a working schedule should not
+ * which is the whole point of it. Creating a working schedule should not
  * require configuring storage first. Falls back to any other enabled
  * destination, and never pre-selects a `disabled` one, since that would hand
  * the operator a schedule that silently writes nowhere.
@@ -158,7 +158,7 @@ function saveSchedule(
     destinationNames: value.destinationIds
       .map((id) => destinations.find((d) => d.id === id)?.name)
       .filter((n): n is string => Boolean(n)),
-    // Freshly created — the server resolves real source health on refetch.
+    // Freshly created. The server resolves real source health on refetch.
     missingSources: [],
   });
 }

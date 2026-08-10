@@ -1,11 +1,11 @@
 /**
- * `up` — zero-to-deployed in one command.
+ * `up`: zero-to-deployed in one command.
  *
  *   no config yet?  create/link the project, scaffold a config, optionally
  *                   define a first service, then deploy.
- *   config exists?  just deploy it (idempotent — re-run to redeploy).
+ *   config exists?  just deploy it (idempotent, re-run to redeploy).
  *
- * The deploy half IS `deploy`/`sync` — the shared runDeploy pipeline.
+ * The deploy half IS `deploy`/`sync`. The shared runDeploy pipeline.
  * `init` + `deploy` still exist for users who want the two steps apart;
  * `up` is the guided fast path.
  */
@@ -91,7 +91,7 @@ interface ScaffoldArgs {
 }
 
 // Create (or link) the project and write a starter config when none exists.
-// Mirrors `init` — then offers an interactive first service unless headless.
+// Mirrors `init`, then offers an interactive first service unless headless.
 async function scaffoldProject(
   client: CliClient,
   args: ScaffoldArgs,
@@ -130,7 +130,7 @@ async function scaffoldProject(
     detail([["file", dim(targetPath)]]);
   }
 
-  // A bare template deploys nothing useful — offer a first service.
+  // A bare template deploys nothing useful, offer a first service.
   if (!args.yes && !args.json) {
     await maybeAddFirstService(args.config);
   }
@@ -172,7 +172,7 @@ async function maybeAddFirstService(configOverride?: string): Promise<void> {
   } else {
     const image = await ask("Container image", "ghcr.io/org/app:latest");
     if (!image) {
-      warn("No image given — skipping the service.");
+      warn("No image given. Skipping the service.");
       hint(`edit the config, then run \`${cmd("deploy")}\``);
       return;
     }

@@ -1,5 +1,5 @@
 /**
- * `installation_repositories` webhook — fired when the install's repo
+ * `installation_repositories` webhook, fired when the install's repo
  * selection is narrowed/widened in the GitHub UI.
  */
 
@@ -30,7 +30,7 @@ export async function handleInstallationRepos(
         installationId,
         deliveryId,
       },
-      msg: "no installation row — connect flow hasn't claimed this install yet",
+      msg: "no installation row: connect flow hasn't claimed this install yet",
     });
     return { kind: "installation_repositories", added: 0, removed: 0 };
   }
@@ -60,7 +60,7 @@ export async function handleInstallationRepos(
 
   // Keep the stored (GitHub-truth) count in step. Delta arithmetic off the
   // webhook's own added/removed lists is exact when a full sync has set a
-  // baseline; a null baseline stays null ("unknown") — a delta can't invent
+  // baseline; a null baseline stays null ("unknown"). A delta can't invent
   // a total, only the next full sync can.
   if (ev.repositories_added?.length || ev.repositories_removed?.length) {
     const delta = (ev.repositories_added?.length ?? 0) - (ev.repositories_removed?.length ?? 0);

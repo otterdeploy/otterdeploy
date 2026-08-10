@@ -2,8 +2,8 @@
  * Audit-log data layer.
  *
  * The audit feed is an awkward fit for a TanStack DB collection: `audit.list`
- * returns a server-aggregated, server-paginated envelope — `{ items, counts,
- * total }` — where `counts`/`total` are computed over the *whole* filtered set
+ * returns a server-aggregated, server-paginated envelope: `{ items, counts,
+ * total }`: where `counts`/`total` are computed over the *whole* filtered set
  * and `q` is a free-text search across several columns. None of that lives on a
  * row. So we split the page's reads along the grain:
  *
@@ -43,7 +43,7 @@ export const RANGES = [
   { id: "custom", label: "Custom range", ms: 0 },
 ] as const;
 
-/** The filter selection — also the TanStack Form value shape. */
+/** The filter selection: also the TanStack Form value shape. */
 export interface AuditFilter {
   /** A `RANGES` id. */
   range: string;
@@ -78,7 +78,7 @@ export const DEFAULT_AUDIT_FILTER: AuditFilter = {
 };
 
 /** Resolve the filter's time window into ISO `from`/`to` bounds. Custom uses
- *  the picked dates (inclusive — `to` extends to end-of-day, local time, since
+ *  the picked dates (inclusive, `to` extends to end-of-day, local time, since
  *  that's what a date picker means to a human). Presets look back from "now". */
 export function auditWindow(filter: AuditFilter): { from?: string; to?: string } {
   if (filter.range === "custom") {
@@ -109,7 +109,7 @@ export function toAuditInput(filter: AuditFilter) {
 
 /**
  * Stable subset key for a filter selection. We key on the *range id*, not the
- * resolved `from` timestamp — `from` is recomputed from "now" on every render,
+ * resolved `from` timestamp. `from` is recomputed from "now" on every render,
  * so keying on it would thrash the subset every frame. (The custom `from`/`to`
  * are static user-picked strings, so they're safe to key on directly.)
  */
@@ -130,14 +130,14 @@ export function auditSubsetKey(filter: AuditFilter): string {
 const subsetKeySchema = z.string().min(1);
 
 const auditQueryOptions = queryCollectionOptions({
-  // Stable id — persistedCollectionOptions keys the SQLite table off it; a
+  // Stable id: persistedCollectionOptions keys the SQLite table off it; a
   // random per-load id would never round-trip (see project.ts).
   id: "audit",
   syncMode: "on-demand",
   queryKey: (opts) => {
     const base = ["audit"];
     const { filters } = parseLoadSubsetOptions(opts);
-    // Startup base-key call — query-db-collection calls `queryKey({})` once to
+    // Startup base-key call. Query-db-collection calls `queryKey({})` once to
     // compute the prefix every subset key extends. No filters yet.
     if (!filters.at(0)) return base;
     return [...base, parseCol(subsetKeySchema, filters, "key")];
@@ -150,20 +150,20 @@ const auditQueryOptions = queryCollectionOptions({
     const data = await client.audit.list(toAuditInput(filter));
     // Stamp the subset key onto each row so the live-query `eq(a.key, …)`
     // matches client-side (rows are already server-filtered). `counts`/`total`
-    // are dropped here — they're aggregates, not row data; the route reads
+    // are dropped here. They're aggregates, not row data; the route reads
     // them from its companion query.
     return data.items.map((it) => ({ ...it, key }));
   },
   queryClient,
   getKey: (item) => item.id,
-  // Append-only feed — keep the page live without a manual refetch loop.
+  // Append-only feed: keep the page live without a manual refetch loop.
   refetchInterval: 15_000,
 });
 
 /** The subset-stamped row: an event plus the serialized filter key. */
 type AuditRow = AuditEvent & { key: string };
 
-// Call `createCollection` inside each branch — the persisted and plain option
+// Call `createCollection` inside each branch. The persisted and plain option
 // objects are different types (see project.ts for the full type note).
 export const auditCollection = persistence
   ? createCollection(

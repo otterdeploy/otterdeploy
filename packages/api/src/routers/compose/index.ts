@@ -34,7 +34,7 @@ function toView(rec: ComposeRecord) {
 }
 
 export const composeRouter = {
-  // Stateless preview for the wizard — validate + summarize a pasted file.
+  // Stateless preview for the wizard: validate + summarize a pasted file.
   parse: projectScopedProcedure.compose.parse.handler(async ({ input }) => {
     const parsed = parseCompose(input.content);
     if (parsed.isErr()) {
@@ -54,9 +54,9 @@ export const composeRouter = {
       error: null,
       errorLine: null,
       errorColumn: null,
-      // Compose `name:`, else the first service — a sensible stack-name default.
+      // Compose `name:`, else the first service: a sensible stack-name default.
       name: parsed.value.name ?? parsed.value.services[0]?.name ?? null,
-      // `${VAR}` refs the file uses — the wizard prompts the user to fill these.
+      // `${VAR}` refs the file uses, the wizard prompts the user to fill these.
       vars: collectVarRefs(parsed.value),
       // Resolve `${VAR:-default}` in the image so the preview shows the real
       // ref (project vars aren't loaded here, so only defaults apply).
@@ -106,7 +106,7 @@ export const composeRouter = {
       // Git-sourced stacks always redeploy through the build worker: it
       // re-clones at the branch head, rebuilds any `build:` services, and
       // refetches the compose file before deploying. A direct `deployCompose`
-      // would redeploy stale persisted content — or, for a stack whose first
+      // would redeploy stale persisted content, or, for a stack whose first
       // build never finished, throw on absent content.
       if (rec.compose.source === "git") {
         if (!rec.compose.gitRepoUrl || !rec.compose.gitRef) {
@@ -162,11 +162,11 @@ export const composeRouter = {
     async ({ input, context, errors }) => {
       const rec = await getComposeRecord(input.projectId, input.resourceId);
       if (!rec) throw errors.NOT_FOUND();
-      // A git stack's compose file lives in its repo — editing it here would
+      // A git stack's compose file lives in its repo. Editing it here would
       // drift from the source of truth and be overwritten on the next build.
       if (rec.compose.source !== "inline") {
         throw errors.INVALID_INPUT({
-          message: "This stack is built from a repo — edit its compose file there, not here.",
+          message: "This stack is built from a repo, edit its compose file there, not here.",
         });
       }
       const parsed = parseCompose(input.composeContent);
@@ -192,7 +192,7 @@ export const composeRouter = {
         services,
         files,
       });
-      // Keep the desired manifest in lockstep — otherwise a later manifest
+      // Keep the desired manifest in lockstep. Otherwise a later manifest
       // apply / DR restore re-materializes the OLD YAML and reverts the edit.
       await syncManifestComposeContent(
         { projectId: input.projectId, organizationId: context.activeOrganizationId },
@@ -211,10 +211,10 @@ export const composeRouter = {
       if (!rec) throw errors.NOT_FOUND();
       // Capture the stack's seeded `${VAR}` keys before its record is gone.
       const composeContent = rec.compose.composeContent;
-      // Strip the stack from the manifest FIRST — before any physical teardown.
+      // Strip the stack from the manifest FIRST: before any physical teardown.
       // Once a delete is initiated the stack is no longer "desired", so even if
       // a child teardown fails partway, the next diff can only ever show a
-      // (recoverable) delete — NEVER a phantom `create` ghost. A deployed stack
+      // (recoverable) delete, NEVER a phantom `create` ghost. A deployed stack
       // must never revert to pending-create.
       await removeComposeFromManifest(
         { projectId: input.projectId, organizationId: context.activeOrganizationId },

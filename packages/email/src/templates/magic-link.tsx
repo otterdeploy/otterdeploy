@@ -8,7 +8,7 @@ interface MagicLinkEmailProps {
 
 /**
  * Passwordless sign-in link (better-auth `magicLink` plugin). No password, so
- * the link itself is the credential — the copy stresses not sharing it.
+ * the link itself is the credential, the copy stresses not sharing it.
  */
 export function MagicLinkEmail({ loginUrl, expiresInMinutes = 10 }: MagicLinkEmailProps) {
   return (
@@ -18,7 +18,7 @@ export function MagicLinkEmail({ loginUrl, expiresInMinutes = 10 }: MagicLinkEma
       <BrandButton href={loginUrl}>Sign in</BrandButton>
       <LinkFallback href={loginUrl} />
       <Muted>
-        This link expires in {expiresInMinutes} minutes and works once. Don&apos;t forward it —
+        This link expires in {expiresInMinutes} minutes and works once. Don&apos;t forward it:
         anyone with the link can sign in as you.
       </Muted>
       <Footnote>If you didn&apos;t try to sign in, you can safely ignore this email.</Footnote>

@@ -1,4 +1,4 @@
-# Wave C (effects & state) — bucket 3
+# Wave C (effects & state): bucket 3
 
 
 ## src/features/edge-logs/components/edge-logs-view.tsx

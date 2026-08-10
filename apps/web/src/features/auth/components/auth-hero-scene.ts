@@ -85,7 +85,7 @@ function drawNodes(s: Scene, ring: number | null) {
       ),
     );
 
-    // The crest only brightens the lattice — colouring it turned the horizon
+    // The crest only brightens the lattice, colouring it turned the horizon
     // into a blue arc that fought the craft for attention.
     const mix = crestF > 0.3 ? Math.min(1, (crestF - 0.3) / 0.6) : 0;
     ctx.globalAlpha = Math.min(1, alpha + mix * 0.26 * s.inkAlpha);
@@ -121,7 +121,7 @@ function drawCraft(s: Scene, b: CraftBasis, rise: number) {
 
     ctx.globalAlpha = Math.min(1, d.a * (0.5 + 0.95 * lambert) * (0.8 + 0.28 * near) * s.inkAlpha);
     // The craft carries the panel, so its dots run visibly heavier than the
-    // horizon's — at one pixel they read as grey gauze rather than as a hull.
+    // horizon's. At one pixel they read as grey gauze rather than as a hull.
     const r = Math.max(
       1.05 * s.dpr,
       (0.95 + 0.85 * lambert) * (0.78 + 0.42 * near) * d.s * s.sizeGain * s.dpr,

@@ -136,7 +136,7 @@ function RateLimitedNotice() {
 function UpstreamErrorNotice({ path, rawMessage }: { path: string; rawMessage: string }) {
   return (
     <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-[12.5px] text-destructive">
-      Couldn't read repo at <span className="font-mono">/{path}</span> —{" "}
+      Couldn't read repo at <span className="font-mono">/{path}</span>:{" "}
       {humanizeUpstreamMessage(rawMessage)}
     </div>
   );

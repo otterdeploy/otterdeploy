@@ -9,7 +9,7 @@ interface TestEmailProps {
 
 /**
  * Sent from Settings → Email to confirm the configured transport actually
- * delivers. Deliberately minimal — its job is to arrive and prove the wiring,
+ * delivers. Deliberately minimal: its job is to arrive and prove the wiring,
  * not to sell anything.
  */
 export function TestEmail({ provider, fromAddress }: TestEmailProps = {}) {

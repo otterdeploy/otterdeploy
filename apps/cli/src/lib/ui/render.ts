@@ -7,7 +7,7 @@
  *
  * The shapes are borrowed from bd: bold uppercase section headers, a two-space
  * indent under each, dim column headers, and `├──`/`└──` for nesting. What is
- * deliberately *not* borrowed is bd's fixed-width padding — every table here
+ * deliberately *not* borrowed is bd's fixed-width padding. Every table here
  * measures its own content, so a long service name widens the column instead of
  * shearing the row.
  */
@@ -24,7 +24,7 @@ const GUTTER = "  ";
 /**
  * A bold uppercase section header preceded by a blank line, e.g. `DEPLOYMENTS`.
  * Uppercase rather than title case so headers never compete with content for
- * attention — they are landmarks, not headlines.
+ * attention: they are landmarks, not headlines.
  */
 export function section(title: string): void {
   out();
@@ -39,7 +39,7 @@ export interface Column {
 }
 
 /**
- * A self-measuring table. Cells may already be painted — widths are computed on
+ * A self-measuring table. Cells may already be painted. Widths are computed on
  * printable width, so colour never shifts a column.
  *
  * Trailing empty cells are trimmed rather than padded, which keeps a mostly
@@ -57,7 +57,7 @@ export function table(columns: Column[], rows: string[][]): void {
     while (last > 0 && width(cells[last] ?? "") === 0) last -= 1;
     const parts = cells.slice(0, last + 1).map((cell, i) => {
       const text = paintCell(cell);
-      // The final column needs no padding — nothing follows it.
+      // The final column needs no padding, nothing follows it.
       if (i === last) return text;
       const target = widths[i] ?? 0;
       return columns[i]?.align === "right" ? padStart(text, target) : padEnd(text, target);
@@ -102,7 +102,7 @@ export interface TreeNode {
  * One scannable line about one thing, in bd's row grammar:
  * `<glyph> <subject> <badge> <title> ← <context>`.
  *
- * Passing pre-painted fragments is intentional — the caller knows which piece
+ * Passing pre-painted fragments is intentional. The caller knows which piece
  * is an id and which is a state; this only assembles and trims.
  */
 export function row(parts: Array<string | undefined>): void {
@@ -116,7 +116,7 @@ export function line(text = ""): void {
 
 /**
  * A block set off by a left hairline rule, for the rare thing that must not be
- * skimmed past — a device-verification code, a destructive confirmation.
+ * skimmed past: a device-verification code, a destructive confirmation.
  *
  * Deliberately *not* a four-sided box. A box has to know its own width, so a
  * long URL either overflows the right edge or gets wrapped mid-token; a left

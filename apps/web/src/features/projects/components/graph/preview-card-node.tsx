@@ -1,5 +1,5 @@
 /**
- * PR-preview satellite card — the small graph node attached to the service it
+ * PR-preview satellite card: the small graph node attached to the service it
  * previews by a dashed edge. Renders the PR number (mono, tabular), the
  * small-caps PREVIEW kind label, a statusMeta pill (state never encoded in
  * color alone), and the head branch in mono.

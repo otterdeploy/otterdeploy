@@ -1,8 +1,8 @@
 /**
- * Notifications feature — channel routing for deploy / build / health / backup
+ * Notifications feature: channel routing for deploy / build / health / backup
  * / security events. Types are inferred straight from the oRPC contract so the
  * UI can't drift from the server; the EVENT catalog mirrors the server's
- * PLATFORM_EVENTS (packages/api/src/routers/notifications/events.ts) — the ids
+ * PLATFORM_EVENTS (packages/api/src/routers/notifications/events.ts): the ids
  * MUST stay in lockstep.
  */
 import type { JsonObject } from "@otterdeploy/shared/json";
@@ -22,7 +22,7 @@ export interface EventRow {
   severity: Severity;
 }
 
-/** Mirrors PLATFORM_EVENTS on the server — keep ids identical. */
+/** Mirrors PLATFORM_EVENTS on the server: keep ids identical. */
 export const EVENTS: EventRow[] = [
   { id: "deploy.started", label: "Deploy started", severity: "info" },
   { id: "deploy.succeeded", label: "Deploy succeeded", severity: "ok" },
@@ -61,7 +61,7 @@ export function eventSeverityOf(id: string): Severity {
  * Short destination hint for tight spots (matrix column headers). Works on the
  * server-masked target: webhook-ish kinds reduce to the host (the path is
  * already visible on the card), addresses/chat ids show as-is, and anything
- * long is middle-agnostic truncated. Purely presentational — never unmasks.
+ * long is middle-agnostic truncated. Purely presentational, never unmasks.
  */
 export function channelTargetHint(kind: ChannelKind, target: string): string {
   let hint = target;
@@ -109,8 +109,8 @@ function humanizeKey(key: string): string {
   return spaced ? spaced.charAt(0).toUpperCase() + spaced.slice(1) : key;
 }
 
-/** The platform `eventId` carried in an inbox notification's `data`, if any —
- *  used to resolve the row's severity + event label. */
+/** The platform `eventId` carried in an inbox notification's `data`, if any.
+ *  Used to resolve the row's severity + event label. */
 export function inboxEventId(data: JsonObject | null | undefined): string | null {
   const id = data?.eventId;
   return typeof id === "string" && id ? id : null;
@@ -152,7 +152,7 @@ export const SEVERITY_DOT: Record<Severity, string> = {
  * Deliberately the semantic tokens rather than {@link SEVERITY_DOT}'s palette
  * classes: the badge sits in the header chrome, which is themed, and the tokens
  * carry a light/dark pair (index.css) where `bg-red-500` is one fixed hue. The
- * popover rows below keep SEVERITY_DOT — they sit on a surface where the
+ * popover rows below keep SEVERITY_DOT. They sit on a surface where the
  * palette reads correctly in both themes.
  */
 export const SEVERITY_BADGE: Record<Severity, string> = {
@@ -169,7 +169,7 @@ const SEVERITY_RANK: readonly Severity[] = ["err", "warn", "info", "ok"];
  * The headline severity across `items`, or null when there's nothing to report.
  *
  * The bell badge summarizes many notifications in one 8px dot, so it has to pick
- * ONE — and the only safe pick is the most concerning, matching how
+ * ONE, and the only safe pick is the most concerning, matching how
  * `rollupStatus` (build-live-nodes.ts) and the app-status rollup resolve ties.
  * Callers pass the unread subset; a read failure is history, not a badge.
  */

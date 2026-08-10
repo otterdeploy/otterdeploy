@@ -1,5 +1,5 @@
 /**
- * Footer strip for the StackCodePanel — filename pill, edit/diff
+ * Footer strip for the StackCodePanel: filename pill, edit/diff
  * toggles, line counter, Discard / Apply buttons.
  */
 

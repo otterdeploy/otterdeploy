@@ -93,7 +93,7 @@ function HR({ className, ...props }: ComponentProps<"hr">) {
 
 /**
  * Replaces Fumadocs' callout, which shipped three things DESIGN.md forbids: a
- * 2px coloured bar down the left edge (never intentional — use a full hairline
+ * 2px coloured bar down the left edge (never intentional, use a full hairline
  * ring or a tonal tint), a resting `shadow-md`, and a lucide icon in a project
  * that uses Hugeicons everywhere.
  *

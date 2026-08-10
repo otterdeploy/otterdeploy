@@ -21,7 +21,7 @@ import { HostFilter } from "./host-filter";
 /**
  * Edge access logs view. Scoped to one project's domains when `projectId` is
  * given, otherwise all the org's domains. Full-bleed table (no card box),
- * matching the design — sectioned by border-b separators.
+ * matching the design, sectioned by border-b separators.
  */
 export function EdgeLogsView({ projectId }: { projectId?: string }) {
   const { t } = useTranslation();
@@ -59,8 +59,8 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
   // (see threat.ts); it scopes the visible rows within the fetched window.
   const suspiciousCount = allRows.filter((r) => classifyThreat(r.path)).length;
   const rows = suspiciousOnly ? allRows.filter((r) => classifyThreat(r.path)) : allRows;
-  // Distinct offender IPs behind the suspicious rows that aren't banned yet —
-  // the mass-block target set (contract caps one call at 100).
+  // Distinct offender IPs behind the suspicious rows that aren't banned yet.
+  // The mass-block target set (contract caps one call at 100).
   const suspiciousIps = [
     ...new Set(allRows.flatMap((r) => (classifyThreat(r.path) ? [r.clientIp] : []))),
   ]
@@ -166,7 +166,7 @@ function SuspiciousControls({
   ips: string[];
   onToggle: () => void;
   blocking: boolean;
-  /** Absent when the viewer can't block — the toggle stays, the action goes. */
+  /** Absent when the viewer can't block. The toggle stays, the action goes. */
   onBlockAll?: () => void;
 }) {
   return (

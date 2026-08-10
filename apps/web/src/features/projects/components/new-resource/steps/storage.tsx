@@ -1,12 +1,12 @@
 /**
  * Storage step (database kinds only). Deliberately informational: the
  * provisioner creates a plain named Docker volume mounted at the engine's
- * data directory — it supports no volume sizing, quota, auto-grow,
+ * data directory: it supports no volume sizing, quota, auto-grow,
  * encryption-at-rest, backup policy, PITR, or standby replicas today
  * (see `packages/api/src/swarm/database.ts` ProvisionSwarmDatabaseInput and
  * the manifest `databaseSchema`). The old decorative controls for those
  * options wrote to local state (or to form fields the manifest dropped),
- * which violated "honest about system state" — so they were removed rather
+ * which violated "honest about system state", so they were removed rather
  * than shipped as fake toggles. Backups ARE real, but they're schedules
  * created against the live resource after deploy, on the Backups page.
  */
@@ -41,7 +41,7 @@ export function StepStorage({ kind }: StepStorageProps) {
             </>
           }
         />
-        <InfoRow label="Sizing" value="Grows with the data — no fixed size or quota is applied" />
+        <InfoRow label="Sizing" value="Grows with the data; no fixed size or quota is applied" />
         <InfoRow
           label="Data safety"
           value="The volume is kept if the database is removed or a create fails, so data is never destroyed silently"
@@ -55,7 +55,7 @@ export function StepStorage({ kind }: StepStorageProps) {
       <Card className="mt-2.5 p-4">
         <p className="text-xs leading-relaxed text-muted-foreground">
           Backup schedules (cron cadence, retention, destinations) are configured against the
-          running database after it deploys — open the{" "}
+          running database after it deploys. Open the{" "}
           <span className="font-medium text-foreground">Backups</span> page once this resource is
           live.
         </p>

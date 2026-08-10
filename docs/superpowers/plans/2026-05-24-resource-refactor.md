@@ -13,26 +13,26 @@
 ## File Structure
 
 **New files:**
-- `packages/shared/src/database-engines.ts` — static engine catalog
-- `packages/api/src/routers/project/resources.ts` — generic resource handlers (list/get/delete)
-- `packages/api/src/routers/project/queries/resource.ts` — generic resource queries
-- `packages/api/src/routers/project/provisioners/index.ts` — `DatabaseProvisioner` interface + factory
-- `packages/api/src/routers/project/provisioners/postgres.ts` — postgres impl
-- `packages/api/src/routers/project/__tests__/resources.test.ts` — handler unit tests
-- `packages/api/src/routers/project/provisioners/__tests__/factory.test.ts` — factory dispatch test
-- `apps/web/src/features/projects/data/resource.ts` — frontend `resourceCollection`
+- `packages/shared/src/database-engines.ts`: static engine catalog
+- `packages/api/src/routers/project/resources.ts`: generic resource handlers (list/get/delete)
+- `packages/api/src/routers/project/queries/resource.ts`: generic resource queries
+- `packages/api/src/routers/project/provisioners/index.ts`: `DatabaseProvisioner` interface + factory
+- `packages/api/src/routers/project/provisioners/postgres.ts`: postgres impl
+- `packages/api/src/routers/project/__tests__/resources.test.ts`: handler unit tests
+- `packages/api/src/routers/project/provisioners/__tests__/factory.test.ts`: factory dispatch test
+- `apps/web/src/features/projects/data/resource.ts`: frontend `resourceCollection`
 
 **Modified files:**
-- `packages/db/src/schema/project.ts` — add `engineConfig` jsonb to `database_resource`
-- `packages/api/src/routers/project/contract.ts` — add `databaseResourceSchema` (engine union), `resourceSchema` (type union), new resource endpoints, drop old database.postgres.{list,get,delete}
-- `packages/api/src/routers/project/postgres.ts` — pare down to `createPostgresResource` only; destroy moves to provisioner
-- `packages/api/src/routers/project/handlers.ts` — re-export new resource handlers, drop old
-- `packages/api/src/routers/project/index.ts` — wire new `resource.*` namespace, remove old `database.postgres.{list,get,delete}`
-- `packages/api/src/routers/project/queries/index.ts` — re-export generic resource queries
-- `apps/web/src/routes/_app/$orgSlug/$projectSlug/layout.tsx` — preload `resourceCollection`, derive counts
-- `apps/web/src/features/projects/components/project-card.tsx` — pull `databaseCount` from `project.list` aggregate
+- `packages/db/src/schema/project.ts`: add `engineConfig` jsonb to `database_resource`
+- `packages/api/src/routers/project/contract.ts`: add `databaseResourceSchema` (engine union), `resourceSchema` (type union), new resource endpoints, drop old database.postgres.{list,get,delete}
+- `packages/api/src/routers/project/postgres.ts`: pare down to `createPostgresResource` only; destroy moves to provisioner
+- `packages/api/src/routers/project/handlers.ts`: re-export new resource handlers, drop old
+- `packages/api/src/routers/project/index.ts`: wire new `resource.*` namespace, remove old `database.postgres.{list,get,delete}`
+- `packages/api/src/routers/project/queries/index.ts`: re-export generic resource queries
+- `apps/web/src/routes/_app/$orgSlug/$projectSlug/layout.tsx`: preload `resourceCollection`, derive counts
+- `apps/web/src/features/projects/components/project-card.tsx`: pull `databaseCount` from `project.list` aggregate
 
-**Out of scope:** `apps/web-demo/**` is dead code — type errors there from the contract rename are tolerated.
+**Out of scope:** `apps/web-demo/**` is dead code. Type errors there from the contract rename are tolerated.
 
 ---
 
@@ -239,7 +239,7 @@ export async function deleteResourceById(resourceId: ResourceId) {
 
 - [ ] **Step 2: Re-export from queries barrel**
 
-Modify `packages/api/src/routers/project/queries/index.ts` — append before the final closing of the file (after the postgres-resource block):
+Modify `packages/api/src/routers/project/queries/index.ts`: append before the final closing of the file (after the postgres-resource block):
 
 ```ts
 export {
@@ -391,7 +391,7 @@ git commit -m "feat(api): add DatabaseProvisioner interface with postgres impl"
 
 ---
 
-## Task 5: Update contract — discriminated union + new resource endpoints
+## Task 5: Update contract, discriminated union + new resource endpoints
 
 **Files:**
 - Modify: `packages/api/src/routers/project/contract.ts`
@@ -424,7 +424,7 @@ export const deleteProjectResourceInput = z.object({
 });
 ```
 
-Note: when `serviceResourceSchema` lands later, `resourceSchema` becomes `z.discriminatedUnion("type", [...databaseResourceSchema.options, serviceResourceSchema])`. The single-element shape today is intentional — it makes the type the same as it will be in the future.
+Note: when `serviceResourceSchema` lands later, `resourceSchema` becomes `z.discriminatedUnion("type", [...databaseResourceSchema.options, serviceResourceSchema])`. The single-element shape today is intentional. It makes the type the same as it will be in the future.
 
 - [ ] **Step 2: Add the new `resource` namespace to `projectContract`**
 
@@ -504,7 +504,7 @@ Still in `contract.ts`, inside the `projectContract` object, add a new `resource
 
 - [ ] **Step 3: Remove the old `database.postgres.{list,get,delete}` endpoints**
 
-Still in `contract.ts`, delete the entire `database: { postgres: { ... } }` block (the old one — lines roughly 217-280 of the original file). The `createPostgresDatabaseInput` / `getPostgresDatabaseInput` / `deletePostgresDatabaseInput` / `listPostgresDatabasesInput` zod schemas at the top of the file can stay; the create input is still used by the new path, and the others become dead but cheap to keep — leave them.
+Still in `contract.ts`, delete the entire `database: { postgres: { ... } }` block (the old one, lines roughly 217-280 of the original file). The `createPostgresDatabaseInput` / `getPostgresDatabaseInput` / `deletePostgresDatabaseInput` / `listPostgresDatabasesInput` zod schemas at the top of the file can stay; the create input is still used by the new path, and the others become dead but cheap to keep, leave them.
 
 The file should now have exactly one `database` mention left: the comment "// database" sitting above the createPostgresDatabaseInput. Update that comment to:
 
@@ -774,7 +774,7 @@ git commit -m "feat(api): add generic resource handlers (list/get/delete)"
 
 - [ ] **Step 1: Remove old `getPostgresResource`, `listPostgresResources`, `deletePostgresResource` exports**
 
-In `packages/api/src/routers/project/postgres.ts`, delete the three functions starting at lines 201-296 (`getPostgresResource`, `listPostgresResources`, `deletePostgresResource`). Only `createPostgresResource` remains. Also remove unused imports left behind (e.g., `deleteProxyRoutesByResource`, `destroySwarmPostgres`, `db`, `resource`, `eq` — only if no other ref in this file).
+In `packages/api/src/routers/project/postgres.ts`, delete the three functions starting at lines 201-296 (`getPostgresResource`, `listPostgresResources`, `deletePostgresResource`). Only `createPostgresResource` remains. Also remove unused imports left behind (e.g., `deleteProxyRoutesByResource`, `destroySwarmPostgres`, `db`, `resource`, `eq`, only if no other ref in this file).
 
 After: `postgres.ts` should be ~200 lines, containing only `createPostgresResource` plus the imports it actually needs.
 
@@ -951,7 +951,7 @@ Expected: zero errors in `packages/api`. (Frontend errors are fixed in Tasks 10-
 - [ ] **Step 4: Run existing tests**
 
 Run: `cd packages/api && bun test`
-Expected: All existing tests still pass. (Type errors in `apps/web-demo` are expected and ignored — web-demo is dead code.)
+Expected: All existing tests still pass. (Type errors in `apps/web-demo` are expected and ignored, web-demo is dead code.)
 
 - [ ] **Step 5: Commit**
 
@@ -980,7 +980,7 @@ import { orpc, queryClient } from "@/shared/server/orpc";
 /**
  * All resources (databases + services + …) for the active project. Sourced
  * from `project.resource.list` which returns a discriminated union over
- * `type`. The collection is per-project — caller supplies `projectId`.
+ * `type`. The collection is per-project, caller supplies `projectId`.
  */
 export function createResourceCollection(projectId: string) {
   return createCollection(
@@ -1162,7 +1162,7 @@ Read `apps/web/src/features/projects/components/project-card.tsx` and confirm `d
 
 The org dashboard (`apps/web/src/routes/_app/$orgSlug/index.tsx`) currently passes raw `projectCollection` rows to `<ProjectList>`. Project rows have no `databaseCount`. Two options:
 
-**(A) Fetch resources lazily per card.** Each `<ProjectCard>` calls `createResourceCollection(project.id).preload()` on mount. Heavier — N collections for N projects.
+**(A) Fetch resources lazily per card.** Each `<ProjectCard>` calls `createResourceCollection(project.id).preload()` on mount. Heavier, N collections for N projects.
 
 **(B) Add an aggregate endpoint.** New `project.list` enriched with `databaseCount`/`routeCount` from a `LEFT JOIN ... COUNT(*) GROUP BY project.id`. Cheapest. Recommended.
 
@@ -1205,11 +1205,11 @@ list: oc
   .output(z.array(projectListItemSchema)),
 ```
 
-3. The frontend `projectCollection` type widens automatically since it derives from the contract. `project-card.tsx` consumes `project.databaseCount` — it now has real data.
+3. The frontend `projectCollection` type widens automatically since it derives from the contract. `project-card.tsx` consumes `project.databaseCount`. It now has real data.
 
-- [ ] **Step 3: Push schema-free DB change (none required — pure query change)**
+- [ ] **Step 3: Push schema-free DB change (none required, pure query change)**
 
-Skip — this task touches no DB schema.
+Skip, this task touches no DB schema.
 
 - [ ] **Step 4: Verify type compiles + tests still pass**
 
@@ -1271,7 +1271,7 @@ git status
 ## Self-review notes
 
 - Every spec area from the architecture discussion is covered: schema (Task 1), engine catalog (Task 2), provisioner abstraction (Task 4), discriminated contract (Task 5), generic handlers (Task 6), router wiring (Task 8), frontend collection (Task 9), real counts (Tasks 10-11).
-- Postgres-specific create endpoint is preserved under the new `resource.database.postgres.create` path — engine-specific inputs stay engine-specific.
+- Postgres-specific create endpoint is preserved under the new `resource.database.postgres.create` path. Engine-specific inputs stay engine-specific.
 - The `resourceSchema = z.discriminatedUnion("type", [...])` collapses to one variant today; the shape is forward-compatible.
-- `databaseEngineEnum` in the DB schema only has `"postgres"` and is not touched here — adding engines later requires a one-line schema change + migration; intentionally out of scope.
+- `databaseEngineEnum` in the DB schema only has `"postgres"` and is not touched here. Adding engines later requires a one-line schema change + migration; intentionally out of scope.
 - Type-consistency check: `ProjectResource` (new) = `PostgresResource` today; widens when more engines land. `mapDatabaseResource` already returns `{type: "database", engine: "postgres", ...}` so it slots into the union with no shape change.

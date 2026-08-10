@@ -1,5 +1,5 @@
 /**
- * "New GitHub App" dialog — creates a GitHub App for the org via GitHub's
+ * "New GitHub App" dialog: creates a GitHub App for the org via GitHub's
  * manifest flow (no config, no env vars).
  *
  *   - Name: GitHub App names are GLOBALLY unique, so we pre-fill a random one.
@@ -9,7 +9,7 @@
  *   - Self-hosted / Enterprise: optional GHE host to create the App on.
  *
  * On submit we get back a form-action URL + manifest JSON, build a hidden form
- * and auto-submit it — the browser leaves our origin, lands on GitHub's
+ * and auto-submit it: the browser leaves our origin, lands on GitHub's
  * app-creation page pre-filled, and on approval GitHub redirects to
  * `/api/integrations/github/manifest/callback`, which persists the creds and
  * forwards to the install URL. Reusing an existing App is the card's
@@ -43,7 +43,7 @@ interface ConnectDialogProps {
   returnTo?: string;
 }
 
-// Fields are always present (the form seeds ""), so no `.optional()` — that
+// Fields are always present (the form seeds ""), so no `.optional()`. That
 // keeps the schema's type aligned with the all-string form values.
 const schema = z.object({
   name: z.string().min(1, "Name is required").max(100, "Name is too long"),
@@ -68,7 +68,7 @@ function errMessages(errors: readonly unknown[]): string[] {
 
 export function ConnectDialog({ open, onOpenChange, returnTo }: ConnectDialogProps) {
   const { t } = useTranslation();
-  // GitHub App names must be unique across all of GitHub — seed a random one.
+  // GitHub App names must be unique across all of GitHub, seed a random one.
   const defaultName = `otterdeploy-${crypto.randomUUID().slice(0, 8)}`;
   const [enterpriseOpen, setEnterpriseOpen] = useState(false);
 
@@ -112,8 +112,8 @@ export function ConnectDialog({ open, onOpenChange, returnTo }: ConnectDialogPro
           noValidate
         >
           <p className="text-[12.5px] leading-relaxed text-muted-foreground">
-            Otterdeploy creates a GitHub App through GitHub's manifest flow — no config, no env
-            vars. You'll review and approve it on GitHub, then pick which repos it can access.
+            Otterdeploy creates a GitHub App through GitHub's manifest flow, with no config and no
+            env vars. You'll review and approve it on GitHub, then pick which repos it can access.
           </p>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -159,8 +159,8 @@ export function ConnectDialog({ open, onOpenChange, returnTo }: ConnectDialogPro
           </div>
 
           <p className="-mt-1 text-[11.5px] leading-relaxed text-muted-foreground">
-            To install on an organization, enter its GitHub login — the App is created under that
-            org so it can be installed there. You must be an owner of the org.
+            To install on an organization, enter its GitHub login. The App is created under that org
+            so it can be installed there. You must be an owner of the org.
           </p>
 
           {/* ─── Self-hosted / Enterprise (collapsible) ─── */}

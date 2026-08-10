@@ -1,10 +1,10 @@
-# Frontend Rebuild — Plan 4: Logs / Deployments / Variables / Project Networking
+# Frontend Rebuild: Plan 4: Logs / Deployments / Variables / Project Networking
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Fill in the project sub-screens that Plans 1-3 left as Empty placeholders. Mount the Ghostty terminal in the Logs tab and full-page Logs route (with a stubbed feed), upgrade Deployments and Variables drawer tabs + routes to structural Tables, and wire the project Networking route to the real `project.proxyRoute.list` data.
 
-**Architecture:** A single `LogsTerminal` feature wraps `@wterm/react`'s `Terminal` and lazy-loads the Ghostty WASM core (~400KB) only when the component actually mounts. The drawer's Logs tab and the project-level `/project/$id/logs` route both consume this component, parametrized by what to subscribe to (a single resource vs. all services in the project). For Plan 4, both feed the terminal a fixed demo string explaining where the real log source will plug in (Plan 6: the server's WebSocket gateway). Deployments and Variables become coss `Table`-shaped pages with empty states and disabled write CTAs. Project Networking is the only screen with a real backend in Plan 4 — uses the existing `project.proxyRoute.list` per-project query, renders a routes table.
+**Architecture:** A single `LogsTerminal` feature wraps `@wterm/react`'s `Terminal` and lazy-loads the Ghostty WASM core (~400KB) only when the component actually mounts. The drawer's Logs tab and the project-level `/project/$id/logs` route both consume this component, parametrized by what to subscribe to (a single resource vs. all services in the project). For Plan 4, both feed the terminal a fixed demo string explaining where the real log source will plug in (Plan 6: the server's WebSocket gateway). Deployments and Variables become coss `Table`-shaped pages with empty states and disabled write CTAs. Project Networking is the only screen with a real backend in Plan 4, uses the existing `project.proxyRoute.list` per-project query, renders a routes table.
 
 **Tech Stack:** No new deps. coss UI primitives (Table, Tabs, Toolbar, Empty, Field, Tooltip, Badge, Button, Skeleton, Sheet). `@wterm/ghostty` + `@wterm/react` (already installed Plan 1) lazy-loaded.
 
@@ -13,11 +13,11 @@
 **Foundation in place:** Plans 1-3 shipped at HEAD `bab141d`. The drawer's Logs/Deployments/Variables tabs are currently `Empty` stubs from Plan 2 Task 9. The project routes for `logs/networking/variables/deployments` are Plan 1 placeholders.
 
 **Out of scope for this plan:**
-- **Real log streaming** — no server-side log gateway yet. The terminal mounts and shows a fixed multi-line "Log streaming ships when the server provides a WebSocket gateway (Plan 6)" message; the websocket plumbing itself is Plan 6.
-- **Variables CRUD** — no `project.variable.*` API. The page renders an empty Table with a disabled "+ Add variable" CTA (tooltip → Plan 6).
-- **Deployments history** — no `project.deployment.*` API. Same skeleton-with-disabled-CTA treatment.
-- **Networking write operations** — `project.proxyRoute.list` exists but no create/update/delete. The page reads + renders; edit/add/delete actions are disabled.
-- **Bulk env import / Caddy fragment editor** — both deferred to Plan 6 once their APIs ship.
+- **Real log streaming**, no server-side log gateway yet. The terminal mounts and shows a fixed multi-line "Log streaming ships when the server provides a WebSocket gateway (Plan 6)" message; the websocket plumbing itself is Plan 6.
+- **Variables CRUD**, no `project.variable.*` API. The page renders an empty Table with a disabled "+ Add variable" CTA (tooltip → Plan 6).
+- **Deployments history**, no `project.deployment.*` API. Same skeleton-with-disabled-CTA treatment.
+- **Networking write operations**: `project.proxyRoute.list` exists but no create/update/delete. The page reads + renders; edit/add/delete actions are disabled.
+- **Bulk env import / Caddy fragment editor**: both deferred to Plan 6 once their APIs ship.
 
 ---
 
@@ -68,7 +68,7 @@ apps/web/src/
 - **All commits on `feat/v2-rebuild`**.
 - **`bun run tsc --noEmit` is the type-check signal.** Filter the unrelated `packages/api/src/swarm/postgres.ts` errors.
 - **Lazy-load Ghostty WASM.** Use `React.lazy()` + `Suspense` so the ~400KB binary doesn't ship on the initial bundle.
-- **Skeletons must look real** — actual coss `Table` headers + Toolbar chrome. The "ships in Plan 6" copy lives in a small footer or tooltip, not in a giant takeover.
+- **Skeletons must look real**: actual coss `Table` headers + Toolbar chrome. The "ships in Plan 6" copy lives in a small footer or tooltip, not in a giant takeover.
 
 ---
 
@@ -267,7 +267,7 @@ git -c commit.gpgsign=false commit -m "feat(web): mount LogsTerminal in drawer l
 **Files:**
 - Rewrite: `apps/web/src/routes/project/$projectId/logs.tsx`
 
-Full-page logs view: top filter chrome (disabled service multi-select / time range / severity / search — all "lands in Plan 6") + main terminal pane + sticky right activity rail (placeholder).
+Full-page logs view: top filter chrome (disabled service multi-select / time range / severity / search, all "lands in Plan 6") + main terminal pane + sticky right activity rail (placeholder).
 
 - [ ] **Step 1: Rewrite `logs.tsx`**
 
@@ -318,7 +318,7 @@ function RouteComponent() {
 }
 ```
 
-If `<Input>` doesn't support arbitrary children for an icon adornment, drop the inner `<SearchIcon />` and just leave the placeholder text. The filter chrome is illustrative — disabled state is what matters.
+If `<Input>` doesn't support arbitrary children for an icon adornment, drop the inner `<SearchIcon />` and just leave the placeholder text. The filter chrome is illustrative. Disabled state is what matters.
 
 - [ ] **Step 2: Type-check + commit**
 
@@ -330,7 +330,7 @@ git -c commit.gpgsign=false commit -m "feat(web): project-level logs route with 
 
 ---
 
-## Task 4: Project Deployments — feature + drawer tab + route
+## Task 4: Project Deployments, feature + drawer tab + route
 
 **Files:**
 - Create: `apps/web/src/features/project-deployments/types.ts`
@@ -467,7 +467,7 @@ git -c commit.gpgsign=false commit -m "feat(web): project deployments table (ske
 
 ---
 
-## Task 5: Project Variables — feature + drawer tab + route
+## Task 5: Project Variables, feature + drawer tab + route
 
 **Files:**
 - Create: `apps/web/src/features/project-variables/types.ts`
@@ -602,7 +602,7 @@ git -c commit.gpgsign=false commit -m "feat(web): project variables table (skele
 
 ---
 
-## Task 6: Project Networking — feature + route (real proxyRoute data)
+## Task 6: Project Networking, feature + route (real proxyRoute data)
 
 **Files:**
 - Create: `apps/web/src/features/project-networking/types.ts`
@@ -771,7 +771,7 @@ git -c commit.gpgsign=false commit -m "feat(web): project networking route with 
 cd apps/web && bun run test 2>&1 | tail -10
 ```
 
-Expected: still **35 tests** in 12 files (Plan 4 doesn't add new tests — all changes are presentation/integration). All passing.
+Expected: still **35 tests** in 12 files (Plan 4 doesn't add new tests, all changes are presentation/integration). All passing.
 
 - [ ] **Step 2: tsc clean**
 
@@ -803,17 +803,17 @@ git push origin feat/v2-rebuild
 
 ```bash
 gh pr comment 5 --repo artzkaizen/otterdeploy --body "$(cat <<'EOF'
-### Plan 4 — Logs / Deployments / Variables / Networking (added to this PR)
+### Plan 4: Logs / Deployments / Variables / Networking (added to this PR)
 
 **Real, wired-up:**
-- **Project Networking** (`/project/$id/networking`) — real `project.proxyRoute.list` data rendered in a `ProjectRoutesTable` (domain / type / upstream / status). Edit and Add disabled until Plan 6 ships the editor.
-- **Logs terminal** — Ghostty WASM core lazy-loaded via `React.lazy()` inside a `Suspense` boundary; mounts in both the drawer Logs tab and the full-page `/project/$id/logs` route. Renders a placeholder banner per scope (project vs resource) until the server's WebSocket log gateway ships.
+- **Project Networking** (`/project/$id/networking`): real `project.proxyRoute.list` data rendered in a `ProjectRoutesTable` (domain / type / upstream / status). Edit and Add disabled until Plan 6 ships the editor.
+- **Logs terminal**: Ghostty WASM core lazy-loaded via `React.lazy()` inside a `Suspense` boundary; mounts in both the drawer Logs tab and the full-page `/project/$id/logs` route. Renders a placeholder banner per scope (project vs resource) until the server's WebSocket log gateway ships.
 
 **IA-faithful skeletons (backends ship in Plan 6):**
-- **Project Deployments** (`/project/$id/deployments` + drawer) — `DeploymentsTable` with the eventual columns (Service / Commit / Author / Status / Duration / Started), filter toolbar, empty state.
-- **Project Variables** (`/project/$id/variables` + drawer) — `VariablesTable` with Key / Value / Referenced-by columns, disabled "+ Add" and "Bulk import" CTAs.
+- **Project Deployments** (`/project/$id/deployments` + drawer): `DeploymentsTable` with the eventual columns (Service / Commit / Author / Status / Duration / Started), filter toolbar, empty state.
+- **Project Variables** (`/project/$id/variables` + drawer): `VariablesTable` with Key / Value / Referenced-by columns, disabled "+ Add" and "Bulk import" CTAs.
 
-**Tests:** still 35 passing in 12 files (no new tests — Plan 4 is integration / presentation).
+**Tests:** still 35 passing in 12 files (no new tests, Plan 4 is integration / presentation).
 
 **Type-check:** clean for `apps/web/src/`.
 
@@ -824,6 +824,6 @@ EOF
 
 ---
 
-## Done — what's next
+## Done: what's next
 
-Plan 5 wires the command palette to real navigation actions, plumbs websocket-driven status into the canvas, virtualizes long lists, and adds smoke tests per route. Plan 6 is everything currently tagged "ships in Plan 6" — Logs WebSocket gateway, Servers/Swarm-nodes, Activity audit log, Members/RBAC, Deployments/Variables/Settings/Caddy backends.
+Plan 5 wires the command palette to real navigation actions, plumbs websocket-driven status into the canvas, virtualizes long lists, and adds smoke tests per route. Plan 6 is everything currently tagged "ships in Plan 6", Logs WebSocket gateway, Servers/Swarm-nodes, Activity audit log, Members/RBAC, Deployments/Variables/Settings/Caddy backends.

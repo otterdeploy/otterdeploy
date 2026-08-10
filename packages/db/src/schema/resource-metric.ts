@@ -1,10 +1,10 @@
 /**
- * Per-container runtime metrics — a lightweight time series sampled from the
+ * Per-container runtime metrics: a lightweight time series sampled from the
  * Docker stats API on a fixed control-plane tick (packages/api/src/metrics).
  * One row per container per sample. Keyed by the `otterdeploy.resource.id`
  * label so the UI can chart CPU/memory/network for a service node.
  *
- * Retention is handled by the hourly cleanup cron (short window — this is a
+ * Retention is handled by the hourly cleanup cron (short window, this is a
  * live dashboard feed, not long-term observability; that stays in OTel).
  */
 import type { ResourceId } from "@otterdeploy/shared/id";

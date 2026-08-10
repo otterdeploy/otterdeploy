@@ -6,13 +6,13 @@
  * ghcr images the in-app updater consumes AND publishes `@otterdeploy/cli` to
  * npm, so both artifacts carry the same number and `otd -v` can be compared to
  * `otd platform version` by eye. Before this, the CLI had its own `cli-v*` train
- * and the two drifted to 0.1.3 vs v0.7.0 — a gap that told a bug reporter (and
+ * and the two drifted to 0.1.3 vs v0.7.0: a gap that told a bug reporter (and
  * us) nothing about which pair of halves was actually running.
  *
  * The list below is deliberately short. A package belongs here only if its
  * version has to travel INSIDE the artifact:
  *
- *   apps/cli   — npm reads package.json at publish time, and src/version.ts
+ *   apps/cli: npm reads package.json at publish time, and src/version.ts
  *                imports it so `otd -v` and the compat handshake agree.
  *
  * apps/server, apps/web and apps/builder are NOT here on purpose: they ship as
@@ -36,7 +36,7 @@ import { resolve } from "node:path";
 /** Every package.json whose version must match the release tag. */
 export const RELEASE_PACKAGE_FILES = ["apps/cli/package.json"] as const;
 
-/** `[v]MAJOR.MINOR.PATCH[-prerelease]` — the shape our release tags take. */
+/** `[v]MAJOR.MINOR.PATCH[-prerelease]`: the shape our release tags take. */
 const VERSION_RE = /^v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/;
 
 /** Strip a leading `v` and reject anything that isn't a release version. */
@@ -44,7 +44,7 @@ export function normalizeVersion(input: string): string {
   const match = VERSION_RE.exec(input.trim());
   if (!match) {
     throw new Error(
-      `Invalid release version ${JSON.stringify(input)} — expected [v]MAJOR.MINOR.PATCH[-prerelease].`,
+      `Invalid release version ${JSON.stringify(input)}, expected [v]MAJOR.MINOR.PATCH[-prerelease].`,
     );
   }
   return match[1] as string;

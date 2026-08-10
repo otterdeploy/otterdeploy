@@ -1,10 +1,10 @@
 /**
- * od-5j8.11 — layered VPS firewall: swarm control-plane ports are never
+ * od-5j8.11, layered VPS firewall: swarm control-plane ports are never
  * exposed to the world in the generated host-firewall rules.
  *
  * Invariant under test: the rendered nftables ruleset gates 2377 (raft/mgmt),
  * 7946 (gossip tcp+udp) and 4789 (vxlan) behind the `otterdeploy_peers` named
- * set — never a bare `accept` reachable from any source — while SSH and
+ * set (never a bare `accept` reachable from any source) while SSH and
  * 80/443 (the platform's only public ingress) are unconditionally allowed,
  * and the default policy is drop. Also covers the DOCKER-USER defense-in-
  * depth guard (Docker-published ports can't bypass the policy) and the
@@ -27,7 +27,7 @@ import {
   SWARM_UDP_PORTS,
 } from "../../routers/server/host-firewall";
 
-describe("[od-5j8.11] renderNftablesRuleset — default-deny baseline", () => {
+describe("[od-5j8.11] renderNftablesRuleset: default-deny baseline", () => {
   const rules = renderNftablesRuleset({ sshPort: 22, peerIpsV4: ["10.0.0.2", "10.0.0.3"] });
 
   test("declares the table with a drop-by-default input policy", () => {
@@ -78,7 +78,7 @@ describe("[od-5j8.11] renderNftablesRuleset — default-deny baseline", () => {
     expect(rules).toContain('iif "lo" accept');
   });
 
-  test("an empty peer list declares the set with no elements, not a wildcard — swarm ports are unreachable by anyone on a single-node install", () => {
+  test("an empty peer list declares the set with no elements, not a wildcard. Swarm ports are unreachable by anyone on a single-node install", () => {
     const single = renderNftablesRuleset({ sshPort: 22, peerIpsV4: [] });
     expect(single).not.toContain("elements =");
   });
@@ -90,7 +90,7 @@ describe("[od-5j8.11] renderNftablesRuleset — default-deny baseline", () => {
   });
 });
 
-describe("[od-5j8.11] DOCKER-USER guard — Docker-published ports cannot bypass policy", () => {
+describe("[od-5j8.11] DOCKER-USER guard: Docker-published ports cannot bypass policy", () => {
   const guard = dockerUserGuardScript("sudo");
 
   test("drops NEW forwarded connections to anything but 80/443, ahead of Docker's own permissive rules", () => {
@@ -103,7 +103,7 @@ describe("[od-5j8.11] DOCKER-USER guard — Docker-published ports cannot bypass
   test("scopes the drop to DNAT'd (inbound published) traffic, never container egress", () => {
     // DOCKER-USER is on the forward hook, so it also carries container EGRESS.
     // Without this qualifier the guard dropped every outbound connection a
-    // container opened to a port outside the allowlist — including the control
+    // container opened to a port outside the allowlist. Including the control
     // plane's own ssh to a host it was provisioning, which surfaced as
     // "SSH connection timed out" against a box whose port 22 was open.
     expect(guard).toContain("ct status dnat");
@@ -121,11 +121,11 @@ describe("[od-5j8.11] DOCKER-USER guard — Docker-published ports cannot bypass
 
   test("skips gracefully (never fails) when DOCKER-USER doesn't exist yet", () => {
     expect(guard).toContain("if sudo nft list chain ip filter DOCKER-USER");
-    expect(guard).toContain("guard skipped");
+    expect(guard).toContain("Guard skipped");
   });
 });
 
-describe("[od-5j8.11] hostFirewallInstallScript — end-to-end script composition", () => {
+describe("[od-5j8.11] hostFirewallInstallScript: end-to-end script composition", () => {
   const script = hostFirewallInstallScript({ sshPort: 22, peerIpsV4: ["10.0.0.2"] }, "sudo");
 
   test("never applies alongside an already-active ufw or firewalld (no fighting the operator's own choice)", () => {
@@ -169,7 +169,7 @@ describe("[od-5j8.11] parseHostFirewallStatus", () => {
   });
 });
 
-describe("[od-5j8.11] filterIpv4Peers — fail-closed-on-typo peer resolution", () => {
+describe("[od-5j8.11] filterIpv4Peers: fail-closed-on-typo peer resolution", () => {
   test("keeps bare IPv4 literals and strips a trailing port", () => {
     expect(filterIpv4Peers(["10.0.0.2", "10.0.0.3:2377"])).toEqual(["10.0.0.2", "10.0.0.3"]);
   });
@@ -185,7 +185,7 @@ describe("[od-5j8.11] filterIpv4Peers — fail-closed-on-typo peer resolution", 
   });
 });
 
-describe("[od-5j8.11] isFirewallDrifted — DB-tracked classifier", () => {
+describe("[od-5j8.11] isFirewallDrifted: DB-tracked classifier", () => {
   test("a node that never ran the firewall step ('unknown') is drifted", () => {
     expect(isFirewallDrifted({ firewallStatus: "unknown", firewallBouncerActive: false })).toBe(
       true,
@@ -204,7 +204,7 @@ describe("[od-5j8.11] isFirewallDrifted — DB-tracked classifier", () => {
     );
   });
 
-  test("'applied' status but an inactive bouncer IS still drifted — half the layering isn't protected", () => {
+  test("'applied' status but an inactive bouncer IS still drifted. Half the layering isn't protected", () => {
     expect(isFirewallDrifted({ firewallStatus: "applied", firewallBouncerActive: false })).toBe(
       true,
     );

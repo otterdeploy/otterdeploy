@@ -1,7 +1,7 @@
 /**
  * Locale parity, checked at runtime.
  *
- * Key drift is primarily a *type* error now — `packages/i18n/src/types.ts`
+ * Key drift is primarily a *type* error now. `packages/i18n/src/types.ts`
  * derives a dotted-path union from each bundle and asserts the difference is
  * `never`, so a missing or orphaned key fails `tsc`. These tests are not
  * redundant with that:
@@ -12,7 +12,7 @@
  *   - Placeholder and empty-value checks are beyond what the type system
  *     sees: `{{count}}` vs `{{total}}` are both just `string`.
  *
- * A missing key doesn't throw at runtime — i18next silently falls back to
+ * A missing key doesn't throw at runtime. I18next silently falls back to
  * English, so a half-translated screen ships looking fine to whoever wrote it
  * and broken to everyone else.
  */
@@ -92,7 +92,7 @@ describe.each(translations)("locale parity: $name", ({ tree }) => {
     expect(empty).toEqual([]);
   });
 
-  it("actually translates — a locale that is byte-identical to English is a stub", () => {
+  it("actually translates: a locale that is byte-identical to English is a stub", () => {
     // Guards the failure mode where a bundle is copied from English and never
     // translated: it passes every parity check above while showing English.
     // Proper nouns and machine tokens legitimately match, so this only asserts

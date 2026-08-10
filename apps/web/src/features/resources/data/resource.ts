@@ -36,7 +36,7 @@ function parseCol<T extends z.ZodType>(
   field = "id",
 ): z.infer<T> {
   // `field` is a path array (e.g. ["projectId"] or ["r","projectId"]) shared by
-  // reference with the live-query's where-expression — read the leaf with
+  // reference with the live-query's where-expression. Read the leaf with
   // .at(-1), never mutate.
   const expr = filters.find((f) => f.field.at(-1) === field);
   if (!expr) throw new Error(`${field} is required`);
@@ -57,7 +57,7 @@ const environmentIdSchema = zId("env");
 export const RESOURCE_COLLECTION_KEY = ["resource"] as const;
 
 const resourceQueryOptions = queryCollectionOptions({
-  // Stable id — required for SQLite persistence to round-trip (see
+  // Stable id, required for SQLite persistence to round-trip (see
   // projectCollection in features/projects/data/project.ts).
   id: "resources",
   syncMode: "on-demand",
@@ -65,13 +65,13 @@ const resourceQueryOptions = queryCollectionOptions({
     const baseQuery = [...RESOURCE_COLLECTION_KEY];
     const { filters } = parseLoadSubsetOptions(opts);
     // Startup base-key call: query-db-collection calls queryKey({}) once to
-    // compute the prefix every subset key must extend. No filters yet — just
+    // compute the prefix every subset key must extend. No filters yet. Just
     // return the prefix.
     if (!filters.at(0)) return baseQuery;
     const projectId = parseCol(projectIdSchema, filters, "projectId");
     // The environment MUST be part of the key. Without it every environment
     // shares one cache entry, so switching the switcher re-renders the
-    // previous environment's rows and never refetches — the switcher looked
+    // previous environment's rows and never refetches. The switcher looked
     // broken when in fact nothing had asked the server a new question.
     const environmentId = parseOptionalCol(environmentIdSchema, filters, "environmentId");
     const subsetKey = orpc.project.resource.list.queryKey({
@@ -100,7 +100,7 @@ const resourceQueryOptions = queryCollectionOptions({
   // Repair backstop, not the freshness mechanism. Live changes arrive as
   // pushes: docker transitions via the project-events stream, and
   // build-time transitions (building → failed schedule no swarm tasks, so
-  // no docker event) via publishResourceChanged on the Redis event bus —
+  // no docker event) via publishResourceChanged on the Redis event bus:
   // both invalidate this collection through useProjectEvents. The poll
   // only covers a missed/dropped event. At 5s it multiplied with the
   // event-driven refetches into ~100 list calls/min on an idle tab.
@@ -111,7 +111,7 @@ const resourceQueryOptions = queryCollectionOptions({
 
 type ResourceRow = Awaited<ReturnType<typeof orpc.project.resource.list.call>>[number];
 
-// Two-branch createCollection + pinned generics — same type gymnastics as
+// Two-branch createCollection + pinned generics: same type gymnastics as
 // projectCollection (features/projects/data/project.ts).
 export const resourceCollection = persistence
   ? createCollection(

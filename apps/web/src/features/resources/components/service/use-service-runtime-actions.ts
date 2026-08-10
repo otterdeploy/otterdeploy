@@ -1,8 +1,8 @@
 /**
- * The two runtime actions the service panel's header fires — Build (git) and
- * Restart. Deploy jumps into the new deployment's Build Logs — there's a new
+ * The two runtime actions the service panel's header fires: Build (git) and
+ * Restart. Deploy jumps into the new deployment's Build Logs. There's a new
  * row worth watching build. Restart re-rolls the current deployment in place
- * (no new row) and stays put — see the `restartMut` comment below. Extracted
+ * (no new row) and stays put. See the `restartMut` comment below. Extracted
  * so the panel component stays within the line budget.
  */
 
@@ -33,7 +33,7 @@ export function useServiceRuntimeActions({
 
   const buildMut = useMutation({
     ...orpc.service.build.mutationOptions(),
-    // Drop straight into the new deployment's Build Logs (Railway-style) — the
+    // Drop straight into the new deployment's Build Logs (Railway-style). The
     // whole point of hitting Deploy is to watch it build.
     onSuccess: ({ deploymentId }) => void toDeployment(deploymentId, "build-logs"),
     onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to start build"),
@@ -41,9 +41,9 @@ export function useServiceRuntimeActions({
 
   const restartMut = useMutation({
     ...orpc.service.restart.mutationOptions(),
-    // Restart re-rolls the current deployment in place — unlike Deploy, there's
+    // Restart re-rolls the current deployment in place: unlike Deploy, there's
     // no new thing to look at, so stay put instead of yanking the panel over to
-    // Deploy Logs (that used to blow away whatever tab — often Terminal — the
+    // Deploy Logs (that used to blow away whatever tab (often Terminal) the
     // user was on). A toast is enough feedback; the loading state on the
     // button itself covers the in-flight gap.
     onSuccess: () => toast.success("Service restarted"),

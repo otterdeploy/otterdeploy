@@ -94,7 +94,7 @@ export const serviceRouter = {
       // Snapshot first: `service.update` covers replicas, health checks, ports,
       // build config and source, and a row saying only "the service was
       // updated" answers none of the questions asked of it afterwards. Read
-      // failures are ignored — an update the caller is entitled to must not
+      // failures are ignored. An update the caller is entitled to must not
       // fail because the audit diff could not be built.
       const before = await getService({
         projectId: input.projectId,

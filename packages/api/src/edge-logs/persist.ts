@@ -27,7 +27,7 @@ const SWEEP_INTERVAL_MS = 60 * 60 * 1_000;
 interface PersistState {
   buffer: EdgeLogLine[];
   enabled: boolean;
-  /** True once the partitioned table exists — flush() no-ops until then. */
+  /** True once the partitioned table exists, flush() no-ops until then. */
   ready: boolean;
   flushTimer: ReturnType<typeof setInterval> | null;
   sweepTimer: ReturnType<typeof setInterval> | null;
@@ -88,7 +88,7 @@ export function persistenceEnabled(): boolean {
 }
 
 async function flush(): Promise<void> {
-  // Hold the buffer until the partitioned table is ready — inserting before the
+  // Hold the buffer until the partitioned table is ready. Inserting before the
   // partitions exist would fail and drop the batch.
   if (!state.ready || state.buffer.length === 0) return;
   const rows = state.buffer.splice(0, state.buffer.length);
@@ -106,7 +106,7 @@ async function flush(): Promise<void> {
 
 async function sweep(): Promise<void> {
   // Keep partitions ahead of ingest, then reclaim space by dropping whole
-  // expired partitions — metadata-only, no row-by-row DELETE, no heap bloat.
+  // expired partitions: metadata-only, no row-by-row DELETE, no heap bloat.
   // Retention is read per sweep (hourly), so shortening it in the UI reclaims
   // disk on the next pass without a restart.
   await ensurePartitions();

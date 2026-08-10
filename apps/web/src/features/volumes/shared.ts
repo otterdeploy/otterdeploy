@@ -10,7 +10,7 @@ export type VolumeAttachment = VolumeRow["attachedTo"][number];
 
 /** -1 (daemon didn't report usage) renders as unknown, not as a fake zero. */
 export function fmtBytes(n: number): string {
-  if (n < 0) return "—";
+  if (n < 0) return "–";
   if (n === 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
   const i = Math.min(Math.floor(Math.log(n) / Math.log(1024)), units.length - 1);
@@ -30,7 +30,7 @@ const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
 
 /** Unix seconds → relative time; guards non-finite/zero daemon timestamps. */
 export function timeAgoSeconds(seconds: number | null): string {
-  if (seconds == null || !Number.isFinite(seconds) || seconds <= 0) return "—";
+  if (seconds == null || !Number.isFinite(seconds) || seconds <= 0) return "–";
   const diffSeconds = seconds - Date.now() / 1000;
   const abs = Math.abs(diffSeconds);
   for (const [unit, secs] of RELATIVE_UNITS) {

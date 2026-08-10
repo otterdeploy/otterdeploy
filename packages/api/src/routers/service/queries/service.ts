@@ -61,7 +61,7 @@ export async function getServiceRecord(
 }
 
 /**
- * Look up a service by name WITHIN an environment — names are unique per
+ * Look up a service by name WITHIN an environment. Names are unique per
  * `(project, environment, name)`, so an unscoped check rejects a staging
  * create because production owns the name.
  */
@@ -169,7 +169,7 @@ export async function createServiceRecord(input: CreateServiceInput): Promise<Se
       });
     }
 
-    // Guard the empty case — a portless service (a worker, a queue consumer, a
+    // Guard the empty case. A portless service (a worker, a queue consumer, a
     // compose db/redis with no published port) has `ports: []`, and Drizzle's
     // `.values([])` throws "values() must be called with at least one value".
     // That crash inside createServiceRecord is what aborted a whole compose
@@ -226,14 +226,14 @@ export async function updateServiceRecord(
   input: UpdateServiceInput,
 ): Promise<ServiceResourceRow | undefined> {
   // Identity / ownership / placement columns are never patched through this
-  // path — strip them out, then drop undefined so only explicitly-provided
+  // path: strip them out, then drop undefined so only explicitly-provided
   // spec fields land in the SET list (every remaining key maps 1:1 to a
   // serviceResource column).
   //
   // `sourceSubdir` is deliberately NOT in this list: it's a build input (which
   // directory in the repo the builder hands to nixpacks), not identity, and the
   // manifest diffs it as one. Stripping it here made a staged root-directory
-  // change un-appliable — the diff surfaced it, apply silently dropped it, and
+  // change un-appliable. The diff surfaced it, apply silently dropped it, and
   // the same pending change came straight back on the next diff.
   const {
     status: _status,

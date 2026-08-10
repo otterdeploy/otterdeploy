@@ -1,5 +1,5 @@
 /**
- * Preview build trigger — insert preview-scoped pending deployments for a
+ * Preview build trigger. Insert preview-scoped pending deployments for a
  * project's opted-in git services and enqueue a build at a given commit.
  * Shared by the PR webhook (opened/synchronize) and the manual
  * `previews.rebuild` control.
@@ -21,7 +21,7 @@ import { resolveInstallationId } from "./installation-id";
  * Commit provenance for the deployment rows a preview build creates.
  *
  * The same fields a push deploy records. Without them the deployment reads
- * "Git deployment" with a bare ref and sha — no change described, no author —
+ * "Git deployment" with a bare ref and sha (no change described, no author)
  * which is exactly as informative as nothing. The push and manifest-apply paths
  * already capture this; preview builds were the one path that didn't.
  *
@@ -29,7 +29,7 @@ import { resolveInstallationId } from "./installation-id";
  * this runs, and the row must describe the commit actually being built.
  *
  * Best-effort by design. Provenance is presentation, so a rate-limited or
- * unreachable GitHub degrades the card, never the deploy — nulls here read the
+ * unreachable GitHub degrades the card, never the deploy. Nulls here read the
  * same as a preview created before this existed.
  */
 async function commitProvenance(
@@ -74,7 +74,7 @@ export interface TriggerPreviewBuildInput {
 export async function triggerPreviewBuild(input: TriggerPreviewBuildInput): Promise<number> {
   // A preview rebuilds the PREVIEWS-ENABLED git-sourced BASE services bound to
   // this repo (preview-scoped resources are branches, not deploy targets).
-  // Opt-in is per service; no watch-pattern filter — any commit refreshes the
+  // Opt-in is per service; no watch-pattern filter, any commit refreshes the
   // whole preview.
   const resources = await db
     .select({ id: resource.id })
@@ -93,7 +93,7 @@ export async function triggerPreviewBuild(input: TriggerPreviewBuildInput): Prom
   if (resources.length === 0) return 0;
 
   // Dedupe: skip resources that already have an in-flight build for this exact
-  // commit in this preview — N rapid Rebuild clicks shouldn't enqueue N
+  // commit in this preview: N rapid Rebuild clicks shouldn't enqueue N
   // concurrent builds racing on the same swarm service.
   const inflight = await db
     .select({ resourceId: deployment.resourceId })

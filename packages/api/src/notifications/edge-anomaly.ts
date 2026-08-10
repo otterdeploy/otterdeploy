@@ -4,9 +4,9 @@ import { db } from "@otterdeploy/db";
 import { project } from "@otterdeploy/db/schema/project";
 import { proxyRoute } from "@otterdeploy/db/schema/proxy-route";
 /**
- * Edge-threat detector — a periodic, conservative scan over recent edge access
+ * Edge-threat detector: a periodic, conservative scan over recent edge access
  * logs that emits `edge.probe` when one client IP hammers an org's domains with
- * scanner-style probes (`/.env`, `/actuator`, `*.php`, `?cmd=…` — see
+ * scanner-style probes (`/.env`, `/actuator`, `*.php`, `?cmd=…`. See
  * edge-logs/threat.ts). Sibling of the audit-anomaly detector: same control-plane
  * tick, in-memory cooldown, best-effort try/catch, `unref`'d timer.
  *
@@ -102,7 +102,7 @@ async function scanEdgeThreats(now = Date.now()): Promise<void> {
         organizationId: orgId as OrganizationId,
         eventId: "edge.probe",
         title: "Suspicious edge traffic",
-        message: `${agg.count} scanner-style probes from ${where} in the last 10 minutes — e.g. ${agg.samplePath}. Review and block from the Firewall page.`,
+        message: `${agg.count} scanner-style probes from ${where} in the last 10 minutes, e.g. ${agg.samplePath}. Review and block from the Firewall page.`,
         data: {
           ip,
           count: String(agg.count),

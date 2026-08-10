@@ -10,7 +10,7 @@
  *
  * Provider credentials come from ./platform-transports (settings row, seeded
  * from TWILIO_* / FCM_SERVER_KEY). Missing provider config or destination is a
- * logged no-op, not an error — the job still succeeds on the strength of the
+ * logged no-op, not an error: the job still succeeds on the strength of the
  * persisted in-app row.
  */
 import type { JsonObject } from "@otterdeploy/shared/json";

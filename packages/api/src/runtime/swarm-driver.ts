@@ -9,7 +9,7 @@ import {
   updateSwarmDatabase,
 } from "../swarm/database";
 /**
- * Swarm runtime driver — the opt-in, scale-across-nodes backend. Pure delegation
+ * Swarm runtime driver: the opt-in, scale-across-nodes backend. Pure delegation
  * to the existing `swarm/*` functions; this is the path you get when
  * `DEPLOY_RUNTIME=swarm`. See docs/designs/runtime.md.
  */

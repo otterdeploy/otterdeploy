@@ -2,7 +2,7 @@
  * Postgres resource mutators: public-toggle, env-var writers, rollback.
  *
  * All paths through `applyPostgresExtraEnv` are the only way the postgres
- * container env array changes after creation — they insert a deployment
+ * container env array changes after creation, they insert a deployment
  * row, persist the new env, and roll the swarm task. Direct callers
  * (`setPostgresExtraEnvKey`, `unsetPostgresExtraEnvKey`,
  * `rollbackPostgresToSnapshot`) just build the desired env map.
@@ -52,14 +52,14 @@ export async function setPostgresPublic(
     return Result.err(new PostgresResourceNotFoundError({ resourceId: input.resourceId }));
   }
 
-  // Drop existing routes either way — on disable we want them gone; on
+  // Drop existing routes either way. On disable we want them gone; on
   // enable we want exactly one fresh route so a stale registration doesn't
   // sneak through. The reconcile below picks up the new state.
   await deleteProxyRoutesByResource(input.resourceId);
 
   if (input.publicEnabled) {
     // Caddy can only issue a public ACME cert for a domain the operator
-    // proved they own — recompute the resolver outcome here so the route
+    // proved they own. Recompute the resolver outcome here so the route
     // carries the right tls flag regardless of when the DB was created.
     const domainSources = (await loadDomainSourcesForProject(input.projectId)) ?? {
       resourceOverride: null,
@@ -99,7 +99,7 @@ export async function setPostgresPublic(
   // inserted above (Caddy dials the container over the project network on
   // both runtimes; neither driver host-publishes the engine port), so the
   // container spec is identical either way. Rolling here used to recreate
-  // the database for an edge-only change — seconds of downtime plus a
+  // the database for an edge-only change. Seconds of downtime plus a
   // "missing" status flash for nothing. Legacy containers that still carry
   // a host binding from the old docker-driver model shed it on their next
   // natural roll (env change / restart / recovery).

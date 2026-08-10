@@ -29,7 +29,7 @@ export function parseEnrollmentCredential(credential: string): { id: NodeEnrollm
 
 export interface SwarmInspect {
   Version?: { Index?: number };
-  /** Parsed docker Swarm inspect payload — free-form JSON we echo back on rotate. */
+  /** Parsed docker Swarm inspect payload, free-form JSON we echo back on rotate. */
   Spec?: JsonObject;
 }
 

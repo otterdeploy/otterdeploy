@@ -34,7 +34,7 @@ export interface ComposeResourceJoined {
  *
  * A NULL `environment_id` means the project's MAIN environment. Resources
  * pre-date environment scoping and were all created unstamped, so main has to
- * own them or they'd be invisible everywhere — but that equivalence holds ONLY
+ * own them or they'd be invisible everywhere, but that equivalence holds ONLY
  * for main, which is why `isMain` is a required argument rather than something
  * inferred from `environmentId` being absent.
  *
@@ -46,7 +46,7 @@ export interface ComposeResourceJoined {
  *
  * This is what stops staging's resources appearing in production's graph and
  * vice versa. Without it every environment renders every environment's
- * resources — the symptom that started this work.
+ * resources: the symptom that started this work.
  */
 export function inEnvironmentScope(scope: ResourceScope) {
   // Reverse lookups (container name → resource) must span environments or a
@@ -61,7 +61,7 @@ export function inEnvironmentScope(scope: ResourceScope) {
 
 /**
  * Which environment a read is scoped to. `isMain` is the project's own
- * `environment_id` pointer matching this environment — see resolveEnvironmentScope.
+ * `environment_id` pointer matching this environment: see resolveEnvironmentScope.
  */
 export interface EnvironmentScopeInput {
   environmentId: EnvironmentId;
@@ -70,7 +70,7 @@ export interface EnvironmentScopeInput {
 
 /**
  * One environment, or deliberately every one of them. `"all"` is for reverse
- * lookups that map a container/service NAME back to a resource — those must see
+ * lookups that map a container/service NAME back to a resource. Those must see
  * every environment or a non-main container resolves to nothing. It is never
  * correct for a list the operator is looking at.
  */
@@ -82,7 +82,7 @@ export type ResourceScope = EnvironmentScopeInput | "all";
  * Callers hold a project row and an OPTIONAL environment id (the client sends
  * one once the operator has picked from the switcher; deep links, internal
  * callers and the CLI often don't). Absent means the project's main
- * environment — the same thing the UI defaults to — so every caller lands on a
+ * environment (the same thing the UI defaults to) so every caller lands on a
  * real environment id rather than the old implicit `IS NULL`.
  *
  * Returns null only for a project with no `environment_id` pointer at all,
@@ -188,7 +188,7 @@ export async function getResourceById(
 }
 
 /**
- * The swarm service names a compose stack fans out to — one `${stack}-${key}`
+ * The swarm service names a compose stack fans out to: one `${stack}-${key}`
  * per compose service, paired with the compose key so task/log views can
  * attribute output back to the sub-service. Runtime views (tasks, deployment
  * logs) aggregate across these; the stack has no swarm service of its own.
@@ -203,7 +203,7 @@ export function composeChildSwarmServices(
 }
 
 export async function deleteResourceById(resourceId: ResourceId) {
-  // Capture the project + name + org before the row is gone — the artifact dir
+  // Capture the project + name + org before the row is gone. The artifact dir
   // is nested under the project (`resources/<projectId>/<resourceId>`), and the
   // name/org drive backup-schedule cleanup below.
   const [row] = await db
@@ -219,7 +219,7 @@ export async function deleteResourceById(resourceId: ResourceId) {
   await db.delete(resource).where(eq(resource.id, resourceId));
   if (row) {
     // Drop the resource's host artifact dir (no-op unless the data folder is in
-    // use). Best-effort — never blocks the row delete. See lib/data-dir.ts.
+    // use). Best-effort, never blocks the row delete. See lib/data-dir.ts.
     await removeResourceDir(row.projectId, resourceId);
     // Prune this now-deleted resource from any backup schedule that referenced
     // it (FK-less jsonb `sources`), disabling schedules left with no live

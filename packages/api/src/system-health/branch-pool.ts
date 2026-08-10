@@ -1,7 +1,7 @@
 /**
  * ZFS branching-pool introspection + lifecycle (docs/designs/db-branching.md,
  * "Pool sizing, reclamation, growth"). The installer provisions a file-backed
- * pool as a SPARSE image under the data dir — its apparent size is a growth
+ * pool as a SPARSE image under the data dir: its apparent size is a growth
  * ceiling, but every block ZFS ever writes stays materialized on the host
  * filesystem until trimmed. This module keeps that honest:
  *
@@ -18,7 +18,7 @@
  * directly: compose bind-mounts the data dir at the same path on both sides.
  * BRANCH_ZFS_POOL is read raw off process.env (not `@otterdeploy/env`) so the
  * runtime driver can import the guard without dragging full env validation
- * into the deploy import graph — same idiom as runtime/snapshot/index.ts.
+ * into the deploy import graph, same idiom as runtime/snapshot/index.ts.
  */
 import { DATA_ROOT } from "@otterdeploy/shared/paths";
 import { Result } from "better-result";
@@ -55,9 +55,9 @@ export interface BranchPoolHealth {
   autotrim: boolean | null;
   /** File-backed vdev stats; null when the pool sits on a real disk. */
   imagePath: string | null;
-  /** Apparent (sparse) size — the pool's growth ceiling. */
+  /** Apparent (sparse) size: the pool's growth ceiling. */
   imageMaxBytes: number | null;
-  /** Blocks actually materialized — what the image really costs the host. */
+  /** Blocks actually materialized: what the image really costs the host. */
   imagePhysicalBytes: number | null;
   /** Physical bytes a trim would hand back to the host (best estimate). */
   reclaimableBytes: number;
@@ -73,7 +73,7 @@ interface ZpoolStats {
   autotrim: boolean;
 }
 
-// zpool reads spawn a privileged helper container — cache briefly so the UI's
+// zpool reads spawn a privileged helper container. Cache briefly so the UI's
 // 60s hostHealth poll doesn't pay that on every tick.
 let zpoolCache: { at: number; pool: string; value: ZpoolStats | null } | null = null;
 const ZPOOL_CACHE_MS = 45_000;
@@ -131,7 +131,7 @@ async function hostFreeBytes(): Promise<number | null> {
 
 /** Suggest growing only when the pool is genuinely filling AND the host can
  *  absorb the new ceiling without breaking the reserve. Never suggest an
- *  overcommit — a pool that outpromises the disk suspends on ENOSPC. */
+ *  overcommit: a pool that outpromises the disk suspends on ENOSPC. */
 function suggestGrow(
   image: ImageStats | null,
   zpool: ZpoolStats | null,
@@ -179,7 +179,7 @@ export async function getBranchPoolHealth(): Promise<BranchPoolHealth | null> {
     imageMaxBytes: image ? image.maxBytes : null,
     imagePhysicalBytes: image ? image.physicalBytes : null,
     // Freed-but-still-materialized blocks. Only claimable when both sides are
-    // known; alloc includes pool metadata, so this slightly understates — fine.
+    // known; alloc includes pool metadata, so this slightly understates: fine.
     reclaimableBytes: image && zpool ? Math.max(0, image.physicalBytes - zpool.allocBytes) : 0,
     suggestGrowBytes: suggestGrow(image, zpool, hostFree),
   };
@@ -234,7 +234,7 @@ export type GrowResult =
   | { ok: false; reason: string };
 
 /** Raise the file-backed pool's ceiling by `stepBytes` (default 10G). Refuses
- *  when the host disk couldn't back the new promise — see module note. */
+ *  when the host disk couldn't back the new promise. See module note. */
 export async function growBranchPool(stepBytes = GROW_STEP_BYTES): Promise<GrowResult> {
   const pool = poolName();
   if (!pool) return { ok: false, reason: "no branching pool configured" };
@@ -245,7 +245,7 @@ export async function growBranchPool(stepBytes = GROW_STEP_BYTES): Promise<GrowR
   }
   const image = await readImageStats();
   if (!image) {
-    return { ok: false, reason: "pool is not file-backed — grow the underlying disk instead" };
+    return { ok: false, reason: "pool is not file-backed, grow the underlying disk instead" };
   }
   const hostFree = await hostFreeBytes();
   if (hostFree == null || hostFree - step < HOST_DISK_RESERVE_BYTES) {
@@ -273,7 +273,7 @@ export type HeadroomCheck = { ok: true } | { ok: false; reason: string };
 
 /** Cheap pre-flight before materializing a branch database: a `copy` branch
  *  duplicates the source's data and a `zfs` branch materializes sparse-image
- *  blocks as it diverges — both come out of the host disk. Refusing up front
+ *  blocks as it diverges: both come out of the host disk. Refusing up front
  *  beats a half-restored branch (copy) or a suspended pool (zfs). */
 export async function checkBranchHeadroom(): Promise<HeadroomCheck> {
   const free = await hostFreeBytes();
@@ -281,7 +281,7 @@ export async function checkBranchHeadroom(): Promise<HeadroomCheck> {
   if (free < HOST_DISK_RESERVE_BYTES) {
     return {
       ok: false,
-      reason: `host disk has only ${(free / GB).toFixed(1)} GB free — below the ${HOST_DISK_RESERVE_BYTES / GB} GB reserve; free space (or grow the disk) before branching`,
+      reason: `host disk has only ${(free / GB).toFixed(1)} GB free, below the ${HOST_DISK_RESERVE_BYTES / GB} GB reserve; free space (or grow the disk) before branching`,
     };
   }
   return { ok: true };

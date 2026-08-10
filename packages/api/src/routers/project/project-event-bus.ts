@@ -2,14 +2,14 @@
  * Cross-process project event bus (Redis pub/sub).
  *
  * The project events stream (`events-stream.ts`) is fed by the *docker* event
- * bus — great for runtime (container/task) transitions, but build-phase status
+ * bus: great for runtime (container/task) transitions, but build-phase status
  * changes (pending → building → running/failed) happen in the **builder
  * process** and produce no docker event, so the stream was silent during a
  * build and the UI fell back to slow polling.
  *
  * This bridges that gap: the builder (and any API-side status write) publishes
  * a resource-changed event to a per-project Redis channel; the stream in the
- * API process subscribes to it and pushes it to connected clients — real-time,
+ * API process subscribes to it and pushes it to connected clients. Real-time,
  * no polling. Same Bun `RedisClient` pub/sub the deployment log tail already
  * uses (`deployment/log-stream.ts`), so both processes just share Redis.
  *
@@ -48,7 +48,7 @@ function publishProjectEvent(projectId: ProjectId | string, event: ProjectStream
 }
 
 /**
- * Resolve the resource's project and publish a "resource updated" event — the
+ * Resolve the resource's project and publish a "resource updated" event. The
  * frontend's `useProjectEvents` reacts by invalidating that resource's
  * deployment list + status, so a build-status change lands instantly. One
  * cheap indexed lookup per transition; swallows all errors.
@@ -63,13 +63,13 @@ export async function publishResourceChanged(resourceId: ResourceId): Promise<vo
     if (!row) return;
     publishProjectEvent(row.projectId, { kind: "resource", action: "updated", resourceId });
   } catch {
-    // best-effort — never break the caller's deploy path
+    // best-effort, never break the caller's deploy path
   }
 }
 
 /**
  * Announce that the project's staged manifest changed (save / apply /
- * discard / git apply). Carries no payload — the collection stream turns it
+ * discard / git apply). Carries no payload. The collection stream turns it
  * into a `manifest` resync and consumers refetch diff/manifest/stack reads,
  * which lets those queries idle at a slow backstop instead of polling.
  */
@@ -86,7 +86,7 @@ export function publishPreviewsChanged(projectId: ProjectId | string): void {
 /**
  * Publish a route row to its project's channel.
  *
- * Carries the ROW, not an id — the client applies it directly instead of
+ * Carries the ROW, not an id. The client applies it directly instead of
  * refetching. That is only sound because a proxy route is a plain select:
  * `proxyRoute.list` returns the stored row, so the writer already holds
  * exactly what every reader would compute. (Deployments deliberately do NOT
@@ -103,7 +103,7 @@ export function publishRouteUpserted(action: "created" | "updated", route: Proxy
   // NEVER put these on the bus. Every route output schema omits the access-PIN
   // hash and the domain-verification token so no endpoint can leak them; a
   // pub/sub channel is a wider audience than an authorized HTTP response, not a
-  // narrower one, so the same rule has to hold here — and it has to hold at the
+  // narrower one, so the same rule has to hold here, and it has to hold at the
   // PUBLISHER, because output validation downstream would strip them from the
   // response while they sat in Redis regardless.
   const { accessPinHash: _pin, domainVerifyToken: _token, ...safe } = route;
@@ -122,7 +122,7 @@ export function publishRouteRemoved(
 /**
  * Publish an org-scoped, payload-free change announcement (activity counts,
  * inbox, servers). Same best-effort rules as the project channel. The jobs
- * workers publish to the same channel with their own client — the wire shape
+ * workers publish to the same channel with their own client. The wire shape
  * lives in @otterdeploy/shared/org-events so the two can't drift.
  */
 export function publishOrgEvent(organizationId: string, kind: OrgStreamCollection): void {

@@ -1,9 +1,9 @@
 /**
- * Volumes oRPC contract — installation-admin inventory of the daemon's named
+ * Volumes oRPC contract: installation-admin inventory of the daemon's named
  * volumes, enriched with the platform resource each volume belongs to.
  *
  * Sizes are the daemon's *measured* bytes from `docker system df -v`
- * (`UsageData.Size`) — the `local` driver has no provisioned/quota size, so
+ * (`UsageData.Size`): the `local` driver has no provisioned/quota size, so
  * none is invented here.
  */
 import { oc } from "@orpc/contract";

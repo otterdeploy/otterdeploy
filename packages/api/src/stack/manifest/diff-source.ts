@@ -1,5 +1,5 @@
 /**
- * Source-block field diffs for the manifest diff — image tag, git binding
+ * Source-block field diffs for the manifest diff: image tag, git binding
  * (repo/branch/subdir/imageRepository/previews) and buildConfig. Split out of
  * diff-helpers.ts to keep it under the file-length cap; internal to the diff
  * and re-imported by diff-helpers.ts.
@@ -12,8 +12,8 @@ import type { CurrentService } from "./diff";
 import type { ServiceManifest } from "./schema";
 
 /**
- * A value carried on a field diff's `from`/`to` side. JSON-shaped — the diff
- * rides oRPC to the web UI — with `BuildConfig` admitted explicitly: its
+ * A value carried on a field diff's `from`/`to` side. JSON-shaped. The diff
+ * rides oRPC to the web UI: with `BuildConfig` admitted explicitly: its
  * variants are declared as interfaces (no implicit index signature), so they
  * don't assign to `JsonValue` structurally even though they are plain JSON.
  */
@@ -41,12 +41,12 @@ function diffGitBinding(desired: ServiceManifest, current: CurrentService, fc: F
 
   // Declared-only (like repo below): an omitted sourceSubdir is live-managed.
   // Defaulting it to null staged a phantom update the reconciler's patch never
-  // carried — an un-appliable diff that sat in the pending bar forever.
+  // carried. An un-appliable diff that sat in the pending bar forever.
   if (desired.sourceSubdir !== undefined && desired.sourceSubdir !== current.sourceSubdir) {
     fc.sourceSubdir = { from: current.sourceSubdir, to: desired.sourceSubdir };
   }
   // Per-service repo/branch. Only diffed when the manifest actually declares
-  // `repo` — an omitted repo means "leave the existing binding alone" (repo
+  // `repo`: an omitted repo means "leave the existing binding alone" (repo
   // moved into the manifest recently; pre-migration manifests omit it and
   // must not read as "unset the repo"). See manifest-apply-services.ts, which
   // gates the write the same way.
@@ -64,7 +64,7 @@ function diffGitBinding(desired: ServiceManifest, current: CurrentService, fc: F
     fc.imageRepository = { from: current.imageRepository, to: desiredImage };
   }
   // Declared-only, like publicEnabled: an omitted `previews` key means the
-  // toggle is live-managed — defaulting it to false would phantom-revert a
+  // toggle is live-managed. Defaulting it to false would phantom-revert a
   // live opt-in on the next Apply.
   if (desired.previews !== undefined && desired.previews !== current.previewsEnabled) {
     fc.previewsEnabled = { from: current.previewsEnabled, to: desired.previews };

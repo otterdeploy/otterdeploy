@@ -1,11 +1,11 @@
 /**
- * "Filter Data" popover — anchored to the Filter button. Layout matches the
+ * "Filter Data" popover, anchored to the Filter button. Layout matches the
  * reference: header · natural-language hint · filter rows · footer
  * (Add Filter | Cancel · Apply). Edits a DRAFT (Cancel discards), commits on
  * Apply. Reuses ./filter-bar (rows) and ./filters (server-side WHERE compiler).
  *
  * NOTE: the NL hint input is rendered to match the design; parsing free-text
- * into filters is a later enhancement — the structured rows below are the
+ * into filters is a later enhancement. The structured rows below are the
  * functional path today.
  */
 
@@ -34,7 +34,7 @@ export function FilterPopover({
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Filter[]>(filters);
 
-  // Re-seed the draft when the popover opens — done in the open handler (not an
+  // Re-seed the draft when the popover opens. Done in the open handler (not an
   // effect) so the rows are correct on the first paint and we skip an extra render.
   function handleOpenChange(next: boolean) {
     if (next) setDraft(filters.length ? filters : [newFilter()]);

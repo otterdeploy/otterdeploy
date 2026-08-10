@@ -1,5 +1,5 @@
 /**
- * Logs tab for a deployed service — a live runtime tail scoped to just this
+ * Logs tab for a deployed service. A live runtime tail scoped to just this
  * resource. Reuses the project log stream (`useProjectLogStream`) with a
  * one-id whitelist, so transport, ring-buffering, level inference, and
  * multi-line coalescing all match the project-wide Logs page; this file only
@@ -50,7 +50,7 @@ function LogRow({ line, wrap }: { line: LogLine; wrap: boolean }) {
   );
 }
 
-/** The toolbar's right-side controls — wrap toggle, pause/resume, copy. */
+/** The toolbar's right-side controls. Wrap toggle, pause/resume, copy. */
 function TailControls({
   wrap,
   onToggleWrap,

@@ -45,18 +45,18 @@ function toAuditEvent(r: AuditRow) {
   };
 }
 
-/** Org scope + optional time window — shared by `list` and `distinct`.
+/** Org scope + optional time window. Shared by `list` and `distinct`.
  *
  * Includes rows with a NULL `organizationId` alongside the caller's own org:
  * every DENIED row from an auth/org-gate rejection (UNAUTHORIZED,
  * NO_ACTIVE_ORGANIZATION) is written before `activeOrganizationId` is ever
- * known (see `traceProcedure` in packages/api/src/index.ts — the tenant id
+ * known (see `traceProcedure` in packages/api/src/index.ts, the tenant id
  * on the audit envelope comes from context captured at request start, and
  * for those two denial codes that's before a session/org has resolved). An
- * org-only `eq` filter made the DENIED counter permanently 0 — no denied row
+ * org-only `eq` filter made the DENIED counter permanently 0, no denied row
  * has ever carried a real org id, by construction, so it could never match.
  * These rows aren't another tenant's private data (there IS no tenant), so
- * surfacing them everywhere isn't a cross-org leak — it's the only way an
+ * surfacing them everywhere isn't a cross-org leak. It's the only way an
  * operator ever sees "someone got blocked before establishing identity" at
  * all. */
 function windowConds(orgId: string, from?: string, to?: string): SQL[] {
@@ -121,7 +121,7 @@ export const auditRouter = {
   }),
 
   /** Project-scoped feed for the graph workspace's Activity tab. The audit row
-   *  has no project column — scope is derived from the target: either the
+   *  has no project column. Scope is derived from the target: either the
    *  event targeted the project itself (`targetId = projectId`) or its target
    *  payload carries the project (`target->>'projectId'`, the shape resource
    *  mutations set). Org filter stays the cross-tenant guard. */
@@ -180,7 +180,7 @@ export const auditRouter = {
     ]);
 
     // The DISTINCT is over the (id, type, email, label) tuple, so an actor
-    // whose label/email changed mid-window appears twice — collapse by id,
+    // whose label/email changed mid-window appears twice. Collapse by id,
     // preferring the row that carries a label.
     const actors = new Map<string, (typeof actorRows)[number]>();
     for (const a of actorRows) {

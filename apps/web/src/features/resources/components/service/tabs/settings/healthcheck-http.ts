@@ -2,12 +2,12 @@
  * Pure mapping between the health-check card's form values (path + port) and
  * the stored `healthcheck.cmd` array the runtime executes.
  *
- * Docker has no native HTTP probe — the check is a command run INSIDE the
+ * Docker has no native HTTP probe. The check is a command run INSIDE the
  * container, so we generate a portable shell one-liner that tries wget (BusyBox
  * / Alpine / Debian) and falls back to curl. The `CMD-SHELL` marker is passed
  * through verbatim by the runtime drivers (see `toHealthcheckTest` in
  * packages/api/src/swarm/internals.ts). Images with neither wget nor curl nor
- * `sh` fail the check — the card copy says so instead of pretending.
+ * `sh` fail the check. The card copy says so instead of pretending.
  *
  * `parseHttpHealthcheckCmd` inverts the template so the card can re-open a
  * stored check into form values; a cmd it can't invert (hand-written via the
@@ -22,7 +22,7 @@ export interface HttpHealthcheck {
 }
 
 // Conservative charset: RFC-3986 path/query characters minus anything that is
-// shell-active inside double quotes (`$`, backtick, `"`, `\`) — the path is
+// shell-active inside double quotes (`$`, backtick, `"`, `\`): the path is
 // interpolated into a quoted shell string. Also doubles as "stays invertible".
 const PATH_RE = /^\/[A-Za-z0-9\-._~!*'();:@&=+,/?%]*$/;
 
@@ -42,8 +42,8 @@ function probeScript(url: string): string {
 }
 
 /**
- * Build the stored cmd for an HTTP health check. Throws on an invalid path —
- * callers validate with {@link isValidHealthcheckPath} first; the throw is the
+ * Build the stored cmd for an HTTP health check. Throws on an invalid path.
+ * Callers validate with {@link isValidHealthcheckPath} first; the throw is the
  * backstop that keeps shell-active characters out of the generated script.
  */
 export function buildHttpHealthcheckCmd(check: HttpHealthcheck): string[] {

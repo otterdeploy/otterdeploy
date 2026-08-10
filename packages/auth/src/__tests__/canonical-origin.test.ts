@@ -14,7 +14,7 @@ describe("canonicalWebOrigin", () => {
     ).toBe("https://deploy.example.com");
   });
 
-  test("unverified domain is NOT trusted — falls back to the env base", () => {
+  test("unverified domain is NOT trusted, falls back to the env base", () => {
     expect(
       canonicalWebOrigin(
         { controlPlaneFqdn: "deploy.example.com", controlPlaneFqdnVerifiedAt: null },

@@ -39,7 +39,7 @@ interface ExecutionContextBase {
   storagePath: string | null;
   /** sha256 of the stored archive body (null until the run succeeds). */
   checksum: string | null;
-  /** Pre-backup command (scheduled runs only) — exec'd in the DB container. */
+  /** Pre-backup command (scheduled runs only), exec'd in the DB container. */
   preHook: string | null;
   /** Owning schedule (null for manual runs); tags snapshots for tag-scoped `forget`. */
   scheduleId: BackupScheduleId | null;
@@ -53,7 +53,7 @@ interface ExecutionContextBase {
 
 /** Discriminated by source: a managed-database dump, a compose-stack database
  *  dump, or a named-volume tar. `database` and `stack` carry an identical field
- *  set (engine + credentials + the container's resourceId) — they differ only in
+ *  set (engine + credentials + the container's resourceId). They differ only in
  *  provenance, so the whole dump→rustic pipeline treats them uniformly. */
 export type ExecutionContext =
   | (ExecutionContextBase & {
@@ -137,7 +137,7 @@ async function toStackContext(
   };
 }
 
-/** Managed database — require the full resource + database join to have
+/** Managed database: require the full resource + database join to have
  *  resolved, same as the old inner joins. */
 function toDatabaseContext(base: ExecutionContextBase, row: ContextRow): ExecutionContext | null {
   if (
@@ -216,7 +216,7 @@ export async function getExecutionContext(backupId: BackupId): Promise<Execution
 }
 
 /**
- * Where a restore WRITES — which is not necessarily where the snapshot came
+ * Where a restore WRITES, which is not necessarily where the snapshot came
  * from.
  *
  * `getExecutionContext` resolves a run's own source; restoring a snapshot into
@@ -237,7 +237,7 @@ export interface DatabaseTarget {
 export async function resolveDatabaseTarget(
   resourceId: ResourceId,
   /** Scope: the target must belong to the caller's org. Without this a caller
-   *  could restore their own snapshot INTO another tenant's database — the
+   *  could restore their own snapshot INTO another tenant's database. The
    *  snapshot is scoped upstream, the write target was not. */
   organizationId: OrganizationId,
 ): Promise<DatabaseTarget | null> {

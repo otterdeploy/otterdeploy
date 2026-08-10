@@ -1,23 +1,23 @@
 /**
- * od-5j8.11 — a node that joins without host-firewall configuration is
+ * od-5j8.11: a node that joins without host-firewall configuration is
  * detected as drifted, not silently reported as "protected".
  *
  * The platform tracks per-server firewall provisioning state in a persisted
- * DB column (server.firewall_status), not a live re-probe — see
+ * DB column (server.firewall_status), not a live re-probe. See
  * docs/designs/vps-firewall-layering.md §Drift detection for why (no
  * ongoing SSH/host channel exists to swarm-joined nodes; see ssh-exec.ts's
  * own module note: "once a node is in the swarm it's managed through the
  * manager socket, never through here"). Invariants under test:
  *
- *   1. The DB default for every server row is `firewall_status = 'unknown'`
- *      — so a node that predates this feature, or whose provisioning run
+ *   1. The DB default for every server row is `firewall_status = 'unknown'`,
+ *      so a node that predates this feature, or whose provisioning run
  *      skipped/never reached the firewall step, reads as UNPROTECTED, never
  *      as a false "applied".
  *   2. `isFirewallDrifted` (the classifier the UI/remediation path would
  *      read) treats that default as drift.
  *   3. The provisioning runner actually records the firewall outcome on
- *      EVERY join — both the full-provision path and the firewall-only
- *      remediation path — via `patchServerFirewall`, so drift is knowable
+ *      EVERY join: both the full-provision path and the firewall-only
+ *      remediation path: via `patchServerFirewall`, so drift is knowable
  *      instead of the DB silently keeping the "unknown" default forever.
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -96,7 +96,7 @@ describe("[od-5j8.11] every join path records the firewall outcome (so drift is 
     expect(catchBlock).toContain('firewallStatus: "failed"');
   });
 
-  test("remediation requires a stored managed SSH key — a password-bootstrapped node with no stored key is refused, not silently no-op'd", () => {
+  test("remediation requires a stored managed SSH key. A password-bootstrapped node with no stored key is refused, not silently no-op'd", () => {
     const handlers = source("packages/api/src/routers/server/handlers.ts");
     const fn = handlers.slice(
       handlers.indexOf("export async function reapplyFirewall"),

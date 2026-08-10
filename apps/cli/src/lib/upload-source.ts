@@ -1,7 +1,7 @@
 /**
  * POST a source tarball to the control plane's raw upload route
  * (`/api/services/:resourceId/source`) for a `source: "upload"` deploy. Not an
- * oRPC call — the body is a binary stream — so it goes over plain fetch, reusing
+ * oRPC call (the body is a binary stream) so it goes over plain fetch, reusing
  * the CLI's local-cert-trusting fetch for dev proxies.
  */
 
@@ -11,7 +11,7 @@ import { fetchFor } from "./local-tls";
 
 export interface UploadResult {
   deploymentId: string;
-  /** sha256 (hex) content hash of the uploaded tarball — the upload analog of
+  /** sha256 (hex) content hash of the uploaded tarball: the upload analog of
    *  a commit sha. Absent from older control planes. */
   sourceSha?: string;
 }

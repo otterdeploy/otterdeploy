@@ -46,12 +46,12 @@ export function GeneralTab({ provider }: { provider: ProviderData }) {
           value={
             inst
               ? `${inst.accountType === "organization" ? "org" : "user"}/${inst.accountLogin}`
-              : "—"
+              : "–"
           }
           mono
         />
         <Row label={t("gitProviders.host")} value={provider.host} mono />
-        <Row label={t("gitProviders.appId")} value={provider.externalAppId ?? "—"} mono />
+        <Row label={t("gitProviders.appId")} value={provider.externalAppId ?? "–"} mono />
         <Row
           label={t("gitProviders.installationId")}
           value={inst?.installationId ?? "Not installed"}
@@ -60,11 +60,11 @@ export function GeneralTab({ provider }: { provider: ProviderData }) {
         <Row
           label={t("gitProviders.repositories")}
           value={
-            // Null count = never fetched / revoked → "—" (a 0 here would
+            // Null count = never fetched / revoked → "–" (a 0 here would
             // wrongly claim GitHub granted no repos).
             inst && inst.repoCount != null
               ? `${inst.repoCount}${inst.repoSelection === "selected" ? " (selected)" : " (all)"}`
-              : "—"
+              : "–"
           }
         />
         <Row
@@ -151,7 +151,7 @@ export function PermissionsTab({ provider }: { provider: ProviderData }) {
       {entries.length === 0 ? (
         <p className="text-[12.5px] text-muted-foreground">
           {inst
-            ? "No permissions recorded yet — try Refetch."
+            ? "No permissions recorded yet. Try Refetch."
             : "Install the App to see its permissions."}
         </p>
       ) : (
@@ -235,7 +235,7 @@ export function ResourcesTab({
               </td>
               <td className="px-4 py-2.5 font-mono text-muted-foreground">{r.repoFullName}</td>
               <td className="px-4 py-2.5 font-mono text-muted-foreground">
-                {r.productionBranch ?? "—"}
+                {r.productionBranch ?? "–"}
               </td>
             </tr>
           ))}

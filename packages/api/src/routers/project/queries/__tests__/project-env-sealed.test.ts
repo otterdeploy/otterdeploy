@@ -1,11 +1,11 @@
 /**
- * od-5j8.12 — query-layer coverage for sealed project env vars:
+ * od-5j8.12: query-layer coverage for sealed project env vars:
  * `upsertProjectEnvVar` must encrypt on write whenever the FINAL state is
- * sealed (whether this call or a prior one set the flag — sticky, one-way),
+ * sealed (whether this call or a prior one set the flag, sticky, one-way),
  * and `bulkReplaceProjectEnvVars` must never delete or overwrite an existing
  * sealed row. Uses real AES-GCM (via `../../../lib/crypto`, already unit-
  * tested in `lib/__tests__/crypto.test.ts`) against a hand-rolled fluent
- * mock of `@otterdeploy/db`'s query builder — no real database needed.
+ * mock of `@otterdeploy/db`'s query builder, no real database needed.
  */
 import { describe, expect, test, vi } from "vite-plus/test";
 
@@ -89,7 +89,7 @@ import { bulkReplaceProjectEnvVars, upsertProjectEnvVar } from "../project-env";
 
 const scope = { projectId: "project_1", environmentId: "env_1" } as never;
 
-describe("upsertProjectEnvVar — sealed write path", () => {
+describe("upsertProjectEnvVar, sealed write path", () => {
   test("encrypts the value with the env-vars domain key when sealed: true on a fresh key", async () => {
     nextSelectRows = []; // no existing row
     lastInsertReturn = [
@@ -99,7 +99,7 @@ describe("upsertProjectEnvVar — sealed write path", () => {
         environmentId: "env_1",
         key: "TOKEN",
         // The insert path itself computes ciphertext BEFORE calling
-        // `.values()` — echo back exactly what was captured so this test
+        // `.values()`: echo back exactly what was captured so this test
         // proves the STORED value (not some other string) round-trips.
         get value() {
           return (lastInsertCapture.values as { value: string }).value;
@@ -122,7 +122,7 @@ describe("upsertProjectEnvVar — sealed write path", () => {
     // Never stores the plaintext verbatim.
     expect(row.value).not.toBe("plaintext-token");
     expect(row.value.startsWith("v2:env-vars:")).toBe(true);
-    // But it's genuinely recoverable via the domain-scoped decrypt — proves
+    // But it's genuinely recoverable via the domain-scoped decrypt. Proves
     // this is real encryption, not just an opaque placeholder string.
     expect(await decryptForDomain(row.value, "env-vars")).toBe("plaintext-token");
   });
@@ -151,7 +151,7 @@ describe("upsertProjectEnvVar — sealed write path", () => {
       scope,
       key: "TOKEN",
       value: "replacement-plaintext",
-      // sealed NOT passed — must not unseal.
+      // sealed NOT passed. Must not unseal.
     });
 
     expect(row.sealed).toBe(true);
@@ -159,7 +159,7 @@ describe("upsertProjectEnvVar — sealed write path", () => {
     expect(await decryptForDomain(row.value, "env-vars")).toBe("replacement-plaintext");
   });
 
-  test("a plain (never-sealed) write stores plaintext verbatim — sealing doesn't leak into unrelated keys", async () => {
+  test("a plain (never-sealed) write stores plaintext verbatim. Sealing doesn't leak into unrelated keys", async () => {
     nextSelectRows = [];
     lastInsertReturn = [
       {
@@ -184,7 +184,7 @@ describe("upsertProjectEnvVar — sealed write path", () => {
   });
 });
 
-describe("bulkReplaceProjectEnvVars — sealed rows are never deleted or overwritten", () => {
+describe("bulkReplaceProjectEnvVars, sealed rows are never deleted or overwritten", () => {
   test("an existing sealed row survives a bulk replace that omits its key, and any attempt to overwrite it is dropped", async () => {
     const existingSealed = {
       id: "pev_sealed",
@@ -215,13 +215,13 @@ describe("bulkReplaceProjectEnvVars — sealed rows are never deleted or overwri
     const rows = await bulkReplaceProjectEnvVars(scope, [
       { key: "PLAIN_KEY", value: "new-plain-value" },
       // Attempts to smuggle a "replacement" for the sealed key through the
-      // bulk path — must be silently dropped, not applied.
+      // bulk path: must be silently dropped, not applied.
       { key: "SEALED_KEY", value: "attacker-or-buggy-client-supplied-value" },
     ]);
 
     const byKey = Object.fromEntries(rows.map((r) => [r.key, r]));
     expect(byKey.PLAIN_KEY?.value).toBe("new-plain-value");
-    // The sealed row comes back completely unchanged — same ciphertext as
+    // The sealed row comes back completely unchanged. Same ciphertext as
     // before the call, proving the bulk path never touched it.
     expect(byKey.SEALED_KEY?.value).toBe(existingSealed.value);
     expect(byKey.SEALED_KEY?.sealed).toBe(true);

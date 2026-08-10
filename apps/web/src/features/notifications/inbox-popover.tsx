@@ -1,12 +1,12 @@
 /**
- * The header bell — an in-app notification inbox in a popover, not a page.
+ * The header bell: an in-app notification inbox in a popover, not a page.
  * One polled query carries both the unread badge and the popover list; a row
  * expands in place on click to show its full message + structured context and
  * marks itself read, and the footer keeps a path to the channel settings.
  *
  * The badge reports exactly one thing: "is there anything I haven't looked at?"
  * It used to also report "is anything building right now?", which made a single
- * 8px dot answer two unrelated questions — and answered the second one badly,
+ * 8px dot answer two unrelated questions, and answered the second one badly,
  * since the app-status rollup it read is project-scoped. Live work belongs to
  * the activity indicator sitting next to it in the header.
  */
@@ -51,7 +51,7 @@ function useInbox(busy: boolean) {
   return useQuery({
     ...orpc.notifications.inbox.list.queryOptions(inboxInput),
     // At the idle 30s cadence a "build failed" row could sit invisible for half
-    // a minute after the build actually failed — long enough for an operator
+    // a minute after the build actually failed. Long enough for an operator
     // watching the header to conclude nothing happened. While anything is
     // queued or building, poll at the same 5s beat the activity pill uses.
     refetchInterval: busy ? INBOX_POLL_ACTIVE_MS : INBOX_POLL_IDLE_MS,
@@ -67,7 +67,7 @@ function invalidateInbox() {
 /**
  * One inbox entry. Collapsed it's a title + clamped message; clicking expands
  * it in place to reveal the full message and the notification's structured
- * context (event, resource, project, …) and marks it read on first open — so a
+ * context (event, resource, project, …) and marks it read on first open, so a
  * click actually shows something instead of just clearing the unread dot.
  */
 function InboxRow({ item, onRead }: { item: InboxItem; onRead: (id: InboxItem["id"]) => void }) {
@@ -172,7 +172,7 @@ function InboxRow({ item, onRead }: { item: InboxItem; onRead: (id: InboxItem["i
 
 export function NotificationInboxPopover({ orgSlug }: { orgSlug: string }) {
   const { t } = useTranslation();
-  // Shares the header pill's query (same key, so no second timer) — used only to
+  // Shares the header pill's query (same key, so no second timer). Used only to
   // decide how fast to poll, never to render. The bell says nothing about builds.
   const { busy } = useDeployActivity();
   const inbox = useInbox(busy);
@@ -186,14 +186,14 @@ export function NotificationInboxPopover({ orgSlug }: { orgSlug: string }) {
 
   const items = inbox.data?.items ?? [];
   const unread = inbox.data?.unread ?? 0;
-  // Only unread rows drive the badge — a failure you have already read is
+  // Only unread rows drive the badge. A failure you have already read is
   // history, and leaving it lit would make the bell permanently red.
   const severity = worstSeverity(items.filter((item) => item.readAt === null));
 
   const label = bellLabel({
     unread:
       unread > 0
-        ? t("common.notifications.unread", "Notifications — {{count}} unread", { count: unread })
+        ? t("common.notifications.unread", "Notifications: {{count}} unread", { count: unread })
         : t("common.notifications.title", "Notifications"),
     failure:
       severity === "err" ? t("common.notifications.labelFailure", "includes a failure") : null,

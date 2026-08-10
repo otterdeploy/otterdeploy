@@ -2,12 +2,12 @@
  * Org-wide certificates page data layer. Everything rides the oRPC
  * `certificates` router via plain TanStack Query:
  *
- *   - `inventory`  — live TLS probes of every enabled public domain (ground
+ *   - `inventory`: live TLS probes of every enabled public domain (ground
  *     truth; "Recheck" just invalidates this query).
- *   - `listCustom` — uploaded custom certs (metadata only; keys never leave
+ *   - `listCustom`, uploaded custom certs (metadata only; keys never leave
  *     the server). Serving status is derived by comparing the stored leaf
- *     fingerprint against the live probe — not by trusting our own writes.
- *   - `listCas`    — the trusted-CA inventory.
+ *     fingerprint against the live probe, not by trusting our own writes.
+ *   - `listCas`: the trusted-CA inventory.
  */
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -20,7 +20,7 @@ export type CustomCertificate = Awaited<
 >[number];
 export type TrustedCa = Awaited<ReturnType<typeof orpc.certificates.listCas.call>>[number];
 
-/** Live-probe status vocabulary — mirrors the per-project Networking tab so
+/** Live-probe status vocabulary. Mirrors the per-project Networking tab so
  *  the two surfaces read identically. */
 export const PROBE_STATUS: Record<ProbeStatus, { label: string; dot: string; text: string }> = {
   valid: { label: "Valid", dot: "bg-success", text: "text-success" },
@@ -30,7 +30,7 @@ export const PROBE_STATUS: Record<ProbeStatus, { label: string; dot: string; tex
   error: { label: "Unreachable", dot: "bg-muted-foreground", text: "text-muted-foreground" },
 };
 
-/** Real, observed state of a custom cert — derived from install outcome +
+/** Real, observed state of a custom cert, derived from install outcome +
  *  the live probe, never asserted optimistically. */
 export type CustomCertStatus =
   | { kind: "error"; detail: string | null }

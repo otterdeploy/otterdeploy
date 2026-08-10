@@ -1,19 +1,19 @@
 /**
- * od-5j8.12 — hostile-path coverage: a sealed project env var's real value
+ * od-5j8.12: hostile-path coverage: a sealed project env var's real value
  * (plaintext OR ciphertext) must never reach an RPC response, on ANY read
- * path this handler layer exposes — list, the echo from a fresh upsert, and
+ * path this handler layer exposes: list, the echo from a fresh upsert, and
  * bulk-replace. `../queries/project-env.ts` (the actual encrypt-on-write +
  * DB layer) is exercised directly in `service-env-sealed.test.ts`'s sibling
  * query-layer coverage; this file proves the masking contract in
  * `../env-var.ts` holds even if the query layer ever forgot to (defense in
- * depth — belt AND suspenders).
+ * depth: belt AND suspenders).
  */
 import type { EnvironmentId, OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 
 import { describe, expect, test, vi } from "vite-plus/test";
 
 // env-var.ts pulls EVERYTHING (getProjectInOrg + the env-var CRUD) from the
-// same "./queries" barrel — one mock covers the whole subject.
+// same "./queries" barrel: one mock covers the whole subject.
 vi.mock("../queries", () => ({
   getProjectInOrg: vi.fn(),
   bulkReplaceProjectEnvVars: vi.fn(),
@@ -41,7 +41,7 @@ function sealedRow(overrides: Partial<ProjectEnvVarRow> = {}): ProjectEnvVarRow 
     projectId,
     environmentId,
     key: "API_SECRET",
-    // Whatever the query layer stored — a real hostile test doesn't get to
+    // Whatever the query layer stored. A real hostile test doesn't get to
     // assume it's ciphertext; it must be masked regardless of content.
     value: "v2:env-vars:1:AAAA:BBBB",
     isSecret: true,
@@ -84,7 +84,7 @@ describe("sealed project env vars never leak through env-var.ts's read paths", (
     // The query layer is the one that actually encrypts; simulate its
     // contract (returns the sealed row with `value` = ciphertext) and prove
     // the handler still refuses to echo it back, even on the write that
-    // just set it — a "set" response is not a "reveal" oracle.
+    // just set it. A "set" response is not a "reveal" oracle.
     vi.mocked(queries.upsertProjectEnvVar).mockResolvedValue(
       sealedRow({ value: "v2:env-vars:1:CCCC:DDDD" }),
     );

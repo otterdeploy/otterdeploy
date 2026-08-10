@@ -1,6 +1,6 @@
 /**
  * Decisions read path for the Firewall view (split from index.ts under the
- * file cap). Primary source is the LAPI decisions endpoint — the same API the
+ * file cap). Primary source is the LAPI decisions endpoint. The same API the
  * bouncers poll, ~100ms with tens of thousands of active decisions. `cscli
  * decisions list` is only the fallback for reachable-but-unconfigured
  * installs: it goes through /v1/alerts, which spins the LAPI at full CPU
@@ -33,7 +33,7 @@ export interface Decision {
 }
 
 /** Enforcement is "configured" when bouncer credentials resolve AND the
- *  operator hasn't switched it off — that's exactly what wires the `crowdsec`
+ *  operator hasn't switched it off. That's exactly what wires the `crowdsec`
  *  gate into the generated Caddyfile. Independent of whether the control plane
  *  can currently read decisions, and of whether the agent container is up. */
 export async function configured(): Promise<boolean> {
@@ -76,12 +76,12 @@ function toDecision(d: JsonObject, alert: JsonObject, source: JsonObject): Decis
 
 /** Origins surfaced in the Decisions table: manual bans (`cscli`) and
  *  agent-triggered bans (`crowdsec`). Imported blocklists (`cscli-import`) are
- *  deliberately NOT fetched — they run to tens of thousands of decisions, so an
+ *  deliberately NOT fetched. They run to tens of thousands of decisions, so an
  *  unfiltered list was a multi-megabyte exec that froze the view; those IPs are
  *  managed as a whole in Sources. */
 const DECISION_ORIGINS = ["cscli", "crowdsec"];
 
-/** Primary read path — LAPI decisions endpoint. Returns null when
+/** Primary read path. LAPI decisions endpoint. Returns null when
  *  unconfigured or unreachable (caller falls back to cscli). */
 async function fetchDecisionsViaLapi(): Promise<Decision[] | null> {
   const crowdsec = await crowdsecConfig();
@@ -101,7 +101,7 @@ async function fetchDecisionsViaLapi(): Promise<Decision[] | null> {
   const rows = (Array.isArray(body) ? body.filter(isJsonObject) : []).map((d) =>
     toDecision(d, {}, {}),
   );
-  // Newest first (decision ids are monotonic) — a just-placed ban is on top.
+  // Newest first (decision ids are monotonic). A just-placed ban is on top.
   return rows.sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
 }
 
@@ -124,9 +124,7 @@ async function fetchDecisionsViaCscli(): Promise<Decision[] | null> {
   for (const text of texts) {
     for (const alert of parseJsonArray(text)) {
       const source = isJsonObject(alert.source) ? alert.source : {};
-      const decisions = Array.isArray(alert.decisions)
-        ? alert.decisions.filter(isJsonObject)
-        : [];
+      const decisions = Array.isArray(alert.decisions) ? alert.decisions.filter(isJsonObject) : [];
       for (const d of decisions) {
         rows.push(toDecision(d, alert, source));
       }
@@ -140,10 +138,10 @@ async function fetchDecisionsViaCscli(): Promise<Decision[] | null> {
  * Fill country / AS from the local GeoIP DBs for rows CrowdSec didn't enrich
  * (manual bans never carry source enrichment; the LAPI decisions endpoint
  * carries none at all), and collapse duplicate decisions on the same target
- * (double-clicked bans) keeping the newest — rows arrive newest-first.
+ * (double-clicked bans) keeping the newest: rows arrive newest-first.
  */
 async function enrichAndDedupe(rows: Decision[]): Promise<Decision[]> {
-  await initGeo(); // idempotent — opens the readers once per process
+  await initGeo(); // idempotent: opens the readers once per process
   const seen = new Set<string>();
   const out: Decision[] = [];
   for (const row of rows) {

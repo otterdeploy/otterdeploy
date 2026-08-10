@@ -138,7 +138,7 @@ function specLabel(field: string): string {
 // ─── Value rendering ──────────────────────────────────────────────────
 
 export function renderValue(v: unknown): string {
-  if (v === null || v === undefined) return "—";
+  if (v === null || v === undefined) return "–";
   if (typeof v === "string") return clip(v);
   if (typeof v === "number" || typeof v === "boolean") return String(v);
   if (Array.isArray(v) && v.every((x) => typeof x === "string" || typeof x === "number")) {
@@ -169,6 +169,6 @@ function formatPort(p: PortLike): string {
 }
 
 export function clip(v: string | undefined, max = 120): string {
-  if (v === undefined) return "—";
+  if (v === undefined) return "–";
   return v.length > max ? `${v.slice(0, max)}…` : v;
 }

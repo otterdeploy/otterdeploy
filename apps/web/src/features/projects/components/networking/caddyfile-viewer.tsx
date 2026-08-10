@@ -60,7 +60,7 @@ export function CaddyfileViewer({ source, revision, loading, className }: Caddyf
     });
   }, [active, total, query]);
 
-  // Cmd/Ctrl+F focuses the find bar — but only when *this* viewer is the
+  // Cmd/Ctrl+F focuses the find bar, but only when *this* viewer is the
   // visible tab panel (hidden panels have a null offsetParent), so the
   // shortcut doesn't fight other mounted-but-hidden viewers.
   useHotkey("Mod+F", (event) => {
@@ -83,7 +83,7 @@ export function CaddyfileViewer({ source, revision, loading, className }: Caddyf
       className={cn(
         // The layout chain doesn't pass a definite height down (SidebarProvider
         // is min-h-svh, not h-svh), so flex-fill can't reach the viewport
-        // bottom — size against the viewport like EdgeLogsView does. Offset =
+        // bottom: size against the viewport like EdgeLogsView does. Offset =
         // header + project tabs + page padding + the in-page tab strip.
         "flex h-[calc(100svh-var(--header-height)-9rem)] min-h-80 flex-col overflow-hidden rounded-xl border bg-muted/20",
         className,

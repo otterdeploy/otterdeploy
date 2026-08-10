@@ -1,12 +1,12 @@
 /**
  * Reclaim the HOST artifacts a service leaves behind, shared by both delete
- * entry points — the manifest-apply teardown (`deleteService`, what the UI
+ * entry points: the manifest-apply teardown (`deleteService`, what the UI
  * actually calls) and the direct `deleteProjectResource` path. Removing the
  * container is the caller's job (they already do it); this handles the parts
  * that otherwise leak disk: the built images (~2GB per commit sha), the buildx
  * layer cache, and the resource's volumes.
  *
- * Every step is BEST-EFFORT — the DB rows are the source of truth and are
+ * Every step is BEST-EFFORT. The DB rows are the source of truth and are
  * removed by the caller regardless, so a cleanup hiccup (a stopped daemon, a
  * missing dir) must never fail the delete.
  */
@@ -24,11 +24,11 @@ export async function reclaimServiceHostArtifacts(
   log?: RequestLogger,
 ): Promise<void> {
   // Lazy-imported: @otterdeploy/docker transitively loads env/server (validated
-  // at module load) — keep that out of the import graph so env-less callers
+  // at module load). Keep that out of the import graph so env-less callers
   // (and unit tests) can import this module freely.
   const { Docker } = await import("@otterdeploy/docker");
 
-  // Built images for this service — every tag (`:latest` + one per built sha).
+  // Built images for this service. Every tag (`:latest` + one per built sha).
   // Only the local build repo; externally-pulled images are shared, left alone.
   const repo = `otterdeploy-local/${serviceName.toLowerCase()}`;
   const docker = Docker.fromEnv();
@@ -67,11 +67,11 @@ export async function reclaimServiceHostArtifacts(
 }
 
 /**
- * Remove a database resource's named Docker volume — the counterpart to
+ * Remove a database resource's named Docker volume. The counterpart to
  * `reclaimServiceHostArtifacts`'s bind-mount cleanup, for the (unrelated)
  * named-volume storage databases use. Caller must remove/stop the owning
  * container FIRST: a volume still referenced by a container (even a stopped
- * one) 409s on daemons that track refs that way. Best-effort — a delete's
+ * one) 409s on daemons that track refs that way. Best-effort. A delete's
  * source of truth is the DB row, already gone by the time this runs, so a
  * stuck daemon or an already-gone volume must never surface as an error.
  */
@@ -91,7 +91,7 @@ export async function reclaimDatabaseVolume(
       },
     });
     // A "not found" removal counts as reclaimed (already gone); anything else
-    // (most commonly "volume is in use" — the owning container didn't actually
+    // (most commonly "volume is in use", the owning container didn't actually
     // go away) is a real failure the caller should retry via orphan GC.
     return { removed: removed.isOk() || /not found|no such/i.test(removed.error.message) };
   } catch (cause) {

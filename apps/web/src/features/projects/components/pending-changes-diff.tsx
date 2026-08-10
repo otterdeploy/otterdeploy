@@ -87,7 +87,7 @@ export function ChangeGroupCard({
   );
 }
 
-// What a create will provision — one row per configured aspect.
+// What a create will provision, one row per configured aspect.
 function SpecTable({ spec }: { spec: GroupedChange["spec"] }) {
   return (
     <table className="w-full font-mono text-xs">
@@ -130,7 +130,7 @@ function FieldTable({ fields }: { fields: GroupedChange["fields"] }) {
   );
 }
 
-// Env changes in the same table shell as fields — Variable / Current / New —
+// Env changes in the same table shell as fields (Variable / Current / New)
 // with a colored +/~/− gutter glyph so add / update / delete still read at a
 // glance. Mono keeps the glyph column aligned without an explicit width.
 function EnvChangeTable({ rows }: { rows: EnvRow[] }) {
@@ -160,10 +160,10 @@ const ENV_SIGN_TINT = {
 } as const;
 
 function EnvChangeRow({ row }: { row: EnvRow }) {
-  const current = row.kind === "update" ? clip(row.from) : "—";
+  const current = row.kind === "update" ? clip(row.from) : "–";
   const next =
     row.kind === "delete"
-      ? "—"
+      ? "–"
       : row.kind === "update"
         ? clip(row.to)
         : row.secret

@@ -13,7 +13,7 @@ import { Result } from "better-result";
  * a Result so a DB hiccup can never break ingest. Cert events are sparse
  * (issuance + ~60-day renewals), so a per-event DB write is cheap.
  *
- * Note: `cert.expiring` is NOT emitted here — Caddy logs obtain/renew/fail, not
+ * Note: `cert.expiring` is NOT emitted here. Caddy logs obtain/renew/fail, not
  * "expiring". A pre-expiry warning needs a separate periodic scan of cert Not
  * After dates (deferred).
  */

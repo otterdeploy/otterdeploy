@@ -1,5 +1,5 @@
 export { initializeSwarm, ensureSwarm, ensureProjectNetwork, removeProjectNetwork } from "./client";
-// New generic database surface — dispatches on engine via the adapter.
+// New generic database surface. Dispatches on engine via the adapter.
 // All new code should call provisionSwarmDatabase / updateSwarmDatabase /
 // inspectSwarmDatabaseRuntime / destroySwarmDatabase with { engine, ... }.
 export {
@@ -16,7 +16,7 @@ export {
   type DatabaseEngineAdapter,
   type ConnectionStringInput,
 } from "./database-engines";
-// Legacy postgres-specific wrappers — kept as thin delegates so the existing
+// Legacy postgres-specific wrappers: kept as thin delegates so the existing
 // postgres-specific call sites compile while they're migrated to the generic
 // database surface above. Prefer the generic names in new code.
 export {

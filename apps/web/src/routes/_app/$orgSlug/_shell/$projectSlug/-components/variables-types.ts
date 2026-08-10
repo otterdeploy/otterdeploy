@@ -9,5 +9,5 @@ export interface EnvironmentRef {
 }
 
 // Row shape inferred from the collection (the wire shape of
-// `project.envVar.list`) — never hand-written.
+// `project.envVar.list`), never hand-written.
 export type EnvVarRow = VariableRow;

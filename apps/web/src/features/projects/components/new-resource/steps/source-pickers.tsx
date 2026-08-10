@@ -27,7 +27,7 @@ import { frameworkLabel } from "../frameworks";
 
 /**
  * Workload-type picker for a git-sourced service. Source and role are
- * orthogonal — you can build a web app OR a static site from the same repo —
+ * orthogonal (you can build a web app OR a static site from the same repo)
  * so the role lives here as a field rather than as a top-level launch card.
  * Drives `kindId` directly: "app" (dynamic) ↔ "static". `to-manifest` reads
  * the static kind to emit a Caddy static build; everything else is a normal
@@ -71,7 +71,7 @@ export function ServiceTypeSelector({
       <p className="text-[11px] text-muted-foreground">
         {isStatic
           ? "Pre-built HTML/CSS/JS served from the edge."
-          : "HTTP service built from your repo. Worker, cron & one-off jobs — coming soon."}
+          : "HTTP service built from your repo. Worker, cron and one-off jobs are coming soon."}
       </p>
     </div>
   );
@@ -133,7 +133,7 @@ export function BranchPicker({
   const branches = query.data?.branches ?? [];
   const selected = value || defaultBranch || "";
 
-  // Searchable — repos like cal.com have hundreds of branches, so a plain
+  // Searchable: repos like cal.com have hundreds of branches, so a plain
   // Select is unusable. Combobox filters as you type.
   return (
     <Combobox items={branches} value={selected} onValueChange={(v) => v && onChange(v)}>
@@ -153,7 +153,7 @@ export function BranchPicker({
 }
 
 /**
- * The "check" after binding a source — runs the real `git.inspectRepo`
+ * The "check" after binding a source. Runs the real `git.inspectRepo`
  * against the bound repo + root. Surfaces a reachable/unreachable verdict and
  * the detected framework, so the operator knows we actually read the repo
  * before they configure the service.
@@ -179,14 +179,14 @@ export function RepoCheck({ gitRepoId, root }: { gitRepoId: string; root: string
           at <span className="font-mono">/{root}</span>
         </>
       ) : null}
-      {" — "}
+      {": "}
       {inspect.error?.message ?? "check the URL and try again."}
     </div>
   );
 }
 
 /**
- * The detected-framework badge — a round tile at the top-right of the service
+ * The detected-framework badge: a round tile at the top-right of the service
  * card. While `git.inspectRepo` runs it shows a glowing comet ring (the same
  * travelling-light loader the graph uses for pending nodes); once resolved it
  * shows the detected framework's logo. Shares RepoCheck's query key, so
@@ -207,7 +207,7 @@ export function DetectedFrameworkBadge({
   });
   const frameworkKind = (inspect.data?.framework ?? null) as FrameworkKind | null;
 
-  // Once we know there's no framework there's nothing to badge — RepoCheck
+  // Once we know there's no framework there's nothing to badge. RepoCheck
   // already carries reachability + errors, so leave the corner empty.
   if (!inspect.isLoading && !frameworkKind) return null;
 

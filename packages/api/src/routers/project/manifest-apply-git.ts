@@ -30,7 +30,7 @@ export async function enqueueGitBuild(args: {
   resourceId: ResourceId;
   log: RequestLogger;
 }): Promise<Result<{ deploymentId: string }, string>> {
-  // Git binding lives on the SERVICE now — its own repo + branch, not the
+  // Git binding lives on the SERVICE now. Its own repo + branch, not the
   // project's. Registry/image are optional (the builder resolves them itself,
   // defaulting to a registry-less local image), so only the repo gates here.
   const [svc] = await db
@@ -53,7 +53,7 @@ export async function enqueueGitBuild(args: {
   if (!repo) return Result.err("git repo not found");
 
   // Resolve an installation token only when the repo is linked to one.
-  // With no installation we build anonymously — the head-SHA lookup below
+  // With no installation we build anonymously. The head-SHA lookup below
   // and the builder's clone both fall back to unauthenticated access, which
   // works for public repos. A genuinely private repo with no installation
   // fails the SHA lookup with a clear 404 below; we deliberately don't
@@ -67,7 +67,7 @@ export async function enqueueGitBuild(args: {
       .where(eq(gitInstallation.id, repo.installationRowId))
       .limit(1);
     // A missing install row means the GitHub App was removed/reconnected and
-    // orphaned this FK. Don't hard-fail — fall back to anonymous access, which
+    // orphaned this FK. Don't hard-fail. Fall back to anonymous access, which
     // builds a public repo fine; a genuinely private repo just fails the SHA
     // lookup below with a clear 404 (same as an unlinked private repo). Mirrors
     // the builder's `load.ts`, which only requires the install for private repos.
@@ -96,7 +96,7 @@ export async function enqueueGitBuild(args: {
 
   // Dedup guard: don't stack a duplicate build behind an identical in-flight
   // one. If a deployment for this resource at this exact SHA is already
-  // pending/building, reuse it — creating a second row only strands it (the
+  // pending/building, reuse it, creating a second row only strands it (the
   // builder no-ops the redundant SHA, leaving a phantom `pending` with no
   // logs). Idempotent: repeated applies converge on the one live deployment.
   const [inflight] = await db
@@ -127,7 +127,7 @@ export async function enqueueGitBuild(args: {
       gitRef: ref,
       // The same provenance a push deploy carries. Without it the deployment
       // card has no change to name and no face to show, so it falls back to
-      // the framework glyph — which says nothing about what was deployed.
+      // the framework glyph, which says nothing about what was deployed.
       gitCommitMessage: head.message,
       gitCommitAuthor: head.authorName,
       gitCommitAuthorAvatar: head.authorAvatar,
@@ -142,13 +142,13 @@ export async function enqueueGitBuild(args: {
   });
   // Push the pending build to the stream so the node shows progress at once.
   void publishResourceChanged(args.resourceId);
-  // Surface the framework brand mark right away — the builder only persists the
+  // Surface the framework brand mark right away. The builder only persists the
   // framework after a *successful* build, so a service that never built (or
   // failed) would otherwise sit on the generic kind icon forever. Best-effort +
   // non-blocking; a repo we can't read just keeps whatever framework it had.
   void detectAndPersistFramework(svc.gitRepoId, args.resourceId).catch(() => undefined);
 
-  // Enqueue AFTER the row insert — so a Redis/queue outage here must mark the
+  // Enqueue AFTER the row insert, so a Redis/queue outage here must mark the
   // row failed, or it strands as a `pending` deployment no job will ever own
   // (a 500 to the user and a forever-pending badge). Same string-error channel
   // as the SHA lookup so apply folds it into skipped[].
@@ -176,13 +176,13 @@ export async function enqueueGitBuild(args: {
 /**
  * Detect the service's framework from its repo tree and persist it to the
  * resource row so the graph node + drawer render the right brand mark (Next.js,
- * Vite, …) immediately — independent of whether a build ever succeeds. The
+ * Vite, …) immediately: independent of whether a build ever succeeds. The
  * builder re-captures this post-build; this just makes the icon correct up
  * front. Reuses the same `inspectRepoTree` detector the create wizard uses.
  *
  * Best-effort by design: it reads over the GitHub API (which can fail for a
  * private repo we can't authenticate, or a transient error), so any failure
- * leaves the framework untouched. Never gates the deploy — the caller fires it
+ * leaves the framework untouched. Never gates the deploy. The caller fires it
  * and forgets it.
  */
 export async function detectAndPersistFramework(
@@ -213,7 +213,7 @@ export async function detectAndPersistFramework(
  * Resolve a manifest's portable `owner/repo` to the internal git_repo row id,
  * scoped to the org. Prefers an installation-backed row the org owns; falls
  * back to a public (installationId-null, tenant-shared) row. Returns null when
- * the repo isn't connected — the service still stages, and its build fails with
+ * the repo isn't connected. The service still stages, and its build fails with
  * a clear "no git repo binding" until the operator connects/picks the repo.
  * Org-scoped: prefer an installation-backed row this org owns, else a public one.
  */
@@ -240,7 +240,7 @@ export async function resolveManifestRepo(
 
 /** Pull the source-binding columns off a manifest service (git repo resolved to
  *  an id upstream). An `upload` service has no repo/branch but does carry its own
- *  `imageRepository`. Empty for an image service — those columns stay null. */
+ *  `imageRepository`. Empty for an image service: those columns stay null. */
 export function gitSourceColumns(spec: ServiceManifest, gitRepoId: GitRepoId | null) {
   if (spec.source === "upload") {
     return {

@@ -220,7 +220,7 @@ export const projectRouter = {
         projectId: input.projectId,
         organizationId: context.activeOrganizationId,
       });
-      // Kinds added after #95 ride only the collection stream — clients of
+      // Kinds added after #95 ride only the collection stream. Clients of
       // THIS legacy endpoint were compiled against a contract without them,
       // and an unknown discriminant fails their zod parse mid-stream.
       return (async function* () {

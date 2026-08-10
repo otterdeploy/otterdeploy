@@ -11,7 +11,7 @@
     "closeSidebar": "Cerrar barra lateral",
     "notifications": {
       "title": "Notificaciones",
-      "unread": "Notificaciones — {{count}} sin leer",
+      "unread": "Notificaciones: {{count}} sin leer",
       "labelFailure": "incluye un fallo"
     },
     "toggleTheme": "Cambiar tema",
@@ -106,7 +106,7 @@
       "eyebrow": "Error interno",
       "title": "Algo salió mal.",
       "statusTag": "FAULT",
-      "messageDefault": "Otterdeploy encontró un error inesperado al renderizar esta página. El fallo ha sido registrado — esto es culpa nuestra, no tuya. Inténtalo de nuevo en un momento.",
+      "messageDefault": "Otterdeploy encontró un error inesperado al renderizar esta página. El fallo ha sido registrado. Esto es culpa nuestra, no tuya. Inténtalo de nuevo en un momento.",
       "retry": "⟳ Reintentar",
       "returnHome": "↩ Volver al inicio"
     },
@@ -250,11 +250,11 @@
       },
       "sidebar": {
         "title": "La barra lateral",
-        "description": "Aquí está todo lo que abarca la organización, agrupado por su función: tus proyectos arriba, la infraestructura sobre la que corren en el medio, y debajo las conexiones salientes que necesita un despliegue — git, registros de imágenes y claves."
+        "description": "Aquí está todo lo que abarca la organización, agrupado por su función: tus proyectos arriba, la infraestructura sobre la que corren en el medio, y debajo las conexiones salientes que necesita un despliegue: git, registros de imágenes y claves."
       },
       "projects": {
         "title": "Proyectos",
-        "description": "Un proyecto agrupa los servicios, bases de datos y rutas que se despliegan juntos — una aplicación y sus dependencias. La insignia cuenta los que tiene este espacio de trabajo."
+        "description": "Un proyecto agrupa los servicios, bases de datos y rutas que se despliegan juntos: una aplicación y sus dependencias. La insignia cuenta los que tiene este espacio de trabajo."
       },
       "infrastructure": {
         "title": "Servidores",
@@ -270,7 +270,7 @@
       },
       "activity": {
         "title": "Estado del sistema en vivo",
-        "description": "Despliegues en curso, notificaciones sin leer y el cambio de tema. La marca de la esquina superior izquierda refleja ese mismo estado, así que una compilación en curso se ve desde cualquier página — y desde una pestaña en segundo plano."
+        "description": "Despliegues en curso, notificaciones sin leer y el cambio de tema. La marca de la esquina superior izquierda refleja ese mismo estado, así que una compilación en curso se ve desde cualquier página, y desde una pestaña en segundo plano."
       },
       "serversPage": {
         "title": "Tu clúster",
@@ -286,7 +286,7 @@
       },
       "projectGraph": {
         "title": "El grafo del proyecto",
-        "description": "Tu proyecto como lienzo: servicios, bases de datos y las rutas que llegan a ellos, con estado en vivo en cada nodo. Haz clic derecho en un nodo para abrirlo, reiniciarlo, clonarlo o leer sus registros — y en el lienzo para añadir algo nuevo."
+        "description": "Tu proyecto como lienzo: servicios, bases de datos y las rutas que llegan a ellos, con estado en vivo en cada nodo. Haz clic derecho en un nodo para abrirlo, reiniciarlo, clonarlo o leer sus registros, y en el lienzo para añadir algo nuevo."
       },
       "projectTabs": {
         "title": "Todo sobre este proyecto",
@@ -298,7 +298,7 @@
       },
       "deployments": {
         "title": "Cada despliegue, conservado",
-        "description": "Una fila por push, con su motivo — git-push, redespliegue, cambio de variables, reversión — y la instantánea de configuración con la que se ejecutó. Esa instantánea es lo que convierte una reversión en una opción real y no en una conjetura."
+        "description": "Una fila por push, con su motivo (git-push, redespliegue, cambio de variables, reversión) y la instantánea de configuración con la que se ejecutó. Esa instantánea es lo que convierte una reversión en una opción real y no en una conjetura."
       },
       "logs": {
         "title": "Registros que dicen la verdad",
@@ -306,7 +306,7 @@
       },
       "variables": {
         "title": "Variables",
-        "description": "Defínelas por proyecto o por servicio, y referencia otros recursos por su nombre — `${database:main.DATABASE_URL}` se resuelve en el momento del despliegue. Ese enlace tardío es lo que permite que las vistas previas tengan su propia base de datos sin tocar la configuración."
+        "description": "Defínelas por proyecto o por servicio, y referencia otros recursos por su nombre: `${database:main.DATABASE_URL}` se resuelve en el momento del despliegue. Ese enlace tardío es lo que permite que las vistas previas tengan su propia base de datos sin tocar la configuración."
       },
       "networking": {
         "title": "Dominios y rutas",
@@ -318,7 +318,7 @@
       },
       "done": {
         "title": "Esa es la idea general",
-        "description": "El resto es documentación y la paleta de comandos. Si algo parece ir mal, la respuesta honesta suele estar en la pestaña de Despliegues o de Registros — otterdeploy procura no esconder nunca un fallo detrás de un indicador de carga."
+        "description": "El resto es documentación y la paleta de comandos. Si algo parece ir mal, la respuesta honesta suele estar en la pestaña de Despliegues o de Registros. otterdeploy procura no esconder nunca un fallo detrás de un indicador de carga."
       }
     }
   },
@@ -346,7 +346,7 @@
     "dialogDescription": "Añade ambos registros en tu proveedor de DNS y luego verifica.",
     "dialogDescriptionZone": "Añade ambos registros en {{zone}} y luego verifica.",
     "lookupFailed": "No pudimos contactar con un resolutor de DNS para detectar tu proveedor, así que solo se muestran los registros manuales.",
-    "proxiedWarning": "Este nombre resuelve actualmente a un sitio distinto de esta instalación {{address}}. Si se trata de un proxy de Cloudflare, desactiva la nube naranja — los registros con proxy terminan el TLS en el proxy y el certificado de aquí nunca podrá emitirse.",
+    "proxiedWarning": "Este nombre resuelve actualmente a un sitio distinto de esta instalación {{address}}. Si se trata de un proxy de Cloudflare, desactiva la nube naranja. Los registros con proxy terminan el TLS en el proxy y el certificado de aquí nunca podrá emitirse.",
     "oneClick": {
       "title": "Configuración de DNS en un clic",
       "canAuto": "Este dominio está en Cloudflare. Podemos crear ambos registros por ti.",
@@ -359,7 +359,7 @@
       "type": "Tipo",
       "name": "Nombre",
       "value": "Valor",
-      "empty": "Nada que añadir todavía — guarda primero el dominio."
+      "empty": "Nada que añadir todavía. Guarda primero el dominio."
     }
   },
   "dataGrid": {
@@ -424,17 +424,17 @@
     },
     "organization": {
       "title": "Crea tu organización",
-      "description": "Una organización es tu espacio de trabajo principal — es la dueña de tus proyectos, servidores, dominios y equipo. Puedes crear más adelante o invitar a otras personas.",
+      "description": "Una organización es tu espacio de trabajo principal. Es la dueña de tus proyectos, servidores, dominios y equipo. Puedes crear más adelante o invitar a otras personas.",
       "namePlaceholder": "Acme"
     },
     "domain": {
       "title": "Define un dominio base",
-      "description": "Donde tus aplicaciones y bases de datos desplegadas obtienen sus URL públicas — no el panel de control en sí.",
+      "description": "Donde tus aplicaciones y bases de datos desplegadas obtienen sus URL públicas, no el panel de control en sí.",
       "label": "Dominio base"
     },
     "project": {
       "title": "Crea tu primer proyecto",
-      "description": "Un proyecto agrupa los servicios, bases de datos y rutas que se despliegan juntos — como una aplicación y sus dependencias. Te llevaremos directamente a él.",
+      "description": "Un proyecto agrupa los servicios, bases de datos y rutas que se despliegan juntos, como una aplicación y sus dependencias. Te llevaremos directamente a él.",
       "namePlaceholder": "Tienda"
     }
   },
@@ -538,7 +538,7 @@
     "keyType": "Tipo de clave",
     "publicKey": "Clave pública",
     "detectedType": "Tipo detectado:",
-    "unrecognised": "no reconocida — pega la línea completa de la clave pública",
+    "unrecognised": "no reconocida: pega la línea completa de la clave pública",
     "pastePrompt": "pega una clave pública arriba",
     "notInUse": "Sin usar",
     "copyFingerprint": "Copiar la huella",
@@ -618,7 +618,7 @@
     },
     "removeCa": "Quitar {{name}}",
     "removeCaConfirm": "¿Quitar «{{name}}» del almacén de CA?",
-    "removeCaDescription": "El PEM almacenado se elimina. Todo lo que haga referencia a él (por ejemplo, la configuración personalizada de Caddy de un proyecto que apunte a una copia descargada) no se ve afectado — esto solo elimina la entrada del inventario."
+    "removeCaDescription": "El PEM almacenado se elimina. Todo lo que haga referencia a él (por ejemplo, la configuración personalizada de Caddy de un proyecto que apunte a una copia descargada) no se ve afectado. Esto solo elimina la entrada del inventario."
   },
   "webhooks": {
     "columns": {
@@ -641,7 +641,7 @@
     "fixedForLifetime": "La URL del endpoint y el secreto HMAC son fijos durante toda la vida del endpoint.",
     "targetAction": "Acción de destino",
     "redeployService": "Redesplegar un servicio",
-    "recordOnly": "Nada — solo registrar la invocación"
+    "recordOnly": "Nada, solo registrar la invocación"
   },
   "firewall": {
     "title": "Cortafuegos",
@@ -649,7 +649,7 @@
     "alreadyBanned": "Esta IP ya tiene un bloqueo activo de CrowdSec.",
     "listName": "Nombre de la lista",
     "enrollmentKey": "Clave de inscripción de la consola",
-    "listAdded": "Lista añadida — importando…",
+    "listAdded": "Lista añadida. Importando…",
     "syncNow": "Sincronizar ahora",
     "blockPlaceholder": "Bloquear IP o CIDR…",
     "blockAria": "Bloquear una IP o un rango CIDR",
@@ -657,7 +657,7 @@
     "yourLists": "Tus listas",
     "yourListsSubtitle": "Listas públicas y personalizadas importadas a CrowdSec de forma programada.",
     "publicLists": "Listas de bloqueo públicas",
-    "publicListsSubtitle": "Listas gratuitas conocidas — no hace falta cuenta de CrowdSec. Se añaden con un clic.",
+    "publicListsSubtitle": "Listas gratuitas conocidas, no hace falta cuenta de CrowdSec. Se añaden con un clic.",
     "removeListDescription": "La lista y todas las IP que importó se eliminan del cortafuegos. Puedes volver a añadirla desde el catálogo o por URL más adelante.",
     "block": "Bloquear",
     "blocking": "Bloqueando…",
@@ -726,7 +726,7 @@
     "searchEvents": "buscar mensaje, host, error…",
     "searchLogs": "buscar ruta, ip, estado…",
     "wrapHint": "Ajustar los valores largos en las filas expandidas en lugar de truncarlos",
-    "bannedIp": "Esta IP tiene un bloqueo activo de CrowdSec — las nuevas solicitudes se rechazan en el edge.",
+    "bannedIp": "Esta IP tiene un bloqueo activo de CrowdSec. Las nuevas solicitudes se rechazan en el edge.",
     "searchHosts": "Buscar hosts…",
     "noHosts": "No se encontraron hosts.",
     "allHosts": "Todos los hosts"
@@ -747,10 +747,10 @@
       "imageTargetHint": "Completamente cualificada, sin etiqueta. Vacío = compilación local. Las credenciales se asocian por host.",
       "prPreviews": "Vistas previas de PR",
       "prPreviewsHint": "Reconstruir este servicio en un entorno de vista previa aislado para cada pull request.",
-      "staged": "Origen preparado — despliega para aplicarlo",
+      "staged": "Origen preparado. Despliega para aplicarlo.",
       "stageFailed": "No se pudo preparar el origen",
       "registryMatched": "Se sube mediante {{name}} ({{host}}).",
-      "registryUnmatched": "No hay credenciales de registro para {{host}} — añade unas en «Registries» o vacía este campo.",
+      "registryUnmatched": "No hay credenciales de registro para {{host}}. Añade unas en «Registries» o vacía este campo.",
       "pipe": {
         "repo": "Repo",
         "build": "Compilación",
@@ -764,8 +764,8 @@
   "tableSelection": {
     "genericFailure": "falló",
     "removed": "{{items}} eliminados",
-    "removeFailed": "No se pudieron eliminar {{items}} — {{reason}}",
-    "removedPartial": "{{items}} eliminados · {{skipped}} omitidos — {{reason}}"
+    "removeFailed": "No se pudieron eliminar {{items}}: {{reason}}",
+    "removedPartial": "{{items}} eliminados · {{skipped}} omitidos: {{reason}}"
   },
   "docker": {
     "someNotRemoved": "Algunas {{items}} no se pudieron eliminar",

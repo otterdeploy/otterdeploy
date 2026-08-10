@@ -2,10 +2,10 @@
  * Deletion-side referential integrity for backup schedules.
  *
  * `backup_schedule.sources` is an FK-less jsonb array of resource ids OR names
- * (see backup.ts schema — a by-name ref can fan out to several same-named
+ * (see backup.ts schema, a by-name ref can fan out to several same-named
  * databases). Because there is no FK, deleting the backing database used to
  * silently orphan the schedule: the dead ref lingered, and on its next tick the
- * schedule resolved to zero sources — recorded `failed`, and a manual "run now"
+ * schedule resolved to zero sources. Recorded `failed`, and a manual "run now"
  * enqueued nothing (queued:0). This module closes that gap on the deletion side:
  * when a database resource is removed, prune it from every schedule that
  * referenced it, disable any schedule left with no live source, and emit a
@@ -30,7 +30,7 @@ import { listStackDatabaseResources } from "./stack";
  * live database resources, return the pruned source list plus whether the
  * schedule changed and whether it should be disabled (no source can ever run).
  *
- * A by-name ref survives iff a same-named sibling is still live — that is
+ * A by-name ref survives iff a same-named sibling is still live. That is
  * exactly `partitionSources`' matching rule, so we reuse it as the authority.
  */
 export function planSchedulePrune(
@@ -56,7 +56,7 @@ export function planSchedulePrune(
  * referenced it (by id or name), disabling any schedule left sourceless.
  *
  * MUST be called AFTER the resource row is deleted so the live set reflects
- * reality — otherwise a by-name ref whose only backing resource is the one
+ * reality: otherwise a by-name ref whose only backing resource is the one
  * being deleted would look resolvable and survive. Never throws: a failure here
  * leaves the pre-existing orphan (the scanner still records it `failed`), so it
  * must not block the resource deletion that triggered it.
@@ -82,7 +82,7 @@ export async function pruneSchedulesForDeletedResource(input: {
       );
     if (candidates.length === 0) return;
 
-    // Live databases in the org, post-deletion — the authority for what a ref
+    // Live databases in the org, post-deletion. The authority for what a ref
     // still resolves to (id or name, matching the scheduler). Managed database
     // resources AND compose-stack DB services, so a stack-backed schedule isn't
     // pruned as orphaned just because its source isn't a `database_resource`.
@@ -104,7 +104,7 @@ export async function pruneSchedulesForDeletedResource(input: {
         .update(backupSchedule)
         .set({
           sources: nextSources,
-          // A schedule with no resolvable source can never run — disable it so
+          // A schedule with no resolvable source can never run. Disable it so
           // the scanner skips it and the UI shows it stopped, not silently
           // broken. Re-enabling is a deliberate user action once a source is
           // re-added.
@@ -121,7 +121,7 @@ export async function pruneSchedulesForDeletedResource(input: {
       // Only the disable case is notification-worthy: the schedule lost its
       // last live source and can no longer produce a backup until repaired.
       // A partial prune (some sources survive) leaves it functional, so it
-      // stays quiet to avoid noise. Best-effort — never blocks the cleanup.
+      // stays quiet to avoid noise. Best-effort, never blocks the cleanup.
       if (disable) {
         await emitPlatformEvent({
           organizationId,

@@ -14,7 +14,7 @@ import { Label } from "@/shared/components/ui/label";
 
 /**
  * Second factor prompt shown after a correct password on a 2FA-enabled account.
- * Verifies a 6-digit authenticator code (or a one-time backup code) — only then
+ * Verifies a 6-digit authenticator code (or a one-time backup code): only then
  * is the session granted. `trustDevice` skips the prompt on this device for 30d.
  */
 export function TwoFactorChallenge({ onVerified }: { onVerified: () => void }) {

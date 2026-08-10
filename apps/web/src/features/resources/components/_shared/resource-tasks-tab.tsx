@@ -22,7 +22,7 @@ import { HistoryRow } from "./deployment-cards";
 import { StagedDeploymentCard } from "./staged-deployment-card";
 
 /** Exposure + scale summary shown above the active deployment (the mockup's
- *  "Service offline · 1 Replica" line). Optional — only services pass it. */
+ *  "Service offline · 1 Replica" line). Optional: only services pass it. */
 export interface DeploymentStatusHeader {
   publicEnabled: boolean;
   publicDomain: string | null;

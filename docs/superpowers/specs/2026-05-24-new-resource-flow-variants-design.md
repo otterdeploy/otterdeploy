@@ -1,11 +1,11 @@
-# New Resource Flow — Dialog & Overlay Variants
+# New Resource Flow: Dialog & Overlay Variants
 
 ## Problem
 
-The current "create new resource" flow on the project page is a single Link button that navigates to `/$orgSlug/$projectSlug/new-resource` — a full-page 4-to-6 step wizard. Two alternative UX patterns may feel better:
+The current "create new resource" flow on the project page is a single Link button that navigates to `/$orgSlug/$projectSlug/new-resource`. A full-page 4-to-6 step wizard. Two alternative UX patterns may feel better:
 
-- **Variant A — Kind-picker dialog:** A dialog appears first with only the kind picker. After picking a kind, the user is routed to the page wizard, which skips the kind step. Front-loads the most consequential choice and reduces friction for users who know what they want.
-- **Variant B — Full overlay wizard:** The entire wizard runs inside a large centered modal. The user never leaves the project page. Cancel is a single Esc instead of a back navigation. No half-state where the user has routed to `/new-resource` but hasn't committed to anything.
+- **Variant A: Kind-picker dialog:** A dialog appears first with only the kind picker. After picking a kind, the user is routed to the page wizard, which skips the kind step. Front-loads the most consequential choice and reduces friction for users who know what they want.
+- **Variant B: Full overlay wizard:** The entire wizard runs inside a large centered modal. The user never leaves the project page. Cancel is a single Esc instead of a back navigation. No half-state where the user has routed to `/new-resource` but hasn't committed to anything.
 
 We want to ship both variants alongside the existing page-route flow so they can be compared in the live demo (`otterdeploy-demo-1.pages.dev/project/proj_acme`) before picking a winner.
 
@@ -16,8 +16,8 @@ Build the two variants as additive UX surfaces on the project page. The existing
 **Out of scope for v1:**
 
 - Confirm-before-close prompt when the overlay has unsaved data.
-- Wiring Create to the real `resource.create` oRPC procedure — the wizard's "Create" button is already a no-op in the current page route. Both variants inherit that no-op so we're evaluating the flow, not persistence.
-- Success navigation to the new resource detail page — both variants just close.
+- Wiring Create to the real `resource.create` oRPC procedure: the wizard's "Create" button is already a no-op in the current page route. Both variants inherit that no-op so we're evaluating the flow, not persistence.
+- Success navigation to the new resource detail page: both variants just close.
 - Mobile responsiveness beyond what shadcn `Dialog` provides by default.
 
 ## Architecture
@@ -47,13 +47,13 @@ type NewResourceWizardProps = {
 
 - `initialKind` pre-fills the form's `kindId` field. When set, the wizard starts on the `initialStep` (defaults to `"version"` if `initialKind` is provided, else `"kind"`).
 - `layout="dialog"` tightens vertical padding, drops the bottom "Cancel" Link (the Dialog has its own close mechanisms), and constrains the inner scroll area to the Dialog body.
-- `onComplete` fires after a successful Create (currently the no-op path). `onCancel` is wired to a "Cancel" button in dialog layout — page layout uses a route-back Link instead.
+- `onComplete` fires after a successful Create (currently the no-op path). `onCancel` is wired to a "Cancel" button in dialog layout. Page layout uses a route-back Link instead.
 
 ### 2. `features/projects/components/new-resource/new-resource-dialogs.tsx` *(new)*
 
 Two named exports.
 
-**`<NewResourceKindDialog>` — variant A**
+**`<NewResourceKindDialog>`: variant A**
 
 ```ts
 type NewResourceKindDialogProps = {
@@ -72,7 +72,7 @@ Renders shadcn `<Dialog>` containing:
 
 On confirm: `navigate({ to: "/$orgSlug/$projectSlug/new-resource", params, search: { kind: kindId } })`, then `onOpenChange(false)`.
 
-**`<NewResourceOverlayDialog>` — variant B**
+**`<NewResourceOverlayDialog>`: variant B**
 
 ```ts
 type NewResourceOverlayDialogProps = {
@@ -116,8 +116,8 @@ All extracted wizard logic moves to `NewResourceWizard`. The route file ends up 
 
 Below the existing `+ Add resource` Link, add two more buttons with identical styling:
 
-- `+ Add (dialog)` — controls `<NewResourceKindDialog>` via local `useState`.
-- `+ Add (overlay)` — controls `<NewResourceOverlayDialog>` via local `useState`.
+- `+ Add (dialog)`: controls `<NewResourceKindDialog>` via local `useState`.
+- `+ Add (overlay)`: controls `<NewResourceOverlayDialog>` via local `useState`.
 
 All three live in the same horizontal row so the variants are one-click apart for comparison.
 
@@ -155,11 +155,11 @@ All three live in the same horizontal row so the variants are one-click apart fo
 
 ## What Stays Untouched
 
-- `features/projects/components/new-resource/step-*.tsx` — zero edits.
-- `features/projects/components/new-resource/stepper.tsx` — zero edits.
-- `features/projects/components/new-resource/schema.ts` and `form-primitives.tsx` — zero edits.
-- The route URL `/$orgSlug/$projectSlug/new-resource` — keeps working, gains an optional `?kind=` search param.
-- The existing `+ Add resource` Link in `index.tsx` — keeps working, unchanged styling and target.
+- `features/projects/components/new-resource/step-*.tsx`: zero edits.
+- `features/projects/components/new-resource/stepper.tsx`: zero edits.
+- `features/projects/components/new-resource/schema.ts` and `form-primitives.tsx`: zero edits.
+- The route URL `/$orgSlug/$projectSlug/new-resource`: keeps working, gains an optional `?kind=` search param.
+- The existing `+ Add resource` Link in `index.tsx`: keeps working, unchanged styling and target.
 
 ## Error Handling & Edge Cases
 
@@ -173,16 +173,16 @@ All three live in the same horizontal row so the variants are one-click apart fo
 
 Manual verification in the running app:
 
-- Click `+ Add resource` — original page wizard works, no regression. All steps reachable, Prev/Next nav works.
-- Click `+ Add (dialog)` — dialog opens with 4-tab kind picker. Picking a kind enables Configure. Configure navigates to `/new-resource?kind=<id>` and the wizard opens on step-version. Cancel/Esc closes with no nav.
-- Click `+ Add (overlay)` — large Dialog opens with wizard inside. All steps work end-to-end inside the dialog. Create closes the dialog. Cancel/Esc/backdrop closes the dialog. Form data is discarded on close.
-- Refresh `/new-resource?kind=postgres` directly in the URL — page mounts at step-version with postgres pre-selected.
+- Click `+ Add resource`: original page wizard works, no regression. All steps reachable, Prev/Next nav works.
+- Click `+ Add (dialog)`: dialog opens with 4-tab kind picker. Picking a kind enables Configure. Configure navigates to `/new-resource?kind=<id>` and the wizard opens on step-version. Cancel/Esc closes with no nav.
+- Click `+ Add (overlay)`: large Dialog opens with wizard inside. All steps work end-to-end inside the dialog. Create closes the dialog. Cancel/Esc/backdrop closes the dialog. Form data is discarded on close.
+- Refresh `/new-resource?kind=postgres` directly in the URL: page mounts at step-version with postgres pre-selected.
 - TypeScript: `bunx tsc --noEmit` passes for the touched files.
 
-No automated tests added in v1. The comparison is intentionally short-lived — once a flow wins, the loser gets deleted and tests get written against the winner.
+No automated tests added in v1. The comparison is intentionally short-lived. Once a flow wins, the loser gets deleted and tests get written against the winner.
 
 ## Open Decisions Deferred
 
 - Whether to wire Create to the real `resource.create` oRPC procedure as part of this change, or keep it a no-op until the comparison concludes. **Decision: no-op for v1**, both variants inherit existing behavior.
-- Whether to add analytics/feature-flag plumbing to track which variant gets used. **Decision: no for v1** — manual comparison only.
-- Whether the kind picker dialog (variant A) should be the same component as `<StepKind>` or a more compact dialog-specific variant. **Decision: reuse `<StepKind>` as-is** — minimizes duplication and proves the picker works at dialog size before considering a custom layout.
+- Whether to add analytics/feature-flag plumbing to track which variant gets used. **Decision: no for v1**, manual comparison only.
+- Whether the kind picker dialog (variant A) should be the same component as `<StepKind>` or a more compact dialog-specific variant. **Decision: reuse `<StepKind>` as-is**, minimizes duplication and proves the picker works at dialog size before considering a custom layout.

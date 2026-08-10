@@ -1,12 +1,12 @@
 /**
- * Project danger zone — delete the project, gated by typing the project slug.
+ * Project danger zone: delete the project, gated by typing the project slug.
  *
  * The server refuses while service/compose resources exist (their runtimes
  * are only reclaimed by the per-resource delete path), so the honest copy
  * here says exactly that: remove services first, databases go down with the
  * project. Transfer-to-another-org is deliberately absent: git providers,
  * registries, and env contexts are org-scoped, so a row-level org swap would
- * silently break every binding — not a safe single update.
+ * silently break every binding, not a safe single update.
  */
 
 import { Delete02Icon } from "@hugeicons/core-free-icons";
@@ -44,7 +44,7 @@ export function ProjectDangerZone({ project, orgSlug }: ProjectDangerZoneProps) 
       const n = serviceCountOf(err);
       toast.error(
         n !== null
-          ? `This project still has ${n} service${n === 1 ? "" : "s"} — delete them first. Databases are torn down with the project.`
+          ? `This project still has ${n} service${n === 1 ? "" : "s"}. Delete them first. Databases are torn down with the project.`
           : err instanceof Error
             ? err.message
             : "Failed to delete project",

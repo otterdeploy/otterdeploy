@@ -22,12 +22,12 @@ import { formatRps } from "./route-traffic";
 
 const nodeTypes = { resource: ResourceNode };
 
-// Edges stay derived — dagre/data own them, so their change handler is inert.
+// Edges stay derived. Dagre/data own them, so their change handler is inert.
 const noopChange = () => {};
 
 type ReactFlowProps = ComponentProps<typeof ReactFlow>;
 
-/** Rollup for the corner chip — null means "no traffic data, show nothing". */
+/** Rollup for the corner chip: null means "no traffic data, show nothing". */
 export interface TrafficSummary {
   totalRps: number;
   worstP95: number;
@@ -57,12 +57,12 @@ export function GraphFlow({
   nodes: Node[];
   edges: Edge[];
   /** Bounds cards may be dragged within, and the box the viewport may pan
-   *  inside — see graph-extent.ts for why the canvas is bounded at all. */
+   *  inside: see graph-extent.ts for why the canvas is bounded at all. */
   nodeExtent: CoordinateExtent;
   translateExtent: CoordinateExtent;
   onNodesChange: (changes: NodeChange[]) => void;
   onNodeClick: NonNullable<ReactFlowProps["onNodeClick"]>;
-  // Hover intent — preloads the clicked-panel route chunk so the drawer opens
+  // Hover intent: preloads the clicked-panel route chunk so the drawer opens
   // instantly on click (graph nodes navigate imperatively, so they miss the
   // `<Link>` intent-preload that lists get for free).
   onNodeMouseEnter: NonNullable<ReactFlowProps["onNodeMouseEnter"]>;
@@ -72,7 +72,7 @@ export function GraphFlow({
   onPaneContextMenu: NonNullable<ReactFlowProps["onPaneContextMenu"]>;
   traffic: TrafficSummary | null;
   onRelayout: () => void;
-  /** Opens the new-resource wizard — wired to the empty-state CTA below (same
+  /** Opens the new-resource wizard. Wired to the empty-state CTA below (same
    *  overlay the header's "+ New service" button opens). */
   onNewService: () => void;
   bottomInset: number;
@@ -105,14 +105,14 @@ export function GraphFlow({
       <Background gap={20} size={1} />
       {/* Overview + jump target. Only meaningful because the canvas is bounded
           (graph-extent.ts): over an infinite plane one stray card shrinks
-          everything else to invisible dots. Hidden while the graph is empty —
+          everything else to invisible dots. Hidden while the graph is empty:
           an empty rectangle explains nothing.
           Colours are deliberately NOT passed as props: index.css already themes
           `--xy-minimap-*` off the design tokens, and a `nodeColor` prop lands on
-          an SVG presentation attribute, where `color-mix()` doesn't resolve —
+          an SVG presentation attribute, where `color-mix()` doesn't resolve,
           which renders the nodes invisible. */}
       {/* Hidden below `sm`: the minimap is ~150px wide, which is 40% of a
-          375px canvas — it costs more of the real graph than the overview it
+          375px canvas: it costs more of the real graph than the overview it
           buys back. Pinch-zoom and the fit-view control cover the same need. */}
       {nodes.length > 0 ? (
         <MiniMap
@@ -129,8 +129,8 @@ export function GraphFlow({
           `bg-background/80` + `backdrop-blur` over a `border-border/40`
           hairline: on the dark canvas that surface resolves to 1.08:1 and the
           border to 3% alpha (1.16:1), so the whole cluster read as a smudge
-          floating over the dots. The card surface cannot carry this on its own
-          — the border has to, which is why this is foreground/35 and not a
+          floating over the dots. The card surface cannot carry this on its own.
+          The border has to, which is why this is foreground/35 and not a
           token hairline. The icons were never the problem (muted-foreground is
           already 4.19:1 here). */}
       <Controls
@@ -139,7 +139,7 @@ export function GraphFlow({
         style={{ bottom: bottomInset }}
         className="rounded-md! border! border-foreground/35! bg-card! shadow-sm! transition-[bottom]! duration-200! [&_button]:border-foreground/20! [&_button]:bg-transparent! [&_button]:text-muted-foreground! hover:[&_button]:bg-muted/60! hover:[&_button]:text-foreground!"
       />
-      {/* Re-run layout — clears the persisted arrangement and hands placement
+      {/* Re-run layout, clears the persisted arrangement and hands placement
           back to dagre. Sits just above the Controls stack. */}
       <Panel
         position="bottom-right"
@@ -150,8 +150,8 @@ export function GraphFlow({
           type="button"
           onClick={onRelayout}
           title="Re-run layout"
-          aria-label="Re-run layout — reset saved node positions"
-          // Same treatment as the Controls cluster below it — these two read
+          aria-label="Re-run layout and reset saved node positions"
+          // Same treatment as the Controls cluster below it: these two read
           // as one piece of chrome and must not disagree about how solid they are.
           className="grid size-[26px] place-items-center rounded-md border border-foreground/35 bg-card text-muted-foreground shadow-sm transition-colors hover:bg-muted/60 hover:text-foreground"
         >
@@ -165,7 +165,7 @@ export function GraphFlow({
       >
         <GraphLegend hasNodes={nodes.length > 0} />
       </Panel>
-      {/* Live traffic chip — rendered only when a host actually saw traffic in
+      {/* Live traffic chip. Rendered only when a host actually saw traffic in
           the window; no zeros, no placeholders. */}
       {traffic ? (
         <Panel position="top-left">

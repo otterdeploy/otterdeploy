@@ -56,7 +56,7 @@ export function RouteAccessControls({ routeId }: { routeId: string }) {
 
 const PIN_RE = /^\d{4,8}$/;
 
-/** Access PIN — one shared numeric code anyone on the wall can enter. Set /
+/** Access PIN: one shared numeric code anyone on the wall can enter. Set /
  *  rotate / remove; the PIN itself is write-only (never read back). */
 function PinSection({ routeId }: { routeId: string }) {
   const queryClient = useQueryClient();

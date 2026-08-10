@@ -1,10 +1,10 @@
-# Multi-Step Resource Wizard — TanStack Form Refactor Implementation Plan
+# Multi-Step Resource Wizard: TanStack Form Refactor Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Refactor the new-resource wizard so step components stop taking `AnyFieldApi` props, validation runs per-step against a `__step`-discriminated Zod union, and the active step lives in `?step=` so refresh / browser back / forward survive.
 
-**Architecture:** Wire a typed `useAppForm` via `createFormHook` with a registry of bound field primitives. Steps grab the form via `useFormContext()` and render `<form.AppField name="...">{(f) => <f.TextField label="..." />}</form.AppField>` — no prop drilling. Validation runs against a single `z.discriminatedUnion("__step", [...])` whose arms are cumulative (each arm requires every field needed up to and including that step). Setting `__step` to the next step's id and calling `form.validate("change")` is the per-step gate. Page wizard reads/writes step from search params; dialog wizard keeps step in local state via a shared body component.
+**Architecture:** Wire a typed `useAppForm` via `createFormHook` with a registry of bound field primitives. Steps grab the form via `useFormContext()` and render `<form.AppField name="...">{(f) => <f.TextField label="..." />}</form.AppField>`, no prop drilling. Validation runs against a single `z.discriminatedUnion("__step", [...])` whose arms are cumulative (each arm requires every field needed up to and including that step). Setting `__step` to the next step's id and calling `form.validate("change")` is the per-step gate. Page wizard reads/writes step from search params; dialog wizard keeps step in local state via a shared body component.
 
 **Tech Stack:** TanStack Form v1 (`createFormHook`, `createFormHookContexts`), TanStack Router (`validateSearch`), Zod (`discriminatedUnion`), shadcn/ui primitives (`Field`, `Input`, `Select`, `Switch`, `Card`), Tailwind v4.
 
@@ -17,8 +17,8 @@
 ## File Structure
 
 **New files:**
-- `apps/web/src/features/projects/components/new-resource/kind-picker.tsx` — presentational kind grid, reused by `StepKind` and `ResourceKindDialog`.
-- `apps/web/src/features/projects/components/new-resource/form-context.ts` — `createFormHookContexts` + `createFormHook` with bound-field registry.
+- `apps/web/src/features/projects/components/new-resource/kind-picker.tsx`: presentational kind grid, reused by `StepKind` and `ResourceKindDialog`.
+- `apps/web/src/features/projects/components/new-resource/form-context.ts`: `createFormHookContexts` + `createFormHook` with bound-field registry.
 - `apps/web/src/features/projects/components/new-resource/form-fields/text-field.tsx`
 - `apps/web/src/features/projects/components/new-resource/form-fields/number-field.tsx`
 - `apps/web/src/features/projects/components/new-resource/form-fields/switch-field.tsx`
@@ -38,12 +38,12 @@
 - `apps/web/src/features/projects/components/new-resource/schemas/variables.ts`
 - `apps/web/src/features/projects/components/new-resource/schemas/advanced.ts`
 - `apps/web/src/features/projects/components/new-resource/schemas/review.ts`
-- `apps/web/src/features/projects/components/new-resource/schemas/index.ts` — union + types + defaults.
-- `apps/web/src/features/projects/components/new-resource/flows.ts` — KIND/DB/SOURCE/DOCKER_STEPS + `flowFor`.
-- `apps/web/src/features/projects/components/new-resource/wizard.tsx` — `PageResourceWizard`, `DialogResourceWizard`, shared `ResourceWizardBody`.
+- `apps/web/src/features/projects/components/new-resource/schemas/index.ts`: union + types + defaults.
+- `apps/web/src/features/projects/components/new-resource/flows.ts`: KIND/DB/SOURCE/DOCKER_STEPS + `flowFor`.
+- `apps/web/src/features/projects/components/new-resource/wizard.tsx`: `PageResourceWizard`, `DialogResourceWizard`, shared `ResourceWizardBody`.
 
 **Modified files (steps lose `AnyFieldApi` props; use `useFormContext`):**
-- `apps/web/src/features/projects/components/new-resource/steps/index.tsx` — add `STEP_IDS` enum, keep Stepper + barrel.
+- `apps/web/src/features/projects/components/new-resource/steps/index.tsx`: add `STEP_IDS` enum, keep Stepper + barrel.
 - `apps/web/src/features/projects/components/new-resource/steps/kind.tsx`
 - `apps/web/src/features/projects/components/new-resource/steps/source.tsx`
 - `apps/web/src/features/projects/components/new-resource/steps/builder.tsx`
@@ -52,11 +52,11 @@
 - `apps/web/src/features/projects/components/new-resource/steps/networking.tsx`
 - `apps/web/src/features/projects/components/new-resource/steps/resources.tsx`
 - `apps/web/src/features/projects/components/new-resource/steps/storage.tsx`
-- `apps/web/src/features/projects/components/new-resource/steps/variables.tsx` — body shrinks; table UI moves to `form-fields/variables-field.tsx`.
+- `apps/web/src/features/projects/components/new-resource/steps/variables.tsx`: body shrinks; table UI moves to `form-fields/variables-field.tsx`.
 - `apps/web/src/features/projects/components/new-resource/steps/advanced-db.tsx`
 - `apps/web/src/features/projects/components/new-resource/steps/review.tsx`
-- `apps/web/src/features/projects/components/new-resource/new-resource-dialogs.tsx` — import from `./wizard`; render `<DialogResourceWizard>`; `ResourceKindDialog` uses `<KindPicker>`.
-- `apps/web/src/routes/_app/$orgSlug/$projectSlug/new-resource.tsx` — extend `validateSearch` with `step`; render `<PageResourceWizard>`.
+- `apps/web/src/features/projects/components/new-resource/new-resource-dialogs.tsx`: import from `./wizard`; render `<DialogResourceWizard>`; `ResourceKindDialog` uses `<KindPicker>`.
+- `apps/web/src/routes/_app/$orgSlug/$projectSlug/new-resource.tsx`: extend `validateSearch` with `step`; render `<PageResourceWizard>`.
 
 **Deleted files (after cutover):**
 - `apps/web/src/features/projects/components/new-resource/new-resource-wizard.tsx`
@@ -343,7 +343,7 @@ These wrap the existing inline editors so step files become a single bound-field
 
 - [ ] **Step 1: Create `ports-field.tsx`**
 
-Move the ports table from `steps/networking.tsx` (the entire `<Card>` block beginning at `<SectionHeader title="Ports" ...>` and ending after the "Add port" button — lines 140-239 in the current file). Replace `portsField.handleChange(next)` with `field.handleChange(next)` after `const field = useFieldContext<Port[]>();`. Export `Port` from this file (move the interface here from `steps/networking.tsx`).
+Move the ports table from `steps/networking.tsx` (the entire `<Card>` block beginning at `<SectionHeader title="Ports" ...>` and ending after the "Add port" button, lines 140-239 in the current file). Replace `portsField.handleChange(next)` with `field.handleChange(next)` after `const field = useFieldContext<Port[]>();`. Export `Port` from this file (move the interface here from `steps/networking.tsx`).
 
 ```tsx
 // apps/web/src/features/projects/components/new-resource/form-fields/ports-field.tsx
@@ -560,7 +560,7 @@ git commit -m "refactor(web): wire useAppForm with bound-field registry"
 
 ## Task 5: Per-step Zod arms
 
-Each step gets its own Zod arm under `schemas/`. Each arm is cumulative — it declares every field required up to and including that step.
+Each step gets its own Zod arm under `schemas/`. Each arm is cumulative, it declares every field required up to and including that step.
 
 **Files:**
 - Create: `apps/web/src/features/projects/components/new-resource/schemas/kind.ts`
@@ -791,7 +791,7 @@ git commit -m "refactor(web): add per-step zod arms for new-resource wizard"
 
 ---
 
-## Task 6: Schema index — discriminated union + types + defaults
+## Task 6: Schema index, discriminated union + types + defaults
 
 **Files:**
 - Create: `apps/web/src/features/projects/components/new-resource/schemas/index.ts`
@@ -921,7 +921,7 @@ git commit -m "refactor(web): add resourceFormSchema discriminated union + defau
 
 ---
 
-## Task 7: `flows.ts` — step lists + `flowFor(kind)`
+## Task 7: `flows.ts`, step lists + `flowFor(kind)`
 
 Replace the inline `DB_STEPS` / `SOURCE_STEPS` / `DOCKER_STEPS` arrays in `new-resource-wizard.tsx` with a dedicated module.
 
@@ -991,7 +991,7 @@ git commit -m "refactor(web): extract wizard flow definitions into flows.ts"
 
 ---
 
-## Task 8: Rewrite `steps/index.tsx` — expose `Step` from schemas, keep Stepper
+## Task 8: Rewrite `steps/index.tsx`, expose `Step` from schemas, keep Stepper
 
 The Stepper itself doesn't change behavior, but its `Step` type now comes from `schemas/index.ts` (Task 6). The barrel exports stay so callers can continue to import step components from `./steps`.
 
@@ -1180,7 +1180,7 @@ import { builderCardActiveClass, builderCardClass, builderIconClass, SectionHead
 import { I } from "../icons";
 
 // (sources / recent / sourceBrandSearch / iconKey arrays + helpers stay verbatim
-//  from the current file — copy them across unchanged.)
+//  from the current file: copy them across unchanged.)
 
 export function StepSource() {
   const form = useFormContext();
@@ -1278,7 +1278,7 @@ export function StepSource() {
                   <f.TextField
                     label="Service name"
                     className="font-mono"
-                    description={`Used in DNS — ${form.state.values.name}.helio.internal`}
+                    description={`Used in DNS, ${form.state.values.name}.helio.internal`}
                   />
                 )}
               </form.AppField>
@@ -1557,10 +1557,10 @@ export function StepNetworking({ kind }: StepNetworkingProps) {
   const isStatic = kind?.id === "static";
 
   if (isCron) {
-    /* cron stub — verbatim from current file (lines 60-108) */
+    /* cron stub: verbatim from current file (lines 60-108) */
   }
   if (isWorker) {
-    /* worker stub — verbatim from current file (lines 110-135) */
+    /* worker stub: verbatim from current file (lines 110-135) */
   }
 
   return (
@@ -1600,7 +1600,7 @@ export function StepNetworking({ kind }: StepNetworkingProps) {
       <div className="mt-4.5">
         <SectionHeader title="Edge proxy" />
       </div>
-      {/* edge-proxy SettingRow card — verbatim from current file */}
+      {/* edge-proxy SettingRow card: verbatim from current file */}
     </>
   );
 }
@@ -1841,19 +1841,19 @@ export function StepVariables({ kind }: StepVariablesProps) {
 
       {suggested.length > 0 && (
         <Card className="mt-3 gap-0 overflow-hidden p-0">
-          {/* auto-injected display table — verbatim from current file, lines 75-110 */}
+          {/* auto-injected display table: verbatim from current file, lines 75-110 */}
         </Card>
       )}
 
       <div className="mt-5">
-        <SectionHeader title="Custom variables" sub="Add key/value pairs — toggle the lock to mark a value as secret" />
+        <SectionHeader title="Custom variables" sub="Add key/value pairs, toggle the lock to mark a value as secret" />
       </div>
       <form.AppField name="variables">
         {(f) => <f.VariablesField />}
       </form.AppField>
 
       <div className="mt-5">
-        <SectionHeader title="Linked secret managers" sub="Pull secrets from external managers — they sync continuously" />
+        <SectionHeader title="Linked secret managers" sub="Pull secrets from external managers. They sync continuously" />
       </div>
       <form.AppField name="linkedSecrets">
         {(f) => <f.LinkedSecretsField />}
@@ -1880,7 +1880,7 @@ git commit -m "refactor(web): collapse StepVariables to bound fields"
 
 - [ ] **Step 1: Replace the file body**
 
-The current StepAdvancedDb takes a `kind` prop only and renders display-only `SettingRow` cards (no form writes). Keep behavior unchanged but drop any dead imports. The step has nothing form-bound right now — leave it as a static stub.
+The current StepAdvancedDb takes a `kind` prop only and renders display-only `SettingRow` cards (no form writes). Keep behavior unchanged but drop any dead imports. The step has nothing form-bound right now. Leave it as a static stub.
 
 (If the current file has no AnyFieldApi imports, this task may be a no-op except for confirming the file still typechecks against the new `Step` union. Run tsc and commit if no changes are needed; otherwise edit accordingly.)
 
@@ -1933,7 +1933,7 @@ export function StepReview({ kind }: StepReviewProps) {
 
         return (
           <>
-            <SectionHeader title="Review" sub="Confirm and deploy — you can change all of this later" />
+            <SectionHeader title="Review" sub="Confirm and deploy. You can change all of this later" />
             {/* body verbatim from current file (lines 68-134) using `values`, `cpu`, `mem`, `compose`. */}
           </>
         );
@@ -2245,7 +2245,7 @@ Expected: PASS.
 
 - [ ] **Step 5: Regenerate route tree if needed**
 
-Run: `bunx tanstack-router-cli generate` (or the project's equivalent — `bun dev` regenerates on save). Confirm `apps/web/src/route-tree.gen.ts` reflects the new `validateSearch`.
+Run: `bunx tanstack-router-cli generate` (or the project's equivalent, `bun dev` regenerates on save). Confirm `apps/web/src/route-tree.gen.ts` reflects the new `validateSearch`.
 
 - [ ] **Step 6: Manual browser smoke**
 
@@ -2276,7 +2276,7 @@ EOF
 
 ---
 
-## Task 22: Manual validation pass — per-step gate + multi-error rendering
+## Task 22: Manual validation pass, per-step gate + multi-error rendering
 
 The wizard is now wired end-to-end. Verify the validation behaviour with the browser.
 
@@ -2305,7 +2305,7 @@ Fill every required field. On Review, click "Create & deploy". Confirm:
 - `console.log("submit", payload)` shows the payload **without** `__step`.
 - Wizard calls `onComplete` (page layout: navigates back; dialog layout: closes).
 
-- [ ] **Step 5: Commit nothing — just record the result**
+- [ ] **Step 5: Commit nothing, just record the result**
 
 If all five checks pass, the refactor is functionally complete. If any fail, file an issue and fix before merging.
 
@@ -2313,6 +2313,6 @@ If all five checks pass, the refactor is functionally complete. If any fail, fil
 
 ## Self-Review Notes
 
-This plan covers every spec requirement in the architecture section, plus the testing checklist. Deep-link guard lives inside `PageResourceWizard` (Task 20 effect). The `STEP_IDS` constant is exported from `schemas/index.ts` (Task 6) and consumed by the route's `validateSearch` (Task 21). The `Step` type is the single source of truth — re-exported from `steps/index.tsx` for backwards compatibility with any consumer that imports it from `./steps`.
+This plan covers every spec requirement in the architecture section, plus the testing checklist. Deep-link guard lives inside `PageResourceWizard` (Task 20 effect). The `STEP_IDS` constant is exported from `schemas/index.ts` (Task 6) and consumed by the route's `validateSearch` (Task 21). The `Step` type is the single source of truth, re-exported from `steps/index.tsx` for backwards compatibility with any consumer that imports it from `./steps`.
 
 If `bunx` triggers the cSpell warning, the `.vscode/settings.json` update from the spec rework already covers it.

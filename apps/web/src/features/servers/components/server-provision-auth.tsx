@@ -80,8 +80,8 @@ export function ProvisionAuthSection({
                 ) : (
                   <Field>
                     <FieldLabel>{t("servers.form.sshKey")}</FieldLabel>
-                    {/* A Select showed nothing when the value was "" — no
-                        placeholder, no cue that a pick was required — so the
+                    {/* A Select showed nothing when the value was "", no
+                        placeholder, no cue that a pick was required, so the
                         form submitted with no credential and the run died
                         before it ever opened a connection. */}
                     <PickerGroup

@@ -4,7 +4,7 @@
  * before the service exists there's nothing to attach a Caddy route to, so
  * here we edit the manifest entry's `domains` array instead. The reconciler
  * creates the actual routes on Apply (see manifest-apply `seedServiceDomains`),
- * and DNS/cert verification happens once the service is live — hence the
+ * and DNS/cert verification happens once the service is live, hence the
  * "verified after deploy" note rather than a recheck button.
  */
 

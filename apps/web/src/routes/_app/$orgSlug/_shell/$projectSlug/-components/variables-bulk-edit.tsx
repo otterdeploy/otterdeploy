@@ -16,7 +16,7 @@ import { BulkEditSidebar } from "./variables-bulk-sidebar";
 import { parseDotEnv, type ParsedVar } from "./variables-dotenv";
 import type { EnvironmentRef, EnvVarRow } from "./variables-types";
 
-/** One atomic bulkReplace per selected env — the calls are independent (each
+/** One atomic bulkReplace per selected env: the calls are independent (each
  *  targets a distinct env) so they run concurrently; failures are collected so
  *  a partial failure reports exactly which envs missed. */
 async function applyToTargets(
@@ -60,7 +60,7 @@ export function BulkEditDialog({
 }: {
   projectId: string;
   env: EnvironmentRef;
-  /** Every env in the project — the cross-env "Apply to" targets. */
+  /** Every env in the project: the cross-env "Apply to" targets. */
   allEnvs: EnvironmentRef[];
   currentRows: EnvVarRow[];
   open: boolean;
@@ -86,7 +86,7 @@ export function BulkEditDialog({
     setText(prefillText ?? initial);
   }
 
-  // Cross-env targets — the current env is pre-checked each time the
+  // Cross-env targets: the current env is pre-checked each time the
   // dialog opens; others are opt-in.
   const [targetIds, setTargetIds] = useState<Set<string>>(() => new Set([env.id]));
   const [prevOpen, setPrevOpen] = useState(open);
@@ -137,7 +137,7 @@ export function BulkEditDialog({
       const appliedNames = applied.map((e) => e.name || e.slug).join(", ");
       toast.error(
         `Failed for ${failedNames}: ${failed[0].message}` +
-          (applied.length > 0 ? ` — applied to ${appliedNames}` : ""),
+          (applied.length > 0 ? `, applied to ${appliedNames}` : ""),
       );
     }
   };
@@ -198,7 +198,7 @@ export function BulkEditDialog({
           <span className="text-[11px] text-muted-foreground">
             {targets.length === 0
               ? "Select at least one environment."
-              : `Replaces every variable in ${targetNames} — atomic per environment.`}
+              : `Replaces every variable in ${targetNames}. Atomic per environment.`}
           </span>
           <div className="flex-1" />
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>

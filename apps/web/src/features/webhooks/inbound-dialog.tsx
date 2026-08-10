@@ -2,8 +2,8 @@ import type { TFunction } from "i18next";
 
 /**
  * Create / edit an inbound trigger endpoint. Create is two-phase: the form
- * (name, action, target service, IP allowlist) then — because the HMAC secret
- * is returned exactly once — a success screen with the minted URL, the
+ * (name, action, target service, IP allowlist) then, because the HMAC secret
+ * is returned exactly once. A success screen with the minted URL, the
  * plaintext secret, and a signed-curl snippet. Edit reuses the form half
  * (token + secret are immutable).
  *
@@ -50,8 +50,8 @@ function parseAllowlist(raw: string): string[] {
     .filter(Boolean);
 }
 
-/** Persist the endpoint — PATCH in edit mode, POST (returning the one-time
- *  secret) in create mode — and refetch the list. */
+/** Persist the endpoint: PATCH in edit mode, POST (returning the one-time
+ *  secret) in create mode, and refetch the list. */
 function persistEndpoint(args: {
   /** Passed in rather than hooked: this is a plain helper, not a component. */
   t: TFunction;
@@ -90,7 +90,7 @@ function persistEndpoint(args: {
         });
 }
 
-/** Raw IP-allowlist textarea — parsed into entries on submit. */
+/** Raw IP-allowlist textarea, parsed into entries on submit. */
 function AllowlistField({
   value,
   onBlur,
@@ -105,7 +105,7 @@ function AllowlistField({
       <Label htmlFor="inbound-allowlist">
         IP allowlist{" "}
         <span className="font-normal text-muted-foreground">
-          (one per line, IPv4 CIDR ok — empty allows any)
+          (one per line, IPv4 CIDR ok; empty allows any)
         </span>
       </Label>
       <Textarea

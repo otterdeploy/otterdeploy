@@ -16,7 +16,7 @@ import { defineJob } from "../define";
 // Retention windows.
 const AUDIT_RETENTION_DAYS = 90;
 const READ_NOTIFICATION_RETENTION_DAYS = 30;
-// Live-dashboard feed, not long-term observability — keep it short.
+// Live-dashboard feed, not long-term observability. Keep it short.
 const METRIC_RETENTION_DAYS = 7;
 // Build/deploy output for past deployments. The deployment row itself is kept
 // (it's the history the UI lists); only its log lines age out.
@@ -26,7 +26,7 @@ const DEPLOYMENT_LOG_RETENTION_DAYS = 30;
  * Deployments per DELETE when pruning their logs.
  *
  * A single build writes hundreds to thousands of lines, and this sweep runs for
- * the first time against a table that has never been pruned — so the first pass
+ * the first time against a table that has never been pruned, so the first pass
  * has years of backlog to clear. Chunking keeps any one statement's transaction
  * and WAL bounded instead of attempting a multi-million-row delete in one go.
  */
@@ -49,7 +49,7 @@ export const hourlyCleanupJob = defineJob({
 
     const now = new Date();
 
-    // 1. Expired auth sessions — better-auth never garbage-collects these.
+    // 1. Expired auth sessions: better-auth never garbage-collects these.
     const expiredSessions = await db
       .delete(session)
       .where(lt(session.expiresAt, now))
@@ -95,12 +95,12 @@ export const hourlyCleanupJob = defineJob({
 
     // 7. Build/deploy log lines for deployments past the retention window.
     //    Nothing pruned these before, and they are the highest-line-volume
-    //    writer in the product — one row per line of every build ever run.
+    //    writer in the product: one row per line of every build ever run.
     //
     //    Selected by deployment rather than by `deployment_log.ts` on purpose:
     //    the log table's only index is (deployment_id, seq), so an id-keyed
     //    delete is an index scan, while a `ts <` predicate would sequentially
-    //    scan the whole table on every pass — including the steady-state pass
+    //    scan the whole table on every pass. Including the steady-state pass
     //    that finds nothing left to do.
     const agedDeployments = await db
       .select({ id: deployment.id })

@@ -1,27 +1,27 @@
-# Tailscale — per-org tailnet for mesh, private + public ingress, admin access
+# Tailscale: per-org tailnet for mesh, private + public ingress, admin access
 
 ## Why
 
 Today multi-node is Docker Swarm joined over the public internet: the operator
 pastes `docker swarm join --token … <ip>:2377` (`server/join-tokens.ts`) and the
 manager's `2377`/SSH sit on a public IP. That's the same posture
-Coolify/Dokploy take (SSH + Docker socket per server — see `research/`, and
+Coolify/Dokploy take (SSH + Docker socket per server, see `research/`, and
 `backups.md:213` "Coolify/Dokploy assume SSH/agent access per server"). It
 works, but it means exposing the control plane to the internet and hand-rolling
 firewall rules per node.
 
 Tailscale collapses four problems into one private mesh:
 
-1. **Connect remote nodes (mesh)** — nodes join the org's tailnet; the control
+1. **Connect remote nodes (mesh)**: nodes join the org's tailnet; the control
    plane reaches their Docker daemon over a `100.x` address, not public `:2377`.
-2. **Private service networking** — a deployed service is reachable *only* from
+2. **Private service networking**: a deployed service is reachable *only* from
    the org's own devices/team (Tailscale Serve), never public.
-3. **Public ingress via Funnel** — a service is reachable on
+3. **Public ingress via Funnel**: a service is reachable on
    `<name>.<tailnet>.ts.net` with auto-HTTPS, no public DNS or ACME needed.
-4. **Operator/admin access** — internal dashboards (Workbench/BullMQ, db studio,
+4. **Operator/admin access**: internal dashboards (Workbench/BullMQ, db studio,
    metrics) reachable over the tailnet + Tailscale SSH, never public.
 
-Neither competitor uses Tailscale — this is a genuine differentiator, so there's
+Neither competitor uses Tailscale. This is a genuine differentiator, so there's
 no prior-art pattern to copy; this design follows Tailscale's own best practices
 (OAuth clients → ephemeral tagged auth keys, tag-based ACLs).
 
@@ -30,7 +30,7 @@ no prior-art pattern to copy; this design follows Tailscale's own best practices
 Each **org connects its own Tailscale account**. Their nodes and services live
 on *their* tailnet, billed to *them*, governed by *their* ACLs. We never run a
 shared platform tailnet (cross-org isolation would then ride entirely on our ACL
-correctness — too much blast radius). This also is the only model that satisfies
+correctness: too much blast radius). This also is the only model that satisfies
 pillar 2: a user's service can only be reachable "from their own devices" if it's
 on their tailnet.
 
@@ -39,7 +39,7 @@ on their tailnet.
 The org pastes a **Tailscale OAuth client** (client id + secret, scoped
 `devices:write` / `auth_keys`, bound to tags) into Settings → Tailscale. We store
 it like we store GitHub App secrets today: **on a DB row, encrypted at rest via
-`ln`** (`packages/api/src/lib/crypto.ts`) — **never env vars** (mirrors the
+`ln`** (`packages/api/src/lib/crypto.ts`): **never env vars** (mirrors the
 git-provider precedent, `env/src/server.ts:98-102`). The control plane then mints
 **short-lived, ephemeral, pre-authorized, tagged auth keys** on demand (at
 node-join / service-attach) via the Tailscale API. Ephemeral ⇒ nodes/services
@@ -49,9 +49,9 @@ tied to a human's identity.
 **Tags** (the org adds these to their tailnet policy; we surface the exact
 snippet in the connect UI):
 
-- `tag:otter-node` — cluster hosts (the mesh).
-- `tag:otter-svc` — deployed services attached to the tailnet (Serve/Funnel).
-- `tag:otter-admin` — the control plane itself (admin-access pillar).
+- `tag:otter-node`: cluster hosts (the mesh).
+- `tag:otter-svc`: deployed services attached to the tailnet (Serve/Funnel).
+- `tag:otter-admin`: the control plane itself (admin-access pillar).
 
 ACL requirements we document for the operator (autoApprovers so our ephemeral
 keys self-authorize, plus the Funnel grant for pillar 3):
@@ -82,7 +82,7 @@ org_tailnet:
 
 ### Extend: `server` (mesh pillar)
 
-`packages/db/src/schema/server.ts` — add Tailscale identity columns. The existing
+`packages/db/src/schema/server.ts`: add Tailscale identity columns. The existing
 `host` becomes the node's Tailscale `100.x` address (or MagicDNS name) once it
 joins, so every existing call site that dials `host` transparently goes over the
 tailnet:
@@ -122,7 +122,7 @@ tailnetExposure  enum(none | private | funnel)  default none
   `private`/`funnel` gets a **Tailscale sidecar** (`tsnet` or a `tailscale`
   container) attached to the project network, joined with an ephemeral
   `tag:otter-svc` key, running `tailscale serve` (private) or `tailscale funnel`
-  (public) at the service's port. Caddy is untouched for these — Tailscale is the
+  (public) at the service's port. Caddy is untouched for these: Tailscale is the
   edge. `none` keeps the current Caddy + proxy-route path verbatim.
 - **Admin access (pillar 3).** The control-plane host joins as `tag:otter-admin`;
   internal-only services (Workbench, db studio, metrics) are bound to the tailnet
@@ -134,11 +134,11 @@ tailnetExposure  enum(none | private | funnel)  default none
 New `tailnet` oRPC router (org-scoped, `requirePermission` like `server`/backups,
 see `org-rbac-better-auth`):
 
-- `tailnet.connect` — store OAuth client (encrypt secret via `ln`), verify with a
+- `tailnet.connect`: store OAuth client (encrypt secret via `ln`), verify with a
   Tailscale API whoami, return `tailnetName` + the ACL snippet to paste.
-- `tailnet.status` — connected/error + `lastVerifiedAt` + device counts.
-- `tailnet.disconnect` — soft-delete the row; existing devices keep running.
-- `tailnet.joinKey` — mint a one-shot ephemeral `tag:otter-node` key (consumed by
+- `tailnet.status`: connected/error + `lastVerifiedAt` + device counts.
+- `tailnet.disconnect`: soft-delete the row; existing devices keep running.
+- `tailnet.joinKey`: mint a one-shot ephemeral `tag:otter-node` key (consumed by
   the node-join script/agent).
 - Extend `server.create` flow with a "Join over Tailscale" path that returns the
   `tailscale up --authkey=… --advertise-tags=tag:otter-node` one-liner instead of
@@ -146,20 +146,20 @@ see `org-rbac-better-auth`):
 
 ## Phases
 
-1. **Connect** — `org_tailnet` schema + `db:push`; `ln`-encrypted OAuth client;
+1. **Connect**: `org_tailnet` schema + `db:push`; `ln`-encrypted OAuth client;
    `tailnet.connect/status/disconnect`; Settings → Tailscale UI (connect form +
    ACL snippet + verified status). No data-plane change yet. *Shippable: orgs can
    link a tailnet and we can mint keys.*
-2. **Mesh** — `server` Tailscale columns; node-join agent (installs `tailscaled`,
+2. **Mesh**: `server` Tailscale columns; node-join agent (installs `tailscaled`,
    joins ephemeral-tagged, self-registers capacity → wires `daemonVersion`);
    per-node Docker targeting in the Swarm driver; UI "Join over Tailscale".
-3. **Private networking (Serve)** — `tailnetExposure=private`; per-service
+3. **Private networking (Serve)**: `tailnetExposure=private`; per-service
    `tag:otter-svc` sidecar + `tailscale serve`; exposure control on the
    service/domains card. *Reachable from org devices only.*
-4. **Public ingress (Funnel)** — `tailnetExposure=funnel`; `tailscale funnel` +
+4. **Public ingress (Funnel)**: `tailnetExposure=funnel`; `tailscale funnel` +
    document the Funnel ACL grant; surface the `*.ts.net` URL alongside custom
    domains.
-5. **Admin access** — control plane as `tag:otter-admin`; bind Workbench/studio/
+5. **Admin access**: control plane as `tag:otter-admin`; bind Workbench/studio/
    metrics to the tailnet + Tailscale SSH; drop their public exposure.
 
 ## Open questions / risks
@@ -171,7 +171,7 @@ see `org-rbac-better-auth`):
   HTTPS + Funnel node-attr in ACLs; not every org will enable it. Detect + show a
   clear "enable Funnel in your tailnet" error rather than failing opaquely.
 - **OAuth scope drift.** If the org's OAuth client lacks `auth_keys`, key-minting
-  fails — `tailnet.connect` must validate scopes up front, not at first join.
+  fails: `tailnet.connect` must validate scopes up front, not at first join.
 - **Sidecar overhead.** One `tsnet`/sidecar per exposed service. For many small
   services consider a single shared `tag:otter-svc` proxy that fans out via
   `tailscale serve` path-/host-routing, rather than N sidecars.

@@ -1,15 +1,15 @@
 /**
  * CrowdSec firewall bouncer for freshly-provisioned nodes. The manager's
- * nftables bouncer only protects the manager — direct traffic to an added
+ * nftables bouncer only protects the manager: direct traffic to an added
  * node (its SSH, published ports) is unfiltered unless the node runs its own
  * bouncer against the manager's LAPI. This registers a per-node API key on
  * the agent (revocable independently), installs the deb (packagecloud, noble
- * pinned — no dist for newer Ubuntus yet), writes the config, and starts the
+ * pinned, no dist for newer Ubuntus yet), writes the config, and starts the
  * systemd service. Best-effort by design: a bouncer failure must never fail
  * an otherwise-joined node.
  *
  * Reachability caveat the operator owns: LAPI binds to the host loopback by
- * default — multi-node installs must set CROWDSEC_LAPI_BIND to the manager
+ * default: multi-node installs must set CROWDSEC_LAPI_BIND to the manager
  * address the nodes dial (the swarm manager/mesh IP). The install script
  * probes /health and says so when it can't connect.
  */
@@ -19,7 +19,7 @@ import type { SshSession } from "./ssh-exec";
 import { cscliRun } from "../firewall/cscli";
 
 export interface NodeBouncerTarget {
-  /** Host the operator typed — used (sanitized) as the bouncer name. */
+  /** Host the operator typed, used (sanitized) as the bouncer name. */
   nodeHost: string;
   /** "<ip>:2377" swarm join target; the LAPI is assumed on the same address. */
   managerAddr: string;
@@ -61,10 +61,10 @@ export function firewallBouncerInstallScript(apiUrl: string, apiKey: string, sud
   return [
     "set -e",
     `S="${sudo}"`,
-    `if ! command -v apt-get >/dev/null 2>&1; then echo "no apt on this host — install crowdsec-firewall-bouncer manually"; exit ${UNSUPPORTED_DISTRO_EXIT}; fi`,
+    `if ! command -v apt-get >/dev/null 2>&1; then echo "no apt on this host, install crowdsec-firewall-bouncer manually"; exit ${UNSUPPORTED_DISTRO_EXIT}; fi`,
     "if ! command -v crowdsec-firewall-bouncer >/dev/null 2>&1; then",
     "\t. /etc/os-release",
-    // packagecloud publishes no dist for Ubuntu releases newer than noble —
+    // packagecloud publishes no dist for Ubuntu releases newer than noble:
     // pin it (packages are arch/libc-portable); other distros auto-detect.
     '\tif [ "$ID" = "ubuntu" ]; then PC_ENV="os=ubuntu dist=noble"; else PC_ENV=""; fi',
     "\tcurl -s https://packagecloud.io/install/repositories/crowdsec/crowdsec/script.deb.sh | $S env $PC_ENV bash",
@@ -81,8 +81,8 @@ export function firewallBouncerInstallScript(apiUrl: string, apiKey: string, sud
     `api_key: ${apiKey}`,
     "OTTERDEPLOY_EOF",
     "$S chmod 600 /etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml",
-    // Reachability probe — non-fatal, but the single most likely footgun.
-    `if ! curl -s -m 5 -o /dev/null "${apiUrl.replace(/\/$/, "")}/health"; then echo "warning: LAPI ${apiUrl} not reachable from this node — set CROWDSEC_LAPI_BIND on the manager to an address this node can dial"; fi`,
+    // Reachability probe: non-fatal, but the single most likely footgun.
+    `if ! curl -s -m 5 -o /dev/null "${apiUrl.replace(/\/$/, "")}/health"; then echo "warning: LAPI ${apiUrl} not reachable from this node: set CROWDSEC_LAPI_BIND on the manager to an address this node can dial"; fi`,
     "$S systemctl enable --now crowdsec-firewall-bouncer",
     "$S systemctl is-active crowdsec-firewall-bouncer",
     'echo "firewall bouncer running"',
@@ -103,7 +103,7 @@ export async function installNodeFirewallBouncer(
   const key = await registerNodeBouncer(bouncerName(target.nodeHost));
   if (!key) {
     onLine(
-      "crowdsec agent isn't running on the primary — skipping the firewall bouncer (enable the firewall profile, then re-provision to add it).",
+      "crowdsec agent isn't running on the primary. Skipping the firewall bouncer (enable the firewall profile, then re-provision to add it).",
     );
     return;
   }
@@ -113,7 +113,7 @@ export async function installNodeFirewallBouncer(
   if (res.exitCode === UNSUPPORTED_DISTRO_EXIT) return; // narrated by the script
   if (res.exitCode !== 0) {
     onLine(
-      "⚠ firewall bouncer install failed — the node joined fine, and traffic entering through the manager edge is still filtered, but direct traffic to this node is not. Install crowdsec-firewall-bouncer manually or re-provision.",
+      "⚠ firewall bouncer install failed. The node joined fine, and traffic entering through the manager edge is still filtered, but direct traffic to this node is not. Install crowdsec-firewall-bouncer manually or re-provision.",
     );
     return;
   }

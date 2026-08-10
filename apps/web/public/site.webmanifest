@@ -1,7 +1,7 @@
 {
   "name": "otterdeploy",
   "short_name": "otterdeploy",
-  "description": "Self-hostable deployments — build, ship, and operate your services on your own servers.",
+  "description": "Self-hostable deployments, build, ship, and operate your services on your own servers.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#fbfbfa",

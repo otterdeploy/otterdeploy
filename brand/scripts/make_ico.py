@@ -2,8 +2,8 @@
 """
 Packs the raster favicons into a single multi-resolution favicon.ico.
 
-Only legacy consumers reach for this — modern browsers take `favicon.svg` and
-scale it themselves — but crawlers, feed readers, and Windows shortcuts still
+Only legacy consumers reach for this. Modern browsers take `favicon.svg` and
+scale it themselves, but crawlers, feed readers, and Windows shortcuts still
 ask for `/favicon.ico` by convention and log a 404 when it is missing.
 
 Run `brand/scripts/build.sh`; this script is step 4 of 4.
@@ -16,7 +16,7 @@ import pathlib
 from PIL import Image
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-# Mirrors APP_PUBLIC in rasterize.ts — every app that serves icons from its own
+# Mirrors APP_PUBLIC in rasterize.ts: every app that serves icons from its own
 # origin gets its own .ico, packed from that app's own PNGs.
 APP_PUBLIC = (ROOT / "apps/web/public", ROOT / "apps/www/public")
 SIZES = (16, 32, 48)

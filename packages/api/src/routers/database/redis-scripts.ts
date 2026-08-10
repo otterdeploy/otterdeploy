@@ -2,7 +2,7 @@
  * Lua scripts + EVAL-payload parsing for the Redis data-viewer engine. The
  * browse/scan/value reads are issued as small Lua scripts via EVAL that return
  * `cjson.encode(...)`, so we get one round-trip and structured JSON instead of
- * parsing redis-cli's human output. Pure reads only — read-only by construction.
+ * parsing redis-cli's human output. Pure reads only. Read-only by construction.
  */
 import { QueryError } from "./query";
 

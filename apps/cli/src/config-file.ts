@@ -2,10 +2,10 @@
  * Load + write the user's config file.
  *
  * Two on-disk formats are accepted:
- *   - otterdeploy.ts   — exports default a Manifest (usually via
+ *   - otterdeploy.ts: exports default a Manifest (usually via
  *                        defineConfig()). Loaded via dynamic import
  *                        (Bun handles TS natively).
- *   - otterdeploy.json — plain JSON. Read with node:fs (Bun + Node).
+ *   - otterdeploy.json: plain JSON. Read with node:fs (Bun + Node).
  *
  * Either way, the loaded value is validated against manifestSchema and
  * shipped on the wire as JSON via the existing manifest.* contract.
@@ -85,7 +85,7 @@ export async function loadConfig(override?: string): Promise<Manifest> {
   if (ext !== ".json" && !canImportTs) {
     throw new LoadConfigError({
       path,
-      message: `Loading ${path} needs TypeScript support — run under Bun (or Node ≥22), or use ${DEFAULT_CONFIG_FILENAME}.`,
+      message: `Loading ${path} needs TypeScript support. Run under Bun (or Node ≥22), or use ${DEFAULT_CONFIG_FILENAME}.`,
     });
   }
 
@@ -115,7 +115,7 @@ export async function loadConfig(override?: string): Promise<Manifest> {
 
 // Write a populated manifest back to disk in the same format as the
 // existing file. Used by `pull` (server → disk) and `add` (mutate-in-place).
-// Note: TS round-trip drops comments and reformats — acceptable for
+// Note: TS round-trip drops comments and reformats, acceptable for
 // CLI-mutating verbs since the user opted in by running them.
 export function writeConfig(manifest: Manifest, override?: string): string {
   const path = configPath(override);
@@ -131,7 +131,7 @@ export function writeConfig(manifest: Manifest, override?: string): string {
     project: manifest.project,
     databases: manifest.databases,
     services: manifest.services,
-    // Omitted only when empty — an empty map round-trips to the schema
+    // Omitted only when empty: an empty map round-trips to the schema
     // default, and older files without composes stay byte-identical.
     ...(Object.keys(manifest.composes ?? {}).length > 0 ? { composes: manifest.composes } : {}),
     ...(manifest.environments ? { environments: manifest.environments } : {}),
@@ -194,7 +194,7 @@ export default defineConfig({
     // },
   },
 
-  // Optional per-environment overrides — deep-merged onto the base above.
+  // Optional per-environment overrides: deep-merged onto the base above.
   // environments: {
   //   production: {
   //     services: { web: { replicas: 3 } },

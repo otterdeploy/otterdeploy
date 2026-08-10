@@ -12,7 +12,7 @@ import { Panel, type QueryLike } from "./docker-panel";
 import { StateBadge } from "./docker-state-badge";
 import { RowActionButton } from "./docker-tables";
 
-/** Local row type — mirrors the docker contract output shape. */
+/** Local row type: mirrors the docker contract output shape. */
 interface Container {
   id: string;
   name: string;
@@ -82,7 +82,7 @@ export function ContainersTable({ query }: { query: QueryLike<Container> }) {
                 />
               </TableCell>
               <TableCell className="max-w-[140px] truncate font-mono text-xs text-muted-foreground">
-                {c.ports.length > 0 ? c.ports.join(", ") : "—"}
+                {c.ports.length > 0 ? c.ports.join(", ") : "–"}
               </TableCell>
               <TableCell className="whitespace-nowrap text-muted-foreground">
                 {timeAgoSeconds(c.createdAt)}

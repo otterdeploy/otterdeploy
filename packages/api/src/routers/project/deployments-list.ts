@@ -1,6 +1,6 @@
 /**
  * Read-side of the deployment API. Status is derived live from the underlying
- * swarm tasks when the UI reads the list (no background updater — see
+ * swarm tasks when the UI reads the list (no background updater, see
  * `listResourceDeployments`), then the building/pending → running flip is
  * persisted lazily and `deploy.succeeded` emitted exactly once.
  */
@@ -77,7 +77,7 @@ export interface DeploymentWithStats {
 }
 
 /** All deployments for a resource, newest first. Status is the value
- *  stored in the row — derived live by `listResourceDeployments`. */
+ *  stored in the row. Derived live by `listResourceDeployments`. */
 async function listDeploymentsByResource(
   resourceId: ResourceId,
   // Base rows by default; a preview id scopes to that PR's deployments (the
@@ -97,11 +97,11 @@ async function listDeploymentsByResource(
   return rows;
 }
 
-// Resolve the swarm service name backing a resource — postgres uses the
+// Resolve the swarm service name backing a resource. Postgres uses the
 // deterministic container-name pattern; services store it on the row. A
 // compose STACK returns null: its containers carry the per-service (child)
 // deployment ids, never the stack row's, so there's no single service to
-// refine the stack's rows against — they keep their stored status.
+// refine the stack's rows against. They keep their stored status.
 export async function resolveDeploymentServiceName(
   found: ResolvedResource,
   projectId: ProjectId,
@@ -122,7 +122,7 @@ export async function resolveDeploymentServiceName(
 // One runtime-aware call covers every instance for the service (swarm tasks or
 // plain-docker containers). Bucket them by the `otterdeploy.deployment.id`
 // label so we never need a per-deployment call. `withInspect` fills exit code /
-// restart count / OOM flag under plain docker — the derivation needs those to
+// restart count / OOM flag under plain docker. The derivation needs those to
 // tell a crash that gave up from an operator stop.
 export async function loadTaskStatesByDeployment(
   serviceName: string,
@@ -158,7 +158,7 @@ export async function loadTaskStatesByDeployment(
  *  databases are hard-capped at 5. */
 function resolveRestartMaxAttempts(found: ResolvedResource): number | null {
   if (found.kind === "database") return 5;
-  // Compose stacks have no single restart policy (N child services) — leave
+  // Compose stacks have no single restart policy (N child services). Leave
   // the cap unknown.
   if (found.kind !== "service") return null;
   const svc = found.record.service;
@@ -243,13 +243,13 @@ export async function listResourceDeployments(
 
   let serviceName = await resolveDeploymentServiceName(found, input.projectId);
   if (serviceName && input.previewId) {
-    // Preview deployments run under the pr-suffixed container — derive task
+    // Preview deployments run under the pr-suffixed container. Derive task
     // states from THAT name or every preview row reads as zero tasks.
     const scope = await loadPreviewScope(input.previewId);
     if (scope) serviceName = runtimeServiceName(serviceName, scope);
   }
-  // Compose stack rows have no task-level refinement (null serviceName) —
-  // they read back the status deployCompose stored.
+  // Compose stack rows have no task-level refinement (null serviceName).
+  // They read back the status deployCompose stored.
   const tasksByDeployment = serviceName
     ? await loadTaskStatesByDeployment(serviceName)
     : new Map<string, InstanceGlimpse[]>();
@@ -270,7 +270,7 @@ export async function listResourceDeployments(
   const justDied: DeploymentId[] = [];
   const result = rows.map((row) => {
     const states = tasksByDeployment.get(row.id) ?? [];
-    // Answer this request with what we just resolved — otherwise the reader has
+    // Answer this request with what we just resolved. Otherwise the reader has
     // to refresh to see the result of their own read.
     const meta = backfilled.get(row.id);
     const stats = toDeploymentWithStats(
@@ -283,7 +283,7 @@ export async function listResourceDeployments(
       paused,
     );
     // A row stored building/pending whose tasks are now running has just
-    // succeeded — flag it for the reconcile + emit below.
+    // succeeded: flag it for the reconcile + emit below.
     // Only reconcile+notify for BASE listings. A preview panel open would
     // otherwise drive the base-styled deploy.succeeded notification over
     // preview rows; the builder's markRunning settles preview rows itself.
@@ -297,7 +297,7 @@ export async function listResourceDeployments(
     // A stale zero-task row the derivation gave up on: persist the failure so
     // the stored status (which the graph node + notifications read) agrees
     // with what the list shows, instead of a display-only "failed" over a
-    // forever-"pending" row. Base listings only — preview rows settle via the
+    // forever-"pending" row. Base listings only: preview rows settle via the
     // builder.
     if (
       !input.previewId &&

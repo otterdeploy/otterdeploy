@@ -84,7 +84,7 @@ export function AuthSubmitButton({
  * A labelled input plus its validation errors, driven by a TanStack Form field.
  *
  * The sign-in and sign-up forms repeated this exact div/AuthInput/errors block
- * once per field — six times between them — which pushed SignUpForm to 192
+ * once per field (six times between them) which pushed SignUpForm to 192
  * lines and SignInForm to 153, both over the 150-line cap, and buried the parts
  * that actually differ (label, type, autocomplete) in identical scaffolding.
  */

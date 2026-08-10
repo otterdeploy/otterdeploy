@@ -1,8 +1,8 @@
 /**
- * od-5j8.9 — step-up prompt before opening a shell. Shown only when a fresh
+ * od-5j8.9: step-up prompt before opening a shell. Shown only when a fresh
  * `terminal.mintTicket` call comes back `STEP_UP_REQUIRED` (no live re-auth
  * grant, or it expired). Asks for whichever credential the account actually
- * uses — a TOTP code if 2FA is enabled, the account password otherwise —
+ * uses (a TOTP code if 2FA is enabled, the account password otherwise)
  * mirroring the account's own two-factor/password forms
  * (features/account/two-factor-card.tsx, password-card.tsx) rather than
  * inventing new copy/validation for the same check.

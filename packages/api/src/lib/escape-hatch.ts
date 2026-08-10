@@ -3,17 +3,17 @@ import type { ProjectId } from "@otterdeploy/shared/id";
 import { projectDir } from "@otterdeploy/shared/paths";
 import { log as globalLog } from "evlog";
 /**
- * Disaster-recovery escape hatch — Phase 4 of docs/designs/data-folder.md.
+ * Disaster-recovery escape hatch: Phase 4 of docs/designs/data-folder.md.
  *
  * On every successful manifest apply we render the project's CURRENT deployed
  * state to two files under `projects/<projectId>/`:
  *
- *   - `compose.yml`       — a plain Docker Compose file you can `docker compose
+ *   - `compose.yml`: a plain Docker Compose file you can `docker compose
  *                           -f compose.yml up` BY HAND if the control plane
- *                           (Postgres) is gone. NOT the deploy path — the
+ *                           (Postgres) is gone. NOT the deploy path. The
  *                           platform always deploys via the `runtime()` driver;
  *                           this is a human break-glass artifact only.
- *   - `otterdeploy.json`  — the rendered StackFile as JSON: a machine-readable
+ *   - `otterdeploy.json`: the rendered StackFile as JSON: a machine-readable
  *                           snapshot for audit / re-import into a fresh control
  *                           plane.
  *
@@ -30,7 +30,7 @@ import { dataRootAvailable } from "./data-dir";
 /**
  * Refresh a project's DR escape hatch from its current DB rows. Renders once
  * (same path as the `manifest.export` procedure) and writes both files. Never
- * throws — failures are logged and swallowed so they can't break an apply.
+ * throws: failures are logged and swallowed so they can't break an apply.
  */
 export async function writeProjectEscapeHatch(projectId: ProjectId): Promise<void> {
   if (!(await dataRootAvailable())) return;

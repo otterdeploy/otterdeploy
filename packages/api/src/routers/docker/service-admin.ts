@@ -1,5 +1,5 @@
 /**
- * Docker debug service — inspect passthroughs, bounded log tails, and the
+ * Docker debug service: inspect passthroughs, bounded log tails, and the
  * guarded destructive operations (image/volume/network removal, prune).
  * Split out of service.ts, which keeps the read-only list functions.
  */

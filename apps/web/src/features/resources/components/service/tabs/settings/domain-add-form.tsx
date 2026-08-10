@@ -1,8 +1,8 @@
 /**
  * The "Add Custom Domain" panel of {@link ServiceNetworkingCard}.
  *
- * Three decisions in one place — the hostname, the container port it routes
- * to, and whether the name is actually free — so the operator learns about a
+ * Three decisions in one place: the hostname, the container port it routes
+ * to, and whether the name is actually free, so the operator learns about a
  * clash while typing rather than from a 409 after committing. The check is
  * advisory: `service.domains.add` re-validates and still owns the answer.
  */
@@ -56,7 +56,7 @@ export function DomainAddForm({
   const trimmed = domain.trim().toLowerCase();
   const debounced = useDebouncedValue(trimmed, CHECK_DEBOUNCE_MS);
 
-  // Only ask once the name could plausibly be one — a lone "a" is not worth a
+  // Only ask once the name could plausibly be one. A lone "a" is not worth a
   // round trip, and "Not a valid hostname" while you're still typing the TLD
   // reads as an error you caused.
   const worthChecking = debounced.length > 3 && debounced.includes(".");
@@ -66,7 +66,7 @@ export function DomainAddForm({
     staleTime: 10_000,
   });
 
-  // A verdict for an older keystroke is worse than none — it can say
+  // A verdict for an older keystroke is worse than none. It can say
   // "Available" about a name that is no longer in the field.
   const settled = worthChecking && check.data?.domain === trimmed ? check.data : undefined;
   const checking = worthChecking && (check.isFetching || (!settled && !check.isError));

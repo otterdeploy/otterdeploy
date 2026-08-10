@@ -1,9 +1,9 @@
 /**
- * Org-level Edge — the single home for everything the Caddy edge does:
+ * Org-level Edge: the single home for everything the Caddy edge does:
  * the install-wide rendered Caddyfile, TLS certificates (managed/custom/CA),
  * the per-request access log, operational events (cert/ACME lifecycle,
  * upstream errors), and CrowdSec firewall decisions. Previously split across
- * Networking, Edge logs and Settings → Certificates — consolidated here
+ * Networking, Edge logs and Settings → Certificates, consolidated here
  * (od-u63.1) because they're all facets of one concept: what the edge is
  * doing right now. Content is unchanged from those pages; only the chrome
  * that wraps it moved.
@@ -11,7 +11,7 @@
  * The Caddyfile and Firewall planes are backed by routers that are
  * install-admin in their entirety (`system.caddyfile`, `firewall.status` /
  * `firewall.decisions`), so those two tabs are OMITTED for anyone else rather
- * than rendered-and-403'd — see `EDGE_TABS_INSTALL_ADMIN` below. Certificates
+ * than rendered-and-403'd. See `EDGE_TABS_INSTALL_ADMIN` below. Certificates
  * is role-gated instead (`certificate:read`) and keeps its own in-plane
  * notice; Access logs and Events are org-scoped and always shown.
  */
@@ -48,7 +48,7 @@ type EdgeTab = (typeof EDGE_TABS)[number];
 /** Planes whose every query needs the installation-administrator identity. */
 const EDGE_TABS_INSTALL_ADMIN: ReadonlySet<string> = new Set<EdgeTab>(["caddyfile", "firewall"]);
 
-/** The leftmost plane a non-install-admin can see — their default AND the
+/** The leftmost plane a non-install-admin can see. Their default AND the
  *  landing spot when a `?tab=` deep link names one they can't have. Hiding a
  *  trigger while the URL could still select the plane would leave the same
  *  403 one URL away. */
@@ -74,7 +74,7 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/edge")({
   // Non-blocking + best-effort: a permission-gated or failed prefetch just
   // falls back to fetch-on-mount.
   loader: ({ context }) => {
-    // Install-admin only, and this runs on plain NAVIGATION — an unconditional
+    // Install-admin only, and this runs on plain NAVIGATION. An unconditional
     // prefetch is a 403 for every member who so much as hovers the Edge link,
     // whether or not they can ever open the plane. `enabled: false` on the
     // tab's own query would not cover this.
@@ -135,7 +135,7 @@ function RouteComponent() {
         ) : null}
       </div>
 
-      {/* Not just hidden — unmounted, so `useCaddyfileQuery` never runs for a
+      {/* Not just hidden, unmounted, so `useCaddyfileQuery` never runs for a
           viewer who would only get a 403 out of it. */}
       {isInstallAdmin ? (
         <TabsContent value="caddyfile" className="min-h-0 flex-1 overflow-y-auto p-4">

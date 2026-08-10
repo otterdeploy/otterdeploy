@@ -1,10 +1,10 @@
 // WebSocket control-plane message contract for the PTY terminal.
 //
 // PTY stdin/stdout travel as raw BINARY frames and are intentionally NOT
-// modeled here — only JSON control messages (text frames) belong in these
+// modeled here: only JSON control messages (text frames) belong in these
 // unions. The wire format is one contract for both directions.
 //
-// NOTE: this file is duplicated at apps/server/src/messages.ts — NOT a symlink, despite what
+// NOTE: this file is duplicated at apps/server/src/messages.ts, NOT a symlink, despite what
 // this comment used to claim. The two are byte-identical except for which
 // union each side exports (ServerMessage here, since that is the one this
 // app receives). Keep both in step when the wire format changes.

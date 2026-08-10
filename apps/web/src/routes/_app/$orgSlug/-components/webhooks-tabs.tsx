@@ -1,5 +1,5 @@
 /**
- * Tab bodies for the Webhooks settings page — Outbound (signed event POSTs +
+ * Tab bodies for the Webhooks settings page: Outbound (signed event POSTs +
  * recent-deliveries log) and Inbound (unique trigger URLs). The route keeps
  * the dialogs and collection writes; these render the lists + empty states.
  */
@@ -74,7 +74,7 @@ export function OutboundTab({
             />
             <EmptyTitle>No outbound webhooks yet</EmptyTitle>
             <EmptyDescription>
-              Add a target URL and pick the platform events it should receive — deploys,
+              Add a target URL and pick the platform events it should receive: deploys,
               builds, health, backups, certs.
             </EmptyDescription>
           </EmptyHeader>

@@ -1,7 +1,7 @@
 import { oc } from "@orpc/contract";
 /**
  * Discovery contract for the in-app terminal picker. Returns the set of
- * targets the operator can attach a shell to right now — exec containers
+ * targets the operator can attach a shell to right now. Exec containers
  * + database consoles. SSH targets live on `server.list` (org-wide nodes).
  */
 import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
@@ -13,7 +13,7 @@ const tag = "terminal";
 const basePath = "/terminal";
 
 const terminalContainerSchema = z.object({
-  /** Container id — passed to `terminal.mintTicket` (od-5j8.9), whose ticket
+  /** Container id, passed to `terminal.mintTicket` (od-5j8.9), whose ticket
    *  then opens the /pty exec. */
   containerId: z.string(),
   /** Server-resolved project ownership used for capability scoping. */
@@ -33,7 +33,7 @@ const terminalContainerSchema = z.object({
   projectName: z.string().nullable(),
   /** Resource id (otterdeploy.resource.id label). Services only. */
   serviceResourceId: resourceIdField.nullable(),
-  /** Swarm service name — the part before the .slot.taskId suffix. */
+  /** Swarm service name: the part before the .slot.taskId suffix. */
   serviceName: z.string().nullable(),
   /** Replica slot ("1", "2", …) parsed out of the swarm task name. */
   replicaSlot: z.string().nullable(),
@@ -57,7 +57,7 @@ const terminalTargetsSchema = z.object({
 const listTargetsInput = z.object({}).optional();
 
 // ---------------------------------------------------------------------------
-// od-5j8.9 — step-up + single-use ticket contracts for the /pty WS upgrade.
+// od-5j8.9: step-up + single-use ticket contracts for the /pty WS upgrade.
 // The WS upgrade itself takes no target/credential input anymore: the ticket
 // (minted here) is the only thing it accepts, and the ticket already carries
 // the authorized target.
@@ -79,7 +79,7 @@ const stepUpInput = z.object({
 });
 
 const stepUpOutput = z.object({
-  /** ISO timestamp — the step-up grant is valid for minting tickets until
+  /** ISO timestamp: the step-up grant is valid for minting tickets until
    *  this instant. */
   grantedUntil: z.string(),
 });
@@ -106,7 +106,7 @@ const stepUpErrors = {
 const mintTicketInput = z.object({ target: shellTargetSchema });
 
 const mintTicketOutput = z.object({
-  /** Single-use — presented once as `/pty?ticket=…`, then burned. */
+  /** Single-use, presented once as `/pty?ticket=…`, then burned. */
   ticket: z.string(),
   expiresAt: z.string(),
 });

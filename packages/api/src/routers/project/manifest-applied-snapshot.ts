@@ -10,7 +10,7 @@
  * That is not cosmetic, because of what discard means. Per its contract:
  * "Resets the saved manifest to the most recent successfully-applied snapshot.
  * After discard, manifest == current state." So a failed create baked into the
- * snapshot becomes permanent — the diff re-proposes it forever, Apply fails
+ * snapshot becomes permanent. The diff re-proposes it forever, Apply fails
  * forever (the name collides with whatever DID get created), and Discard
  * reverts TO the snapshot that contains it. The change can be neither applied
  * nor discarded, and the pending-changes bar never goes away.
@@ -41,7 +41,7 @@ import type {
 /** Any entry in a revertible manifest section. */
 type SectionEntry = ServiceManifest | DatabaseManifest | ComposeManifest;
 
-/** The subset of a skip record this needs — matches ApplyResult["skipped"]. */
+/** The subset of a skip record this needs. Matches ApplyResult["skipped"]. */
 export interface SkippedResource {
   resource: "service" | "database" | "env" | "compose";
   name: string;
@@ -50,8 +50,8 @@ export interface SkippedResource {
 type Section = "services" | "databases" | "composes";
 
 /**
- * Which manifest section a skip refers to. `env` is not a section of its own —
- * env changes belong to the service (or database) that declares them, so an
+ * Which manifest section a skip refers to. `env` is not a section of its own.
+ * Env changes belong to the service (or database) that declares them, so an
  * env failure reverts that resource's entry.
  */
 function sectionsFor(resource: SkippedResource["resource"]): Section[] {
@@ -82,7 +82,7 @@ function cloneSections(manifest: Manifest): Manifest {
 /**
  * The manifest to persist as `lastAppliedManifest`.
  *
- * `previous` is the snapshot before this apply — null on a project's first
+ * `previous` is the snapshot before this apply. Null on a project's first
  * apply, in which case a skipped create is simply dropped.
  */
 export function snapshotAfterApply(args: {
@@ -100,7 +100,7 @@ export function snapshotAfterApply(args: {
 /**
  * The manifest a discard should leave behind.
  *
- * Wholesale (no `only`): the manifest becomes the applied snapshot — the
+ * Wholesale (no `only`): the manifest becomes the applied snapshot. The
  * original behaviour, "forget every staged edit". Selective: only the named
  * resources revert, so dropping one unwanted change keeps the rest staged.
  */
@@ -119,7 +119,7 @@ export function manifestAfterDiscard(args: {
 
 /**
  * For each named resource, replace its entry in `target` with whatever `source`
- * says about it — deleting the entry when `source` doesn't mention it.
+ * says about it. Deleting the entry when `source` doesn't mention it.
  *
  * Two callers want exactly this, which is why it is one function:
  *

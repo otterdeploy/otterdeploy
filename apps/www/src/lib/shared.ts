@@ -9,11 +9,11 @@ export const docsRoute = "/docs";
  * canonical link and og:url rendered during SSR are byte-identical to what
  * hydration produces. Reading `process.env` here would give the server a real
  * value and the client `undefined`, and React would swap the tags out on
- * hydration — which is exactly the sort of thing a crawler catches and a
+ * hydration, which is exactly the sort of thing a crawler catches and a
  * human never does.
  *
  * The fallback is the production origin, matching the `custom_domain` route in
- * `apps/www/wrangler.jsonc` — not a build-time requirement. `.env` is
+ * `apps/www/wrangler.jsonc`, not a build-time requirement. `.env` is
  * gitignored, so CI builds with `VITE_SITE_URL` unset and whatever stands here
  * is what ships; a fallback pointing anywhere else is a silent outage of every
  * absolute URL on the site. It stayed on the pre-Workers Vercel host through
@@ -37,14 +37,14 @@ export const absoluteUrl = (path: string) =>
  * Is this request for the production site, as opposed to a preview
  * (`*.workers.dev`), a branch deployment, or local dev?
  *
- * Decided from the request's own host so it needs no build-time input — see
+ * Decided from the request's own host so it needs no build-time input. See
  * the robots.txt route, whose previous env-var gate silently answered "yes"
  * everywhere. `www.` counts: it's a `custom_domain` route in wrangler.jsonc
  * and serves the same site.
  *
  * An unparseable URL answers `false`. The only caller uses this to decide
  * whether to ALLOW indexing, so the safe answer under uncertainty is the
- * restrictive one — a preview that slips into the index costs more than a
+ * restrictive one: a preview that slips into the index costs more than a
  * production page that briefly doesn't.
  */
 export function isCanonicalHost(requestUrl: string): boolean {
@@ -58,4 +58,4 @@ export function isCanonicalHost(requestUrl: string): boolean {
 }
 
 export const siteDescription =
-  "A self-hostable deployment platform. Build from a git repo, run managed databases, get automatic HTTPS and per-PR previews — on servers you own.";
+  "A self-hostable deployment platform. Build from a git repo, run managed databases, get automatic HTTPS and per-PR previews. On servers you own.";

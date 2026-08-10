@@ -5,7 +5,7 @@ import { Body, Container, Head, Html, Preview, Section, Text } from "@react-emai
 import { Tailwind } from "@react-email/tailwind";
 
 // The content atoms (Heading, Para, BrandButton, Badge, DataTable, …) live in
-// ./_atoms, split out under the file cap — re-exported so templates keep one
+// ./_atoms, split out under the file cap: re-exported so templates keep one
 // import surface.
 export {
   Badge,
@@ -25,7 +25,7 @@ export {
  * whole system speaks "one coherent vocabulary" (DESIGN.md). North star is "The
  * Quiet Instrument": warm-neutral monochrome, a single blue accent used
  * sparingly, flat hairline borders, generous rhythm. Every template MUST be a
- * React Email component — we never hand-author HTML strings.
+ * React Email component: we never hand-author HTML strings.
  *
  * Structure is deliberately email-client-safe: a fixed 600px column on a warm
  * canvas, wordmark above a white content card, contextual footer below. All
@@ -38,7 +38,7 @@ export {
 // don't grok OKLCH, so these are the sRGB equivalents. Keep them in sync.
 export const brand = {
   ink: "#141412", // --foreground, headings
-  body: "#33332e", // body copy — a touch softer than pure ink, still AA on white
+  body: "#33332e", // body copy, a touch softer than pure ink, still AA on white
   canvas: "#f3f3f0", // warm page ground so the white card lifts off it
   surface: "#ffffff", // the content card
   muted: "#6b6b63", // secondary / footnote text (AA on white and on canvas)
@@ -46,7 +46,7 @@ export const brand = {
   hairline: "#e7e7e2", // foreground @ ~10%
   hairlineStrong: "#dcdcd5",
   accent: "#2b50e2", // --primary (the one blue), flattened to sRGB
-  accentSoft: "#eef1fd", // accent @ ~8% — link/info wash
+  accentSoft: "#eef1fd", // accent @ ~8%, link/info wash
 } as const;
 
 export type NotificationSeverity = "info" | "ok" | "warn" | "err";
@@ -183,7 +183,7 @@ export function EmailLayout({ preview, footnote, children }: EmailLayoutProps) {
                 <Text className="text-faint m-0 text-[12px] leading-5">{footnote}</Text>
               ) : null}
               <Text className="text-faint m-0 mt-2 text-[12px] leading-5">
-                otterdeploy — calm, confident infrastructure.
+                otterdeploy. Calm, confident infrastructure.
               </Text>
             </Section>
           </Container>

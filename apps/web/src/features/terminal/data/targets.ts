@@ -34,14 +34,14 @@ async function fetchTargets() {
 }
 
 const terminalContainersQueryOptions = queryCollectionOptions({
-  // Stable id — required for SQLite persistence to round-trip (see
+  // Stable id, required for SQLite persistence to round-trip (see
   // projectCollection in features/projects/data/project.ts).
   id: "terminal-targets-containers",
   ...orpc.terminal.targets.queryOptions(),
   queryKey: [...TARGETS_QUERY_KEY, "containers"],
   queryFn: async () => fetchTargets(),
   queryClient,
-  // Widened key type keeps both createCollection branches at the same TKey —
+  // Widened key type keeps both createCollection branches at the same TKey.
   // Collection is invariant in it, so the annotation below needs an exact match.
   getKey: (c): string | number => c.containerId,
   // Wrap so the collection sees `containers[]` as its rows; cluster /
@@ -53,7 +53,7 @@ type TerminalContainerRow = Awaited<
   ReturnType<typeof orpc.terminal.targets.call>
 >["containers"][number];
 
-// Two-branch createCollection + pinned generics — same type gymnastics as
+// Two-branch createCollection + pinned generics: same type gymnastics as
 // projectCollection (features/projects/data/project.ts). The explicit
 // annotation collapses the two branches' differing Collection instantiations
 // so `useLiveQuery(() => collection)` can infer the row type.
@@ -69,7 +69,7 @@ export const terminalContainersCollection: Collection<TerminalContainerRow, stri
     : createCollection(terminalContainersQueryOptions);
 
 const terminalDatabasesQueryOptions = queryCollectionOptions({
-  // Stable id — required for SQLite persistence to round-trip.
+  // Stable id, required for SQLite persistence to round-trip.
   id: "terminal-targets-databases",
   ...orpc.terminal.targets.queryOptions(),
   queryKey: [...TARGETS_QUERY_KEY, "databases"],

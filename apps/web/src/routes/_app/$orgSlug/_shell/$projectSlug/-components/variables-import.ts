@@ -1,6 +1,6 @@
 /**
  * Drag-drop .env import + export helpers for the per-env variables table.
- * Pure file plumbing — parsing/serializing lives in `variables-dotenv.ts`.
+ * Pure file plumbing, parsing/serializing lives in `variables-dotenv.ts`.
  */
 import { toast } from "sonner";
 
@@ -28,12 +28,12 @@ export function hasFiles(e: React.DragEvent): boolean {
  *  toasting why the import was refused. */
 export async function readEnvImport(file: File): Promise<string | null> {
   if (!isEnvLikeFile(file)) {
-    toast.error(`Can't import ${file.name} — drop a .env or .txt file.`);
+    toast.error(`Can't import ${file.name}. Drop a .env or .txt file.`);
     return null;
   }
   if (file.size > MAX_IMPORT_BYTES) {
     toast.error(
-      `${file.name} is ${Math.ceil(file.size / 1024)} KB — imports are capped at ${MAX_IMPORT_BYTES / 1024} KB.`,
+      `${file.name} is ${Math.ceil(file.size / 1024)} KB. Imports are capped at ${MAX_IMPORT_BYTES / 1024} KB.`,
     );
     return null;
   }
@@ -46,7 +46,7 @@ export async function readEnvImport(file: File): Promise<string | null> {
 }
 
 /** Explicit export: always writes real values regardless of the masked
- *  state — the reveal toggle only affects on-screen rendering. */
+ *  state: the reveal toggle only affects on-screen rendering. */
 export function downloadDotEnvFile(
   rows: { key: string; value: string }[],
   filename: string,

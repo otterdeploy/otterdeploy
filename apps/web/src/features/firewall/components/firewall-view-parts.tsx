@@ -68,8 +68,8 @@ export function DecisionsTable({
                 className="py-10 text-center text-[13px] text-muted-foreground"
               >
                 {reachable
-                  ? "No active decisions — nothing is currently blocked."
-                  : "Can't reach the CrowdSec agent — is the firewall profile running?"}
+                  ? "No active decisions. Nothing is currently blocked."
+                  : "Can't reach the CrowdSec agent. Is the firewall profile running?"}
               </TableCell>
             </TableRow>
           ) : (
@@ -87,7 +87,7 @@ export function DecisionsTable({
                       {flagEmoji(d.country)} {d.country}
                     </span>
                   ) : (
-                    <span className="text-muted-foreground/40">—</span>
+                    <span className="text-muted-foreground/40">–</span>
                   )}
                 </TableCell>
                 <TableCell
@@ -102,17 +102,17 @@ export function DecisionsTable({
                       {d.asName ? <span className="ml-1.5">{d.asName}</span> : null}
                     </>
                   ) : (
-                    <span className="text-muted-foreground/40">—</span>
+                    <span className="text-muted-foreground/40">–</span>
                   )}
                 </TableCell>
                 <TableCell
                   className="max-w-[200px] truncate text-muted-foreground"
                   title={d.scenario}
                 >
-                  {d.scenario || <span className="text-muted-foreground/40">—</span>}
+                  {d.scenario || <span className="text-muted-foreground/40">–</span>}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {d.eventsCount ?? <span className="text-muted-foreground/40">—</span>}
+                  {d.eventsCount ?? <span className="text-muted-foreground/40">–</span>}
                 </TableCell>
                 <TableCell>
                   <span className={cn(d.type === "ban" ? "text-destructive" : "text-amber-500")}>
@@ -148,7 +148,7 @@ export function DecisionsTable({
  * Empty state shown when the CrowdSec agent isn't reachable and the bouncer
  * env isn't configured. od-5j8.11: a fresh install turns this on by
  * default (install.sh generates the bouncer key/LAPI wiring and starts the
- * agent automatically) — seeing this card means either the agent is still
+ * agent automatically), seeing this card means either the agent is still
  * starting up, or the operator explicitly opted out
  * (OTTERDEPLOY_FIREWALL=false / --no-firewall).
  */
@@ -164,7 +164,7 @@ export function FirewallDisabledCard() {
           <div className="min-w-0 flex-1">
             <h2 className="text-[13px] font-semibold">{t("firewall.notEnabled")}</h2>
             <p className="mt-0.5 text-[13px] text-muted-foreground">
-              A fresh install turns CrowdSec on automatically — if you just installed, the agent may
+              A fresh install turns CrowdSec on automatically. If you just installed, the agent may
               still be starting (this can take a few seconds after{" "}
               <CodeChip>docker compose up</CodeChip>). If you disabled it on purpose, here's how to
               turn it back on:
@@ -174,7 +174,7 @@ export function FirewallDisabledCard() {
                 <SetupStep n={1} />
                 <span className="text-muted-foreground">
                   Re-run the installer without <CodeChip>--no-firewall</CodeChip> (or set{" "}
-                  <CodeChip>OTTERDEPLOY_FIREWALL=true</CodeChip>) — it (re)generates{" "}
+                  <CodeChip>OTTERDEPLOY_FIREWALL=true</CodeChip>). It (re)generates{" "}
                   <CodeChip>CROWDSEC_BOUNCER_KEY</CodeChip> and{" "}
                   <CodeChip>CROWDSEC_LAPI_URL</CodeChip> and applies the host firewall baseline.
                 </span>
@@ -188,7 +188,7 @@ export function FirewallDisabledCard() {
               </li>
             </ol>
             <p className="mt-3 text-[12px] text-muted-foreground/80">
-              The edge gate wires in automatically — no Caddy rebuild. Enforces the community IP
+              The edge gate wires in automatically, with no Caddy rebuild. Enforces the community IP
               blocklist plus SSH/HTTP attack detection at both the edge and the host.
             </p>
           </div>

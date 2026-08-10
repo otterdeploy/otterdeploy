@@ -16,12 +16,12 @@ import {
 } from "@/features/git-providers/provider-card";
 import { type ProviderKind } from "@/features/git-providers/shared";
 
-// Zod so the fields infer as optional — otherwise `navigate({ to: this route })`
+// Zod so the fields infer as optional: otherwise `navigate({ to: this route })`
 // would require a `search` object at every call site.
 const searchSchema = z.object({
   git_install: z.enum(["ok", "error"]).optional().catch(undefined),
   reason: z.string().optional(),
-  // App-relative path to land on after the GitHub round-trip — set by pages
+  // App-relative path to land on after the GitHub round-trip. Set by pages
   // that send the operator here mid-task (e.g. the deploy wizard).
   returnTo: z.string().startsWith("/").optional().catch(undefined),
 });

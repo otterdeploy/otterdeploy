@@ -1,5 +1,5 @@
 // Stages a service deletion in the project manifest. The swarm
-// teardown happens on Deploy via manifest.apply — same path as every
+// teardown happens on Deploy via manifest.apply. Same path as every
 // other pending change, so deletes don't carve out a second code route.
 
 import { Delete02Icon } from "@hugeicons/core-free-icons";
@@ -29,7 +29,7 @@ export function ServiceDangerZone({ resource, onDeleted, pending = false }: Dang
       });
       const base = current.manifest;
       if (!base) {
-        throw new Error("No manifest saved yet — can't stage delete.");
+        throw new Error("No manifest saved yet, so it can't stage a delete.");
       }
       const remaining = { ...base.services };
       delete remaining[resource.name];
@@ -63,8 +63,8 @@ export function ServiceDangerZone({ resource, onDeleted, pending = false }: Dang
       title="Danger zone"
       description={
         pending
-          ? "This service hasn't been deployed — discarding drops the staged create and its config."
-          : "Permanent — the swarm service, proxy routes, and stored env vars are all torn down on the next Deploy."
+          ? "This service hasn't been deployed. Discarding drops the staged create and its config."
+          : "Permanent. The swarm service, proxy routes, and stored env vars are all torn down on the next Deploy."
       }
     >
       <div className="flex items-center justify-between gap-3 px-3 py-2.5">

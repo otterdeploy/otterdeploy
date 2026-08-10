@@ -1,10 +1,10 @@
 /**
- * od-5j8.8 — hostile-path coverage for the git-repo tenant boundary.
+ * od-5j8.8: hostile-path coverage for the git-repo tenant boundary.
  *
  * `getRepoForOrg` is the guard every caller-supplied-`gitRepoId` endpoint
  * (getRepo, inspectRepo, listBranches, inspectEnv) now runs through before
  * touching repo contents or minting an installation token. Before this fix,
- * those endpoints resolved `gitRepoId` with no org check at all — org A could
+ * those endpoints resolved `gitRepoId` with no org check at all. Org A could
  * read org B's private repo name/branch/tree/env files just by supplying
  * org B's `gitRepoId`.
  */
@@ -36,7 +36,7 @@ interface FixtureRow {
 }
 
 // Mutable fixture the mocked select().from().leftJoin().leftJoin().where().limit()
-// chain reads from at call time — `limit` is a function (not a resolved
+// chain reads from at call time. `limit` is a function (not a resolved
 // promise) so each test's `setDbRow` is honored even though the chain object
 // itself is only built once. Same shape as the guards in
 // authz/__tests__/project-scope-guards.test.ts, extended with leftJoin for
@@ -71,7 +71,7 @@ const orgA = "org_a" as OrganizationId;
 const orgB = "org_b" as OrganizationId;
 const repoId = "gitrepo_victim" as GitRepoId;
 
-describe("getRepoForOrg (git tenant boundary — od-5j8.8)", () => {
+describe("getRepoForOrg (git tenant boundary: od-5j8.8)", () => {
   test("private (installation-backed) repo: same-org lookup succeeds", async () => {
     setDbRow({
       id: repoId,
@@ -102,13 +102,13 @@ describe("getRepoForOrg (git tenant boundary — od-5j8.8)", () => {
     expect(row).toBeUndefined();
   });
 
-  test("nonexistent repo id: also undefined — indistinguishable from a foreign one", async () => {
+  test("nonexistent repo id: also undefined: indistinguishable from a foreign one", async () => {
     setDbRow(undefined);
     const row = await getRepoForOrg({ gitRepoId: repoId, organizationId: orgA });
     expect(row).toBeUndefined();
   });
 
-  test("public-URL repo (no installation): any org may read it — by design (see public-repos.ts)", async () => {
+  test("public-URL repo (no installation): any org may read it. By design (see public-repos.ts)", async () => {
     setDbRow({
       id: repoId,
       fullName: "torvalds/linux",

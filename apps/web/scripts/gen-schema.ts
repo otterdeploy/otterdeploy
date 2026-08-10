@@ -20,7 +20,7 @@ const json = z.toJSONSchema(manifestSchema, {
 }) as JsonObject;
 
 // zod marks `.default({})` fields as required (they're never undefined
-// at runtime — the default fills them in). JSON Schema validators in
+// at runtime: the default fills them in). JSON Schema validators in
 // editors don't run zod, so users would get "missing property" warnings
 // on omitted `services`/`databases`. Strip any key that has a `default`
 // from its parent's `required` array so the editor experience matches
@@ -49,7 +49,7 @@ relaxDefaultedRequired(json);
 json.$id = "https://otterdeploy.com/otterdeploy.schema.json";
 json.title = "Otterdeploy Manifest";
 json.description =
-  "Schema for otterdeploy.json — the declarative manifest of services + databases for an otterdeploy project.";
+  "Schema for otterdeploy.json: the declarative manifest of services + databases for an otterdeploy project.";
 
 const out = resolve(import.meta.dirname, "../public/otterdeploy.schema.json");
 await Bun.write(out, `${JSON.stringify(json, null, 2)}\n`);

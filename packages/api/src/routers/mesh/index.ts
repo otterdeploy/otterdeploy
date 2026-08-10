@@ -1,7 +1,7 @@
 /**
  * Private networking router. Reads are `mesh: ["read"]` (the service exposure
  * UI needs to know whether a mesh exists); every mutation is `mesh:
- * ["create"|"update"|"delete"]`, which resolves to admin/owner — the stored
+ * ["create"|"update"|"delete"]`, which resolves to admin/owner. The stored
  * credential grants API control of the org's entire VPN.
  *
  * Design: docs/designs/vpn-mesh.md

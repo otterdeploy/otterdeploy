@@ -17,7 +17,7 @@ import type { BranchDatabaseSpec, DatabaseStatus } from "./types";
 
 import { pgDumpToBuffer, pgRestoreFromBuffer } from "../backups/copy";
 import { asStepLogger } from "../lib/logger";
-// The file, not the system-health barrel — the barrel would drag the monitor's
+// The file, not the system-health barrel: the barrel would drag the monitor's
 // db/notification dependencies into the deploy import graph.
 import { checkBranchHeadroom } from "../system-health/branch-pool";
 import { runDatabase } from "./docker-driver-db";
@@ -55,7 +55,7 @@ export async function branchDatabaseOnDocker(
     });
   }
 
-  // Refuse up front when the host disk can't absorb another branch — an
+  // Refuse up front when the host disk can't absorb another branch, an
   // honest error now beats a half-restored branch (copy duplicates the source
   // data) or, on the zfs tier, a suspended pool that hangs every branch DB.
   const headroom = await checkBranchHeadroom();
@@ -67,15 +67,15 @@ export async function branchDatabaseOnDocker(
     });
   }
 
-  // Snapshot driver: for `copy` this is a documented no-op (returns null ref) —
-  // the data movement happens below at the DB layer, not via a volume clone.
+  // Snapshot driver: for `copy` this is a documented no-op (returns null ref).
+  // The data movement happens below at the DB layer, not via a volume clone.
   const driver = await resolveSnapshotDriver();
   await driver.branch(
     { sourceVolume: input.sourceServiceName, targetVolume: input.volumeName, engine: input.engine },
     rlog,
   );
 
-  // `copy` doubles disk — be loud about it (§4.2).
+  // `copy` doubles disk: be loud about it (§4.2).
   log.warn({
     runtime: {
       step: "branch-db",
@@ -86,7 +86,7 @@ export async function branchDatabaseOnDocker(
     },
   });
 
-  // 1. Provision the fresh branch DB — its own name / volume / hostname / creds.
+  // 1. Provision the fresh branch DB: its own name / volume / hostname / creds.
   step.info({ runtime: { step: "branch-db-provision", service: input.serviceName } });
   const status = await runDatabase(input);
 
@@ -131,7 +131,7 @@ export async function branchDatabaseOnDocker(
 }
 
 /**
- * Tear down a branch DB — container AND its Docker volume(s). Unlike the normal
+ * Tear down a branch DB: container AND its Docker volume(s). Unlike the normal
  * DB teardown (which orphans the volume), a branch's data is disposable, so we
  * discover the named volume(s) the branch mounts (via inspect) and remove them.
  * The COW-volume path (bind mounts under volumeDir + zfs snapshot destroy) is P3.
@@ -175,7 +175,7 @@ export async function destroyDatabaseBranchOnDocker(
         });
       }
     }
-    // snapshotRef is always null on the copy path — nothing snapshot-specific to
+    // snapshotRef is always null on the copy path. Nothing snapshot-specific to
     // remove. zfs snapshot destroy is wired in P3.
   } finally {
     docker.destroy();

@@ -43,7 +43,7 @@ export const backupsRouter = {
     return presentBackup(result.value);
   }),
 
-  // Manual "backup now" — RBAC: backup:run. Source is a database resource OR
+  // Manual "backup now": RBAC: backup:run. Source is a database resource OR
   // a named Docker volume (the contract enforces exactly-one).
   run: requirePermission({ backup: ["run"] }).backups.run.handler(
     async ({ input, context, errors }) => {
@@ -77,7 +77,7 @@ export const backupsRouter = {
           method: "manual",
         });
         ids.push(id);
-        // Run detached — status + logs are observable via get/logs.
+        // Run detached. Status + logs are observable via get/logs.
         void executeBackup(id);
       }
       context.log.set({ target: { type: "backup", id: ids[0] } });
@@ -85,7 +85,7 @@ export const backupsRouter = {
     },
   ),
 
-  // Integrity check for a stored archive — read-only, org-scoped.
+  // Integrity check for a stored archive. Read-only, org-scoped.
   verify: orgScopedProcedure.backups.verify.handler(async ({ input, context, errors }) => {
     context.log.set({ target: { type: "backup", id: input.id } });
     await enforceBackupScope(context, input.id);
@@ -101,7 +101,7 @@ export const backupsRouter = {
     return verifyBackup(input.id);
   }),
 
-  // Restore a succeeded backup — RBAC: backup:restore.
+  // Restore a succeeded backup: RBAC: backup:restore.
   restore: requirePermission({ backup: ["restore"] }).backups.restore.handler(
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "backup", id: input.id } });

@@ -1,5 +1,5 @@
 /**
- * MariaDB data-viewer fetching hooks — the React-Query layer over
+ * MariaDB data-viewer fetching hooks. The React-Query layer over
  * `database.mariadbTables` / `database.mariadbRows`. `resourceId` is typed
  * `string` and cast to the branded oRPC input at the boundary, mirroring the
  * redis + postgres viewers.
@@ -8,7 +8,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { orpc } from "@/shared/server/orpc";
 
-/** User tables in the database — drives the table picker. */
+/** User tables in the database: drives the table picker. */
 export function useMariadbTables(resourceId: string) {
   return useQuery(
     orpc.database.mariadbTables.queryOptions({

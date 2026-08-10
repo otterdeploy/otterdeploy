@@ -13,13 +13,13 @@ function hostnameOf(raw: string | undefined): string | null {
 }
 
 /**
- * Public identities of this control plane — every outbound call the control
+ * Public identities of this control plane: every outbound call the control
  * plane makes on a tenant's behalf (blocklist fetches, webhook delivery,
  * notification channels, registry probes, self-hosted git provider calls)
  * denies both these hostnames and this address so a tenant-supplied target
  * cannot call back into administrative endpoints, even when the install
  * sits behind NAT (so the resolved DNS/IP checks alone wouldn't catch it).
- * This denial is unconditional — see egress-policy.ts's `denyAddresses`,
+ * This denial is unconditional. See egress-policy.ts's `denyAddresses`,
  * which the operator allowlist (`OTTERDEPLOY_EGRESS_ALLOWLIST`) can never
  * override.
  */

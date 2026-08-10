@@ -43,7 +43,7 @@ export const initCommand = defineCommand({
     if (alreadyExists && !args.yes) {
       warn(`A config already exists at ${targetPath}.`);
       if (!(await confirm("Overwrite it?"))) {
-        abort("Aborted — the existing config was kept.");
+        abort("Aborted. The existing config was kept.");
       }
     }
 

@@ -39,7 +39,7 @@ async function requireEnrollmentStepUp(
 
   // `verifyStepUpCredential`, not a bare `verifyTotpCode`: this used to reject
   // anyone without 2FA outright, which made node enrollment impossible for an
-  // operator who had never set up an authenticator — while still showing them
+  // operator who had never set up an authenticator, while still showing them
   // a code field. The shared primitive asks for whichever credential the
   // account actually has, exactly as terminal step-up does.
   const verified = await verifyStepUpCredential(context, user, {

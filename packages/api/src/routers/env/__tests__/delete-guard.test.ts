@@ -18,8 +18,8 @@ const environmentId = "env_1" as EnvironmentId;
 const organizationId = "org_1" as OrganizationId;
 
 /**
- * A resource whose `environment_id` no longer resolves matches NO scope query —
- * it is not base (the column is non-null) and its environment is gone. It
+ * A resource whose `environment_id` no longer resolves matches NO scope query.
+ * It is not base (the column is non-null) and its environment is gone. It
  * disappears from every list and graph while its container keeps running. These
  * pin that the delete refuses rather than creating that state.
  */

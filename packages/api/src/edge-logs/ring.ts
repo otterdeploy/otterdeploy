@@ -1,9 +1,9 @@
 /**
  * In-memory edge-log store: a bounded ring buffer plus a live pub/sub.
  *
- * v1 keeps recent access logs in process (no DB) — this powers the live tail
+ * v1 keeps recent access logs in process (no DB). This powers the live tail
  * and the 5m–1h histogram/percentile windows directly. Longer ranges
- * (24h/7d) and survival across restarts need persistence — see
+ * (24h/7d) and survival across restarts need persistence. See
  * docs/edge-logs.md "Phase 2". The ring is a module singleton: one edge
  * proxy, one process.
  */
@@ -18,7 +18,7 @@ import type {
   EdgeTimeRange,
 } from "./types";
 
-/** ~last hour at a few hundred rps, or a hard cap — whichever is smaller. */
+/** ~last hour at a few hundred rps, or a hard cap: whichever is smaller. */
 const MAX_ENTRIES = 50_000;
 
 export const RANGE_MS: Record<EdgeTimeRange, number> = {
@@ -34,7 +34,7 @@ type Subscriber = (line: EdgeLogLine) => void;
 // State lives on globalThis so the long-lived edge-log sink (a Bun.listen
 // whose data-handler closure is captured at first boot) and the freshly
 // re-imported query/persist modules all share ONE buffer + subscriber set
-// across `--hot` reloads. Module-local state would diverge — the sink would
+// across `--hot` reloads. Module-local state would diverge. The sink would
 // push into a stale buffer the query never reads, silently breaking ingest.
 const state = ((
   globalThis as typeof globalThis & {
@@ -54,7 +54,7 @@ export function subscribeEdgeLogs(fn: Subscriber): () => void {
   return () => state.subscribers.delete(fn);
 }
 
-/** Raw live-window lines at or after `sinceMs` — the in-memory fallback for the
+/** Raw live-window lines at or after `sinceMs`. The in-memory fallback for the
  *  threat aggregation when DB persistence is off. Bounded by the ring size. */
 export function recentEdgeLogLines(sinceMs: number): EdgeLogLine[] {
   return state.buffer.filter((l) => Date.parse(l.ts) >= sinceMs);
@@ -167,7 +167,7 @@ export function summarizeEdgeLogs(
   };
 }
 
-/** Test seam — drain the buffer between tests. */
+/** Test seam: drain the buffer between tests. */
 export function __resetEdgeLogs(): void {
   state.buffer.length = 0;
   state.subscribers.clear();

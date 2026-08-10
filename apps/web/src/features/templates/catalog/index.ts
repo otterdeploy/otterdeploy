@@ -1,5 +1,5 @@
 /**
- * Template catalog — the single source the gallery, detail modal, and the
+ * Template catalog: the single source the gallery, detail modal, and the
  * wizard-prefill handoff read from. Counts shown in the UI derive from this
  * array; nothing is invented (no install counts / stars / trending).
  */

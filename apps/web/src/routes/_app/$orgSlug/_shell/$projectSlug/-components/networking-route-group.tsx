@@ -23,8 +23,8 @@ import type { RouteGroup } from "./networking-routes-model";
  *  inside the hostname cell rather than claiming a column of its own. */
 const COLUMN_COUNT = 5;
 
-/** The TLS cell reports the issuance MODE from the route record, plus — once a
- *  probe has landed — the live health of what the edge is actually serving.
+/** The TLS cell reports the issuance MODE from the route record, plus. Once a
+ *  probe has landed. The live health of what the edge is actually serving.
  *  Mode alone was misleading: a route can say "letsencrypt" while the edge
  *  serves an expired cert. */
 function TlsCell({ mode, cert }: { mode: string; cert: RouteCertificate | undefined }) {

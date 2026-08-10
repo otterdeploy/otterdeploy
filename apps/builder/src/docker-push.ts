@@ -12,7 +12,7 @@
  *
  * Returns the pushed image's content digest (`sha256:…`), read back from the
  * local daemon's `RepoDigests` after the push lands. Null when it can't be
- * determined — digest capture is best-effort and never fails a good push.
+ * determined: digest capture is best-effort and never fails a good push.
  */
 
 import type { LogSink } from "./log-stream";
@@ -78,7 +78,7 @@ export async function dockerPush(opts: {
  * Read the pushed image's content digest from the local daemon. After a push,
  * docker records `<repo>@sha256:…` in the image's `RepoDigests`; we pull the
  * `sha256:…` portion out. Best-effort: any failure (no match, inspect error)
- * returns null rather than failing the build — the digest is metadata, the
+ * returns null rather than failing the build. The digest is metadata, the
  * push already succeeded.
  */
 async function readDigest(tag: string | undefined, sink: LogSink): Promise<string | null> {
@@ -91,7 +91,7 @@ async function readDigest(tag: string | undefined, sink: LogSink): Promise<strin
   }).catch(() => null);
   if (!inspect || inspect.exitCode !== 0) return null;
   // RepoDigests entries look like `registry/repo@sha256:abc…`. We take the
-  // first sha256 found — with one registry per tag (our case) that's the only
+  // first sha256 found. With one registry per tag (our case) that's the only
   // entry; this is a best-effort fallback if there were ever several.
   const match = inspect.tail.match(/@(sha256:[a-f0-9]{64})/);
   return match?.[1] ?? null;

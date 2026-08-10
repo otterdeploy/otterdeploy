@@ -53,8 +53,8 @@ export const gitRouter = {
     if (!provider?.appSlug) {
       throw errors.NOT_CONFIGURED();
     }
-    // App-install flow binds the GitHub callback to the initiating user —
-    // session-only; API-key actors have no user identity.
+    // App-install flow binds the GitHub callback to the initiating user.
+    // Session-only; API-key actors have no user identity.
     if (!context.session?.user) {
       throw new ORPCError("UNAUTHORIZED");
     }
@@ -63,7 +63,7 @@ export const gitRouter = {
       userId: context.session.user.id,
       returnTo: sanitizeReturnTo(input.returnTo),
     });
-    // GitHub App install URL — the user picks repos on GitHub, then GitHub
+    // GitHub App install URL: the user picks repos on GitHub, then GitHub
     // redirects to the App's configured callback URL with installation_id +
     // setup_action + our state param. Built off the host on the provider
     // row so future GHE installs Just Work.
@@ -75,19 +75,19 @@ export const gitRouter = {
   }),
 
   /**
-   * Manifest flow — first half. Returns the form-action URL + manifest
+   * Manifest flow: first half. Returns the form-action URL + manifest
    * JSON so the UI can auto-submit a form to GitHub's app-creation
    * page. GitHub then redirects to the callback registered at
    * `/api/integrations/github/manifest/callback`, which finishes the
    * exchange and persists the row.
    *
-   * No NOT_CONFIGURED error — this endpoint IS the configuration path.
+   * No NOT_CONFIGURED error: this endpoint IS the configuration path.
    * It runs even when no provider row exists yet (the common case for
    * a fresh install).
    */
   startManifest: orgScopedProcedure.git.startManifest.handler(async ({ input, context }) => {
-    // Manifest flow binds the GitHub callback to the initiating user —
-    // session-only; API-key actors have no user identity.
+    // Manifest flow binds the GitHub callback to the initiating user.
+    // Session-only; API-key actors have no user identity.
     if (!context.session?.user) {
       throw new ORPCError("UNAUTHORIZED");
     }
@@ -101,7 +101,7 @@ export const gitRouter = {
       returnTo: sanitizeReturnTo(input.returnTo),
     });
     // Browser-facing URLs (redirect/callback/setup) go to the control plane the
-    // operator's browser can reach — the local `.localhost` address in dev.
+    // operator's browser can reach. The local `.localhost` address in dev.
     // Only the webhook URL must be public (GitHub's servers POST it), so that
     // one gets the tunnel (PUBLIC_API_URL); prod is single-origin and falls back.
     //
@@ -155,7 +155,7 @@ export const gitRouter = {
       const appConfig = await loadGithubAppForInstallation(inst.installation.installationId);
       const { repositories, totalCount } = await listInstallationRepos(tokenResp.token, appConfig);
       // Full sync: upsert everything GitHub granted and unlink what it
-      // didn't — "Sync now" is the repair path, so it must converge the
+      // didn't. "Sync now" is the repair path, so it must converge the
       // mirror in both directions.
       await syncRepos(
         inst.installation.id,
@@ -294,7 +294,7 @@ export const gitRouter = {
       context.log.set({ target: { type: "git_public_repo" } });
       const result = await connectPublicRepo({ cloneUrl: input.cloneUrl });
       if (result.isErr()) {
-        // Operator-supplied URL was rejected — surface the message so
+        // Operator-supplied URL was rejected. Surface the message so
         // the form can show what's wrong (missing owner/repo, http://, …).
         throw errors.INVALID_URL({ message: result.error.message });
       }
@@ -306,7 +306,7 @@ export const gitRouter = {
     context.log.set({
       target: { type: "git_repo", id: input.gitRepoId, path: input.path },
     });
-    // gitRepoId is caller-supplied — a private (installation-backed) repo
+    // gitRepoId is caller-supplied. A private (installation-backed) repo
     // must resolve to the caller's own org before we mint an installation
     // token and hand back its tree. NOT_FOUND (not FORBIDDEN) so a foreign
     // id is indistinguishable from a nonexistent one.

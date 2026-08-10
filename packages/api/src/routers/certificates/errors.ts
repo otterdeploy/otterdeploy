@@ -28,7 +28,7 @@ export class CertificateConflictError extends TaggedError("CertificateConflictEr
   constructor(args: { hostname: string }) {
     super({
       hostname: args.hostname,
-      message: `a custom certificate for ${args.hostname} already exists — replace it instead`,
+      message: `a custom certificate for ${args.hostname} already exists, replace it instead`,
     });
   }
 }

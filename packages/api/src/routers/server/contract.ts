@@ -14,7 +14,7 @@ const basePath = "/servers";
 
 export const serverSchema = createSelectSchema(server).extend({
   id: serverIdField,
-  // labels is a string[] in DB, jsonb in pg — drizzle-zod widens it; pin it.
+  // labels is a string[] in DB, jsonb in pg, drizzle-zod widens it; pin it.
   labels: z.array(z.string()),
 });
 
@@ -57,7 +57,7 @@ const deleteServerInput = z.object({
 /**
  * SSH-provision a fresh host into the swarm (docs/designs/server-onboarding.md).
  * Auth is either a managed key (`sshKeyId`) or a one-time `password`; the
- * handler rejects neither/both. Returns the row in `provisioning` state — the
+ * handler rejects neither/both. Returns the row in `provisioning` state. The
  * live output streams over `provisionLogs`.
  */
 const provisionServerInput = z.object({
@@ -69,17 +69,17 @@ const provisionServerInput = z.object({
   role: z.enum(["manager", "worker"]).default("worker"),
   /** Managed key to authenticate with (must be a generated key we hold). */
   sshKeyId: sshKeyIdField.optional(),
-  /** One-time bootstrap password — used for this run only, never stored. */
+  /** One-time bootstrap password, used for this run only, never stored. */
   password: z.string().min(1).optional(),
-  /** Dedicated build node — labelled `otterdeploy.role=build` in the swarm. */
+  /** Dedicated build node. Labelled `otterdeploy.role=build` in the swarm. */
   buildServer: z.boolean().default(false),
   /** WireGuard mesh to join before the swarm join. `none` = public join. */
   meshProvider: z.enum(["none", "tailscale", "netbird"]).default("none"),
   /** Self-hosted NetBird management URL; omit for the hosted service. */
   meshManagementUrl: z.string().optional(),
-  /** Tailnet auth key / NetBird setup key — one-time, never stored. */
+  /** Tailnet auth key / NetBird setup key: one-time, never stored. */
   meshAuthKey: z.string().optional(),
-  /** Cloudflare Tunnel connector token — installs cloudflared, never stored. */
+  /** Cloudflare Tunnel connector token: installs cloudflared, never stored. */
   cloudflareToken: z.string().optional(),
 });
 
@@ -109,7 +109,7 @@ const setAvailabilityInput = z.object({
 /**
  * Per-node live aggregates surfaced on the servers page rows. CPU is in
  * vCPU units (NanoCPUs / 1e9); memory is in GiB. Reservation values come
- * from each task's `Spec.Resources.Reservations` — falls back to 0 when
+ * from each task's `Spec.Resources.Reservations`. Falls back to 0 when
  * no reservation is set, which is honest about under-specified services.
  */
 const serverNodeStatsSchema = z.object({
@@ -145,7 +145,7 @@ const enrollmentRoleField = z.enum(["worker", "manager"]);
 // Step-up re-authentication, same shape as the terminal's (routers/terminal
 // /contract.ts): whichever credential the account actually has. Enrollment
 // used to demand TOTP unconditionally, so an operator without an authenticator
-// was shown a code field, told nothing, and could never enroll a node —
+// was shown a code field, told nothing, and could never enroll a node.
 // `verifyStepUpCredential` picks the right one instead.
 const stepUpFields = {
   role: enrollmentRoleField,
@@ -199,11 +199,11 @@ const revokeEnrollmentInput = z.object({ id: nodeEnrollmentIdField });
 const rotateJoinCredentialInput = z.object(stepUpFields);
 
 /**
- * Latest health snapshot per server (server_health_sample) — local host via
+ * Latest health snapshot per server (server_health_sample): local host via
  * the 60s control-plane sampler, remote swarm nodes via the health agent.
  * `health` is null when the stored payload doesn't parse as the current
- * HostHealth shape (agent/control-plane version skew during updates) —
- * honest "no data" beats a crashed list. See docs/designs/server-health-agent.md.
+ * HostHealth shape (agent/control-plane version skew during updates).
+ * Honest "no data" beats a crashed list. See docs/designs/server-health-agent.md.
  */
 const serverHealthEntrySchema = z.object({
   serverId: serverIdField,
@@ -211,7 +211,7 @@ const serverHealthEntrySchema = z.object({
   health: hostHealthSchema.nullable(),
   sampledAt: z.string(),
   receivedAt: z.string(),
-  /** receivedAt older than 3× the sample interval — the reporter went quiet. */
+  /** receivedAt older than 3× the sample interval: the reporter went quiet. */
   stale: z.boolean(),
 });
 
@@ -219,7 +219,7 @@ const serverHealthInput = z.object({}).optional();
 
 /**
  * Live swarm topology (`docker node ls`) enriched with each node's matching
- * server-row id — feeds the "Managers & quorum" card and the leader marker
+ * server-row id: feeds the "Managers & quorum" card and the leader marker
  * on the servers table. `swarm: false` under the plain-docker runtime; the
  * UI shows its "requires Docker Swarm" state instead of an empty cluster.
  */
@@ -229,16 +229,16 @@ const swarmNodeSchema = z.object({
   hostname: z.string(),
   role: z.enum(["manager", "worker"]),
   availability: z.string(),
-  /** Node status.state — "ready", "down", … */
+  /** Node status.state: "ready", "down", … */
   state: z.string(),
   addr: z.string().nullable(),
   /** True on the current Raft leader. */
   leader: z.boolean(),
-  /** ManagerStatus.Reachability — "reachable"/"unreachable"; null on workers. */
+  /** ManagerStatus.Reachability: "reachable"/"unreachable"; null on workers. */
   reachability: z.string().nullable(),
   engineVersion: z.string().nullable(),
   /** Registered server row backing this node (hostname match); null when the
-   *  node joined the swarm but was never registered — actions stay disabled. */
+   *  node joined the swarm but was never registered. Actions stay disabled. */
   serverId: serverIdField.nullable(),
 });
 
@@ -261,7 +261,7 @@ const setRoleInput = z.object({
 });
 
 /**
- * `docker node rm` — down-only, no force flag exposed. The server ROW is
+ * `docker node rm`: down-only, no force flag exposed. The server ROW is
  * deleted by the client through the normal server.delete flow afterwards.
  */
 const removeNodeInput = z.object({
@@ -311,7 +311,7 @@ export const serverContract = {
       SWARM_UNAVAILABLE: {
         status: 503,
         message:
-          "Node availability is managed by Docker Swarm — this instance runs the plain Docker runtime" as const,
+          "Node availability is managed by Docker Swarm. This instance runs the plain Docker runtime" as const,
       },
       NODE_NOT_FOUND: {
         status: 409,
@@ -331,7 +331,7 @@ export const serverContract = {
       SWARM_UNAVAILABLE: {
         status: 503,
         message:
-          "Node roles are managed by Docker Swarm — this instance runs the plain Docker runtime" as const,
+          "Node roles are managed by Docker Swarm. This instance runs the plain Docker runtime" as const,
       },
       NODE_NOT_FOUND: {
         status: 409,
@@ -340,12 +340,12 @@ export const serverContract = {
       LAST_MANAGER: {
         status: 409,
         message:
-          "Refusing to demote the last manager — the swarm would be left with no node able to accept management commands" as const,
+          "Refusing to demote the last manager: the swarm would be left with no node able to accept management commands" as const,
       },
       LEADER: {
         status: 409,
         message:
-          "Refusing to demote the swarm leader — promote another manager and let leadership move first" as const,
+          "Refusing to demote the swarm leader: promote another manager and let leadership move first" as const,
       },
       UPDATE_FAILED: {
         status: 502,
@@ -361,7 +361,7 @@ export const serverContract = {
       SWARM_UNAVAILABLE: {
         status: 503,
         message:
-          "Swarm membership is managed by Docker Swarm — this instance runs the plain Docker runtime" as const,
+          "Swarm membership is managed by Docker Swarm. This instance runs the plain Docker runtime" as const,
       },
       NODE_NOT_FOUND: {
         status: 409,
@@ -370,7 +370,7 @@ export const serverContract = {
       NODE_NOT_DOWN: {
         status: 409,
         message:
-          "Only nodes the swarm reports as down can be removed — drain the node and stop its daemon first" as const,
+          "Only nodes the swarm reports as down can be removed. Drain the node and stop its daemon first" as const,
       },
       REMOVE_FAILED: {
         status: 502,
@@ -432,7 +432,7 @@ export const serverContract = {
       },
       BAD_REQUEST: {
         status: 400,
-        message: "Provide exactly one SSH credential — a managed key or a password" as const,
+        message: "Provide exactly one SSH credential: a managed key or a password" as const,
       },
     })
     .meta({ path: `${basePath}/provision`, tag, method: "POST" })
@@ -452,14 +452,14 @@ export const serverContract = {
       MISSING_CREDENTIAL: {
         status: 409,
         message:
-          "This server was provisioned with a one-time password — re-add it to retry (the password isn't stored)" as const,
+          "This server was provisioned with a one-time password. Re-add it to retry (the password isn't stored)" as const,
       },
     })
     .meta({ path: `${basePath}/{id}/retry-provision`, tag, method: "POST" })
     .input(retryProvisionInput)
     .output(serverSchema),
   /**
-   * od-5j8.11 — re-apply the host firewall + native CrowdSec bouncer to an
+   * od-5j8.11: re-apply the host firewall + native CrowdSec bouncer to an
    * already-joined node. Enqueues the same provisioning job in
    * firewall-only mode; the operator polls provisionLogs / server.get to
    * watch firewallStatus flip off "unknown"/"failed".
@@ -470,7 +470,7 @@ export const serverContract = {
       MISSING_CREDENTIAL: {
         status: 409,
         message:
-          "This server has no stored managed SSH key — re-add it with a managed key to enable remediation" as const,
+          "This server has no stored managed SSH key. Re-add it with a managed key to enable remediation" as const,
       },
     })
     .meta({ path: `${basePath}/{id}/reapply-firewall`, tag, method: "POST" })

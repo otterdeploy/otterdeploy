@@ -4,17 +4,17 @@
  * Rows in `projectEnvVar` back the magic `${{project.X}}` and
  * `${{environment.X}}` references the variable resolver expands at
  * deploy time. Storage is keyed by (projectId, environmentId, key) so
- * the same KEY can carry different values across environments — each
+ * the same KEY can carry different values across environments. Each
  * row IS a per-environment value.
  *
  * Sealed variables: when `sealed` is true, `value` holds a v2 ciphertext
- * envelope (domain "env-vars" — packages/api/src/lib/crypto.ts), never
- * plaintext. Sealing is one-way and sticky — see `upsertProjectEnvVar` —
+ * envelope (domain "env-vars", packages/api/src/lib/crypto.ts), never
+ * plaintext. Sealing is one-way and sticky (see `upsertProjectEnvVar`)
  * and `bulkReplaceProjectEnvVars` deliberately never deletes or overwrites
  * a sealed row (the bulk "Save all" editor can't round-trip a plaintext it
  * was never shown). Callers that surface rows to the API/UI (this module's
- * `handlers.ts`) MUST mask `value` for sealed rows before returning them —
- * this module returns the raw stored value (ciphertext for sealed rows)
+ * `handlers.ts`) MUST mask `value` for sealed rows before returning them.
+ * This module returns the raw stored value (ciphertext for sealed rows)
  * because the resolver needs it to decrypt at deploy/injection time.
  */
 
@@ -64,11 +64,11 @@ export async function listProjectEnvVars(scope: Scope): Promise<ProjectEnvVarRow
 
 /**
  * Upsert one key. The unique index on (projectId, environmentId, key)
- * is the natural conflict target — re-setting an existing key is a
+ * is the natural conflict target. Re-setting an existing key is a
  * value replacement, not an error.
  *
  * Sealing is sticky and one-way: if the existing row (or this call) marks
- * the key sealed, the FINAL row is sealed — a caller can never flip it back
+ * the key sealed, the FINAL row is sealed. A caller can never flip it back
  * to unsealed by omitting `sealed: true` on a later write. `value` is
  * encrypted with the "env-vars" domain key whenever the final state is
  * sealed, whether or not THIS call's input already knew that.
@@ -121,7 +121,7 @@ export async function upsertProjectEnvVar(input: {
 }
 
 /** Drop one key from the (project, environment) bag. No-op when the key
- *  doesn't exist — keeps idempotent client behaviour. Deleting is the one
+ *  doesn't exist. Keeps idempotent client behaviour. Deleting is the one
  *  form of "undo" a sealed variable supports (no read-back). */
 export async function deleteProjectEnvVar(input: { scope: Scope; key: string }): Promise<void> {
   await db
@@ -137,7 +137,7 @@ export async function deleteProjectEnvVar(input: { scope: Scope; key: string }):
 
 /**
  * Replace the whole (project, environment) bag in one transaction. The
- * Shared variables tab uses this as its Save action — the editor sends
+ * Shared variables tab uses this as its Save action. The editor sends
  * the full desired state; rows not in `next` are dropped, others are
  * upserted. Atomic so the resolver never sees a partially-applied set
  * during a deploy.
@@ -145,7 +145,7 @@ export async function deleteProjectEnvVar(input: { scope: Scope; key: string }):
  * Sealed rows are DELIBERATELY exempt from this whole dance: they're never
  * deleted by the "rows not in `next`" pruning, and any `next` entry whose
  * key collides with an existing sealed row is dropped rather than applied.
- * The bulk editor round-trips values it read back from the API — a sealed
+ * The bulk editor round-trips values it read back from the API. A sealed
  * row's plaintext was never sent to it in the first place (masked by the
  * org-scoped handler), so blindly re-inserting `next`'s entry would
  * silently clobber the secret with an empty/stale value. Sealed vars are

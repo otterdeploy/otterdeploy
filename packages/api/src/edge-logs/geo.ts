@@ -11,7 +11,7 @@ import { log } from "evlog";
  * `EDGE_LOG_GEOIP_DB` to point at your own `.mmdb` and the download is skipped.
  *
  * Everything is best-effort: a missing file, a failed download, or an unreadable
- * DB logs once and leaves `lookupCountry` returning null — ingest never breaks.
+ * DB logs once and leaves `lookupCountry` returning null. Ingest never breaks.
  *
  * `initGeo()` resolves + opens the reader once at startup (async); the hot-path
  * `lookupCountry()` the ingest loop calls per access log is a sync map lookup.
@@ -21,7 +21,7 @@ import { dirname } from "node:path";
 
 import { edgeLogGeoipUrls } from "../lib/platform-runtime-settings";
 
-/** Minimal shape of the maxmind reader we use — avoids a hard type dep. Two
+/** Minimal shape of the maxmind reader we use. Avoids a hard type dep. Two
  *  record layouts exist in the wild: MaxMind GeoLite2 / DB-IP official nest the
  *  code under `country.iso_code`; the free ip-location-db rebuilds put a flat
  *  `country_code`. We read either so both the managed download and an
@@ -47,7 +47,7 @@ type AsnReader = MmdbReader<AsnRecord>;
 /** Resolve a DB to a readable path, downloading the free DB when the operator
  *  hasn't supplied one. Returns null when nothing usable could be obtained. */
 async function ensureDbPath(input: {
-  /** Operator-supplied path — used as-is; never downloaded over. */
+  /** Operator-supplied path, used as-is; never downloaded over. */
   override: string | undefined;
   path: string;
   url: string;
@@ -56,7 +56,7 @@ async function ensureDbPath(input: {
   if (input.override) return input.override;
 
   const path = input.path;
-  // Already downloaded (and non-empty) — reuse it. A monthly refresh can be
+  // Already downloaded (and non-empty): reuse it. A monthly refresh can be
   // layered on later; a stale-but-present DB is far better than none.
   const existing = await stat(path).catch(() => null);
   if (existing && existing.size > 0) return path;
@@ -83,7 +83,7 @@ const g = globalThis as typeof globalThis & {
   __edgeGeoInit?: boolean;
 };
 
-/** Runtime-resolved `maxmind` open() — keeps the optional dep out of the
+/** Runtime-resolved `maxmind` open(). Keeps the optional dep out of the
  *  static import graph; an absent package throws and the caller disables. */
 async function openMmdb<T>(dbPath: string): Promise<MmdbReader<T>> {
   const moduleName: string = "maxmind";
@@ -100,7 +100,7 @@ async function openMmdb<T>(dbPath: string): Promise<MmdbReader<T>> {
  * Open the MaxMind readers if configured. Idempotent + best-effort: any failure
  * (no env path, package not installed, unreadable DB) logs once and leaves that
  * lookup disabled. Called at startup alongside the edge-log sink, and lazily by
- * any enrichment consumer (firewall decisions) — safe either way.
+ * any enrichment consumer (firewall decisions): safe either way.
  */
 export async function initGeo(): Promise<void> {
   if (g.__edgeGeoInit) return;

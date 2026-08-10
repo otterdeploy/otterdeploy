@@ -1,3 +1,5 @@
+import type { JsonObject } from "@otterdeploy/shared/json";
+
 /**
  * Per-type field definitions for a backup destination plus the type-specific
  * config/secret inputs, factored out of the editor dialog so each stays within
@@ -8,8 +10,6 @@ import { HugeiconsIcon } from "@hugeicons/react";
 
 import { Input } from "@/shared/components/ui/input";
 
-import type { JsonObject } from "@otterdeploy/shared/json";
-
 import type { Destination } from "./data/destinations";
 
 import { Field, type DestinationKind } from "./shared";
@@ -18,7 +18,7 @@ export const DEST_TYPE_FIELDS: Record<
   DestinationKind,
   {
     /** `half` fields pair up two-per-row; the rest span the full width.
-     *  `required` gates submit — the server rejects a destination missing
+     *  `required` gates submit: the server rejects a destination missing
      *  these, so the form won't offer one. */
     config: {
       key: string;
@@ -63,7 +63,7 @@ export const DEST_TYPE_FIELDS: Record<
   },
 };
 
-/** Required config fields still blank — used to hold the submit button. On
+/** Required config fields still blank, used to hold the submit button. On
  *  edit, secrets may stay blank (the stored credential is kept); on create,
  *  non-local types must supply every secret. */
 export function missingRequiredFields(
@@ -106,7 +106,7 @@ export function DestinationTypeFields({
   editing: boolean;
   /** The platform-managed local destination: its location is derived from the
    *  install's data directory, so the config fields are shown read-only. The
-   *  server rejects config edits on these rows regardless — this just avoids
+   *  server rejects config edits on these rows regardless. This just avoids
    *  presenting an input that cannot be saved. */
   managed?: boolean;
 }) {
@@ -131,7 +131,7 @@ export function DestinationTypeFields({
       {managed && (
         <p className="text-xs text-muted-foreground">
           otterdeploy owns this location so it's always writable and never collides with another
-          workspace. Rename it freely — the path isn't editable.
+          workspace. Rename it freely. The path isn't editable.
         </p>
       )}
       {fields.secret.length > 0 && (

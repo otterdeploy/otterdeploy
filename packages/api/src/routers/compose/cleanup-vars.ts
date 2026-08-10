@@ -5,15 +5,15 @@ import { db } from "@otterdeploy/db";
 import { databaseResource, resource, serviceEnvVar } from "@otterdeploy/db/schema/project";
 /**
  * On compose-stack deletion, remove the project variables the stack seeded
- * (its `${VAR}` values, written to the shared project bag at create time) —
+ * (its `${VAR}` values, written to the shared project bag at create time),
  * but ONLY the ones no surviving resource still references. Project variables
  * are shared and reach a container only through an explicit reference
  * (`${{project.KEY}}` in a service/database, or `${KEY}` in another compose
- * file — never an auto-cascade, see lib/variables/resolver.ts), so a key that
+ * file, never an auto-cascade, see lib/variables/resolver.ts), so a key that
  * nothing references is genuinely orphaned and safe to drop.
  *
  * Without this, deleting a stack left its `${VAR}` keys stranded in the project
- * bag forever — surfacing as "variables for resources that no longer exist" in
+ * bag forever, surfacing as "variables for resources that no longer exist" in
  * the reference picker and the Variables page.
  */
 import { and, eq, ne } from "drizzle-orm";
@@ -45,7 +45,7 @@ async function collectReferencedKeys(
 ): Promise<Set<string>> {
   const referenced = new Set<string>();
 
-  // Other compose stacks (inline) — their `${VAR}` refs.
+  // Other compose stacks (inline): their `${VAR}` refs.
   const stacks = await listComposeRecords(projectId);
   for (const s of stacks) {
     if (s.resource.id === excludeResourceId) continue;
@@ -56,7 +56,7 @@ async function collectReferencedKeys(
     for (const ref of collectVarRefs(parsed.value)) referenced.add(ref.name);
   }
 
-  // Services — scope-ref tokens in their env values. (A deleted stack's child
+  // Services: scope-ref tokens in their env values. (A deleted stack's child
   // service rows are already gone by the time this runs, so they don't count.)
   const serviceEnvRows = await db
     .select({ value: serviceEnvVar.value })
@@ -65,7 +65,7 @@ async function collectReferencedKeys(
     .where(and(eq(resource.projectId, projectId), ne(resource.id, excludeResourceId)));
   for (const row of serviceEnvRows) extractScopeRefs(row.value, referenced);
 
-  // Databases — scope-ref tokens in extraEnv values.
+  // Databases: scope-ref tokens in extraEnv values.
   const dbRows = await db
     .select({ extraEnv: databaseResource.extraEnv, id: databaseResource.resourceId })
     .from(databaseResource)

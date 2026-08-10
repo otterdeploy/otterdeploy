@@ -1,4 +1,4 @@
-# Runtime drivers — plain Docker by default, Swarm for scale
+# Runtime drivers: plain Docker by default, Swarm for scale
 
 ## Why
 
@@ -12,7 +12,7 @@ who actually want to scale across nodes.
 
 Everything deploys through a `RuntimeDriver` (`packages/api/src/runtime/`). The
 deploy layer builds a spec and calls `runtime().provision/update/destroy/inspect`
-(and the `*Database` variants) — it never names Swarm.
+(and the `*Database` variants): it never names Swarm.
 
 - `ContainerSpec` / `DatabaseSpec` are the **same** shapes the swarm path already
   produced (`SwarmServiceSpec` / `ProvisionSwarmDatabaseInput`), re-aliased.
@@ -24,7 +24,7 @@ deploy layer builds a spec and calls `runtime().provision/update/destroy/inspect
 ### `docker` driver (default, single-node)
 
 - service → one `docker create` + `start`; `update` recreates (brief blip; no
-  in-place rolling update — blue-green is a later add).
+  in-place rolling update. Blue-green is a later add).
 - replicas → always 1. Real fan-out + LB needs Swarm; the UI gates replicas>1.
 - network → a per-project **user-defined bridge** (`otterdeploy-<slug>`); peers
   resolve each other by container **name/alias** (what Compose gives you).
@@ -43,7 +43,7 @@ Pure delegation to the existing `swarm/*` functions. Unchanged behavior.
   compose reconcile teardown → `runtime().destroy`, runtime view →
   `runtime().inspect`.
 - Databases: all call sites import the same-named functions from
-  `runtime/db.ts` (a drop-in shim) instead of `swarm` — only the import path
+  `runtime/db.ts` (a drop-in shim) instead of `swarm`, only the import path
   moved, call expressions unchanged.
 
 ## Remaining (phased)

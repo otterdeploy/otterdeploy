@@ -4,7 +4,7 @@
  * shares: a soft gradient fill per series, an epoch-ms time axis, a unit-aware
  * Y axis, and a tooltip whose values run through the metric's own formatter.
  *
- * One or more series can be overlaid (e.g. network in/out) — each gets its own
+ * One or more series can be overlaid (e.g. network in/out). Each gets its own
  * `--color-<key>` token wired through the chart config.
  */
 
@@ -39,7 +39,7 @@ interface MetricAreaChartProps<Row extends { ts: number }> {
   format: (value: number) => string;
   /** Upper Y bound; `"auto"` lets recharts fit the data (default). */
   max?: number | "auto";
-  /** Sparkline mode — strips axes, grid, and tooltip for overview cards. */
+  /** Sparkline mode: strips axes, grid, and tooltip for overview cards. */
   compact?: boolean;
   className?: string;
 }
@@ -122,7 +122,7 @@ export function MetricAreaChart<Row extends { ts: number }>({
           // Without it, a small range (e.g. CPU% peaking at 2) divided into
           // tickCount=4 produces fractional ticks like 0 / 0.67 / 1.33 / 2
           // that all round to the same displayed integer via `format`
-          // (0%, 1%, 1%, 2%) — a duplicated gridline label.
+          // (0%, 1%, 1%, 2%): a duplicated gridline label.
           allowDecimals={false}
           tickFormatter={(v: number) => format(v)}
         />
@@ -144,7 +144,7 @@ export function MetricAreaChart<Row extends { ts: number }>({
                     </span>
                   </div>
                   <span className="font-mono font-medium text-foreground tabular-nums">
-                    {value == null ? "—" : format(Number(value))}
+                    {value == null ? "–" : format(Number(value))}
                   </span>
                 </div>
               )}

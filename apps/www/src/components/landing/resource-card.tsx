@@ -10,7 +10,7 @@ import { cx } from "./primitives";
  *
  * This is a presentational copy of
  * apps/web/src/features/projects/components/graph/resource-card-node.tsx and
- * its parts — same proportions, same 44px brand tile, same 18px bold name over
+ * its parts: same proportions, same 44px brand tile, same 18px bold name over
  * a tracked mono kind label, same muted footer with the tech line and deployed
  * commit, same status pill and comet border. The dashboard version carries
  * React Flow handles, a toolbar and live mutations; none of that belongs here,
@@ -51,7 +51,7 @@ export interface ResourceCardProps {
   /** The tracked-uppercase kind label under the name: SERVICE, DATABASE, … */
   kind: string;
   status?: CardStatus;
-  /** Staged manifest change — draws the comet border, as the product does. */
+  /** Staged manifest change. Draws the comet border, as the product does. */
   pending?: "create" | "delete";
   logo?: ComponentType<SVGProps<SVGSVGElement>>;
   description: string;
@@ -118,7 +118,7 @@ export function ResourceCard({
         />
       ) : null}
 
-      {/* Header — brand tile, name over kind label, status pill. */}
+      {/* Header: brand tile, name over kind label, status pill. */}
       <div className="flex items-start justify-between gap-3.5 px-5 pt-5">
         <div className="flex min-w-0 items-center gap-3.5">
           <div className="grid size-11 shrink-0 place-items-center rounded-[11px] border border-border bg-background text-foreground">

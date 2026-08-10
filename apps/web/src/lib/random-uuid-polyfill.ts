@@ -1,5 +1,5 @@
 /**
- * `crypto.randomUUID` is exposed by browsers ONLY in a "secure context" — HTTPS
+ * `crypto.randomUUID` is exposed by browsers ONLY in a "secure context". HTTPS
  * or `http://localhost`. A self-hosted dashboard reached over plain
  * `http://<ip-or-host>:<port>` is NOT a secure context, so `crypto.randomUUID`
  * is `undefined` and every call throws `crypto.randomUUID is not a function`,

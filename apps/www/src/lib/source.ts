@@ -15,7 +15,7 @@ import { loader } from "fumadocs-core/source";
 import { openapi } from "./openapi";
 import { docsRoute } from "./shared";
 
-// Resolve docs `icon:` frontmatter to Hugeicons (we use Hugeicons everywhere —
+// Resolve docs `icon:` frontmatter to Hugeicons (we use Hugeicons everywhere,
 // no lucide). Keys stay the semantic names used in the .mdx frontmatter.
 //
 // Icons mark SECTIONS, not pages. A distinct icon per folder is a wayfinding

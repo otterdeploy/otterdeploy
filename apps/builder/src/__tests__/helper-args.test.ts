@@ -1,6 +1,6 @@
 /**
  * Unit tests for the per-build helper's `docker run` argv composition
- * (od-5j8.15 — container hardening + trimmed secret forwarding). These are
+ * (od-5j8.15, container hardening + trimmed secret forwarding). These are
  * pure-function tests: they assert on the constructed argv, not on a real
  * `docker run` invocation, so they run hermetically (no docker daemon, no
  * real secrets) and still catch a flag being dropped by a future edit.
@@ -29,7 +29,7 @@ describe("buildHelperEnvFlags", () => {
   test("never forwards RESEND_API_KEY, RESEND_FROM_EMAIL, or PUBLIC_WEB_URL even when set", () => {
     // Regression guard for the od-5j8.15 trim: these are present in a real
     // worker's env (the worker itself needs them) but must never reach the
-    // helper — it doesn't use them, so a compromised helper shouldn't be
+    // helper: it doesn't use them, so a compromised helper shouldn't be
     // able to read them either.
     const flags = buildHelperEnvFlags({
       DATABASE_URL: "postgres://x",
@@ -64,7 +64,7 @@ describe("buildHelperEnvFlags", () => {
       DATABASE_URL: "postgres://user:pass@postgres:5432/db",
       REDIS_URL: "redis://redis:6379",
     });
-    // Forwarded by name (`-e KEY`), not by value — `docker run -e KEY` (no
+    // Forwarded by name (`-e KEY`), not by value: `docker run -e KEY` (no
     // `=value`) passes the CURRENT process value through unmodified. Only
     // the rewritten localhost case above needs an explicit `=value`.
     expect(flags).toEqual(["-e", "DATABASE_URL", "-e", "REDIS_URL"]);
@@ -116,9 +116,9 @@ describe("helperHardeningFlags", () => {
   });
 
   test("clamps --cpus to the host's CPU count", () => {
-    // The single-vCPU box. Docker REJECTS a request above the host count —
-    // "range of CPUs is from 0.01 to 1.00, as there are only 1 CPUs available"
-    // — and the helper exits 125 before the build starts, so the default of 2
+    // The single-vCPU box. Docker REJECTS a request above the host count.
+    // "range of CPUs is from 0.01 to 1.00, as there are only 1 CPUs available",
+    // and the helper exits 125 before the build starts, so the default of 2
     // failed every build on the cheapest VPS tier.
     const flags = helperHardeningFlags({}, 1);
     expect(flags[flags.indexOf("--cpus") + 1]).toBe("1");
@@ -211,7 +211,7 @@ describe("buildHelperRunArgs", () => {
     );
   });
 
-  test("still mounts the raw docker.sock (documented, unclosed gap — see od-5j8.15 notes)", () => {
+  test("still mounts the raw docker.sock (documented, unclosed gap; see od-5j8.15 notes)", () => {
     const args = buildHelperRunArgs(baseArgs);
     const idx = args.indexOf("/var/run/docker.sock:/var/run/docker.sock");
     expect(idx).toBeGreaterThan(-1);

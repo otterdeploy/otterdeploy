@@ -1123,7 +1123,7 @@ The first draft of this design was audited against the codebase. Four decisions
 changed, and they are the reason several sections read differently from the
 Conar reference:
 
-1. **Stream first, then diff, then drain** — not `Promise.all([catchUp, events])`.
+1. **Stream first, then diff, then drain**, not `Promise.all([catchUp, events])`.
    The parallel form races the diff against live events and lets a stale
    snapshot overwrite fresh rows. See [Browser sync adapter](#browser-sync-adapter).
 2. **Versions are monotonic revisions, not content hashes.** Three independent
@@ -1132,7 +1132,7 @@ Conar reference:
 3. **Deletes come from tombstones, not from absence in the snapshot.** This is
    what makes the cached snapshot safe. A stale snapshot missing a
    just-created row would otherwise make the diff emit a `delete` for a live
-   row — and unlike a stale `update`, which the version gate now rejects, a
+   row, and unlike a stale `update`, which the version gate now rejects, a
    delete carries a fresh tombstone revision and would win. See
    [Drizzle cache API](#drizzle-cache-api).
 4. **`proxy-routes` is the first vertical slice, not `resources`.** The resource
@@ -1200,7 +1200,7 @@ Two properties of that bus matter here:
   because their status is derived from live docker task state per read.
 - **It redacts at the publisher.** `accessPinHash` and `domainVerifyToken` are
   stripped before publish, because a pub/sub channel is a wider audience than an
-  authorized HTTP response — output validation downstream would strip them from
+  authorized HTTP response: output validation downstream would strip them from
   the response while they sat in Redis regardless. Security rule 5 below is that
   rule restated; the version input must be computed from the redacted row.
 
@@ -1215,8 +1215,8 @@ otterdeploy currently uses oRPC `1.14.x`. The v2 review was performed against
 `2.0.0-beta.25`, released on 2026-08-04.
 
 **The v2 upgrade lands before the first collection ships.** Every example in this
-document is written in v2 API, and the migration is scoped as its own change —
-see [The v2 upgrade](#the-v2-upgrade). It is not a hidden dependency of the sync
+document is written in v2 API, and the migration is scoped as its own change.
+See [The v2 upgrade](#the-v2-upgrade). It is not a hidden dependency of the sync
 work; it is the first task of the sync work.
 
 ### Adopt
@@ -1229,7 +1229,7 @@ work; it is the first task of the sync work.
   deduplicates events that race between backlog replay and live delivery.
   Resume is a latency optimization, not a correctness mechanism: the
   subscribe-then-diff ordering already closes the snapshot/stream gap, and
-  replay is only safe because versions are monotonic — replayed events are by
+  replay is only safe because versions are monotonic. Replayed events are by
   definition older than the diff that follows them, and the client's version
   gate drops them.
 - Use the v2 name `AsyncIteratorObject` and the `asyncIteratorObject(...)`
@@ -1263,7 +1263,7 @@ log tails; it is not sufficient recovery for authoritative collection state.
 
 A stream break is not the only thing that requires a diff. A publish can fail,
 or a process can die between commit and publish, while the client's stream stays
-perfectly healthy — that client then never learns and never reconnects. Nothing
+perfectly healthy: that client then never learns and never reconnects. Nothing
 in the transport repairs it. The adapter must therefore also re-run the diff:
 
 - on `visibilitychange` when the tab becomes visible again (cheap, covers the
@@ -1287,7 +1287,7 @@ both hard requirements rather than cautions:
 
 - **The web app and server deploy as one coordinated version.** A v1 client
   cannot call a v2 server. There is no window where a stale browser tab still
-  works — plan for a forced reload, not a graceful rollout.
+  works, plan for a forced reload, not a graceful rollout.
 - **The CLI is a third client.** `apps/cli` depends on `@orpc/client` and is
   installed on machines you do not deploy. Either the v2 server keeps a v1
   compatibility surface for it, or the CLI ships and users upgrade first. This
@@ -1298,8 +1298,8 @@ The migration checklist:
 - `ClientRetryPlugin` to `RetryLinkPlugin`;
 - `eventIterator` to `asyncIteratorObject`;
 - the split `RPCLink` `origin` and `url` options;
-- the current contract `.route(...)` declarations — 53 in `packages/api/src` as
-  of this revision, up from 48 when the v2 review was written — because v2 moves
+- the current contract `.route(...)` declarations: 53 in `packages/api/src` as
+  of this revision, up from 48 when the v2 review was written, because v2 moves
   OpenAPI routes to `openapi(...)` metadata unless the compatibility extension
   is installed. Recount at migration time rather than trusting this number;
 - the contract error definitions that currently carry HTTP `status` (~242
@@ -1323,8 +1323,8 @@ resume, and replay/live deduplication instead of a second dedupe path in the
 browser. That is the case for doing it first rather than alongside.
 
 The one thing it does not buy is correctness. The authoritative diff, the
-monotonic versions, and the version gate in `apply()` are all still required —
-v2 makes the transport better, not the state machine simpler.
+monotonic versions, and the version gate in `apply()` are all still required.
+V2 makes the transport better, not the state machine simpler.
 
 Typed v2 metadata plugins could later label cacheable read procedures, but
 they should not replace the scope-aware Drizzle cache helpers in this design.
@@ -1352,7 +1352,7 @@ There are two consistency paths:
 - **Recovery path:** the client sends local keys/revisions and receives a diff.
 
 The recovery path runs on every stream open, but it is not only a reconnect
-mechanism — see [Keep outside oRPC](#keep-outside-orpc) for why a healthy stream
+mechanism: see [Keep outside oRPC](#keep-outside-orpc) for why a healthy stream
 still needs periodic diffs.
 
 ## Proposed package layout
@@ -1418,7 +1418,7 @@ by project and environment.
 **The local filter is not the obvious one.** The server's scope predicate
 (`inEnvironmentScope`, `packages/api/src/routers/project/queries/resource.ts:51`)
 is `or(eq(environmentId, x), isNull(environmentId))` when the environment is the
-project's main pointer — main additionally owns every unstamped row, which
+project's main pointer. Main additionally owns every unstamped row, which
 predate environments. A naive `eq(resource.environmentId, environmentId)` would
 silently hide those rows on main. The list query also excludes preview-scoped
 rows (`isNull(resource.previewId)`).
@@ -1460,7 +1460,7 @@ Two actors with different visibility cannot share a stream. Pick one:
 - **Reject narrowed actors on collection endpoints.** `events` and `sync` accept
   session actors and full-org keys only; a `projectScope: "selected"` key gets
   `FORBIDDEN` and keeps using the existing project-scoped read endpoints. This
-  is the first-slice choice — it is one guard, and the web app is unaffected.
+  is the first-slice choice. It is one guard, and the web app is unaffected.
 - **Fold visibility into the stream key.** Only if a narrowed actor genuinely
   needs a collection later. The key then derives from the authorized project
   set, not the organization, and the snapshot filters identically.
@@ -1588,7 +1588,7 @@ leaving half-updated client state.
 
 **A version must be monotonic, not just distinct.** The first draft used a
 SHA-256 content hash. A hash answers "did this change?" but not "is this newer?",
-and this system has three independent publishers for the same row — the API
+and this system has three independent publishers for the same row, the API
 mutation path, the builder, and the docker event worker. None of them publishes
 atomically: each recomputes the projection and then publishes. Two concurrent
 changes can therefore publish in the reverse order they were computed, and with
@@ -1604,7 +1604,7 @@ const version = row.updatedAt.toISOString();
 
 For a derived row such as the resource projection, `updatedAt` is not enough:
 deployment and docker state change without touching the base resource row. A
-pure revision counter is not enough either, for the mirror-image reason — the
+pure revision counter is not enough either, for the mirror-image reason, the
 projection can change with no write to bump it.
 
 Use both, with the hash as the change detector and the revision as the order:
@@ -1615,7 +1615,7 @@ sync_row(collection, stream_key, row_key, revision bigint, content_hash text,
          deleted_at timestamptz null)
 ```
 
-Whenever the server computes a public row — on publish *and* on snapshot — it
+Whenever the server computes a public row (on publish *and* on snapshot) it
 hashes the redacted row and compares it to `content_hash`. If it differs, it
 takes the next value from a dedicated sequence and stores both. `version` on the
 wire is that `revision`, decimal-encoded, compared numerically by the client.
@@ -1635,7 +1635,7 @@ A delete carries a version from the same sequence, read from the tombstone:
 
 ```typescript
 /** Write side: marks sync_row deleted and bumps `revision`, returning it.
- *  Idempotent — a repeated delete returns the existing tombstone revision
+ *  Idempotent: a repeated delete returns the existing tombstone revision
  *  rather than minting a new one, so replays stay no-ops. */
 export async function deletedVersion(
   scope: CollectionScope,
@@ -1643,7 +1643,7 @@ export async function deletedVersion(
 ): Promise<string>;
 
 /** Read side, used by the diff. Returns only the keys that are genuinely
- *  tombstoned. Always reads through to Postgres — never cached, because this
+ *  tombstoned. Always reads through to Postgres, never cached, because this
  *  is exactly the question a stale cache answers wrongly. */
 export async function tombstonesFor(
   scope: CollectionScope,
@@ -1654,7 +1654,7 @@ export async function tombstonesFor(
 Tombstones are what make delete-then-recreate safe: the recreated row's
 revision is higher than the tombstone's, so a late-arriving delete loses.
 Retain them at least as long as the longest plausible client absence (the
-persisted collection's staleness window), then reap — a client older than that
+persisted collection's staleness window), then reap, a client older than that
 is rebuilt from schema version instead.
 
 ## Browser sync adapter
@@ -1669,7 +1669,7 @@ interface SyncCollectionConfig<T> {
   getKey: (item: T) => string;
   getVersion: (item: T) => string;
 
-  /** Opens the stream. Resolving means the subscription is established — the
+  /** Opens the stream. Resolving means the subscription is established. The
    *  adapter, not the caller, owns the read loop and the ordering. */
   subscribe(input: {
     signal: AbortSignal;
@@ -1753,8 +1753,8 @@ export function syncCollectionOptions<T>(config: SyncCollectionConfig<T>) {
             //    changes while it is in flight is already in `buffered`.
             apply(await config.diff({ rows: syncedVersions(), signal }));
 
-            // 3. Drain, then go live. No `await` between these two statements —
-            //    that is what makes the handover atomic.
+            // 3. Drain, then go live. No `await` between these two statements.
+            //    That is what makes the handover atomic.
             apply(buffered.splice(0));
             live = true;
 
@@ -1784,7 +1784,7 @@ export function syncCollectionOptions<T>(config: SyncCollectionConfig<T>) {
 }
 ```
 
-No `QueryClient` appears in this API — and that absence is the point of the
+No `QueryClient` appears in this API, and that absence is the point of the
 design, not an incidental detail of the snippet.
 
 A Query Collection is fed by a `queryFn`, so keeping it current means telling
@@ -1797,15 +1797,15 @@ where that lands: it polls every five seconds
 emit no event to invalidate on.
 
 A synced collection is fed by `begin/write/commit`, so there is no cached answer
-to invalidate — the row *is* the message. React Query is not being removed from
+to invalidate: the row *is* the message. React Query is not being removed from
 the app; it keeps one-shot reads, mutations, and everything not in a collection.
 It is removed from the path that keeps collections current, and a `QueryClient`
 parameter here would be the seam through which the old model returned.
 
 ### Why this order
 
-The obvious shape — `Promise.all([catchUp(), events()])`, which is what the
-first draft and the Conar reference both do — is a race. The diff's snapshot is
+The obvious shape: `Promise.all([catchUp(), events()])`, which is what the
+first draft and the Conar reference both do. Is a race. The diff's snapshot is
 taken at T0 and lands at T1; every event delivered in that window is applied
 first and then overwritten by older data. It fails most often exactly when it
 hurts most: on a reconnect after a deploy, when rows are changing fast.
@@ -1816,10 +1816,10 @@ itself twice more:
 - **Resume stops being load-bearing.** `lastEventId` existed to cover the gap
   between snapshot and subscription. There is no gap, so v2's retained stream
   becomes a latency optimization the design can lose without losing
-  correctness — which is the only condition under which replaying older events
+  correctness, which is the only condition under which replaying older events
   into an authoritative collection is a good idea.
 - **The version gate has something to compare against.** Ordering is enforced in
-  `apply()` for every path — live, buffered, diffed, and replayed alike.
+  `apply()` for every path. Live, buffered, diffed, and replayed alike.
 
 `markReady()` fires after the first diff commits, not before. Calling it early
 publishes an authoritative empty collection to every live query, so a cold load
@@ -1837,7 +1837,7 @@ authoritative diff.
 miss and both produce hangs:
 
 - **It must remember versions already seen.** The stream regularly beats the
-  mutation's HTTP response — Redis is faster than the response path. If
+  mutation's HTTP response: Redis is faster than the response path. If
   `awaitChange(key, version)` is called after that version already arrived, it
   must resolve immediately from a short-lived seen-set, not wait forever.
 - **Every wait is bounded.** An `AbortSignal` plus a timeout, and a timeout
@@ -1932,9 +1932,9 @@ The collection endpoints live under `organization`, not `project`. An earlier
 draft put an organization-scoped stream at
 `orgScopedProcedure.project.resources.events`, which reads as project-scoped and
 sits in a router whose every other endpoint takes a `projectId`. Note that no
-organization-wide resource read exists today — `project.resource.list` is scoped
-to one project and one environment (`packages/api/src/routers/project/resources.ts:120`)
-— so this is a genuinely new read model, not a re-export of an existing one.
+organization-wide resource read exists today: `project.resource.list` is scoped
+to one project and one environment (`packages/api/src/routers/project/resources.ts:120`),
+so this is a genuinely new read model, not a re-export of an existing one.
 
 The v2 contract uses the renamed streaming schema:
 
@@ -1973,7 +1973,7 @@ export const events = orgScopedProcedure.organization.resources.events.handler(
 
 Like Conar, the endpoint subscribes with an authenticated server-derived key.
 The client cannot choose an arbitrary Redis topic. Reject actors whose
-visibility is narrower than the stream — see
+visibility is narrower than the stream. See
 [Organization scope assumes organization-uniform visibility](#organization-scope-assumes-organization-uniform-visibility).
 
 ### Buffering is bounded
@@ -1981,7 +1981,7 @@ visibility is narrower than the stream — see
 The first draft set `maxBufferedEvents: Number.POSITIVE_INFINITY`, reasoning
 that losing a delete is worse than briefly buffering a burst. That reasoning
 does not survive the diff: a dropped message is repaired by the next diff, so
-dropping is safe — as long as the drop is **detectable**. Unbounded buffering,
+dropping is safe. As long as the drop is **detectable**. Unbounded buffering,
 by contrast, is per-subscriber memory that a client controls by reading slowly,
 multiplied by every connected browser.
 
@@ -1991,7 +1991,7 @@ if the adapter cannot be configured to surface overflow, wrap `subscribe` in a
 local bounded queue that aborts the iterator instead of dropping. Either way the
 client sees a closed stream, reopens, and re-diffs.
 
-Size the buffer for the slowest client you intend to serve, not the fastest —
+Size the buffer for the slowest client you intend to serve, not the fastest,
 and keep it far below what a burst of the whole collection would need, since a
 burst that large is precisely the case where a diff is cheaper than a replay.
 
@@ -2018,7 +2018,7 @@ The diff produces:
 
 - `insert` for current rows missing locally;
 - `update` for the same key with a different version;
-- `delete` for local keys with a tombstone — not merely for keys absent from
+- `delete` for local keys with a tombstone, not merely for keys absent from
   the snapshot.
 
 ### Generic diff helper
@@ -2048,7 +2048,7 @@ export async function diffCollection<T>(input: {
     }
   }
 
-  // Deletes are NOT "absent from the snapshot" — they are "tombstoned in
+  // Deletes are NOT "absent from the snapshot". They are "tombstoned in
   // sync_row". Absence is ambiguous: it can mean deleted, or it can mean the
   // snapshot was cached a moment before the row was created. Tombstones are
   // read uncached and say which. See "Why absence is not a delete".
@@ -2067,7 +2067,7 @@ export async function diffCollection<T>(input: {
 
 A key the client holds that is neither in the snapshot nor tombstoned produces
 no message at all. The row stays on the client until the next diff resolves the
-ambiguity — a briefly stale row, which the live stream corrects in milliseconds,
+ambiguity: a briefly stale row, which the live stream corrects in milliseconds,
 rather than a wrongly deleted one, which nothing corrects.
 
 `local` is a version comparison, never a trust boundary: a client that reports a
@@ -2077,7 +2077,7 @@ snapshot would not already have sent.
 
 Conar optimizes this with three database queries using IDs and `updatedAt`.
 otterdeploy can add similar optimized diff implementations per collection after
-the generic contract is working — and for `resources` it will have to, for the
+the generic contract is working, and for `resources` it will have to, for the
 reasons in [Snapshot cost](#snapshot-cost).
 
 ## Server publisher API
@@ -2100,7 +2100,7 @@ export const resourcesPublisher = new BunRedisPublisher<ResourceSyncEvents>(
     subscriber: createRedis(),
     prefix: "sync:v1:resources:",
     // Optional. Subscribe-then-diff already closes the snapshot/stream gap, so
-    // this is a latency optimization — and only safe because versions are
+    // this is a latency optimization, and only safe because versions are
     // monotonic, since replayed events are older than the diff that follows.
     resume: {
       enabled: true,
@@ -2133,7 +2133,7 @@ Before enabling a high-volume collection, add concurrent-stream limits, memory
 metrics, and burst tests. Do not reuse this configuration for log lines.
 
 Until v2 is adopted, keep the same application-facing shape behind a small
-adapter over the current Redis helper — the same shape
+adapter over the current Redis helper: the same shape
 `packages/api/src/routers/project/project-event-bus.ts` already has, since
 subscribe-then-diff removes the need for event IDs, retention, and replay
 deduplication. Do not add v1's `@orpc/experimental-publisher` just to throw it
@@ -2189,7 +2189,7 @@ await resourcesPublisher.publish(streamKey, {
 ```
 
 The message is published only after the database transaction commits, and the
-cache is invalidated before the publish — so a client that reacts to the event
+cache is invalidated before the publish, so a client that reacts to the event
 by reconnecting cannot beat the invalidation to a stale snapshot.
 
 ## Background and derived changes
@@ -2220,7 +2220,7 @@ diff and retrying background reconciliation remain the recovery path.
 
 The Drizzle cache is not part of client synchronization. It only avoids
 recomputing authoritative snapshots during initial sync and reconnect. This is
-its first use in the codebase — `packages/db/src/cache.ts` exists and is
+its first use in the codebase: `packages/db/src/cache.ts` exists and is
 complete, but `$withCache` and `$cache.invalidate` currently have zero call
 sites, so there is no existing usage to pattern-match against.
 
@@ -2229,7 +2229,7 @@ sites, so there is no existing usage to pattern-match against.
 This is the part of the design most likely to be under-budgeted, so it is worth
 stating before the cache code: **the resource snapshot is not one query.**
 `listProjectResources` (`packages/api/src/routers/project/resources.ts:120`) is
-three scoped selects, then two batched reads, then per-resource mappers — and
+three scoped selects, then two batched reads, then per-resource mappers, and
 `mapDatabaseResource` calls `ensureSwarmRuntimeForRecord`
 (`packages/api/src/routers/project/views.ts:168`), a live docker read that
 self-heals by writing back.
@@ -2244,8 +2244,8 @@ Three consequences:
   invisible; at thirty it is a self-inflicted thundering herd every time a
   deploy restarts a fleet of tabs.
 - The generic diff is a starting point, not the destination. `resources` needs
-  the per-collection optimized diff — key + revision from `sync_row`, rows
-  fetched only for the keys that actually differ — well before it carries real
+  the per-collection optimized diff: key + revision from `sync_row`, rows
+  fetched only for the keys that actually differ. Well before it carries real
   organizations.
 
 That last point is why `sync_row` is worth its cost: it makes the common diff
@@ -2262,7 +2262,7 @@ export async function loadResourceCollectionSnapshot(
   return cachedCollectionSnapshot({
     tag: identity.cacheTag,
     // Short. The TTL is a backstop for a missed invalidation, not the
-    // freshness mechanism — see below.
+    // freshness mechanism: see below.
     ex: 10,
     compute: () => buildResourceCollectionSnapshot(scope),
   });
@@ -2299,7 +2299,7 @@ Three properties in this design defuse it, and all three are load-bearing:
 2. **Deletes come from tombstones, read uncached.** This is the one a version
    gate cannot fix on its own: a row created after the snapshot was cached is
    absent from it, and a delete minted from that absence would carry a *fresh*
-   tombstone revision — higher than the live row's — and would win. Reading
+   tombstone revision (higher than the live row's) and would win. Reading
    tombstones instead of inferring them removes the failure mode rather than
    ordering around it.
 3. **A short TTL, and invalidation before publish.** Ten seconds bounds a
@@ -2437,7 +2437,7 @@ recreate organization-scoped collections when the active organization changes
 or the user signs out.
 
 `cleanup()` tears down streams and in-memory state. It does not necessarily
-erase the persisted store, and `collectionId` embeds the organization id — so
+erase the persisted store, and `collectionId` embeds the organization id, so
 without an explicit step, one organization's rows outlive the session that was
 allowed to read them, on disk, in OPFS. Sign-out and organization switch must
 delete the persisted stores for collections they abandon, not merely stop
@@ -2460,7 +2460,7 @@ streams.
    [Organization scope assumes organization-uniform visibility](#organization-scope-assumes-organization-uniform-visibility).
 4. Stream events carry only the public collection projection.
 5. Secrets, credentials, access PIN hashes, and verification tokens never enter
-   a sync row or its version input — the same rule `publishRouteUpserted`
+   a sync row or its version input, the same rule `publishRouteUpserted`
    already enforces at the publisher, for the same reason: a channel is a wider
    audience than an authorized response.
 6. Organization changes destroy old organization-scoped collections, abort their
@@ -2474,13 +2474,13 @@ streams.
 |---|---|
 | Redis cache read fails | Compute snapshot from Postgres |
 | Server cache invalidation fails | Mutation stays successful; stale snapshot is bounded by the 10s TTL, and the version gate plus tombstone-derived deletes keep a stale snapshot from producing wrong instructions |
-| Event publish fails, client still connected | **Not repaired by reconnect — nothing disconnects.** Repaired by the visibility/periodic diff |
+| Event publish fails, client still connected | **Not repaired by reconnect: nothing disconnects.** Repaired by the visibility/periodic diff |
 | Event publish fails, client reconnects later | Diff on stream open repairs it |
 | Event stream disconnects | Abort current stream, back off, reopen, buffer, diff, drain |
 | Stream buffer overflows | Server closes the stream; client reopens and re-diffs |
 | Duplicate message | Version gate drops it; full-row insert/update/delete is idempotent regardless |
 | Out-of-order message | Version gate drops the older revision. Redis orders one channel, but the publishers do not compute atomically, so wire order is not computation order |
-| Row absent from a stale snapshot | No message emitted — deletes require a tombstone |
+| Row absent from a stale snapshot | No message emitted: deletes require a tombstone |
 | Browser was offline | `sync` endpoint returns inserts, updates, and tombstoned deletes |
 | Persistence schema changed | Reset/rebuild persisted collection using schema version |
 
@@ -2489,7 +2489,7 @@ database plus the catch-up endpoint is authoritative.
 
 The two rows worth re-reading are the publish failures. A design whose only
 repair trigger is reconnection has no repair at all for the client that never
-disconnects — which is the common case for a dashboard left open on a second
+disconnects, which is the common case for a dashboard left open on a second
 monitor.
 
 ## Recommended first vertical slice
@@ -2497,7 +2497,7 @@ monitor.
 **Start with `proxy-routes`, not `resources`.** The first draft started with
 resources because it is the most valuable collection. It is also the hardest
 one in the system: a derived projection, live docker reads on the snapshot path,
-environment and preview scoping, and organization scope — four independent
+environment and preview scoping, and organization scope, four independent
 sources of difficulty, in the slice whose job is to validate the contract.
 
 Proxy routes are the opposite on every axis. `proxyRoute.list` is a plain

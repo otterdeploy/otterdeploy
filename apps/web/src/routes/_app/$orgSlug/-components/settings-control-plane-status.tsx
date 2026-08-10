@@ -1,5 +1,5 @@
 /**
- * Control-plane domain status — the vocabulary (unset / pending / verified),
+ * Control-plane domain status: the vocabulary (unset / pending / verified),
  * the cache key both halves of the card write through, and everything rendered
  * below the input row: the live link once verified, or the DNS records and the
  * Verify / auto-configure actions while pending.
@@ -49,7 +49,7 @@ export function StatusFooter({
     orpc.organization.controlPlaneDomain.queryOptions({ input: { organizationId } }),
   );
   // Cloudflare connection state lives on the org settings the DomainCard
-  // already fetched — reads from the same cache entry.
+  // already fetched. Reads from the same cache entry.
   const settingsQuery = useQuery(
     orpc.organization.settings.queryOptions({ input: { organizationId } }),
   );
@@ -99,7 +99,7 @@ function PendingVerification({
   const [dnsOpen, setDnsOpen] = useState(false);
 
   // Hoisted out of the old CloudflareAutoConfigureButton so the shared dialog
-  // can drive it — the dialog decides whether one-click is even offered, based
+  // can drive it. The dialog decides whether one-click is even offered, based
   // on live detection rather than only on "is a token saved".
   const auto = useMutation({
     ...orpc.organization.autoConfigureControlPlaneDomain.mutationOptions(),
@@ -108,7 +108,7 @@ function PendingVerification({
       if (result.ok) {
         toast.success("DNS configured and domain verified");
       } else if (result.verify.reason === "no-record") {
-        toast.message("Records created. DNS is still propagating — try Verify in a moment.");
+        toast.message("Records created. DNS is still propagating, so try Verify in a moment.");
       } else {
         toast.error("Records created but verification didn't pass.");
       }
@@ -139,7 +139,7 @@ function PendingVerification({
       </div>
       <div className="flex items-center justify-end gap-2">
         {/* The records, Cloudflare detection, one-click setup and the
-            proxy warning all live in the shared dialog — the same one the
+            proxy warning all live in the shared dialog, the same one the
             service and workspace domain surfaces open, so "add a domain"
             reads identically wherever you do it. The raw <pre> that used to
             sit here couldn't be copied, showed FQDNs where DNS UIs want
@@ -187,7 +187,7 @@ function verifyReasonMessage(result: {
 }): string {
   switch (result.reason) {
     case "no-record":
-      return "No TXT record yet. DNS can take a few minutes to propagate — try again shortly.";
+      return "No TXT record yet. DNS can take a few minutes to propagate, so try again shortly.";
     case "value-mismatch":
       return `TXT record found but value didn't match. Expected ${result.expected}, saw ${result.found.join(", ") || "(empty)"}`;
     case "lookup-failed":

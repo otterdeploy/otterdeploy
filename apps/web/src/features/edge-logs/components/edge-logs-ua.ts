@@ -74,7 +74,7 @@ function browser(ua: string): string | null {
 
 export function shortUserAgent(ua: string): string {
   const s = ua.trim();
-  if (!s) return "—";
+  if (!s) return "–";
 
   const cli = CLI_TOOLS.exec(s);
   const cliName = cli?.[1];
@@ -89,7 +89,7 @@ export function shortUserAgent(ua: string): string {
   }
 
   // Generic crawler hint after the specific list ("Mozilla/5.0 (compatible;
-  // FooBot/1.0)"-style agents). No leading \b — "bot" is usually the *end* of
+  // FooBot/1.0)"-style agents). No leading \b: "bot" is usually the *end* of
   // a compound name (Googlebot, FooBot), so only the right edge is anchored.
   if (/(bot|crawler|spider)(?![a-z])/i.test(s)) return "bot";
 

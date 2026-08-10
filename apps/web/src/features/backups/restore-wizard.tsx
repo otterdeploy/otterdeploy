@@ -1,11 +1,11 @@
 /**
- * Restore a succeeded backup — three stages: choose a target (download or
+ * Restore a succeeded backup: three stages: choose a target (download or
  * in-place), Verify (the server re-fetches the stored archive and recomputes
- * its checksum against the recorded one — a real integrity probe, no fake
+ * its checksum against the recorded one: a real integrity probe, no fake
  * diff), then the typed-name Confirm for the destructive path. The engine
  * supports two modes: download the archive, or restore in place (database
  * dumps via pg_restore, volume archives by replacing the volume contents).
- * A third target restores INTO ANOTHER existing database — the API's
+ * A third target restores INTO ANOTHER existing database: the API's
  * `targetResourceId`. It rides the same `in-place` mode with a target attached;
  * the typed-name gate then guards the TARGET's name, since the target is what
  * gets overwritten. Only same-engine database resources are offered, and volume
@@ -64,7 +64,7 @@ function performRestore({
   targetName?: string;
   onClose: () => void;
 }): Promise<void> {
-  // `into` is `in-place` plus a target — the server has one destructive mode,
+  // `into` is `in-place` plus a target. The server has one destructive mode,
   // and `targetResourceId` is what redirects it.
   return restoreBackup({
     id: backup.id,
@@ -206,7 +206,7 @@ function RestoreWizardBody({ backup, onClose }: { backup: Backup; onClose: () =>
               }
             />
             {/* A volume snapshot has no database target, so this is offered
-                only for database backups — and only when the project has
+                only for database backups, and only when the project has
                 another database of the same engine to restore into. */}
             {!isVolume && targets.length > 0 && (
               <>
@@ -216,7 +216,7 @@ function RestoreWizardBody({ backup, onClose }: { backup: Backup; onClose: () =>
                   onSelect={setMode}
                   danger
                   title="Restore into another database"
-                  sub="Seeds a different database from this snapshot. That database's contents are overwritten, not this one's — the typed confirmation names the target."
+                  sub="Seeds a different database from this snapshot. That database's contents are overwritten, not this one's. The typed confirmation names the target."
                 />
                 {mode === "into" && (
                   <label className="flex flex-col gap-1 pl-3 text-[12px]">

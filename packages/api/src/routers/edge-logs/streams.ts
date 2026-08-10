@@ -1,5 +1,5 @@
 /**
- * Edge-logs tail plumbing — the org host-scope resolver plus the abortable
+ * Edge-logs tail plumbing: the org host-scope resolver plus the abortable
  * async generators that bridge the in-memory rings' pub/sub into the tail
  * procedures. Split out of index.ts, which keeps the router handlers.
  */

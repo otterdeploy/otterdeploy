@@ -1,5 +1,5 @@
 /**
- * Generic multi-select combobox used across the backups dialogs — schedule
+ * Generic multi-select combobox used across the backups dialogs. Schedule
  * sources (databases) and the destination pickers. Searchable Command popover
  * with checkbox rows + a tag per row; selected entries render as removable
  * chips in the trigger. A value with no matching option still shows as a raw
@@ -29,7 +29,7 @@ export interface MultiOption {
   tag?: string;
   /** Extra text folded into the search index (engine, slug, uri…). */
   keywords?: string;
-  /** Render the label in mono — db names, ids. */
+  /** Render the label in mono, db names, ids. */
   mono?: boolean;
 }
 

@@ -3,7 +3,7 @@
  *
  * Chromium is the renderer on purpose: the favicons and app icons are consumed
  * by browsers, so rasterising through the same engine means what we ship is
- * exactly what a browser draws. Everything derives from brand/logo/*.svg — no
+ * exactly what a browser draws. Everything derives from brand/logo/*.svg, no
  * PNG is hand-authored, so a geometry change reflows the whole kit.
  *
  * Run `brand/scripts/build.sh`; this script is step 3 of 4.
@@ -25,7 +25,7 @@ const DIST = `${ROOT}/brand/dist`;
 /**
  * Every app that serves the icon set from its own origin. The dashboard and
  * the marketing/docs site are separate deployments, so each needs its own
- * copy — but only one of them may be the source of truth for the artwork, and
+ * copy, but only one of them may be the source of truth for the artwork, and
  * that's this script. Add an app here rather than copying PNGs between
  * public/ dirs.
  */
@@ -58,7 +58,7 @@ interface Shot {
   transparent?: boolean;
 }
 
-/** A bare mark or lockup on nothing — transparent PNG at an exact pixel size. */
+/** A bare mark or lockup on nothing: transparent PNG at an exact pixel size. */
 async function bare(file: string, source: string, width: number, height = width): Promise<Shot> {
   const markup = (await svg(source))
     .replace(/width="[^"]*"/, `width="${width}"`)
@@ -74,7 +74,7 @@ async function bare(file: string, source: string, width: number, height = width)
 
 /**
  * A mark seated on an opaque tile. `inset` is the fraction of the tile left as
- * padding on each side — maskable icons need a large one so the mark survives
+ * padding on each side: maskable icons need a large one so the mark survives
  * the platform cropping it to a circle.
  */
 async function tile(
@@ -100,7 +100,7 @@ async function ogCard(file: string, dark: boolean): Promise<Shot> {
   const ink = dark ? INK_DARK : INK;
   const muted = dark ? MUTED_DARK : MUTED;
   const accent = dark ? ACCENT_DARK : ACCENT;
-  // The outlined lockup, not live text — so the card's wordmark is byte-identical
+  // The outlined lockup, not live text, so the card's wordmark is byte-identical
   // to every other place the lockup appears.
   const lockup = (await svg(dark ? "lockup-dark.svg" : "lockup-light.svg"))
     .replace(/width="[^"]*"/, 'width="335"')
@@ -120,7 +120,7 @@ async function ogCard(file: string, dark: boolean): Promise<Shot> {
             Calm, confident<br/>infrastructure.
           </div>
           <div style="margin-top:26px;font-size:27px;line-height:1.45;color:${muted};max-width:44ch">
-            Self-hostable deployments — build, ship, and operate your services on your own servers.
+            Self-hostable deployments: build, ship, and operate your services on your own servers.
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:14px;font-family:'Geist Mono';
@@ -142,7 +142,7 @@ async function appShots(out: string): Promise<Shot[]> {
     await bare(`${out}/favicon-48x48.png`, "mark-light.svg", 48),
     await bare(`${out}/favicon-96x96.png`, "mark-light.svg", 96),
 
-    // iOS never honours transparency here — it composites on black. Opaque tile.
+    // iOS never honours transparency here: it composites on black. Opaque tile.
     await tile(`${out}/apple-touch-icon.png`, 180, { inset: 0.18 }),
 
     await tile(`${out}/icon-192.png`, 192, { inset: 0.2 }),
@@ -187,7 +187,7 @@ async function main() {
   }
   await browser.close();
 
-  // favicon.svg is the mark verbatim — it is the only asset browsers scale
+  // favicon.svg is the mark verbatim. It is the only asset browsers scale
   // themselves, so it stays vector and theme-adaptive.
   const markSvg = await svg("mark.svg");
   for (const out of APP_PUBLIC) {

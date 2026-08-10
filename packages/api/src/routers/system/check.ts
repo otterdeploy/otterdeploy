@@ -17,7 +17,7 @@ export interface VersionInfo {
   current: string;
   channel: string;
   runtime: "docker" | "swarm";
-  /** Whether apply runs in simulation (dev default / forced) — the UI badges it
+  /** Whether apply runs in simulation (dev default / forced). The UI badges it
    *  so a dry-run "update" is never mistaken for the real thing. */
   dryRun: boolean;
 }
@@ -40,7 +40,7 @@ export interface CheckResult {
   url: string | null;
   checkedAt: string;
   /** Latest resolved from OTTERDEPLOY_LATEST_VERSION_OVERRIDE (a test), not a
-   *  real release — surfaced so the UI can label it honestly. */
+   *  real release, surfaced so the UI can label it honestly. */
   simulated: boolean;
 }
 
@@ -117,7 +117,7 @@ export async function saveUpdateSettings(input: SaveUpdateSettingsInput): Promis
   return getUpdateSettings();
 }
 
-/** Resolve the latest version — the testing override short-circuits the network
+/** Resolve the latest version. The testing override short-circuits the network
  *  fetch so the whole UI can be exercised with no real release. */
 async function resolveLatest(): Promise<{ release: LatestRelease | null; simulated: boolean }> {
   const override = env.OTTERDEPLOY_LATEST_VERSION_OVERRIDE;
@@ -127,7 +127,7 @@ async function resolveLatest(): Promise<{ release: LatestRelease | null; simulat
       release: {
         version: override,
         notes:
-          "Simulated release — OTTERDEPLOY_LATEST_VERSION_OVERRIDE is set, so this is a test target, not a real published version.",
+          "Simulated release: OTTERDEPLOY_LATEST_VERSION_OVERRIDE is set, so this is a test target, not a real published version.",
         url: null,
       },
     };
@@ -136,7 +136,7 @@ async function resolveLatest(): Promise<{ release: LatestRelease | null; simulat
 }
 
 /** Check the release source, compare to current, and cache the result on the
- *  platform row. Never throws — an unreachable source yields updateAvailable:false. */
+ *  platform row. Never throws: an unreachable source yields updateAvailable:false. */
 export async function checkForUpdate(): Promise<CheckResult> {
   const current = currentVersion();
   const { release, simulated } = await resolveLatest();

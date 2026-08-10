@@ -1,5 +1,5 @@
 /**
- * Target-action fields for the inbound-endpoint dialog — the action select
+ * Target-action fields for the inbound-endpoint dialog: the action select
  * and the service picker it reveals for `redeploy`. Split out of
  * `inbound-dialog.tsx` to keep that module within the file-size budget.
  */

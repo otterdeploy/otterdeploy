@@ -39,7 +39,7 @@ export const otterLabels = (
 // UNLIMITED. Bound it so a crash-loop gives up instead of hammering the host
 // (mirrors the swarm driver + DB driver caps). A user-set maxAttempts still
 // wins. Docker resets the count once the container stays up, so occasional
-// failures still recover — only a tight loop trips the cap.
+// failures still recover: only a tight loop trips the cap.
 const DEFAULT_MAX_RESTART_ATTEMPTS = 5;
 
 /** Compose-style restart policy: swarm condition → plain-docker restart name. */
@@ -58,7 +58,7 @@ function toRestartPolicy(restart: ContainerSpec["restart"]): {
 }
 
 /** Ensure the project's user-defined bridge network exists (idempotent). On a
- *  single-node host this replaces the swarm overlay — containers on it resolve
+ *  single-node host this replaces the swarm overlay: containers on it resolve
  *  each other by name/alias. */
 export async function ensureBridgeNetwork(docker: Docker, projectSlug: string): Promise<string> {
   const name = networkNameFor(projectSlug);
@@ -70,7 +70,7 @@ export async function ensureBridgeNetwork(docker: Docker, projectSlug: string): 
       Attachable: true,
       Labels: { "otterdeploy.managed": "true", "otterdeploy.project": projectSlug },
     });
-    // A racing create can 409 if another deploy just made it — only re-throw if
+    // A racing create can 409 if another deploy just made it. Only re-throw if
     // it's genuinely still missing after the race.
     if (created.isErr()) {
       const recheck = await docker.networks.list({ filters: { name: [name] } });
@@ -79,7 +79,7 @@ export async function ensureBridgeNetwork(docker: Docker, projectSlug: string): 
       }
     }
   }
-  // Attach the edge so exposed services are reachable by container name — the
+  // Attach the edge so exposed services are reachable by container name. The
   // plain-Docker equivalent of the overlay path's caddy-connect.
   await connectCaddyToNetwork(docker, name);
   return name;
@@ -88,7 +88,7 @@ export async function ensureBridgeNetwork(docker: Docker, projectSlug: string): 
 /** Best-effort image pull. A failure is non-fatal here (the image may already
  *  be local); container create will surface a real "no such image" if it's
  *  genuinely missing. `onLine` receives occasional human-readable progress
- *  lines (headlines + throttled byte totals) for the deploy log — without it
+ *  lines (headlines + throttled byte totals) for the deploy log. Without it
  *  a multi-minute download is invisible to the operator. Always pulls (no
  *  local-image short-circuit) so mutable tags refresh on redeploy. */
 export async function pullImage(
@@ -120,7 +120,7 @@ export async function findContainer(docker: Docker, name: string): Promise<Summa
     filters: { name: [name] },
   });
   if (list.isErr()) throw list.error;
-  // Name filter is a substring match — pin to the exact `/name`.
+  // Name filter is a substring match, pin to the exact `/name`.
   const found = list.value.find((c) => c.Names?.some((n) => n === `/${name}` || n === name));
   return (found as Summary | undefined) ?? null;
 }
@@ -129,7 +129,7 @@ export async function removeContainerByName(docker: Docker, name: string): Promi
   const existing = await findContainer(docker, name);
   if (!existing) return;
   const container = docker.containers.getContainer(existing.Id);
-  // Stop may legitimately fail (already exited / never started) — the forced
+  // Stop may legitimately fail (already exited / never started). The forced
   // remove below is what matters.
   await container.stop({ t: 10 });
   const removed = await container.remove({ force: true, v: false });
@@ -215,7 +215,7 @@ export function buildContainerOptions(
     const key = `${p.containerPort}/${p.protocol}`;
     exposed[key] = {};
     // tcp app-protocol ports are published on the host (mirrors swarm ingress);
-    // http ports stay internal — Caddy reaches them by container name.
+    // http ports stay internal. Caddy reaches them by container name.
     if (p.appProtocol === "tcp") {
       portBindings[key] = [{ HostPort: String(p.containerPort) }];
     }
@@ -270,7 +270,7 @@ export async function createAndStart(
 ): Promise<RuntimeStatus> {
   let created = await docker.containers.create(options);
   // Self-heal a name Conflict once: a leftover container from a failed prior
-  // deploy (or a racing one) owns the name — remove it and retry, instead of
+  // deploy (or a racing one) owns the name. Remove it and retry, instead of
   // surfacing docker's "you have to remove that container" at the operator.
   if (created.isErr() && /container name .* already in use/i.test(created.error.message)) {
     await removeContainerByName(docker, name);

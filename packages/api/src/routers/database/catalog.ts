@@ -1,7 +1,7 @@
 /**
  * Org-wide database catalog handler. One DB round for identity (every base
  * database resource joined to its project), one for last-backup freshness,
- * one for latest-deployment images — then a bounded parallel sweep of the
+ * one for latest-deployment images, then a bounded parallel sweep of the
  * runtime for per-database status + live stats (see catalog-stats.ts).
  *
  * Degradation is per-database and per-field: a database whose runtime can't
@@ -60,7 +60,7 @@ async function probeStats(conn: DbConnInfo): Promise<CatalogStats | null> {
 }
 
 async function buildOrgDatabaseCatalog(organizationId: OrganizationId): Promise<OrgCatalogItem[]> {
-  // Base databases only — preview-scoped branches belong to their PR, not the
+  // Base databases only: preview-scoped branches belong to their PR, not the
   // org catalog (same rule as the project graph's resource list).
   const rows = await db
     .select({
@@ -107,7 +107,7 @@ async function buildOrgDatabaseCatalog(organizationId: OrganizationId): Promise<
 
   // `backup.resourceId` is nullable at the type level (volume runs carry a
   // volume name instead), but the inArray filter above can only match
-  // non-null resource ids — narrow for the aggregator.
+  // non-null resource ids: narrow for the aggregator.
   const freshness = backupFreshnessPerResource(
     backupRows.filter(
       (r): r is typeof r & { resourceId: (typeof ids)[number] } => r.resourceId !== null,
@@ -132,7 +132,7 @@ async function buildOrgDatabaseCatalog(organizationId: OrganizationId): Promise<
         projectSlug: row.projectSlug,
       });
 
-      // Only interrogate a database the runtime says is up — probing a
+      // Only interrogate a database the runtime says is up. Probing a
       // stopped container would just burn the timeout per card.
       const conn: DbConnInfo = {
         engine,

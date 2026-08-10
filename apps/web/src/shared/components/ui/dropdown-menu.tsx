@@ -57,8 +57,8 @@ function DropdownMenuGroup({ ...props }: MenuPrimitive.Group.Props) {
 
 // Base UI's Menu only ships `Menu.GroupLabel`, which throws unless it has a
 // `Menu.Group` ancestor. shadcn's `DropdownMenuLabel` is a standalone styled
-// label (often a menu header, not a group caption), so render a plain element
-// — wrap it in `DropdownMenuGroup` yourself when you do want a group caption.
+// label (often a menu header, not a group caption), so render a plain element.
+// Wrap it in `DropdownMenuGroup` yourself when you do want a group caption.
 function DropdownMenuLabel({
   className,
   inset,

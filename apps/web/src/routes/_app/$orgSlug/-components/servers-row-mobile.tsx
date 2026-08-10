@@ -3,11 +3,11 @@
  *
  * The desktop table carries ~790px of fixed columns; on a 390px screen that is
  * a horizontal scroller, which hides the two things an operator actually opens
- * this page for — is the node up, and how full is it. So under `md` the same
+ * this page for: is the node up, and how full is it. So under `md` the same
  * data is restacked as a list item instead of being scrolled sideways.
  *
  * One Card owns the whole list (see ServersTable) and these are its divided
- * rows — a card per server would nest cards, which this design system never
+ * rows: a card per server would nest cards, which this design system never
  * does. Ordering is by glanceability: identity, then state, then capacity,
  * then the controls.
  */
@@ -48,7 +48,7 @@ function MobileIdentity({ server, onOpen }: { server: Server; onOpen: () => void
         aria-label={`Open ${server.name} details`}
         onClick={onOpen}
       >
-        {/* [overflow-wrap:anywhere] — hostnames and IPs are single long tokens
+        {/* [overflow-wrap:anywhere]. Hostnames and IPs are single long tokens
             with no break opportunity; without it a long one widens the row
             past the viewport. */}
         <div className="font-mono text-[13px] font-medium [overflow-wrap:anywhere]">
@@ -108,7 +108,7 @@ export function ServerMobileRow({
         <RoleBadge role={node?.role ?? server.role} leader={node?.leader ?? false} />
         <LiveHealthCell health={health} />
         <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-          {taskCount === null ? "— tasks" : `${taskCount} ${taskCount === 1 ? "task" : "tasks"}`}
+          {taskCount === null ? "– tasks" : `${taskCount} ${taskCount === 1 ? "task" : "tasks"}`}
         </span>
       </div>
 
@@ -124,7 +124,7 @@ export function ServerMobileRow({
 
       {/* Controls get their own row. The select stretches because it is the
           row's one real choice; the rest keep their standard sizes. No
-          stopPropagation needed — nothing above them is clickable. */}
+          stopPropagation needed. Nothing above them is clickable. */}
       <div className="flex items-center gap-2">
         <AvailabilitySelect server={server} className="flex-1" />
         <ProvisionRetryCell server={server} onReAdd={onReAdd} />

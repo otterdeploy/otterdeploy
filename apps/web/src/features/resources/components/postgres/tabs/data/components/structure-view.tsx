@@ -1,5 +1,5 @@
 /**
- * Structure view — read-only column detail for the open table (the "Structure"
+ * Structure view: read-only column detail for the open table (the "Structure"
  * half of the Data/Structure toggle). One row per column: PK/FK glyph, name +
  * DEFAULT, type, nullability, and FK → referenced-column / UQ / PK badges.
  * Introspection runs through the same read-only query path as everything else.

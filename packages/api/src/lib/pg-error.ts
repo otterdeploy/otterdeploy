@@ -2,27 +2,27 @@
  * Postgres error classification.
  *
  * One place that knows how to get from "something threw" to "which integrity
- * rule did we break, on which constraint" — so handlers can answer with a 409
+ * rule did we break, on which constraint", so handlers can answer with a 409
  * that names the field instead of a 500 that names nothing.
  *
  * Two things make this less trivial than the snippets you'll find online:
  *
  * 1. **drizzle doesn't classify.** drizzle-orm 1.x exports only DrizzleError /
- *    DrizzleQueryError / TransactionRollbackError. The driver's error — the one
- *    carrying the SQLSTATE — is on `DrizzleQueryError.cause`.
+ *    DrizzleQueryError / TransactionRollbackError. The driver's error. The one
+ *    carrying the SQLSTATE: is on `DrizzleQueryError.cause`.
  *
  * 2. **drivers disagree on the field.** node-postgres and postgres.js put the
  *    SQLSTATE on `code`; bun-sql (what we run) puts it on **`errno`** and sets
  *    `code` to the constant "ERR_POSTGRES_SERVER_ERROR". Every community
- *    example checks `code === "23505"`, which is silently always-false here —
- *    that's why unique violations used to surface as unexpected 500s. Both
+ *    example checks `code === "23505"`, which is silently always-false here.
+ *    That's why unique violations used to surface as unexpected 500s. Both
  *    fields are accepted; Bun's `code` can never collide with a 5-digit state.
  *
  * Typed against Bun's own `SQL.PostgresError`, but narrowed structurally rather
  * than with `instanceof`: a runtime `import { SQL } from "bun"` would make this
  * module unloadable under the Node-based test runner (it is exactly why the
  * suites reaching db/client.ts fail to load). Keeping it type-only leaves this
- * a leaf that anything — including a unit test — can import.
+ * a leaf that anything (including a unit test) can import.
  *
  * @see https://www.postgresql.org/docs/current/errcodes-appendix.html
  */
@@ -52,7 +52,7 @@ export const PgErrorCode = {
 
 export type PgErrorCode = (typeof PgErrorCode)[keyof typeof PgErrorCode];
 
-/** The parts of a Postgres failure worth surfacing. All optional — Postgres
+/** The parts of a Postgres failure worth surfacing. All optional: Postgres
  *  populates them per error class (a not-null violation has no `constraint`). */
 export interface PgErrorInfo {
   code: string;

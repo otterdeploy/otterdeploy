@@ -3,7 +3,7 @@ import * as z from "zod";
 import type { SessionSource } from "./types";
 
 /**
- * Search schema for the terminal — shared by the in-app page and the popout so
+ * Search schema for the terminal, shared by the in-app page and the popout so
  * a URL is portable between them. A single `session` search key carries an
  * ordered list of session tokens; each token encodes one SessionSource. The
  * router serializes the array as repeated `?session=…&session=…` params so the

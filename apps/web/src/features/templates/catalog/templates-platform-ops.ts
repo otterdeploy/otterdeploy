@@ -1,4 +1,4 @@
-// Error tracking and notification templates — the ops half of the platform
+// Error tracking and notification templates: the ops half of the platform
 // services. See ./types.ts for the honesty contract.
 import type { StackTemplate } from "./types";
 
@@ -7,17 +7,17 @@ export const PLATFORM_OPS_TEMPLATES: StackTemplate[] = [
     id: "glitchtip",
     name: "GlitchTip",
     description:
-      "Error tracking that speaks the Sentry protocol — point any Sentry SDK at it by changing the DSN. Web and worker share a bundled Postgres and Redis; uploads persist to a volume.",
+      "Error tracking that speaks the Sentry protocol. Point any Sentry SDK at it by changing the DSN. Web and worker share a bundled Postgres and Redis; uploads persist to a volume.",
     category: "observability",
     includes: ["glitchtip", "worker", "db", "redis"],
     requiredEnv: [
       {
         key: "GLITCHTIP_DOMAIN",
-        description: "Public base URL — used in DSNs and links inside notification emails.",
+        description: "Public base URL. Used in DSNs and links inside notification emails.",
       },
       {
         key: "SECRET_KEY",
-        description: "Django secret — signs sessions and tokens.",
+        description: "Django secret. Signs sessions and tokens.",
       },
       {
         key: "POSTGRES_PASSWORD",
@@ -87,13 +87,13 @@ volumes:
     id: "ntfy",
     name: "ntfy",
     description:
-      "Pub-sub notifications over plain HTTP — curl a topic and your phone buzzes. No account or SDK needed, which makes it the shortest path from a cron job or alert to a human.",
+      "Pub-sub notifications over plain HTTP. Curl a topic and your phone buzzes. No account or SDK needed, which makes it the shortest path from a cron job or alert to a human.",
     category: "automation",
     includes: ["ntfy"],
     requiredEnv: [
       {
         key: "NTFY_BASE_URL",
-        description: "Public base URL — clients subscribe against it and it appears in links.",
+        description: "Public base URL. Clients subscribe against it, and it appears in links.",
       },
     ],
     logoBrand: "ntfy",
@@ -127,7 +127,7 @@ volumes:
     id: "listmonk",
     name: "Listmonk",
     description:
-      "Newsletter and mailing-list manager — subscriber lists, segmentation, campaign templates and bounce handling, driven by your own SMTP. Single binary plus Postgres.",
+      "Newsletter and mailing-list manager: subscriber lists, segmentation, campaign templates and bounce handling, driven by your own SMTP. Single binary plus Postgres.",
     category: "automation",
     includes: ["listmonk", "db"],
     requiredEnv: [

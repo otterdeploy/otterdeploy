@@ -1,6 +1,6 @@
 /**
  * Hand-rolled minimal unified-diff over lines. Sufficient for the canary
- * endpoint — operators only need to see "what would change if we applied
+ * endpoint: operators only need to see "what would change if we applied
  * the renderer's output". The output mirrors `diff -u` format closely
  * enough for editor / GitHub viewers to render with syntax highlighting.
  *

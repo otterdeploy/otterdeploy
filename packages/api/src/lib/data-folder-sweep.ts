@@ -5,7 +5,7 @@ import { project, resource } from "@otterdeploy/db/schema";
 import { backupDir, DATA_ROOT } from "@otterdeploy/shared/paths";
 import { log as globalLog } from "evlog";
 /**
- * Periodic reconcile of the host data folder against the DB — Phase 5 of
+ * Periodic reconcile of the host data folder against the DB: Phase 5 of
  * docs/designs/data-folder.md. Removes artifact dirs whose owning row is gone:
  * the failure mode Dokploy has (a crashed teardown leaves a dir forever).
  *
@@ -84,13 +84,13 @@ async function reclaimStaleStaged(
         removed += 1;
       }
     } catch {
-      // raced with another remover — ignore.
+      // raced with another remover: ignore.
     }
   }
   return removed;
 }
 
-/** projects/<projectId> — orphaned DR escape hatches. Returns the number removed. */
+/** projects/<projectId>, orphaned DR escape hatches. Returns the number removed. */
 async function reconcileProjects(root: string, projectIds: ReadonlySet<string>): Promise<number> {
   let removed = 0;
   for (const name of await listDirNames(join(root, "projects"))) {
@@ -102,7 +102,7 @@ async function reconcileProjects(root: string, projectIds: ReadonlySet<string>):
   return removed;
 }
 
-/** resources/<projectId>/<resourceId> — whole bucket when the project is gone,
+/** resources/<projectId>/<resourceId>: whole bucket when the project is gone,
  *  else each orphaned child. Returns the number removed. */
 async function reconcileResources(
   root: string,
@@ -126,7 +126,7 @@ async function reconcileResources(
   return removed;
 }
 
-/** backups/<projectId>/<resourceId> — same shape as resources; for a LIVE
+/** backups/<projectId>/<resourceId>: same shape as resources; for a LIVE
  *  resource, staged archives past the TTL are reclaimed. Returns the number removed. */
 async function reconcileBackups(
   root: string,
@@ -193,7 +193,7 @@ async function sweepDataFolder(now = Date.now()): Promise<number> {
 /**
  * Start the periodic sweep. Runs once shortly after boot (reclaim anything a
  * crashed teardown left), then on the interval. Returns a stop handle. Mirrors
- * `startBackupScheduler` — a control-plane tick, `unref`'d so it never keeps the
+ * `startBackupScheduler`: a control-plane tick, `unref`'d so it never keeps the
  * loop alive on its own.
  */
 export function startDataFolderSweep(intervalMs = 6 * 60 * 60 * 1000): () => void {

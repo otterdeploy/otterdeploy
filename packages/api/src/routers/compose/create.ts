@@ -1,5 +1,5 @@
 /**
- * Compose `create` orchestration — extracted from index.ts so the oRPC handler
+ * Compose `create` orchestration. Extracted from index.ts so the oRPC handler
  * stays a thin Result→error translation. The one-shot twin of the staged
  * manifest path in manifest-reconcile.ts. See docs/designs/compose.md.
  */
@@ -49,7 +49,7 @@ export interface ComposeCreateOutput {
   deploy: { ok: boolean; error: string | null; status: string };
 }
 
-/** Translation targets for the oRPC handler — kept structural so the handler
+/** Translation targets for the oRPC handler: kept structural so the handler
  *  owns the wire-level error codes (NOT_FOUND / CONFLICT / INVALID_INPUT). */
 export type ComposeCreateFailure =
   | { reason: "not_found" }
@@ -86,7 +86,7 @@ async function createGitCompose(
   project: ComposeProject,
   exposed: ExposedSeed[],
 ): Promise<Result<ComposeCreateOutput, ComposeCreateFailure>> {
-  // Prefer the bound repo (repo picker) — resolves owner/repo + installation so
+  // Prefer the bound repo (repo picker). Resolves owner/repo + installation so
   // private repos clone with a token. Fall back to a pasted public URL.
   let owner: string;
   let repoName: string;
@@ -141,7 +141,7 @@ async function createGitCompose(
         projectId: input.projectId,
         // Stamp the environment like every other create path. Unstamped rows
         // are only visible because MAIN additionally owns NULL (a legacy
-        // allowance in inEnvironmentScope) — a non-main environment would
+        // allowance in inEnvironmentScope): a non-main environment would
         // never see this stack.
         environmentId: project.environmentId,
         name,

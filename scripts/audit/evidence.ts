@@ -28,7 +28,7 @@ const DEAD_CODE_KEYS = [
 /** Run one fallow analysis, warning rather than aborting when it cannot run. */
 function analysis(command: string, cwd: string): Record<string, unknown> | null {
   const parsed = fallowJson([command], cwd);
-  if (!parsed) console.warn(`  ! fallow ${command} unavailable — cross-file signals skipped`);
+  if (!parsed) console.warn(`  ! fallow ${command} unavailable. Cross-file signals skipped`);
   return parsed;
 }
 
@@ -45,7 +45,7 @@ function parseDeadCode(dc: Record<string, unknown>, out: CrossFileEvidence): voi
 
 function parseDupes(dup: Record<string, unknown>, out: CrossFileEvidence): void {
   for (const group of (dup.clone_groups as { instances?: { file?: string }[] }[]) ?? []) {
-    // Count each group once per file, not once per instance — a file with one
+    // Count each group once per file, not once per instance. A file with one
     // block cloned five times has ONE consolidation decision to make.
     const seen = new Set<string>();
     for (const inst of group.instances ?? []) {

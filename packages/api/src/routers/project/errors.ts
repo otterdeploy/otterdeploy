@@ -20,7 +20,7 @@ export class ProjectNotFoundError extends TaggedError("ProjectNotFoundError")<{
 
 /** Raised when a proxy-route mutation targets a route that doesn't exist
  *  or doesn't belong to the caller's org (the two are indistinguishable to
- *  the caller by design — never leak cross-org existence). */
+ *  the caller by design, never leak cross-org existence). */
 export class ProxyRouteNotFoundError extends TaggedError("ProxyRouteNotFoundError")<{
   message: string;
   routeId: ProxyRouteId;
@@ -37,7 +37,7 @@ export class ProxyRouteNotFoundError extends TaggedError("ProxyRouteNotFoundErro
  * Raised when a project delete is attempted while service/compose resources
  * still exist. Project delete tears down its databases itself, but service
  * runtimes (containers, built images, buildx caches, volumes) are only
- * reclaimed by the per-resource delete path — deleting the rows underneath
+ * reclaimed by the per-resource delete path. Deleting the rows underneath
  * them would orphan the runtime. Honest behavior: refuse and say why.
  */
 export class ProjectHasServicesError extends TaggedError("ProjectHasServicesError")<{
@@ -48,7 +48,7 @@ export class ProjectHasServicesError extends TaggedError("ProjectHasServicesErro
   constructor(args: { projectId: ProjectId; serviceCount: number }) {
     super({
       ...args,
-      message: `project still has ${args.serviceCount} service${args.serviceCount === 1 ? "" : "s"} — delete them first`,
+      message: `project still has ${args.serviceCount} service${args.serviceCount === 1 ? "" : "s"}. Delete them first`,
     });
   }
 }
@@ -97,7 +97,7 @@ export class PostgresResourceConflictError extends TaggedError("PostgresResource
  * Raised when a database still has live PR-preview branches.
  *
  * Under the `zfs` strategy a clone pins its origin snapshot, so the filesystem
- * would refuse the destroy anyway — but a raw ZFS error is unactionable, since
+ * would refuse the destroy anyway, but a raw ZFS error is unactionable, since
  * nothing in the UI connects a dataset to someone's open pull request. This
  * carries the PR numbers so the operator knows exactly what to close.
  */
@@ -115,7 +115,7 @@ export class DatabaseHasBranchesError extends TaggedError("DatabaseHasBranchesEr
 
 /**
  * Raised when the requested extension set needs two different bundled
- * images (e.g. postgis + timescaledb) — a single service runs a single
+ * images (e.g. postgis + timescaledb): a single service runs a single
  * image, so the combination is rejected rather than silently dropping one.
  */
 export class IncompatibleExtensionsError extends TaggedError("IncompatibleExtensionsError")<{
@@ -141,14 +141,14 @@ export class ManifestVersionConflictError extends TaggedError("ManifestVersionCo
   constructor(args: { currentVersion: number }) {
     super({
       currentVersion: args.currentVersion,
-      message: `manifest was modified concurrently — current server version is ${args.currentVersion}`,
+      message: `manifest was modified concurrently. Current server version is ${args.currentVersion}`,
     });
   }
 }
 
 /**
- * Per-resource skip during apply. Not a "fail the whole apply" error —
- * the reconciler keeps going and surfaces these in the `skipped[]`
+ * Per-resource skip during apply. Not a "fail the whole apply" error.
+ * The reconciler keeps going and surfaces these in the `skipped[]`
  * result so the operator can see which resources didn't reconcile and
  * why. Carries the resource kind + name to populate the wire shape.
  */

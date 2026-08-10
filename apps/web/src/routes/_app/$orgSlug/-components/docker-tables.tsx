@@ -2,7 +2,7 @@
  * Shared bits for the Docker inventory tabs plus the swarm Tasks table. The
  * per-daemon tables live in sibling files: `docker-table-containers.tsx`,
  * `docker-table-images.tsx`, `docker-table-networks.tsx`. (Volumes render the
- * full volumes feature — see features/volumes/volumes-section.tsx.)
+ * full volumes feature: see features/volumes/volumes-section.tsx.)
  */
 import { Button } from "@/shared/components/ui/button";
 import { TableCell, TableRow } from "@/shared/components/ui/table";
@@ -12,7 +12,7 @@ import { shortId, taskTone, timeAgoIso } from "./docker-format";
 import { Panel, type QueryLike } from "./docker-panel";
 import { StateBadge } from "./docker-state-badge";
 
-/** Local row type — mirrors the docker contract output shape. */
+/** Local row type: mirrors the docker contract output shape. */
 interface Task {
   id: string;
   serviceId: string;
@@ -79,17 +79,17 @@ export function TasksTable({
             <TableCell className="pl-4 font-mono text-xs font-medium">
               {shortId(t.serviceId)}
             </TableCell>
-            <TableCell className="text-muted-foreground">{t.slot ?? "—"}</TableCell>
+            <TableCell className="text-muted-foreground">{t.slot ?? "–"}</TableCell>
             <TableCell
               className="max-w-[220px] truncate font-mono text-xs text-muted-foreground"
               title={t.image ?? undefined}
             >
-              {t.image ?? "—"}
+              {t.image ?? "–"}
             </TableCell>
             <TableCell className="font-mono text-xs text-muted-foreground" title={t.nodeId}>
               {nodeNames.get(t.nodeId) ?? shortId(t.nodeId)}
             </TableCell>
-            <TableCell className="text-muted-foreground">{t.desiredState || "—"}</TableCell>
+            <TableCell className="text-muted-foreground">{t.desiredState || "–"}</TableCell>
             <TableCell>
               <StateBadge state={t.state} tone={taskTone(t.state)} />
             </TableCell>
@@ -103,7 +103,7 @@ export function TasksTable({
               )}
               title={t.message ?? undefined}
             >
-              {t.message ?? "—"}
+              {t.message ?? "–"}
             </TableCell>
           </TableRow>
         ))

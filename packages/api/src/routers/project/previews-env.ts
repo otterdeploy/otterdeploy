@@ -1,5 +1,5 @@
 /**
- * Per-preview env overrides — the preview panel's "specific envs" editor.
+ * Per-preview env overrides: the preview panel's "specific envs" editor.
  * Overrides live on (serviceResourceId, previewId, key), win over base rows
  * only when resolving inside that preview, and die with the preview row.
  * A change redeploys the preview with its latest built image so the running
@@ -45,7 +45,7 @@ async function guard(
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
   const preview = await getPreviewById(input.previewId);
-  // Active previews only — set/unset on a CLOSED preview would resurrect a
+  // Active previews only: set/unset on a CLOSED preview would resurrect a
   // torn-down container (zombie service).
   if (!preview || preview.projectId !== input.projectId || preview.state !== "active") {
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
@@ -114,7 +114,7 @@ async function redeployPreviewService(
   projectSlug: string,
   log?: RequestLogger,
 ): Promise<boolean> {
-  // If a build is in flight for this preview, don't roll — that build's own
+  // If a build is in flight for this preview, don't roll. That build's own
   // redeployOne resolves env at deploy time and picks up the override. Rolling
   // now would race it onto a stale image.
   const [newest] = await db
@@ -131,7 +131,7 @@ async function redeployPreviewService(
   if (newest && (newest.status === "pending" || newest.status === "building")) return false;
 
   // Prefer the newest RUNNING image; fall back to a failed one only when
-  // nothing is running (revive-a-crashed-preview) — never roll a healthy
+  // nothing is running (revive-a-crashed-preview), never roll a healthy
   // preview onto a known-bad image.
   const [latestBuilt] = await db
     .select({ image: deployment.image })
@@ -185,7 +185,7 @@ export interface EffectiveEnvRow {
   source: "inherited" | "override";
   baseValue: string | null;
   isSecret: boolean;
-  /** True when ref resolution failed for this value — the UI shows the raw
+  /** True when ref resolution failed for this value. The UI shows the raw
    *  declared value and an "unresolved" hint instead of a blank. */
   unresolved: boolean;
 }
@@ -232,7 +232,7 @@ function shapeEffectiveRow(args: {
   const isSecret = eitherSecret(base, override);
   return {
     key,
-    // Mask secrets — never return cleartext to the client.
+    // Mask secrets, never return cleartext to the client.
     value: isSecret && value.length > 0 ? SECRET_MASK : value,
     source: override ? "override" : "inherited",
     baseValue: baseValueFor(override, base, isSecret),
@@ -247,7 +247,7 @@ export async function listPreviewEffectiveEnv(
   const g = await guard(input);
   if (g.isErr()) return Result.err(g.error);
 
-  // Base (previewId-null) rows for this service — the inherited layer.
+  // Base (previewId-null) rows for this service: the inherited layer.
   const baseRows = await listServiceEnvVars(input.serviceResourceId);
   const baseByKey = new Map(baseRows.map((r) => [r.key, r]));
   // Declared overrides for this preview.

@@ -82,5 +82,6 @@ session.jsonl
 brand/.venv/
 brand/node_modules/
 
-# Generated audit evidence — regenerate with `bun scripts/audit/triage.ts`
+# Generated audit evidence: regenerate with `bun scripts/audit/triage.ts`
 .audit/
+.launch-video/

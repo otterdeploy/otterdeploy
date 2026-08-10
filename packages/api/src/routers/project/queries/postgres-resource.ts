@@ -20,7 +20,7 @@ export interface DatabaseResourceRecord {
  *
  * Names are unique per `(project, environment, name)`, so this must be scoped
  * or a create in staging is rejected because production already has a
- * `postgres` — which is exactly what "already exists in this project" meant
+ * `postgres`, which is exactly what "already exists in this project" meant
  * when it fired against a staging apply.
  */
 export async function getDatabaseResourceByProjectAndName(
@@ -220,7 +220,7 @@ export async function setDatabaseResourcePublic(resourceId: ResourceId, publicEn
   return updated;
 }
 
-/** Toggle PR-preview branching for a database. Pure flag write — takes effect
+/** Toggle PR-preview branching for a database. Pure flag write. Takes effect
  *  on the next PR open/synchronize; no container roll. */
 export async function setDatabaseResourcePreviewBranching(
   resourceId: ResourceId,

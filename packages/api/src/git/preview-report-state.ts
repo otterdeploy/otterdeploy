@@ -1,5 +1,5 @@
 /**
- * Snapshot loader for the PR preview report — assembles everything the sticky
+ * Snapshot loader for the PR preview report. Assembles everything the sticky
  * comment + commit status need for one (repo, PR): the GitHub write-back
  * identity (numeric installation id, owner/repo), the head SHA, and one row
  * per (project, git service) with its latest env-scoped deployment, preview
@@ -29,7 +29,7 @@ import { resolveInstallationId } from "./installation-id";
 import { rowStatusFromDeployment } from "./preview-comment";
 
 export interface PreviewReportSnapshot {
-  /** GitHub-numeric installation id (what token minting needs) — null when
+  /** GitHub-numeric installation id (what token minting needs). Null when
    *  the repo has no App installation (public repo / soft-revoked). */
   installationId: string | null;
   owner: string | undefined;
@@ -47,7 +47,7 @@ type PreviewRow = typeof preview.$inferSelect;
  * Base URL for links we post to GitHub.
  *
  * BETTER_AUTH_URL is where the API is reached, which on a normal install is
- * the host's raw address — so an Inspect link landed on `http://<ip>:3000`:
+ * the host's raw address, so an Inspect link landed on `http://<ip>:3000`:
  * plaintext, IP-shaped, and needlessly published in a public PR comment.
  * `resolveCanonicalWebOrigin` is the shared answer to "what should an outbound
  * link say": the operator's VERIFIED control-plane domain when there is one,

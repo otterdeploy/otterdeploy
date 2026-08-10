@@ -39,7 +39,7 @@ export {
 } from "./networking-routes-model";
 
 /**
- * The routes table — the whole of Networking. Each row expands to the TLS
+ * The routes table: the whole of Networking. Each row expands to the TLS
  * certificate and access controls for that route, which used to be two
  * separate sub-tabs listing the same domains over again.
  */

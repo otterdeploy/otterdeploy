@@ -6,7 +6,7 @@ import { beforeAll, describe, expect, it } from "vite-plus/test";
 /**
  * `removeGuardedDir` is the only thing standing between a bad path derivation
  * and an `rm -rf` outside the data root, so it gets tested against a REAL
- * temp tree rather than a mocked fs — a mock would happily "delete" a path the
+ * temp tree rather than a mocked fs: a mock would happily "delete" a path the
  * guard should have refused and prove nothing.
  *
  * `DATA_ROOT` is read from the env at module load, so the env var is set before
@@ -38,7 +38,7 @@ describe("removeGuardedDir", () => {
     expect(await exists(dir)).toBe(false);
   });
 
-  it("removes recursively — nested children go with it", async () => {
+  it("removes recursively. Nested children go with it", async () => {
     const dir = join(root, "resources", "proj_2", "res_nested");
     await mkdir(join(dir, "a", "b", "c"), { recursive: true });
 
@@ -57,7 +57,7 @@ describe("removeGuardedDir", () => {
 
   /**
    * The `root + sep` clause, not bare `root`. A sibling whose name merely
-   * starts with the root's name is NOT inside it — `startsWith(root)` alone
+   * starts with the root's name is NOT inside it. `startsWith(root)` alone
    * would delete this one.
    */
   it("REFUSES a sibling directory that shares the root's name as a prefix", async () => {
@@ -94,7 +94,7 @@ describe("removeGuardedDir", () => {
     expect(await exists(root)).toBe(true);
   });
 
-  it("is best-effort — a missing directory resolves rather than throwing", async () => {
+  it("is best-effort. A missing directory resolves rather than throwing", async () => {
     await expect(
       removeGuardedDir(join(root, "resources", "proj_4", "res_gone"), "res_gone"),
     ).resolves.toBeUndefined();

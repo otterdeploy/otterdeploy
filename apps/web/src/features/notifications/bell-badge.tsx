@@ -12,7 +12,7 @@ import { cn } from "@/shared/lib/utils";
 
 /**
  * The bell answers exactly one question: "is there anything I have not looked
- * at?" It used to answer a second one — "is anything building right now?" — as a
+ * at?" It used to answer a second one ("is anything building right now?") as a
  * pulsing accent ring, and that was wrong twice over. The ring read as an alarm
  * for what is ordinary progress, and it was sourced from the PROJECT-scoped
  * app-status rollup, so it went dark the moment you navigated away from the
@@ -21,7 +21,7 @@ import { cn } from "@/shared/lib/utils";
  * (features/activity/activity-indicator.tsx), which is org-wide and says what is
  * building rather than just that something is.
  *
- * Two states, separated by SHAPE as well as hue — at 8px, and for a colour-blind
+ * Two states, separated by SHAPE as well as hue: at 8px, and for a colour-blind
  * operator, colour alone says nothing (DESIGN.md; the same rule the brand mark
  * follows in otterdeploy-logo.tsx):
  *
@@ -53,5 +53,5 @@ export function BellBadge({ severity }: { severity: Severity | null }) {
  * a pure function the tests can pin without an i18n context.
  */
 export function bellLabel(parts: { unread: string; failure: string | null }): string {
-  return [parts.unread, parts.failure].filter(Boolean).join(" — ");
+  return [parts.unread, parts.failure].filter(Boolean).join(", ");
 }

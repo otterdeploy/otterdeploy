@@ -1,5 +1,5 @@
 /**
- * Pure helpers behind the Scaling settings card — patch construction (with
+ * Pure helpers behind the Scaling settings card: patch construction (with
  * the pause-preservation guard), cluster-fit math against registered server
  * capacity, and the per-node placement grouping. Kept free of React/orpc so
  * they unit-test like healthcheck-http.ts.
@@ -60,12 +60,12 @@ export interface ScalingPatch {
 }
 
 /**
- * Build the minimal `service.update` patch — or null when nothing changed.
+ * Build the minimal `service.update` patch, or null when nothing changed.
  *
  * Pause guard: the server clears `pausedReplicas` whenever a patch carries an
  * explicit `replicas` value (whoever sets replicas is stating desired state).
  * So `replicas` is only included when the operator actually moved the stepper
- * away from the desired count — a limits-only save while paused must NOT
+ * away from the desired count. A limits-only save while paused must NOT
  * resume the service. Conversely, an explicit replica edit while paused
  * deliberately resumes with the new count; the card's copy says so.
  */
@@ -96,7 +96,7 @@ export function saveConsequence(
 }
 
 // ---------------------------------------------------------------------------
-// Cluster fit — requested (replicas × limits) vs registered server capacity.
+// Cluster fit, requested (replicas × limits) vs registered server capacity.
 // ---------------------------------------------------------------------------
 
 export interface CapacityNode {

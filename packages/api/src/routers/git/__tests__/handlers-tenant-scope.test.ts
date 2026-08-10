@@ -1,10 +1,10 @@
 /**
- * od-5j8.8 — end-to-end hostile-path coverage for the git router's
+ * od-5j8.8: end-to-end hostile-path coverage for the git router's
  * gitRepoId-scoped endpoints (getRepo, inspectRepo, listBranches, inspectEnv).
  *
  * Drives the real oRPC procedures (via `createProcedureClient`) with an org-A
- * actor and org-B's `gitRepoId`, asserting NOT_FOUND — never a data leak,
- * never a 500 — and that the expensive/network-calling inspect functions are
+ * actor and org-B's `gitRepoId`, asserting NOT_FOUND, never a data leak,
+ * never a 500, and that the expensive/network-calling inspect functions are
  * never even reached once the tenant guard rejects the id.
  */
 import type { GitRepoId, OrganizationId } from "@otterdeploy/shared/id";
@@ -34,7 +34,7 @@ const victimRepoId = "gitr_victim" as GitRepoId;
 // getRepoForOrg is exercised directly (with real db-shaped mocks) in
 // repo-scope.test.ts; here we only need it to behave like "org B's private
 // repo" so the router-level test proves the HANDLERS call it and honor a
-// miss — not re-prove the query's own join logic.
+// miss, not re-prove the query's own join logic.
 const getRepoForOrg = vi.fn(async () => undefined);
 
 vi.mock("../queries", async (importOriginal) => {

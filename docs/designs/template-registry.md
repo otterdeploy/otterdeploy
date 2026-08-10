@@ -1,10 +1,10 @@
-# Template Registry — serving the catalog instead of compiling it
+# Template Registry, serving the catalog instead of compiling it
 
 **Status:** Proposed. Nothing built.
 **Last verified:** 2026-08-04
 **Scope:** How deployable stack templates are authored, validated, delivered, and resolved. Does not change what a template *is* (a compose file + typed metadata) or how deploying one works (the compose wizard, unchanged).
 
-We ship **18** templates. Coolify ships **335**. The gap is not authoring effort — it is that every one of our templates is a TypeScript literal compiled into the SPA, so adding one is a frontend release. This proposes moving the catalog behind an endpoint, keeping the validation gate that makes our 18 trustworthy, and keeping the app working when the network doesn't.
+We ship **18** templates. Coolify ships **335**. The gap is not authoring effort. It is that every one of our templates is a TypeScript literal compiled into the SPA, so adding one is a frontend release. This proposes moving the catalog behind an endpoint, keeping the validation gate that makes our 18 trustworthy, and keeping the app working when the network doesn't.
 
 ---
 
@@ -12,7 +12,7 @@ We ship **18** templates. Coolify ships **335**. The gap is not authoring effort
 
 The catalog has not grown since July. That is the honest signal: the cost per template is not "write 60 lines of YAML", it is "write 60 lines of YAML, rebuild the web bundle, cut a release, and make every user update to see it."
 
-Coolify adds templates continuously because for them it is a data change. Their instances poll a JSON file; a new template appears without anyone updating anything. That difference — **content ships on the content's schedule, not the product's** — is the entire feature.
+Coolify adds templates continuously because for them it is a data change. Their instances poll a JSON file; a new template appears without anyone updating anything. That difference (**content ships on the content's schedule, not the product's**) is the entire feature.
 
 Writing 300 more templates into `catalog/templates-*.ts` would work exactly once and then leave us with a 1 MB bundle and the same release coupling. Architecture first.
 
@@ -23,11 +23,11 @@ Writing 300 more templates into `catalog/templates-*.ts` would work exactly once
 | Area | Today | File |
 | --- | --- | --- |
 | Catalog | `TEMPLATES: StackTemplate[]`, six category files spread-concatenated | `apps/web/src/features/templates/catalog/index.ts:18` |
-| Count | **18** — data 5, dev 4, analytics 3, ops 3, cms 2, crm 1 | `catalog/templates-*.ts` |
+| Count | **18**: data 5, dev 4, analytics 3, ops 3, cms 2, crm 1 | `catalog/templates-*.ts` |
 | Entry shape | `id, name, description, category, includes[], requiredEnv[], logoBrand, docsUrl, compose` | `catalog/types.ts:40` |
 | Compose storage | Template literal inside a `.ts` file, `${VAR}` escaped as `\${VAR}` | `catalog/templates-crm.ts:30` |
 | Categories | 8, hardcoded union + label array | `catalog/types.ts:11`, `:21` |
-| Delivery | Compiled into the web bundle (~27 KB of source today) | — |
+| Delivery | Compiled into the web bundle (~27 KB of source today) |: |
 | Gallery | Reads `TEMPLATES` directly, synchronously | `components/templates-gallery.tsx:27` |
 | Filter/sort | Pure functions over the array | `catalog/filter.ts` |
 | Route | `/$orgSlug/templates`, `?project=<slug>` preselects deploy target | `routes/_app/$orgSlug/_shell/templates.tsx` |
@@ -35,13 +35,13 @@ Writing 300 more templates into `catalog/templates-*.ts` would work exactly once
 | Handoff resolution | **Synchronous** `getTemplateById(id)` deriving wizard `open` from the URL | `features/projects/components/new-resource/overlay-provider.tsx:45` |
 | Validation | Build-time test: parses every compose with the repo's own parser | `catalog/catalog.test.ts` |
 | Logos | `logoBrand` → SvglLogo search, monogram fallback | `shared/components/brand/svgl-logo.tsx:49` |
-| Artifact edge | `get.otterdeploy.com` — CF Worker + R2, no origin, falls back to raw.githubusercontent.com on miss | `apps/get/README.md` |
+| Artifact edge | `get.otterdeploy.com`: CF Worker + R2, no origin, falls back to raw.githubusercontent.com on miss | `apps/get/README.md` |
 
-### 1.1 The honesty gate — the thing we must not lose
+### 1.1 The honesty gate: the thing we must not lose
 
 `catalog.test.ts` is the best part of the current design and has no equivalent in Coolify. For **every** template it asserts:
 
-- the compose round-trips **`parseCompose`** — the same parser the wizard preview and the deploy reconciler use — with **zero warnings**
+- the compose round-trips **`parseCompose`** (the same parser the wizard preview and the deploy reconciler use) with **zero warnings**
 - `includes` equals the parsed service names, exactly
 - `requiredEnv` equals the `${VAR}` refs the file actually declares without defaults
 - images only, no `build:` contexts, so a template deploys without a repo
@@ -80,7 +80,7 @@ Make the lookup async naively and: first render → `undefined` → `open` false
 
 Probed live: **HTTP 200, 1,048,408 bytes, 335 templates, 35 categories.**
 
-`get_service_templates(bool $force = false)` — `bootstrap/helpers/shared.php:1319` — is a three-tier cascade:
+`get_service_templates(bool $force = false)` (`bootstrap/helpers/shared.php:1319`) is a three-tier cascade:
 
 1. **`$force`** → `Http::retry(3, 1000, throw: false)->timeout(60)->connectTimeout(10)` GET the CDN, `store_service_templates_bundle($response->body())`, return it. `$response->failed()` → empty collection. Any throw → recurse into the non-forced path.
 2. **Normal** → read the cache bundle, `Cache::remember("service-templates:shared:{$fetchedAt}", now()->addDay(), …)`.
@@ -101,7 +101,7 @@ Their entry:
 
 | Their decision | Take it? | Why |
 | --- | --- | --- |
-| Remote JSON as source of truth | **Yes** | The whole point — content ships independently. |
+| Remote JSON as source of truth | **Yes** | The whole point: content ships independently. |
 | Local file fallback in the image | **Yes** | Fresh/air-gapped installs still get a catalog. Never a blank gallery. |
 | Never block the UI on the network | **Yes** | Failure returns cached or empty, never an error page. |
 | `minversion` per template | **Yes** | One file serves every version in the wild. A template needing a parser feature an old instance lacks stays hidden instead of failing at deploy. |
@@ -137,7 +137,7 @@ Authoring moves from `.ts` to YAML with front-matter, so a contributor writes co
 # docsUrl: https://twenty.com/developers/section/self-hosting/docker-compose
 # minVersion: 0.10.0
 # description: >
-#   Open-source CRM — a modern, keyboard-first alternative to Salesforce.
+#   Open-source CRM, a modern, keyboard-first alternative to Salesforce.
 name: twenty
 services:
   twenty:
@@ -145,7 +145,7 @@ services:
     …
 ```
 
-`includes` and `requiredEnv` are **derived by the generator**, not authored — today they are hand-written and the test asserts they match. Deriving them makes a whole class of drift impossible instead of merely detected.
+`includes` and `requiredEnv` are **derived by the generator**, not authored. Today they are hand-written and the test asserts they match. Deriving them makes a whole class of drift impossible instead of merely detected.
 
 ### 3.2 The gate moves into the generator
 
@@ -157,7 +157,7 @@ This is the single most important part of the proposal. Serving templates withou
 
 ### 3.3 Delivery: `get.otterdeploy.com`, not a new service
 
-`apps/get` already is what we need — a Worker with no origin, artifacts in R2, written only by `publish-artifacts`, falling back to `raw.githubusercontent.com` on a miss. Adding one path:
+`apps/get` already is what we need, a Worker with no origin, artifacts in R2, written only by `publish-artifacts`, falling back to `raw.githubusercontent.com` on a miss. Adding one path:
 
 | URL | Serves |
 | --- | --- |
@@ -185,11 +185,11 @@ template.registry.get(id) → { template: StackTemplate } | null
 
 Coolify's three tiers, with a TTL instead of a manual force:
 
-1. **Redis** `otterdeploy:templates:bundle` — if `fetchedAt` is within TTL (24h), serve it.
-2. **Stale-while-revalidate** — past TTL, serve the stale bundle *immediately* and refresh in the background. The gallery is never slower than cache-read latency.
-3. **Bundled fallback** — cold cache and fetch failed → `apps/web/public/templates.json`, shipped in the image. Never an empty gallery, never an error.
+1. **Redis** `otterdeploy:templates:bundle`: if `fetchedAt` is within TTL (24h), serve it.
+2. **Stale-while-revalidate**: past TTL, serve the stale bundle *immediately* and refresh in the background. The gallery is never slower than cache-read latency.
+3. **Bundled fallback**: cold cache and fetch failed → `apps/web/public/templates.json`, shipped in the image. Never an empty gallery, never an error.
 
-`source: "remote" | "cache" | "bundled"` rides on the response, and the gallery says so plainly when it is serving bundled content — the honest-about-system-state principle. A user on an air-gapped box should know why they see 18 and not 335.
+`source: "remote" | "cache" | "bundled"` rides on the response, and the gallery says so plainly when it is serving bundled content, the honest-about-system-state principle. A user on an air-gapped box should know why they see 18 and not 335.
 
 Every fetch validates against the schema **before** replacing a good cached bundle. A corrupt or truncated publish must never blank a working catalog.
 
@@ -213,7 +213,7 @@ Every fetch validates against the schema **before** replacing a good cached bund
 
 `minVersion` is filtered **server-side** against the running version, so the client never sees a template it cannot deploy.
 
-`category` widens from the current 8-value union to an open string with a known-label map; an unknown category from a newer file must render (title-cased) rather than break the filter pills. Coolify has 35 categories; ours will grow, and a closed union means a template is invisible until the frontend ships a new enum value — reintroducing exactly the coupling this removes.
+`category` widens from the current 8-value union to an open string with a known-label map; an unknown category from a newer file must render (title-cased) rather than break the filter pills. Coolify has 35 categories; ours will grow, and a closed union means a template is invisible until the frontend ships a new enum value. Reintroducing exactly the coupling this removes.
 
 ---
 
@@ -221,7 +221,7 @@ Every fetch validates against the schema **before** replacing a good cached bund
 
 ### 4.1 Order
 
-1. Generator + gate, emitting today's 18 from the existing `.ts` files. Output committed. **No behaviour change** — prove the artifact matches what ships now.
+1. Generator + gate, emitting today's 18 from the existing `.ts` files. Output committed. **No behaviour change**, prove the artifact matches what ships now.
 2. Convert the 18 to authored YAML. Generator output must be byte-identical to step 1; that diff is the proof the conversion was lossless.
 3. `template.registry.*` endpoints, reading the bundled file only. No network yet.
 4. Frontend reads the endpoints instead of the array. §4.3 first.
@@ -232,14 +232,14 @@ Each step is independently shippable and independently revertible.
 
 ### 4.2 What stays
 
-The compose wizard, `parseCompose`, staging, the manifest flow, the graph — untouched. This changes where a template *comes from*, not what happens when you deploy one. The deploy handoff URL (`?new=template&template=<id>`) stays byte-identical so existing links keep working.
+The compose wizard, `parseCompose`, staging, the manifest flow, the graph, untouched. This changes where a template *comes from*, not what happens when you deploy one. The deploy handoff URL (`?new=template&template=<id>`) stays byte-identical so existing links keep working.
 
 ### 4.3 Fixing the synchronous handoff first
 
 Before the frontend can read async data, `overlay-provider.tsx` must stop deriving `open` from template *resolution*. Split the two questions it currently conflates:
 
 ```ts
-// Openness derives from the URL SHAPE — always synchronous, always correct.
+// Openness derives from the URL SHAPE, always synchronous, always correct.
 const wantsTemplate = handoff.startsWith("template:");
 const templateId = wantsTemplate ? handoff.slice("template:".length) : null;
 const open = openedInApp || handoff === "service" || wantsTemplate;
@@ -248,7 +248,7 @@ const open = openedInApp || handoff === "service" || wantsTemplate;
 const { data: template, isLoading } = useTemplate(templateId);
 ```
 
-The wizard then opens instantly on a deep link and shows a loading state in the template step; an id that resolves to nothing becomes an explicit "template not found" rather than a silently-not-opening dialog — which is better than today's behaviour, where a typo'd id just does nothing.
+The wizard then opens instantly on a deep link and shows a loading state in the template step; an id that resolves to nothing becomes an explicit "template not found" rather than a silently-not-opening dialog, which is better than today's behaviour, where a typo'd id just does nothing.
 
 Do this as its own change, on the current synchronous catalog, so the refactor is verifiable in isolation.
 
@@ -259,19 +259,19 @@ Do this as its own change, on the current synchronous catalog, so the refactor i
 | Bad publish blanks every instance's gallery | Schema-validate before replacing cache; bundled fallback; immutable `/<tag>/` URLs to roll back |
 | Remote catalog becomes an unreviewed input | It is generated only by CI from the repo; the gate runs in the generator; R2 is written only by `publish-artifacts`, never by hand |
 | Serving user-authored compose | Out of scope. This is a first-party curated catalog. Custom/community templates need a separate threat model and are not proposed here |
-| Losing the gate under growth pressure | The generator *cannot* emit an invalid template. Not policy — mechanism |
+| Losing the gate under growth pressure | The generator *cannot* emit an invalid template. Not policy, mechanism |
 | Bundle-size regression | `list` omits compose; the bundled fallback is a public asset, fetched not parsed at boot |
-| i18n | Template copy is English-only today and stays so. Names/descriptions are content, not UI chrome — worth a decision but not a blocker |
+| i18n | Template copy is English-only today and stays so. Names/descriptions are content, not UI chrome, worth a decision but not a blocker |
 
 ---
 
 ## 5. Open questions
 
-1. **TTL** — 24h matches Coolify. Shorter makes new templates appear sooner; longer is quieter. Is a manual "Check for new templates" button worth it?
-2. **Ship count in the image** — bundle all templates as fallback, or a curated subset to keep the image small? At Coolify's 1 MB, all of them is fine.
-3. **Per-instance opt-out** — should an operator be able to pin to bundled-only (no outbound fetch)? Air-gapped installs and some compliance postures want this. Cheap to add now (`TEMPLATE_REGISTRY=bundled|remote`), awkward later.
-4. **Telemetry** — `apps/get`'s README is explicit that a stable URL doubles as the only signal of how many people run otterdeploy. A catalog poll is the same kind of signal. If we want it, say so out loud in the docs rather than acquiring it as a side effect.
-5. **The deploy-time FQDN ref** — see §7. The only genuinely missing piece of the "one-click" story.
+1. **TTL**: 24h matches Coolify. Shorter makes new templates appear sooner; longer is quieter. Is a manual "Check for new templates" button worth it?
+2. **Ship count in the image**: bundle all templates as fallback, or a curated subset to keep the image small? At Coolify's 1 MB, all of them is fine.
+3. **Per-instance opt-out**: should an operator be able to pin to bundled-only (no outbound fetch)? Air-gapped installs and some compliance postures want this. Cheap to add now (`TEMPLATE_REGISTRY=bundled|remote`), awkward later.
+4. **Telemetry**: `apps/get`'s README is explicit that a stable URL doubles as the only signal of how many people run otterdeploy. A catalog poll is the same kind of signal. If we want it, say so out loud in the docs rather than acquiring it as a side effect.
+5. **The deploy-time FQDN ref**: see §7. The only genuinely missing piece of the "one-click" story.
 
 ---
 
@@ -279,11 +279,11 @@ Do this as its own change, on the current synchronous catalog, so the refactor i
 
 Serving 335 templates does not make them *good*. Coolify's catalog contains templates that fail to deploy, because nothing validates them. Our gate means our count grows more slowly and every entry works.
 
-That is the right trade, and it should stay the trade after this lands. The goal is not to match 335 — it is to stop the delivery model being the reason we have 18.
+That is the right trade, and it should stay the trade after this lands. The goal is not to match 335. It is to stop the delivery model being the reason we have 18.
 
 ---
 
-## 7. Magic variables — we already have them
+## 7. Magic variables: we already have them
 
 An earlier draft of this doc listed "adopt Coolify's magic variables
 (`SERVICE_PASSWORD_X`, `SERVICE_FQDN_X_PORT`)" as an open question, on the
@@ -295,7 +295,7 @@ halves exist; they are spelled differently and live in two different layers.
 | `SERVICE_PASSWORD_X` | `SECRETISH` key heuristic → `randomSecret()` | `compose-wizard-parse.ts:95`, `shared/src/crypto.ts:68` |
 | `SERVICE_FQDN_X` / `_PORT` | `${{svc.PUBLIC_URL}}` / `.DOMAIN` / `.DOMAINS` / `.HOST` / `.PORT` | `lib/variables/exporters.ts:55`, `:83` |
 | DB credential wiring | `${{db.DATABASE_URL}}`, `PGHOST`/`PGPORT`/`PGUSER`/`PGPASSWORD`/`PGDATABASE` | `lib/variables/exporters.ts:27` |
-| — (no equivalent) | `${secret}`, `${database:<n>.<field>}`, `${service:<n>.host\|port>}` | `stack/manifest/refs.ts` |
+|: (no equivalent) | `${secret}`, `${database:<n>.<field>}`, `${service:<n>.host\|port>}` | `stack/manifest/refs.ts` |
 
 Secret generation is real and unconditional:
 
@@ -325,18 +325,18 @@ Twenty, our one CRM template, declares three required vars:
 So it is already one field, not three. The single remaining gap is that
 `SERVER_URL` needs *the domain the stack is about to be given*. We do generate
 that domain (`service.domains.generate` mints the platform/sslip host, and the
-compose reconcile seeds exposure — `routers/compose/reconcile.ts:128`), but
+compose reconcile seeds exposure: `routers/compose/reconcile.ts:128`), but
 only **after** deploy. The template needs it **before**.
 
 That is the exact chicken-and-egg `SERVICE_FQDN_X` solves by minting the FQDN at
 instantiation time and injecting it. It is one ref resolvable at variable-fill
-time — not a missing system.
+time, not a missing system.
 
 Sketch, deliberately not designed here: the wizard can compute the sslip host
 for `(project, service)` deterministically before staging, and expose it as a
 fill-time ref (`${{self.PUBLIC_URL}}` or similar) that seeds the field the way
 `randomSecret()` seeds a password. The operator can still overwrite it with a
-custom domain. Needs its own design — the naming has to reconcile with the
+custom domain. Needs its own design. The naming has to reconcile with the
 existing `${{Resource.VAR}}` grammar, and a *generated* value that the user
 then overrides has to not fight the reconcile rules in `architecture-decision
 -2026-07-25` (service settings own exposure; reconciles must not wipe
@@ -347,13 +347,13 @@ imperative changes).
 `StackTemplate.requiredEnv[].generateHint` carries strings like
 `openssl rand -base64 32`, and the detail dialog renders them
 (`template-detail-sections.tsx:84`). So the modal instructs the operator to
-generate `APP_SECRET` by hand — **a value the wizard auto-fills two clicks
+generate `APP_SECRET` by hand: **a value the wizard auto-fills two clicks
 later**, on a step whose own copy reads "secrets are auto-generated, defaults
 pre-filled" (`compose-wizard-body.tsx:34`).
 
 Two surfaces, contradicting each other, about the same value. The fix is
 probably to drop `generateHint` for anything `SECRETISH` matches and say
-"generated for you" instead — but that couples template metadata to a frontend
+"generated for you" instead, but that couples template metadata to a frontend
 heuristic, which is an argument for moving the heuristic somewhere both can
 read. Worth settling as part of the registry work, since `requiredEnv` becomes
 generator-derived (§3.1) and the generator could mark each var

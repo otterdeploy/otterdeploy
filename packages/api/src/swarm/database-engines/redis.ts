@@ -13,7 +13,7 @@ export const redisAdapter: DatabaseEngineAdapter = {
   // Operators can mount additional volumes later for AOF backups, but the
   // canonical persistence target is /data.
   mountTarget: "/data",
-  // Redis doesn't take auth via env — it's a CLI flag. Nothing to reserve.
+  // Redis doesn't take auth via env. It's a CLI flag. Nothing to reserve.
   reservedEnvKeys: new Set(),
   buildEnv: () => [],
   buildCommand: ({ password }) => [
@@ -28,7 +28,7 @@ export const redisAdapter: DatabaseEngineAdapter = {
   buildHealthcheck: ({ password }) =>
     `redis-cli --no-auth-warning -a ${password} ping | grep -q PONG`,
   buildConnectionString: ({ password, host, port }) => {
-    // Redis URLs put the password before the @ with no username — username
+    // Redis URLs put the password before the @ with no username: username
     // is optional in redis:// and we don't model one in the spec.
     const hostPort = port == null ? host : `${host}:${port}`;
     return `${meta.scheme}://:${password}@${hostPort}/0`;

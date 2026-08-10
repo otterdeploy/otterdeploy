@@ -4,7 +4,7 @@
  * The log/task tabs were written swarm-first: they called `docker.tasks.list`
  * directly, which only exists in Swarm. Under the DEFAULT plain-Docker runtime
  * (`DEPLOY_RUNTIME` unset) there are no swarm tasks, so every one of those calls
- * failed with "service <name> not found" — even for a perfectly healthy deploy,
+ * failed with "service <name> not found". Even for a perfectly healthy deploy,
  * and confusingly for a build that failed before any container was created.
  *
  * This normalizes both backends to one `ResourceInstance` shape:
@@ -13,7 +13,7 @@
  *              (`serviceName`), reading the `otterdeploy.deployment.id` label the
  *              docker driver stamps on every container (docker-driver-helpers
  *              `otterLabels`). Plain Docker recreates in place, so there's at
- *              most one current container — no retry history, which is expected.
+ *              most one current container, no retry history, which is expected.
  *
  * An empty result now means "no container has run yet" (build in progress or
  * failed), which callers render as a helpful pointer to Build Logs rather than a
@@ -37,7 +37,7 @@ export interface ResourceInstance {
   updatedAt: string | null;
   /** The deployment this instance belongs to, when known (from the label / spec). */
   deploymentId: string | null;
-  // Swarm-only placement fields (null under plain Docker — one container, no
+  // Swarm-only placement fields (null under plain Docker, one container, no
   // replica slots or multi-node scheduling).
   slot: number | null;
   nodeId: string | null;
@@ -75,7 +75,7 @@ const STATE_BUCKETS: Record<string, InstanceStateBucket> = {
   shutdown: "error",
   // Plain-docker container states ("running" shared above).
   created: "building",
-  // A restarting container has crashed at least once — the daemon only
+  // A restarting container has crashed at least once. The daemon only
   // restarts after a death. Amber "building" here made a crash loop look
   // like progress on the graph node + task trays; it's a problem, show red.
   restarting: "error",
@@ -164,8 +164,8 @@ function containerToInstance(c: ContainerSummary): ResourceInstance {
 }
 
 /** Fill the fields the container list summary can't provide (exit code,
- *  restart count, OOM flag) from a full inspect. Best-effort per container —
- *  an inspect failure (e.g. the container was removed between list and
+ *  restart count, OOM flag) from a full inspect. Best-effort per container.
+ *  An inspect failure (e.g. the container was removed between list and
  *  inspect) leaves the summary-derived instance untouched. */
 async function enrichFromInspect(
   docker: Docker,
@@ -190,7 +190,7 @@ async function enrichFromInspect(
  * genuine daemon error apart from an empty (not-yet-deployed) result.
  *
  * `withInspect` (plain Docker only) upgrades each summary with a full container
- * inspect — exit code, restart count, OOM flag — which the status derivation
+ * inspect (exit code, restart count, OOM flag) which the status derivation
  * needs to tell "crashed and gave up" from "operator stopped it". One extra
  * daemon call per container; a service has at most a handful.
  */

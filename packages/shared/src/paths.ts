@@ -1,7 +1,7 @@
 /**
- * Host data folder — the single source of truth for where platform-generated
+ * Host data folder: the single source of truth for where platform-generated
  * artifacts live on disk (build clones, backup dumps, DR escape-hatch exports,
- * db init material). Pure path derivation only — no `fs`, no side effects — so
+ * db init material). Pure path derivation only (no `fs`, no side effects) so
  * it's safe to import from any layer (builder, api). The `fs` operations
  * (create / guarded remove / availability check) live in
  * `packages/api/src/lib/data-dir.ts`.
@@ -24,7 +24,7 @@ export const DATA_ROOT = (process.env.OTTERDEPLOY_DATA_DIR ?? "/data/otterdeploy
   "",
 );
 
-/** Per-resource artifact dir — db ssl/init material, etc. Nested under its
+/** Per-resource artifact dir: db ssl/init material, etc. Nested under its
  *  project: `resources/<projectId>/<resourceId>`. */
 export const resourceDir = (projectId: ProjectId, id: ResourceId): string =>
   `${DATA_ROOT}/resources/${projectId}/${id}`;
@@ -36,7 +36,7 @@ export const buildDir = (projectId: ProjectId, deploymentId: DeploymentId): stri
 
 /** Uploaded source tarball for a `source: "upload"` build, staged by the server
  *  (from the CLI's `otterdeploy deploy`) for the builder to extract into its
- *  work dir. A SIBLING of `buildDir` — not inside it — because the builder's
+ *  work dir. A SIBLING of `buildDir` (not inside it) because the builder's
  *  `resolveWorkDir` requires an empty dir to extract into. Consumed (deleted)
  *  by the builder after extraction; orphans are reclaimed by the data-folder
  *  sweep. Nested under its project: `sources/<projectId>/<deploymentId>.tar.gz`. */
@@ -49,7 +49,7 @@ export const backupDir = (projectId: ProjectId, id: ResourceId): string =>
   `${DATA_ROOT}/backups/${projectId}/${id}`;
 
 /**
- * Root of the platform-managed local backup destination — the rustic repos
+ * Root of the platform-managed local backup destination: the rustic repos
  * themselves, not the staging dumps.
  *
  * Deliberately a sibling of `backups/` rather than a subdirectory of it:
@@ -63,27 +63,27 @@ export const backupDir = (projectId: ProjectId, id: ResourceId): string =>
  */
 export const managedBackupRepoRoot = (): string => `${DATA_ROOT}/backup-repos`;
 
-/** Per-project DR escape hatch — exported manifest + rendered compose. */
+/** Per-project DR escape hatch, exported manifest + rendered compose. */
 export const projectDir = (id: ProjectId): string => `${DATA_ROOT}/projects/${id}`;
 
-/** Managed GeoIP database — the default location the edge-log sink downloads a
+/** Managed GeoIP database: the default location the edge-log sink downloads a
  *  free IP→country MMDB to when `EDGE_LOG_GEOIP_DB` isn't set. See
  *  packages/api/src/edge-logs/geo.ts. */
 export const geoDbPath = (): string => `${DATA_ROOT}/geoip/dbip-country.mmdb`;
 
-/** Managed IP→ASN database, sibling of the country DB — enriches firewall
+/** Managed IP→ASN database, sibling of the country DB: enriches firewall
  *  decisions (and anything else) with AS number/org. Same managed-download
  *  semantics as `geoDbPath`. */
 export const asnDbPath = (): string => `${DATA_ROOT}/geoip/asn.mmdb`;
 
-/** Managed DB data volume — the canonical, rename-safe placement keyed by the
+/** Managed DB data volume: the canonical, rename-safe placement keyed by the
  *  stable `resourceId` (NOT the Docker volume name). A branch is a new resource
  *  → its own dir automatically. On a ZFS host this tree is a managed dataset so
  *  branches are thin clones. See docs/designs/pr-previews.md §4.3. */
 export const volumeDir = (projectId: ProjectId, resourceId: ResourceId): string =>
   `${DATA_ROOT}/volumes/${projectId}/${resourceId}`;
 
-/** Compose-stack member volume — one subdir per named member under the
+/** Compose-stack member volume: one subdir per named member under the
  *  resource's volume dir (a compose resource fans out to N member volumes). */
 export const composeVolumeDir = (
   projectId: ProjectId,

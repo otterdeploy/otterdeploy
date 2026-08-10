@@ -1,15 +1,15 @@
 /**
  * Register-an-identity-provider dialog.
  *
- * Collects the four things every OIDC IdP gives you — issuer URL, client id,
- * client secret — plus the email domain that routes to it. The discovery
+ * Collects the four things every OIDC IdP gives you. Issuer URL, client id,
+ * client secret: plus the email domain that routes to it. The discovery
  * endpoint is optional because the standard location is derivable from the
  * issuer; it's exposed for the IdPs that put it somewhere non-standard.
  *
  * The client secret is write-only from here on: once submitted it lives in
  * `sso_provider.oidc_config` and the list endpoint only ever returns the last
  * four characters of the client ID. Changing a secret means re-registering,
- * which is deliberate — a UI that could display it would be a UI that could
+ * which is deliberate. A UI that could display it would be a UI that could
  * leak it.
  */
 
@@ -33,7 +33,7 @@ import { Input } from "@/shared/components/ui/input";
 import { useRegisterSsoProvider } from "./data/use-sso-providers";
 
 /**
- * A bare email domain — "acme.com", never "@acme.com" or a full URL. This is
+ * A bare email domain: "acme.com", never "@acme.com" or a full URL. This is
  * matched against the part of a sign-in address after the `@`, so anything else
  * silently never matches and the operator is left wondering why SSO "doesn't
  * work". Rejecting it at the form is much kinder than debugging it later.
@@ -56,7 +56,7 @@ const providerIdPattern = /^[a-z0-9][a-z0-9-]*$/;
  *
  * The six fields below differ only by label, placeholder, type and hint, so
  * inlining each one's Field/Label/Input/errors block six times made the dialog
- * 208 lines of near-identical JSX — over the 150-line function cap, and hard to
+ * 208 lines of near-identical JSX: over the 150-line function cap, and hard to
  * scan for the parts that actually differ.
  */
 function ProviderField({

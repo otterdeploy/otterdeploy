@@ -43,8 +43,8 @@ export function focusNodeInView(node: Node, setCenter: SetCenter): void {
 
 /** Preload a node's target route's code-split chunk (and float its data
  *  prefetch) on hover, so a subsequent click mounts the drawer with no
- *  network wait. Mirrors the target computation in GraphCanvas's onNodeClick
- *  — a preview satellite routes to its own detail page, everything else to
+ *  network wait. Mirrors the target computation in GraphCanvas's onNodeClick.
+ *  A preview satellite routes to its own detail page, everything else to
  *  the generic $resourceId route (by resourceId, or by node id for a
  *  pending-create ghost that has none yet). Best-effort: a rejected/
  *  cancelled preload must never surface. */
@@ -79,7 +79,7 @@ export function preloadNodeRoute(
  * Bring a newly-created node into view.
  *
  * Layout places a new node wherever dagre decides, which is frequently outside
- * the current viewport — so creating a resource appeared to do nothing at all:
+ * the current viewport, so creating a resource appeared to do nothing at all:
  * the card existed, just off-screen, with no cue about where. `fitView` only
  * ran on mount and on panel close, never on a node appearing.
  *
@@ -92,8 +92,8 @@ export function useRevealNewNodes(
   fitView: ReturnType<typeof useReactFlow>["fitView"],
   getViewport: ReturnType<typeof useReactFlow>["getViewport"],
 ): void {
-  // Undefined until the first pass, so the initial load — which `fitView`
-  // already frames — isn't mistaken for a burst of new nodes.
+  // Undefined until the first pass, so the initial load, which `fitView`
+  // already frames: isn't mistaken for a burst of new nodes.
   const seen = useRef<Set<string> | undefined>(undefined);
   useEffect(() => {
     const ids = new Set(nodes.map((n) => n.id));
@@ -112,7 +112,7 @@ function isNodeOnScreen(node: Node, viewport: { x: number; y: number; zoom: numb
   const wrapper = document.querySelector(".react-flow");
   const width = wrapper?.clientWidth ?? 0;
   const height = wrapper?.clientHeight ?? 0;
-  // Can't measure the canvas — assume off-screen so we reveal rather than
+  // Can't measure the canvas. Assume off-screen so we reveal rather than
   // silently leave the node somewhere the user can't find.
   if (!width || !height) return false;
   const w = node.measured?.width ?? CARD_W;
@@ -124,7 +124,7 @@ function isNodeOnScreen(node: Node, viewport: { x: number; y: number; zoom: numb
   );
 }
 
-/** Whether a right-hand detail panel (resource or preview) is open — and, on the
+/** Whether a right-hand detail panel (resource or preview) is open, and, on the
  *  open→closed transition, refit the whole graph into view so the user gets the
  *  wide overview instead of staying parked on the previously-focused node. */
 export function useDetailPanelRefit(

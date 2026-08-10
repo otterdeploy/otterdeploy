@@ -1,6 +1,6 @@
 /**
  * Upload a trusted CA certificate. Server-side validation requires an actual
- * CA (basicConstraints CA:TRUE) — server certs are pointed at "Upload custom"
+ * CA (basicConstraints CA:TRUE): server certs are pointed at "Upload custom"
  * instead. No private key is accepted here, ever.
  */
 import { useForm } from "@tanstack/react-form";
@@ -62,7 +62,7 @@ export function UploadCaDialog({
         <DialogHeader>
           <DialogTitle>{t("certificates.uploadCa")}</DialogTitle>
           <DialogDescription>
-            Stored as inventory — view and download the PEM from the table. Only a CA certificate
+            Stored as inventory. View and download the PEM from the table. Only a CA certificate
             (basicConstraints CA:TRUE) is accepted; no private key is ever uploaded here.
           </DialogDescription>
         </DialogHeader>

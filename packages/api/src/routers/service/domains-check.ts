@@ -1,5 +1,5 @@
 /**
- * Reads and port arithmetic for service domains — listing a service's hosts,
+ * Reads and port arithmetic for service domains. Listing a service's hosts,
  * and the questions the add/edit form asks before it commits to anything.
  *
  * Split out of ./domains.ts, which owns the writes. Nothing here mutates:
@@ -31,7 +31,7 @@ export type DomainAvailability = "ok" | "invalid" | "reserved" | "taken";
 
 /**
  * Which container port a host proxies to. Omitting the choice means "the
- * primary HTTP port" — the single-port case, and what every pre-port-picker
+ * primary HTTP port": the single-port case, and what every pre-port-picker
  * caller expects. An explicit port must be one the service actually
  * publishes: routing a domain at a port nothing listens on is a 502 with
  * extra steps, so it's refused rather than quietly rewritten.
@@ -54,12 +54,12 @@ export function resolveUpstreamPort(
 /**
  * Does DNS already prove this name is the operator's?
  *
- * `pointed` means the host resolves to THIS server's IP — only whoever
+ * `pointed` means the host resolves to THIS server's IP. Only whoever
  * controls the zone can publish that record, which is the same evidence
  * ACME's HTTP-01 challenge accepts. Those hosts go live on add, with no
  * second step. `proxied` does not qualify: a Cloudflare edge address is
  * shared by millions of zones, so resolving into one says nothing about who
- * owns the name — those keep the TXT ownership gate.
+ * owns the name. Those keep the TXT ownership gate.
  */
 export { provenByDns } from "./domain-rules";
 

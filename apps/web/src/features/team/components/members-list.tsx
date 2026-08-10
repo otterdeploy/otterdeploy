@@ -1,7 +1,7 @@
 /**
  * Current organization members. Owners/admins can remove others; the row
  * for the signed-in user is marked "You" and never removable. Last-owner
- * protection is enforced server-side by better-auth — we surface any error.
+ * protection is enforced server-side by better-auth. We surface any error.
  *
  * Reads/mutates `membersCollection` directly: removal is an optimistic
  * `collection.delete`, with rollback/toast off the transaction's
@@ -27,7 +27,7 @@ import {
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
 /** Roles an admin/owner can assign to a member from the list. Owners are not
- *  offered here — transferring ownership is a separate, deliberate action. */
+ *  offered here, transferring ownership is a separate, deliberate action. */
 const ROLE_OPTIONS = [
   { value: "member", label: "Member" },
   { value: "admin", label: "Admin" },

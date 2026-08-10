@@ -12,13 +12,13 @@ const organizationId = "org_1" as OrganizationId;
 const worker = "srv_worker" as ServerId;
 
 /**
- * Both branch transports reach the database from the control plane's own host —
+ * Both branch transports reach the database from the control plane's own host.
  * `docker exec` over the local socket, and `runOnHost` nsentering PID 1. On
  * Swarm a database can be scheduled anywhere, so an unpinned or worker-pinned
  * database with branching enabled is a configuration that cannot work.
  *
  * SCOPE: these cover the two short-circuits that decide whether the rule
- * applies at all — they are the branches that run on every apply. Comparing a
+ * applies at all. They are the branches that run on every apply. Comparing a
  * pin against the control-plane row needs a real `server` table and belongs in
  * the integration suite; asserting it here would mean stubbing the module under
  * test against itself, which proves nothing.

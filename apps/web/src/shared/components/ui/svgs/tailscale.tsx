@@ -2,7 +2,7 @@ import type { SVGProps } from "react";
 
 /**
  * Tailscale mark (Simple Icons path). Monochrome, so it inherits the text
- * color and stays legible on both canvases — the brand color would read as an
+ * color and stays legible on both canvases. The brand color would read as an
  * accent here, and the accent is spoken for (see DESIGN.md).
  */
 const Tailscale = (props: SVGProps<SVGSVGElement>) => (

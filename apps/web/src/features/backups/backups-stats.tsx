@@ -24,7 +24,7 @@ export function BackupsStats({
       <Stat label="Stored size" value={fmtBytes(storedBytes)} sub="across all destinations" />
       <Stat
         label="Last successful"
-        value={lastSuccess ? "✓" : "—"}
+        value={lastSuccess ? "✓" : "–"}
         sub={lastSuccess?.source ?? "no successful backup"}
       />
       <Stat

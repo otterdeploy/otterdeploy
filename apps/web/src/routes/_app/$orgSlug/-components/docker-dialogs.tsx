@@ -1,7 +1,7 @@
 /**
  * Shared dialogs for the Docker raw page's row actions: redacted inspect,
  * a bounded container-log tail, and a styled destructive confirm (never
- * window.confirm — the consequence copy is the point).
+ * window.confirm: the consequence copy is the point).
  */
 import { Copy01Icon, RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -225,7 +225,7 @@ export function ConfirmRemoveDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
   title: string;
-  /** Consequence copy — say what breaks, not just "are you sure". */
+  /** Consequence copy: say what breaks, not just "are you sure". */
   description: React.ReactNode;
   confirmLabel: string;
   pending: boolean;

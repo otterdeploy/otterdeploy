@@ -1,7 +1,7 @@
 /**
  * The `createServiceRecord` input shape + its `serviceResource` column-group
  * mappers. Split out of service.ts so the insert transaction stays under the
- * complexity/line caps — each group folds the `?? default` choreography away
+ * complexity/line caps: each group folds the `?? default` choreography away
  * from the orchestration.
  */
 import type { BuildConfig } from "@otterdeploy/shared/build-config";
@@ -22,7 +22,7 @@ export interface CreateServiceInput {
   /** When source = "git", path within the repo handed to nixpacks. */
   sourceSubdir?: string | null;
   /** Per-service git binding (git source only). Repo + branch this service
-   *  builds from — its own, not the project's. Resolved from the manifest's
+   *  builds from. Its own, not the project's. Resolved from the manifest's
    *  portable `owner/repo` upstream. Null when unbound. */
   gitRepoId?: GitRepoId | null;
   branch?: string | null;
@@ -72,7 +72,7 @@ export interface CreateServiceInput {
     isPrimary?: boolean;
   }>;
 
-  /** `isSecret` is a display flag (values travel in plaintext either way) —
+  /** `isSecret` is a display flag (values travel in plaintext either way),
    *  but an unset one means the UI shows a password in the clear. */
   env?: Array<{ key: string; value: string; isSecret?: boolean }>;
 }

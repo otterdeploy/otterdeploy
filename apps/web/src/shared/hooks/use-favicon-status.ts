@@ -2,7 +2,7 @@
  * Drives the browser-tab favicon from the app status rollup.
  *
  * Mounted once, at the app shell. Everything it shows comes from
- * `reportAppStatus` callers — this hook only adds the one thing a pure rollup
+ * `reportAppStatus` callers: this hook only adds the one thing a pure rollup
  * cannot express: the moment a deploy *finishes*. Live task states go straight
  * from "building" to "running", which rolls up to idle; without an edge
  * detector the tab would snap from spinning to blank and the operator would
@@ -29,7 +29,7 @@ export function useFaviconStatus(): MarkStatus {
     previous.current = rolled;
 
     // A deploy that lands cleanly earns a brief green tick. One that lands on
-    // an error or a warning does not — that state is the news, and overwriting
+    // an error or a warning does not. That state is the news, and overwriting
     // it with a tick would be a lie.
     if (wasDeploying && rolled === "idle") {
       setDisplayed("success");

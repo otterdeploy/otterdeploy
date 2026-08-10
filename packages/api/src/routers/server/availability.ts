@@ -2,8 +2,8 @@
  * `docker node update --availability <active|drain|pause>` for a registered
  * server. The server table doesn't store swarm node ids (see stats.ts), so
  * the node is resolved by matching the swarm node's Description.Hostname
- * against the row's `hostname` (OS hostname) or `name` (friendly label) —
- * the same join the stats aggregation uses.
+ * against the row's `hostname` (OS hostname) or `name` (friendly label).
+ * The same join the stats aggregation uses.
  *
  * Honesty rules:
  *   - Plain-docker runtime has no scheduler to drain → typed refusal, the UI
@@ -85,7 +85,7 @@ export async function setServerAvailability(
     docker.destroy();
   }
 
-  // Docker confirmed — mirror the availability onto the row so list/get agree.
+  // Docker confirmed: mirror the availability onto the row so list/get agree.
   const updated = await updateServerAvailabilityRecord({
     serverId: input.id,
     organizationId: input.organizationId,

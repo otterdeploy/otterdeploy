@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
  * `system.progress` event-iterator into the shared log viewer, renders the
  * update phases as a stepper, and offers a reset for a stuck run. On a real
  * cutover the server is replaced mid-update, so this also polls /api/health
- * until the NEW container answers with the target version, then hard-reloads —
+ * until the NEW container answers with the target version, then hard-reloads,
  * or, if the persisted run turns `failed` (the helper died without cutting
  * over), stops waiting and surfaces the error. Presentational pieces live in
  * ./update-progress-parts to keep this file within budget.
@@ -47,7 +47,7 @@ export function UpdateProgress({
         // Dry-run completes in one pass, so no retry.
         { signal, context: { retry: dryRun ? 0 : Number.POSITIVE_INFINITY } },
       ),
-    // Track the phase as lines flow — this runs in the stream loop, not an
+    // Track the phase as lines flow. This runs in the stream loop, not an
     // effect, so the setState is fine and keeps the stepper current.
     map: (e, id): LogLine => {
       setPhase(e.phase);

@@ -18,7 +18,7 @@ interface ClientOptions {
  *
  * Sits at the transport rather than in each command: there is no call path that
  * can skip it, so `otd anything` learns the server's generation for free from
- * the request it was already making. Failures are none of its business — a
+ * the request it was already making. Failures are none of its business. A
  * rejected promise passes straight through to the error boundary.
  */
 function observingFetch(inner: typeof fetch): typeof fetch {

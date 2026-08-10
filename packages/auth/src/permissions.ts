@@ -2,7 +2,7 @@
  * Organization access control (RBAC).
  *
  * Built on better-auth's access-control primitives so role resolution and
- * permission checks go through `auth.api.hasPermission` — no hand-rolled
+ * permission checks go through `auth.api.hasPermission`, no hand-rolled
  * `member`-table lookups scattered across handlers. Statements below extend
  * better-auth's org defaults (organization/member/invitation/team/ac) with
  * otterdeploy's own resources.
@@ -12,8 +12,8 @@
  *   - admin  : manage everything except deleting the org
  *   - member : full mutation of the app + infra resource surface (create/update/
  *              delete/deploy projects, services, databases, environments,
- *              servers, registries, routes) — RBAC-governed so it can be
- *              tightened with a custom role — but NO org/member administration
+ *              servers, registries, routes): RBAC-governed so it can be
+ *              tightened with a custom role, but NO org/member administration
  *              and no data-plane writes (database `write`) or key minting.
  */
 import { createAccessControl } from "better-auth/plugins/access";
@@ -37,7 +37,7 @@ export const statements = {
   database: ["create", "read", "update", "delete", "query", "write"],
   backup: ["create", "read", "update", "delete", "run", "restore"],
   route: ["create", "read", "update", "delete"],
-  // `env` covers both environments (the entity — create/delete) and their
+  // `env` covers both environments (the entity, create/delete) and their
   // variables (read/update). Members manage env + vars; only admins/owners
   // delete a whole environment.
   env: ["create", "read", "update", "delete"],
@@ -55,11 +55,11 @@ export const statements = {
   // Org-scoped SSH keys (Git deploy keys + node management). Generated/imported
   // via the sshKeys oRPC router; gated on these actions there.
   sshKey: ["create", "read", "update", "delete"],
-  // TLS certificates at the edge — custom cert upload/replace/delete + the
+  // TLS certificates at the edge: custom cert upload/replace/delete + the
   // trusted-CA inventory (certificates oRPC router). Private keys are
   // secret-bearing infra material, so mutation stays admin/owner like sshKey.
   certificate: ["create", "read", "update", "delete"],
-  // Private networking — the org's connected VPN account (NetBird/Tailscale).
+  // Private networking: the org's connected VPN account (NetBird/Tailscale).
   // The stored credential grants API control of the org's ENTIRE mesh (mint
   // keys, write access policy, delete peers), so connect/disconnect stays
   // admin/owner like sshKey and certificate. `read` is what the service
@@ -77,7 +77,7 @@ export const statements = {
 
 export const ac = createAccessControl(statements);
 
-/** Full app + infra resource mutation (the pre-RBAC default — members could do
+/** Full app + infra resource mutation (the pre-RBAC default, members could do
  *  all of this before it was enforced). Excludes org/member administration,
  *  data-plane writes (`database:write`), and key minting. Tighten via a custom
  *  role if you want a more restricted member. */
@@ -96,7 +96,7 @@ export const member = ac.newRole({
   notificationChannel: ["create", "read", "update", "test"],
   // Members can see the workspace's keys but not mint or revoke them.
   apiKey: ["read"],
-  // SSH keys: same posture — read-only for members.
+  // SSH keys: same posture: read-only for members.
   sshKey: ["read"],
   // Certificates: members can inspect the inventory, not touch key material.
   certificate: ["read"],

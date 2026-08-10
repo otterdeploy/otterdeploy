@@ -1,14 +1,14 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 // The write-back helpers mint a real App JWT (crypto.subtle) before hitting the
-// network, so the config loader must return a genuine PKCS8 key — generated
+// network, so the config loader must return a genuine PKCS8 key. Generated
 // once below. Only the HTTP layer (egressFetch, via ghFetch) is mocked,
 // exercising URL/method/body.
 vi.mock("./github-app-config", () => ({
   loadGithubAppForInstallation: vi.fn(),
 }));
 // github-app.ts's `ghFetch` wrapper routes every request through the shared
-// egress policy (SSRF hardening) — stub both the network call and the
+// egress policy (SSRF hardening): stub both the network call and the
 // control-plane-identity denylist lookup (a DB read) so this stays a pure
 // unit test.
 vi.mock("@otterdeploy/shared/egress-policy", () => ({

@@ -2,7 +2,7 @@
  * Public surface for the resource-detail panels (rendered inside the
  * /graph/$resourceId layout shell).
  *
- * Layout: each resource type owns a folder — `postgres/`, `service/` —
+ * Layout: each resource type owns a folder (`postgres/`, `service/`)
  * holding its `panel.tsx` plus a `tabs/` subtree. Cross-panel helpers
  * (atoms, settings cards, the variables editor, terminal, tasks, shared
  * prop types) live in `_shared/`.

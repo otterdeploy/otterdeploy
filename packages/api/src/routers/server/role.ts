@@ -1,5 +1,5 @@
 /**
- * `docker node promote` / `docker node demote` for a registered server —
+ * `docker node promote` / `docker node demote` for a registered server:
  * the same node-match + full-NodeSpec-update pattern as availability.ts
  * (the role flip carries availability/labels over; see buildRoleUpdate).
  *
@@ -104,7 +104,7 @@ export async function setServerRole(
     docker.destroy();
   }
 
-  // Docker confirmed — mirror the role onto the row so list/get agree.
+  // Docker confirmed: mirror the role onto the row so list/get agree.
   const updated = await updateServerRoleRecord({
     serverId: input.id,
     organizationId: input.organizationId,

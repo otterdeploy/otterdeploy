@@ -1,5 +1,5 @@
 /**
- * Per-server health read — latest server_health_sample rows for the org
+ * Per-server health read. Latest server_health_sample rows for the org
  * (written by the local 60s sampler + remote health agents; see
  * docs/designs/server-health-agent.md). Payloads are re-validated against the
  * current HostHealth contract shape here: a sample written by a skewed agent

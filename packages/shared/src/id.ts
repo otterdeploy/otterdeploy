@@ -17,7 +17,7 @@ import { createId as cuid } from "@paralleldrive/cuid2";
 import * as z from "zod";
 
 // ---------------------------------------------------------------------------
-// Prefix registry — add new prefixes here as tables are created
+// Prefix registry: add new prefixes here as tables are created
 // ---------------------------------------------------------------------------
 
 export const ID_PREFIX = {
@@ -30,7 +30,7 @@ export const ID_PREFIX = {
   organization: "org",
   member: "mbr",
   invitation: "inv",
-  // api keys (better-auth apiKey plugin — table name is `apikey`)
+  // api keys (better-auth apiKey plugin, table name is `apikey`)
   apiKey: "ak",
   project: "prj",
   resource: "res",
@@ -68,23 +68,23 @@ export const ID_PREFIX = {
   notificationChannel: "ntfc",
   notificationSubscription: "ntfs",
   notificationDelivery: "ntfd",
-  // firewall — managed IP blocklists synced into CrowdSec
+  // firewall, managed IP blocklists synced into CrowdSec
   blocklist: "blk",
-  // SSH keys — org-scoped keypairs for Git auth + node management
+  // SSH keys: org-scoped keypairs for Git auth + node management
   sshKey: "ssh",
-  // TLS — operator-uploaded custom certificates + trusted CA inventory
+  // TLS: operator-uploaded custom certificates + trusted CA inventory
   customCertificate: "cert",
   trustedCa: "ca",
-  // ephemeral database credentials — short-lived, auto-disposed DB roles
+  // ephemeral database credentials: short-lived, auto-disposed DB roles
   databaseEphemeralCredential: "dbeph",
-  // webhooks — outbound event subscriptions + delivery log + inbound trigger
+  // webhooks: outbound event subscriptions + delivery log + inbound trigger
   // endpoints
   webhook: "wh",
   webhookDelivery: "whd",
   inboundEndpoint: "inhk",
   // orphaned remote resources awaiting GC (teardown couldn't reach the daemon)
   orphanedResource: "orph",
-  // private networking — the org's connected VPN/mesh account (NetBird,
+  // private networking: the org's connected VPN/mesh account (NetBird,
   // Tailscale). One row per org. Design: docs/designs/vpn-mesh.md
   meshNetwork: "mesh",
 } as const;
@@ -101,7 +101,7 @@ export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
  *
  *  - Docker labels (`otterdeploy.resource.id`), fixed at container creation and
  *    only replaced when the container is recreated.
- *  - IDs inside stored JSON — deployment snapshots, audit payloads, manifests.
+ *  - IDs inside stored JSON. Deployment snapshots, audit payloads, manifests.
  *  - Bookmarked URLs and already-open browser tabs.
  *
  * `zId` translates those to the current spelling via `canonicalId` on the way
@@ -158,7 +158,7 @@ function legacyFor(prefix: IdPrefix): string | null {
  * Uses a plain property-name brand (`__brand`) rather than a `unique symbol`.
  * A unique-symbol brand trips TS4023/TS4058 ("cannot be named '__brand'") the
  * moment a consumer emits a type that references `Id<P>` (e.g. an oRPC
- * router's inferred output) — the emitted declaration has to name a symbol it
+ * router's inferred output). The emitted declaration has to name a symbol it
  * isn't allowed to see, so the branded input/output types stop lining up and
  * callers are forced to launder plain strings through `as never`. A plain
  * property name is always nameable across module boundaries, so it survives
@@ -248,7 +248,7 @@ export function zId<P extends IdPrefix>(
   prefix: P,
 ): z.ZodPipe<z.ZodString, z.ZodTransform<Id<P>, string>> {
   const legacy = legacyFor(prefix);
-  // Accept the pre-shortening spelling too — see LEGACY_ID_PREFIX. Anchored and
+  // Accept the pre-shortening spelling too. See LEGACY_ID_PREFIX. Anchored and
   // built from a fixed table, never from user input, so there is nothing to
   // escape.
   const pattern = legacy ? `^(?:${prefix}|${legacy})_` : `^${prefix}_`;
@@ -272,7 +272,7 @@ type IdSchemaMap = {
 };
 
 /**
- * Branded-ID validators keyed by entity name — the ergonomic entry point for
+ * Branded-ID validators keyed by entity name: the ergonomic entry point for
  * branding an untrusted string at a boundary (route `validateSearch`/`params`,
  * a form field, a raw query param). `string` in, `Id<P>` out.
  *
@@ -306,13 +306,13 @@ export type Slug<P extends string = string> = string & {
 /**
  * Zod validator that normalizes any string into a slug (lowercase, trimmed,
  * dashes only) and brands it for the given entity kind. The runtime check is
- * `.slugify().min(2).max(48)` — the brand is compile-time only.
+ * `.slugify().min(2).max(48)`: the brand is compile-time only.
  *
  * @example
  *   z.object({ slug: zSlug("project") })
  */
 export function zSlug<P extends string>(brand: P) {
-  // The `brand` arg is type-only at runtime — it just narrows the resulting
+  // The `brand` arg is type-only at runtime, it just narrows the resulting
   // Slug<P> generic so TS distinguishes Slug<"project"> from Slug<"env">.
   void brand;
   return z
@@ -324,7 +324,7 @@ export function zSlug<P extends string>(brand: P) {
 }
 
 // ---------------------------------------------------------------------------
-// Named brand aliases — one per ID_PREFIX entry, plus slug variants where
+// Named brand aliases: one per ID_PREFIX entry, plus slug variants where
 // they exist. Consumers should prefer these (`ProjectId`) over the verbose
 // inline `Id<typeof ID_PREFIX.project>` form. The generic primitives above
 // are still exported for cases where the prefix is dynamic (rare).
@@ -390,7 +390,7 @@ export type InboundEndpointId = Id<typeof ID_PREFIX.inboundEndpoint>;
 
 export type OrphanedResourceId = Id<typeof ID_PREFIX.orphanedResource>;
 
-// Private networking (NetBird / Tailscale) — docs/designs/vpn-mesh.md
+// Private networking (NetBird / Tailscale): docs/designs/vpn-mesh.md
 export type MeshNetworkId = Id<typeof ID_PREFIX.meshNetwork>;
 
 // Notification channels
@@ -401,5 +401,5 @@ export type NotificationDeliveryId = Id<typeof ID_PREFIX.notificationDelivery>;
 // Slugs (URL-safe identifiers, distinct from cuid IDs)
 export type ProjectSlug = Slug<typeof ID_PREFIX.project>;
 export type EnvironmentSlug = Slug<typeof ID_PREFIX.environment>;
-// Back-compat alias — pre-existing callsites import `EnvSlug`.
+// Back-compat alias: pre-existing callsites import `EnvSlug`.
 export type EnvSlug = EnvironmentSlug;

@@ -1,9 +1,9 @@
 // Install-wide platform health: job-queue backlog + deploy throughput.
 // Backed by metrics.platform (BullMQ snapshot/series + a deployment-table
-// rollup). API latency/error-rate are intentionally absent — they live in
+// rollup). API latency/error-rate are intentionally absent. They live in
 // evlog wide events with no queryable aggregation store yet.
 //
-// Moved here from the standalone Platform page (od-u63.4) — content/queries
+// Moved here from the standalone Platform page (od-u63.4). Content/queries
 // are unchanged, only the chrome around it (now a Servers tab instead of a
 // page) moved. See routes/_app/$orgSlug/_shell/platform.tsx for the redirect
 // shim that keeps old links working.

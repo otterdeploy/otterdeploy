@@ -6,7 +6,7 @@
 // Why snapshot, not auto-discover new resources: a single subscription that
 // outlives resource creation would mean reconciling docker subscriptions
 // while the iterator is in flight. The /logs page can reconnect on resource
-// changes from the live resource collection instead — much simpler, and the
+// changes from the live resource collection instead. Much simpler, and the
 // gap is bounded to one reconnect.
 import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
@@ -56,7 +56,7 @@ async function resolveTargets(
 
   const wanted = resourceIds ? new Set<string>(resourceIds) : null;
 
-  // Databases only stream when explicitly named in the filter — the default
+  // Databases only stream when explicitly named in the filter: the default
   // project-wide view shows services only, since postgres has its own log
   // surface on the resource detail panel and operators usually don't want
   // engine startup chatter mixed in with app logs.
@@ -221,7 +221,7 @@ export async function* tailProjectLogs(
   }
 
   // Pumped events live in queue; the outer generator wakes up via `notify`
-  // and drains. No bound — backpressure flows from the client through the
+  // and drains. No bound, backpressure flows from the client through the
   // orpc event-iterator transport.
   const queue: ProjectLogEvent[] = [];
   let notify: (() => void) | null = null;

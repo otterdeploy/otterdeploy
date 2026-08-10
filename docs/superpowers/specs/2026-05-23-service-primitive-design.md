@@ -1,4 +1,4 @@
-# Service Primitive — Design Spec
+# Service Primitive: Design Spec
 
 **Date:** 2026-05-23
 **Owner:** Jefferson
@@ -32,32 +32,32 @@ Out of scope (follow-ups):
 ## 2. Architecture
 
 The Service primitive extends the existing `resource` taxonomy
-(`resource.type ∈ {'database','service'}` — `'service'` is already in the
+(`resource.type ∈ {'database','service'}`, `'service'` is already in the
 enum, unused). Same shape as the Postgres flow: a generic `resource` row, a
 typed sidecar, child tables, and a Swarm provisioner that materializes the
 resource on the host.
 
 Packages touched:
 
-- `packages/db/src/schema/project.ts` — add `service_resource`,
+- `packages/db/src/schema/project.ts`: add `service_resource`,
   `service_port`, `service_env_var` tables.
-- `packages/shared/src/id.ts` — add `servicePort`, `serviceEnvVar`
+- `packages/shared/src/id.ts`: add `servicePort`, `serviceEnvVar`
   prefixes.
-- `packages/api/src/constants.ts` — add `PLATFORM.service` with
+- `packages/api/src/constants.ts`: add `PLATFORM.service` with
   `publicBaseDomain`.
-- `packages/api/src/lib/queries/service.ts` — **new**, all Drizzle calls
+- `packages/api/src/lib/queries/service.ts`: **new**, all Drizzle calls
   for the service primitive (per project rule: queries live in
   `packages/api`, not `packages/db`).
-- `packages/api/src/lib/variables/` — **new** module: exporter registry,
+- `packages/api/src/lib/variables/`: **new** module: exporter registry,
   parser, resolver, dependency graph, cycle detection.
-- `packages/api/src/swarm/service.ts` — **new** provisioner mirroring
+- `packages/api/src/swarm/service.ts`: **new** provisioner mirroring
   `swarm/postgres.ts`.
-- `packages/api/src/routers/service/` — **new** router:
+- `packages/api/src/routers/service/`: **new** router:
   `contract.ts`, `index.ts`, `handlers.ts` (named `handlers` to avoid
   collision with the resource-type name).
-- `packages/api/src/routers/index.ts` — register `service` in
+- `packages/api/src/routers/index.ts`: register `service` in
   `appRouter`.
-- `packages/api/src/routers/project/service.ts` — add a Postgres-side
+- `packages/api/src/routers/project/service.ts`: add a Postgres-side
   `getExportedVariables` adapter consumed by the resolver.
 
 Existing Caddy reconciler is reused unchanged: `expose()` writes a
@@ -99,8 +99,8 @@ Unique indexes: `service_resource_service_name_unique`,
 `service_resource_internal_hostname_unique`,
 `service_resource_public_domain_unique` (partial, where not null).
 
-Runtime status is read live from Docker by `inspectSwarmServiceRuntime`
-— not persisted. Mirrors the Postgres pattern.
+Runtime status is read live from Docker by `inspectSwarmServiceRuntime`,
+not persisted. Mirrors the Postgres pattern.
 
 ### `service_port` (1:N child)
 
@@ -134,16 +134,16 @@ Constraint: `unique (serviceResourceId, key)`
 
 ### Existing tables
 
-- `resource` — reused unchanged. `service` rows start `status='draft'`,
+- `resource`: reused unchanged. `service` rows start `status='draft'`,
   flip to `'valid'` after first successful Swarm create.
-- `proxy_route` — unchanged. `expose()` inserts a row of `type='http'`.
-- Postgres `database_resource` — no schema change. Its exporter
+- `proxy_route`: unchanged. `expose()` inserts a row of `type='http'`.
+- Postgres `database_resource`, no schema change. Its exporter
   computes variables from existing columns.
 
 ### Migration
 
 Single Drizzle migration: `add_service_resource.sql`. No data
-backfill needed — `service` resources don't exist yet.
+backfill needed: `service` resources don't exist yet.
 
 ## 4. Variable References & Resolver
 
@@ -173,7 +173,7 @@ const exporters: Record<ResourceType, Exporter> = {
 };
 ```
 
-**Postgres exporter** (`database` type, `engine='postgres'`) — computed
+**Postgres exporter** (`database` type, `engine='postgres'`), computed
 from `database_resource` columns:
 
 | Var                | Source                                    |
@@ -185,7 +185,7 @@ from `database_resource` columns:
 | `PGPASSWORD`       | `password`                                |
 | `PGDATABASE`       | `databaseName`                            |
 
-**Service exporter** — for service-to-service references:
+**Service exporter**: for service-to-service references:
 
 | Var                 | Source                                            |
 | ------------------- | ------------------------------------------------- |
@@ -229,14 +229,14 @@ findDependents(
 ```
 
 Implementation: SQL scan of `service_env_var.value LIKE '%${{<name>.%'`
-within the project. No materialized graph in v1 — re-scan on each
+within the project. No materialized graph in v1: re-scan on each
 upstream change. Optimization candidate if it gets hot.
 
 ### Auto-Redeploy Fan-Out
 
 Triggered from any mutation that changes an exporter's output:
 
-- Postgres password rotation (currently not exposed — future-proofing)
+- Postgres password rotation (currently not exposed: future-proofing)
 - Postgres resource deletion → block with `IN_USE` if dependents exist
 - Service env var update → redeploy this service AND its dependents
 - Service rename → re-resolve dependents' refs
@@ -317,14 +317,14 @@ envVarSchema = z.object({
 | ------ | ------------------------------------------------------------- | ----- |
 | GET    | `/projects/{projectId}/services`                              | list  |
 | GET    | `/projects/{projectId}/services/{resourceId}`                 | get   |
-| POST   | `/projects/{projectId}/services`                              | create — name, image, ports[], env, replicas, restart, healthcheck, resources |
-| PATCH  | `/projects/{projectId}/services/{resourceId}`                 | update — any partial of create input, triggers `updateSwarmService` |
+| POST   | `/projects/{projectId}/services`                              | create, name, image, ports[], env, replicas, restart, healthcheck, resources |
+| PATCH  | `/projects/{projectId}/services/{resourceId}`                 | update. Any partial of create input, triggers `updateSwarmService` |
 | DELETE | `/projects/{projectId}/services/{resourceId}`                 | delete; rejects with `IN_USE` if other services reference this one |
 | POST   | `/projects/{projectId}/services/{resourceId}/restart`         | force task replacement (bumps `forceUpdateCounter`) |
 | POST   | `/projects/{projectId}/services/{resourceId}/expose`          | flip `publicEnabled=true`, create proxy_route, reconcile Caddy |
 | POST   | `/projects/{projectId}/services/{resourceId}/unexpose`        | flip false, delete proxy_route, reconcile |
 | GET    | `/projects/{projectId}/services/{resourceId}/env`             | env list |
-| PUT    | `/projects/{projectId}/services/{resourceId}/env/{key}`       | env set — also triggers redeploy of this service and its dependents |
+| PUT    | `/projects/{projectId}/services/{resourceId}/env/{key}`       | env set, also triggers redeploy of this service and its dependents |
 | POST   | `/projects/{projectId}/services/{resourceId}/env`             | env bulk-replace |
 | DELETE | `/projects/{projectId}/services/{resourceId}/env/{key}`       | env unset |
 
@@ -343,7 +343,7 @@ envVarSchema = z.object({
 
 ## 6. Swarm Provisioner
 
-`packages/api/src/swarm/service.ts` — same shape as `swarm/postgres.ts`:
+`packages/api/src/swarm/service.ts`: same shape as `swarm/postgres.ts`:
 
 ```ts
 provisionSwarmService(input): Promise<SwarmServiceRuntime>
@@ -431,15 +431,15 @@ Docker service create spec (built from `service_resource` row + resolved env):
 
 HTTP ports are reached via the internal alias + Caddy, **not** via
 published Swarm ports. Only non-HTTP `appProtocol='tcp'` ports get a
-`PublishMode: "ingress"` entry — primary HTTP traffic flows
+`PublishMode: "ingress"` entry, primary HTTP traffic flows
 client → Caddy → Swarm overlay → service.
 
 Update path uses Docker's service update endpoint with the new spec.
 Restart bumps `forceUpdateCounter` and calls update with no other
-changes — Swarm's `ForceUpdate` triggers task replacement.
+changes: Swarm's `ForceUpdate` triggers task replacement.
 
 Error handling: all Docker calls return `Result<T, E>` from
-`@otterdeploy/docker`. Use `.isErr()` / `.isOk()` — **never** `.unwrap()`.
+`@otterdeploy/docker`. Use `.isErr()` / `.isOk()`, **never** `.unwrap()`.
 On failure during `provisionSwarmService`, mark the `resource.status`
 `'invalid'` and bubble the error. Retry on next `update` is idempotent
 (re-uses existing service by `serviceName`).
@@ -489,7 +489,7 @@ service: {
 
 | Case | Behavior |
 | ---- | -------- |
-| Create with duplicate name in project | `CONFLICT` (unique by `(projectId, name)` on `resource` table — add unique index if missing) |
+| Create with duplicate name in project | `CONFLICT` (unique by `(projectId, name)` on `resource` table, add unique index if missing) |
 | Get unknown service | `NOT_FOUND` |
 | Swarm create fails partway | Mark `resource.status='invalid'`, return error. Retry on `update` is idempotent (`provisionSwarmService` early-returns if `serviceName` exists). |
 | Update collides with in-flight update (Docker `Spec.version` mismatch) | Re-fetch service, retry once; bubble after second failure. |
@@ -497,7 +497,7 @@ service: {
 | Reference cycle | `REF_CYCLE` with the chain in `cause` |
 | Delete service referenced by another | `IN_USE` listing referrers; no force flag in v1 |
 | Expose without HTTP port | `NO_HTTP_PORT` |
-| Replica = 0 update | Allowed — treated as "stopped"; runtime `status='stopped'` once tasks drain |
+| Replica = 0 update | Allowed: treated as "stopped"; runtime `status='stopped'` once tasks drain |
 | Image not pullable | Swarm reports task failure; runtime `status='error'`, `health='unhealthy'`; surface in get/list response |
 | Restart on a `status='draft'` service (never successfully provisioned) | Promote to first-time provision (idempotent path) |
 | Postgres password rotation | Future-proofed via auto-redeploy of dependents; no rotation API today |
@@ -506,15 +506,15 @@ service: {
 
 ### Unit
 
-- `lib/variables/parser.test.ts` — token extraction, escapes, malformed refs
-- `lib/variables/resolver.test.ts` — single-hop, multi-hop, missing ref, cycle
-- `lib/variables/graph.test.ts` — dependents lookup
-- `lib/variables/exporters.test.ts` — Postgres exporter shape, service exporter shape
-- `lib/queries/service.test.ts` — CRUD against test Postgres (Testcontainers pattern from `caddy/__tests__/`)
+- `lib/variables/parser.test.ts`: token extraction, escapes, malformed refs
+- `lib/variables/resolver.test.ts`: single-hop, multi-hop, missing ref, cycle
+- `lib/variables/graph.test.ts`: dependents lookup
+- `lib/variables/exporters.test.ts`: Postgres exporter shape, service exporter shape
+- `lib/queries/service.test.ts`: CRUD against test Postgres (Testcontainers pattern from `caddy/__tests__/`)
 
 ### Integration
 
-- `swarm/__tests__/service.test.ts` — provision/update/restart/destroy against a real Docker Swarm (uses same test infra as `swarm/__tests__/postgres.test.ts`)
+- `swarm/__tests__/service.test.ts`: provision/update/restart/destroy against a real Docker Swarm (uses same test infra as `swarm/__tests__/postgres.test.ts`)
 - End-to-end: create project → create Postgres → create service with `DATABASE_URL=${{db.DATABASE_URL}}` → expose → curl auto subdomain → assert running
 - Ref-change fan-out: create two services where B references A; update A; assert B's task gets replaced
 
@@ -528,15 +528,15 @@ service: {
 
 ## 10. Open Questions / Future Work
 
-- **Image pull secrets** — private registries need credentials. v1
+- **Image pull secrets**: private registries need credentials. v1
   assumes public images. Add `registry_credential` table later.
-- **Cert provisioning** — Caddy auto-handles via ACME; ensure
+- **Cert provisioning**: Caddy auto-handles via ACME; ensure
   `apps.otterdeploy.dev` wildcard DNS is configured. (Out of band.)
-- **Project rename** — would change subdomain. Defer; project rename
+- **Project rename**: would change subdomain. Defer; project rename
   isn't supported today.
-- **Deployment history** — every `update` is a "deployment". Adding a
+- **Deployment history**: every `update` is a "deployment". Adding a
   `deployment` table later gives rollback. Not in v1.
-- **Resolver caching** — currently re-scans env vars on every redeploy.
+- **Resolver caching**: currently re-scans env vars on every redeploy.
   Cheap at small scale; revisit when projects have >100 services.
-- **Concurrent updates** — two simultaneous updates serialized via
+- **Concurrent updates**: two simultaneous updates serialized via
   Docker's `Spec.version`. No explicit otterdeploy-side lock in v1.

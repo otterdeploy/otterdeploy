@@ -16,7 +16,7 @@ export interface ResourceWizardProps {
   projectSlug: ProjectSlug;
   projectId: ProjectId;
   projectName: string;
-  /** Seed for the `repo` form field — the project's current binding.
+  /** Seed for the `repo` form field: the project's current binding.
    *  Passed once at form construction so StepSource's bound/unbound
    *  state derives from form state (reactive) instead of a query. */
   initialGitRepoId?: string | null;
@@ -36,7 +36,7 @@ interface BodyProps extends ResourceWizardProps {
   goTo: (next: Step) => void;
 }
 
-// Single dialog-layout entry point — the standalone /new-resource page
+// Single dialog-layout entry point: the standalone /new-resource page
 // route was dropped. Step lives in local state.
 export function ResourceWizard(props: ResourceWizardProps) {
   const [step, setStep] = useState<Step>(props.initialStep ?? "kind");
@@ -107,7 +107,7 @@ function ResourceWizardBody({
   };
   const showDbBack = step === "kind" && dbEngineView;
 
-  // Compose is its own resource type, not a manifest-staged service — once it's
+  // Compose is its own resource type, not a manifest-staged service. Once it's
   // picked, hand off to the dedicated compose flow.
   if (kindId === "compose") {
     return (

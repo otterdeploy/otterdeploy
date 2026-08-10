@@ -35,7 +35,7 @@ export function useNowTick(live: boolean, intervalMs = 1000): number {
 }
 
 /**
- * Elapsed time from `start` to `end` — or to *now*, re-rendering every second
+ * Elapsed time from `start` to `end`, or to *now*, re-rendering every second
  * while `end` is null (the build/deploy is still in flight). Returns the
  * formatted string, or null when there's no start (nothing to time yet).
  */

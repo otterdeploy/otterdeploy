@@ -6,7 +6,7 @@
  * the subset of routes that node should serve, render it, push it.
  *
  * Node edges are BEST-EFFORT and reported per node. One unreachable machine
- * must not fail the reconcile for the rest — the control-plane edge has
+ * must not fail the reconcile for the rest. The control-plane edge has
  * already been updated by then, and it still serves every unplaced route, so a
  * node that misses an update degrades rather than breaks. What it must not do
  * is fail silently, hence an outcome per node.
@@ -44,7 +44,7 @@ export interface PlacedRoute extends RoutePlacement {
 export interface NodeReconcileOptions {
   /** Every enabled route, each carrying its resource's placement. */
   placed: readonly PlacedRoute[];
-  /** The server running the control plane — it keeps the unplaced routes and
+  /** The server running the control plane: it keeps the unplaced routes and
    *  is reconciled in-process, so it is skipped here. */
   controlPlaneServerId: ServerId | null;
   /** Caddyfile build options, same ones the control-plane edge is built with. */
@@ -62,7 +62,7 @@ function renderNodeCaddyfile(
   serverId: ServerId,
   opts: { adminBind: string; buildOptions: Parameters<typeof buildCaddyfile>[2] },
 ): { caddyfile: string; routeCount: number } {
-  // A worker never inherits unplaced routes — serving a route whose backend is
+  // A worker never inherits unplaced routes, serving a route whose backend is
   // on another machine answers with a cert it can get and a backend it can't
   // reach.
   const split = routesForNode(placed, serverId, false);
@@ -88,7 +88,7 @@ export async function reconcileNodeEdges(options: NodeReconcileOptions): Promise
       buildOptions: options.buildOptions,
     });
 
-    // Each server carries its own org — the SSH key lives in that org's
+    // Each server carries its own org. The SSH key lives in that org's
     // keystore, and reading it from anywhere else would cross a tenant boundary.
     const push = await pushOneNode(server, server.organizationId as OrganizationId, caddyfile);
     results.push({
@@ -120,7 +120,7 @@ async function pushOneNode(
   if (!server.sshKeyId) {
     return {
       kind: "failed",
-      error: "no stored SSH key — this node was joined by password and cannot be reached again",
+      error: "no stored SSH key. This node was joined by password and cannot be reached again",
     };
   }
 
@@ -144,8 +144,8 @@ async function pushOneNode(
       session.dispose();
     }
   } catch (cause) {
-    // Unreachable/auth failures are per-node facts, not reconcile failures —
-    // the control-plane edge is already updated and still serves every
+    // Unreachable/auth failures are per-node facts, not reconcile failures.
+    // The control-plane edge is already updated and still serves every
     // unplaced route.
     return { kind: "failed", error: cause instanceof Error ? cause.message : String(cause) };
   }

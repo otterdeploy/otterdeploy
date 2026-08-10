@@ -1,11 +1,11 @@
-# Host data folder — `/data/otterdeploy`
+# Host data folder: `/data/otterdeploy`
 
-Status: **built.** All five phases are done — foundation, builds, backups
+Status: **built.** All five phases are done, foundation, builds, backups
 staging, DR escape hatch, and the orphan sweep. Owner: platform.
 
-A single, predictable host directory for the artifacts the platform *generates* —
-build clones, backup dumps, a disaster-recovery escape hatch, db init material —
-keyed by `resourceId`, with a guarded teardown. The path helper lives in
+A single, predictable host directory for the artifacts the platform *generates*:
+build clones, backup dumps, a disaster-recovery escape hatch, db init material.
+Keyed by `resourceId`, with a guarded teardown. The path helper lives in
 `packages/shared/src/paths.ts` (`DATA_ROOT`, default `/data/otterdeploy`, override
 `OTTERDEPLOY_DATA_DIR`) and the guarded `fs` ops in `packages/api/src/lib/data-dir.ts`.
 The builder clones to `<DATA_ROOT>/builds/<deploymentId>` (falling back to an
@@ -13,7 +13,7 @@ ephemeral `mkdtemp` when the folder isn't writable), and a layer cache lives und
 `<DATA_ROOT>/buildx-cache/`. Everything else is still Postgres + the Docker/Swarm
 API. This doc says exactly what does (and does **not**) belong in the folder.
 
-## Why — and why it's NOT load-bearing for us
+## Why, and why it's NOT load-bearing for us
 
 Both competitors render generated files to a host folder and run Docker against
 those files, so the folder *is* their deploy mechanism:
@@ -28,7 +28,7 @@ those files, so the folder *is* their deploy mechanism:
 
 We deploy through the **`runtime()` driver** (`packages/api/src/runtime/`) by
 building a spec and calling `provision/update/destroy` against the Docker/Swarm
-API directly — compose stacks store their `composeContent` in the DB row and are
+API directly: compose stacks store their `composeContent` in the DB row and are
 parsed **in-memory** at deploy. The manifest (jsonb) + resource rows are the
 source of truth.
 
@@ -38,15 +38,15 @@ convenience. That framing drives every decision below.
 
 > **Scope of "disposable".** The installer's own stack (`docker-compose.yml` +
 > `.env`) lives under this root at `source/` (= `OTTERDEPLOY_INSTALL_DIR`,
-> defaulting to `$OTTERDEPLOY_DATA_DIR/source` — one 0700 tree for all platform
+> defaulting to `$OTTERDEPLOY_DATA_DIR/source`: one 0700 tree for all platform
 > state, mirroring Coolify's `/data/coolify/source`). That subdir **is**
-> load-bearing — it's the platform's config + master secrets. The "disposable,
+> load-bearing. It's the platform's config + master secrets. The "disposable,
 > regenerable" property below applies to the platform-**generated** subdirs
 > (`builds/`, `backups/`, `resources/`, `projects/`, `volumes/`, `caddy/`,
 > `buildx-cache/`), not to `source/`. `source/` is safe inside the bind-mounted
 > data folder: `server`/`builder` already hold the same secrets via `env_file`,
 > `caddy` mounts only `caddy/`, and build helper containers mount only
-> `buildx-cache/` — nothing untrusted gets `source/`.
+> `buildx-cache/`. Nothing untrusted gets `source/`.
 
 What genuinely benefits from a host folder:
 
@@ -58,14 +58,14 @@ What genuinely benefits from a host folder:
 - **Disaster-recovery escape hatch.** A rendered `compose.yml` + `otterdeploy.json`
   per project you can run by hand if the control plane is gone.
 - **Orphan-sweep safety net.** A self-describing tree the platform can reconcile
-  against the DB — the failure mode Dokploy has (it swallows cleanup errors, so
+  against the DB: the failure mode Dokploy has (it swallows cleanup errors, so
   orphaned dirs linger forever).
 
 ## Layout
 
 Grouped by **`projectId`**, then keyed by the stable child id. The graph node id
-is `${kind}:${name}`, but the DB id is the stable `resourceId` / `deploymentId` —
-keying by it survives renames and can't collide (sidestepping Dokploy's
+is `${kind}:${name}`, but the DB id is the stable `resourceId` / `deploymentId`.
+Keying by it survives renames and can't collide (sidestepping Dokploy's
 `appName`-churn, matching Coolify's stable-uuid approach). The project level on
 top makes the tree navigable per project on disk ("everything for project X")
 and lets the orphan sweep reclaim a whole `<projectId>` subtree in one step when
@@ -74,13 +74,13 @@ a project is deleted.
 ```
 /data/otterdeploy/                              # OTTERDEPLOY_DATA_DIR overrides the root
 ├── source/                          # the platform stack: docker-compose.yml + .env
-│                                    #   (the installer's install root — LOAD-BEARING,
+│                                    #   (the installer's install root: LOAD-BEARING,
 │                                    #   OTTERDEPLOY_INSTALL_DIR; NOT platform-generated)
 ├── projects/<projectId>/
 │   ├── otterdeploy.json              # exported manifest snapshot (DR / audit)
 │   └── compose.yml                   # rendered escape hatch (manifest.export output)
 ├── resources/<projectId>/<resourceId>/
-│   ├── meta.json                     # { kind, name, projectId } — self-describing → orphan sweep
+│   ├── meta.json                     # { kind, name, projectId }: self-describing → orphan sweep
 │   ├── ssl/                          # db TLS material, if any
 │   └── init/                         # db init-script seed (cf. Coolify's docker-entrypoint-initdb.d)
 ├── builds/<projectId>/<deploymentId>/  # build clone + context (replaces the ephemeral tmpdir)
@@ -91,7 +91,7 @@ a project is deleted.
 
 ## One paths helper
 
-The path lives in exactly one place — mirror Coolify's `base_configuration_dir()`:
+The path lives in exactly one place. Mirror Coolify's `base_configuration_dir()`:
 
 ```ts
 // packages/shared/src/paths.ts
@@ -115,16 +115,16 @@ export async function removeResourceDir(id: ResourceId): Promise<void> {
 }
 ```
 
-- **Create** — lazy `mkdir` on first write, not upfront.
-- **Write** — builder → `builds/<deploymentId>`; backups → `backupDir(id)`;
+- **Create**: lazy `mkdir` on first write, not upfront.
+- **Write**: builder → `builds/<deploymentId>`; backups → `backupDir(id)`;
   `manifest.export` → `projectDir(id)`.
-- **Deploy** — *unchanged.* The `runtime()` driver still drives the Docker/Swarm
+- **Deploy**: *unchanged.* The `runtime()` driver still drives the Docker/Swarm
   API; the folder only holds artifacts.
-- **Delete** — call `removeResourceDir(id)` from the paths that already tear
+- **Delete**: call `removeResourceDir(id)` from the paths that already tear
   resources down: `deleteResourceById`, the compose `delete` handler (right next
   to the project-var cleanup), the postgres delete, and the reconciler's delete
   phase.
-- **Orphan sweep** — a periodic job lists `resources/*` (+ `builds/*` past a TTL)
+- **Orphan sweep**: a periodic job lists `resources/*` (+ `builds/*` past a TTL)
   and removes any dir whose id is absent from the DB. `meta.json` makes the sweep
   self-describing and is the answer to "what if a delete crashed mid-teardown."
 
@@ -154,38 +154,38 @@ of any world-readable mount or backup that isn't itself encrypted.
 
 ## Phases
 
-1. ✅ **Foundation** — `paths.ts` helper + guarded `removeResourceDir` /
+1. ✅ **Foundation**: `paths.ts` helper + guarded `removeResourceDir` /
    `removeProjectDir` (`lib/data-dir.ts`), wired into the delete paths
    (`compose/index.ts`, `queries/resource.ts`, `deleteProject`). No-op when the
    folder isn't writable.
-2. ✅ **Builds** — builder clones to `buildDir(deploymentId)` with a `mkdtemp`
+2. ✅ **Builds**: builder clones to `buildDir(deploymentId)` with a `mkdtemp`
    fallback (`clone.ts`); `pruneStaleBuilds` TTL sweep (`build-workdir.ts`);
    layer cache under `buildx-cache/` (`buildx.ts`).
-3. ✅ **Backups** — the engine stages each archive to `backupDir(resourceId)`
+3. ✅ **Backups**: the engine stages each archive to `backupDir(resourceId)`
    before the (possibly off-cluster) upload (`backups/engine.ts` +
    `stageBackupArchive`); the staged copy is dropped on a successful upload and
    left behind on failure for inspection/retry (the sweep reclaims stale ones).
-4. ✅ **DR escape hatch** — on every successful `applyManifest`,
+4. ✅ **DR escape hatch**: on every successful `applyManifest`,
    `writeProjectEscapeHatch` (`lib/escape-hatch.ts`) renders the project's current
    rows to `projects/<projectId>/compose.yml` + `otterdeploy.json` (best-effort,
    `0600`, never blocks the apply); `removeProjectDir` drops it on project delete.
-   **DR/audit only — never `up`'d by the platform.**
-5. ✅ **Orphan sweep** — `lib/data-folder-sweep.ts` reconciles the nested trees
+   **DR/audit only, never `up`'d by the platform.**
+5. ✅ **Orphan sweep**: `lib/data-folder-sweep.ts` reconciles the nested trees
    (`resources/<projectId>/<resourceId>`, `backups/<projectId>/<resourceId>`, and
    `projects/<projectId>`) against the DB on a control-plane tick
    (`startDataFolderSweep`, started from the server bootstrap): a whole
    `<projectId>` bucket is reclaimed when its project is gone, else the
-   individual child when its resource is gone — all via the same guarded
+   individual child when its resource is gone. All via the same guarded
    removers. Staged backup archives past a TTL are swept. `builds/*` stays with
    the builder's own `pruneStaleBuilds`. Best-effort + `unref`'d, like the
    backup scheduler.
 
 ## Deferred / non-goals
 
-- **Per-resource rendered compose as the deploy mechanism** — we deploy via the
+- **Per-resource rendered compose as the deploy mechanism**: we deploy via the
   runtime API; the rendered `compose.yml` is DR/audit-only, never `up`'d by the
   platform.
-- **Mirroring the folder to worker nodes** — control-plane-local until remote
+- **Mirroring the folder to worker nodes**: control-plane-local until remote
   multi-node build/exec lands.
-- **Encryption at rest** — the folder relies on filesystem perms today, same as
+- **Encryption at rest**: the folder relies on filesystem perms today, same as
   DB-stored secrets; an encrypted-at-rest pass is a separate effort.

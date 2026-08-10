@@ -3,7 +3,7 @@
  * Compose file as one swarm stack (N services). The YAML file is the source of
  * truth; these are the derived, UI-facing summaries persisted alongside it.
  *
- * Single source of truth — imported by:
+ * Single source of truth, imported by:
  *   - the DB column types ($type<>() on compose_resource.{services,exposed})
  *   - the api parse/normalize module + router contracts
  *   - the web wizard preview
@@ -13,7 +13,7 @@
  */
 
 /** Derived per-service summary, recomputed from the compose file on each save.
- *  Type alias, not interface — aliases keep the implicit index signature that
+ *  Type alias, not interface: aliases keep the implicit index signature that
  *  lets these summaries assign into `JsonObject`-typed jsonb columns. */
 // oxlint-disable-next-line typescript/consistent-type-definitions
 export type ComposeServiceSummary = {
@@ -25,7 +25,7 @@ export type ComposeServiceSummary = {
   hasBuild: boolean;
   /** Declared container ports (target ports), for the UI preview. */
   ports: number[];
-  /** Named-volume sources the service mounts — rendered as chips on the graph
+  /** Named-volume sources the service mounts. Rendered as chips on the graph
    *  card so a stateful service reads as stateful at a glance. Empty when the
    *  service mounts nothing (or only binds/tmpfs, which we drop). */
   volumes: string[];
@@ -61,7 +61,7 @@ export type ComposeFile = {
 /**
  * The filenames `docker compose` itself looks for, in its precedence order.
  *
- * This list lived in three places at once — the builder's clone probe, the api
+ * This list lived in three places at once. The builder's clone probe, the api
  * handler's inline-tree picker, and (implicitly) the wizard's "auto-detect"
  * placeholder, which promised a detection it never performed. Three copies of
  * a convention is three chances to disagree about what counts as a compose

@@ -127,7 +127,7 @@ function BackupNowBody({
         noValidate
       >
         <div className="flex flex-col gap-4 p-5">
-          {/* Omitted, not disabled, when `volumes.list` is out of reach — see
+          {/* Omitted, not disabled, when `volumes.list` is out of reach. See
               useVolumesList. The form stays on its "database" default. */}
           {volumeList.available ? (
             <form.Field name="sourceKind">

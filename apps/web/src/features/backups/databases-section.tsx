@@ -1,11 +1,11 @@
 /**
- * Databases — one row per database resource across the org's projects, with
+ * Databases: one row per database resource across the org's projects, with
  * live connections + data-size stats. Moved here from the standalone
  * Databases catalog page (od-u63.6, superseding od-asc.3's "no third
- * database inventory" decision) — Backups already reads per-database backup
+ * database inventory" decision): Backups already reads per-database backup
  * freshness, so the live runtime stats belong on the same page instead of a
  * separate route. Data + formatters are reused as-is from features/databases/
- * (same polled catalog query, same "—" degrade-when-unmeasured rule).
+ * (same polled catalog query, same "–" degrade-when-unmeasured rule).
  */
 import type { ProjectSlug, ResourceId } from "@otterdeploy/shared/id";
 
@@ -115,7 +115,7 @@ function DatabaseStatsRow({
       ) : (
         <Stat
           label="Connections"
-          value={db.stats?.connections != null ? String(db.stats.connections) : "—"}
+          value={db.stats?.connections != null ? String(db.stats.connections) : "–"}
         />
       )}
       <Stat label="Last backup" value={relTime(db.lastBackupAt)} />
@@ -136,8 +136,8 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 /**
  * The connections number, expandable into a who-is-connected breakdown
- * (shared body — see features/databases/connections-popover). Fetched only
- * when opened — the row itself never pays for it. Lives inside the row's
+ * (shared body, see features/databases/connections-popover). Fetched only
+ * when opened. The row itself never pays for it. Lives inside the row's
  * <Link>, so the trigger must swallow the click instead of navigating.
  */
 function ConnectionsStat({ resourceId, count }: { resourceId: ResourceId; count: number }) {

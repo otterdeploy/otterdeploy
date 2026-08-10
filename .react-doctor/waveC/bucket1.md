@@ -1,4 +1,4 @@
-# Wave C (effects & state) — bucket 1
+# Wave C (effects & state): bucket 1
 
 
 ## src/routes/_app/$orgSlug/_shell/audit.tsx

@@ -17,7 +17,7 @@ interface StepReviewProps {
 
 export function StepReview({ kind, projectId }: StepReviewProps) {
   const form = useFormContext();
-  // Hostname a public port with no typed host will publish at — resolved
+  // Hostname a public port with no typed host will publish at. Resolved
   // server-side so Review shows the same FQDN the create will stage.
   const formName = useStore(form.store, (s) => s.values.name);
   const derivedHost = usePublicHostPreview(projectId, formName);
@@ -30,7 +30,7 @@ export function StepReview({ kind, projectId }: StepReviewProps) {
           <>
             <SectionHeader
               title="Review"
-              sub="Add this resource, then apply it from the pending-changes bar — you can change all of this later"
+              sub="Add this resource, then apply it from the pending-changes bar. You can change all of this later"
             />
 
             <div className="mt-3.5 grid grid-cols-1 gap-3 sm:grid-cols-2">

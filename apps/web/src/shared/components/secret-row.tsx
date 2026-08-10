@@ -24,7 +24,7 @@ export function SecretRow({
   stacked = false,
 }: {
   title: string;
-  /** A secret is already stored — the field becomes "replace, or leave blank". */
+  /** A secret is already stored. The field becomes "replace, or leave blank". */
   configured: boolean;
   /** The environment supplies this credential, so it works without a stored one. */
   fromEnv?: boolean;

@@ -3,26 +3,26 @@ import type { OrganizationId } from "@otterdeploy/shared/id";
 import { db } from "@otterdeploy/db";
 import { auditLog } from "@otterdeploy/db/schema";
 /**
- * Audit-anomaly detector — a periodic, conservative scan over recent `audit_log`
+ * Audit-anomaly detector: a periodic, conservative scan over recent `audit_log`
  * rows that emits `audit.anomaly` on a small, high-signal rule set. Runs on a
  * control-plane tick from the server bootstrap (like the backup scheduler /
  * data-folder sweep); `unref`'d and best-effort, so it never keeps the loop
  * alive or breaks anything.
  *
- * Rules (deliberately few — noisy heuristics erode trust in the alert):
- *   A. Denial burst — ≥ DENIAL_THRESHOLD failed/denied actions from ONE ip
+ * Rules (deliberately few, noisy heuristics erode trust in the alert):
+ *   A. Denial burst: ≥ DENIAL_THRESHOLD failed/denied actions from ONE ip
  *      within an org in the window (RBAC denials + auth failures are audited:
  *      a sign of probing / brute force / a misconfigured client).
  *
  *      Auth failures only started reaching this rule once packages/auth/src/
- *      audit.ts began recording them — better-auth serves its own routes and
+ *      audit.ts began recording them: better-auth serves its own routes and
  *      emitted no audit envelope, so before that the rule could see a refused
  *      RPC but never a refused password. It relies on those rows carrying the
  *      target account's org: the `isNotNull(organizationId)` filter below skips
  *      un-attributable rows, which is why a failed sign-in resolves the org
  *      from the user being signed in to rather than leaving it null.
- *   B. Deletion burst — ≥ DELETE_THRESHOLD successful `*.delete` actions by ONE
- *      actor within the window (a sign of mass teardown — accidental or hostile).
+ *   B. Deletion burst: ≥ DELETE_THRESHOLD successful `*.delete` actions by ONE
+ *      actor within the window (a sign of mass teardown, accidental or hostile).
  *
  * De-dup: an in-memory cooldown keyed by (rule, org, subject) suppresses
  * re-emitting the same anomaly within the window. In-memory by design (no
@@ -75,7 +75,7 @@ async function scanAuditAnomalies(now = Date.now()): Promise<void> {
   try {
     const since = new Date(now - WINDOW_MS);
 
-    // Rule A — denial/failure burst from one ip within an org.
+    // Rule A: denial/failure burst from one ip within an org.
     const denials = await db
       .select({
         organizationId: auditLog.organizationId,
@@ -105,7 +105,7 @@ async function scanAuditAnomalies(now = Date.now()): Promise<void> {
       );
     }
 
-    // Rule B — destructive-op burst by one actor.
+    // Rule B: destructive-op burst by one actor.
     const deletes = await db
       .select({
         organizationId: auditLog.organizationId,

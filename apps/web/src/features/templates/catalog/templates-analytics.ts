@@ -16,13 +16,13 @@ export const ANALYTICS_TEMPLATES: StackTemplate[] = [
       },
       {
         key: "SECRET_KEY_BASE",
-        description: "Phoenix secret key base — must be at least 64 bytes.",
+        description: "Phoenix secret key base. At least 64 bytes.",
         generateHint: "openssl rand -base64 48",
       },
       {
         key: "TOTP_VAULT_KEY",
         description:
-          "Key that encrypts 2FA/TOTP secrets at rest (required since v3) — a 32-byte key.",
+          "Key that encrypts 2FA/TOTP secrets at rest (required since v3). Must be 32 bytes.",
         generateHint: "openssl rand -base64 32",
       },
       {
@@ -141,7 +141,7 @@ volumes:
     id: "metabase",
     name: "Metabase",
     description:
-      "Open-source BI — dashboards, questions, and SQL over your existing databases. Application state lives in a dedicated Postgres.",
+      "Open-source BI: dashboards, questions, and SQL over your existing databases. Application state lives in a dedicated Postgres.",
     category: "analytics",
     includes: ["metabase", "db"],
     requiredEnv: [

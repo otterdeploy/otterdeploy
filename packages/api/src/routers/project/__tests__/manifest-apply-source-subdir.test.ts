@@ -4,7 +4,7 @@
  *
  * It used to die halfway. The diff surfaced the change and the pending bar
  * showed it, but `buildUpdateServiceInput` never passed `sourceSubdir` and
- * `updateServiceRecord` stripped it anyway — so Apply reported success, wrote
+ * `updateServiceRecord` stripped it anyway, so Apply reported success, wrote
  * nothing, and the next diff staged the identical change again. Forever.
  *
  * Each leg is asserted separately so a regression names the leg that broke.
@@ -61,7 +61,7 @@ function liveGitService(over: Partial<CurrentState["services"][string]> = {}): C
   };
 }
 
-// Pre-parse manifest JSON — the fixture feeds `manifestSchema.parse`.
+// Pre-parse manifest JSON. The fixture feeds `manifestSchema.parse`.
 const gitService = (over: JsonObject = {}) => ({
   source: "git",
   repo: "acme/api",

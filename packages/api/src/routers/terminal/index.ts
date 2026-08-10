@@ -18,7 +18,7 @@ export const terminalRouter = {
     },
   ),
 
-  // ── od-5j8.9 — step-up + single-use ticket for the /pty WS upgrade ──────
+  // ── od-5j8.9: step-up + single-use ticket for the /pty WS upgrade ──────
 
   stepUp: orgScopedProcedure.terminal.stepUp.handler(async ({ input, context, errors }) => {
     if (!context.session) throw errors.INTERACTIVE_SESSION_REQUIRED();
@@ -41,7 +41,7 @@ export const terminalRouter = {
   }),
 
   mintTicket: orgScopedProcedure.terminal.mintTicket.handler(async ({ input, context, errors }) => {
-    // Tickets authenticate an interactive shell for a real human — never an
+    // Tickets authenticate an interactive shell for a real human, never an
     // organization API key, which is also where the step-up credential
     // (password/TOTP) wouldn't even make sense.
     if (!context.session) throw errors.INTERACTIVE_SESSION_REQUIRED();

@@ -1,5 +1,5 @@
 /**
- * Preview DB-branch controls — enable/disable/reset an isolated database
+ * Preview DB-branch controls: enable/disable/reset an isolated database
  * branch for one preview. Split out of previews-controls.ts (which keeps the
  * lifecycle actions and re-exports these for the router).
  */
@@ -15,7 +15,7 @@ import { guard, rollFromLastImage, type PreviewControlScope } from "./previews-c
 
 /** Enable an isolated DB branch for this preview NOW (regardless of the base
  *  per-database opt-in), then roll services so ${{db.*}} re-resolves to the
- *  branch. Idempotent — branchProjectDatabases skips already-branched DBs. */
+ *  branch. Idempotent: branchProjectDatabases skips already-branched DBs. */
 export async function enablePreviewDbBranch(
   input: PreviewControlScope,
   log?: RequestLogger,
@@ -59,8 +59,8 @@ export async function disablePreviewDbBranch(
 }
 
 /** Re-seed the branch from current base data: destroy the branch DBs, re-branch
- *  from base, then roll ONCE. Deliberately skips disable's intermediate roll —
- *  that would briefly point services at the base (production) DB. During the
+ *  from base, then roll ONCE. Deliberately skips disable's intermediate roll.
+ *  That would briefly point services at the base (production) DB. During the
  *  copy the old containers hit the now-gone branch (connection errors, not
  *  production writes), which is the safe failure mode. */
 export async function resetPreviewDbBranch(

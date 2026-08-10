@@ -1,5 +1,5 @@
 /**
- * The toolbar's "block an IP by hand" form — bans the entered IP/CIDR via
+ * The toolbar's "block an IP by hand" form, bans the entered IP/CIDR via
  * CrowdSec for a chosen duration.
  *
  * Split out of ./firewall-view so that file stays the view's layout and data

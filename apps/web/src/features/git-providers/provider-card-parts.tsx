@@ -1,5 +1,5 @@
 /**
- * Per-installation row bits for the git-provider cards — the repo-sync action
+ * Per-installation row bits for the git-provider cards: the repo-sync action
  * and the status pill.
  *
  * Split from ./provider-card on the repo's `-parts` convention so the card
@@ -34,7 +34,7 @@ export function RefreshButton({
       toast.success(`Synced ${res.repoCount} repos`);
     },
     onError: (err) => {
-      // A no-longer-valid installation is recoverable — put "Reinstall" right
+      // A no-longer-valid installation is recoverable. Put "Reinstall" right
       // in the toast so the failure isn't a dead end.
       const needsReinstall = isDefinedError(err) && err.code === "REINSTALL_REQUIRED";
       toast.error(

@@ -40,7 +40,7 @@ export function SettingsTab({ projectId, preview }: { projectId: string; preview
         <Row
           desc={
             preview.paused
-              ? "Preview is paused — resume to bring it back."
+              ? "Preview is paused. Resume to bring it back."
               : "Stop containers, keep the preview and its URL."
           }
         >
@@ -67,7 +67,7 @@ export function SettingsTab({ projectId, preview }: { projectId: string; preview
         <Row
           desc={
             pinned
-              ? "Pinned — never idle-torn-down."
+              ? "Pinned. Never torn down when idle."
               : `Idle teardown ${preview.autoTeardownAt ? new Date(preview.autoTeardownAt).toLocaleString() : ""}.`
           }
         >
@@ -127,7 +127,7 @@ export function SettingsTab({ projectId, preview }: { projectId: string; preview
             </Button>
           </Row>
         ) : (
-          <Row desc="This preview's services don't connect to a platform database — nothing to branch." />
+          <Row desc="This preview's services don't connect to a platform database, so there's nothing to branch." />
         )}
       </Section>
     </div>

@@ -18,7 +18,7 @@ interface StepVariablesProps {
 /**
  * Read-only here: filling the rows from `.env.example` is `applyVariables` in
  * `source-defaults`, which runs when the repo or root is bound. This step only
- * reports what that probe found — the committed-env warning and the count —
+ * reports what that probe found (the committed-env warning and the count)
  * and reads it straight out of the cache the probe already populated.
  */
 export function StepVariables({ projectId }: StepVariablesProps) {
@@ -38,7 +38,7 @@ export function StepVariables({ projectId }: StepVariablesProps) {
     <>
       <SectionHeader
         title="Environment variables"
-        sub="Add key/value pairs — toggle the lock to mark a value as secret. Type ${{ to reference another resource's variables (e.g. a database URL)."
+        sub="Add key/value pairs. Toggle the lock to mark a value as secret. Type ${{ to reference another resource's variables (e.g. a database URL)."
       />
 
       {env.data?.committedEnv && <CommittedEnvBanner file={env.data.committedEnv} />}
@@ -47,8 +47,8 @@ export function StepVariables({ projectId }: StepVariablesProps) {
         <div className="mb-2 rounded-md border border-info/30 bg-info/5 px-3 py-2 text-[12px] text-muted-foreground">
           Pre-filled <span className="font-medium text-foreground">{keys?.length}</span> key
           {keys?.length === 1 ? "" : "s"} from{" "}
-          <span className="font-mono">{env.data.templateFile}</span> — add the values.
-          Secret-looking keys are locked by default.
+          <span className="font-mono">{env.data.templateFile}</span>. Add the values. Secret-looking
+          keys are locked by default.
         </div>
       )}
 
@@ -76,7 +76,7 @@ function CommittedEnvBanner({ file }: { file: string }) {
           Security risk: <span className="font-mono">{file}</span> is committed to the repo
         </div>
         <p className="mt-0.5 text-muted-foreground">
-          A real env file is checked into git — anyone with repo access (and the full history) can
+          A real env file is checked into git, so anyone with repo access (and the full history) can
           read its secrets. Remove it with <span className="font-mono">git rm --cached {file}</span>
           , add it to <span className="font-mono">.gitignore</span>, and rotate any exposed
           credentials. Don't paste those values here as-is.

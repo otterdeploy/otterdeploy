@@ -28,7 +28,7 @@ import { isFilterActive } from "./data/filters";
 
 type TableController = DataStudioController["table"];
 
-/** Data ↔ Structure — the toolbar's view toggle for the open table. */
+/** Data ↔ Structure: the toolbar's view toggle for the open table. */
 export function DataStructureToggle({ t }: { t: TableController }) {
   return (
     <ToggleGroup

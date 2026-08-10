@@ -11,7 +11,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 /**
  * Volumes inventory table. Attached-to chips deep-link to the owning
  * resource's graph panel; orphans get a warning badge (icon + label, never
- * color alone). Sizes render "—" when the daemon didn't report usage.
+ * color alone). Sizes render "–" when the daemon didn't report usage.
  */
 import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { Link } from "@tanstack/react-router";
@@ -101,7 +101,7 @@ function StatusBadge({ volume }: { volume: VolumeRow }) {
     );
   }
   // Claimed by a platform resource whose container is currently gone
-  // (stopped database, torn-down preview) — not in use, but not an orphan.
+  // (stopped database, torn-down preview), not in use, but not an orphan.
   return <Badge variant="secondary">unused</Badge>;
 }
 
@@ -210,7 +210,7 @@ export function VolumesTable({
                       : `${v.containerNames.length} containers`}
                   </span>
                 ) : (
-                  <span className="text-muted-foreground">—</span>
+                  <span className="text-muted-foreground">–</span>
                 )}
               </TableCell>
               <TableCell>

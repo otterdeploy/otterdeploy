@@ -1,16 +1,16 @@
 /**
  * React-query keys for better-auth-backed queries (session, sessions, org
  * invitations, device-code claim). better-auth is not an oRPC procedure, so
- * `orpc.<path>.queryKey()` can't generate these — centralizing the literals
+ * `orpc.<path>.queryKey()` can't generate these. Centralizing the literals
  * here is the single-source-of-truth equivalent: call sites import a key
  * instead of re-typing `["auth", …]`, so a rename can't silently miss one.
  */
 
 export const authQueryKeys = {
-  /** Broad prefix — invalidating this refetches every auth-scoped query. */
+  /** Broad prefix, invalidating this refetches every auth-scoped query. */
   all: ["auth"] as const,
   /** The current better-auth session. Owned by `sessionQuery` in
-   *  ./auth-queries — do NOT define a second queryFn against this key. */
+   *  ./auth-queries: do NOT define a second queryFn against this key. */
   currentSession: ["auth", "current-session"] as const,
   /** Organizations the current user belongs to. Owned by
    *  `organizationsQuery` in ./auth-queries. */

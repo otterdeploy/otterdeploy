@@ -11,7 +11,7 @@
  *   - Deleting an environment whose overlay could not be removed leaves an
  *     inert block behind. Worth logging, not worth refusing a delete over.
  *
- * A project with no manifest yet is a no-op in both directions — there is
+ * A project with no manifest yet is a no-op in both directions. There is
  * nothing to overlay onto, and the first manifest save will carry whatever
  * environments exist by then.
  */
@@ -40,7 +40,7 @@ async function editOverlay(
       if (loaded.isErr() || !loaded.value.manifest) return;
 
       const next = edit(loaded.value.manifest, slug);
-      // Identity means nothing changed — skip the write so re-creating an
+      // Identity means nothing changed. Skip the write so re-creating an
       // environment does not bump the manifest version and light up a pending
       // change on every other client.
       if (next === loaded.value.manifest) return;

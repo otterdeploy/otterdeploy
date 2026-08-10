@@ -1,5 +1,5 @@
 /**
- * `service.domains.*` oRPC procedures — split out of index.ts to keep the
+ * `service.domains.*` oRPC procedures: split out of index.ts to keep the
  * router module under the line cap. Spread back in as `serviceRouter.domains`.
  */
 import type { ProxyRouteId } from "@otterdeploy/shared/id";
