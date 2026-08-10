@@ -25,7 +25,7 @@ import type { Context } from "../context";
 
 import { TimeoutError, withTimeout } from "@otterdeploy/shared/promise";
 
-export const PROCEDURE_TIMEOUT_MS = 120_000;
+const PROCEDURE_TIMEOUT_MS = 120_000;
 
 export const procedureTimeout = orpc
   .$context<Context>()
