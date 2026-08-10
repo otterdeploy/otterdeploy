@@ -57,10 +57,14 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
   // a dead-stream backstop. Input + interval MUST stay in sync with the
   // graph's diff query (graph-model.ts) — same input means one shared cache
   // entry instead of two parallel pollers.
+  // 60s is the dead-stream backstop; while an apply is in flight we poll
+  // hard so the bar observes "manifest applied" (empty diff) within a couple
+  // of seconds of the rows landing — that empty diff is the close signal.
+  const [applying, setApplying] = useState(false);
   const diff = useQuery(
     orpc.project.manifest.diff.queryOptions({
       input: { projectId, environment },
-      refetchInterval: 60_000,
+      refetchInterval: applying ? 2_000 : 60_000,
     }),
   );
 
@@ -83,33 +87,42 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
     // then back when the row arrives. Recording the create keys up front keeps
     // those ghosts pinned across the entire apply + the post-apply refetch gap.
     onMutate: () => {
-      const appliedCreateKeys = (diff.data?.changes ?? []).flatMap((c) =>
+      const changes = diff.data?.changes ?? [];
+      const appliedCreateKeys = changes.flatMap((c) =>
         c.kind === "create" && c.resource !== "env" ? [`${c.resource}:${c.name}`] : [],
       );
       markAppliedCreates(projectId, appliedCreateKeys);
+      // The loading toast outlives the bar: once the diff empties the bar
+      // unmounts mid-call, and the toast is what carries the apply to its
+      // real end (the settle handlers upgrade it in place).
+      const count = changes.filter((c) => c.kind !== "no-op").length;
+      setApplying(true);
+      return { toastId: toast.loading(`Applying ${count} change${count === 1 ? "" : "s"}…`) };
     },
-    onSuccess: async (result) => {
+    onSuccess: async (result, _vars, ctx) => {
+      setApplying(false);
       await refreshAll();
       // The reconciler reports per-resource failures in `skipped[]` rather
       // than throwing — a create that hits a missing build binding or an
-      // unresolved ${secret} lands here, not in the catch.
+      // unresolved ${secret} lands here, not in the catch. Whatever was
+      // skipped is still in the diff, so the bar re-surfaces by itself.
       if (result.skipped.length > 0) {
         const detail = result.skipped.map((s) => `${s.resource} ${s.name}: ${s.reason}`).join("; ");
         if (result.appliedCount === 0) {
-          // Nothing landed — keep the bar open so the operator can fix the
-          // cause (e.g. bind the project's repo/registry) and retry.
-          toast.error(`Nothing applied — ${detail}`);
+          toast.error(`Nothing applied — ${detail}`, { id: ctx.toastId });
           return;
         }
-        toast.warning(
-          `Applied ${result.appliedCount}, skipped ${result.skipped.length} — ${detail}`,
-        );
+        toast.warning(`Applied ${result.appliedCount}, skipped ${result.skipped.length} — ${detail}`, {
+          id: ctx.toastId,
+        });
       } else {
-        toast.success(`Applied ${result.appliedCount} change(s)`);
+        toast.success(`Applied ${result.appliedCount} change(s)`, { id: ctx.toastId });
       }
-      setExpanded(false);
     },
-    onError: (err) => toast.error(toastMessage(err, "Apply failed")),
+    onError: (err, _vars, ctx) => {
+      setApplying(false);
+      toast.error(toastMessage(err, "Apply failed"), { id: ctx?.toastId });
+    },
   });
 
   const discardMut = useMutation({
@@ -140,10 +153,15 @@ export function PendingChangesBar({ projectId, environment }: PendingChangesBarP
 
   const busy = applyMut.isPending || discardMut.isPending;
   const meaningful = (diff.data?.changes ?? []).filter((c): c is DiffChange => c.kind !== "no-op");
-  // Keep the bar mounted while applying — otherwise the moment the diff poll
-  // sees a create's row land mid-apply it would report 0 changes and the bar
-  // (and its progress) would vanish before the apply finishes.
-  if (meaningful.length === 0 && !applyMut.isPending) return null;
+  // The bar's lifetime is the MANIFEST's divergence — nothing else. apply()
+  // keeps running while services provision and build, so gating on isPending
+  // held the spinner hostage to the BUILD, long after the manifest itself was
+  // applied. Instead the fast diff poll above is the close signal: the moment
+  // the server reports the changes applied (empty diff) the bar unmounts,
+  // mid-RPC or not. The loading toast carries the call to its real end, the
+  // graph's node badges carry deploy/build progress, and a failed or partial
+  // apply re-surfaces the bar here because its changes are still in the diff.
+  if (meaningful.length === 0) return null;
 
   // Group by (resource kind + name). One named resource may produce
   // multiple `env` rows; they all roll up under the parent service for
