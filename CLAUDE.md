@@ -72,6 +72,26 @@ otterdeploy/
 - `bun db:push` - Push database schema
 - `bun db:studio` - Open database UI
 
+## TypeScript Rules (enforced by lint — non-negotiable)
+
+- **No type assertions.** `as const` is the ONLY permitted assertion. Every other
+  form — `value as X`, `<X>value`, `value as unknown as X` — is banned, enforced at
+  error level by `typescript/consistent-type-assertions` (`assertionStyle: "never"`)
+  in `.oxlintrc.json`. If the types don't line up, fix the types: annotate the
+  declaration, use `satisfies`, or narrow with a real type guard / schema parse.
+  Do not blanket-disable the rule; a `// oxlint-disable-next-line` needs a comment
+  justifying why the type system genuinely cannot express the fact (rare —
+  third-party internals only).
+- **Legacy debt**: ~1,169 assertion sites predate this rule. Clean them up in any
+  file you touch; never add new ones. The repo-wide error count is the debt meter.
+- **JSON boundaries are parsed, not cast.** Text → `parseJson(text, schema)`;
+  already-decoded values → `parseWith(value, schema)` — both in
+  `packages/api/src/lib/z-json.ts`, returning better-result typed errors
+  (`InvalidJson` / `SchemaMismatch`). Never `JSON.parse(x) as T`, never
+  `payload as MyShape`.
+- **Patch payloads**: build with `omitUndefined` from `@otterdeploy/shared/object`,
+  never chains of `...(x !== undefined && { x })`.
+
 ## Design Context
 
 The frontend design system is documented in two root files — read them before building or changing any UI:

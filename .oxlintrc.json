@@ -89,6 +89,7 @@
     "typescript/no-explicit-any": "error",
     "typescript/no-unsafe-return": "error",
     "typescript/no-non-null-assertion": "error",
+    "typescript/consistent-type-assertions": ["error", { "assertionStyle": "never" }],
     "no-shadow-restricted-names": "warn",
     "no-sparse-arrays": "warn",
     "no-this-before-super": "warn",
