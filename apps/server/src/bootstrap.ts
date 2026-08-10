@@ -6,7 +6,12 @@
  * jobs finish before the process exits.
  */
 import { reconcile } from "@otterdeploy/api/caddy";
-import { startEdgeLogPersistence, startEdgeLogSink } from "@otterdeploy/api/edge-logs";
+import {
+  startEdgeLogPersistence,
+  startEdgeLogSink,
+  startThreatRollup,
+  stopThreatRollup,
+} from "@otterdeploy/api/edge-logs";
 import { edgeLogPersistEnabled } from "@otterdeploy/api/lib/platform-runtime-settings";
 import { ensureServerIp } from "@otterdeploy/api/lib/server-ip";
 import { runProvisionJob } from "@otterdeploy/api/routers/server/provision-runner";
@@ -49,8 +54,8 @@ async function bootstrap() {
 
   // Settle a handed-off self-update: the OLD server dies at cutover, so only
   // this (new) process can record the terminal outcome. Compares the booted
-  // version against the persisted target and finalizes update-status.json —
-  // without this the snapshot stays "running" forever. Best-effort.
+  // version against the persisted target and finalizes update-status.json.
+  // Without this the snapshot stays "running" forever. Best-effort.
   await finalizeUpdateRunOnBoot().catch((cause) =>
     log.warn({
       startup: { step: "update-finalize", status: "failed" },
@@ -58,7 +63,7 @@ async function bootstrap() {
     }),
   );
 
-  // OpenTelemetry — opt-in, started first so auto-instrumentation patches as
+  // OpenTelemetry: opt-in, started first so auto-instrumentation patches as
   // much as possible. Dormant unless an OTLP collector is configured (else the
   // exporters would spam connection-refused against a default localhost:4318).
   if (isTracingConfigured()) {
@@ -71,17 +76,17 @@ async function bootstrap() {
   // Module evaluation could only use the env-seeded set (it's synchronous, and
   // Postgres wasn't necessarily reachable), so until this runs a provider the
   // operator configured in the UI isn't registered. Runs after migrations for
-  // that reason. Never throws — a failure keeps the env-configured instance.
+  // that reason. Never throws: a failure keeps the env-configured instance.
   const socialProviders = (await reloadAuth()).providers;
   log.info({ startup: { step: "auth-providers", status: "ready" }, socialProviders });
 
-  // Edge-log sink: bind the TCP listener Caddy streams logs to — both per-site
+  // Edge-log sink: bind the TCP listener Caddy streams logs to. Both per-site
   // access logs and the global default logger's operational events (Phase 3).
   // Only when EDGE_LOG_SINK is configured (otherwise the Caddyfile carries
   // no `output net`, so nothing would connect anyway).
   if (env.EDGE_LOG_SINK) {
     // Persistence is a settings-backed toggle (env seeds it) and is read here,
-    // at start, because it decides whether the writer loop exists at all —
+    // at start, because it decides whether the writer loop exists at all,
     // which is exactly why its card says a change needs a restart.
     const persist = await edgeLogPersistEnabled();
     Result.try({
@@ -90,6 +95,11 @@ async function bootstrap() {
         // Persist behind the live ring unless explicitly disabled, so the
         // 24h/7d ranges and percentiles work and survive restarts.
         if (persist) startEdgeLogPersistence();
+        // Scanner-probe counters, always on: they're cheap (one upsert per
+        // probing IP per flush) and they're the ONLY record that outlives the
+        // raw log's retention sweep. The Firewall panel's all-time view reads
+        // them.
+        startThreatRollup();
       },
       catch: (cause) => new BootstrapError({ step: "edge-log-sink", cause }),
     }).match({
@@ -169,13 +179,13 @@ async function bootstrap() {
   const workers = await Result.tryPromise({
     // The deploy.triggered worker runs in apps/builder (it needs the
     // railpack + docker binaries). The API still enqueues jobs onto that
-    // queue from the git-webhook receiver — only the consumer moves.
+    // queue from the git-webhook receiver. Only the consumer moves.
     try: () =>
       createWorkers({
         // deploy.triggered runs in apps/builder (needs the railpack/docker
         // toolchain). server.provision's real handler lives in @otterdeploy/api
         // (SSH + manager socket) and can't live in packages/jobs, so we swap it
-        // in here — same override mechanism the builder uses for deploys.
+        // in here: same override mechanism the builder uses for deploys.
         jobs: allJobs
           .filter((j) => j.name !== "deploy.triggered")
           .map((j) =>
@@ -203,13 +213,13 @@ async function bootstrap() {
   });
 
   // Interval schedulers/sweepers (backups, metrics, host health, ephemeral DB
-  // roles, blocklists, data-folder GC, audit anomalies) — see
+  // roles, blocklists, data-folder GC, audit anomalies): see
   // background-services.ts; each logs its own readiness line.
   stopBackgroundServices = startBackgroundServices();
 }
 
 /** Kick off startup and arm the SIGTERM/SIGINT drain. Fire-and-forget from
- *  index.ts — the HTTP server serves immediately; readiness is per-step. */
+ *  index.ts: the HTTP server serves immediately; readiness is per-step. */
 export function runBootstrap(): void {
   void bootstrap();
 
@@ -218,6 +228,9 @@ export function runBootstrap(): void {
     process.once(signal, async () => {
       log.info({ shutdown: { signal, step: "draining-workers" } });
       if (stopBackgroundServices) stopBackgroundServices();
+      // Flush the last few seconds of probe counters before exit: they're
+      // all-time totals, so a dropped buffer is history lost for good.
+      await stopThreatRollup().catch(() => undefined);
       if (stopTracing) await stopTracing().catch(() => undefined);
       if (stopWorkers) await stopWorkers().catch(() => undefined);
       process.exit(0);

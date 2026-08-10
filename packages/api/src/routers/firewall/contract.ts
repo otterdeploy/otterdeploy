@@ -1,5 +1,5 @@
 /**
- * Firewall contract — CrowdSec active decisions enriched with their alert
+ * Firewall contract: CrowdSec active decisions enriched with their alert
  * context (source geo / ASN / scenario / event count). CrowdSec is
  * identity-blind and cluster-wide, so this is org-admin context, not
  * per-project. See docs/designs/deployment-protection.md §10.
@@ -47,7 +47,7 @@ const ipValue = z
 
 const blockResultSchema = z.object({
   ok: z.boolean(),
-  /** Human-readable failure (agent down, cscli error) — null on success. */
+  /** Human-readable failure (agent down, cscli error): null on success. */
   error: z.string().nullable(),
 });
 
@@ -57,11 +57,22 @@ const flaggedIpSchema = z.object({
   country: z.string().nullable(),
   /** Suspicious requests from this IP in the window. */
   count: z.number(),
+  /** ISO-8601 timestamp of the earliest probe in the window. */
+  firstSeen: z.string(),
   /** ISO-8601 timestamp of the most recent probe. */
   lastSeen: z.string(),
   /** Up to 5 distinct probe paths, for context. */
   samplePaths: z.array(z.string()),
 });
+
+/**
+ * How far back to look. The bounded windows aggregate the raw `edge_log` rows
+ * and are therefore capped by ITS retention (7 days by default): ask for `7d`
+ * on an install that keeps 3 and you get 3. `all` reads the durable
+ * `edge_threat_ip` rollup instead, which is never swept, so it reports every
+ * probe ever recorded — including IPs whose request rows are long gone.
+ */
+export const flaggedWindowSchema = z.enum(["1h", "6h", "24h", "7d", "all"]);
 
 const firewallStatusSchema = z.object({
   /** Both LAPI url + bouncer key are configured (enforcement wired into Caddy). */
@@ -142,7 +153,7 @@ export const firewallContract = {
       }),
     )
     .output(blockResultSchema),
-  /** Ban a batch of IPs in one shot — the "block all suspicious" action. */
+  /** Ban a batch of IPs in one shot: the "block all suspicious" action. */
   blockMany: oc
     .errors(decisionErrors)
     .meta({ path: "/firewall/decisions/block-many", tag, method: "POST" })
@@ -160,11 +171,11 @@ export const firewallContract = {
     .meta({ path: "/firewall/decisions/unblock", tag, method: "POST" })
     .input(z.object({ ip: ipValue }))
     .output(blockResultSchema),
-  /** Client IPs probing the org's domains with scanner-style paths — the
+  /** Client IPs probing the org's domains with scanner-style paths, the
    *  "review these IPs" panel, one-click blockable. */
   flagged: oc
     .meta({ path: "/firewall/flagged", tag, method: "GET" })
-    .input(z.object({ windowMinutes: z.number().int().min(5).max(1440).default(60) }))
+    .input(z.object({ window: flaggedWindowSchema.default("all") }))
     .output(z.array(flaggedIpSchema)),
 
   blocklists: {

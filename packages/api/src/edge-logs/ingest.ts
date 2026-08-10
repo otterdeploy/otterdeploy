@@ -3,7 +3,7 @@
  * opens a TCP connection and streams newline-delimited JSON access entries to
  * this listener. We frame on newlines, parse, and push into the ring buffer.
  *
- * `output net` is symmetric across environments — dev (Caddy in a container →
+ * `output net` is symmetric across environments, dev (Caddy in a container →
  * host.docker.internal) and Swarm (service DNS) differ only by the address,
  * exactly like DEPLOY_AUTHZ_UPSTREAM. No shared filesystem assumption.
  */
@@ -19,9 +19,10 @@ import { initGeo, lookupCountry } from "./geo";
 import { parseCaddyAccessLog } from "./parse";
 import { enqueueEdgeLog } from "./persist";
 import { pushEdgeLog } from "./ring";
+import { recordThreatProbe } from "./threat-rollup";
 
 // Bound once across `--hot` reloads via a global guard (the listener is a
-// long-lived TCP server — re-`Bun.listen`ing the same port would EADDRINUSE,
+// long-lived TCP server. Re-`Bun.listen`ing the same port would EADDRINUSE,
 // and the existing listener's data handler already writes into the shared
 // globalThis ring/persist state, so it stays correct after reload).
 const g = globalThis as typeof globalThis & {
@@ -31,7 +32,7 @@ const g = globalThis as typeof globalThis & {
 export function startEdgeLogSink(port: number): void {
   if (g.__edgeLogSink) return;
   // Open the GeoIP reader (no-op unless EDGE_LOG_GEOIP_DB + the optional
-  // `maxmind` package are both present). Fire-and-forget — lookups before it
+  // `maxmind` package are both present). Fire-and-forget. Lookups before it
   // resolves just return null.
   void initGeo();
   const partials = new WeakMap<object, { buf: string }>();
@@ -69,7 +70,7 @@ export function startEdgeLogSink(port: number): void {
 
 /** Both planes share this socket: per-site access logs (their own logger) and
  *  the global default logger (operational events). Access logs use the
- *  `http.log.access.*` logger and Caddy's "handled request" message — route
+ *  `http.log.access.*` logger and Caddy's "handled request" message. Route
  *  those to the access path, everything else to the event path. Without this
  *  split, a reverse_proxy error (which embeds a `request`) would mis-parse as
  *  a status-0 access row. */
@@ -84,16 +85,20 @@ function ingestLine(line: string): void {
   try {
     json = JSON.parse(line);
   } catch {
-    return; // Caddy runtime log lines that aren't JSON, or partial — skip.
+    return; // Caddy runtime log lines that aren't JSON, or partial. Skip.
   }
 
   if (isAccessLog(json)) {
     const parsed = parseCaddyAccessLog(json);
     if (!parsed) return;
-    // GeoIP enrichment (null until a database is configured — see geo.ts).
+    // GeoIP enrichment (null until a database is configured, see geo.ts).
     parsed.country = lookupCountry(parsed.clientIp);
     pushEdgeLog(parsed); // live tail
     enqueueEdgeLog(parsed); // persistence (no-op unless started)
+    // All-time scanner-probe counters. Independent of the persistence toggle
+    // and of the raw log's retention: this is what makes the Firewall panel's
+    // history outlive the request lines it was derived from.
+    recordThreatProbe(parsed);
     return;
   }
 

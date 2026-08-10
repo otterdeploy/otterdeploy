@@ -1,5 +1,5 @@
 /**
- * Header, status row, and status helpers for {@link ComposeResourcePanel} —
+ * Header, status row, and status helpers for {@link ComposeResourcePanel},
  * pulled into a sibling module so the panel component stays small. The content
  * tabs (Services / Compose / Settings) live in {@link ./panel-tabs}.
  */
@@ -21,6 +21,10 @@ export type StackServiceStatus =
 
 export interface ComposeService {
   name: string;
+  /** Runtime name (`composeSwarmServiceName(stack, name)`): the join key back
+   *  to this service's materialized child resource. The child's `name` is
+   *  collision-suffixed and must never be used for the match. */
+  serviceName: string;
   image: string | null;
   hasBuild: boolean;
   ports: number[];
@@ -41,8 +45,8 @@ type DeploymentStatus =
   | null;
 
 /** Build-time base before live tasks arrive. `building` means an actual image
- *  build; `pending`/`starting` mean the rollout is pulling/starting containers
- *  — image-only stacks never build, so calling that phase "Building" was a
+ *  build; `pending`/`starting` mean the rollout is pulling/starting containers.
+ *  Image-only stacks never build, so calling that phase "Building" was a
  *  lie. The two states render distinctly (Building vs Deploying). */
 export function baseStatus(dep: DeploymentStatus): StackServiceStatus | undefined {
   switch (dep) {
@@ -138,12 +142,12 @@ export function ComposeStatusBar({
   stackName,
 }: {
   services: ComposeService[];
-  serviceStatus: (name: string) => StackServiceStatus;
+  serviceStatus: (serviceName: string) => StackServiceStatus;
   stackName: string;
 }) {
-  const runningCount = services.filter((s) => serviceStatus(s.name) === "running").length;
+  const runningCount = services.filter((s) => serviceStatus(s.serviceName) === "running").length;
   const allRunning = runningCount === services.length && services.length > 0;
-  const anyError = services.some((s) => serviceStatus(s.name) === "error");
+  const anyError = services.some((s) => serviceStatus(s.serviceName) === "error");
   return (
     <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border/40 px-4 py-3 sm:px-6">
       <span

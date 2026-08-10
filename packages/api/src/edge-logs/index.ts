@@ -42,4 +42,10 @@ export {
   persistenceEnabled,
 } from "./persist";
 export { startEdgeLogSink, stopEdgeLogSink } from "./ingest";
+export {
+  startThreatRollup,
+  stopThreatRollup,
+  flushThreatRollup,
+  __resetThreatRollup,
+} from "./threat-rollup";
 export { ensureEdgeLogTable, ensurePartitions, dropOldPartitions } from "./partition";

@@ -21,7 +21,7 @@ export interface Task {
   /** Compose sub-service this task belongs to; null for a plain service. */
   service: string | null;
   state: ResourceStatus;
-  /** Swarm's desired state — a retired/replaced task is "shutdown". Used only to
+  /** Swarm's desired state. A retired/replaced task is "shutdown". Used only to
    *  drop retired swarm tasks from the status/replica view (plain Docker leaves
    *  it null, so nothing is dropped there). */
   desiredState?: string | null;
@@ -31,11 +31,11 @@ export interface Task {
   restarts?: number;
 }
 
-/** A swarm task the scheduler has retired — excluded from the live status/replica
+/** A swarm task the scheduler has retired. Excluded from the live status/replica
  *  view. Plain-Docker instances have no `desiredState`, so they're never dropped. */
 const isRetired = (t: Task): boolean => t.desiredState === "shutdown";
 
-/** Total restarts for a service — sum of the per-task contributions the server
+/** Total restarts for a service: sum of the per-task contributions the server
  *  already normalized across runtimes (Docker RestartCount / swarm retries). */
 const restartCount = (tasks: Task[]): number => tasks.reduce((n, t) => n + (t.restarts ?? 0), 0);
 
@@ -43,8 +43,10 @@ type LiveNode = Node<ResourceNodeData, "resource">;
 
 type ServiceStatus = ResourceStatus;
 
-/** Most-concerning state wins: error > building > running. */
-const rollupStatus = (tasks: Task[]): ServiceStatus =>
+/** Most-concerning state wins: error > building > running. The return type is
+ *  the three states this can actually produce, which is the overlap between
+ *  ResourceStatus and StackServiceStatus: both callers then need no cast. */
+const rollupStatus = (tasks: Task[]): Extract<ServiceStatus, "running" | "building" | "error"> =>
   tasks.some((t) => t.state === "error")
     ? "error"
     : tasks.some((t) => t.state === "building")
@@ -70,14 +72,19 @@ const withReplicas = (node: LiveNode, tasks: Task[]): LiveNode => {
   };
 };
 
-/** Status of a single stack-member service resource — its live-task rollup if
+/** Status of a single stack-member service resource: its live-task rollup if
  *  it has tasks, else its build-time deployment state. "offline" is a deployed
  *  service with no running task (the exact failure a single stack pill hides).
  *  Exported so the compose DETAIL panel derives per-service status identically
- *  to the graph node — they read the same child resources + tasks and must
+ *  to the graph node: they read the same child resources + tasks and must
  *  never disagree. */
-export const childServiceStatus = (child: ServiceResource, tasks: Task[]): StackServiceStatus => {
-  if (tasks.length > 0) return rollupStatus(tasks) as StackServiceStatus;
+export const childServiceStatus = (
+  // Structural: the one field this reads. Lets the compose panel's lookup pass
+  // its own row shape without reconstructing the full resource wire type.
+  child: Pick<ServiceResource, "latestDeploymentStatus">,
+  tasks: Task[],
+): StackServiceStatus => {
+  if (tasks.length > 0) return rollupStatus(tasks);
   switch (child.latestDeploymentStatus) {
     case "starting":
     case "building":
@@ -119,7 +126,7 @@ const withStackStatus = (node: LiveNode, tasks: Task[]): LiveNode => {
         const status: StackServiceStatus =
           own && own.length > 0
             ? // error > building > running, scoped to this service's tasks.
-              (rollupStatus(own) as StackServiceStatus)
+              rollupStatus(own)
             : // No task: keep a build-time base (building/error/pending), else
               // the stack is up but this one isn't → offline.
               (s.status ?? "offline");
@@ -134,7 +141,7 @@ const withStackStatus = (node: LiveNode, tasks: Task[]): LiveNode => {
  *  markers stay aligned with whatever the diff reports. */
 export interface PendingByName {
   /** Set of `${resource}:${name}` pairs that should render as ghost
-   *  nodes — they exist in the manifest but not yet in current state.
+   *  nodes: they exist in the manifest but not yet in current state.
    *  Compose creates carry the parsed service summary so the ghost group
    *  node can render its member cards before the stack is deployed. */
   creates: Array<{
@@ -142,7 +149,7 @@ export interface PendingByName {
     name: string;
     services?: ComposeServiceInfo[];
     /** Framework the create wizard detected (via inspectRepo) for a git
-     *  service — lets the ghost render the brand logo before it's built. */
+     *  service: lets the ghost render the brand logo before it's built. */
     framework?: FrameworkKind;
     /** Template brand (compose creates) so the ghost group shows the stack's
      *  logo before the first deploy persists it. */
@@ -157,7 +164,7 @@ export interface PendingByName {
  * Turn raw resources + live task data into the full node list.
  *
  * The rollup picks the most concerning state across replicas
- * (error > building > running) so the header pill matches operator intuition —
+ * (error > building > running) so the header pill matches operator intuition:
  * one failing replica makes the whole service "error".
  *
  * `pending` overlays staged manifest changes onto the result:
@@ -170,7 +177,7 @@ export const buildLiveNodes = (
   pending?: PendingByName,
 ): LiveNode[] => {
   // A compose stack's services are now REAL service resources (stackId set).
-  // They render INSIDE the stack's group, not as standalone nodes — so group
+  // They render INSIDE the stack's group, not as standalone nodes, so group
   // them by stack and drop them from the top-level list.
   const stackChildren = new Map<string, ServiceResource[]>();
   for (const r of resources) {
@@ -183,7 +190,7 @@ export const buildLiveNodes = (
   const topLevel = resources.filter((r) => !(r.type === "service" && r.stackId));
 
   const realNodes = topLevel.flatMap((r) => {
-    // The framework (brand logo) already rides on base.data — resourceToNode
+    // The framework (brand logo) already rides on base.data: resourceToNode
     // reads it straight off the stored resource record. No live lookup.
     const base = resourceToNode(r);
     const marker = pending?.marker.get(base.id);
@@ -204,7 +211,7 @@ export const buildLiveNodes = (
     if (r.type === "compose") {
       const children = stackChildren.get(r.resourceId) ?? [];
       // Join on `serviceName` (the runtime name, `${stack}-${composeKey}`),
-      // NOT the resource's `name` — pickResourceName collision-suffixes the
+      // NOT the resource's `name`, pickResourceName collision-suffixes the
       // resource name (e.g. stack "excalidraw" + service "excalidraw" ->
       // child resource "excalidraw-service"), which diverges from the
       // compose file's declared key and makes the join below miss forever.
@@ -220,14 +227,14 @@ export const buildLiveNodes = (
           volumes,
           // Real resource id → the card opens that service's full panel.
           resourceId: c.resourceId,
-          // The stack has no single host — each member answers for itself, so
+          // The stack has no single host. Each member answers for itself, so
           // the Visit affordance lives on the member row.
           publicUrl: c.publicEnabled ? c.publicDomain : null,
           status: childServiceStatus(c, live.length > 0 ? live : all),
           ...(restarts > 0 ? { restarts } : {}),
         };
       };
-      // Git stacks carry no inline file summary until their first build — render
+      // Git stacks carry no inline file summary until their first build. Render
       // whatever children exist, else the base node.
       if (r.services.length === 0) {
         if (children.length === 0) return [withStackStatus(baseWithExtras, tasks)];
@@ -238,7 +245,16 @@ export const buildLiveNodes = (
       // one exists. The reconciler creates children ONE AT A TIME during a
       // deploy, so rendering only the children that exist yet made the stack
       // flash 4 cards → 1 → 4 as they landed. Merging with the declared summary
-      // keeps all N cards visible; the not-yet-created ones read as "building".
+      // keeps all N cards visible.
+      //
+      // A declared service with no child yet takes the STACK's own deploy state
+      // (resourceToNode → baseStackServiceStatus), never a hardcoded "building".
+      // A build that fails never creates its children, so hardcoding it left a
+      // stack whose Deployments tab reads FAILED spinning on "Building" forever.
+      // The graph contradicting the panel about the same deploy.
+      const baseStatus = new Map(
+        (baseWithExtras.data.services ?? []).map((s) => [s.name, s.status] as const),
+      );
       const services: ComposeServiceInfo[] = r.services.map((s) => {
         const child = childByServiceName.get(s.serviceName);
         return child
@@ -248,7 +264,7 @@ export const buildLiveNodes = (
               image: s.image,
               hasBuild: s.hasBuild,
               volumes: s.volumes,
-              status: "building",
+              status: baseStatus.get(s.name),
             };
       });
       return [{ ...baseWithExtras, data: { ...baseWithExtras.data, services } }];
@@ -262,13 +278,10 @@ export const buildLiveNodes = (
   // operator intent, not just current state. The ghost shares the SAME id
   // its applied counterpart will get (`${resource}:${name}`) so that when
   // Apply lands the real resource, React Flow updates the node in place
-  // instead of unmounting the ghost and mounting a resourceId-keyed node —
+  // instead of unmounting the ghost and mounting a resourceId-keyed node:
   // the swap that made nodes vanish and reappear. No resourceId in data yet.
-  const ghosts: LiveNode[] = pending.creates.map((c) => ({
-    id: `${c.resource}:${c.name}`,
-    type: "resource",
-    position: { x: 0, y: 0 },
-    data: {
+  const ghosts: LiveNode[] = pending.creates.map((c) => {
+    const data: ResourceNodeData = {
       kind: c.resource,
       name: c.name,
       description:
@@ -287,7 +300,8 @@ export const buildLiveNodes = (
       // A compose ghost renders as a group: hand it the parsed member cards so
       // the operator sees the stack's services before deploying it.
       ...(c.resource === "compose" ? { services: c.services ?? [] } : {}),
-    } as ResourceNodeData,
-  }));
+    };
+    return { id: `${c.resource}:${c.name}`, type: "resource", position: { x: 0, y: 0 }, data };
+  });
   return [...realNodes, ...ghosts];
 };

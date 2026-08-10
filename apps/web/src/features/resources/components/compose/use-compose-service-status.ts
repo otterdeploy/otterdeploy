@@ -22,7 +22,7 @@ export function useComposeServiceStatus(resource: {
   resourceId: string;
   projectId: string;
   latestDeploymentStatus: Parameters<typeof baseStatus>[0];
-}): (name: string) => StackServiceStatus {
+}): (serviceName: string) => StackServiceStatus {
   const { data: taskRows } = useLiveQuery(
     (q) =>
       q.from({ d: serviceTasksCollection }).where(({ d }) => eq(d.projectId, resource.projectId)),
@@ -43,17 +43,57 @@ export function useComposeServiceStatus(resource: {
   );
   const tasksByResourceId = (() => {
     const m = new Map<string, Task[]>();
-    for (const row of taskRows) m.set(row.resourceId, row.tasks as Task[]);
+    for (const row of taskRows) m.set(row.resourceId, row.tasks);
     return m;
   })();
-  const statusByName = (() => {
-    const m = new Map<string, StackServiceStatus>();
-    for (const c of projectResources) {
-      if (c.type !== "service" || c.stackId !== resource.resourceId) continue;
-      m.set(c.name, childServiceStatus(c, tasksByResourceId.get(c.resourceId) ?? []));
-    }
-    return m;
-  })();
-  const base = baseStatus(resource.latestDeploymentStatus);
-  return (name: string) => statusByName.get(name) ?? base ?? "offline";
+  return composeStatusLookup({
+    stackResourceId: resource.resourceId,
+    resources: projectResources,
+    tasksByResourceId,
+    base: baseStatus(resource.latestDeploymentStatus),
+  });
+}
+
+/** A child service row as this lookup reads it. Structural so the test can pass
+ *  a literal without reconstructing the whole resource-collection wire type. */
+export interface StackChildRow {
+  type: string;
+  stackId?: string | null;
+  resourceId: string;
+  serviceName?: string;
+  latestDeploymentStatus: Parameters<typeof childServiceStatus>[0]["latestDeploymentStatus"];
+}
+
+/**
+ * Resolve a declared compose service (by its RUNTIME name) to its child
+ * resource's status, falling back to the stack's own deploy state when the
+ * stack has no child for it yet.
+ *
+ * The join key is `serviceName` — NEVER the child's resource name.
+ * `pickResourceName` collision-suffixes that one (stack "it-tools-2" + service
+ * "it-tools" → resource "it-tools-2-it-tools"; a namesake → "<stack>-service"),
+ * so keying on it matched the declared compose key for essentially no stack.
+ * Every member silently fell through to `base`, i.e. this panel rendered the
+ * STACK's deploy status N times over while the graph — which already joins on
+ * serviceName — showed each child's real state. That is the panel and the node
+ * contradicting each other about one deploy, which is exactly what this
+ * module's header promises cannot happen.
+ *
+ * Pure and exported for the test that pins the join key.
+ */
+export function composeStatusLookup(input: {
+  stackResourceId: string;
+  resources: readonly StackChildRow[];
+  tasksByResourceId: ReadonlyMap<string, Task[]>;
+  base: StackServiceStatus | undefined;
+}): (serviceName: string) => StackServiceStatus {
+  const byServiceName = new Map<string, StackServiceStatus>();
+  for (const c of input.resources) {
+    if (c.type !== "service" || c.stackId !== input.stackResourceId || !c.serviceName) continue;
+    byServiceName.set(
+      c.serviceName,
+      childServiceStatus(c, input.tasksByResourceId.get(c.resourceId) ?? []),
+    );
+  }
+  return (serviceName: string) => byServiceName.get(serviceName) ?? input.base ?? "offline";
 }

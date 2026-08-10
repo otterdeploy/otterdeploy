@@ -1,5 +1,5 @@
 /**
- * Content tabs for {@link ComposeResourcePanel} — the Services list, the
+ * Content tabs for {@link ComposeResourcePanel}: the Services list, the
  * read-only Compose file viewer, and the Settings (exposed-services summary +
  * delete) pane. Pulled into a sibling module so the panel component stays
  * small.
@@ -42,7 +42,7 @@ export function ComposeServicesTab({
 }: {
   services: ComposeService[];
   source: "inline" | "git";
-  serviceStatus: (name: string) => StackServiceStatus;
+  serviceStatus: (serviceName: string) => StackServiceStatus;
 }) {
   if (services.length === 0) {
     return (
@@ -61,7 +61,7 @@ export function ComposeServicesTab({
   return (
     <div className="flex flex-col gap-2.5">
       {services.map((s) => (
-        <ServiceRow key={s.name} service={s} status={serviceStatus(s.name)} />
+        <ServiceRow key={s.name} service={s} status={serviceStatus(s.serviceName)} />
       ))}
     </div>
   );
@@ -80,14 +80,14 @@ export function ComposeFileTab({
   isLoading: boolean;
   composeContent: string | null | undefined;
 }) {
-  // Git stacks stay read-only — their compose file lives in the repo and is
+  // Git stacks stay read-only. Their compose file lives in the repo and is
   // resolved at build time, so editing it here would just be overwritten.
   if (source === "git") {
     return (
       <>
         <p className="mb-3 rounded-md border border-info/30 bg-info/5 px-3 py-2 text-[12px] text-muted-foreground">
-          This stack builds from a repository — the compose file lives in the repo and is resolved
-          at build time.
+          This stack builds from a repository. The compose file lives in the repo and is resolved at
+          build time.
         </p>
         {isLoading ? (
           <div className="rounded-lg border bg-card px-4 py-6 text-center text-[12px] text-muted-foreground">
@@ -187,7 +187,7 @@ export function ComposeSettingsTab({
 function ServiceRow({ service, status }: { service: ComposeService; status: StackServiceStatus }) {
   const meta = stackStatusMeta[status];
   // Task-derived "building" covers swarm's pre-running phases (pulling,
-  // starting) — for an image-only service nothing builds, so say "Deploying".
+  // starting): for an image-only service nothing builds, so say "Deploying".
   const label =
     status === "error" && service.hasBuild
       ? "Build failed"
@@ -207,7 +207,7 @@ function ServiceRow({ service, status }: { service: ComposeService; status: Stac
       </div>
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11.5px] text-muted-foreground">
         <span className="truncate">
-          {service.image ?? (service.hasBuild ? "built from source" : "—")}
+          {service.image ?? (service.hasBuild ? "built from source" : "–")}
         </span>
         {service.ports.length > 0 && <span>· ports {service.ports.join(", ")}</span>}
       </div>
