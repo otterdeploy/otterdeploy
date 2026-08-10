@@ -3,7 +3,6 @@ import type {
   EnvironmentId,
   OrganizationId,
   ProjectId,
-  ResourceId,
 } from "@otterdeploy/shared/id";
 import type { ResourceRef } from "@otterdeploy/shared/paths";
 

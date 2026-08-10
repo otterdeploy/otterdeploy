@@ -306,7 +306,7 @@ export const env = createEnv({
     // and run `docker compose pull && up -d`. The installer writes the real value
     // into .env (it derives from OTTERDEPLOY_DATA_DIR), so this default only
     // applies to source checkouts — it mirrors install.sh's
-    // `$DATA_DIR/platform/source` (`installSourceDir()` in @otterdeploy/shared/paths).
+    // `$DATA_DIR/platform/source`.
     OTTERDEPLOY_INSTALL_DIR: z.string().min(1).default("/data/otterdeploy/platform/source"),
     // GitHub repo (owner/name) whose `releases/latest` is the version source.
     OTTERDEPLOY_UPDATE_REPO: z.string().min(1).default("otterdeploy/otterdeploy"),

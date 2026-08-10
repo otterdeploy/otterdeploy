@@ -37,22 +37,15 @@ export const DATA_ROOT = (process.env.OTTERDEPLOY_DATA_DIR ?? "/data/otterdeploy
 
 /* ------------------------------------------------------------------------- *
  * platform/ — the platform itself. Load-bearing; never swept.
+ *
+ * Two platform paths have no TS helper on purpose, because nothing in this
+ * codebase writes them: `platform/source/` (the install root, owned by
+ * scripts/install.sh — the default `OTTERDEPLOY_INSTALL_DIR`) and
+ * `platform/backups/<ts>-<reason>/` (self-update safety sets: control-plane
+ * dump + env + override, written by the deploy procedure). Add a helper here
+ * the day code needs one; the layout contract lives in
+ * docs/designs/data-folder.md.
  * ------------------------------------------------------------------------- */
-
-/** The platform's own subtree: install source, self-update backups, caddy,
- *  geoip, branch pool. Everything here IS the platform. */
-export const platformDir = (): string => `${DATA_ROOT}/platform`;
-
-/** The installer's install root (`docker-compose.yml` + override + `.env`).
- *  LOAD-BEARING: the platform's config + master secrets, not generated. This is
- *  the default `OTTERDEPLOY_INSTALL_DIR`. */
-export const installSourceDir = (): string => `${DATA_ROOT}/platform/source`;
-
-/** Self-update safety sets: one dir per event, grouped so a set (control-plane
- *  dump + env + override) is restored or discarded as a unit. `reason` is a
- *  short slug, e.g. `update-v0.12.0` or `hotfix-b0f0efb2`. */
-export const platformBackupDir = (stamp: string, reason: string): string =>
-  `${DATA_ROOT}/platform/backups/${stamp}-${reason}`;
 
 /** Reconciled Caddyfile + snippets, bind-mounted into the caddy container. */
 export const caddyDir = (): string => `${DATA_ROOT}/platform/caddy`;
