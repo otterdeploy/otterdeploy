@@ -53,7 +53,7 @@ DATA_DIR="${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}"
 NETWORK="${OTTERDEPLOY_NETWORK:-otterdeploy}"
 ZFS_POOL="${OTTERDEPLOY_ZFS_POOL:-otter}"
 PROJECT="otterdeploy"
-INSTALL_DIRS=("$DATA_DIR/source" "/opt/otterdeploy")
+INSTALL_DIRS=("$DATA_DIR/platform/source" "/opt/otterdeploy")
 MANAGED="otterdeploy.managed"
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -117,7 +117,7 @@ say  "ZFS pool '$ZFS_POOL'          : $(command -v zpool >/dev/null 2>&1 && $SUD
 step "Choose what to delete"
 [ "$DRY_RUN" = true ] && say "(dry-run: using defaults)"
 pick KEEP_VOLUMES "Keep app/database volumes (their data)?"       N   # default: delete → keep=No
-pick KEEP_DATA    "Keep $DATA_DIR (builds, backups, caddy)?"       N
+pick KEEP_DATA    "Keep $DATA_DIR (platform, orgs, work, cache)?"  N
 pick BASE_IMAGES  "Also remove base images (postgres/redis)?"      N   # default: keep → remove=No
 pick KEEP_ZFS     "Keep the ZFS branching pool '$ZFS_POOL'?"           N
 pick KEEP_SWARM   "Stay in Docker Swarm?"                          N
@@ -181,7 +181,7 @@ if ! $KEEP_ZFS; then
     run $SUDO zfs destroy -r "$ZFS_POOL/pg" 2>/dev/null || true
     run $SUDO zpool destroy -f "$ZFS_POOL" || true
   else say "(no '$ZFS_POOL' pool)"; fi
-  [ -f "$DATA_DIR/branch-pool.img" ] && run $SUDO rm -f "$DATA_DIR/branch-pool.img" || true
+  [ -f "$DATA_DIR/platform/branch-pool.img" ] && run $SUDO rm -f "$DATA_DIR/platform/branch-pool.img" || true
 else step "Keeping ZFS pool (--keep-zfs)"; fi
 
 # ── 7. swarm ──────────────────────────────────────────────────────────────────

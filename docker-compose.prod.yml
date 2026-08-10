@@ -185,7 +185,8 @@ services:
       # Docker-out-of-Docker: build images land in the same daemon the stack
       # runs from (so the runtime can pull them).
       - /var/run/docker.sock:/var/run/docker.sock
-      # Same-path data folder — holds the persistent BuildKit layer cache.
+      # Same-path data folder — holds the persistent BuildKit layer cache
+      # (cache/buildx) and the ephemeral build scratch (work/).
       - ${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}:${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -219,8 +220,9 @@ services:
       - "443:443"
       - "443:443/udp"
     volumes:
-      # Reconciled Caddyfile lives under the data folder (written by the server).
-      - ${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}/caddy:/etc/caddy
+      # Reconciled Caddyfile lives under the data folder's platform subtree
+      # (written by the server).
+      - ${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}/platform/caddy:/etc/caddy
       - otterdeploy-caddy-data:/data
       - otterdeploy-caddy-state:/config
       - otterdeploy-caddy-admin:/run/caddy-admin

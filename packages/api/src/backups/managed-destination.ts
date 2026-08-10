@@ -26,7 +26,7 @@ import type { BackupDestinationId, OrganizationId } from "@otterdeploy/shared/id
 
 import { db } from "@otterdeploy/db";
 import { backupDestination } from "@otterdeploy/db/schema";
-import { managedBackupRepoRoot } from "@otterdeploy/shared/paths";
+import { orgBackupRepoRoot } from "@otterdeploy/shared/paths";
 import { and, eq, ne, or } from "drizzle-orm";
 
 /** Shown in the destinations list and pre-selected in the schedule form. The
@@ -35,15 +35,14 @@ import { and, eq, ne, or } from "drizzle-orm";
 const MANAGED_LOCAL_DESTINATION_NAME = "Local disk (managed)";
 
 /**
- * The config the platform owns for the managed row. `path` is the repo root and
- * `prefix` namespaces by org, which `deriveRepoId` already threads into the
- * rustic repo id — so no engine change is needed to keep orgs apart.
+ * The config the platform owns for the managed row. `path` IS the org's repo
+ * root (`orgs/<org>/backups/`), so the org namespace lives in the path itself —
+ * one org's `forget --prune` can never reach another's snapshots — and
+ * `deriveRepoKey` uses the bare scope as the managed repo id (no prefix key),
+ * with an org-qualified password domain.
  */
-export function managedLocalConfig(organizationId: OrganizationId): {
-  path: string;
-  prefix: OrganizationId;
-} {
-  return { path: managedBackupRepoRoot(), prefix: organizationId };
+export function managedLocalConfig(organizationId: OrganizationId): { path: string } {
+  return { path: orgBackupRepoRoot(organizationId) };
 }
 
 /**
@@ -90,12 +89,13 @@ export async function ensureManagedLocalDestination(organizationId: Organization
     .limit(1);
   if (!existing) return;
 
-  const current = existing.config;
-  if (current.path === desiredConfig.path && current.prefix === desiredConfig.prefix) return;
+  if (existing.config.path === desiredConfig.path) return;
 
+  // The platform owns the managed row's whole config, so replace it outright —
+  // merging would carry stale platform keys forward.
   await db
     .update(backupDestination)
-    .set({ config: { ...current, ...desiredConfig } })
+    .set({ config: desiredConfig })
     .where(eq(backupDestination.id, existing.id));
 }
 

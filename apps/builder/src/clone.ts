@@ -1,6 +1,6 @@
 /**
  * Clone a repo at a specific commit into a build work dir under the host data
- * folder (`<DATA_ROOT>/builds/<projectId>/<deploymentId>`), falling back to an
+ * folder (`<DATA_ROOT>/work/builds/<projectId>/<deploymentId>`), falling back to an
  * ephemeral `tmpdir()` when the data folder isn't writable (local dev). See
  * docs/designs/data-folder.md.
  *
@@ -36,8 +36,8 @@ export interface CloneResult {
 }
 
 /**
- * Work dir for a build: `<DATA_ROOT>/builds/<projectId>/<deploymentId>` when the
- * data folder is writable (predictable + inspectable + cap-able), else an ephemeral
+ * Work dir for a build: `<DATA_ROOT>/work/builds/<projectId>/<deploymentId>` when
+ * the data folder is writable (predictable + inspectable + cap-able), else an ephemeral
  * `tmpdir()` so local dev — where `/data` isn't writable and no
  * `OTTERDEPLOY_DATA_DIR` is set — keeps working unchanged. Either way the dir is
  * empty, which `git clone <url> <dir>` requires.

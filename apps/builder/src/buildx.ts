@@ -16,7 +16,7 @@
  * A build NEVER fails because the cache is unavailable.
  */
 
-import { DATA_ROOT } from "@otterdeploy/shared/paths";
+import { buildxCacheDir } from "@otterdeploy/shared/paths";
 import { join } from "node:path";
 
 import type { LogSink } from "./log-stream";
@@ -29,7 +29,7 @@ import { runProcess } from "./run-process";
 const BUILDER_NAME = "otterdeploy-cache";
 
 /** Root for exported BuildKit caches — one subdir per image repo. */
-const CACHE_ROOT = join(DATA_ROOT, "buildx-cache");
+const CACHE_ROOT = buildxCacheDir();
 
 /**
  * Ensure the shared docker-container buildx builder exists and is booted.
@@ -73,7 +73,7 @@ export async function ensureBuildxBuilder(sink: LogSink): Promise<string | null>
 }
 
 /** Local cache dir for an image repo, e.g.
- *  `<DATA_ROOT>/buildx-cache/ghcr.io_acme_web`. Path-unsafe chars in the repo
+ *  `<DATA_ROOT>/cache/buildx/ghcr.io_acme_web`. Path-unsafe chars in the repo
  *  (`/`, `:`) collapse to `_` so each repo maps to exactly one dir. */
 export function cachePathFor(imageRepository: string): string {
   const safe = imageRepository.replace(/[^A-Za-z0-9_.-]+/g, "_");

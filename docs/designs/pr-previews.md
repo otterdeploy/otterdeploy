@@ -144,7 +144,7 @@ branchSnapshotRef: text("branch_snapshot_ref"), // zfs snapshot name — needed 
 legacyVolumeName: text("legacy_volume_name"),   // pre-migration Docker `local` volume name; NULL once on the managed path
 ```
 
-**Volume identity → the on-disk path keyed by `resourceId`, NOT the Docker volume name.** This is the canonical scheme going forward (matches `resourceDir`/`backupDir` in `data-folder.md` — grouped by project, keyed by stable id, rename-safe). Managed volumes live at `${DATA_ROOT}/volumes/<projectId>/<resourceId>` (see §4.3); the Docker/compose volume *name* stops being the identity. A branch is a *new* `databaseResource` row → its own `resourceId` → its own dir automatically (no env-suffix hack). `legacyVolumeName` is only set on rows whose data still sits in a Docker-managed `local` volume (`/var/lib/docker/volumes/<name>`) pending migration — used to find the old bytes, then cleared.
+**Volume identity → the on-disk path keyed by `resourceId`, NOT the Docker volume name.** This is the canonical scheme going forward (matches `resourceDir` in `data-folder.md` — resource-homed in the tenant tree, keyed by stable id, rename-safe). Managed volumes live under the resource's own dir at `${DATA_ROOT}/orgs/<orgId>/projects/<projectId>/envs/<envId|main>/resources/<resourceId>/volumes/` (see §4.3); the Docker/compose volume *name* stops being the identity. A branch is a *new* `databaseResource` row → its own `resourceId` → its own dir automatically (no env-suffix hack). `legacyVolumeName` is only set on rows whose data still sits in a Docker-managed `local` volume (`/var/lib/docker/volumes/<name>`) pending migration — used to find the old bytes, then cleared.
 
 ### 3.4 `deployment` — environment scoping
 
@@ -220,13 +220,13 @@ Selected by `DB_BRANCH_STRATEGY` env (`auto` default → probe `zfs`, else `copy
 
 - **`zfs`** requires the platform to **own the filesystem** under the data dir. Provision DB data as a **bind mount under the existing `DATA_ROOT` tree**, keyed by `resourceId` (the canonical identity — §3.3). Add to `packages/shared/src/paths.ts` (alongside `resourceDir`/`buildDir`/`backupDir`):
 >     ```ts
->     export const volumeDir = (projectId: ProjectId, resourceId: ResourceId): string =>
->       `${DATA_ROOT}/volumes/${projectId}/${resourceId}`;
+>     export const volumeDir = (ref: ResourceRef): string =>
+>       `${resourceDir(ref)}/volumes`;
 >     // compose stacks: one member volume per subdir
->     export const composeVolumeDir = (projectId, resourceId, member: string): string =>
->       `${DATA_ROOT}/volumes/${projectId}/${resourceId}/${member}`;
+>     export const composeVolumeDir = (ref: ResourceRef, member: string): string =>
+>       `${volumeDir(ref)}/${member}`;
 >     ```
->   so DB volumes land at **`/data/otterdeploy/volumes/<projectId>/<resourceId>`**. The ZFS dataset is mounted at `${DATA_ROOT}/volumes`. Bounded change in `runtime/docker-driver-db.ts` / `swarm/database-internals.ts` (swap the `Mounts` entry from `Type: "volume"` to a bind on `volumeDir(...)`).
+>   so DB volumes land at **`/data/otterdeploy/orgs/<orgId>/projects/<projectId>/envs/<envId|main>/resources/<resourceId>/volumes/`** — the resource's own home in the tenant tree. On a ZFS host each managed volume dir is a dataset mounted at that path. Bounded change in `runtime/docker-driver-db.ts` / `swarm/database-internals.ts` (swap the `Mounts` entry from `Type: "volume"` to a bind on `volumeDir(...)`).
 - **`copy`** keeps Docker named volumes (branch = fresh volume + `pg_restore` via a helper container).
 
 **No new root env var** — everything derives from the existing `DATA_ROOT` (`OTTERDEPLOY_DATA_DIR`, default `/data/otterdeploy`, per `@otterdeploy/shared/paths` + `docs/designs/data-folder.md`). All otterdeploy host artifacts stay under that one tree. Gate the placement fork behind the boot-time `probe()` so a host without ZFS keeps working via `copy`.
@@ -359,7 +359,7 @@ PREVIEW_MAX_PER_PROJECT: z.coerce.number().default(10),
 PREVIEW_IDLE_TEARDOWN_HOURS: z.coerce.number().default(72),
 ```
 
-**No `DB_VOLUME_ROOT`** — DB branch volumes derive from the existing `DATA_ROOT` (`${DATA_ROOT}/volumes/...`, §4.3). Don't add a second root env var; the whole platform already consolidates under `OTTERDEPLOY_DATA_DIR` (default `/data/otterdeploy`). Follow the existing `createEnv` shape; `.optional()`/`.default()` per convention. No GitHub creds here — those stay encrypted on `git_provider`.
+**No `DB_VOLUME_ROOT`** — DB branch volumes derive from the existing `DATA_ROOT` (the resource-homed `.../resources/<resourceId>/volumes/` path, §4.3). Don't add a second root env var; the whole platform already consolidates under `OTTERDEPLOY_DATA_DIR` (default `/data/otterdeploy`). Follow the existing `createEnv` shape; `.optional()`/`.default()` per convention. No GitHub creds here — those stay encrypted on `git_provider`.
 
 ---
 
@@ -383,7 +383,7 @@ Each phase is independently mergeable behind the fact that previews aren't trigg
 - **Acceptance:** `branchDatabase` produces a working second Postgres with the source's data; teardown removes it cleanly. (Disk doubles — expected for `copy`; logged.)
 
 ### P3 — COW strategies (the real goal: thin, instant)
-- §4.3 managed volume placement under `${DATA_ROOT}/volumes/<projectId>/<resourceId>` (new `volumeDir`/`composeVolumeDir` helpers in `shared/paths.ts`); §4.2 `zfs` driver + `probe()`; §4.4 COW credential path.
+- §4.3 managed volume placement under the resource's `volumes/` dir (`.../resources/<resourceId>/volumes/`, via the `volumeDir`/`composeVolumeDir` helpers in `shared/paths.ts`); §4.2 `zfs` driver + `probe()`; §4.4 COW credential path.
 - **§4.3 sub-task:** retire the two legacy Docker volume names (plain-DB `otterdeploy-pgdata-…` + compose `<project>_<member>`) onto the canonical `resourceId`-keyed path — apply the bind-mount placement to **both** the DB and compose provisioning paths, resolve the on-disk path from `(projectId, resourceId)` only (never `buildVolumeName`), and migrate legacy volumes off `/var/lib/docker` via `legacyVolumeName` (one-time copy + `copy`-only/"redeploy to enable branching" with a log until migrated).
 - **Acceptance:** on a ZFS host, branching a multi-GB DB is ~instant and adds ~0 disk until divergence; `zfs list` confirms thin.
 
@@ -404,7 +404,7 @@ Each phase is independently mergeable behind the fact that previews aren't trigg
 ## 11. Decisions (resolved 2026-07-03)
 
 1. **Branch-all vs opt-in DBs → DECIDED: branch-all when the COW (`zfs`) strategy is active.** On PR open, auto-branch every Postgres in the project when `probe()` selected `zfs` (thin, ~free). When only `copy` is available, fall back to per-resource opt-in (a `branchOnPreview` flag on the resource) so nobody accidentally doubles disk on a huge DB. Implementers: the branch-all loop in `handle-pull-request.ts` (§7.2 step 3) gates on `activeStrategy.kind === "zfs" || resource.branchOnPreview`.
-2. **COW substrate → DECIDED: auto-provision ZFS in the installer.** ZFS is the primary/default substrate; the installer creates and manages a ZFS pool (or a file-backed pool for single-disk hosts) so thin branching works out of the box. The pool's dataset is mounted at `${DATA_ROOT}/volumes` (i.e. `/data/otterdeploy/volumes`) — no separate root. `copy` remains the fallback only when the installer couldn't establish a COW-capable filesystem (probed at boot). This adds an **installer task to P3** — see §13.1.
+2. **COW substrate → DECIDED: auto-provision ZFS in the installer.** ZFS is the primary/default substrate; the installer creates and manages a ZFS pool (or a file-backed pool for single-disk hosts) so thin branching works out of the box. The pool's datasets back the per-resource `volumes/` dirs under `${DATA_ROOT}/orgs/…` (see §4.3) — no separate root. `copy` remains the fallback only when the installer couldn't establish a COW-capable filesystem (probed at boot). This adds an **installer task to P3** — see §13.1.
 3. **Seed/anonymization.** Branch DBs are raw clones for v1 (no masking). Revisit if PII-in-previews becomes a concern; `copy`+transform is the natural hook. *(Still open — not blocking.)*
 4. **Non-Postgres engines.** Out of scope for v1 (Postgres first). Previews share production for Redis/Mongo/etc. via inherited env, or skip them. *(Default: share prod. Still open if isolation is needed.)*
 5. **Production zero-downtime → DECIDED: build blue-green into the docker driver.** Not lean on Swarm — implement Caddy-layer blue-green in the plain-docker `update()` path so the default runtime gets zero-downtime deploys with no orchestrator dependency. Full sub-design in §13.2. This is a **separable workstream** from previews but shares the runtime seam, so it's tracked here.
@@ -414,7 +414,7 @@ Each phase is independently mergeable behind the fact that previews aren't trigg
 ### 13.1 Installer ZFS provisioning (feeds P3)
 
 - Installer detects host capability: real block device → `zpool create otterdeploy <dev>`; single-disk/dev → file-backed pool (`truncate` a sparse file → `zpool create` on it) so COW still works, with a documented perf caveat.
-- Create the dataset that backs the volumes tree (e.g. `otterdeploy/volumes`) and mount it at `${DATA_ROOT}/volumes` — the same `/data/otterdeploy` tree as builds/backups/resources. No new root path or env var.
+- Create the datasets that back the managed volume dirs and mount them at each resource's `volumes/` dir (`${DATA_ROOT}/orgs/<orgId>/projects/<projectId>/envs/<envId|main>/resources/<resourceId>/volumes/`) — the same `/data/otterdeploy` tree as everything else. No new root path or env var.
 - Boot-time `SnapshotDriver.probe()` confirms the pool is live and selects `zfs`; if provisioning failed, fall back to `copy` and surface a warning on the Platform page (reuse the self-updater/system router surface pattern).
 - **Acceptance:** fresh install on a ZFS-capable host → `zfs list` shows the volumes dataset; branching is thin. Fresh install on a locked-down host → `copy` selected, feature still works, warning shown.
 

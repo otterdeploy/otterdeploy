@@ -94,8 +94,10 @@ export interface RuntimeDriver {
   /** Provision a branch of a running source database (§4.5). */
   branchDatabase(input: BranchDatabaseSpec, log?: RequestLogger): Promise<DatabaseStatus>;
   /** Tear a branch down — container AND volume AND snapshot (branches, unlike a
-   *  normal DB teardown, are NOT orphaned). Volume resolves via the branch's
-   *  own (projectId, resourceId). */
+   *  normal DB teardown, are NOT orphaned). Named Docker volumes resolve via the
+   *  branch's own resource id today; the P3 COW bind-mount path will need the
+   *  branch's full env-keyed `ResourceRef` (org/project/env/resource) to derive
+   *  `volumeDir`. */
   destroyDatabaseBranch(
     input: {
       serviceName: string;

@@ -4,17 +4,19 @@
  * An update runs at most once at a time, so one module-level `activeRun` holds
  * the status + accumulated progress events, and a tiny pub/sub lets the oRPC
  * event-iterator (`system.progress`) replay-then-tail it. A best-effort JSON
- * snapshot under DATA_DIR survives the server being recreated mid-update, so
+ * snapshot (`platform/update-status.json` in the data folder) survives the
+ * server being recreated mid-update, so
  * after the browser reconnects it can read the FINAL outcome of a real cutover
  * (the in-memory copy is gone with the old container). Dry-run never restarts,
  * so it completes over the live stream and never needs the file.
  */
-import { DATA_ROOT } from "@otterdeploy/shared/paths";
+import { updateStatusPath } from "@otterdeploy/shared/paths";
 import { Result } from "better-result";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 
 import { isNewer } from "./compare";
+import { runSnapshotSchema } from "./contract";
 
 export type UpdateRunStatus = "idle" | "running" | "succeeded" | "failed";
 export type UpdatePhase = "validate" | "pull" | "migrate" | "recreate" | "handoff" | "done";
@@ -41,7 +43,7 @@ export interface UpdateRunSnapshot {
   logs: ProgressEvent[];
 }
 
-const STATUS_FILE = join(DATA_ROOT, "update-status.json");
+const STATUS_FILE = updateStatusPath();
 const MAX_LOGS = 500;
 
 function idle(): UpdateRunSnapshot {
@@ -176,7 +178,9 @@ export async function* streamProgress(
  *  final outcome of a real cutover. Null if absent/unreadable. */
 async function readPersistedSnapshot(): Promise<UpdateRunSnapshot | null> {
   const res = await Result.tryPromise({
-    try: async () => JSON.parse(await readFile(STATUS_FILE, "utf8")) as UpdateRunSnapshot,
+    // Schema-parsed, not cast: the file is a JSON boundary (an older server
+    // version — or a stray hand edit — may have written it).
+    try: async () => runSnapshotSchema.parse(JSON.parse(await readFile(STATUS_FILE, "utf8"))),
     catch: (cause) => cause,
   });
   return res.isOk() ? res.value : null;

@@ -43,8 +43,8 @@ export class DestinationInUseError extends TaggedError("DestinationInUseError")<
 
 /**
  * Raised when a mutation targets the platform-managed local destination in a
- * way that isn't allowed: deleting it, or editing the path/prefix the platform
- * owns. Carries `operation` so the UI can explain which door is shut rather
+ * way that isn't allowed: deleting it, or editing the org-scoped repo path the
+ * platform owns. Carries `operation` so the UI can explain which door is shut rather
  * than showing a generic refusal — though the UI should not offer these
  * affordances on a managed row in the first place.
  */

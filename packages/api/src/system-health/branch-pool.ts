@@ -1,7 +1,8 @@
 /**
  * ZFS branching-pool introspection + lifecycle (docs/designs/db-branching.md,
  * "Pool sizing, reclamation, growth"). The installer provisions a file-backed
- * pool as a SPARSE image under the data dir — its apparent size is a growth
+ * pool as a SPARSE image (`platform/branch-pool.img` in the data dir) — its
+ * apparent size is a growth
  * ceiling, but every block ZFS ever writes stays materialized on the host
  * filesystem until trimmed. This module keeps that honest:
  *
@@ -20,7 +21,7 @@
  * runtime driver can import the guard without dragging full env validation
  * into the deploy import graph — same idiom as runtime/snapshot/index.ts.
  */
-import { DATA_ROOT } from "@otterdeploy/shared/paths";
+import { branchPoolImagePath, DATA_ROOT } from "@otterdeploy/shared/paths";
 import { Result } from "better-result";
 import { log } from "evlog";
 import { existsSync } from "node:fs";
@@ -29,7 +30,7 @@ import { stat, statfs } from "node:fs/promises";
 import { runOnHost } from "./host-run";
 
 const GB = 1024 * 1024 * 1024;
-const IMAGE_PATH = `${DATA_ROOT}/branch-pool.img`;
+const IMAGE_PATH = branchPoolImagePath();
 /** Keep this much host disk free no matter what the pool wants. */
 const HOST_DISK_RESERVE_BYTES = 2 * GB;
 const GROW_STEP_BYTES = 10 * GB;

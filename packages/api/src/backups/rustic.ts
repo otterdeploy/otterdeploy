@@ -11,7 +11,7 @@ import { env } from "@otterdeploy/env/server";
  *
  *     [repository]
  *     repository = "<url>"        # local path or opendal:<svc>
- *     password   = "<hkdf hex>"   # HKDF-SHA256(BETTER_AUTH_SECRET, info=repoId)
+ *     password   = "<hkdf hex>"   # HKDF-SHA256(BETTER_AUTH_SECRET, info=passwordDomain)
  *     [repository.options]        # OpenDAL backend keys (bucket, root, …)
  *
  * and invokes `rustic -P <profilePathWithout.toml> <subcmd> …`. The profile is
@@ -57,18 +57,20 @@ export interface ForgetSpec {
 
 /**
  * Derive a repo's encryption password: HKDF-SHA256 over `BETTER_AUTH_SECRET`
- * with `info = repoId`, hex-encoded. Deterministic (re-derivable, no secret
+ * with `info = domain` (the repo key's `passwordDomain` — equals the repo id
+ * for external destinations, org-qualified for managed ones; see
+ * backends.deriveRepoKey), hex-encoded. Deterministic (re-derivable, no secret
  * store) and domain-separated per repo. Pure so it's unit-testable without env.
  *
  * ⚠️ Rotating `BETTER_AUTH_SECRET` re-derives every password → existing repos
  * become unreadable. Operational constraint; there's no rotation path in v1.
  */
-export function deriveRepoPassword(secret: string, repoId: string): string {
+export function deriveRepoPassword(secret: string, domain: string): string {
   const derived = hkdfSync(
     "sha256",
     Buffer.from(secret, "utf8"),
     Buffer.alloc(0),
-    Buffer.from(repoId, "utf8"),
+    Buffer.from(domain, "utf8"),
     32,
   );
   return Buffer.from(derived).toString("hex");
@@ -116,7 +118,7 @@ export class RusticCli {
 
   /** This repo's HKDF-derived password (never placed on argv). */
   private password(): string {
-    return deriveRepoPassword(env.BETTER_AUTH_SECRET, this.repo.repoId);
+    return deriveRepoPassword(env.BETTER_AUTH_SECRET, this.repo.passwordDomain);
   }
 
   /** The config-profile TOML delivering repository URL, password, and backend options. */

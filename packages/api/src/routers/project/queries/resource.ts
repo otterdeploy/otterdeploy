@@ -1,4 +1,4 @@
-import type { EnvironmentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import {
@@ -8,6 +8,7 @@ import {
   resource,
   serviceResource,
 } from "@otterdeploy/db/schema/project";
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { and, eq, isNull, or } from "drizzle-orm";
 
 import { pruneSchedulesForDeletedResource } from "../../../backups/schedule-cleanup";
@@ -203,12 +204,14 @@ export function composeChildSwarmServices(
 }
 
 export async function deleteResourceById(resourceId: ResourceId) {
-  // Capture the project + name + org before the row is gone — the artifact dir
-  // is nested under the project (`resources/<projectId>/<resourceId>`), and the
+  // Capture the org/project/env + name before the row is gone — the artifact
+  // dir mirrors the DB hierarchy
+  // (`orgs/<org>/projects/<prj>/envs/<env|main>/resources/<res>`), and the
   // name/org drive backup-schedule cleanup below.
   const [row] = await db
     .select({
       projectId: resource.projectId,
+      environmentId: resource.environmentId,
       name: resource.name,
       organizationId: project.organizationId,
     })
@@ -217,15 +220,25 @@ export async function deleteResourceById(resourceId: ResourceId) {
     .where(eq(resource.id, resourceId))
     .limit(1);
   await db.delete(resource).where(eq(resource.id, resourceId));
-  if (row) {
+  // The project row's org id is a plain string in the schema — narrow it with a
+  // real runtime check (ids are minted as `org_…`) instead of an assertion. A
+  // malformed id can't address either the host dir or the org's schedules, so
+  // both cleanups are skipped rather than aimed at a bogus path.
+  if (row && hasPrefix(row.organizationId, ID_PREFIX.organization)) {
     // Drop the resource's host artifact dir (no-op unless the data folder is in
     // use). Best-effort — never blocks the row delete. See lib/data-dir.ts.
-    await removeResourceDir(row.projectId, resourceId);
+    // `environmentId: null` means the project's main environment.
+    await removeResourceDir({
+      organizationId: row.organizationId,
+      projectId: row.projectId,
+      environmentId: row.environmentId ?? null,
+      resourceId,
+    });
     // Prune this now-deleted resource from any backup schedule that referenced
     // it (FK-less jsonb `sources`), disabling schedules left with no live
     // source. Runs AFTER the delete so the live set is accurate; never throws.
     await pruneSchedulesForDeletedResource({
-      organizationId: row.organizationId as OrganizationId,
+      organizationId: row.organizationId,
       resourceId,
       resourceName: row.name,
     });

@@ -142,7 +142,9 @@ const progressEventSchema = z.object({
   message: z.string(),
 });
 
-const runSnapshotSchema = z.object({
+/** Exported for state.ts: the persisted `platform/update-status.json` snapshot
+ *  is re-read through this schema after a cutover (JSON boundary, never cast). */
+export const runSnapshotSchema = z.object({
   status: z.enum(["idle", "running", "succeeded", "failed"]),
   startedAt: z.string().nullable(),
   finishedAt: z.string().nullable(),
