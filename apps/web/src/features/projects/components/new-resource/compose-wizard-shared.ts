@@ -1,12 +1,18 @@
 /**
- * Shared types, constants, form shape and helpers for the Compose wizard.
- * Split out of compose-wizard.tsx to keep that file + its main component
- * under the line caps.
+ * Shared types + the form hook for the Compose wizard. Split out of
+ * compose-wizard.tsx to keep that file + its main component under the line
+ * caps.
+ *
+ * Validation lives next door in ./compose-schema.ts — the zod discriminated
+ * union that owns every "can this step advance?" decision. This file is the
+ * preview/detection types the parse hook + chrome share, plus `useComposeForm`,
+ * which wires that schema onto the form.
  */
 
-import type { Var } from "./form-fields/variables-field";
-
+import { composeDefaults, composeFormSchema, type ComposeFormValues } from "./compose-schema";
 import { useAppForm } from "./form-context";
+
+export type { ComposeFormValues, ComposeStep } from "./compose-schema";
 
 export interface DetectedService {
   name: string;
@@ -29,27 +35,6 @@ export interface Preview {
   vars: VarRef[];
   services: DetectedService[];
   warnings: string[];
-}
-
-export interface ComposeFormValues {
-  name: string;
-  source: "inline" | "git";
-  content: string;
-  /** Inline supporting files (scripts, Dockerfiles, .env, configs) alongside the
-   *  compose file in `content`. Paths may be nested (`scripts/init.sh`). */
-  files: Array<{ path: string; content: string }>;
-  /** Bound repo id from the picker (private-capable). Preferred over gitRepoUrl. */
-  gitRepoId: string;
-  /** `owner/repo` for the bound repo — display only. */
-  repoFullName: string;
-  /** Legacy public-URL paste (used when no installation / no picked repo). */
-  gitRepoUrl: string;
-  gitRef: string;
-  composePath: string;
-  /** Root directory within the repo the stack builds from. */
-  sourceSubdir: string;
-  exposed: string[];
-  variables: Var[];
 }
 
 /** Seed for the wizard when a stack arrives from the templates gallery:
@@ -77,115 +62,28 @@ export function toResourceName(raw: string): string {
   return /^[a-z]/.test(slug) ? slug : `s-${slug}`.slice(0, 63);
 }
 
-export function useComposeForm() {
+/**
+ * The wizard form, schema-owned like the resource wizard's `useWizardForm`.
+ *
+ * A template handoff seeds `name` + `content` through `defaultValues` (not an
+ * effect) — the initial parse then runs off the `content` field's `onMount`
+ * listener in compose-wizard-fields.tsx, exactly as if the operator had pasted
+ * the file. The discriminated union validates against the current `__step`
+ * arm; the `content` field carries its own async parse validator on top.
+ */
+export function useComposeForm(prefill?: ComposePrefill) {
+  // `composeDefaults` carries the full typed shape, so the spread infers
+  // ComposeFormValues without a cast; the schema is a refined object whose input
+  // type is that same flat shape, so it drops onto `onChange` with no cast
+  // either (see compose-schema.ts for why it isn't a discriminatedUnion).
+  const defaultValues: ComposeFormValues = {
+    ...composeDefaults,
+    ...(prefill ? { name: prefill.name, content: prefill.content } : {}),
+  };
   return useAppForm({
-    defaultValues: {
-      name: "",
-      source: "inline",
-      content: "",
-      files: [],
-      gitRepoId: "",
-      repoFullName: "",
-      gitRepoUrl: "",
-      gitRef: "",
-      composePath: "",
-      sourceSubdir: "",
-      exposed: [],
-      variables: [],
-    } as ComposeFormValues,
+    defaultValues,
+    validators: { onChange: composeFormSchema },
   });
 }
 
 export type ComposeForm = ReturnType<typeof useComposeForm>;
-
-/** Is the pasted file something we can deploy as-is? Inline only, parsed
- *  clean, and with no service that needs a build (those go through git).
- *  Split out of deriveComposeFlags — it's the one question the whole "Next /
- *  Create" chrome hangs off, and it deserves a name. */
-function isInlineReady(
-  source: "inline" | "git",
-  preview: Preview | null,
-  buildServices: DetectedService[],
-): boolean {
-  if (source !== "inline") return false;
-  return preview?.valid === true && buildServices.length === 0;
-}
-
-/** Does the file declare a `${VAR}` ref WITHOUT a `:-default` that the operator
- *  hasn't filled in yet? Split out of deriveComposeFlags because it owns the
- *  required-vs-defaulted distinction on its own.
- *
- *  The stack can't deploy correctly until these are set (e.g. Authentik's
- *  POSTGRES_PASSWORD), so staging stays blocked while any is blank — otherwise
- *  the vars step can be clicked straight through and the stack lands in the
- *  pending state with an empty password, which is exactly the "janky" bypass. */
-function hasUnsetRequiredVars(
-  source: "inline" | "git",
-  preview: Preview | null,
-  variables: Var[],
-): boolean {
-  if (source !== "inline") return false;
-  const requiredKeys = new Set(
-    (preview?.vars ?? []).filter((v) => v.default === null).map((v) => v.name),
-  );
-  return variables.some((v) => requiredKeys.has(v.key.trim()) && v.value.trim() === "");
-}
-
-/** The stack's name when the operator leaves the field blank: the repo's last
- *  path segment for git, the compose file's own `name:` for inline. Split out
- *  of deriveComposeFlags so the URL-tidying lives next to the fallback it
- *  feeds. */
-function deriveStackName(
-  source: "inline" | "git",
-  gitRepoUrl: string,
-  preview: Preview | null,
-): { repoName: string | undefined; derivedName: string } {
-  const repoName = gitRepoUrl
-    .trim()
-    .replace(/\.git$/, "")
-    .replace(/\/$/, "")
-    .split("/")
-    .pop();
-  const candidate = source === "git" ? repoName : preview?.name;
-  return { repoName, derivedName: candidate || "compose-stack" };
-}
-
-/** Derived flags the wizard chrome reads — pulled out of the component body
- *  so its cyclomatic complexity stays under the cap. */
-export function deriveComposeFlags(args: {
-  source: "inline" | "git";
-  gitRepoUrl: string;
-  preview: Preview | null;
-  step: "file" | "vars";
-  stagePending: boolean;
-  variables: Var[];
-}) {
-  const { source, gitRepoUrl, preview, step, stagePending, variables } = args;
-  const buildServices = preview?.services.filter((s) => s.hasBuild) ?? [];
-  // A valid, deployable inline file (no build services).
-  const inlineReady = isInlineReady(source, preview, buildServices);
-  const hasVars = source === "inline" && (preview?.vars.length ?? 0) > 0;
-  const requiredUnset = hasUnsetRequiredVars(source, preview, variables);
-  // Always route an inline file through the variables step before creating, so
-  // the operator can review / set / add env values BEFORE the stack deploys —
-  // not just when the file happens to declare `${VAR}` refs. (Git source has no
-  // inline step; its file + vars are resolved at build time.)
-  const showNext = step === "file" && inlineReady;
-  const gitReady = gitRepoUrl.trim().length > 0;
-  const sourceReady = source === "git" ? gitReady : inlineReady;
-  const canCreate = !stagePending && !requiredUnset && sourceReady;
-
-  // What the name will be if left blank — shown as the field's placeholder.
-  const { repoName, derivedName } = deriveStackName(source, gitRepoUrl, preview);
-
-  return {
-    buildServices,
-    inlineReady,
-    hasVars,
-    showNext,
-    canCreate,
-    repoName,
-    derivedName,
-    requiredUnset,
-  };
-}

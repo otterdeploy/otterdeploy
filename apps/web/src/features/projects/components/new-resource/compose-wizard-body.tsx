@@ -3,15 +3,21 @@
  * footer buttons, and the body that composes them with the source-specific
  * field groups. Split out of compose-wizard.tsx to keep that file under the
  * line caps.
+ *
+ * Nothing here hand-rolls validity: the owner passes `canContinue` (derived
+ * from the compose schema) + a few display facts (`isLast` / `hasVars` /
+ * `requiredUnset`). `step` and `source` are read straight off the form, so the
+ * body doesn't need them threaded either.
  */
 
 import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 import type { ReactCodeMirrorRef } from "@uiw/react-codemirror";
 
+import { useStore } from "@tanstack/react-form";
+
 import { Button } from "@/shared/components/ui/button";
 
-import type { ComposeForm, DetectedService, Preview } from "./compose-wizard-shared";
-import type { UniqueStackName } from "./use-unique-stack-name";
+import type { ComposeForm, Preview } from "./compose-wizard-shared";
 
 import { ComposeGitFields, ComposeInlineFields } from "./compose-wizard-fields";
 
@@ -78,63 +84,55 @@ function ComposeSourceToggle({
   );
 }
 
+// The "advance" button's label. Inline always routes through the vars step
+// before staging (so env is reviewed BEFORE deploy) — "Next: variables" when
+// the file declares any, "Review & stage" when it declares none. Git has no
+// vars step, so its file-step button stages directly.
+function advanceLabel(isLast: boolean, hasVars: boolean, isPending: boolean): string {
+  if (isLast) return isPending ? "Adding…" : "Add resource";
+  return hasVars ? "Next: variables" : "Review & stage";
+}
+
 function ComposeFooter({
   step,
-  setStep,
-  showNext,
+  isLast,
   hasVars,
-  canCreate,
+  canContinue,
   isPending,
+  onBack,
   onCancel,
 }: {
   step: "file" | "vars";
-  setStep: (s: "file" | "vars") => void;
-  showNext: boolean;
+  isLast: boolean;
   hasVars: boolean;
-  canCreate: boolean;
+  canContinue: boolean;
   isPending: boolean;
+  onBack: () => void;
   onCancel?: () => void;
 }) {
   if (step === "vars") {
     return (
       <div className="flex items-center justify-end gap-2 border-t px-5 py-3">
-        <Button variant="outline" size="sm" type="button" onClick={() => setStep("file")}>
+        <Button variant="outline" size="sm" type="button" onClick={onBack}>
           Back
         </Button>
-        <Button size="sm" type="submit" disabled={!canCreate}>
+        <Button size="sm" type="submit" disabled={!canContinue}>
           {isPending ? "Adding…" : "Add resource"}
         </Button>
       </div>
     );
   }
+  // File step. The button is `type="submit"` with NO onClick — the form's
+  // onSubmit (handleContinue) owns both the file→vars transition and the git
+  // create, so Enter and this button behave identically.
   return (
     <div className="flex items-center justify-end gap-2 border-t px-5 py-3">
       <Button variant="outline" size="sm" type="button" onClick={onCancel}>
         Cancel
       </Button>
-      {showNext ? (
-        // Submit, with NO onClick — the form's onSubmit owns the file→vars
-        // transition (it guards on `showNext` precisely so Enter and this
-        // button behave the same).
-        //
-        // This used to also call setStep("vars") on click, and the two raced:
-        // React flushes state updates before the browser performs the click's
-        // default action, so by the time onSubmit ran, `showNext` was already
-        // false and it fell through to `if (canCreate) stageStack()`. The
-        // wizard staged the stack and closed on the very click meant to open
-        // the variables step — so the operator never got to review or edit a
-        // single value, on any template.
-        <Button size="sm" type="submit">
-          {/* The vars step always runs (even with nothing to fill — see
-              deriveComposeFlags), but "Next: variables" over-promises when
-              the file declares none: nothing there to review. */}
-          {hasVars ? "Next: variables" : "Review & stage"}
-        </Button>
-      ) : (
-        <Button size="sm" type="submit" disabled={!canCreate}>
-          {isPending ? "Adding…" : "Add resource"}
-        </Button>
-      )}
+      <Button size="sm" type="submit" disabled={!canContinue}>
+        {advanceLabel(isLast, hasVars, isPending)}
+      </Button>
     </div>
   );
 }
@@ -143,49 +141,40 @@ export function ComposeWizardBody({
   form,
   projectId,
   projectSlug,
-  step,
-  setStep,
-  source,
   parsing,
   preview,
-  buildServices,
-  exposed,
+  isLast,
   hasVars,
-  derivedName,
-  unique,
-  showNext,
-  canCreate,
   requiredUnset,
+  canContinue,
   isPending,
+  onBack,
   onCancel,
   fileInput,
   editorRef,
   parseContent,
-  onToggleExpose,
 }: {
   form: ComposeForm;
   projectId: ProjectId;
   projectSlug: ProjectSlug;
-  step: "file" | "vars";
-  setStep: (s: "file" | "vars") => void;
-  source: "inline" | "git";
   parsing: boolean;
   preview: Preview | null;
-  buildServices: DetectedService[];
-  exposed: Set<string>;
+  isLast: boolean;
   hasVars: boolean;
-  derivedName: string;
-  unique: UniqueStackName;
-  showNext: boolean;
-  canCreate: boolean;
   requiredUnset: boolean;
+  canContinue: boolean;
   isPending: boolean;
+  onBack: () => void;
   onCancel?: () => void;
   fileInput: React.RefObject<HTMLInputElement | null>;
   editorRef: React.RefObject<ReactCodeMirrorRef | null>;
   parseContent: (value: string) => Promise<string | undefined>;
-  onToggleExpose: (key: string) => void;
 }) {
+  // Read the two view-driving values straight off the form — no need to thread
+  // them from the owner, which reads the same store.
+  const step = useStore(form.store, (s) => s.values.__step);
+  const source = useStore(form.store, (s) => s.values.source);
+
   return (
     <>
       <div className="flex flex-1 flex-col gap-4 overflow-auto p-5">
@@ -201,31 +190,24 @@ export function ComposeWizardBody({
             <ComposeSourceToggle
               source={source}
               onSelect={(s) => {
-                setStep("file");
+                // Reset to the file step and switch source in one gesture — the
+                // discriminator moves with the view it drives.
+                form.setFieldValue("__step", "file");
                 form.setFieldValue("source", s);
               }}
             />
 
             {source === "git" ? (
-              <ComposeGitFields
-                form={form}
-                derivedName={derivedName}
-                unique={unique}
-                projectSlug={projectSlug}
-              />
+              <ComposeGitFields form={form} projectId={projectId} projectSlug={projectSlug} />
             ) : (
               <ComposeInlineFields
                 form={form}
-                derivedName={derivedName}
-                unique={unique}
+                projectId={projectId}
                 fileInput={fileInput}
                 editorRef={editorRef}
                 parseContent={parseContent}
                 parsing={parsing}
                 preview={preview}
-                buildServices={buildServices}
-                exposed={exposed}
-                onToggleExpose={onToggleExpose}
               />
             )}
           </>
@@ -234,11 +216,11 @@ export function ComposeWizardBody({
 
       <ComposeFooter
         step={step}
-        setStep={setStep}
-        showNext={showNext}
+        isLast={isLast}
         hasVars={hasVars}
-        canCreate={canCreate}
+        canContinue={canContinue}
         isPending={isPending}
+        onBack={onBack}
         onCancel={onCancel}
       />
     </>

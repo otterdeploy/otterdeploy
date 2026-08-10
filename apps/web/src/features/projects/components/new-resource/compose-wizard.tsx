@@ -7,29 +7,31 @@
  * pending-changes bar's Deploy (manifest.apply) provisions it. See
  * docs/designs/compose.md.
  *
+ * Validation is schema-owned, like the sibling resource wizard: a zod
+ * discriminated union keyed on `__step` (./compose-schema.ts) decides whether
+ * each step can advance. There are no hand-rolled `deriveComposeFlags` booleans
+ * and no prefill effect — the template seeds through `defaultValues`, the parse
+ * runs off the content field's `onMount` listener (compose-wizard-fields.tsx).
+ *
  * The wizard chrome lives in ./compose-wizard-body (+ ./compose-wizard-fields,
- * ./compose-preview); shared types/helpers in ./compose-wizard-shared; the
- * parse hook in ./compose-wizard-parse; CodeMirror config in
+ * ./compose-preview); shared types/the form hook in ./compose-wizard-shared;
+ * the parse hook in ./compose-wizard-parse; CodeMirror config in
  * ./compose-wizard-editor.
  */
 import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 import type { ReactCodeMirrorRef } from "@uiw/react-codemirror";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 
 import { omitUndefined } from "@otterdeploy/shared/object";
 import { useStore } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
 
 import { useStageManifestChange } from "../../hooks/use-manifest-stage";
+import { composeFormSchema, stackNamePlaceholder, type ComposeStep } from "./compose-schema";
 import { ComposeWizardBody } from "./compose-wizard-body";
 import { useComposeParse } from "./compose-wizard-parse";
-import {
-  type ComposeFormValues,
-  type ComposePrefill,
-  deriveComposeFlags,
-  useComposeForm,
-} from "./compose-wizard-shared";
+import { type ComposeFormValues, type ComposePrefill, useComposeForm } from "./compose-wizard-shared";
 import { useUniqueStackName } from "./use-unique-stack-name";
 
 // Manifest `composes[name]` entry from the form values — split from the
@@ -120,55 +122,44 @@ export function ComposeWizard({
   const navigate = useNavigate();
   const fileInput = useRef<HTMLInputElement>(null);
   const editorRef = useRef<ReactCodeMirrorRef>(null);
-  // Two-step inline flow: paste the file → fill its `${VAR}` values.
-  const [step, setStep] = useState<"file" | "vars">("file");
 
-  const stage = useStageManifestChange(projectId, {
-    successToast: "Stack staged — review and Apply",
-  });
+  const stage = useStageManifestChange(projectId);
 
-  const form = useComposeForm();
+  // Template prefill is seeded through defaultValues (no effect) — see
+  // useComposeForm; the content field's onMount runs the initial parse.
+  const form = useComposeForm(prefill);
   const { preview, parseContent } = useComposeParse(projectId, editorRef, form);
 
-  // Template handoff: seed the form once on mount and run the same parse the
-  // editor's onChange runs, so the preview + `${VAR}` rows populate exactly as
-  // if the operator had pasted the file themselves.
-  const prefillDone = useRef(false);
-  useEffect(() => {
-    if (!prefill || prefillDone.current) return;
-    prefillDone.current = true;
-    form.setFieldValue("name", prefill.name);
-    form.setFieldValue("content", prefill.content);
-    void parseContent(prefill.content);
-  }, [prefill, form, parseContent]);
-
-  const source = useStore(form.store, (s) => s.values.source);
-  const gitRepoUrl = useStore(form.store, (s) => s.values.gitRepoUrl);
-  const nameInput = useStore(form.store, (s) => s.values.name);
-  const variables = useStore(form.store, (s) => s.values.variables);
-  const exposed = new Set(useStore(form.store, (s) => s.values.exposed));
-  // The form already tracks the async `content` validation — no manual flag.
+  // Everything the chrome needs, derived from form state + the schema — no
+  // hand-rolled flags. `values` re-renders the wizard on any field change,
+  // which is exactly when a step's validity can flip.
+  const values = useStore(form.store, (s) => s.values);
   const parsing = useStore(form.store, (s) => Boolean(s.fieldMeta.content?.isValidating));
+  const contentInvalid = useStore(form.store, (s) => (s.fieldMeta.content?.errors?.length ?? 0) > 0);
 
-  const toggleExpose = (key: string) => {
-    const cur = form.state.values.exposed;
-    form.setFieldValue("exposed", cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key]);
-  };
+  const step = values.__step;
+  const source = values.source;
+  // The schema arm for the CURRENT step: does it parse clean?
+  const stepValid = composeFormSchema.safeParse(values).success;
+  // Inline flows file → vars; git has only the file step.
+  const steps: ComposeStep[] = source === "git" ? ["file"] : ["file", "vars"];
+  const isLast = steps.indexOf(step) === steps.length - 1;
+  // On the inline file step the schema only proves content is non-empty; whether
+  // it's DEPLOYABLE (parsed clean, no `build:` service) is the async content
+  // validator's verdict, read here off the field's own validity.
+  const inlineFileGate = step === "file" && source === "inline" ? !parsing && !contentInvalid : true;
+  const canContinue = !stage.isPending && stepValid && inlineFileGate;
+  const hasVars = source === "inline" && (preview?.vars.length ?? 0) > 0;
+  // The vars arm's only failure is an unset required `${VAR}` — so an invalid
+  // vars step IS "something required is still blank", which drives the banner.
+  const requiredUnset = step === "vars" && !stepValid;
 
-  const { buildServices, hasVars, showNext, canCreate, derivedName, requiredUnset } =
-    deriveComposeFlags({
-      source,
-      gitRepoUrl,
-      preview,
-      step,
-      stagePending: stage.isPending,
-      variables,
-    });
+  // What the name will be if left blank — the field placeholder and the base
+  // useUniqueStackName bumps on collision.
+  const derivedName = stackNamePlaceholder(source, values.gitRepoUrl, preview?.name);
+  const unique = useUniqueStackName(projectId, values.name, derivedName);
 
-  // Resolve a collision-free name up front so a re-deployed template stages a
-  // NEW stack (foo-2) instead of overwriting foo with an identical entry (the
-  // silent no-op). The name field renders `unique` as an inline indicator.
-  const unique = useUniqueStackName(projectId, nameInput, derivedName);
+  const goToStep = (next: ComposeStep) => form.setFieldValue("__step", next);
 
   // Stage a `composes[name]` entry into the manifest — no immediate deploy. The
   // graph then shows the stack as a pending ghost; the pending-changes bar's
@@ -195,19 +186,26 @@ export function ComposeWizard({
     });
   };
 
+  // Validate the current step's arm, then advance or stage. Mirrors the resource
+  // wizard's handleContinue — form.validate + getAllErrors, not booleans. The
+  // `parsing` guard covers the async content parse still settling; the footer
+  // button is already disabled via `canContinue`, so this mostly guards Enter.
+  const handleContinue = async () => {
+    await form.validate("change");
+    const all = form.getAllErrors();
+    const blocked =
+      all.form.errors.length > 0 || Object.values(all.fields).some((f) => f.errors.length > 0);
+    if (blocked || parsing || stage.isPending) return;
+    if (isLast) stageStack();
+    else goToStep("vars");
+  };
+
   return (
     <form
       className="flex h-full flex-col"
       onSubmit={(e) => {
         e.preventDefault();
-        // Never create straight from the file step — a submit here (Enter key,
-        // the Next button, anything) advances to the variables step instead, so
-        // env is always reviewed before the stack is created + deployed.
-        if (showNext) {
-          setStep("vars");
-          return;
-        }
-        if (canCreate) stageStack();
+        void handleContinue();
       }}
       noValidate
     >
@@ -215,25 +213,18 @@ export function ComposeWizard({
         form={form}
         projectId={projectId}
         projectSlug={projectSlug}
-        step={step}
-        setStep={setStep}
-        source={source}
         parsing={parsing}
         preview={preview}
-        buildServices={buildServices}
-        exposed={exposed}
+        isLast={isLast}
         hasVars={hasVars}
-        derivedName={derivedName}
-        unique={unique}
-        showNext={showNext}
-        canCreate={canCreate}
         requiredUnset={requiredUnset}
+        canContinue={canContinue}
         isPending={stage.isPending}
+        onBack={() => goToStep("file")}
         onCancel={onCancel}
         fileInput={fileInput}
         editorRef={editorRef}
         parseContent={parseContent}
-        onToggleExpose={toggleExpose}
       />
     </form>
   );

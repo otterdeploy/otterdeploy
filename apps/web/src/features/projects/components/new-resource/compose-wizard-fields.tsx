@@ -2,9 +2,17 @@
  * Source-specific field groups for the Compose wizard: the optional stack
  * name, the git-source inputs, and the inline file editor + preview. Split
  * out of compose-wizard.tsx to keep that file under the line caps.
+ *
+ * The stack name's collision indicator (`useUniqueStackName`) is resolved right
+ * here in `ComposeNameField` rather than threaded from the owner — the hook is
+ * query-backed, so this call and the owner's write-time call share one cache
+ * entry and stay in lockstep. Likewise each group derives its own placeholder
+ * name from what it already has (git: the repo URL; inline: the parsed `name:`).
  */
 
-import type { ProjectSlug } from "@otterdeploy/shared/id";
+import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
+
+import { useMemo } from "react";
 
 import { Upload01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -14,26 +22,32 @@ import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 
-import type { ComposeForm, DetectedService, Preview } from "./compose-wizard-shared";
-import type { UniqueStackName } from "./use-unique-stack-name";
+import type { ComposeForm, Preview } from "./compose-wizard-shared";
 
 import { ComposeFileField } from "./compose-detect";
 import { ComposeExtraFiles } from "./compose-extra-files";
 import { ComposePreview } from "./compose-preview";
+import { stackNamePlaceholder } from "./compose-schema";
 import { editorExtensions } from "./compose-wizard-editor";
 import { RepoPicker } from "./steps/repo-picker";
 import { useBindingSummary } from "./steps/source-binding";
 import { BranchPicker } from "./steps/source-pickers";
+import { useUniqueStackName } from "./use-unique-stack-name";
 
 function ComposeNameField({
   form,
+  projectId,
   derivedName,
-  unique,
 }: {
   form: ComposeForm;
+  projectId: ProjectId;
   derivedName: string;
-  unique: UniqueStackName;
 }) {
+  const name = useStore(form.store, (s) => s.values.name);
+  // Resolve the collision-free name for display. stageStack calls the same hook
+  // for the write; both share the manifest query cache, so the "already exists"
+  // note and the name actually staged never disagree.
+  const unique = useUniqueStackName(projectId, name, derivedName);
   return (
     <form.Field name="name">
       {(field) => (
@@ -64,21 +78,25 @@ function ComposeNameField({
 
 export function ComposeGitFields({
   form,
-  derivedName,
-  unique,
+  projectId,
   projectSlug,
 }: {
   form: ComposeForm;
-  derivedName: string;
-  unique: UniqueStackName;
+  projectId: ProjectId;
   projectSlug: ProjectSlug;
 }) {
   // Same repo-selection surface git services use: an account/repo picker over
   // the connected GitHub App installations (private-capable). `gitRepoId` bound
   // → clone via the installation token; a pasted public URL is the fallback.
-  const { installations, projectId, hasInstallations } = useBindingSummary(projectSlug);
+  // `bindingProjectId` (string | null) is the one RepoPicker/PublicRepoCTA want;
+  // the branded `projectId` prop is what useUniqueStackName needs.
+  const { installations, projectId: bindingProjectId, hasInstallations } =
+    useBindingSummary(projectSlug);
   const gitRepoId = useStore(form.store, (s) => s.values.gitRepoId);
+  const gitRepoUrl = useStore(form.store, (s) => s.values.gitRepoUrl);
   const repoFullName = useStore(form.store, (s) => s.values.repoFullName);
+  // Placeholder name for a blank field: the repo URL's last path segment.
+  const derivedName = stackNamePlaceholder("git", gitRepoUrl, null);
 
   return (
     <>
@@ -87,7 +105,7 @@ export function ComposeGitFields({
           <span className="text-xs text-muted-foreground">Repository</span>
           <RepoPicker
             installations={installations}
-            projectId={projectId}
+            projectId={bindingProjectId}
             onBound={(repoId, fullName) => {
               form.setFieldValue("gitRepoId", repoId);
               form.setFieldValue("repoFullName", fullName);
@@ -162,7 +180,7 @@ export function ComposeGitFields({
         )}
       </form.Field>
 
-      <ComposeNameField form={form} derivedName={derivedName} unique={unique} />
+      <ComposeNameField form={form} projectId={projectId} derivedName={derivedName} />
       <p className="text-[11px] text-muted-foreground">
         Clones the repo, builds each service with a <code>build:</code> context, then deploys the
         whole stack. Track progress on the graph.
@@ -173,38 +191,47 @@ export function ComposeGitFields({
 
 export function ComposeInlineFields({
   form,
-  derivedName,
-  unique,
+  projectId,
   fileInput,
   editorRef,
   parseContent,
   parsing,
   preview,
-  buildServices,
-  exposed,
-  onToggleExpose,
 }: {
   form: ComposeForm;
-  derivedName: string;
-  unique: UniqueStackName;
+  projectId: ProjectId;
   fileInput: React.RefObject<HTMLInputElement | null>;
   editorRef: React.RefObject<ReactCodeMirrorRef | null>;
   parseContent: (value: string) => Promise<string | undefined>;
   parsing: boolean;
   preview: Preview | null;
-  buildServices: DetectedService[];
-  exposed: Set<string>;
-  onToggleExpose: (key: string) => void;
 }) {
+  // Placeholder name for a blank field: the compose file's own `name:`.
+  const derivedName = stackNamePlaceholder("inline", "", preview?.name);
+  const buildServices = preview?.services.filter((s) => s.hasBuild) ?? [];
+  // Membership set for the expose toggles. Memoized on the array so it is NOT
+  // reallocated every render (the old `new Set(useStore(...))` was) — the Set
+  // only changes when the exposed list actually changes.
+  const exposedList = useStore(form.store, (s) => s.values.exposed);
+  const exposed = useMemo(() => new Set(exposedList), [exposedList]);
+  const toggleExpose = (key: string) => {
+    const cur = form.state.values.exposed;
+    form.setFieldValue("exposed", cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key]);
+  };
+
   return (
     <>
-      <ComposeNameField form={form} derivedName={derivedName} unique={unique} />
+      <ComposeNameField form={form} projectId={projectId} derivedName={derivedName} />
       <form.Field
         name="content"
         validators={{
           onChangeAsyncDebounceMs: 400,
           onChangeAsync: ({ value }) => parseContent(value),
         }}
+        // Template handoff (or a re-mount after a source toggle): run the same
+        // parse the editor's onChange runs, so the preview + `${VAR}` rows
+        // populate exactly as if the operator had pasted the file — no effect.
+        listeners={{ onMount: ({ value }) => void parseContent(value) }}
       >
         {(field) => (
           <div className="flex flex-col gap-1.5">
@@ -262,7 +289,7 @@ export function ComposeInlineFields({
         preview={preview}
         buildServices={buildServices}
         exposed={exposed}
-        onToggleExpose={onToggleExpose}
+        onToggleExpose={toggleExpose}
       />
     </>
   );

@@ -159,7 +159,16 @@ export function useComposeParse(
     // Keep any extra rows the user added that aren't refs in the file.
     const extra = current.filter((c) => !res.vars.some((ref) => ref.name === c.key));
     form.setFieldValue("variables", [...seeded, ...extra]);
-    return res.valid ? undefined : `line ${res.errorLine ?? "?"}: ${res.error ?? "Invalid YAML"}`;
+    if (!res.valid) return `line ${res.errorLine ?? "?"}: ${res.error ?? "Invalid YAML"}`;
+    // A `build:` service can't deploy inline yet (those go through git), so make
+    // that a FIELD error — the "file" step then reads not-deployable straight off
+    // the content field's validity, no separate `isInlineReady`/`buildServices`
+    // flag. The amber band in ComposePreview names the offending services.
+    const buildServices = res.services.filter((s) => s.hasBuild);
+    if (buildServices.length > 0) {
+      return `${buildServices.map((s) => s.name).join(", ")} build from source — deploy from a repo`;
+    }
+    return undefined;
   };
 
   return { preview, parseContent };
