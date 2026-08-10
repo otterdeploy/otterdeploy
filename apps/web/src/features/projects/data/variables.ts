@@ -1,9 +1,7 @@
 import { zId } from "@otterdeploy/shared/id";
-import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence";
 import { createCollection } from "@tanstack/db";
 import { parseLoadSubsetOptions, queryCollectionOptions } from "@tanstack/query-db-collection";
 
-import { persistence } from "@/shared/db/sqlite-persistence";
 import { parseCol, projectIdSchema } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -28,8 +26,6 @@ const environmentIdSchema = zId("env");
 export const PROJECT_VARIABLES_COLLECTION_KEY = ["projectVariables"] as const;
 
 const variablesQueryOptions = queryCollectionOptions({
-  // Stable id so the OPFS-backed SQLite table survives page loads — see
-  // projectCollection for why persistence never round-trips without one.
   id: "project-variables",
   syncMode: "on-demand",
   queryKey: (opts) => {
@@ -95,18 +91,13 @@ const variablesQueryOptions = queryCollectionOptions({
   getKey: (item) => item.id,
 });
 
-type EnvVarRow = Awaited<ReturnType<typeof orpc.project.envVar.list.call>>[number];
-
-// Two-branch createCollection + pinned generics — see projectCollection for why.
-export const variablesCollection = persistence
-  ? createCollection(
-      persistedCollectionOptions<EnvVarRow, string | number>({
-        ...variablesQueryOptions,
-        persistence,
-        schemaVersion: 1,
-      }),
-    )
-  : createCollection(variablesQueryOptions);
+// DELIBERATELY NOT PERSISTED — the one collection excluded from the OPFS
+// SQLite layer. Unsealed env vars arrive with their plaintext `value`, and
+// persisting them would write secrets to the browser's disk where they
+// outlive the session (and logout). In-memory only: every visit refetches,
+// values never touch storage. Sealed vars were never at risk (their value is
+// always "" on the wire), but a row-level split isn't worth the machinery.
+export const variablesCollection = createCollection(variablesQueryOptions);
 
 /** Row shape inferred from the collection — views import this instead of
  *  re-declaring an EnvVarRow interface. */
