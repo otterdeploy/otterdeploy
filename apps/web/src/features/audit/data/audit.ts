@@ -16,10 +16,12 @@
  * and cache the right page, then stamp it back onto each row so the client-side
  * `eq` matches. One stamped scalar, same trick as `api-keys.ts`.
  */
+import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence";
 import { createCollection } from "@tanstack/db";
 import { parseLoadSubsetOptions, queryCollectionOptions } from "@tanstack/query-db-collection";
 import * as z from "zod";
 
+import { persistence } from "@/shared/db/sqlite-persistence";
 import { parseCol } from "@/shared/lib/utils";
 import { client, queryClient } from "@/shared/server/orpc";
 
@@ -127,32 +129,48 @@ export function auditSubsetKey(filter: AuditFilter): string {
 
 const subsetKeySchema = z.string().min(1);
 
-export const auditCollection = createCollection(
-  queryCollectionOptions({
-    syncMode: "on-demand",
-    queryKey: (opts) => {
-      const base = ["audit"];
-      const { filters } = parseLoadSubsetOptions(opts);
-      // Startup base-key call — query-db-collection calls `queryKey({})` once to
-      // compute the prefix every subset key extends. No filters yet.
-      if (!filters.at(0)) return base;
-      return [...base, parseCol(subsetKeySchema, filters, "key")];
-    },
-    queryFn: async (ctx) => {
-      const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
-      if (!filters.at(0)) return [];
-      const key = parseCol(subsetKeySchema, filters, "key");
-      const filter = JSON.parse(key) as AuditFilter;
-      const data = await client.audit.list(toAuditInput(filter));
-      // Stamp the subset key onto each row so the live-query `eq(a.key, …)`
-      // matches client-side (rows are already server-filtered). `counts`/`total`
-      // are dropped here — they're aggregates, not row data; the route reads
-      // them from its companion query.
-      return data.items.map((it) => ({ ...it, key }));
-    },
-    queryClient,
-    getKey: (item) => item.id,
-    // Append-only feed — keep the page live without a manual refetch loop.
-    refetchInterval: 15_000,
-  }),
-);
+const auditQueryOptions = queryCollectionOptions({
+  // Stable id — persistedCollectionOptions keys the SQLite table off it; a
+  // random per-load id would never round-trip (see project.ts).
+  id: "audit",
+  syncMode: "on-demand",
+  queryKey: (opts) => {
+    const base = ["audit"];
+    const { filters } = parseLoadSubsetOptions(opts);
+    // Startup base-key call — query-db-collection calls `queryKey({})` once to
+    // compute the prefix every subset key extends. No filters yet.
+    if (!filters.at(0)) return base;
+    return [...base, parseCol(subsetKeySchema, filters, "key")];
+  },
+  queryFn: async (ctx) => {
+    const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
+    if (!filters.at(0)) return [];
+    const key = parseCol(subsetKeySchema, filters, "key");
+    const filter = JSON.parse(key) as AuditFilter;
+    const data = await client.audit.list(toAuditInput(filter));
+    // Stamp the subset key onto each row so the live-query `eq(a.key, …)`
+    // matches client-side (rows are already server-filtered). `counts`/`total`
+    // are dropped here — they're aggregates, not row data; the route reads
+    // them from its companion query.
+    return data.items.map((it) => ({ ...it, key }));
+  },
+  queryClient,
+  getKey: (item) => item.id,
+  // Append-only feed — keep the page live without a manual refetch loop.
+  refetchInterval: 15_000,
+});
+
+/** The subset-stamped row: an event plus the serialized filter key. */
+type AuditRow = AuditEvent & { key: string };
+
+// Call `createCollection` inside each branch — the persisted and plain option
+// objects are different types (see project.ts for the full type note).
+export const auditCollection = persistence
+  ? createCollection(
+      persistedCollectionOptions<AuditRow, string | number>({
+        ...auditQueryOptions,
+        persistence,
+        schemaVersion: 1,
+      }),
+    )
+  : createCollection(auditQueryOptions);

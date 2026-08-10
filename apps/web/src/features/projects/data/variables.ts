@@ -1,7 +1,9 @@
 import { zId } from "@otterdeploy/shared/id";
+import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence";
 import { createCollection } from "@tanstack/db";
 import { parseLoadSubsetOptions, queryCollectionOptions } from "@tanstack/query-db-collection";
 
+import { persistence } from "@/shared/db/sqlite-persistence";
 import { parseCol, projectIdSchema } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -25,72 +27,86 @@ const environmentIdSchema = zId("env");
  *  [[RESOURCE_COLLECTION_KEY]]. */
 export const PROJECT_VARIABLES_COLLECTION_KEY = ["projectVariables"] as const;
 
-export const variablesCollection = createCollection(
-  queryCollectionOptions({
-    syncMode: "on-demand",
-    queryKey: (opts) => {
-      const baseQuery = [...PROJECT_VARIABLES_COLLECTION_KEY];
-      const { filters } = parseLoadSubsetOptions(opts);
-      // Startup base-key call: query-db-collection calls queryKey({}) once to
-      // compute the prefix every subset key must extend. No filters yet.
-      if (!filters.at(0)) return baseQuery;
-      const projectId = parseCol(projectIdSchema, filters, "projectId");
-      const environmentId = parseCol(environmentIdSchema, filters, "environmentId");
-      const subsetKey = orpc.project.envVar.list.queryKey({
-        input: { projectId, environmentId },
-      });
-      return [...baseQuery, ...subsetKey];
-    },
-    queryFn: async (ctx) => {
-      const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
-      if (!filters.at(0)) return [];
-      const projectId = parseCol(projectIdSchema, filters, "projectId");
-      const environmentId = parseCol(environmentIdSchema, filters, "environmentId");
-      return orpc.project.envVar.list.call({ projectId, environmentId });
-    },
-    onInsert: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map((m) =>
-          orpc.project.envVar.upsert.call({
-            projectId: m.modified.projectId,
-            environmentId: m.modified.environmentId,
-            key: m.modified.key,
-            value: m.modified.value,
-            isSecret: m.modified.isSecret,
-          }),
-        ),
-      );
-    },
-    onUpdate: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map((m) =>
-          // upsert is the write path for both create and edit; the key never
-          // changes (it's part of the identity), so re-send the modified row.
-          orpc.project.envVar.upsert.call({
-            projectId: m.modified.projectId,
-            environmentId: m.modified.environmentId,
-            key: m.modified.key,
-            value: m.modified.value,
-            isSecret: m.modified.isSecret,
-          }),
-        ),
-      );
-    },
-    onDelete: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map((m) =>
-          orpc.project.envVar.delete.call({
-            projectId: m.original.projectId,
-            environmentId: m.original.environmentId,
-            key: m.original.key,
-          }),
-        ),
-      );
-    },
-    queryClient,
-    getKey: (item) => item.id,
-  }),
-);
+const variablesQueryOptions = queryCollectionOptions({
+  // Stable id so the OPFS-backed SQLite table survives page loads — see
+  // projectCollection for why persistence never round-trips without one.
+  id: "project-variables",
+  syncMode: "on-demand",
+  queryKey: (opts) => {
+    const baseQuery = [...PROJECT_VARIABLES_COLLECTION_KEY];
+    const { filters } = parseLoadSubsetOptions(opts);
+    // Startup base-key call: query-db-collection calls queryKey({}) once to
+    // compute the prefix every subset key must extend. No filters yet.
+    if (!filters.at(0)) return baseQuery;
+    const projectId = parseCol(projectIdSchema, filters, "projectId");
+    const environmentId = parseCol(environmentIdSchema, filters, "environmentId");
+    const subsetKey = orpc.project.envVar.list.queryKey({
+      input: { projectId, environmentId },
+    });
+    return [...baseQuery, ...subsetKey];
+  },
+  queryFn: async (ctx) => {
+    const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
+    if (!filters.at(0)) return [];
+    const projectId = parseCol(projectIdSchema, filters, "projectId");
+    const environmentId = parseCol(environmentIdSchema, filters, "environmentId");
+    return orpc.project.envVar.list.call({ projectId, environmentId });
+  },
+  onInsert: async ({ transaction }) => {
+    await Promise.all(
+      transaction.mutations.map((m) =>
+        orpc.project.envVar.upsert.call({
+          projectId: m.modified.projectId,
+          environmentId: m.modified.environmentId,
+          key: m.modified.key,
+          value: m.modified.value,
+          isSecret: m.modified.isSecret,
+        }),
+      ),
+    );
+  },
+  onUpdate: async ({ transaction }) => {
+    await Promise.all(
+      transaction.mutations.map((m) =>
+        // upsert is the write path for both create and edit; the key never
+        // changes (it's part of the identity), so re-send the modified row.
+        orpc.project.envVar.upsert.call({
+          projectId: m.modified.projectId,
+          environmentId: m.modified.environmentId,
+          key: m.modified.key,
+          value: m.modified.value,
+          isSecret: m.modified.isSecret,
+        }),
+      ),
+    );
+  },
+  onDelete: async ({ transaction }) => {
+    await Promise.all(
+      transaction.mutations.map((m) =>
+        orpc.project.envVar.delete.call({
+          projectId: m.original.projectId,
+          environmentId: m.original.environmentId,
+          key: m.original.key,
+        }),
+      ),
+    );
+  },
+  queryClient,
+  getKey: (item) => item.id,
+});
+
+type EnvVarRow = Awaited<ReturnType<typeof orpc.project.envVar.list.call>>[number];
+
+// Two-branch createCollection + pinned generics — see projectCollection for why.
+export const variablesCollection = persistence
+  ? createCollection(
+      persistedCollectionOptions<EnvVarRow, string | number>({
+        ...variablesQueryOptions,
+        persistence,
+        schemaVersion: 1,
+      }),
+    )
+  : createCollection(variablesQueryOptions);
 
 /** Row shape inferred from the collection — views import this instead of
  *  re-declaring an EnvVarRow interface. */

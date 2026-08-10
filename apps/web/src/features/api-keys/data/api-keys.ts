@@ -1,8 +1,10 @@
+import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence";
 import { createCollection } from "@tanstack/db";
 import { parseLoadSubsetOptions, queryCollectionOptions } from "@tanstack/query-db-collection";
 import * as z from "zod";
 
 import { authClient } from "@/lib/auth-client";
+import { persistence } from "@/shared/db/sqlite-persistence";
 import { parseCol } from "@/shared/lib/utils";
 import { client, queryClient } from "@/shared/server/orpc";
 
@@ -30,95 +32,110 @@ function apiKeysSubsetKey(organizationId: string) {
   return ["apiKeys", organizationId] as const;
 }
 
-export const apiKeysCollection = createCollection(
-  queryCollectionOptions({
-    syncMode: "on-demand",
-    queryKey: (opts) => {
-      const baseQuery = ["apiKeys"];
-      const { filters } = parseLoadSubsetOptions(opts);
-      // Startup base-key call: query-db-collection calls queryKey({}) once to
-      // compute the prefix every subset key must extend. No filters yet.
-      if (!filters.at(0)) return baseQuery;
-      const organizationId = parseCol(organizationIdSchema, filters, "organizationId");
-      return [...apiKeysSubsetKey(organizationId)];
-    },
-    queryFn: async (ctx) => {
-      const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
-      if (!filters.at(0)) return [];
-      const organizationId = parseCol(organizationIdSchema, filters, "organizationId");
-      const res = await authClient.apiKey.list({ query: { organizationId } });
-      if (res.error) {
-        throw new Error(res.error.message ?? "Failed to load API keys");
-      }
-      // The plugin returns a paginated wrapper: `{ apiKeys, total, limit }`.
-      // Project to just the fields the UI renders + the (server-filtered) org id
-      // stamped back on so the live-query filter matches client-side.
-      return (res.data?.apiKeys ?? []).map((k) => ({
-        id: k.id,
-        organizationId,
-        name: k.name,
-        start: k.start,
-        prefix: k.prefix,
-        enabled: k.enabled,
-        expiresAt: k.expiresAt,
-        lastRequest: k.lastRequest,
-        createdAt: k.createdAt,
-        permissions: k.permissions,
-      }));
-    },
-    onInsert: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map(async (m) => {
-          const row = m.modified;
-          // `create` wants seconds-until-expiry; the optimistic row holds the
-          // resolved `expiresAt` — recover the delta.
-          const expiresIn = row.expiresAt
-            ? Math.round((new Date(row.expiresAt).getTime() - Date.now()) / 1000)
-            : null;
-          const created = await client.apiKeys.create({
-            name: row.name ?? "",
-            expiresIn,
-            ...(row.permissions && Object.keys(row.permissions).length > 0
-              ? { permissions: row.permissions }
-              : {}),
-          });
-          // Hand the one-time plaintext token to the UI before we resolve; it's
-          // never stored on the row. (Metadata is `unknown` at this boundary.)
-          (m.metadata as { onKey: (key: string) => void }).onKey(created.key);
-          // The optimistic row used a temp id; refetch so the real row (server
-          // id, masked `start`, …) replaces it.
-          void queryClient.invalidateQueries({
-            queryKey: apiKeysSubsetKey(row.organizationId),
-          });
-        }),
-      );
-    },
-    onUpdate: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map(async (m) => {
-          // The enable toggle is the only user-settable field.
-          if (m.changes.enabled === undefined) return;
-          const res = await authClient.apiKey.update({
-            keyId: m.original.id,
-            enabled: m.changes.enabled,
-          });
-          if (res.error) {
-            throw new Error(res.error.message ?? "Failed to update API key");
-          }
-        }),
-      );
-    },
-    onDelete: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map(async (m) => {
-          const res = await authClient.apiKey.delete({ keyId: m.original.id });
-          if (res.error) {
-            throw new Error(res.error.message ?? "Failed to delete API key");
-          }
-        }),
-      );
-    },
-    queryClient,
-    getKey: (item) => item.id,
-  }),
-);
+const apiKeysQueryOptions = queryCollectionOptions({
+  // Stable id — persistedCollectionOptions keys the SQLite table off it; a
+  // random per-load id would never round-trip (see project.ts).
+  id: "api-keys",
+  syncMode: "on-demand",
+  queryKey: (opts) => {
+    const baseQuery = ["apiKeys"];
+    const { filters } = parseLoadSubsetOptions(opts);
+    // Startup base-key call: query-db-collection calls queryKey({}) once to
+    // compute the prefix every subset key must extend. No filters yet.
+    if (!filters.at(0)) return baseQuery;
+    const organizationId = parseCol(organizationIdSchema, filters, "organizationId");
+    return [...apiKeysSubsetKey(organizationId)];
+  },
+  queryFn: async (ctx) => {
+    const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
+    if (!filters.at(0)) return [];
+    const organizationId = parseCol(organizationIdSchema, filters, "organizationId");
+    const res = await authClient.apiKey.list({ query: { organizationId } });
+    if (res.error) {
+      throw new Error(res.error.message ?? "Failed to load API keys");
+    }
+    // The plugin returns a paginated wrapper: `{ apiKeys, total, limit }`.
+    // Project to just the fields the UI renders + the (server-filtered) org id
+    // stamped back on so the live-query filter matches client-side.
+    return (res.data?.apiKeys ?? []).map((k) => ({
+      id: k.id,
+      organizationId,
+      name: k.name,
+      start: k.start,
+      prefix: k.prefix,
+      enabled: k.enabled,
+      expiresAt: k.expiresAt,
+      lastRequest: k.lastRequest,
+      createdAt: k.createdAt,
+      permissions: k.permissions,
+    }));
+  },
+  onInsert: async ({ transaction }) => {
+    await Promise.all(
+      transaction.mutations.map(async (m) => {
+        const row = m.modified;
+        // `create` wants seconds-until-expiry; the optimistic row holds the
+        // resolved `expiresAt` — recover the delta.
+        const expiresIn = row.expiresAt
+          ? Math.round((new Date(row.expiresAt).getTime() - Date.now()) / 1000)
+          : null;
+        const created = await client.apiKeys.create({
+          name: row.name ?? "",
+          expiresIn,
+          ...(row.permissions && Object.keys(row.permissions).length > 0
+            ? { permissions: row.permissions }
+            : {}),
+        });
+        // Hand the one-time plaintext token to the UI before we resolve; it's
+        // never stored on the row. (Metadata is `unknown` at this boundary.)
+        (m.metadata as { onKey: (key: string) => void }).onKey(created.key);
+        // The optimistic row used a temp id; refetch so the real row (server
+        // id, masked `start`, …) replaces it.
+        void queryClient.invalidateQueries({
+          queryKey: apiKeysSubsetKey(row.organizationId),
+        });
+      }),
+    );
+  },
+  onUpdate: async ({ transaction }) => {
+    await Promise.all(
+      transaction.mutations.map(async (m) => {
+        // The enable toggle is the only user-settable field.
+        if (m.changes.enabled === undefined) return;
+        const res = await authClient.apiKey.update({
+          keyId: m.original.id,
+          enabled: m.changes.enabled,
+        });
+        if (res.error) {
+          throw new Error(res.error.message ?? "Failed to update API key");
+        }
+      }),
+    );
+  },
+  onDelete: async ({ transaction }) => {
+    await Promise.all(
+      transaction.mutations.map(async (m) => {
+        const res = await authClient.apiKey.delete({ keyId: m.original.id });
+        if (res.error) {
+          throw new Error(res.error.message ?? "Failed to delete API key");
+        }
+      }),
+    );
+  },
+  queryClient,
+  getKey: (item) => item.id,
+});
+
+type ApiKeyRow = Parameters<typeof apiKeysQueryOptions.getKey>[0];
+
+// Call `createCollection` inside each branch — the persisted and plain option
+// objects are different types (see project.ts for the full type note).
+export const apiKeysCollection = persistence
+  ? createCollection(
+      persistedCollectionOptions<ApiKeyRow, string | number>({
+        ...apiKeysQueryOptions,
+        persistence,
+        schemaVersion: 1,
+      }),
+    )
+  : createCollection(apiKeysQueryOptions);

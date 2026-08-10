@@ -1,8 +1,10 @@
 import { zId } from "@otterdeploy/shared/id";
+import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence";
 import { createCollection, type SimpleComparison } from "@tanstack/db";
 import { parseLoadSubsetOptions, queryCollectionOptions } from "@tanstack/query-db-collection";
 import * as z from "zod";
 
+import { persistence } from "@/shared/db/sqlite-persistence";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 function parseCol<T extends z.ZodType>(
@@ -47,46 +49,63 @@ const deploymentIdSchema = zId("dep");
  *  [[RESOURCE_COLLECTION_KEY]]. */
 export const DEPLOYMENTS_COLLECTION_KEY = ["deployments"] as const;
 
-export const deploymentsCollection = createCollection(
-  queryCollectionOptions({
-    syncMode: "on-demand",
-    queryKey: (opts) => {
-      const baseQuery = [...DEPLOYMENTS_COLLECTION_KEY];
-      const { filters } = parseLoadSubsetOptions(opts);
-      // Startup base-key call: query-db-collection calls queryKey({}) once to
-      // compute the prefix every subset key must extend. No filters yet — just
-      // return the prefix.
-      if (!filters.at(0)) return baseQuery;
-      const projectId = parseCol(projectIdSchema, filters, "projectId");
-      const resourceId = parseCol(resourceIdSchema, filters, "resourceId");
-      const subsetKey = orpc.project.resource.deployments.list.queryKey({
-        input: { projectId, resourceId },
-      });
-      return [...baseQuery, ...subsetKey];
-    },
-    queryFn: async (ctx) => {
-      const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
-      if (!filters.at(0)) return [];
-      const projectId = parseCol(projectIdSchema, filters, "projectId");
-      const resourceId = parseCol(resourceIdSchema, filters, "resourceId");
-      return orpc.project.resource.deployments.list.call({
-        projectId,
-        resourceId,
-      });
-    },
-    // 5s while anything is in flight (a build's phase transitions are what
-    // people watch), 30s otherwise — the push stream is what makes an idle
-    // project current, so the slow tick only exists to survive a stream that
-    // silently died.
-    refetchInterval: (query) => {
-      const rows = query.state.data as { status?: string }[] | undefined;
-      const inFlight = rows?.some((d) => d.status === "pending" || d.status === "building");
-      return inFlight ? 5000 : 30_000;
-    },
-    queryClient,
-    getKey: (d) => d.id,
-  }),
-);
+const deploymentsQueryOptions = queryCollectionOptions({
+  // Stable id — required for SQLite persistence to round-trip (see
+  // projectCollection in features/projects/data/project.ts).
+  id: "deployments",
+  syncMode: "on-demand",
+  queryKey: (opts) => {
+    const baseQuery = [...DEPLOYMENTS_COLLECTION_KEY];
+    const { filters } = parseLoadSubsetOptions(opts);
+    // Startup base-key call: query-db-collection calls queryKey({}) once to
+    // compute the prefix every subset key must extend. No filters yet — just
+    // return the prefix.
+    if (!filters.at(0)) return baseQuery;
+    const projectId = parseCol(projectIdSchema, filters, "projectId");
+    const resourceId = parseCol(resourceIdSchema, filters, "resourceId");
+    const subsetKey = orpc.project.resource.deployments.list.queryKey({
+      input: { projectId, resourceId },
+    });
+    return [...baseQuery, ...subsetKey];
+  },
+  queryFn: async (ctx) => {
+    const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
+    if (!filters.at(0)) return [];
+    const projectId = parseCol(projectIdSchema, filters, "projectId");
+    const resourceId = parseCol(resourceIdSchema, filters, "resourceId");
+    return orpc.project.resource.deployments.list.call({
+      projectId,
+      resourceId,
+    });
+  },
+  // 5s while anything is in flight (a build's phase transitions are what
+  // people watch), 30s otherwise — the push stream is what makes an idle
+  // project current, so the slow tick only exists to survive a stream that
+  // silently died.
+  refetchInterval: (query) => {
+    const rows = query.state.data as { status?: string }[] | undefined;
+    const inFlight = rows?.some((d) => d.status === "pending" || d.status === "building");
+    return inFlight ? 5000 : 30_000;
+  },
+  queryClient,
+  getKey: (d) => d.id,
+});
+
+type DeploymentRow = Awaited<
+  ReturnType<typeof orpc.project.resource.deployments.list.call>
+>[number];
+
+// Two-branch createCollection + pinned generics — same type gymnastics as
+// projectCollection (features/projects/data/project.ts).
+export const deploymentsCollection = persistence
+  ? createCollection(
+      persistedCollectionOptions<DeploymentRow, string | number>({
+        ...deploymentsQueryOptions,
+        persistence,
+        schemaVersion: 1,
+      }),
+    )
+  : createCollection(deploymentsQueryOptions);
 
 /**
  * Swarm tasks (containers) for one deployment, keyed by task id. Backed by
@@ -106,44 +125,58 @@ export const deploymentsCollection = createCollection(
  *  [[RESOURCE_COLLECTION_KEY]]. */
 export const DEPLOYMENT_TASKS_COLLECTION_KEY = ["deployment-tasks"] as const;
 
-export const deploymentTasksCollection = createCollection(
-  queryCollectionOptions({
-    syncMode: "on-demand",
-    queryKey: (opts) => {
-      const baseQuery = [...DEPLOYMENT_TASKS_COLLECTION_KEY];
-      const { filters } = parseLoadSubsetOptions(opts);
-      if (!filters.at(0)) return baseQuery;
-      const input = {
-        projectId: parseCol(projectIdSchema, filters, "projectId"),
-        resourceId: parseCol(resourceIdSchema, filters, "resourceId"),
-        deploymentId: parseCol(deploymentIdSchema, filters, "deploymentId"),
-      };
-      const subsetKey = orpc.project.resource.deployments.tasks.queryKey({
-        input,
-      });
-      return [...baseQuery, ...subsetKey];
-    },
-    queryFn: async (ctx) => {
-      const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
-      if (!filters.at(0)) return [];
-      const input = {
-        projectId: parseCol(projectIdSchema, filters, "projectId"),
-        resourceId: parseCol(resourceIdSchema, filters, "resourceId"),
-        deploymentId: parseCol(deploymentIdSchema, filters, "deploymentId"),
-      };
-      return orpc.project.resource.deployments.tasks.call(input);
-    },
-    // Same reasoning as the deployments collection: fast only while the tasks
-    // are still settling. A converged task set changes on a docker event, which
-    // the project stream already pushes.
-    refetchInterval: (query) => {
-      const rows = query.state.data as { state?: string }[] | undefined;
-      const settling = rows?.some(
-        (t) => t.state !== "running" && t.state !== "complete" && t.state !== "shutdown",
-      );
-      return settling ? 5000 : 30_000;
-    },
-    queryClient,
-    getKey: (t) => t.id,
-  }),
-);
+const deploymentTasksQueryOptions = queryCollectionOptions({
+  // Stable id — required for SQLite persistence to round-trip.
+  id: "deployment-tasks",
+  syncMode: "on-demand",
+  queryKey: (opts) => {
+    const baseQuery = [...DEPLOYMENT_TASKS_COLLECTION_KEY];
+    const { filters } = parseLoadSubsetOptions(opts);
+    if (!filters.at(0)) return baseQuery;
+    const input = {
+      projectId: parseCol(projectIdSchema, filters, "projectId"),
+      resourceId: parseCol(resourceIdSchema, filters, "resourceId"),
+      deploymentId: parseCol(deploymentIdSchema, filters, "deploymentId"),
+    };
+    const subsetKey = orpc.project.resource.deployments.tasks.queryKey({
+      input,
+    });
+    return [...baseQuery, ...subsetKey];
+  },
+  queryFn: async (ctx) => {
+    const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
+    if (!filters.at(0)) return [];
+    const input = {
+      projectId: parseCol(projectIdSchema, filters, "projectId"),
+      resourceId: parseCol(resourceIdSchema, filters, "resourceId"),
+      deploymentId: parseCol(deploymentIdSchema, filters, "deploymentId"),
+    };
+    return orpc.project.resource.deployments.tasks.call(input);
+  },
+  // Same reasoning as the deployments collection: fast only while the tasks
+  // are still settling. A converged task set changes on a docker event, which
+  // the project stream already pushes.
+  refetchInterval: (query) => {
+    const rows = query.state.data as { state?: string }[] | undefined;
+    const settling = rows?.some(
+      (t) => t.state !== "running" && t.state !== "complete" && t.state !== "shutdown",
+    );
+    return settling ? 5000 : 30_000;
+  },
+  queryClient,
+  getKey: (t) => t.id,
+});
+
+type DeploymentTaskRow = Awaited<
+  ReturnType<typeof orpc.project.resource.deployments.tasks.call>
+>[number];
+
+export const deploymentTasksCollection = persistence
+  ? createCollection(
+      persistedCollectionOptions<DeploymentTaskRow, string | number>({
+        ...deploymentTasksQueryOptions,
+        persistence,
+        schemaVersion: 1,
+      }),
+    )
+  : createCollection(deploymentTasksQueryOptions);

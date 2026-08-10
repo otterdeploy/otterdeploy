@@ -1,9 +1,11 @@
 import type { destinationSchema } from "@otterdeploy/api/routers/backups/contract";
 import type { z } from "zod";
 
+import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence";
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
 
+import { persistence } from "@/shared/db/sqlite-persistence";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 /**
@@ -24,53 +26,68 @@ interface DestinationSecretMeta {
 
 const destinationsListKey = orpc.backups.destinations.list.queryKey();
 
-export const destinationsCollection = createCollection(
-  queryCollectionOptions({
-    ...orpc.backups.destinations.list.queryOptions(),
-    queryKey: destinationsListKey,
-    queryFn: async () => orpc.backups.destinations.list.call({}),
-    onInsert: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map(async (m) => {
-          const row = m.modified;
-          const secret = (m.metadata as DestinationSecretMeta)?.secret;
-          await orpc.backups.destinations.create.call({
-            name: row.name,
-            type: row.type,
-            config: row.config,
-            ...(secret && Object.keys(secret).length > 0 ? { secret } : {}),
-          });
-          // The optimistic row used a temp id; refetch so the real row
-          // (server id, computed usage) replaces it.
-          await queryClient.invalidateQueries({ queryKey: destinationsListKey });
-        }),
-      );
-    },
-    onUpdate: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map((m) => {
-          const c = m.changes;
-          const secret = (m.metadata as DestinationSecretMeta)?.secret;
-          return orpc.backups.destinations.update.call({
-            id: m.original.id,
-            ...(c.name !== undefined && { name: c.name }),
-            ...(c.config !== undefined && { config: c.config }),
-            ...(secret && Object.keys(secret).length > 0 ? { secret } : {}),
-          });
-        }),
-      );
-    },
-    onDelete: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map((m) =>
-          orpc.backups.destinations.delete.call({ id: m.original.id }),
-        ),
-      );
-    },
-    queryClient,
-    getKey: (d) => d.id,
-  }),
-);
+const destinationsQueryOptions = queryCollectionOptions({
+  // Stable id — persistedCollectionOptions keys the SQLite table off it; a
+  // random per-load id would never round-trip (see project.ts).
+  id: "backup-destinations",
+  ...orpc.backups.destinations.list.queryOptions(),
+  queryKey: destinationsListKey,
+  queryFn: async () => orpc.backups.destinations.list.call({}),
+  onInsert: async ({ transaction }) => {
+    await Promise.all(
+      transaction.mutations.map(async (m) => {
+        const row = m.modified;
+        const secret = (m.metadata as DestinationSecretMeta)?.secret;
+        await orpc.backups.destinations.create.call({
+          name: row.name,
+          type: row.type,
+          config: row.config,
+          ...(secret && Object.keys(secret).length > 0 ? { secret } : {}),
+        });
+        // The optimistic row used a temp id; refetch so the real row
+        // (server id, computed usage) replaces it.
+        await queryClient.invalidateQueries({ queryKey: destinationsListKey });
+      }),
+    );
+  },
+  onUpdate: async ({ transaction }) => {
+    await Promise.all(
+      transaction.mutations.map((m) => {
+        const c = m.changes;
+        const secret = (m.metadata as DestinationSecretMeta)?.secret;
+        return orpc.backups.destinations.update.call({
+          id: m.original.id,
+          ...(c.name !== undefined && { name: c.name }),
+          ...(c.config !== undefined && { config: c.config }),
+          ...(secret && Object.keys(secret).length > 0 ? { secret } : {}),
+        });
+      }),
+    );
+  },
+  onDelete: async ({ transaction }) => {
+    await Promise.all(
+      transaction.mutations.map((m) =>
+        orpc.backups.destinations.delete.call({ id: m.original.id }),
+      ),
+    );
+  },
+  queryClient,
+  getKey: (d) => d.id,
+});
+
+type DestinationRow = Awaited<ReturnType<typeof orpc.backups.destinations.list.call>>[number];
+
+// Call `createCollection` inside each branch — the persisted and plain option
+// objects are different types (see project.ts for the full type note).
+export const destinationsCollection = persistence
+  ? createCollection(
+      persistedCollectionOptions<DestinationRow, string | number>({
+        ...destinationsQueryOptions,
+        persistence,
+        schemaVersion: 1,
+      }),
+    )
+  : createCollection(destinationsQueryOptions);
 
 /** Validate a destination's stored credential. Returns a human-readable note. */
 export function testDestination(id: Destination["id"]) {

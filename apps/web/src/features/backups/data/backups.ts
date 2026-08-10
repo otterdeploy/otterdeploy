@@ -1,9 +1,11 @@
 import type { backupSchema } from "@otterdeploy/api/routers/backups/contract";
 import type { z } from "zod";
 
+import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence";
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
 
+import { persistence } from "@/shared/db/sqlite-persistence";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 /**
@@ -26,23 +28,38 @@ function isInFlight(b: Backup): boolean {
   return b.status === "queued" || b.status === "running";
 }
 
-export const backupsCollection = createCollection(
-  queryCollectionOptions({
-    ...orpc.backups.list.queryOptions({ input: {} }),
-    queryKey: backupsListKey,
-    queryFn: async () => orpc.backups.list.call({}),
-    queryClient,
-    getKey: (b) => b.id,
-    // `backups.run` returns once the run is ENQUEUED, not once it finishes, so
-    // runBackup's single invalidate below always lands on a still-running row.
-    // Without this the row sat at "Running" forever — with the completed log
-    // visible inside it, since logs are fetched separately — and Restore /
-    // Download stayed disabled because both gate on status === "succeeded".
-    // Poll only while something is in flight; stop dead once it settles.
-    refetchInterval: (query) =>
-      (query.state.data as Backup[] | undefined)?.some(isInFlight) ? 2000 : false,
-  }),
-);
+const backupsQueryOptions = queryCollectionOptions({
+  // Stable id — persistedCollectionOptions keys the SQLite table off it; a
+  // random per-load id would never round-trip (see project.ts).
+  id: "backups",
+  ...orpc.backups.list.queryOptions({ input: {} }),
+  queryKey: backupsListKey,
+  queryFn: async () => orpc.backups.list.call({}),
+  queryClient,
+  getKey: (b) => b.id,
+  // `backups.run` returns once the run is ENQUEUED, not once it finishes, so
+  // runBackup's single invalidate below always lands on a still-running row.
+  // Without this the row sat at "Running" forever — with the completed log
+  // visible inside it, since logs are fetched separately — and Restore /
+  // Download stayed disabled because both gate on status === "succeeded".
+  // Poll only while something is in flight; stop dead once it settles.
+  refetchInterval: (query) =>
+    (query.state.data as Backup[] | undefined)?.some(isInFlight) ? 2000 : false,
+});
+
+type BackupRow = Awaited<ReturnType<typeof orpc.backups.list.call>>[number];
+
+// Call `createCollection` inside each branch — the persisted and plain option
+// objects are different types (see project.ts for the full type note).
+export const backupsCollection = persistence
+  ? createCollection(
+      persistedCollectionOptions<BackupRow, string | number>({
+        ...backupsQueryOptions,
+        persistence,
+        schemaVersion: 1,
+      }),
+    )
+  : createCollection(backupsQueryOptions);
 
 /** Enqueue + execute a manual "backup now" run, then refresh the list. */
 export async function runBackup(input: Parameters<typeof orpc.backups.run.call>[0]) {

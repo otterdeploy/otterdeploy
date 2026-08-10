@@ -1,8 +1,10 @@
 import type { JsonObject } from "@otterdeploy/shared/json";
 
+import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence";
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
 
+import { persistence } from "@/shared/db/sqlite-persistence";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 /**
@@ -17,68 +19,82 @@ import { orpc, queryClient } from "@/shared/server/orpc";
  * `client.notifications.channels.*` calls in the card.
  */
 
-export const channelsCollection = createCollection(
-  queryCollectionOptions({
-    ...orpc.notifications.channels.list.queryOptions(),
-    queryKey: orpc.notifications.channels.list.queryKey(),
-    queryFn: async () => orpc.notifications.channels.list.call(),
-    /**
-     * `create` returns the persisted channel (server id, masked target,
-     * computed stats). The optimistic row carries a temp id and placeholder
-     * stats, so refetch after create so the real row replaces it in place.
-     */
-    onInsert: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map(async (m) => {
-          const row = m.modified;
-          await orpc.notifications.channels.create.call({
-            kind: row.kind,
-            name: row.name,
-            target: row.target,
-            config: (row.config ?? {}) as JsonObject,
-            // `secret` lives only in the insert metadata — it's never stored
-            // on the row (the list never returns it).
-            ...((m.metadata as { secret?: string } | undefined)?.secret
-              ? { secret: (m.metadata as { secret: string }).secret }
-              : {}),
-          });
-          void queryClient.invalidateQueries({
-            queryKey: orpc.notifications.channels.list.queryKey(),
-          });
-        }),
-      );
-    },
-    onUpdate: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map((m) => {
-          const c = m.changes as Partial<typeof m.original>;
-          return orpc.notifications.channels.update.call({
-            id: m.original.id,
-            ...(c.name !== undefined && { name: c.name }),
-            ...(c.target !== undefined && { target: c.target }),
-            ...(c.config !== undefined && {
-              config: c.config as JsonObject,
-            }),
-            // Secret is write-only — passed through the update metadata, never
-            // held on the row.
-            ...((m.metadata as { secret?: string } | undefined)?.secret
-              ? { secret: (m.metadata as { secret: string }).secret }
-              : {}),
-          });
-        }),
-      );
-    },
-    onDelete: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map((m) =>
-          orpc.notifications.channels.delete.call({ id: m.original.id }),
-        ),
-      );
-    },
-    queryClient,
-    getKey: (item) => item.id,
-  }),
-);
+const channelsQueryOptions = queryCollectionOptions({
+  // Stable id so the OPFS-backed SQLite table survives page loads — see
+  // projectCollection for why persistence never round-trips without one.
+  id: "notifications-channels",
+  ...orpc.notifications.channels.list.queryOptions(),
+  queryKey: orpc.notifications.channels.list.queryKey(),
+  queryFn: async () => orpc.notifications.channels.list.call(),
+  /**
+   * `create` returns the persisted channel (server id, masked target,
+   * computed stats). The optimistic row carries a temp id and placeholder
+   * stats, so refetch after create so the real row replaces it in place.
+   */
+  onInsert: async ({ transaction }) => {
+    await Promise.all(
+      transaction.mutations.map(async (m) => {
+        const row = m.modified;
+        await orpc.notifications.channels.create.call({
+          kind: row.kind,
+          name: row.name,
+          target: row.target,
+          config: (row.config ?? {}) as JsonObject,
+          // `secret` lives only in the insert metadata — it's never stored
+          // on the row (the list never returns it).
+          ...((m.metadata as { secret?: string } | undefined)?.secret
+            ? { secret: (m.metadata as { secret: string }).secret }
+            : {}),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: orpc.notifications.channels.list.queryKey(),
+        });
+      }),
+    );
+  },
+  onUpdate: async ({ transaction }) => {
+    await Promise.all(
+      transaction.mutations.map((m) => {
+        const c = m.changes as Partial<typeof m.original>;
+        return orpc.notifications.channels.update.call({
+          id: m.original.id,
+          ...(c.name !== undefined && { name: c.name }),
+          ...(c.target !== undefined && { target: c.target }),
+          ...(c.config !== undefined && {
+            config: c.config as JsonObject,
+          }),
+          // Secret is write-only — passed through the update metadata, never
+          // held on the row.
+          ...((m.metadata as { secret?: string } | undefined)?.secret
+            ? { secret: (m.metadata as { secret: string }).secret }
+            : {}),
+        });
+      }),
+    );
+  },
+  onDelete: async ({ transaction }) => {
+    await Promise.all(
+      transaction.mutations.map((m) =>
+        orpc.notifications.channels.delete.call({ id: m.original.id }),
+      ),
+    );
+  },
+  queryClient,
+  getKey: (item) => item.id,
+});
+
+type ChannelRow = Awaited<ReturnType<typeof orpc.notifications.channels.list.call>>[number];
+
+// Two-branch createCollection + pinned generics — see projectCollection for why.
+export const channelsCollection = persistence
+  ? createCollection(
+      persistedCollectionOptions<ChannelRow, string | number>({
+        ...channelsQueryOptions,
+        persistence,
+        schemaVersion: 1,
+      }),
+    )
+  : createCollection(channelsQueryOptions);
 
 /** Composite key for a subscription cell — one channel × one event. */
 function subscriptionKey(s: { channelId: string; eventId: string }) {
@@ -90,34 +106,47 @@ function subscriptionKey(s: { channelId: string; eventId: string }) {
  * per enabled cell. Toggling a cell on inserts a row (fires `toggle`
  * enabled:true); toggling off deletes it (fires `toggle` enabled:false).
  */
-export const subscriptionsCollection = createCollection(
-  queryCollectionOptions({
-    ...orpc.notifications.subscriptions.list.queryOptions(),
-    queryKey: orpc.notifications.subscriptions.list.queryKey(),
-    queryFn: async () => orpc.notifications.subscriptions.list.call(),
-    onInsert: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map((m) =>
-          orpc.notifications.subscriptions.toggle.call({
-            channelId: m.modified.channelId,
-            eventId: m.modified.eventId,
-            enabled: true,
-          }),
-        ),
-      );
-    },
-    onDelete: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map((m) =>
-          orpc.notifications.subscriptions.toggle.call({
-            channelId: m.original.channelId,
-            eventId: m.original.eventId,
-            enabled: false,
-          }),
-        ),
-      );
-    },
-    queryClient,
-    getKey: subscriptionKey,
-  }),
-);
+const subscriptionsQueryOptions = queryCollectionOptions({
+  id: "notifications-subscriptions",
+  ...orpc.notifications.subscriptions.list.queryOptions(),
+  queryKey: orpc.notifications.subscriptions.list.queryKey(),
+  queryFn: async () => orpc.notifications.subscriptions.list.call(),
+  onInsert: async ({ transaction }) => {
+    await Promise.all(
+      transaction.mutations.map((m) =>
+        orpc.notifications.subscriptions.toggle.call({
+          channelId: m.modified.channelId,
+          eventId: m.modified.eventId,
+          enabled: true,
+        }),
+      ),
+    );
+  },
+  onDelete: async ({ transaction }) => {
+    await Promise.all(
+      transaction.mutations.map((m) =>
+        orpc.notifications.subscriptions.toggle.call({
+          channelId: m.original.channelId,
+          eventId: m.original.eventId,
+          enabled: false,
+        }),
+      ),
+    );
+  },
+  queryClient,
+  getKey: subscriptionKey,
+});
+
+type SubscriptionRow = Awaited<
+  ReturnType<typeof orpc.notifications.subscriptions.list.call>
+>[number];
+
+export const subscriptionsCollection = persistence
+  ? createCollection(
+      persistedCollectionOptions<SubscriptionRow, string | number>({
+        ...subscriptionsQueryOptions,
+        persistence,
+        schemaVersion: 1,
+      }),
+    )
+  : createCollection(subscriptionsQueryOptions);

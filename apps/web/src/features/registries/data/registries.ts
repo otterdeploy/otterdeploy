@@ -11,66 +11,82 @@
  * reference it elsewhere as `(typeof registryCollection.toArray)[number]`.
  */
 
+import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence";
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
 
+import { persistence } from "@/shared/db/sqlite-persistence";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
-export const registryCollection = createCollection(
-  queryCollectionOptions({
-    ...orpc.registry.list.queryOptions({ input: undefined }),
-    queryKey: orpc.registry.list.queryKey({ input: undefined }),
-    queryFn: async () => orpc.registry.list.call(),
-    onInsert: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map(async (m) => {
-          const row = m.modified;
-          const result = await orpc.registry.create.call({
-            displayName: row.displayName,
-            host: row.host,
-            username: row.username,
-            // The plaintext password rides on the optimistic row via
-            // metadata — it's never stored on the row itself.
-            password: (m.metadata as { password: string }).password,
-            authType: row.authType,
-          });
-          // The optimistic row used a temp id; refetch so the real row
-          // (server id, normalized host, …) replaces it.
-          void queryClient.invalidateQueries({
-            queryKey: orpc.registry.list.queryKey({ input: undefined }),
-          });
-          return result;
-        }),
-      );
-    },
-    onUpdate: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map(async (m) => {
-          const c = m.changes;
-          // Empty string password means "leave existing in place" — the
-          // server treats "" the same as omitted, so forward it as-is when
-          // present.
-          const password = (m.metadata as { password?: string } | undefined)?.password;
-          const result = await orpc.registry.update.call({
-            id: m.original.id,
-            ...(c.displayName !== undefined && { displayName: c.displayName }),
-            ...(c.username !== undefined && { username: c.username }),
-            ...(c.authType !== undefined && { authType: c.authType }),
-            ...(password !== undefined && password.length > 0 && { password }),
-          });
-          void queryClient.invalidateQueries({
-            queryKey: orpc.registry.list.queryKey({ input: undefined }),
-          });
-          return result;
-        }),
-      );
-    },
-    onDelete: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map((m) => orpc.registry.delete.call({ id: m.original.id })),
-      );
-    },
-    queryClient,
-    getKey: (item) => item.id,
-  }),
-);
+const registryQueryOptions = queryCollectionOptions({
+  // Stable id so the OPFS-backed SQLite table survives page loads — see
+  // projectCollection for why persistence never round-trips without one.
+  id: "registries",
+  ...orpc.registry.list.queryOptions({ input: undefined }),
+  queryKey: orpc.registry.list.queryKey({ input: undefined }),
+  queryFn: async () => orpc.registry.list.call(),
+  onInsert: async ({ transaction }) => {
+    await Promise.all(
+      transaction.mutations.map(async (m) => {
+        const row = m.modified;
+        const result = await orpc.registry.create.call({
+          displayName: row.displayName,
+          host: row.host,
+          username: row.username,
+          // The plaintext password rides on the optimistic row via
+          // metadata — it's never stored on the row itself.
+          password: (m.metadata as { password: string }).password,
+          authType: row.authType,
+        });
+        // The optimistic row used a temp id; refetch so the real row
+        // (server id, normalized host, …) replaces it.
+        void queryClient.invalidateQueries({
+          queryKey: orpc.registry.list.queryKey({ input: undefined }),
+        });
+        return result;
+      }),
+    );
+  },
+  onUpdate: async ({ transaction }) => {
+    await Promise.all(
+      transaction.mutations.map(async (m) => {
+        const c = m.changes;
+        // Empty string password means "leave existing in place" — the
+        // server treats "" the same as omitted, so forward it as-is when
+        // present.
+        const password = (m.metadata as { password?: string } | undefined)?.password;
+        const result = await orpc.registry.update.call({
+          id: m.original.id,
+          ...(c.displayName !== undefined && { displayName: c.displayName }),
+          ...(c.username !== undefined && { username: c.username }),
+          ...(c.authType !== undefined && { authType: c.authType }),
+          ...(password !== undefined && password.length > 0 && { password }),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: orpc.registry.list.queryKey({ input: undefined }),
+        });
+        return result;
+      }),
+    );
+  },
+  onDelete: async ({ transaction }) => {
+    await Promise.all(
+      transaction.mutations.map((m) => orpc.registry.delete.call({ id: m.original.id })),
+    );
+  },
+  queryClient,
+  getKey: (item) => item.id,
+});
+
+type RegistryRow = Awaited<ReturnType<typeof orpc.registry.list.call>>[number];
+
+// Two-branch createCollection + pinned generics — see projectCollection for why.
+export const registryCollection = persistence
+  ? createCollection(
+      persistedCollectionOptions<RegistryRow, string | number>({
+        ...registryQueryOptions,
+        persistence,
+        schemaVersion: 1,
+      }),
+    )
+  : createCollection(registryQueryOptions);

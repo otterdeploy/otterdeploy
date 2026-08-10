@@ -1,8 +1,10 @@
 import { zId } from "@otterdeploy/shared/id";
+import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence";
 import { createCollection, type SimpleComparison } from "@tanstack/db";
 import { parseLoadSubsetOptions, queryCollectionOptions } from "@tanstack/query-db-collection";
 import * as z from "zod";
 
+import { persistence } from "@/shared/db/sqlite-persistence";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 /**
@@ -54,54 +56,69 @@ const environmentIdSchema = zId("env");
  */
 export const RESOURCE_COLLECTION_KEY = ["resource"] as const;
 
-export const resourceCollection = createCollection(
-  queryCollectionOptions({
-    syncMode: "on-demand",
-    queryKey: (opts) => {
-      const baseQuery = [...RESOURCE_COLLECTION_KEY];
-      const { filters } = parseLoadSubsetOptions(opts);
-      // Startup base-key call: query-db-collection calls queryKey({}) once to
-      // compute the prefix every subset key must extend. No filters yet — just
-      // return the prefix.
-      if (!filters.at(0)) return baseQuery;
-      const projectId = parseCol(projectIdSchema, filters, "projectId");
-      // The environment MUST be part of the key. Without it every environment
-      // shares one cache entry, so switching the switcher re-renders the
-      // previous environment's rows and never refetches — the switcher looked
-      // broken when in fact nothing had asked the server a new question.
-      const environmentId = parseOptionalCol(environmentIdSchema, filters, "environmentId");
-      const subsetKey = orpc.project.resource.list.queryKey({
-        input: { projectId, environmentId },
-      });
+const resourceQueryOptions = queryCollectionOptions({
+  // Stable id — required for SQLite persistence to round-trip (see
+  // projectCollection in features/projects/data/project.ts).
+  id: "resources",
+  syncMode: "on-demand",
+  queryKey: (opts) => {
+    const baseQuery = [...RESOURCE_COLLECTION_KEY];
+    const { filters } = parseLoadSubsetOptions(opts);
+    // Startup base-key call: query-db-collection calls queryKey({}) once to
+    // compute the prefix every subset key must extend. No filters yet — just
+    // return the prefix.
+    if (!filters.at(0)) return baseQuery;
+    const projectId = parseCol(projectIdSchema, filters, "projectId");
+    // The environment MUST be part of the key. Without it every environment
+    // shares one cache entry, so switching the switcher re-renders the
+    // previous environment's rows and never refetches — the switcher looked
+    // broken when in fact nothing had asked the server a new question.
+    const environmentId = parseOptionalCol(environmentIdSchema, filters, "environmentId");
+    const subsetKey = orpc.project.resource.list.queryKey({
+      input: { projectId, environmentId },
+    });
 
-      return [...baseQuery, ...subsetKey];
-    },
-    queryFn: async (ctx) => {
-      const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
-      if (!filters.at(0)) return [];
-      const projectId = parseCol(projectIdSchema, filters, "projectId");
-      const environmentId = parseOptionalCol(environmentIdSchema, filters, "environmentId");
-      return orpc.project.resource.list.call({ projectId, environmentId });
-    },
-    onDelete: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map((m) => {
-          return orpc.project.resource.delete.call({
-            projectId: m.original.projectId,
-            resourceId: m.original.resourceId,
-          });
-        }),
-      );
-    },
-    // Repair backstop, not the freshness mechanism. Live changes arrive as
-    // pushes: docker transitions via the project-events stream, and
-    // build-time transitions (building → failed schedule no swarm tasks, so
-    // no docker event) via publishResourceChanged on the Redis event bus —
-    // both invalidate this collection through useProjectEvents. The poll
-    // only covers a missed/dropped event. At 5s it multiplied with the
-    // event-driven refetches into ~100 list calls/min on an idle tab.
-    refetchInterval: 30_000,
-    queryClient,
-    getKey: (item) => item.resourceId,
-  }),
-);
+    return [...baseQuery, ...subsetKey];
+  },
+  queryFn: async (ctx) => {
+    const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
+    if (!filters.at(0)) return [];
+    const projectId = parseCol(projectIdSchema, filters, "projectId");
+    const environmentId = parseOptionalCol(environmentIdSchema, filters, "environmentId");
+    return orpc.project.resource.list.call({ projectId, environmentId });
+  },
+  onDelete: async ({ transaction }) => {
+    await Promise.all(
+      transaction.mutations.map((m) => {
+        return orpc.project.resource.delete.call({
+          projectId: m.original.projectId,
+          resourceId: m.original.resourceId,
+        });
+      }),
+    );
+  },
+  // Repair backstop, not the freshness mechanism. Live changes arrive as
+  // pushes: docker transitions via the project-events stream, and
+  // build-time transitions (building → failed schedule no swarm tasks, so
+  // no docker event) via publishResourceChanged on the Redis event bus —
+  // both invalidate this collection through useProjectEvents. The poll
+  // only covers a missed/dropped event. At 5s it multiplied with the
+  // event-driven refetches into ~100 list calls/min on an idle tab.
+  refetchInterval: 30_000,
+  queryClient,
+  getKey: (item) => item.resourceId,
+});
+
+type ResourceRow = Awaited<ReturnType<typeof orpc.project.resource.list.call>>[number];
+
+// Two-branch createCollection + pinned generics — same type gymnastics as
+// projectCollection (features/projects/data/project.ts).
+export const resourceCollection = persistence
+  ? createCollection(
+      persistedCollectionOptions<ResourceRow, string | number>({
+        ...resourceQueryOptions,
+        persistence,
+        schemaVersion: 1,
+      }),
+    )
+  : createCollection(resourceQueryOptions);

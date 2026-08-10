@@ -20,12 +20,14 @@
  * the session's active org).
  */
 
+import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence";
 import { createCollection } from "@tanstack/db";
 import { parseLoadSubsetOptions, queryCollectionOptions } from "@tanstack/query-db-collection";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import * as z from "zod";
 
 import { authClient } from "@/lib/auth-client";
+import { persistence } from "@/shared/db/sqlite-persistence";
 import { parseCol } from "@/shared/lib/utils";
 import { queryClient } from "@/shared/server/orpc";
 
@@ -52,140 +54,169 @@ export function acceptInviteUrl(invitationId: string): string {
   return `${origin}/accept-invite/${invitationId}`;
 }
 
-export const membersCollection = createCollection(
-  queryCollectionOptions({
-    syncMode: "on-demand",
-    queryKey: (opts) => {
-      const baseQuery = ["org", "members"];
-      const { filters } = parseLoadSubsetOptions(opts);
-      if (!filters.at(0)) return baseQuery;
-      const organizationId = parseCol(organizationIdSchema, filters, "organizationId");
-      return [...membersSubsetKey(organizationId)];
-    },
-    queryFn: async (ctx) => {
-      const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
-      if (!filters.at(0)) return [];
-      const organizationId = parseCol(organizationIdSchema, filters, "organizationId");
-      const res = await authClient.organization.listMembers({
-        query: { organizationId },
-      });
-      if (res.error) {
-        throw new Error(res.error.message ?? "Failed to load members");
-      }
-      // Project to the fields the UI renders + the (server-filtered) org id
-      // stamped back on so the live-query filter matches client-side.
-      return (res.data?.members ?? []).map((m) => ({
-        id: m.id,
-        organizationId,
-        userId: m.userId,
-        name: m.user?.name ?? m.user?.email ?? "Unknown",
-        email: m.user?.email ?? "",
-        image: m.user?.image ?? null,
-        role: m.role,
-      }));
-    },
-    onUpdate: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map(async (m) => {
-          const res = await authClient.organization.updateMemberRole({
-            memberId: m.original.id,
-            role: m.modified.role as "member" | "admin",
-            organizationId: m.original.organizationId,
-          });
-          if (res.error) {
-            throw new Error(res.error.message ?? "Failed to update role");
-          }
-        }),
-      );
-    },
-    onDelete: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map(async (m) => {
-          const res = await authClient.organization.removeMember({
-            memberIdOrEmail: m.original.id,
-            organizationId: m.original.organizationId,
-          });
-          if (res.error) {
-            throw new Error(res.error.message ?? "Failed to remove member");
-          }
-        }),
-      );
-    },
-    queryClient,
-    getKey: (item) => item.id,
-  }),
-);
+const membersQueryOptions = queryCollectionOptions({
+  // Stable id — keys the persisted SQLite table (see projectCollection).
+  id: "team-members",
+  syncMode: "on-demand",
+  queryKey: (opts) => {
+    const baseQuery = ["org", "members"];
+    const { filters } = parseLoadSubsetOptions(opts);
+    if (!filters.at(0)) return baseQuery;
+    const organizationId = parseCol(organizationIdSchema, filters, "organizationId");
+    return [...membersSubsetKey(organizationId)];
+  },
+  queryFn: async (ctx) => {
+    const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
+    if (!filters.at(0)) return [];
+    const organizationId = parseCol(organizationIdSchema, filters, "organizationId");
+    const res = await authClient.organization.listMembers({
+      query: { organizationId },
+    });
+    if (res.error) {
+      throw new Error(res.error.message ?? "Failed to load members");
+    }
+    // Project to the fields the UI renders + the (server-filtered) org id
+    // stamped back on so the live-query filter matches client-side.
+    return (res.data?.members ?? []).map((m) => ({
+      id: m.id,
+      organizationId,
+      userId: m.userId,
+      name: m.user?.name ?? m.user?.email ?? "Unknown",
+      email: m.user?.email ?? "",
+      image: m.user?.image ?? null,
+      role: m.role,
+    }));
+  },
+  onUpdate: async ({ transaction }) => {
+    await Promise.all(
+      transaction.mutations.map(async (m) => {
+        const res = await authClient.organization.updateMemberRole({
+          memberId: m.original.id,
+          role: m.modified.role as "member" | "admin",
+          organizationId: m.original.organizationId,
+        });
+        if (res.error) {
+          throw new Error(res.error.message ?? "Failed to update role");
+        }
+      }),
+    );
+  },
+  onDelete: async ({ transaction }) => {
+    await Promise.all(
+      transaction.mutations.map(async (m) => {
+        const res = await authClient.organization.removeMember({
+          memberIdOrEmail: m.original.id,
+          organizationId: m.original.organizationId,
+        });
+        if (res.error) {
+          throw new Error(res.error.message ?? "Failed to remove member");
+        }
+      }),
+    );
+  },
+  queryClient,
+  getKey: (item) => item.id,
+});
 
-export const invitationsCollection = createCollection(
-  queryCollectionOptions({
-    syncMode: "on-demand",
-    queryKey: (opts) => {
-      const baseQuery = ["org", "invitations"];
-      const { filters } = parseLoadSubsetOptions(opts);
-      if (!filters.at(0)) return baseQuery;
-      const organizationId = parseCol(organizationIdSchema, filters, "organizationId");
-      return [...invitationsSubsetKey(organizationId)];
-    },
-    queryFn: async (ctx) => {
-      const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
-      if (!filters.at(0)) return [];
-      const organizationId = parseCol(organizationIdSchema, filters, "organizationId");
-      const res = await authClient.organization.listInvitations({
-        query: { organizationId },
-      });
-      if (res.error) {
-        throw new Error(res.error.message ?? "Failed to load invitations");
-      }
-      return (res.data ?? []).flatMap((i) =>
-        i.status === "pending"
-          ? [
-              {
-                id: i.id,
-                organizationId,
-                email: i.email,
-                role: i.role,
-                expiresAt: new Date(i.expiresAt),
-              },
-            ]
-          : [],
-      );
-    },
-    onInsert: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map(async (m) => {
-          const row = m.modified;
-          const res = await authClient.organization.inviteMember({
-            email: row.email,
-            role: row.role as "member" | "admin",
-            organizationId: row.organizationId,
-          });
-          if (res.error) {
-            throw new Error(res.error.message ?? "Failed to send invitation");
-          }
-          // The optimistic row used a temp id; refetch so the real row (server
-          // id, resolved expiry) replaces it.
-          void queryClient.invalidateQueries({
-            queryKey: invitationsSubsetKey(row.organizationId),
-          });
-        }),
-      );
-    },
-    onDelete: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map(async (m) => {
-          const res = await authClient.organization.cancelInvitation({
-            invitationId: m.original.id,
-          });
-          if (res.error) {
-            throw new Error(res.error.message ?? "Failed to cancel invitation");
-          }
-        }),
-      );
-    },
-    queryClient,
-    getKey: (item) => item.id,
-  }),
-);
+/** Row type recovered from the config (`getKey`'s item) — the `queryFn`
+ *  projection's element type, since the queryKey here is a function. */
+type MemberRow = Parameters<typeof membersQueryOptions.getKey>[0];
+
+// Two-branch createCollection with pinned generics — see projectCollection
+// (features/projects/data/project.ts) for why the ternary can't be inlined.
+export const membersCollection = persistence
+  ? createCollection(
+      persistedCollectionOptions<MemberRow, string | number>({
+        ...membersQueryOptions,
+        persistence,
+        schemaVersion: 1,
+      }),
+    )
+  : createCollection(membersQueryOptions);
+
+const invitationsQueryOptions = queryCollectionOptions({
+  // Stable id — keys the persisted SQLite table (see projectCollection).
+  id: "team-invitations",
+  syncMode: "on-demand",
+  queryKey: (opts) => {
+    const baseQuery = ["org", "invitations"];
+    const { filters } = parseLoadSubsetOptions(opts);
+    if (!filters.at(0)) return baseQuery;
+    const organizationId = parseCol(organizationIdSchema, filters, "organizationId");
+    return [...invitationsSubsetKey(organizationId)];
+  },
+  queryFn: async (ctx) => {
+    const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
+    if (!filters.at(0)) return [];
+    const organizationId = parseCol(organizationIdSchema, filters, "organizationId");
+    const res = await authClient.organization.listInvitations({
+      query: { organizationId },
+    });
+    if (res.error) {
+      throw new Error(res.error.message ?? "Failed to load invitations");
+    }
+    return (res.data ?? []).flatMap((i) =>
+      i.status === "pending"
+        ? [
+            {
+              id: i.id,
+              organizationId,
+              email: i.email,
+              role: i.role,
+              expiresAt: new Date(i.expiresAt),
+            },
+          ]
+        : [],
+    );
+  },
+  onInsert: async ({ transaction }) => {
+    await Promise.all(
+      transaction.mutations.map(async (m) => {
+        const row = m.modified;
+        const res = await authClient.organization.inviteMember({
+          email: row.email,
+          role: row.role as "member" | "admin",
+          organizationId: row.organizationId,
+        });
+        if (res.error) {
+          throw new Error(res.error.message ?? "Failed to send invitation");
+        }
+        // The optimistic row used a temp id; refetch so the real row (server
+        // id, resolved expiry) replaces it.
+        void queryClient.invalidateQueries({
+          queryKey: invitationsSubsetKey(row.organizationId),
+        });
+      }),
+    );
+  },
+  onDelete: async ({ transaction }) => {
+    await Promise.all(
+      transaction.mutations.map(async (m) => {
+        const res = await authClient.organization.cancelInvitation({
+          invitationId: m.original.id,
+        });
+        if (res.error) {
+          throw new Error(res.error.message ?? "Failed to cancel invitation");
+        }
+      }),
+    );
+  },
+  queryClient,
+  getKey: (item) => item.id,
+});
+
+/** Row type recovered from the config (`getKey`'s item) — see MemberRow. */
+type InviteRow = Parameters<typeof invitationsQueryOptions.getKey>[0];
+
+export const invitationsCollection = persistence
+  ? createCollection(
+      persistedCollectionOptions<InviteRow, string | number>({
+        ...invitationsQueryOptions,
+        persistence,
+        schemaVersion: 1,
+      }),
+    )
+  : createCollection(invitationsQueryOptions);
 
 /** Row types inferred from the collections — never hand-written. */
 export type TeamMember = (typeof membersCollection.toArray)[number];

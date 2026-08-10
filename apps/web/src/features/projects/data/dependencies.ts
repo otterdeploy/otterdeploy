@@ -1,6 +1,8 @@
+import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence";
 import { createCollection } from "@tanstack/db";
 import { parseLoadSubsetOptions, queryCollectionOptions } from "@tanstack/query-db-collection";
 
+import { persistence } from "@/shared/db/sqlite-persistence";
 import { parseCol, projectIdSchema } from "@/shared/lib/utils";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -19,28 +21,42 @@ import { orpc, queryClient } from "@/shared/server/orpc";
  *  edges. See [[RESOURCE_COLLECTION_KEY]]. */
 export const DEPENDENCIES_COLLECTION_KEY = ["dependencies"] as const;
 
-export const dependenciesCollection = createCollection(
-  queryCollectionOptions({
-    syncMode: "on-demand",
-    queryKey: (opts) => {
-      const baseQuery = [...DEPENDENCIES_COLLECTION_KEY];
-      const { filters } = parseLoadSubsetOptions(opts);
+const dependenciesQueryOptions = queryCollectionOptions({
+  // Stable id so the OPFS-backed SQLite table survives page loads — see
+  // projectCollection for why persistence never round-trips without one.
+  id: "dependencies",
+  syncMode: "on-demand",
+  queryKey: (opts) => {
+    const baseQuery = [...DEPENDENCIES_COLLECTION_KEY];
+    const { filters } = parseLoadSubsetOptions(opts);
 
-      if (!filters.at(0)) return baseQuery;
+    if (!filters.at(0)) return baseQuery;
 
-      const projectId = parseCol(projectIdSchema, filters, "projectId");
-      const queryKey = orpc.project.dependencies.queryKey({
-        input: { projectId },
-      });
-      return [...baseQuery, ...queryKey];
-    },
-    queryFn: async (ctx) => {
-      const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
+    const projectId = parseCol(projectIdSchema, filters, "projectId");
+    const queryKey = orpc.project.dependencies.queryKey({
+      input: { projectId },
+    });
+    return [...baseQuery, ...queryKey];
+  },
+  queryFn: async (ctx) => {
+    const { filters } = parseLoadSubsetOptions(ctx.meta?.loadSubsetOptions);
 
-      const projectId = parseCol(projectIdSchema, filters, "projectId");
-      return orpc.project.dependencies.call({ projectId });
-    },
-    queryClient,
-    getKey: (e) => `${e.source}->${e.target}`,
-  }),
-);
+    const projectId = parseCol(projectIdSchema, filters, "projectId");
+    return orpc.project.dependencies.call({ projectId });
+  },
+  queryClient,
+  getKey: (e) => `${e.source}->${e.target}`,
+});
+
+type DependencyRow = Awaited<ReturnType<typeof orpc.project.dependencies.call>>[number];
+
+// Two-branch createCollection + pinned generics — see projectCollection for why.
+export const dependenciesCollection = persistence
+  ? createCollection(
+      persistedCollectionOptions<DependencyRow, string | number>({
+        ...dependenciesQueryOptions,
+        persistence,
+        schemaVersion: 1,
+      }),
+    )
+  : createCollection(dependenciesQueryOptions);
