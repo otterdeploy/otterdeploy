@@ -11,12 +11,26 @@
  * reference it elsewhere as `(typeof registryCollection.toArray)[number]`.
  */
 
+import { omitUndefined } from "@otterdeploy/shared/object";
 import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence";
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
 
 import { persistence } from "@/shared/db/sqlite-persistence";
 import { orpc, queryClient } from "@/shared/server/orpc";
+
+/**
+ * The plaintext password rides on the mutation's metadata side channel —
+ * it's never stored on the row itself. `PendingMutation.metadata` is
+ * `unknown`, so narrow at runtime instead of asserting a shape.
+ */
+function metadataPassword(metadata: unknown): string | undefined {
+  if (typeof metadata !== "object" || metadata === null) return undefined;
+  if ("password" in metadata && typeof metadata.password === "string") {
+    return metadata.password;
+  }
+  return undefined;
+}
 
 const registryQueryOptions = queryCollectionOptions({
   // Stable id so the OPFS-backed SQLite table survives page loads — see
@@ -29,13 +43,15 @@ const registryQueryOptions = queryCollectionOptions({
     await Promise.all(
       transaction.mutations.map(async (m) => {
         const row = m.modified;
+        const password = metadataPassword(m.metadata);
+        if (password === undefined) {
+          throw new Error("registry insert mutation is missing its password metadata");
+        }
         const result = await orpc.registry.create.call({
           displayName: row.displayName,
           host: row.host,
           username: row.username,
-          // The plaintext password rides on the optimistic row via
-          // metadata — it's never stored on the row itself.
-          password: (m.metadata as { password: string }).password,
+          password,
           authType: row.authType,
         });
         // The optimistic row used a temp id; refetch so the real row
@@ -52,15 +68,17 @@ const registryQueryOptions = queryCollectionOptions({
       transaction.mutations.map(async (m) => {
         const c = m.changes;
         // Empty string password means "leave existing in place" — the
-        // server treats "" the same as omitted, so forward it as-is when
-        // present.
-        const password = (m.metadata as { password?: string } | undefined)?.password;
+        // server treats "" the same as omitted, so send it only when
+        // non-empty ("" collapses to undefined and gets stripped).
+        const password = metadataPassword(m.metadata);
         const result = await orpc.registry.update.call({
           id: m.original.id,
-          ...(c.displayName !== undefined && { displayName: c.displayName }),
-          ...(c.username !== undefined && { username: c.username }),
-          ...(c.authType !== undefined && { authType: c.authType }),
-          ...(password !== undefined && password.length > 0 && { password }),
+          ...omitUndefined({
+            displayName: c.displayName,
+            username: c.username,
+            authType: c.authType,
+            password: password || undefined,
+          }),
         });
         void queryClient.invalidateQueries({
           queryKey: orpc.registry.list.queryKey({ input: undefined }),

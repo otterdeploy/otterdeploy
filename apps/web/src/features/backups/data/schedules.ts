@@ -1,6 +1,7 @@
 import type { scheduleSchema } from "@otterdeploy/api/routers/backups/contract";
 import type { z } from "zod";
 
+import { omitUndefined } from "@otterdeploy/shared/object";
 import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence";
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
@@ -38,7 +39,9 @@ const schedulesQueryOptions = queryCollectionOptions({
           sources: row.sources,
           cron: row.cron,
           destinationIds: row.destinationIds,
-          ...(row.projectId ? { projectId: row.projectId } : {}),
+          // Null/empty projectId means org-wide — collapse to undefined so
+          // omitUndefined drops the key entirely (input has no null form).
+          ...omitUndefined({ projectId: row.projectId || undefined }),
           keepDaily: row.keepDaily,
           keepWeekly: row.keepWeekly,
           keepMonthly: row.keepMonthly,
@@ -60,21 +63,19 @@ const schedulesQueryOptions = queryCollectionOptions({
         const c = m.changes;
         return orpc.backups.schedules.update.call({
           id: m.original.id,
-          ...(c.name !== undefined && { name: c.name }),
-          ...(c.sources !== undefined && { sources: c.sources }),
-          ...(c.cron !== undefined && { cron: c.cron }),
-          ...(c.keepDaily !== undefined && { keepDaily: c.keepDaily }),
-          ...(c.keepWeekly !== undefined && { keepWeekly: c.keepWeekly }),
-          ...(c.keepMonthly !== undefined && { keepMonthly: c.keepMonthly }),
-          ...(c.keepYearly !== undefined && { keepYearly: c.keepYearly }),
-          ...(c.retentionDays !== undefined && {
+          ...omitUndefined({
+            name: c.name,
+            sources: c.sources,
+            cron: c.cron,
+            keepDaily: c.keepDaily,
+            keepWeekly: c.keepWeekly,
+            keepMonthly: c.keepMonthly,
+            keepYearly: c.keepYearly,
             retentionDays: c.retentionDays,
-          }),
-          ...(c.maxStorageGb !== undefined && {
             maxStorageGb: c.maxStorageGb,
+            preHook: c.preHook,
+            enabled: c.enabled,
           }),
-          ...(c.preHook !== undefined && { preHook: c.preHook }),
-          ...(c.enabled !== undefined && { enabled: c.enabled }),
         });
       }),
     );

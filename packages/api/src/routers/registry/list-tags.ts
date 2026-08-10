@@ -32,12 +32,13 @@
 import type { EgressResponse } from "@otterdeploy/shared/egress-policy";
 
 import { egressFetch, EgressPolicyError } from "@otterdeploy/shared/egress-policy";
+import { omitUndefined } from "@otterdeploy/shared/object";
 import { Result, TaggedError } from "better-result";
 
 import { controlPlaneEgressDenylist } from "../../lib/egress-denylist";
 import { egressAllowlist } from "../../lib/egress-options";
 import { imageSizeFromManifest, parseTagsBody, registryApiHost, hasNextPage } from "./tag-parse";
-import { parseAuthChallenge, buildTokenUrl } from "./test-connection";
+import { parseAuthChallenge, buildTokenUrl, tokenFromBody } from "./test-connection";
 
 export {
   hasNextPage,
@@ -94,7 +95,7 @@ async function timedFetch(
     const denylist = await controlPlaneEgressDenylist();
     const res = await egressFetch(
       url,
-      { ...(headers && { headers }) },
+      omitUndefined({ headers }),
       {
         maxRedirects: 5,
         maxBytes: 10 * 1024 * 1024,
@@ -208,12 +209,8 @@ async function authorize(input: {
       statusError({ host, repository, status: tokenRes.value.status, hasCredentials }),
     );
   }
-  const body = (await tokenRes.value.json().catch(() => null)) as {
-    token?: string;
-    access_token?: string;
-  } | null;
-  const token = body?.token ?? body?.access_token;
-  if (!token) {
+  const token = tokenFromBody(await tokenRes.value.json().catch(() => null));
+  if (token === undefined) {
     return Result.err(
       new RegistryTagsError({
         status: tokenRes.value.status,
@@ -240,20 +237,13 @@ async function enrichTags(input: {
       const res = await timedFetch(
         apiHost,
         `https://${apiHost}/v2/${repository}/manifests/${encodeURIComponent(name)}`,
-        {
-          accept: MANIFEST_ACCEPT,
-          ...(authorization && { authorization }),
-        },
+        omitUndefined({ accept: MANIFEST_ACCEPT, authorization }),
       );
       if (res.isErr() || !res.value.ok) return { name };
       const digest = res.value.headers.get("docker-content-digest") ?? undefined;
-      const body: unknown = await res.value.json().catch(() => null);
+      const body = await res.value.json().catch(() => null);
       const sizeBytes = imageSizeFromManifest(body);
-      return {
-        name,
-        ...(digest !== undefined && { digest }),
-        ...(sizeBytes !== undefined && { sizeBytes }),
-      };
+      return { name, ...omitUndefined({ digest, sizeBytes }) };
     }),
   );
 }
@@ -299,7 +289,7 @@ export async function fetchRegistryTags(input: {
     );
   }
 
-  const body: unknown = await res.value.json().catch(() => null);
+  const body = await res.value.json().catch(() => null);
   const names = parseTagsBody(body);
   if (names === null) {
     return Result.err(

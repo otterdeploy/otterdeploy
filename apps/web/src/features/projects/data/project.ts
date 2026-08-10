@@ -1,4 +1,5 @@
 import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
+import { omitUndefined } from "@otterdeploy/shared/object";
 import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence";
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
@@ -89,12 +90,10 @@ const projectQueryOptions = queryCollectionOptions({
     // doesn't trip the input's strict shape.
     await Promise.all(
       transaction.mutations.map((m) => {
-        const c = m.changes as Partial<typeof m.original>;
+        const c = m.changes;
         return orpc.project.update.call({
           id: m.original.id,
-          ...(c.name !== undefined && { name: c.name }),
-          ...(c.slug !== undefined && { slug: c.slug }),
-          ...(c.customDomain !== undefined && { customDomain: c.customDomain }),
+          ...omitUndefined({ name: c.name, slug: c.slug, customDomain: c.customDomain }),
         });
       }),
     );

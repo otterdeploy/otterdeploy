@@ -4,6 +4,7 @@ import { parseLoadSubsetOptions, queryCollectionOptions } from "@tanstack/query-
 import * as z from "zod";
 
 import { authClient } from "@/lib/auth-client";
+import { metadataOnKey } from "@/shared/db/mutation-metadata";
 import { persistence } from "@/shared/db/sqlite-persistence";
 import { parseCol } from "@/shared/lib/utils";
 import { client, queryClient } from "@/shared/server/orpc";
@@ -87,8 +88,10 @@ const apiKeysQueryOptions = queryCollectionOptions({
             : {}),
         });
         // Hand the one-time plaintext token to the UI before we resolve; it's
-        // never stored on the row. (Metadata is `unknown` at this boundary.)
-        (m.metadata as { onKey: (key: string) => void }).onKey(created.key);
+        // never stored on the row. (Metadata is `unknown` at this boundary —
+        // the reader narrows at runtime, no callback attached means no-op.)
+        const onKey = metadataOnKey(m.metadata);
+        onKey?.(created.key);
         // The optimistic row used a temp id; refetch so the real row (server
         // id, masked `start`, …) replaces it.
         void queryClient.invalidateQueries({

@@ -1,3 +1,4 @@
+import { omitUndefined } from "@otterdeploy/shared/object";
 import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence";
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
@@ -44,11 +45,10 @@ const outboundQueryOptions = queryCollectionOptions({
   onUpdate: async ({ transaction }) => {
     await Promise.all(
       transaction.mutations.map((m) => {
-        const c = m.changes as Partial<typeof m.original>;
+        const c = m.changes;
         return orpc.webhooks.outbound.update.call({
           id: m.original.id,
-          ...(c.url !== undefined && { url: c.url }),
-          ...(c.events !== undefined && { events: c.events }),
+          ...omitUndefined({ url: c.url, events: c.events }),
         });
       }),
     );

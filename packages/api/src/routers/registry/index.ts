@@ -4,6 +4,8 @@
  * before INSERT — see queries.ts for the boundary.
  */
 
+import { omitUndefined } from "@otterdeploy/shared/object";
+
 import { orgScopedProcedure, requirePermission } from "../..";
 import { isUniqueViolation } from "../project/views";
 import { fetchRegistryTags, parseImageRef } from "./list-tags";
@@ -154,7 +156,7 @@ export const registryRouter = {
         tags: [],
         truncated: false,
         message,
-        ...(status !== undefined && { status }),
+        ...omitUndefined({ status }),
       });
 
       const ref = parseImageRef(input.image);

@@ -21,6 +21,7 @@
  * bad credentials. The success message says what was actually verified.
  */
 
+import { omitUndefined } from "@otterdeploy/shared/object";
 import { Result } from "better-result";
 
 import { basicAuthHeader, probeFetch, RegistryProbeError } from "./probe-fetch";
@@ -64,8 +65,7 @@ export function parseAuthChallenge(header: string | null): AuthChallenge | null 
   return {
     scheme: "bearer",
     realm,
-    ...(params["service"] !== undefined && { service: params["service"] }),
-    ...(params["scope"] !== undefined && { scope: params["scope"] }),
+    ...omitUndefined({ service: params["service"], scope: params["scope"] }),
   };
 }
 
@@ -80,6 +80,27 @@ export function buildTokenUrl(challenge: BearerChallenge): string {
   if (challenge.service) url.searchParams.set("service", challenge.service);
   if (challenge.scope) url.searchParams.set("scope", challenge.scope);
   return url.toString();
+}
+
+/**
+ * Extract the bearer token from a token-endpoint response body — the
+ * spec allows either `token` or `access_token`. The body arrives as
+ * `unknown` (parsed JSON), so narrow at runtime; returns undefined when
+ * there's no non-empty token string.
+ */
+export function tokenFromBody(body: unknown): string | undefined {
+  if (typeof body !== "object" || body === null) return undefined;
+  if ("token" in body && typeof body.token === "string" && body.token.length > 0) {
+    return body.token;
+  }
+  if (
+    "access_token" in body &&
+    typeof body.access_token === "string" &&
+    body.access_token.length > 0
+  ) {
+    return body.access_token;
+  }
+  return undefined;
 }
 
 type ProbeOutcome = Result<{ status: number; message: string }, RegistryProbeError>;
@@ -148,11 +169,7 @@ async function probeWithBearerToken(
     );
   }
 
-  const body = (await tokenRes.value.json().catch(() => null)) as {
-    token?: string;
-    access_token?: string;
-  } | null;
-  if (!body || (!body.token && !body.access_token)) {
+  if (tokenFromBody(await tokenRes.value.json().catch(() => null)) === undefined) {
     return Result.err(
       new RegistryProbeError({
         status: tokenRes.value.status,

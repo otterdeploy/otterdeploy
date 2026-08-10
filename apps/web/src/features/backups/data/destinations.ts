@@ -1,10 +1,12 @@
 import type { destinationSchema } from "@otterdeploy/api/routers/backups/contract";
 import type { z } from "zod";
 
+import { omitUndefined } from "@otterdeploy/shared/object";
 import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence";
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
 
+import { metadataSecretRecord } from "@/shared/db/mutation-metadata";
 import { persistence } from "@/shared/db/sqlite-persistence";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -19,10 +21,13 @@ import { orpc, queryClient } from "@/shared/server/orpc";
  */
 export type Destination = z.infer<typeof destinationSchema>;
 
-/** Write-only credential bag threaded through a mutation's metadata. */
-interface DestinationSecretMeta {
-  secret?: Record<string, string>;
-}
+/**
+ * Cast-free read of the write-only credential bag threaded through a
+ * mutation's metadata. The shared `metadataSecret` reader covers single-string
+ * secrets; destinations carry a whole record (access key + secret key, SFTP
+ * password, …), so narrow that shape here with runtime checks — wrong or
+ * missing metadata degrades to `undefined`.
+ */
 
 const destinationsListKey = orpc.backups.destinations.list.queryKey();
 
@@ -37,7 +42,7 @@ const destinationsQueryOptions = queryCollectionOptions({
     await Promise.all(
       transaction.mutations.map(async (m) => {
         const row = m.modified;
-        const secret = (m.metadata as DestinationSecretMeta)?.secret;
+        const secret = metadataSecretRecord(m.metadata);
         await orpc.backups.destinations.create.call({
           name: row.name,
           type: row.type,
@@ -54,11 +59,10 @@ const destinationsQueryOptions = queryCollectionOptions({
     await Promise.all(
       transaction.mutations.map((m) => {
         const c = m.changes;
-        const secret = (m.metadata as DestinationSecretMeta)?.secret;
+        const secret = metadataSecretRecord(m.metadata);
         return orpc.backups.destinations.update.call({
           id: m.original.id,
-          ...(c.name !== undefined && { name: c.name }),
-          ...(c.config !== undefined && { config: c.config }),
+          ...omitUndefined({ name: c.name, config: c.config }),
           ...(secret && Object.keys(secret).length > 0 ? { secret } : {}),
         });
       }),

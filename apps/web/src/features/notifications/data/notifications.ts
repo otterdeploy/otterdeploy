@@ -1,9 +1,9 @@
-import type { JsonObject } from "@otterdeploy/shared/json";
-
+import { omitUndefined } from "@otterdeploy/shared/object";
 import { persistedCollectionOptions } from "@tanstack/browser-db-sqlite-persistence";
 import { createCollection } from "@tanstack/db";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
 
+import { metadataSecret } from "@/shared/db/mutation-metadata";
 import { persistence } from "@/shared/db/sqlite-persistence";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -35,16 +35,16 @@ const channelsQueryOptions = queryCollectionOptions({
     await Promise.all(
       transaction.mutations.map(async (m) => {
         const row = m.modified;
+        // `secret` lives only in the insert metadata — it's never stored
+        // on the row (the list never returns it). Truthiness gate: an
+        // untouched form field is "", which is omitted, not sent.
+        const secret = metadataSecret(m.metadata);
         await orpc.notifications.channels.create.call({
           kind: row.kind,
           name: row.name,
           target: row.target,
-          config: (row.config ?? {}) as JsonObject,
-          // `secret` lives only in the insert metadata — it's never stored
-          // on the row (the list never returns it).
-          ...((m.metadata as { secret?: string } | undefined)?.secret
-            ? { secret: (m.metadata as { secret: string }).secret }
-            : {}),
+          config: row.config ?? {},
+          ...(secret ? { secret } : {}),
         });
         void queryClient.invalidateQueries({
           queryKey: orpc.notifications.channels.list.queryKey(),
@@ -55,19 +55,15 @@ const channelsQueryOptions = queryCollectionOptions({
   onUpdate: async ({ transaction }) => {
     await Promise.all(
       transaction.mutations.map((m) => {
-        const c = m.changes as Partial<typeof m.original>;
+        const c = m.changes;
+        // Secret is write-only — passed through the update metadata, never
+        // held on the row. Truthiness gate: an untouched form field is "",
+        // which is omitted, not sent.
+        const secret = metadataSecret(m.metadata);
         return orpc.notifications.channels.update.call({
           id: m.original.id,
-          ...(c.name !== undefined && { name: c.name }),
-          ...(c.target !== undefined && { target: c.target }),
-          ...(c.config !== undefined && {
-            config: c.config as JsonObject,
-          }),
-          // Secret is write-only — passed through the update metadata, never
-          // held on the row.
-          ...((m.metadata as { secret?: string } | undefined)?.secret
-            ? { secret: (m.metadata as { secret: string }).secret }
-            : {}),
+          ...omitUndefined({ name: c.name, target: c.target, config: c.config }),
+          ...(secret ? { secret } : {}),
         });
       }),
     );
