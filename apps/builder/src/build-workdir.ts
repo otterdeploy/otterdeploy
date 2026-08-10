@@ -1,4 +1,4 @@
-import { DATA_ROOT } from "@otterdeploy/shared/paths";
+import { DATA_ROOT, buildxCacheDir } from "@otterdeploy/shared/paths";
 /**
  * Build work-dir retention. A failed build's clone is KEPT (under the host data
  * folder) so an operator can inspect what went wrong; successful builds are
@@ -13,9 +13,11 @@ import { DATA_ROOT } from "@otterdeploy/shared/paths";
 import { readdir, rm, rmdir, stat } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 
-const BUILDS_DIR = join(DATA_ROOT, "builds");
+/** Root of the per-build work dirs (`work/builds/<projectId>/<deploymentId>` —
+ *  the parent of every `buildDir(...)`). */
+const BUILDS_DIR = join(DATA_ROOT, "work", "builds");
 /** Persistent BuildKit layer cache (see buildx.ts), one subdir per image repo. */
-const CACHE_DIR = join(DATA_ROOT, "buildx-cache");
+const CACHE_DIR = buildxCacheDir();
 
 /** How long a failed build's clone lingers for inspection before the sweep
  *  reclaims it. */
@@ -28,7 +30,7 @@ const CACHE_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14d
 
 /**
  * Remove build dirs whose mtime is older than {@link BUILD_TTL_MS}. Build clones
- * now live two levels deep — `builds/<projectId>/<deploymentId>` — so this walks
+ * live two levels deep — `work/builds/<projectId>/<deploymentId>` — so this walks
  * each project's bucket, prunes stale deployment dirs, then drops the project
  * bucket once it's empty (`rmdir` fails on a non-empty dir, which we ignore).
  * Best-effort + racy-safe: a vanished/locked entry is skipped, never thrown.
@@ -69,7 +71,7 @@ export async function pruneStaleBuilds(now = Date.now()): Promise<void> {
 }
 
 /**
- * Reclaim BuildKit layer-cache dirs (`buildx-cache/<repo>`) unused for longer
+ * Reclaim BuildKit layer-cache dirs (`cache/buildx/<repo>`) unused for longer
  * than {@link CACHE_TTL_MS}. Without this the cache grows unbounded (BuildKit's
  * local cache has no GC) and eventually fills the disk. Best-effort + guarded:
  * each removal stays inside `CACHE_DIR`, and a vanished/locked entry is skipped,

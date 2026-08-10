@@ -12,6 +12,7 @@
  */
 
 import type { DatabaseEngine } from "@otterdeploy/shared/database-engines";
+import type { ResourceRef as HostResourceRef } from "@otterdeploy/shared/paths";
 import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
@@ -38,7 +39,7 @@ import { buildContainerName, buildVolumeName, sanitizeProjectSlug } from "./view
  */
 async function teardownServiceRuntime(
   serviceName: string,
-  ref: ResourceRef,
+  ref: HostResourceRef,
   log: RequestLogger,
 ): Promise<void> {
   // Lazy-imported: transitively loads @otterdeploy/env/server (validated at
@@ -58,12 +59,18 @@ async function teardownServiceRuntime(
         ref: serviceName,
         projectId: ref.projectId,
         label: `service teardown failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-        payload: { projectId: ref.projectId, resourceId: ref.resourceId },
+        payload: {
+          projectId: ref.projectId,
+          resourceId: ref.resourceId,
+          // Host-side paths are environment-keyed (null = main env) — carried so
+          // a later GC retry can rebuild the resource's on-disk ref.
+          environmentId: ref.environmentId,
+        },
       });
     });
   // 2-4. Reclaim host artifacts (images, buildx cache, volumes) — shared with
   //      the manifest-apply delete path (service/handlers.ts deleteService).
-  await reclaimServiceHostArtifacts(serviceName, ref.projectId, ref.resourceId, log);
+  await reclaimServiceHostArtifacts(serviceName, ref, log);
 }
 
 /**
@@ -225,7 +232,13 @@ export async function deleteProjectResource(
         found.record.resource.name,
       );
       await deleteProxyRoutesByResource(input.resourceId);
-      await teardownServiceRuntime(found.record.service.serviceName, input, log);
+      await teardownServiceRuntime(
+        found.record.service.serviceName,
+        // Host-side paths key on the resource's environment too (null = main) —
+        // the row carries it; the API-scope ref does not.
+        { ...input, environmentId: found.record.resource.environmentId ?? null },
+        log,
+      );
       await deleteResourceById(input.resourceId);
       log.set({
         teardown: { proxyRoutesRemoved: true, runtimeDestroyed: true, dbDeleted: true },

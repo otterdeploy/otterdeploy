@@ -4,7 +4,10 @@
  *
  *   images      → `image prune` with dangling=false (all images unused by any
  *                 container — old deploy images live here; re-pulled if needed)
- *   build-cache → BuildKit cache prune (idle entries only; next build re-warms)
+ *   build-cache → BuildKit cache prune (idle daemon entries) PLUS the data
+ *                 folder's `cache/` tree (the `cache/buildx` layer caches).
+ *                 `cache/` is regenerable by contract — always safe to wipe
+ *                 entirely; the next build just starts cold and re-warms it
  *   containers  → stopped containers, LIMITED to otterdeploy-managed ones so a
  *                 shared host's other stopped containers are never touched
  *   branch-pool → `zpool trim` on the branching pool, punching freed branch-DB
@@ -14,12 +17,55 @@
  * can be a detached database's data. That stays a manual, informed decision.
  */
 import { Docker } from "@otterdeploy/docker";
+import { DATA_ROOT } from "@otterdeploy/shared/paths";
 import { Result } from "better-result";
 import { log } from "evlog";
+import { lstat, readdir } from "node:fs/promises";
+import { join } from "node:path";
 
 import type { ReclaimTarget } from "./host-health";
 
+import { removeGuardedDir } from "../lib/data-dir";
 import { trimBranchPool } from "./branch-pool";
+
+/** Best-effort recursive size of a path (0 when absent/unreadable). */
+async function pathSizeBytes(path: string): Promise<number> {
+  try {
+    const info = await lstat(path);
+    if (info.isFile()) return info.size;
+    if (!info.isDirectory()) return 0;
+    let total = 0;
+    for (const name of await readdir(path)) {
+      total += await pathSizeBytes(join(path, name));
+    }
+    return total;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Wipe the data folder's `cache/` tree (BuildKit layer caches under
+ * `cache/buildx` — the on-disk export caches the daemon prune can't see).
+ * Removes each child through the guarded remover (never the `cache/` dir
+ * itself); best-effort, returns the bytes measured before removal.
+ */
+async function wipeDataCache(): Promise<number> {
+  const cacheRoot = join(DATA_ROOT, "cache");
+  let names: string[];
+  try {
+    names = await readdir(cacheRoot);
+  } catch {
+    return 0; // cache dir absent (dev / no data folder) → nothing to wipe
+  }
+  let freed = 0;
+  for (const name of names) {
+    const child = join(cacheRoot, name);
+    freed += await pathSizeBytes(child);
+    await removeGuardedDir(child, name);
+  }
+  return freed;
+}
 
 export interface ReclaimResult {
   target: ReclaimTarget;
@@ -39,7 +85,7 @@ async function pruneOne(docker: Docker, target: ReclaimTarget): Promise<ReclaimR
       case "build-cache": {
         const res = await docker.system.pruneBuilder({ all: true });
         if (res.isErr()) throw res.error;
-        return res.value.SpaceReclaimed;
+        return res.value.SpaceReclaimed + (await wipeDataCache());
       }
       case "containers": {
         const res = await docker.containers.prune({

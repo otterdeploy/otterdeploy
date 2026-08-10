@@ -16,7 +16,7 @@ import { Writable as NodeWritable } from "node:stream";
 import type { ResolvedDestination } from "./backends";
 
 import { buildContainerName } from "../routers/project/views";
-import { deriveRepoId, toRusticRepo } from "./backends";
+import { deriveRepoKey, toRusticRepo } from "./backends";
 import {
   type DatabaseTarget,
   type ExecutionContext,
@@ -34,7 +34,7 @@ import {
 } from "./volume";
 
 /** Open the run's rustic repo: resolve backend creds, derive the (resource ×
- *  destination) repo id + its password, and build a driver. */
+ *  destination) repo key + its password, and build a driver. */
 async function openRepo(ctx: ExecutionContext): Promise<RusticCli> {
   const secret = await resolveSecret(ctx);
   const dest: ResolvedDestination = {
@@ -42,7 +42,7 @@ async function openRepo(ctx: ExecutionContext): Promise<RusticCli> {
     config: ctx.destination.config,
     secret,
   };
-  return new RusticCli(toRusticRepo(dest, deriveRepoId(ctx)));
+  return new RusticCli(toRusticRepo(dest, deriveRepoKey(ctx)));
 }
 
 /** Collect a readable stream fully into one Buffer. */

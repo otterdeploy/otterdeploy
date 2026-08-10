@@ -172,8 +172,8 @@ export const env = createEnv({
       .default(true),
     // Absolute path to an IP→country .mmdb file (MaxMind DB format). When set,
     // the edge-log sink opens it directly and skips the managed download. Unset
-    // ⇒ the sink downloads a free, no-key DB to <DATA_ROOT>/geoip and uses that.
-    // See edge-logs/geo.ts.
+    // ⇒ the sink downloads a free, no-key DB to <DATA_ROOT>/platform/geoip and
+    // uses that. See edge-logs/geo.ts.
     EDGE_LOG_GEOIP_DB: z.string().min(1).optional(),
     // Source URL for the auto-downloaded country DB when EDGE_LOG_GEOIP_DB is
     // unset. Defaults to the public-domain DB-IP country-lite MMDB (no license
@@ -305,8 +305,9 @@ export const env = createEnv({
     // helper container bind-mounts this (same path in+out) to bump the version
     // and run `docker compose pull && up -d`. The installer writes the real value
     // into .env (it derives from OTTERDEPLOY_DATA_DIR), so this default only
-    // applies to source checkouts — it mirrors install.sh's `$DATA_DIR/source`.
-    OTTERDEPLOY_INSTALL_DIR: z.string().min(1).default("/data/otterdeploy/source"),
+    // applies to source checkouts — it mirrors install.sh's
+    // `$DATA_DIR/platform/source`.
+    OTTERDEPLOY_INSTALL_DIR: z.string().min(1).default("/data/otterdeploy/platform/source"),
     // GitHub repo (owner/name) whose `releases/latest` is the version source.
     OTTERDEPLOY_UPDATE_REPO: z.string().min(1).default("otterdeploy/otterdeploy"),
     // Override the release manifest URL — point at a fixture/mirror for testing

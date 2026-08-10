@@ -23,7 +23,7 @@ import type { ResolvedDestination } from "./backends";
 
 import { emitPlatformEvent } from "../notifications/emit";
 import { buildContainerName } from "../routers/project/views";
-import { deriveRepoId, toRusticRepo } from "./backends";
+import { deriveRepoKey, toRusticRepo } from "./backends";
 import {
   type ExecutionContext,
   appendBackupLog,
@@ -138,16 +138,16 @@ export async function executeBackup(backupId: string): Promise<void> {
 
     // Resolve the (resource × destination) repo, derive its password + backend
     // options, and open it (idempotent init tolerates an existing repo).
-    const repoId = deriveRepoId(ctx);
+    const repoKey = deriveRepoKey(ctx);
     const secret = await resolveSecret(ctx);
     const dest: ResolvedDestination = {
       type: ctx.destination.type,
       config: ctx.destination.config,
       secret,
     };
-    const cli = new RusticCli(toRusticRepo(dest, repoId), log);
+    const cli = new RusticCli(toRusticRepo(dest, repoKey), log);
     await cli.ensureInit();
-    await log("system", `Streaming into repo ${repoId}`);
+    await log("system", `Streaming into repo ${repoKey.repoId}`);
 
     // Pipe the live dump/tar straight into `rustic backup -` — rustic dedups,
     // compresses (zstd), and encrypts under the repo key. Draining the stream

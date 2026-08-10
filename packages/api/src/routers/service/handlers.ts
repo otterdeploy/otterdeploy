@@ -6,7 +6,7 @@
  * Returns `Result<View, TaggedError>` so the oRPC handler layer can switch
  * on `result.error._tag` to translate to the right wire-level error code.
  */
-import type { EnvironmentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, ProjectId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
@@ -264,7 +264,7 @@ export async function deleteService(
     return Result.err(
       new ServiceInUseError({
         resourceId: input.resourceId,
-        referrers: externalDependents as unknown as ReadonlyArray<ResourceId>,
+        referrers: externalDependents,
       }),
     );
   }
@@ -296,17 +296,20 @@ export async function deleteService(
         ref: record.service.serviceName,
         projectId: input.projectId,
         label: `service teardown failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-        payload: { projectId: input.projectId, resourceId: input.resourceId },
+        // environmentId (null = main env) lets a GC retry rebuild the
+        // resource's env-keyed on-disk ref.
+        payload: {
+          projectId: input.projectId,
+          resourceId: input.resourceId,
+          environmentId: record.resource.environmentId ?? null,
+        },
       });
     });
   // Reclaim host artifacts (built images, buildx cache, volumes) — the container
-  // teardown above only removes the running container.
-  await reclaimServiceHostArtifacts(
-    record.service.serviceName,
-    input.projectId,
-    input.resourceId,
-    log,
-  );
+  // teardown above only removes the running container. The host ref is
+  // environment-keyed (null = main env).
+  const hostRef = { ...input, environmentId: record.resource.environmentId ?? null };
+  await reclaimServiceHostArtifacts(record.service.serviceName, hostRef, log);
   await deleteServiceRecord(input.resourceId);
   await reconcile(log);
 

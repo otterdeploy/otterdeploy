@@ -51,6 +51,7 @@ export {
   getResourceById,
   listProjectResources,
   resolveEnvironmentScope,
+  resolveProjectEnvironmentScope,
   type ComposeResourceJoined,
   type DatabaseResourceJoined,
   type EnvironmentScopeInput,

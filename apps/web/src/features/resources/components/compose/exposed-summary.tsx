@@ -1,11 +1,11 @@
 /**
- * Stack Settings "Exposed services" card — a READ-ONLY summary of which child
+ * Stack Settings "Exposed services" card: a READ-ONLY summary of which child
  * services are publicly reachable. Public exposure (Expose publicly / DOMAINS
  * / deployment protection) is owned exclusively by each child service's own
- * Settings tab — identical to a standalone service. This card just reflects
+ * Settings tab: identical to a standalone service. This card just reflects
  * that state (service → hostname → status) and hands off to the child's own
  * panel via "Manage", so there is exactly one place that can flip a route on
- * or off. See od-80d — this replaces the old editable "Save exposures" form,
+ * or off. See od-80d. This replaces the old editable "Save exposures" form,
  * which wrote a second, divergent set of Caddy routes keyed to the STACK's
  * own resourceId instead of the child's.
  */
@@ -22,12 +22,13 @@ import {
   type DomainStatusView,
 } from "@/features/resources/components/service/tabs/settings/domains-card-parts";
 import { resourceCollection } from "@/features/resources/data/resource";
+import { inActiveEnvironment } from "@/features/shell/environment-scope";
 import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { buttonVariants } from "@/shared/components/ui/button";
 import { orpc } from "@/shared/server/orpc";
 
 /** Synthesize the minimal `DomainView` `StatusBadge` needs from a child
- *  service's own denormalized public fields — the same "generated" host the
+ *  service's own denormalized public fields. The same "generated" host the
  *  child's own Domains card would show a Live/Pending DNS chip for. Custom
  *  domains, verification, and DNS detail all still live on the child's own
  *  Domains card; this summary only needs enough to say "reachable" honestly. */
@@ -53,22 +54,24 @@ export function ComposeExposedSummary({
   orgSlug: string;
   projectSlug: ProjectSlug;
 }) {
-  // Same on-demand collection the graph node + services tab read — a toggle
+  // Same on-demand collection the graph node + services tab read. A toggle
   // on the child's own Settings tab shows up here without a second fetch.
   const activeEnv = useActiveEnvironment(projectId);
   const { data: projectResources } = useLiveQuery(
     (q) =>
       q
         .from({ r: resourceCollection })
-        .where(({ r }) => and(eq(r.projectId, projectId), eq(r.environmentId, activeEnv.id ?? ""))),
-    [projectId, activeEnv.id],
+        .where(({ r }) =>
+          and(eq(r.projectId, projectId), inActiveEnvironment(r.environmentId, activeEnv)),
+        ),
+    [projectId, activeEnv.id, activeEnv.isMain],
   );
 
   const exposed = projectResources.filter(
     (r) => r.type === "service" && r.stackId === resourceId && r.publicEnabled,
   ) as Array<{ resourceId: string; name: string; publicDomain: string | null }>;
 
-  // Generated hostnames route under the org's base domain — read the same
+  // Generated hostnames route under the org's base domain. Read the same
   // verification signal the child's own Domains card does, so this chip never
   // disagrees with the one the operator sees after clicking Manage.
   const { organization } = useLoaderData({ from: "/_app/$orgSlug" });
@@ -86,11 +89,11 @@ export function ComposeExposedSummary({
   return (
     <SettingsCard
       title="Exposed services"
-      description="Public routes for this stack. Each service owns its own exposure — open Manage to change what's public."
+      description="Public routes for this stack. Each service owns its own exposure. Open Manage to change what's public."
     >
       {exposed.length === 0 ? (
         <div className="px-4 py-8 text-center text-[12.5px] text-muted-foreground">
-          No public routes — expose a service from its own Settings.
+          No public routes. Expose a service from its own Settings.
         </div>
       ) : (
         <div className="divide-y divide-border/40">

@@ -3,12 +3,13 @@
  * postgres create stream to completion (the apply path doesn't surface
  * per-step progress yet). Staged extensions + extraEnv are BAKED into the
  * create (image + env resolved up-front) so everything deploys as one
- * container — the only follow-up is running CREATE EXTENSION against the
+ * container: the only follow-up is running CREATE EXTENSION against the
  * live database.
  */
 import type { EnvironmentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 import { log } from "evlog";
 
@@ -31,7 +32,7 @@ type OrgId = OrganizationId;
 
 interface CreateDatabaseArgs {
   projectId: ProjectId;
-  /** Environment the database is created in — scopes the name check and gets
+  /** Environment the database is created in. Scopes the name check and gets
    *  stamped on the row. */
   environmentId: EnvironmentId;
   organizationId: OrgId;
@@ -55,8 +56,10 @@ async function drainCreateStream(
   let errorMessage: string | null = null;
   let createdResourceId: ResourceId | null = null;
   for await (const event of stream) {
-    if (event.type === "created") {
-      createdResourceId = event.resource.resourceId as ResourceId;
+    // The mapped view types `resourceId` as plain string; narrow with the
+    // real prefix guard instead of asserting.
+    if (event.type === "created" && hasPrefix(event.resource.resourceId, ID_PREFIX.resource)) {
+      createdResourceId = event.resource.resourceId;
     }
     if (event.type === "done") success = true;
     if (event.type === "error") errorMessage = event.message;
@@ -91,10 +94,15 @@ export async function createDatabase(
   const stream = createPostgresResourceStream(
     {
       projectId: args.projectId,
+      // Stamp the row into the environment the apply runs in. Dropping this
+      // left environment_id NULL, and NULL rows only render because the main
+      // environment owns them by convention. A create in a non-main
+      // environment would land in the wrong one entirely (od-lqm).
+      environmentId: args.environmentId,
       organizationId: args.organizationId,
       name: args.name,
       engine: args.spec.engine,
-      // The wizard's version pick rides the manifest — without this the
+      // The wizard's version pick rides the manifest. Without this the
       // create silently deployed the catalog default tag (e.g. 17-alpine
       // when the operator chose 18).
       version: args.spec.version,
@@ -112,8 +120,8 @@ export async function createDatabase(
 
   const { success, errorMessage, createdResourceId } = await drainCreateStream(stream);
   if (success && createdResourceId && args.spec.previews) {
-    // Manifest declared preview branching at create time — flag the fresh row.
-    await setDatabaseResourcePreviewBranching(createdResourceId as ResourceId, true);
+    // Manifest declared preview branching at create time, flag the fresh row.
+    await setDatabaseResourcePreviewBranching(createdResourceId, true);
   }
   if (!success) {
     // Roll back the draft row a failed create left behind. Otherwise the
@@ -121,8 +129,8 @@ export async function createDatabase(
     // the manifest entry as already-existing and flips create → no-op: the
     // ghost vanishes and the operator can never cleanly retry.
     if (createdResourceId) await deleteResourceById(createdResourceId);
-    // And tear down whatever container the failed create may have started —
-    // a leftover holding the name would 409 every retry. Best-effort: the
+    // And tear down whatever container the failed create may have started.
+    // A leftover holding the name would 409 every retry. Best-effort: the
     // volume stays (data safety), only the container goes.
     await Result.tryPromise({
       try: () =>
@@ -147,7 +155,7 @@ export async function createDatabase(
     );
   }
 
-  // Provisioned — the real database_resource row now owns the password, so the
+  // Provisioned: the real database_resource row now owns the password, so the
   // staged draft credential is redundant. Drop it.
   await deleteDraftCredential(args.projectId, args.name);
 
@@ -163,10 +171,10 @@ export async function createDatabase(
   return Result.ok({ name: args.name });
 }
 
-/** Extensions only exist on the postgres manifest variant — read them off
+/** Extensions only exist on the postgres manifest variant. Read them off
  *  the spec without assuming the discriminant has been narrowed. */
 function manifestExtensions(spec: DatabaseManifest): string[] {
-  const value = (spec as { extensions?: unknown }).extensions;
+  const value = "extensions" in spec ? spec.extensions : undefined;
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
 }
 
@@ -208,7 +216,7 @@ export async function updateDatabaseFromManifest(
   if (args.spec.previews !== undefined) {
     await setDatabaseResourcePreviewBranching(args.resourceId, args.spec.previews);
     // Warn rather than refuse. A manifest apply that used to succeed must not
-    // start failing on upgrade just because Swarm is enabled — but the operator
+    // start failing on upgrade just because Swarm is enabled, but the operator
     // has to learn about the conflict when they create it, not when a pull
     // request opens and the branch is refused. The hard stop is Blocked, which
     // keeps the preview off production data either way.
@@ -243,7 +251,7 @@ export async function updateDatabaseFromManifest(
 
   // Reconcile extensions to the manifest's desired set. setPostgresExtensions
   // is idempotent (diffs against the current list), so calling it
-  // unconditionally is safe — but skip when the manifest declares none and
+  // unconditionally is safe, but skip when the manifest declares none and
   // the resource also has none, to avoid a no-op redeploy.
   const desiredExtensions = manifestExtensions(args.spec);
   if (desiredExtensions.length > 0) {

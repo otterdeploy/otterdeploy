@@ -14,13 +14,15 @@
  * objects an explicit delete already recorded, so it can't race an in-flight
  * create.
  */
-import type { OrganizationId, ProjectId, ResourceId, ServerId } from "@otterdeploy/shared/id";
+import type { OrganizationId, ProjectId, ServerId } from "@otterdeploy/shared/id";
 import type { JsonObject } from "@otterdeploy/shared/json";
 
 import { db } from "@otterdeploy/db";
 import { orphanedResource } from "@otterdeploy/db/schema";
+import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import { asc, eq } from "drizzle-orm";
 import { log } from "evlog";
+import * as z from "zod";
 
 import { runtime } from "../runtime";
 import { removeComposeStack, removeProjectNetwork } from "../swarm";
@@ -124,17 +126,28 @@ async function destroyVolumeOrphan(row: OrphanRow): Promise<DestroyOutcome> {
   return res.kind === "not-found" || res.kind === "conflict" ? "gone" : "retry";
 }
 
+/** What an image-orphan row's payload must carry for host reclaim: the ids that
+ *  rebuild the resource's on-disk ref. `environmentId` is null for the main
+ *  environment (recorded that way by the delete paths). */
+const imageOrphanPayload = z.object({
+  projectId: zId(ID_PREFIX.project),
+  resourceId: zId(ID_PREFIX.resource),
+  environmentId: zId(ID_PREFIX.environment).nullish(),
+});
+
 async function destroyImageOrphan(row: OrphanRow): Promise<DestroyOutcome> {
   // Host image reclaim is itself best-effort (never throws); the payload carries
-  // the ids it needs. Nothing to retry — clear the row after one go.
-  const payload = (row.payload ?? {}) as { projectId?: string; resourceId?: string };
-  if (payload.projectId && payload.resourceId) {
+  // the ids it needs. Nothing to retry — clear the row after one go (a payload
+  // that doesn't parse can never succeed later, so it clears too).
+  const payload = imageOrphanPayload.safeParse(row.payload ?? {});
+  if (payload.success) {
     const { reclaimServiceHostArtifacts } = await import("../routers/service/teardown");
-    await reclaimServiceHostArtifacts(
-      row.ref,
-      payload.projectId as ProjectId,
-      payload.resourceId as ResourceId,
-    );
+    await reclaimServiceHostArtifacts(row.ref, {
+      organizationId: row.organizationId,
+      projectId: payload.data.projectId,
+      environmentId: payload.data.environmentId ?? null,
+      resourceId: payload.data.resourceId,
+    });
   }
   return "gone";
 }

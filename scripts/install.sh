@@ -12,7 +12,7 @@
 #
 # Tunables (env vars):
 #   OTTERDEPLOY_DATA_DIR      host data folder        (default /data/otterdeploy)
-#   OTTERDEPLOY_INSTALL_DIR   install root            (default $OTTERDEPLOY_DATA_DIR/source)
+#   OTTERDEPLOY_INSTALL_DIR   install root            (default $OTTERDEPLOY_DATA_DIR/platform/source)
 #   OTTERDEPLOY_VERSION       image tag to pull       (default: newest GitHub
 #                             Release tag, e.g. v0.4.2; falls back to `latest`
 #                             when no release is reachable)
@@ -58,12 +58,13 @@ set -Eeuo pipefail   # -E so the ERR trap is inherited into functions
 
 # ── config ──────────────────────────────────────────────────────────────────
 DATA_DIR="${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}"
-# The install root (compose + .env) lives UNDER the data folder as `source/`, so
-# ALL platform state — config and generated artifacts — sits in one 0700 tree
-# (mirrors Coolify's /data/coolify/source). Override with OTTERDEPLOY_INSTALL_DIR
-# to split them back out. An earlier /opt/otterdeploy install is migrated in place
-# (see migrate_legacy_install).
-INSTALL_DIR="${OTTERDEPLOY_INSTALL_DIR:-$DATA_DIR/source}"
+# The install root (compose + .env) lives UNDER the data folder as
+# `platform/source/` — the platform's own subtree in the lifecycle-first layout
+# (platform/ orgs/ work/ cache/, see packages/shared/src/paths.ts) — so ALL
+# platform state sits in one 0700 tree. Override with OTTERDEPLOY_INSTALL_DIR
+# to split them back out. An earlier /opt/otterdeploy install is migrated in
+# place (see migrate_legacy_install).
+INSTALL_DIR="${OTTERDEPLOY_INSTALL_DIR:-$DATA_DIR/platform/source}"
 LEGACY_INSTALL_DIR="/opt/otterdeploy"
 # Empty ⇒ resolve the newest published release tag later (resolve_version), so
 # installs boot from a PINNED vX.Y.Z. The in-app updater compares that pin to
@@ -82,7 +83,7 @@ ADVERTISE_ADDR="${OTTERDEPLOY_ADVERTISE_ADDR:-}"               # swarm advertise
 BRANCHING="${OTTERDEPLOY_BRANCHING:-auto}"     # auto | on | off
 ZFS_POOL="${OTTERDEPLOY_ZFS_POOL:-otter}"
 ZFS_SIZE="${OTTERDEPLOY_ZFS_SIZE:-}"   # empty = size from free disk (see pool_size)
-ZFS_IMG="$DATA_DIR/branch-pool.img"
+ZFS_IMG="$DATA_DIR/platform/branch-pool.img"
 # od-5j8.11: on by default — this is the product's headline differentiator
 # (CrowdSec bundled + blocking hostile traffic at the edge on every node, not
 # an opt-in an operator has to discover). Explicit opt-out: OTTERDEPLOY_FIREWALL=false
@@ -677,9 +678,11 @@ ensure_network() {
 # ${OTTERDEPLOY_VERSION}). Re-runs re-fetch so you pick up compose fixes.
 prepare_tree() {
   step "Preparing $INSTALL_DIR and $DATA_DIR"
-  # DATA_DIR is secret-bearing (dumps, keys, branch pool) → 0700.
-  run $SUDO mkdir -p "$INSTALL_DIR" "$DATA_DIR"
-  run $SUDO chmod 700 "$DATA_DIR"
+  # DATA_DIR is secret-bearing (dumps, keys, branch pool) → 0700; platform/ —
+  # the load-bearing subtree (install source, self-update backups, caddy,
+  # geoip, branch pool) — is 0700 too.
+  run $SUDO mkdir -p "$INSTALL_DIR" "$DATA_DIR/platform"
+  run $SUDO chmod 700 "$DATA_DIR" "$DATA_DIR/platform"
   [ -n "$SUDO" ] && run $SUDO chown -R "$(id -u):$(id -g)" "$INSTALL_DIR" || true
 
   say " - Fetching $COMPOSE_URL"
@@ -953,7 +956,7 @@ provision_branching() {
     fi
     say " - Creating file-backed ZFS pool '$ZFS_POOL' ($size) at $ZFS_IMG"
     say "   (grows on demand from the dashboard; point OTTERDEPLOY_ZFS_POOL at a real disk for production-grade speed)"
-    $SUDO mkdir -p "$DATA_DIR"
+    $SUDO mkdir -p "$DATA_DIR/platform"
     if [ ! -f "$ZFS_IMG" ]; then
       $SUDO truncate -s "$size" "$ZFS_IMG"
     fi
@@ -1524,7 +1527,8 @@ report_access() {
 
 # ── legacy layout migration ───────────────────────────────────────────────────
 # Earlier installs put the stack at /opt/otterdeploy; the install root now lives
-# under the data folder ($DATA_DIR/source) so all platform state sits in one tree.
+# under the data folder ($DATA_DIR/platform/source) so all platform state sits in
+# one tree.
 # Move an existing /opt/otterdeploy stack in place — once — so a plain re-run (or
 # `update`) transparently adopts the new layout with secrets preserved. Runs
 # before the update/install branches so both see the stack at its new path.

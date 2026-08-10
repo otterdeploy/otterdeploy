@@ -7,6 +7,7 @@ import { useProjectDeployStatus } from "@/features/deployments/hooks/use-deploy-
 import { envCollection } from "@/features/projects/data/env";
 import { projectCollection } from "@/features/projects/data/project";
 import { resourceCollection } from "@/features/resources/data/resource";
+import { inActiveEnvironment } from "@/features/shell/environment-scope";
 import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { useProjectEvents } from "@/features/projects/hooks/use-project-events";
 import { useProjectStatus } from "@/features/projects/hooks/use-project-status";
@@ -67,7 +68,7 @@ function RouteComponent() {
     [projectSlug],
   );
 
-  // Resolve `?env=` to an environment ID once, here — every resource read in
+  // Resolve `?env=` to an environment ID once, here. Every resource read in
   // this subtree scopes on it, and they must all agree or the shared resource
   // collection ends up holding two environments' rows at once.
   const activeEnv = useActiveEnvironment(project?.id);
@@ -80,7 +81,7 @@ function RouteComponent() {
   useProjectEvents(project?.id ?? null);
 
   // Publish this project's live task rollup to the tab. Mounted alongside the
-  // event stream so the two share a lifetime — the tab stops reporting the
+  // event stream so the two share a lifetime: the tab stops reporting the
   // moment you leave the project.
   useProjectStatus(project?.id ?? null);
 
@@ -94,9 +95,9 @@ function RouteComponent() {
       q
         .from({ r: resourceCollection })
         .where(({ r }) =>
-          and(eq(r.projectId, project?.id ?? ""), eq(r.environmentId, activeEnv.id ?? "")),
+          and(eq(r.projectId, project?.id ?? ""), inActiveEnvironment(r.environmentId, activeEnv)),
         ),
-    [project?.id, activeEnv.id],
+    [project?.id, activeEnv.id, activeEnv.isMain],
   );
 
   const { data: environments } = useLiveQuery(

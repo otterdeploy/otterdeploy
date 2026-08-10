@@ -29,6 +29,8 @@ import { type ComposeServiceInfo } from "@/features/projects/components/graph/re
 import { dependenciesCollection } from "@/features/projects/data/dependencies";
 import { resourceCollection } from "@/features/resources/data/resource";
 import { serviceTasksCollection } from "@/features/resources/data/service-tasks";
+import { inActiveEnvironment } from "@/features/shell/environment-scope";
+import { type ActiveEnvironment } from "@/features/shell/use-active-environment";
 import { orpc } from "@/shared/server/orpc";
 
 import { summarizeTraffic } from "./route-traffic";
@@ -186,16 +188,16 @@ export function useGraphModel(
   project: { id: ProjectId },
   /** Environment whose resources the canvas renders. Passed in rather than
    *  resolved here so the canvas and its parent layout can never disagree. */
-  activeEnv: { id: string | undefined; slug: string | undefined },
+  activeEnv: ActiveEnvironment,
 ) {
   const { data: resources } = useLiveQuery(
     (q) =>
       q
         .from({ r: resourceCollection })
         .where(({ r }) =>
-          and(eq(r.projectId, project.id), eq(r.environmentId, activeEnv.id ?? "")),
+          and(eq(r.projectId, project.id), inActiveEnvironment(r.environmentId, activeEnv)),
         ),
-    [project.id, activeEnv.id],
+    [project.id, activeEnv.id, activeEnv.isMain],
   );
 
   // Edges come from parsing ${{Resource.VAR}} references in service env vars

@@ -1,10 +1,10 @@
 /**
  * Route shell for /graph/$resourceId. Resolves the resource from the
- * live resource collection, then dispatches to the right detail panel —
- * database / service / not-found.
+ * live resource collection, then dispatches to the right detail panel.
+ * Database / service / not-found.
  *
  * The drawer this renders into (and the close animation) belongs to the PARENT
- * graph layout — see `../-components/panel-shell`. This route only owns the
+ * graph layout: see `../-components/panel-shell`. This route only owns the
  * panel's contents, which is what lets the drawer slide in on click while this
  * route's chunk and queries are still resolving.
  *
@@ -28,6 +28,7 @@ import * as z from "zod";
 import { AnimatePresence } from "motion/react";
 
 import { resourceCollection } from "@/features/resources/data/resource";
+import { inActiveEnvironment } from "@/features/shell/environment-scope";
 import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -37,9 +38,9 @@ import { ResourcePanel } from "./-components/resource-panel";
 // Which panel tab is open. The URL owns this, so a tab is reloadable,
 // shareable and reachable by back/forward. (The graph's context-menu Delete
 // used to lean on that to land on the danger zone; it now confirms and deletes
-// in place — see graph/-components/graph-node-delete.tsx.)
+// in place: see graph/-components/graph-node-delete.tsx.)
 // Untyped against each panel's own tab union (they differ per kind);
-// an unrecognized value falls back to that panel's default — see
+// an unrecognized value falls back to that panel's default. See
 // _shared/panel-tab.ts. The nested deployment overlay deliberately uses a
 // separate `deploymentTab` key so the two can never overwrite each other.
 const resourceSearchSchema = z.object({
@@ -53,7 +54,7 @@ export const Route = createFileRoute(
   component: RouteComponent,
   validateSearch: resourceSearchSchema,
   // A cold panel has two real waits: this route's code-split chunk (the panel
-  // tree is big — terminal, data studio, logs) and the slow `service.get`
+  // tree is big. Terminal, data studio, logs) and the slow `service.get`
   // runtime view. Neither may hold the drawer back, so:
   //   - pendingMs 0 → the router commits the match on the next tick instead of
   //     waiting 150ms, so the parent's AnimatePresence mounts the drawer and it
@@ -71,7 +72,7 @@ export const Route = createFileRoute(
   // NON-BLOCKING warm of the slow `service.get` runtime view. Read the
   // already-loaded collection synchronously and let the prefetch float, so the
   // panel renders its header/status from the collection row and fills in the
-  // runtime bits as the query resolves — rather than sitting on the skeleton
+  // runtime bits as the query resolves. Rather than sitting on the skeleton
   // until `service.get` returns. Best-effort: a cold collection or failed
   // inspect just means the panel does its own fetch on mount, as before.
   loader: ({ params }) => {
@@ -98,14 +99,14 @@ export const Route = createFileRoute(
  *
  * Deleting from inside the panel (or from the graph's context menu while it is
  * open) drops the row from the collection, `resource` goes null, and the panel
- * used to sit there rendering NotFound — telling the operator the thing they
+ * used to sit there rendering NotFound. Telling the operator the thing they
  * just deleted cannot be found, which reads as an error rather than a result.
  *
  * Two things stop this from firing when it shouldn't. It only closes a panel
  * that HAD a resource: a genuinely bad URL was never showing one, so it still
  * gets NotFound, which is the honest answer there. And it waits a beat before
  * closing, because a staged-create ghost (`compose:rustfs`) is a client-side
- * row that is removed when apply lands the real one — if those two do not
+ * row that is removed when apply lands the real one. If those two do not
  * happen in the same commit, the resource is briefly absent mid-handover and
  * closing on that would yank the panel out from under a deploy the operator is
  * watching. Reappearing inside the window cancels the close.
@@ -139,7 +140,7 @@ function RouteComponent() {
   // validates it against its own tab union and falls back to its default.
   const { tab } = Route.useSearch();
   const navigate = Route.useNavigate();
-  // `replace` so flipping through tabs doesn't stack history entries — Back
+  // `replace` so flipping through tabs doesn't stack history entries. Back
   // from a panel should return to the graph, not walk the tabs you looked at.
   // Same choice the deployment overlay's own tab makes.
   const onTabChange = (next: string) =>
@@ -157,7 +158,7 @@ function RouteComponent() {
   // Scope to the project and resolve in JS so a single param can match either
   // form the graph navigates with: the real `resourceId` (applied resources),
   // or `${kind}:${name}` (a staged-create ghost, and the URL that lingers
-  // across the ghost→applied handover — same collection GraphCanvas loads, so
+  // across the ghost→applied handover. Same collection GraphCanvas loads, so
   // no extra fetch).
   const activeEnv = useActiveEnvironment(project.id);
   const { data: resources, isLoading: resourcesLoading } = useLiveQuery(
@@ -165,9 +166,9 @@ function RouteComponent() {
       q
         .from({ r: resourceCollection })
         .where(({ r }) =>
-          and(eq(r.projectId, project.id), eq(r.environmentId, activeEnv.id ?? "")),
+          and(eq(r.projectId, project.id), inActiveEnvironment(r.environmentId, activeEnv)),
         ),
-    [project.id, activeEnv.id],
+    [project.id, activeEnv.id, activeEnv.isMain],
   );
 
   const resource =
@@ -177,7 +178,7 @@ function RouteComponent() {
     ) ?? null;
 
   useCloseOnDelete({ resource: resource !== null, resourcesLoading, close });
-  // Only when nothing is stacked on top — the deployment overlay answers
+  // Only when nothing is stacked on top. The deployment overlay answers
   // Escape itself, and both firing would skip a level.
   useEscapeKey(deploymentKey === null, close);
 

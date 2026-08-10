@@ -1,5 +1,5 @@
 /**
- * Per-service status for a compose stack panel — derived from the EXACT same
+ * Per-service status for a compose stack panel, derived from the EXACT same
  * source the graph node reads (the stack's real child service resources +
  * their live tasks), so the node and this panel can never disagree about
  * what's running. Extracted out of ComposeResourcePanel to keep that
@@ -13,6 +13,7 @@ import {
 } from "@/features/projects/components/graph/build-live-nodes";
 import { resourceCollection } from "@/features/resources/data/resource";
 import { serviceTasksCollection } from "@/features/resources/data/service-tasks";
+import { inActiveEnvironment } from "@/features/shell/environment-scope";
 import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 
 import { baseStatus, type StackServiceStatus } from "./panel-parts";
@@ -28,7 +29,7 @@ export function useComposeServiceStatus(resource: {
     [resource.projectId],
   );
   // `stackId` lives only on the service variant, so we can't filter on it in
-  // the typed where-clause — scope by projectId and narrow to this stack's
+  // the typed where-clause: scope by projectId and narrow to this stack's
   // children in JS below.
   const activeEnv = useActiveEnvironment(resource.projectId);
   const { data: projectResources } = useLiveQuery(
@@ -36,9 +37,9 @@ export function useComposeServiceStatus(resource: {
       q
         .from({ r: resourceCollection })
         .where(({ r }) =>
-          and(eq(r.projectId, resource.projectId), eq(r.environmentId, activeEnv.id ?? "")),
+          and(eq(r.projectId, resource.projectId), inActiveEnvironment(r.environmentId, activeEnv)),
         ),
-    [resource.projectId, activeEnv.id],
+    [resource.projectId, activeEnv.id, activeEnv.isMain],
   );
   const tasksByResourceId = (() => {
     const m = new Map<string, Task[]>();

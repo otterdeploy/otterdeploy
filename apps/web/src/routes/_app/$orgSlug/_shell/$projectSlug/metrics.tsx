@@ -14,6 +14,7 @@ import {
 import type { ProjectResource } from "@/features/projects/components/graph/resource-to-node";
 import { projectIdBySlug } from "@/features/projects/data/project";
 import { resourceCollection } from "@/features/resources/data/resource";
+import { inActiveEnvironment } from "@/features/shell/environment-scope";
 import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { orpc, queryClient } from "@/shared/server/orpc";
 import {
@@ -31,7 +32,7 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/$projectSlug/metrics
   staticData: { crumb: "Metrics" },
   component: RouteComponent,
   // Warm the project-aggregate series on hover (intent-preload) for the default
-  // 30m window the page opens on — so the chart renders from cache instead of
+  // 30m window the page opens on, so the chart renders from cache instead of
   // spinning. Non-blocking + best-effort; per-resource cards still fetch on
   // mount (their inputs depend on the rendered resource list).
   loader: ({ params }) => {
@@ -58,15 +59,15 @@ function RouteComponent() {
       q
         .from({ r: resourceCollection })
         .where(({ r }) =>
-          and(eq(r.projectId, project.id), eq(r.environmentId, activeEnv.id ?? "")),
+          and(eq(r.projectId, project.id), inActiveEnvironment(r.environmentId, activeEnv)),
         ),
-    [project.id, activeEnv.id],
+    [project.id, activeEnv.id, activeEnv.isMain],
   );
 
   // Only resources that own a container are chartable. A compose stack is a
-  // logical group with no container of its own — the sampler records metrics
+  // logical group with no container of its own. The sampler records metrics
   // under each MEMBER service's resourceId, so a stack card would always read
-  // "—" while its member services already chart individually. Drop it.
+  // "–" while its member services already chart individually. Drop it.
   const chartable = (resources as ProjectResource[]).filter((r) => r.type !== "compose");
 
   const [window, setWindow] = useState<ProjectMetricWindowLabel>("30m");

@@ -24,7 +24,7 @@ import { reportPreviewBuildOutcome } from "@otterdeploy/api/git/preview-report";
 import { env } from "@otterdeploy/env/server";
 import { defineJob } from "@otterdeploy/jobs";
 import { DeployTriggeredPayload, deployTriggeredJob } from "@otterdeploy/jobs/jobs/deploy";
-import { DATA_ROOT, sourceTarballPath } from "@otterdeploy/shared/paths";
+import { DATA_ROOT, buildxCacheDir, sourceTarballPath } from "@otterdeploy/shared/paths";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
@@ -42,7 +42,7 @@ import { getDeploymentStatus, markFailed } from "./state";
 /** Host dir holding the persistent BuildKit layer cache + buildx instance state
  *  (see buildx.ts). Bind-mounted into each helper at the same path so the cache
  *  survives the `--rm`, and shared by every build on this host. */
-const CACHE_ROOT = join(DATA_ROOT, "buildx-cache");
+const CACHE_ROOT = buildxCacheDir();
 
 interface HelperResult {
   exitCode: number;

@@ -10,17 +10,15 @@
  * removed by the caller regardless, so a cleanup hiccup (a stopped daemon, a
  * missing dir) must never fail the delete.
  */
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
-import { DATA_ROOT, volumeDir } from "@otterdeploy/shared/paths";
+import { buildxCacheDir, type ResourceRef, volumeDir } from "@otterdeploy/shared/paths";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 
 export async function reclaimServiceHostArtifacts(
   serviceName: string,
-  projectId: ProjectId,
-  resourceId: ResourceId,
+  ref: ResourceRef,
   log?: RequestLogger,
 ): Promise<void> {
   // Lazy-imported: @otterdeploy/docker transitively loads env/server (validated
@@ -54,14 +52,12 @@ export async function reclaimServiceHostArtifacts(
   // Persistent buildx layer-cache dir (path matches the builder's cachePathFor:
   // unsafe chars → `_`).
   const cacheKey = repo.replace(/[^A-Za-z0-9_.-]+/g, "_");
-  await rm(join(DATA_ROOT, "buildx-cache", cacheKey), { recursive: true, force: true }).catch(
+  await rm(join(buildxCacheDir(), cacheKey), { recursive: true, force: true }).catch(
     () => undefined,
   );
 
   // The resource's volume dir (bind-mounted service volumes live here).
-  await rm(volumeDir(projectId, resourceId), { recursive: true, force: true }).catch(
-    () => undefined,
-  );
+  await rm(volumeDir(ref), { recursive: true, force: true }).catch(() => undefined);
 
   log?.set({ hostReclaim: { serviceName, images: repo, done: true } });
 }

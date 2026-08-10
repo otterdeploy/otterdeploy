@@ -31,7 +31,7 @@ In order, narrating each step:
 2. Installs Docker and initialises Swarm, using `OTTERDEPLOY_ADVERTISE_ADDR` if
    the machine has more than one address.
 3. Creates the data folder (default `/data/otterdeploy`, mode `0700`) with the
-   compose file and generated `.env` under `source/`.
+   compose file and generated `.env` under `platform/source/`.
 4. Optionally adds a swapfile, so a heavy build doesn't get OOM-killed.
 5. Optionally provisions a ZFS pool for future copy-on-write database
    branching. If ZFS isn't available it says so and falls back to the logical
@@ -90,7 +90,7 @@ curl -fsSL https://get.otterdeploy.com/install.sh | bash -s -- --dry-run
 ## Updating
 
 ```bash
-/data/otterdeploy/source/install.sh update
+/data/otterdeploy/platform/source/install.sh update
 ```
 
 `update` skips host setup entirely — it pulls the new image tag and restarts,

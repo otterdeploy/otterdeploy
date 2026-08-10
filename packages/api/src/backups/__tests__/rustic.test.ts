@@ -18,7 +18,7 @@ describe("deriveRepoPassword", () => {
     expect(deriveRepoPassword("auth-secret", "r")).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  it("differs per repoId (domain-separated)", () => {
+  it("differs per domain (domain-separated)", () => {
     expect(deriveRepoPassword("auth-secret", "res_1")).not.toBe(
       deriveRepoPassword("auth-secret", "res_2"),
     );
