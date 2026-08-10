@@ -174,29 +174,11 @@ export function ComposeWizard({
     const name = toResourceName(value.name.trim() || derivedName);
     const entry = buildComposeEntry(value, prefill?.logoBrand);
 
-    try {
-      await stage.mutateAsync((current) => {
-        // This is a CREATE flow. Writing over an existing `composes[name]` —
-        // e.g. deploying a template that's already deployed — produced an
-        // identical entry, a no-op diff, and therefore a "Stack staged"
-        // success toast followed by nothing at all: no pill, no ghost, no
-        // error. Refuse instead; the operator renames to stage a second copy.
-        if (current.composes?.[name]) {
-          throw new Error(
-            `A stack named "${name}" is already in this project. Change the name to deploy another copy, or manage the existing stack from the graph.`,
-          );
-        }
-        return {
-          ...current,
-          project: current.project || projectSlug,
-          composes: { ...current.composes, [name]: entry },
-        };
-      });
-    } catch {
-      // Surfaced by the stage hook's onError toast; stay on the wizard so the
-      // name field is right there to fix.
-      return;
-    }
+    await stage.mutateAsync((current) => ({
+      ...current,
+      project: current.project || projectSlug,
+      composes: { ...current.composes, [name]: entry },
+    }));
     onComplete?.();
     void navigate({
       to: "/$orgSlug/$projectSlug/graph",
