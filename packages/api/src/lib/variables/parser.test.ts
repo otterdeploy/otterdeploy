@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { extractRefs, parseValue } from "./parser";
+import { extractRefs, extractVaultRefs, parseValue } from "./parser";
 
 describe("parseValue", () => {
   it("returns a single literal for an unreferenced string", () => {
@@ -72,6 +72,84 @@ describe("parseValue", () => {
   it("allows dashes and underscores in resource names", () => {
     const result = parseValue("${{my-svc_2.PORT}}");
     expect(result.ok).toBe(true);
+  });
+});
+
+describe("parseValue — vault references", () => {
+  it("parses a three-segment vault reference", () => {
+    const result = parseValue("${{vault.prod-vault.app/db:PASSWORD}}");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.tokens).toEqual([
+      {
+        kind: "vault",
+        provider: "prod-vault",
+        ref: "app/db:PASSWORD",
+        raw: "${{vault.prod-vault.app/db:PASSWORD}}",
+      },
+    ]);
+  });
+
+  it("parses vault refs mixed with literals and resource refs", () => {
+    const result = parseValue("pg://u:${{vault.prod.db:pw}}@${{db.PGHOST}}/x");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.tokens.map((t) => t.kind)).toEqual([
+      "literal",
+      "vault",
+      "literal",
+      "ref",
+      "literal",
+    ]);
+  });
+
+  it("keeps two-segment refs on a resource named `vault` working", () => {
+    const result = parseValue("${{vault.MY_VAR}}");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.tokens).toEqual([
+      { kind: "ref", resource: "vault", var: "MY_VAR", raw: "${{vault.MY_VAR}}" },
+    ]);
+  });
+
+  it("treats an escaped vault reference as literal text", () => {
+    const result = parseValue("\\${{vault.prod.db:pw}}");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.tokens[0]).toEqual({ kind: "literal", value: "${{vault.prod.db:pw}}" });
+  });
+
+  it("errors when the vault ref segment is missing", () => {
+    const result = parseValue("${{vault.prod.}}");
+    expect(result.ok).toBe(false);
+  });
+
+  it("errors when the closing braces are missing on a vault ref", () => {
+    const result = parseValue("${{vault.prod.db:pw");
+    expect(result.ok).toBe(false);
+  });
+
+  it("allows dotted, dashed, slashed and colon refs", () => {
+    const result = parseValue("${{vault.p.kv/team-a/app.prod:DB_URL}}");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.tokens[0]).toMatchObject({ kind: "vault", ref: "kv/team-a/app.prod:DB_URL" });
+  });
+});
+
+describe("extractVaultRefs", () => {
+  it("returns deduped vault refs and excludes resource refs", () => {
+    const refs = extractVaultRefs(
+      "${{vault.p.a:x}}-${{vault.p.a:x}}-${{vault.q.b}}-${{db.PGHOST}}",
+    );
+    expect(refs).toHaveLength(2);
+    expect(refs.map((r) => `${r.provider}.${r.ref}`).sort()).toEqual(["p.a:x", "q.b"]);
+  });
+
+  it("stays out of extractRefs (no dependency-graph edges)", () => {
+    const refs = extractRefs("${{vault.p.a:x}} ${{db.PGHOST}}");
+    expect(refs).toHaveLength(1);
+    expect(refs[0]?.resource).toBe("db");
   });
 });
 

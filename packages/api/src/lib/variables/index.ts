@@ -1,5 +1,6 @@
 export {
   type RefToken,
+  type VaultToken,
   type LiteralToken,
   type Token,
   type ParseError,

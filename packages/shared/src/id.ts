@@ -87,6 +87,9 @@ export const ID_PREFIX = {
   // private networking — the org's connected VPN/mesh account (NetBird,
   // Tailscale). One row per org. Design: docs/designs/vpn-mesh.md
   meshNetwork: "mesh",
+  // external secret managers — org-scoped provider connections whose secrets
+  // are referenced from env vars as `${{vault.<provider>.<ref>}}`
+  vaultProvider: "vlt",
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
@@ -392,6 +395,9 @@ export type OrphanedResourceId = Id<typeof ID_PREFIX.orphanedResource>;
 
 // Private networking (NetBird / Tailscale) — docs/designs/vpn-mesh.md
 export type MeshNetworkId = Id<typeof ID_PREFIX.meshNetwork>;
+
+// External secret managers (HashiCorp Vault / Infisical / Doppler)
+export type VaultProviderId = Id<typeof ID_PREFIX.vaultProvider>;
 
 // Notification channels
 export type NotificationChannelId = Id<typeof ID_PREFIX.notificationChannel>;

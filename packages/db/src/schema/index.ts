@@ -24,4 +24,5 @@ export * from "./proxy-route";
 export * from "./resource-metric";
 export * from "./server";
 export * from "./ssh-key";
+export * from "./vault-provider";
 export * from "./webhooks";

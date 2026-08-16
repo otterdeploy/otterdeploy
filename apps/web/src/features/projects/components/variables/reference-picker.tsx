@@ -20,6 +20,8 @@
 
 import { useState, useMemo } from "react";
 
+import { LockKeyIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
 
 import { Mariadb } from "@/shared/components/ui/svgs/mariadb";
@@ -29,7 +31,7 @@ import { Redis } from "@/shared/components/ui/svgs/redis";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
-type RefSourceKind = "database" | "service" | "project" | "environment";
+type RefSourceKind = "database" | "service" | "project" | "environment" | "vault";
 
 interface RefGroup {
   key: string;
@@ -69,12 +71,23 @@ function SourceIcon({
   kind,
   engine,
 }: {
-  kind: "database" | "service" | "project" | "environment";
+  kind: RefSourceKind;
   engine: "postgres" | "redis" | "mariadb" | "mongodb" | null;
 }) {
   if (kind === "database" && engine && engine in ENGINE_ICONS) {
     const Icon = ENGINE_ICONS[engine];
     return <Icon className="size-4 shrink-0" />;
+  }
+  // External secret managers get a lock glyph — their values never render
+  // anywhere, only the keys.
+  if (kind === "vault") {
+    return (
+      <HugeiconsIcon
+        icon={LockKeyIcon}
+        strokeWidth={1.5}
+        className="size-4 shrink-0 text-muted-foreground"
+      />
+    );
   }
   // Generic monospace `{ }` glyph for service / project / environment
   // sources — they share the same neutral treatment.
@@ -112,7 +125,7 @@ export function ReferencePicker({
   // under the resource's own name, shared project/environment vars under
   // "Shared variables". Databases first, then services, then shared.
   const groups = useMemo(() => {
-    const order = { database: 0, service: 1, project: 2, environment: 3 };
+    const order = { database: 0, service: 1, project: 2, environment: 3, vault: 4 };
     const map = new Map<string, RefGroup>();
     for (const r of filtered) {
       const groupKey = `${r.sourceKind}:${r.sourceName}`;
@@ -129,7 +142,9 @@ export function ReferencePicker({
               ? "database"
               : r.sourceKind === "service"
                 ? "service"
-                : "project · all environments",
+                : r.sourceKind === "vault"
+                  ? "secret manager"
+                  : "project · all environments",
           items: [r],
         });
     }

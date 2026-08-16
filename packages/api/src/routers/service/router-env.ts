@@ -75,6 +75,9 @@ export const serviceEnvRouter = {
           RefCycleError: () => errors.REF_CYCLE(),
           RefParseError: () => errors.INVALID_INPUT(),
           RefUnknownVarError: () => errors.INVALID_INPUT(),
+          // Not enumerated by the contract — a provider outage at redeploy
+          // time surfaces as a structured 500, not a misleading input error.
+          VaultResolveError: refToServerError,
         });
       }
       await backSync({
@@ -108,6 +111,7 @@ export const serviceEnvRouter = {
           RefCycleError: refToServerError,
           RefParseError: refToServerError,
           RefUnknownVarError: refToServerError,
+          VaultResolveError: refToServerError,
         });
       }
       await backSync({
@@ -141,6 +145,9 @@ export const serviceEnvRouter = {
           RefCycleError: () => errors.REF_CYCLE(),
           RefParseError: () => errors.INVALID_INPUT(),
           RefUnknownVarError: () => errors.INVALID_INPUT(),
+          // Not enumerated by the contract — a provider outage at redeploy
+          // time surfaces as a structured 500, not a misleading input error.
+          VaultResolveError: refToServerError,
         });
       }
       await backSync({

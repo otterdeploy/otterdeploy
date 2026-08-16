@@ -17,8 +17,11 @@ import type { EnvironmentId, OrganizationId, ProjectId } from "@otterdeploy/shar
 import { Result } from "better-result";
 
 import { listProxyRoutesByResourceId } from "../../caddy/queries";
+import { decryptForDomain } from "../../lib/crypto";
+import { listSecretNames } from "../../lib/vault";
 import { postgresExports, serviceExports } from "../../lib/variables/exporters";
 import { listServiceEnvVars, listServicePorts } from "../service/queries";
+import { listVaultProvidersByOrg } from "../vault-provider/queries";
 import { ProjectNotFoundError } from "./errors";
 import {
   getProjectInOrg,
@@ -32,7 +35,7 @@ type OrgId = OrganizationId;
 type DatabaseEngine = "postgres" | "redis" | "mariadb" | "mongodb";
 
 export interface AvailableReference {
-  sourceKind: "database" | "service" | "project" | "environment";
+  sourceKind: "database" | "service" | "project" | "environment" | "vault";
   sourceName: string;
   engine: DatabaseEngine | null;
   key: string;
@@ -180,5 +183,43 @@ export async function listAvailableRefs(
     }
   }
 
+  // ── External secret managers. One group per configured provider, keys
+  // from a best-effort listing (empty on any provider error — the picker
+  // degrades to free-text `${{vault.<provider>.<ref>}}` refs). Values never
+  // travel here: a vault ref is always a secret and only resolves at deploy.
+  refs.push(...(await listVaultRefs(input.organizationId)));
+
   return Result.ok(refs);
+}
+
+async function listVaultRefs(organizationId: OrgId): Promise<AvailableReference[]> {
+  const refs: AvailableReference[] = [];
+  for (const provider of await listVaultProvidersByOrg(organizationId)) {
+    let names: string[] = [];
+    try {
+      const credential = await decryptForDomain(provider.credentialCiphertext, "vault-creds");
+      names = await listSecretNames({
+        name: provider.name,
+        kind: provider.kind,
+        config: provider.configJson,
+        credential,
+      });
+    } catch {
+      // Best-effort by contract: an unreachable provider lists nothing.
+      names = [];
+    }
+    for (const key of names) {
+      refs.push({
+        sourceKind: "vault",
+        sourceName: provider.name,
+        engine: null,
+        key,
+        token: `\${{vault.${provider.name}.${key}}}`,
+        // Externally-managed secret material, always masked.
+        isSecret: true,
+        platform: false,
+      });
+    }
+  }
+  return refs;
 }

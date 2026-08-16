@@ -84,6 +84,11 @@ export const SECRET_DOMAINS = [
   // from "server-secrets" (which is ephemeral, job-payload-lifetime material)
   // because these are long-lived and grant API control of the org's whole VPN.
   "mesh-creds",
+  // External secret-manager credentials — the Vault token / Infisical client
+  // secret / Doppler service token on `vault_provider` rows. Long-lived and
+  // able to read every secret the org points at otterdeploy, so it gets its
+  // own domain for the same reason "mesh-creds" does.
+  "vault-creds",
 ] as const;
 export type SecretDomain = (typeof SECRET_DOMAINS)[number];
 

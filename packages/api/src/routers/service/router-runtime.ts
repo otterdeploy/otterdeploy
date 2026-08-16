@@ -74,6 +74,7 @@ export const serviceRuntimeRouter = {
           RefCycleError: (e) => new Error(e.message),
           RefParseError: (e) => new Error(e.message),
           RefUnknownVarError: (e) => new Error(e.message),
+          VaultResolveError: (e) => new Error(e.message),
         });
       }
       return result.value;
@@ -107,6 +108,7 @@ export const serviceRuntimeRouter = {
           RefCycleError: (e) => new Error(e.message),
           RefParseError: (e) => new Error(e.message),
           RefUnknownVarError: (e) => new Error(e.message),
+          VaultResolveError: (e) => new Error(e.message),
         });
       }
       return result.value;
@@ -134,6 +136,7 @@ export const serviceRuntimeRouter = {
           RefCycleError: (e) => new Error(e.message),
           RefParseError: (e) => new Error(e.message),
           RefUnknownVarError: (e) => new Error(e.message),
+          VaultResolveError: (e) => new Error(e.message),
         });
       }
       return result.value;

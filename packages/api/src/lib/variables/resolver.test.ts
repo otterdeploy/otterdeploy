@@ -17,6 +17,18 @@ vi.mock("../../routers/project/queries", () => ({
   loadProjectEnvBag: vi.fn(),
 }));
 
+// Vault resolution: providers + fetch are mocked so no HTTP or DB runs;
+// decryptForDomain becomes identity so fixture "ciphertexts" pass through.
+vi.mock("../../routers/vault-provider/queries", () => ({
+  listVaultProvidersByOrg: vi.fn(async () => []),
+}));
+vi.mock("../vault", () => ({
+  getSecrets: vi.fn(),
+}));
+vi.mock("../crypto", () => ({
+  decryptForDomain: vi.fn(async (blob: string) => blob),
+}));
+
 import {
   getDatabaseResourceRecord,
   getEnvironmentById,
@@ -24,6 +36,8 @@ import {
   loadProjectEnvBag,
 } from "../../routers/project/queries";
 import { getServiceRecord, resolveResourceForPreview } from "../../routers/service/queries";
+import { listVaultProvidersByOrg } from "../../routers/vault-provider/queries";
+import { getSecrets } from "../vault";
 import { resolveServiceEnv } from "./resolver";
 const PROJECT_ID = "project_1" as ProjectId;
 const RESOURCE_ID = "resource_api" as ResourceId;
@@ -310,5 +324,121 @@ describe("resolveServiceEnv", () => {
     if (result.isErr()) return;
     expect(result.value.DATABASE_URL).toBe("postgres://appuser:secret@db-pr1.internal:5432/appdb");
     expect(result.value.APP_NAME).toBe("acme"); // inherited from the base env
+  });
+});
+
+/** Real type guard (no assertion) to reach vitest mock methods on an import. */
+function isMock(value: unknown): value is Mock {
+  return typeof value === "function" && "mock" in value;
+}
+
+function mockOf(value: unknown): Mock {
+  if (!isMock(value)) throw new Error("expected a vitest mock");
+  return value;
+}
+
+describe("resolveServiceEnv — vault references", () => {
+  const serviceWithEnv = (env: Array<{ key: string; value: string }>) => ({
+    resource: mockResource({ id: "resource_api", name: "api", type: "service" }),
+    service: { resourceId: "resource_api", internalHostname: "api" },
+    ports: [],
+    env: env.map((e, i) => ({
+      id: `v${i}`,
+      serviceResourceId: "resource_api",
+      ...e,
+    })),
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockOf(getProjectRecord).mockResolvedValue({
+      environmentId: PROD_ENV,
+      organizationId: "org_1",
+    });
+    mockOf(getEnvironmentById).mockResolvedValue({ baseEnvironmentId: null });
+    mockOf(loadProjectEnvBag).mockResolvedValue({});
+    mockOf(listVaultProvidersByOrg).mockResolvedValue([
+      {
+        name: "prod",
+        kind: "hashicorp",
+        configJson: { url: "https://vault.local:8200" },
+        credentialCiphertext: "cipher-token",
+      },
+    ]);
+  });
+
+  it("resolves vault refs with ONE batched fetch per provider", async () => {
+    mockOf(getServiceRecord).mockResolvedValueOnce(
+      serviceWithEnv([
+        { key: "DB_PASSWORD", value: "${{vault.prod.app/db:password}}" },
+        { key: "DB_USER", value: "user=${{vault.prod.app/db:user}}" },
+      ]),
+    );
+    mockOf(getSecrets).mockResolvedValue(
+      new Map([
+        ["app/db:password", "s3cr3t"],
+        ["app/db:user", "svc"],
+      ]),
+    );
+
+    const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+    expect(result.value.DB_PASSWORD).toBe("s3cr3t");
+    expect(result.value.DB_USER).toBe("user=svc");
+
+    // Both refs travel in a single provider call, with the decrypted
+    // credential (identity-mocked decryptForDomain).
+    expect(getSecrets).toHaveBeenCalledTimes(1);
+    expect(mockOf(getSecrets).mock.calls[0]?.[0]).toMatchObject({
+      name: "prod",
+      kind: "hashicorp",
+      credential: "cipher-token",
+    });
+    expect(mockOf(getSecrets).mock.calls[0]?.[1]).toEqual([
+      "app/db:password",
+      "app/db:user",
+    ]);
+    // Provider rows load once for the whole resolve.
+    expect(listVaultProvidersByOrg).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails with VaultResolveError when the provider name is not configured", async () => {
+    mockOf(getServiceRecord).mockResolvedValueOnce(
+      serviceWithEnv([{ key: "X", value: "${{vault.ghost.some/key:field}}" }]),
+    );
+
+    const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) return;
+    expect(result.error._tag).toBe("VaultResolveError");
+    expect(result.error.message).toContain("ghost");
+  });
+
+  it("wraps a provider fetch failure in VaultResolveError", async () => {
+    mockOf(getServiceRecord).mockResolvedValueOnce(
+      serviceWithEnv([{ key: "X", value: "${{vault.prod.app/db:password}}" }]),
+    );
+    mockOf(getSecrets).mockRejectedValue(
+      new Error('secret provider "prod": HTTP 403 from the provider API'),
+    );
+
+    const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) return;
+    expect(result.error._tag).toBe("VaultResolveError");
+    expect(result.error.message).toContain("HTTP 403");
+  });
+
+  it("fails when the provider returns no value for a requested ref", async () => {
+    mockOf(getServiceRecord).mockResolvedValueOnce(
+      serviceWithEnv([{ key: "X", value: "${{vault.prod.app/db:password}}" }]),
+    );
+    mockOf(getSecrets).mockResolvedValue(new Map());
+
+    const result = await resolveServiceEnv(PROJECT_ID, RESOURCE_ID);
+    expect(result.isErr()).toBe(true);
+    if (result.isOk()) return;
+    expect(result.error._tag).toBe("VaultResolveError");
   });
 });

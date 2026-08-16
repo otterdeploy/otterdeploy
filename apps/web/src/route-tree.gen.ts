@@ -52,6 +52,7 @@ import { Route as AppOrgSlugSettingsWorkspaceWebhooksRouteImport } from "./route
 import { Route as AppOrgSlugSettingsWorkspaceTeamRouteImport } from "./routes/_app/$orgSlug/settings/workspace/team"
 import { Route as AppOrgSlugSettingsWorkspaceSsoRouteImport } from "./routes/_app/$orgSlug/settings/workspace/sso"
 import { Route as AppOrgSlugSettingsWorkspaceSshKeysRouteImport } from "./routes/_app/$orgSlug/settings/workspace/ssh-keys"
+import { Route as AppOrgSlugSettingsWorkspaceSecretProvidersRouteImport } from "./routes/_app/$orgSlug/settings/workspace/secret-providers"
 import { Route as AppOrgSlugSettingsWorkspaceRegistriesRouteImport } from "./routes/_app/$orgSlug/settings/workspace/registries"
 import { Route as AppOrgSlugSettingsWorkspaceNotificationsRouteImport } from "./routes/_app/$orgSlug/settings/workspace/notifications"
 import { Route as AppOrgSlugSettingsWorkspaceGitProvidersRouteImport } from "./routes/_app/$orgSlug/settings/workspace/git-providers"
@@ -306,6 +307,12 @@ const AppOrgSlugSettingsWorkspaceSshKeysRoute =
     path: "/workspace/ssh-keys",
     getParentRoute: () => AppOrgSlugSettingsLayoutRoute,
   } as any)
+const AppOrgSlugSettingsWorkspaceSecretProvidersRoute =
+  AppOrgSlugSettingsWorkspaceSecretProvidersRouteImport.update({
+    id: "/workspace/secret-providers",
+    path: "/workspace/secret-providers",
+    getParentRoute: () => AppOrgSlugSettingsLayoutRoute,
+  } as any)
 const AppOrgSlugSettingsWorkspaceRegistriesRoute =
   AppOrgSlugSettingsWorkspaceRegistriesRouteImport.update({
     id: "/workspace/registries",
@@ -504,6 +511,7 @@ export interface FileRoutesByFullPath {
   "/$orgSlug/settings/workspace/git-providers": typeof AppOrgSlugSettingsWorkspaceGitProvidersRoute
   "/$orgSlug/settings/workspace/notifications": typeof AppOrgSlugSettingsWorkspaceNotificationsRoute
   "/$orgSlug/settings/workspace/registries": typeof AppOrgSlugSettingsWorkspaceRegistriesRoute
+  "/$orgSlug/settings/workspace/secret-providers": typeof AppOrgSlugSettingsWorkspaceSecretProvidersRoute
   "/$orgSlug/settings/workspace/ssh-keys": typeof AppOrgSlugSettingsWorkspaceSshKeysRoute
   "/$orgSlug/settings/workspace/sso": typeof AppOrgSlugSettingsWorkspaceSsoRoute
   "/$orgSlug/settings/workspace/team": typeof AppOrgSlugSettingsWorkspaceTeamRoute
@@ -567,6 +575,7 @@ export interface FileRoutesByTo {
   "/$orgSlug/settings/workspace/git-providers": typeof AppOrgSlugSettingsWorkspaceGitProvidersRoute
   "/$orgSlug/settings/workspace/notifications": typeof AppOrgSlugSettingsWorkspaceNotificationsRoute
   "/$orgSlug/settings/workspace/registries": typeof AppOrgSlugSettingsWorkspaceRegistriesRoute
+  "/$orgSlug/settings/workspace/secret-providers": typeof AppOrgSlugSettingsWorkspaceSecretProvidersRoute
   "/$orgSlug/settings/workspace/ssh-keys": typeof AppOrgSlugSettingsWorkspaceSshKeysRoute
   "/$orgSlug/settings/workspace/sso": typeof AppOrgSlugSettingsWorkspaceSsoRoute
   "/$orgSlug/settings/workspace/team": typeof AppOrgSlugSettingsWorkspaceTeamRoute
@@ -636,6 +645,7 @@ export interface FileRoutesById {
   "/_app/$orgSlug/settings/workspace/git-providers": typeof AppOrgSlugSettingsWorkspaceGitProvidersRoute
   "/_app/$orgSlug/settings/workspace/notifications": typeof AppOrgSlugSettingsWorkspaceNotificationsRoute
   "/_app/$orgSlug/settings/workspace/registries": typeof AppOrgSlugSettingsWorkspaceRegistriesRoute
+  "/_app/$orgSlug/settings/workspace/secret-providers": typeof AppOrgSlugSettingsWorkspaceSecretProvidersRoute
   "/_app/$orgSlug/settings/workspace/ssh-keys": typeof AppOrgSlugSettingsWorkspaceSshKeysRoute
   "/_app/$orgSlug/settings/workspace/sso": typeof AppOrgSlugSettingsWorkspaceSsoRoute
   "/_app/$orgSlug/settings/workspace/team": typeof AppOrgSlugSettingsWorkspaceTeamRoute
@@ -704,6 +714,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/settings/workspace/git-providers"
     | "/$orgSlug/settings/workspace/notifications"
     | "/$orgSlug/settings/workspace/registries"
+    | "/$orgSlug/settings/workspace/secret-providers"
     | "/$orgSlug/settings/workspace/ssh-keys"
     | "/$orgSlug/settings/workspace/sso"
     | "/$orgSlug/settings/workspace/team"
@@ -767,6 +778,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/settings/workspace/git-providers"
     | "/$orgSlug/settings/workspace/notifications"
     | "/$orgSlug/settings/workspace/registries"
+    | "/$orgSlug/settings/workspace/secret-providers"
     | "/$orgSlug/settings/workspace/ssh-keys"
     | "/$orgSlug/settings/workspace/sso"
     | "/$orgSlug/settings/workspace/team"
@@ -835,6 +847,7 @@ export interface FileRouteTypes {
     | "/_app/$orgSlug/settings/workspace/git-providers"
     | "/_app/$orgSlug/settings/workspace/notifications"
     | "/_app/$orgSlug/settings/workspace/registries"
+    | "/_app/$orgSlug/settings/workspace/secret-providers"
     | "/_app/$orgSlug/settings/workspace/ssh-keys"
     | "/_app/$orgSlug/settings/workspace/sso"
     | "/_app/$orgSlug/settings/workspace/team"
@@ -1158,6 +1171,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppOrgSlugSettingsWorkspaceSshKeysRouteImport
       parentRoute: typeof AppOrgSlugSettingsLayoutRoute
     }
+    "/_app/$orgSlug/settings/workspace/secret-providers": {
+      id: "/_app/$orgSlug/settings/workspace/secret-providers"
+      path: "/workspace/secret-providers"
+      fullPath: "/$orgSlug/settings/workspace/secret-providers"
+      preLoaderRoute: typeof AppOrgSlugSettingsWorkspaceSecretProvidersRouteImport
+      parentRoute: typeof AppOrgSlugSettingsLayoutRoute
+    }
     "/_app/$orgSlug/settings/workspace/registries": {
       id: "/_app/$orgSlug/settings/workspace/registries"
       path: "/workspace/registries"
@@ -1470,6 +1490,7 @@ interface AppOrgSlugSettingsLayoutRouteChildren {
   AppOrgSlugSettingsWorkspaceGitProvidersRoute: typeof AppOrgSlugSettingsWorkspaceGitProvidersRoute
   AppOrgSlugSettingsWorkspaceNotificationsRoute: typeof AppOrgSlugSettingsWorkspaceNotificationsRoute
   AppOrgSlugSettingsWorkspaceRegistriesRoute: typeof AppOrgSlugSettingsWorkspaceRegistriesRoute
+  AppOrgSlugSettingsWorkspaceSecretProvidersRoute: typeof AppOrgSlugSettingsWorkspaceSecretProvidersRoute
   AppOrgSlugSettingsWorkspaceSshKeysRoute: typeof AppOrgSlugSettingsWorkspaceSshKeysRoute
   AppOrgSlugSettingsWorkspaceSsoRoute: typeof AppOrgSlugSettingsWorkspaceSsoRoute
   AppOrgSlugSettingsWorkspaceTeamRoute: typeof AppOrgSlugSettingsWorkspaceTeamRoute
@@ -1500,6 +1521,8 @@ const AppOrgSlugSettingsLayoutRouteChildren: AppOrgSlugSettingsLayoutRouteChildr
       AppOrgSlugSettingsWorkspaceNotificationsRoute,
     AppOrgSlugSettingsWorkspaceRegistriesRoute:
       AppOrgSlugSettingsWorkspaceRegistriesRoute,
+    AppOrgSlugSettingsWorkspaceSecretProvidersRoute:
+      AppOrgSlugSettingsWorkspaceSecretProvidersRoute,
     AppOrgSlugSettingsWorkspaceSshKeysRoute:
       AppOrgSlugSettingsWorkspaceSshKeysRoute,
     AppOrgSlugSettingsWorkspaceSsoRoute: AppOrgSlugSettingsWorkspaceSsoRoute,

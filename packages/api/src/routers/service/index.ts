@@ -72,6 +72,9 @@ export const serviceRouter = {
           RefCycleError: () => errors.REF_CYCLE(),
           RefParseError: () => errors.INVALID_INPUT(),
           RefUnknownVarError: () => errors.INVALID_INPUT(),
+          // Not enumerated by the contract; surfaces as a generic 500 with
+          // the provider-facing reason in the message.
+          VaultResolveError: (e) => new Error(e.message),
         });
       }
       context.log.set({
@@ -118,6 +121,9 @@ export const serviceRouter = {
           RefCycleError: () => errors.REF_CYCLE(),
           RefParseError: () => errors.INVALID_INPUT(),
           RefUnknownVarError: () => errors.INVALID_INPUT(),
+          // Not enumerated by the contract; surfaces as a generic 500 with
+          // the provider-facing reason in the message.
+          VaultResolveError: (e) => new Error(e.message),
         });
       }
       if (before.isOk()) {
@@ -174,6 +180,7 @@ export const serviceRouter = {
           RefCycleError: (e) => new Error(e.message),
           RefParseError: (e) => new Error(e.message),
           RefUnknownVarError: (e) => new Error(e.message),
+          VaultResolveError: (e) => new Error(e.message),
         });
       }
       return result.value;
@@ -204,6 +211,7 @@ export const serviceRouter = {
           RefCycleError: (e) => new Error(e.message),
           RefParseError: (e) => new Error(e.message),
           RefUnknownVarError: (e) => new Error(e.message),
+          VaultResolveError: (e) => new Error(e.message),
         });
       }
       return result.value;
