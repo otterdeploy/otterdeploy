@@ -243,8 +243,7 @@ export const env = createEnv({
     // Settings → Git Providers). App ID, client secret, webhook secret,
     // PEM private key, and slug all live on the `git_provider` row
     // (secrets encrypted at rest via packages/api/src/lib/crypto.ts) —
-    // no env vars for any of it. Matches how Coolify and Dokploy
-    // configure GitHub Apps.
+    // no env vars for any of it.
 
     // Build pipeline — apps/builder. Concurrency is how many deploy
     // jobs the builder pulls from the queue at once; default 1 keeps
@@ -267,7 +266,7 @@ export const env = createEnv({
       .default("default"),
 
     // Per-build isolation: each deployment runs in a throwaway "helper"
-    // container (Coolify-style) the worker spawns via `docker run --rm`.
+    // container the worker spawns via `docker run --rm`.
     // IMAGE is what it runs (the builder image itself, which carries the
     // railpack/docker toolchain + this code); NETWORK is the docker network
     // it joins so it can reach Postgres/Redis. Defaults match docker-compose.

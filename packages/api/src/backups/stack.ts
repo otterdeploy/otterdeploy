@@ -39,7 +39,7 @@ export interface StackDumpTarget {
 }
 
 // Base image name → engine. A deliberately narrow allow-list, NOT a keyword
-// scan: paired with declarative-by-selection (above), it avoids Coolify's
+// scan: paired with declarative-by-selection (above), it avoids the
 // image-sniffing + hand-maintained exclusion-list treadmill.
 const IMAGE_ENGINE: Record<string, DumpEngine> = {
   postgres: "postgres",

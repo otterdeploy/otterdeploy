@@ -10,8 +10,8 @@
  *   1. A stable, brandable URL that survives repo renames and file moves.
  *   2. Install counts. GHCR publishes no pull stats and raw.githubusercontent
  *      gives us nothing, so today we have zero visibility into adoption. Every
- *      request through here is a datapoint (see `record`) — the same mechanism
- *      Coolify uses, which is how they can quote an active-instance number.
+ *      request through here is a datapoint (see `record`) — the only way an
+ *      active-instance number becomes quotable at all.
  *
  * Two paths per artifact:
  *   /install.sh              newest STABLE release ("latest/" in R2)

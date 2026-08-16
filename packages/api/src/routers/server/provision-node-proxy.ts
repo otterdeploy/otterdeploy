@@ -5,9 +5,8 @@
  * on the control-plane host fronting the whole cluster. With a single edge, a
  * manager outage takes every site down — the workers' containers keep running
  * and become unreachable, because nothing anywhere else is listening on :443.
- * Coolify settled on the same answer: a proxy container per managed server,
- * with traffic going straight to the server running the app rather than
- * through the control plane.
+ * Hence a proxy container per managed server, with traffic going straight
+ * to the server running the app rather than through the control plane.
  *
  * The trade this accepts: a domain becomes bound to the machine serving it, so
  * moving a service between nodes also moves its DNS. That is the cost of not

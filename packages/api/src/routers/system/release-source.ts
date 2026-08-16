@@ -6,7 +6,7 @@
  * "what's new" for free. Overridable via OTTERDEPLOY_UPDATE_MANIFEST_URL to a
  * fixture/mirror (testing, air-gapped). All failures are non-fatal: a network
  * error or garbage payload resolves to `null`, which the caller reads as "no
- * update available" rather than surfacing an error (Dokploy's posture).
+ * update available" rather than surfacing an error.
  */
 import { env } from "@otterdeploy/env/server";
 import { Result } from "better-result";

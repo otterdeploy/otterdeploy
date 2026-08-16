@@ -73,7 +73,7 @@ export interface ProvisionSwarmDatabaseInput {
    *  project reach the DB via overlay DNS at `<serviceName>:<port>`, no
    *  host binding required. Flip on only when the operator explicitly
    *  enables "public access" so we don't compete for ephemeral host ports
-   *  on every DB. Coolify / Dokploy follow the same opt-in model. */
+   *  on every DB. */
   public?: boolean;
 }
 

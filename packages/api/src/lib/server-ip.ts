@@ -15,11 +15,10 @@
  *   4. A local non-internal IPv4 — when the echo services can't be reached at
  *      all. Better than the loopback the resolver would otherwise fall to.
  *
- * Unlike Coolify — which takes the IP the operator typed when adding a
- * server over SSH and never calls an echo service — otterdeploy runs *on*
- * the single node it deploys to, so there's no "add server" step to carry
- * the IP. Detection fills that gap; the env override mirrors Coolify's
- * operator-provided value for when detection is wrong (NAT, multi-homed).
+ * Otterdeploy runs *on* the single node it deploys to, so there's no
+ * "add server" step where an operator would type the IP. Detection fills
+ * that gap; the env override serves as the operator-provided value for
+ * when detection is wrong (NAT, multi-homed).
  */
 
 import { db } from "@otterdeploy/db";

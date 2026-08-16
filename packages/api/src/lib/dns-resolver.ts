@@ -5,9 +5,8 @@
  * Self-hosted boxes (and dev machines) routinely sit behind a
  * split-horizon / caching local resolver that lags propagation or returns
  * ENODATA for a record that's already live on the public internet — the
- * record resolves fine on 1.1.1.1 / 8.8.8.8. Coolify hits configurable DNS
- * servers for exactly this reason. We query public resolvers first and
- * fall back to the system resolver only when the public ones are
+ * record resolves fine on 1.1.1.1 / 8.8.8.8. We query public resolvers
+ * first and fall back to the system resolver only when the public ones are
  * *unreachable* (air-gapped install, port-53 egress blocked) — a
  * definitive "not there" from a public resolver (ENODATA/ENOTFOUND/NXDOMAIN)
  * is trusted as-is and not masked by the fallback.

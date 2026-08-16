@@ -3,8 +3,8 @@
  * networks (created in the Raw Docker panel). The project network is always
  * on and not listed here: Caddy routing rides it, so there is deliberately no
  * way to detach it (public exposure is the Public networking card's job via
- * `publicEnabled` — different from Dokploy, where detaching the default
- * network is the "private service" mechanism).
+ * `publicEnabled` — detaching the default network is deliberately not a
+ * "private service" mechanism here).
  *
  * The eligible-network picker reads `docker.networks.list`, which is
  * install-admin-gated — members see the attached names read-only instead of
