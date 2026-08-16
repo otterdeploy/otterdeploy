@@ -1,6 +1,7 @@
 import type { IdPrefix } from "@otterdeploy/shared/id";
 
 import { apiKey } from "@better-auth/api-key";
+import { passkey } from "@better-auth/passkey";
 import { sso } from "@better-auth/sso";
 import { db } from "@otterdeploy/db";
 import * as schema from "@otterdeploy/db/schema";
@@ -396,6 +397,21 @@ function buildAuth(socialProviders: SocialProvidersConfig) {
       // successful TOTP verification. On sign-in, an account with 2FA returns
       // `twoFactorRedirect` instead of a session until a code is verified.
       twoFactor({ issuer: "otterdeploy" }),
+      // WebAuthn passkeys — passwordless sign-in with platform biometrics or a
+      // security key, plus a second credential type for password accounts.
+      // `rpID` and `origin` are deliberately omitted: the plugin derives the
+      // rpID from the request's baseURL hostname and validates the origin the
+      // client reports, which is the only workable default for a self-hosted
+      // box reachable at many names (LAN IP, hostname, tunnel) — the same
+      // reasoning as the dynamic `trustedOrigins` above. A passkey is bound to
+      // the hostname it was registered on; registering on a raw IP and later
+      // moving to a domain means re-registering, which WebAuthn imposes by
+      // design. The matching `passkey` table lives in db/schema/auth.ts
+      // (schema: {} uses the plugin's default field names).
+      passkey({
+        rpName: "otterdeploy",
+        schema: {},
+      }),
       // Workspace-scoped API keys. `references: "organization"` means a key is
       // owned by an org (referenceId = organizationId), not an individual user,
       // so any owner/admin can manage the workspace's keys — matching how every

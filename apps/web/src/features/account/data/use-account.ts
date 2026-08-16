@@ -16,6 +16,7 @@ export const authKeys = {
   currentSession: ["auth", "current-session"] as const,
   accounts: ["auth", "accounts"] as const,
   sessions: ["auth", "sessions"] as const,
+  passkeys: ["auth", "passkeys"] as const,
 };
 
 export interface SessionRow {
@@ -61,6 +62,36 @@ export function useSessions() {
         throw new Error(res.error.message ?? "Failed to load sessions");
       }
       return (res.data ?? []) as SessionRow[];
+    },
+  });
+}
+
+export interface PasskeyRow {
+  id: string;
+  name?: string | null;
+  deviceType: string;
+  backedUp: boolean;
+  createdAt?: string | Date | null;
+  aaguid?: string | null;
+}
+
+/** Registered WebAuthn passkeys (the `@better-auth/passkey` plugin's list). */
+export function usePasskeys() {
+  return useQuery({
+    queryKey: authKeys.passkeys,
+    queryFn: async (): Promise<PasskeyRow[]> => {
+      const res = await authClient.passkey.listUserPasskeys();
+      if (res.error) {
+        throw new Error(res.error.message ?? "Failed to load passkeys");
+      }
+      return (res.data ?? []).map((p) => ({
+        id: p.id,
+        name: p.name,
+        deviceType: p.deviceType,
+        backedUp: p.backedUp,
+        createdAt: p.createdAt,
+        aaguid: p.aaguid,
+      }));
     },
   });
 }

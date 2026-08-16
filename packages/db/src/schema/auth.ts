@@ -154,6 +154,36 @@ export const twoFactor = pgTable(
   (table) => [index("two_factor_userId_idx").on(table.userId)],
 );
 
+// @better-auth/passkey plugin store. One row per registered WebAuthn
+// credential. The plugin owns every column — property keys stay camelCase to
+// match its model field names (`credentialID`, `publicKey`, …), drizzle owns
+// the snake_case SQL names. Like `device_code`/`two_factor`, the id is minted
+// by better-auth's `generateId`, so no `$defaultFn` here. `aaguid` identifies
+// the authenticator model (all-zero for Apple's default un-attested flow) and
+// is used only to label the credential in the management UI.
+export const passkey = pgTable(
+  "passkey",
+  {
+    id: text("id").primaryKey(),
+    name: text("name"),
+    publicKey: text("public_key").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    credentialID: text("credential_id").notNull(),
+    counter: integer("counter").notNull(),
+    deviceType: text("device_type").notNull(),
+    backedUp: boolean("backed_up").notNull(),
+    transports: text("transports"),
+    createdAt: timestamp("created_at").defaultNow(),
+    aaguid: text("aaguid"),
+  },
+  (table) => [
+    index("passkey_userId_idx").on(table.userId),
+    index("passkey_credentialID_idx").on(table.credentialID),
+  ],
+);
+
 export const verification = pgTable(
   "verification",
   {
