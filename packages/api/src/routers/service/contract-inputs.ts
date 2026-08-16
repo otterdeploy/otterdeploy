@@ -122,6 +122,13 @@ export const updateServiceInput = z.object({
   // the stored value untouched (patch semantics).
   preDeploy: z.array(z.string()).nullable().optional(),
   postDeploy: z.array(z.string()).nullable().optional(),
+
+  // Extra docker networks this service joins in ADDITION to its always-on
+  // project network (the project network carries Caddy routing and is never
+  // detachable — public exposure is `publicEnabled`'s job). Names, applied on
+  // the redeploy this update triggers; a deleted network is skipped at deploy.
+  // Null clears the list; omitted leaves it untouched (patch semantics).
+  extraNetworks: z.array(z.string().min(1)).nullable().optional(),
 });
 
 export const getServiceInput = z.object({

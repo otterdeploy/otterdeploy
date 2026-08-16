@@ -63,6 +63,8 @@ export interface ServiceView {
   publicEnabled: boolean;
   publicDomain: string | null;
   internalHostname: string;
+  /** Extra docker networks (names) joined in addition to the project network. */
+  extraNetworks: string[];
 
   runtime: SwarmServiceRuntime;
 
@@ -173,6 +175,7 @@ export async function mapServiceView(
     publicEnabled: record.service.publicEnabled,
     publicDomain: record.service.publicDomain,
     internalHostname: record.service.internalHostname,
+    extraNetworks: record.service.extraNetworks,
     runtime: live,
     createdAt: record.resource.createdAt.toISOString(),
     updatedAt: record.resource.updatedAt.toISOString(),

@@ -10,6 +10,9 @@ import type { CreateContainerOptions, HostConfig } from "@otterdeploy/docker";
 
 import { Docker } from "@otterdeploy/docker";
 import { setTimeout as sleep } from "node:timers/promises";
+import * as z from "zod";
+
+import type { RequestLogger } from "evlog";
 
 import type { ContainerSpec, RuntimeStatus } from "./types";
 
@@ -18,6 +21,7 @@ import { connectCaddyToNetwork } from "../swarm/client";
 import { streamImagePull } from "../swarm/image-pull";
 import { toHealthcheckTest } from "../swarm/internals";
 import { createPullLineSummarizer } from "../swarm/pull-progress";
+import { connectExtraNetworks } from "./docker-driver-networks";
 
 export const msToNs = (ms: number) => ms * 1_000_000;
 export const networkNameFor = (projectSlug: string) =>
@@ -114,6 +118,16 @@ export interface Summary {
   Health?: { Status?: string };
 }
 
+/** The `Summary` fields we read off a listed container. The SDK's list type
+ *  doesn't declare Health, so parse instead of casting; Id is always present,
+ *  so a well-formed daemon response can't fail this. */
+export const containerSummarySchema = z.object({
+  Id: z.string(),
+  Names: z.array(z.string()).default([]),
+  State: z.string().default(""),
+  Health: z.object({ Status: z.string().optional() }).optional(),
+});
+
 export async function findContainer(docker: Docker, name: string): Promise<Summary | null> {
   const list = await docker.containers.list({
     all: true,
@@ -122,7 +136,9 @@ export async function findContainer(docker: Docker, name: string): Promise<Summa
   if (list.isErr()) throw list.error;
   // Name filter is a substring match — pin to the exact `/name`.
   const found = list.value.find((c) => c.Names?.some((n) => n === `/${name}` || n === name));
-  return (found as Summary | undefined) ?? null;
+  if (!found) return null;
+  const parsed = containerSummarySchema.safeParse(found);
+  return parsed.success ? parsed.data : null;
 }
 
 export async function removeContainerByName(docker: Docker, name: string): Promise<void> {
@@ -267,6 +283,8 @@ export async function createAndStart(
   options: CreateContainerOptions,
   name: string,
   networkName: string,
+  extraNetworks?: string[],
+  rlog?: RequestLogger,
 ): Promise<RuntimeStatus> {
   let created = await docker.containers.create(options);
   // Self-heal a name Conflict once: a leftover container from a failed prior
@@ -279,5 +297,8 @@ export async function createAndStart(
   if (created.isErr()) throw created.error;
   const start = await created.value.start();
   if (start.isErr()) throw start.error;
+  // Extra memberships are post-start connects (docker create honors one
+  // endpoint config); per-network failures are non-fatal — see the module.
+  await connectExtraNetworks(docker, name, networkName, extraNetworks ?? [], rlog);
   return waitForContainer(docker, name, networkName);
 }

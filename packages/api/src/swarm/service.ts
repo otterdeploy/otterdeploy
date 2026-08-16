@@ -5,6 +5,7 @@ import type { SpecMount } from "./file-mounts";
 
 import { asStepLogger } from "../lib/logger";
 import { ensureProjectNetwork } from "./client";
+import { applyableSwarmExtraNetworks } from "./extra-networks";
 import { buildServiceSpec, inspectSwarmService, waitForServiceReady } from "./internals";
 
 export interface SwarmServiceRuntime {
@@ -71,6 +72,15 @@ export interface SwarmServiceSpec {
    */
   mounts: SpecMount[];
 
+  /**
+   * Extra operator-created docker networks to join, by NAME, in addition to
+   * the always-on project network (which carries the service's DNS aliases
+   * and Caddy routing — it is never detachable). The drivers apply these
+   * best-effort: a name that no longer resolves to a live network of the
+   * right driver is skipped with a log line, never a failed deploy.
+   */
+  extraNetworks?: string[];
+
   forceUpdateCounter: number;
 
   /**
@@ -111,7 +121,12 @@ export async function provisionSwarmService(
     return existing;
   }
 
-  const createResult = await docker.services.create(buildServiceSpec(spec, networkName));
+  // Filter the extras against the live daemon FIRST — swarm rejects the whole
+  // create if any Networks target is missing or not an overlay.
+  const extraNetworks = await applyableSwarmExtraNetworks(docker, spec, networkName, rlog);
+  const createResult = await docker.services.create(
+    buildServiceSpec({ ...spec, extraNetworks }, networkName),
+  );
 
   if (createResult.isErr()) {
     docker.destroy();
@@ -157,7 +172,10 @@ export async function updateSwarmService(
     });
   }
 
-  const newSpec = buildServiceSpec(spec, networkName);
+  // Same live filter as the provision path — a deleted extra network must
+  // degrade to a logged skip, not a failed rolling update.
+  const extraNetworks = await applyableSwarmExtraNetworks(docker, spec, networkName, rlog);
+  const newSpec = buildServiceSpec({ ...spec, extraNetworks }, networkName);
   const updateResult = await docker.services.getService(existing.serviceId ?? "").update({
     version: currentVersion,
     Name: newSpec.Name,

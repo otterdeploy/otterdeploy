@@ -16,9 +16,8 @@
  * See docs/designs/runtime.md.
  */
 
-import type { DeploymentId } from "@otterdeploy/shared/id";
-
 import { Docker } from "@otterdeploy/docker";
+import { idSchema } from "@otterdeploy/shared/id";
 
 import type { Summary } from "./docker-driver-helpers";
 import type { ContainerSpec, RuntimeDriver, RuntimeStatus } from "./types";
@@ -29,6 +28,7 @@ import { branchDatabaseOnDocker, destroyDatabaseBranchOnDocker } from "./docker-
 import { runDatabase } from "./docker-driver-db";
 import {
   buildContainerOptions,
+  containerSummarySchema,
   createAndStart,
   ensureBridgeNetwork,
   findContainer,
@@ -48,8 +48,11 @@ import {
  * row → the null log swallows the lines and the pull still runs.
  */
 async function pullWithDeployLog(docker: Docker, spec: ContainerSpec): Promise<void> {
-  const deployLog = spec.deploymentId
-    ? createStackDeployLog(spec.deploymentId as DeploymentId)
+  // The spec carries deploymentId as a plain string; parse the brand at this
+  // boundary instead of asserting it. A malformed id degrades to the null log.
+  const deploymentId = idSchema.deployment.safeParse(spec.deploymentId);
+  const deployLog = deploymentId.success
+    ? createStackDeployLog(deploymentId.data)
     : nullStackDeployLog;
   try {
     await pullImage(docker, spec.image, (line) => deployLog.line(line));
@@ -61,7 +64,7 @@ async function pullWithDeployLog(docker: Docker, spec: ContainerSpec): Promise<v
 export const dockerDriver: RuntimeDriver = {
   kind: "docker",
 
-  async provision(spec) {
+  async provision(spec, log) {
     const docker = Docker.fromEnv();
     const networkName = await ensureBridgeNetwork(docker, spec.projectSlug);
     // replicas:0 = scaled to zero (stopped) — plain Docker has no replica count,
@@ -91,12 +94,14 @@ export const dockerDriver: RuntimeDriver = {
       buildContainerOptions(spec, networkName),
       spec.serviceName,
       networkName,
+      spec.extraNetworks,
+      log,
     );
     docker.destroy();
     return status;
   },
 
-  async update(spec) {
+  async update(spec, log) {
     const docker = Docker.fromEnv();
     const networkName = await ensureBridgeNetwork(docker, spec.projectSlug);
     if (spec.replicas === 0) {
@@ -119,6 +124,8 @@ export const dockerDriver: RuntimeDriver = {
       buildContainerOptions(spec, networkName),
       spec.serviceName,
       networkName,
+      spec.extraNetworks,
+      log,
     );
     docker.destroy();
     return status;
@@ -162,10 +169,14 @@ export const dockerDriver: RuntimeDriver = {
 
     const byName = new Map<string, Summary>();
     for (const container of list.value) {
-      const summary = container as unknown as Summary;
+      // The SDK's list type doesn't declare Health; parse the fields we read
+      // instead of casting. Id is always present, so this can't drop rows.
+      const parsed = containerSummarySchema.safeParse(container);
+      if (!parsed.success) continue;
+      const summary: Summary = parsed.data;
       // Name filter would be a substring match; index by the exact `/name` the
       // way findContainer pins it, stripping docker's leading slash.
-      for (const name of summary.Names ?? []) byName.set(name.replace(/^\//, ""), summary);
+      for (const name of summary.Names) byName.set(name.replace(/^\//, ""), summary);
     }
 
     for (const input of inputs) {

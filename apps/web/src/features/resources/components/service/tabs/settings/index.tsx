@@ -14,6 +14,7 @@ import {
 import { ServiceBuildCard } from "./build-card";
 import { ServiceDangerZone } from "./danger-zone";
 import { ServiceDeployHooksCard } from "./deploy-hooks-card";
+import { ServiceExtraNetworksCard } from "./extra-networks-card";
 import { ServiceHealthCheckCard } from "./health-check-card";
 import { ManifestDomainsCard } from "./manifest-domains-card";
 import { ManifestPortsCard } from "./manifest-ports-card";
@@ -87,6 +88,7 @@ export function ServiceSettingsBody({
           <ServiceScalingCard resource={resource} />
           <ServiceHealthCheckCard resource={resource} />
           <ServiceNetworkingCard resource={resource} />
+          <ServiceExtraNetworksCard resource={resource} />
           <ServiceProtectionCard resource={resource} />
         </>
       )}

@@ -106,6 +106,9 @@ export async function buildSwarmSpec(
       appProtocol: p.appProtocol,
     })),
     mounts,
+    // Operator-attached extra networks (names). Joined in addition to the
+    // project network; the drivers skip names that no longer exist.
+    extraNetworks: record.service.extraNetworks,
     forceUpdateCounter: record.service.forceUpdateCounter,
     deploymentId: latestDeployment?.id ?? null,
   };

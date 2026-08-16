@@ -570,6 +570,15 @@ export const serviceResource = pgTable(
     internalHostname: text("internal_hostname").notNull(),
     serviceName: text("service_name").notNull(),
     networkName: text("network_name").notNull(),
+    // Extra operator-created docker networks (NAMES, not ids — specs speak
+    // names) this service joins IN ADDITION to its always-on project network
+    // (`networkName` above). The project network is never detachable: Caddy
+    // routing depends on it — public reachability is governed by
+    // `publicEnabled`, not by network membership (deliberate difference from
+    // Dokploy, where detaching the default network is the "private service"
+    // mechanism). Applied on the next deploy; a name that no longer resolves
+    // to a live network is skipped with a log line, never a hard failure.
+    extraNetworks: jsonb("extra_networks").$type<string[]>().notNull().default([]),
 
     publicEnabled: boolean("public_enabled").notNull().default(false),
     publicDomain: text("public_domain"),

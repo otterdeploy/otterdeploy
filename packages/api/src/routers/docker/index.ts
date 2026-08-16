@@ -3,6 +3,7 @@ import type { Context } from "../../context";
 import { requireInstallAdmin } from "../..";
 import { streamDockerEvents } from "./events-stream";
 import {
+  createNetwork,
   inspectContainer,
   inspectImage,
   inspectNetwork,
@@ -139,6 +140,14 @@ export const dockerRouter = {
         const result = await inspectNetwork(input.id);
         if (!result.ok) throwDockerError(result, errors);
         auditSensitiveRead(context, "docker.networks.inspect", input.id);
+        return result.items;
+      },
+    ),
+    create: requireInstallAdmin().docker.networks.create.handler(
+      async ({ input, errors, context }) => {
+        context.log.set({ target: { type: "docker-network", id: input.name } });
+        const result = await createNetwork(input);
+        if (!result.ok) throwDockerError(result, errors);
         return result.items;
       },
     ),

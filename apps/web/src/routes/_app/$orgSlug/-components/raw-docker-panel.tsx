@@ -27,7 +27,7 @@ import {
 } from "./docker-page-header";
 import { ContainersTable } from "./docker-table-containers";
 import { ImagesTable } from "./docker-table-images";
-import { NetworksTable } from "./docker-table-networks";
+import { NetworksSection } from "./docker-table-networks";
 import { TasksTable } from "./docker-tables";
 
 /** Narrow swarm tasks to one node. Pulled out of the panel so the "all nodes"
@@ -211,7 +211,8 @@ export function RawDockerPanel({
         </TabsContent>
         <TabsContent value="networks">
           <ManagerScopeCaption swarm={swarm} tab={tab} />
-          <NetworksTable query={networks} />
+          {/* Create button + dialog live with the table (panel line cap). */}
+          <NetworksSection query={networks} swarm={swarm} />
         </TabsContent>
         <TabsContent value="tasks">
           <p className="mb-3 text-xs text-muted-foreground">

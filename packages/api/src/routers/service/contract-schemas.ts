@@ -86,6 +86,9 @@ export const serviceSchema = z.object({
   publicEnabled: z.boolean(),
   publicDomain: z.string().nullable(),
   internalHostname: z.string(),
+  /** Extra docker networks (names) joined in addition to the project
+   *  network. The project network itself is `runtime.networkName`. */
+  extraNetworks: z.array(z.string()),
 
   runtime: serviceRuntimeSchema,
 

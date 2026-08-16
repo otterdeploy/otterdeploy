@@ -10,10 +10,12 @@ import {
   useTableSelection,
 } from "@/shared/components/table-selection";
 import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
 import { TableCell, TableRow } from "@/shared/components/ui/table";
 import { cn } from "@/shared/lib/utils";
 import { orpc } from "@/shared/server/orpc";
 
+import { CreateNetworkDialog } from "./create-network-dialog";
 import { DockerBulkRemoveDialog } from "./docker-bulk-remove";
 import { ConfirmRemoveDialog, InspectDialog } from "./docker-dialogs";
 import { shortId, timeAgoSeconds } from "./docker-format";
@@ -38,6 +40,29 @@ interface Network {
 const BUILTIN_NETWORKS = new Set(["bridge", "host", "none", "ingress", "docker_gwbridge"]);
 
 const isBuiltin = (n: Network) => BUILTIN_NETWORKS.has(n.name) || n.ingress;
+
+/** The Networks tab body — create affordance above the inventory table.
+ *  Owns the dialog state so the panel stays under its function-line cap. */
+export function NetworksSection({ query, swarm }: { query: QueryLike<Network>; swarm: boolean }) {
+  const [createOpen, setCreateOpen] = useState(false);
+  return (
+    <>
+      <div className="mb-3 flex items-center justify-end">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs"
+          onClick={() => setCreateOpen(true)}
+        >
+          Create network
+        </Button>
+      </div>
+      <NetworksTable query={query} />
+      <CreateNetworkDialog open={createOpen} onOpenChange={setCreateOpen} swarm={swarm} />
+    </>
+  );
+}
 
 export function NetworksTable({ query }: { query: QueryLike<Network> }) {
   const [inspectFor, setInspectFor] = useState<Network | null>(null);

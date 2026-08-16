@@ -1,6 +1,8 @@
 import { eventIterator, oc } from "@orpc/contract";
 import * as z from "zod";
 
+import { networksContract } from "./contract-networks";
+
 const tag = "docker";
 const basePath = "/docker";
 
@@ -54,23 +56,6 @@ const volumeSchema = z.object({
   size: z.number(),
   /** Containers referencing this volume; -1 when unknown. */
   refCount: z.number(),
-});
-
-const networkSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  driver: z.string(),
-  scope: z.string(),
-  createdAt: z.number(),
-  internal: z.boolean(),
-  attachable: z.boolean(),
-  /** Swarm routing-mesh network (undeletable plumbing). */
-  ingress: z.boolean(),
-  /** First IPAM config entry; null when the driver has no subnet (host/null). */
-  subnet: z.string().nullable(),
-  gateway: z.string().nullable(),
-  /** Number of containers attached. */
-  containers: z.number(),
 });
 
 const taskSchema = z.object({
@@ -145,20 +130,6 @@ const volumeInspectSchema = z.object({
   driver: z.string(),
   scope: z.string(),
   createdAt: z.string().nullable(),
-});
-
-const networkInspectSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  createdAt: z.string().nullable(),
-  driver: z.string(),
-  scope: z.string(),
-  internal: z.boolean(),
-  attachable: z.boolean(),
-  ingress: z.boolean(),
-  ipv6: z.boolean(),
-  subnets: z.array(z.object({ subnet: z.string(), gateway: z.string().nullable() })),
-  attachedContainers: z.number(),
 });
 
 /** Daemon object classes the events feed distinguishes. The normalizer only
@@ -266,23 +237,8 @@ export const dockerContract = {
       .input(z.object({ name: z.string().min(1) }))
       .output(z.object({ removed: z.boolean() })),
   },
-  networks: {
-    list: oc
-      .errors(serverError)
-      .meta({ path: `${basePath}/networks`, tag, method: "GET" })
-      .input(z.object({}))
-      .output(z.array(networkSchema)),
-    inspect: oc
-      .errors({ ...serverError, ...notFoundError })
-      .meta({ path: `${basePath}/networks/inspect`, tag, method: "GET" })
-      .input(idInput)
-      .output(networkInspectSchema),
-    remove: oc
-      .errors({ ...serverError, ...notFoundError, ...conflictError })
-      .meta({ path: `${basePath}/networks/remove`, tag, method: "POST" })
-      .input(idInput)
-      .output(z.object({ removed: z.boolean() })),
-  },
+  // Split into ./contract-networks.ts (line cap) — now also carries create.
+  networks: networksContract,
   tasks: {
     list: oc
       .errors(serverError)

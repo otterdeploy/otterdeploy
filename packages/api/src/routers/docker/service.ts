@@ -6,9 +6,13 @@
  */
 import type { Port } from "@otterdeploy/docker";
 
+import * as z from "zod";
+
 import { isSwarmRuntime } from "../../runtime";
 import { docker, type Listed } from "./client";
+import { USER_NETWORK_LABEL } from "./networks-admin";
 
+export * from "./networks-admin";
 export * from "./service-admin";
 
 /** Docker reports volume/network creation as RFC3339 strings; normalize to
@@ -58,6 +62,10 @@ export interface ListedNetwork {
   subnet: string | null;
   gateway: string | null;
   containers: number;
+  /** Created by an operator via the panel (otterdeploy.user-network label). */
+  userNetwork: boolean;
+  /** Platform-owned project network (otterdeploy.managed label). */
+  managed: boolean;
 }
 
 export interface ListedTask {
@@ -165,6 +173,8 @@ export async function listNetworks(): Promise<Listed<ListedNetwork[]>> {
         subnet: ipam?.Subnet ?? null,
         gateway: ipam?.Gateway ?? null,
         containers: n.Containers ? Object.keys(n.Containers).length : 0,
+        userNetwork: n.Labels?.[USER_NETWORK_LABEL] === "true",
+        managed: n.Labels?.["otterdeploy.managed"] === "true",
       };
     }),
   };
@@ -175,9 +185,24 @@ function taskMessage(status: { Err?: string; Message?: string } | undefined): st
   return status?.Err || status?.Message || null;
 }
 
+// The SDK leaves Task.Spec and Node.Status untyped; parse the fields we
+// read instead of casting.
+const taskSpecImageSchema = z.object({
+  ContainerSpec: z.object({ Image: z.string().optional() }).optional(),
+});
+const nodeStatusSchema = z.object({
+  State: z.string().optional(),
+  Addr: z.string().optional(),
+});
+
 function taskImage(spec: unknown): string | null {
-  const s = spec as { ContainerSpec?: { Image?: string } } | undefined;
-  return s?.ContainerSpec?.Image ?? null;
+  const parsed = taskSpecImageSchema.safeParse(spec);
+  return parsed.success ? (parsed.data.ContainerSpec?.Image ?? null) : null;
+}
+
+function nodeStatus(value: unknown): { State?: string; Addr?: string } {
+  const parsed = nodeStatusSchema.safeParse(value);
+  return parsed.success ? parsed.data : {};
 }
 
 export async function listTasks(): Promise<Listed<ListedTask[]>> {
@@ -217,8 +242,8 @@ export async function listNodes(): Promise<Listed<{ swarm: boolean; nodes: Liste
         hostname: n.Description?.Hostname ?? n.ID ?? "",
         role: n.Spec?.Role ?? "worker",
         availability: n.Spec?.Availability ?? "active",
-        state: (n.Status as { State?: string } | undefined)?.State ?? "",
-        addr: (n.Status as { Addr?: string } | undefined)?.Addr ?? null,
+        state: nodeStatus(n.Status).State ?? "",
+        addr: nodeStatus(n.Status).Addr ?? null,
         leader: n.ManagerStatus?.Leader ?? false,
       })),
     },
