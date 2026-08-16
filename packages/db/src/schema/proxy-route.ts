@@ -97,6 +97,13 @@ export const proxyRoute = pgTable(
     // routes are enabled on expose; custom routes stay disabled until DNS
     // verification passes (and flip back to disabled on unexpose).
     enabled: boolean("enabled").notNull().default(true),
+    // The operator's explicit off switch, kept apart from `enabled` because
+    // that column is SYSTEM-owned: expose/unexpose, domain add, and recheck
+    // all recompute it from DNS/exposure verification and would silently
+    // overwrite a user's choice. A route renders into Caddy only when
+    // `enabled && !disabledByUser`; everything else (cert settings,
+    // verification state) stays intact so re-enabling needs no re-verify.
+    disabledByUser: boolean("disabled_by_user").notNull().default(false),
     // Which network serves this route (see the enum above). Defaults to
     // "public" so every pre-existing row and every org without a connected
     // mesh behaves exactly as it does today.

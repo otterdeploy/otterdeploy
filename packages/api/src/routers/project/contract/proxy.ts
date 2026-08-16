@@ -95,6 +95,14 @@ const setProtectionInput = z.object({
   protected: z.boolean(),
 });
 
+// The operator's route on/off switch. `enabled: false` means user-disable —
+// the wire keeps the intuitive name, the server maps it onto the
+// `disabledByUser` column so the system-owned `enabled` gate is untouched.
+const setEnabledInput = z.object({
+  routeId: proxyRouteIdField,
+  enabled: z.boolean(),
+});
+
 export const proxyContractSlice = {
   ...proxyAccessContractSlice,
 
@@ -166,5 +174,15 @@ export const proxyContractSlice = {
       method: "POST",
     })
     .input(setProtectionInput)
+    .output(proxyRouteSchema),
+
+  setEnabled: oc
+    .errors(resourceNotFoundErrors)
+    .meta({
+      path: `${basePath}/proxy-routes/{routeId}/enabled`,
+      tag,
+      method: "POST",
+    })
+    .input(setEnabledInput)
     .output(proxyRouteSchema),
 };

@@ -148,6 +148,31 @@ export async function setProxyRouteProtection(
   return Result.ok(updated);
 }
 
+/** The operator's route on/off switch. Writes `disabledByUser` (the wire
+ *  speaks `enabled` for the UI's sake) rather than the system-owned `enabled`
+ *  column, so expose/recheck can't silently overturn the choice — and all
+ *  cert/verification state survives the round-trip. */
+export async function setProxyRouteUserEnabled(
+  input: OrgRef & { routeId: ProxyRouteId; enabled: boolean },
+  rlog?: RequestLogger,
+): Promise<Result<ProxyRoute, ProxyRouteNotFoundError>> {
+  const route = await getRouteInOrg(input.routeId, input.organizationId);
+  if (!route) {
+    return Result.err(new ProxyRouteNotFoundError({ routeId: input.routeId }));
+  }
+
+  const updated = await updateProxyRoute(input.routeId, {
+    disabledByUser: !input.enabled,
+  });
+  if (!updated) {
+    return Result.err(new ProxyRouteNotFoundError({ routeId: input.routeId }));
+  }
+
+  // Re-render so the route drops out of (or returns to) Caddy immediately.
+  await reconcile(rlog);
+  return Result.ok(updated);
+}
+
 export async function createDeploymentShareLink(
   input: OrgRef & { routeId: ProxyRouteId; expiresInHours: number },
 ): Promise<Result<{ url: string; expiresAt: string }, ProxyRouteNotFoundError>> {
@@ -225,12 +250,12 @@ export async function inviteDeploymentGuest(
 }
 
 export async function removeDeploymentGuest(
-  input: OrgRef & { routeId: ProxyRouteId; guestId: string },
+  input: OrgRef & { routeId: ProxyRouteId; guestId: DeploymentGuestId },
 ): Promise<Result<{ ok: boolean }, ProxyRouteNotFoundError>> {
   const route = await getRouteInOrg(input.routeId, input.organizationId);
   if (!route) {
     return Result.err(new ProxyRouteNotFoundError({ routeId: input.routeId }));
   }
-  await removeGuest(input.routeId, input.guestId as DeploymentGuestId);
+  await removeGuest(input.routeId, input.guestId);
   return Result.ok({ ok: true });
 }

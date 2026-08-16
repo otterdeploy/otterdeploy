@@ -11,6 +11,7 @@ import type { RouteCertificate } from "@/features/projects/components/networking
 
 import { CERT_STATUS } from "@/features/projects/components/networking/certificate-status";
 import { DeploymentProtectionCell } from "@/features/projects/components/networking/deployment-protection-cell";
+import { RouteEnabledSwitch } from "@/features/projects/components/networking/route-enabled-switch";
 import { RouteDetailPanel } from "@/features/projects/components/networking/route-detail-panel";
 import { RoutePolicyButton } from "@/features/projects/components/networking/route-directives-dialog";
 import { Badge } from "@/shared/components/ui/badge";
@@ -42,6 +43,28 @@ function TlsCell({ mode, cert }: { mode: string; cert: RouteCertificate | undefi
         <span className={cn("text-[11px]", status.text)}>· {status.label.toLowerCase()}</span>
       ) : null}
     </span>
+  );
+}
+
+/** The operator's on/off switch beside the state word. "paused" is that
+ *  switch; "disabled" stays the system gate (unexposed / verification
+ *  pending), which the switch deliberately does not claim to control. */
+function RouteStatusCell({
+  route,
+}: {
+  route: { id: string; domain: string; enabled: boolean; disabledByUser: boolean };
+}) {
+  const label = route.disabledByUser ? "paused" : route.enabled ? "enabled" : "disabled";
+  return (
+    <div className="flex items-center gap-2.5">
+      <RouteEnabledSwitch route={route} />
+      <Badge
+        variant={label === "enabled" ? "outline" : "secondary"}
+        className="font-mono text-[10px] font-normal"
+      >
+        {label}
+      </Badge>
+    </div>
   );
 }
 
@@ -118,7 +141,7 @@ export function RouteGroupRows({
                       onClick={(e) => e.stopPropagation()}
                       className={cn(
                         "group inline-flex items-center gap-1 font-mono text-[12.5px] hover:underline",
-                        r.enabled ? "text-success" : "text-muted-foreground",
+                        r.enabled && !r.disabledByUser ? "text-success" : "text-muted-foreground",
                       )}
                     >
                       {r.publicHost}
@@ -132,7 +155,7 @@ export function RouteGroupRows({
                     <span
                       className={cn(
                         "font-mono text-[12.5px]",
-                        r.enabled ? "text-success" : "text-muted-foreground",
+                        r.enabled && !r.disabledByUser ? "text-success" : "text-muted-foreground",
                       )}
                     >
                       {r.publicHost}
@@ -146,13 +169,8 @@ export function RouteGroupRows({
               <TableCell onClick={(e) => e.stopPropagation()}>
                 <DeploymentProtectionCell route={r} projectId={projectId} />
               </TableCell>
-              <TableCell>
-                <Badge
-                  variant={r.enabled ? "outline" : "secondary"}
-                  className="font-mono text-[10px] font-normal"
-                >
-                  {r.enabled ? "enabled" : "disabled"}
-                </Badge>
+              <TableCell onClick={(e) => e.stopPropagation()}>
+                <RouteStatusCell route={r} />
               </TableCell>
               <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                 {r.isHttp ? (

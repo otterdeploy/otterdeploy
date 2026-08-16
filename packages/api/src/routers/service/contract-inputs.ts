@@ -9,7 +9,7 @@
 
 import * as z from "zod";
 
-import { projectIdField, resourceIdField } from "../project/contract/shared";
+import { projectIdField, proxyRouteIdField, resourceIdField } from "../project/contract/shared";
 import { servicePortInputSchema } from "./contract-schemas";
 
 // ---------------------------------------------------------------------------
@@ -217,7 +217,7 @@ export const addDomainInput = z.object({
 export const updateDomainInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
-  routeId: z.string(),
+  routeId: proxyRouteIdField,
   domain: domainField,
   port: targetPortField.optional(),
 });
@@ -230,8 +230,17 @@ export const checkDomainInput = z.object({
   domain: domainField,
 });
 
+// Branded routeId (not a bare string): validation rejects a malformed id at
+// the contract edge, and the handlers get a ProxyRouteId without asserting.
 export const domainRouteInput = z.object({
   projectId: projectIdField,
   resourceId: resourceIdField,
-  routeId: z.string(),
+  routeId: proxyRouteIdField,
+});
+
+/** The operator's per-host on/off switch. `enabled: false` maps onto the
+ *  route's `disabledByUser` column — the system-owned `enabled` gate is not
+ *  touched, so re-enabling needs no re-verification. */
+export const setDomainEnabledInput = domainRouteInput.extend({
+  enabled: z.boolean(),
 });

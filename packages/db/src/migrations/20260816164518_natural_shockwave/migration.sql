@@ -1,0 +1,1 @@
+ALTER TABLE "proxy_route" ADD COLUMN "disabled_by_user" boolean DEFAULT false NOT NULL;

@@ -10,7 +10,7 @@
  * never written.
  */
 
-import type { ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -23,6 +23,8 @@ export interface DomainRowActionsApi {
   remove: { run: () => void };
   update: { run: (value: { domain: string; port: number }) => void; pending: boolean };
   autoConfigure: { run: () => void; pending: boolean };
+  /** Pause/resume the host without deleting it (the row's on/off switch). */
+  setEnabled: { run: (enabled: boolean) => void; pending: boolean };
   /** Any write in flight — the row disables its actions on this. */
   busy: boolean;
 }
@@ -42,7 +44,9 @@ export function useDomainRow({
   /** Called after a successful rename so the row can leave edit mode. */
   onUpdated: () => void;
 }): DomainRowActionsApi {
-  const route = { ...input, routeId: routeId as ProxyRouteId };
+  // Plain string is what every domains.* input accepts on the wire (the
+  // branded ids are parsed server-side), so no assertion is needed here.
+  const route = { ...input, routeId };
 
   const recheck = useMutation({
     ...orpc.service.domains.recheck.mutationOptions(),
@@ -97,6 +101,14 @@ export function useDomainRow({
     onSettled,
   });
 
+  const setEnabled = useMutation({
+    ...orpc.service.domains.setEnabled.mutationOptions(),
+    onSuccess: (res) =>
+      toast.success(res.status === "paused" ? `Paused ${domain}` : `Resumed ${domain}`),
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to update domain"),
+    onSettled,
+  });
+
   return {
     recheck: { run: () => recheck.mutate(route), pending: recheck.isPending },
     setPrimary: { run: () => setPrimary.mutate(route) },
@@ -106,6 +118,15 @@ export function useDomainRow({
       pending: update.isPending,
     },
     autoConfigure: { run: () => autoConfigure.mutate(route), pending: autoConfigure.isPending },
-    busy: recheck.isPending || setPrimary.isPending || remove.isPending || update.isPending,
+    setEnabled: {
+      run: (enabled) => setEnabled.mutate({ ...route, enabled }),
+      pending: setEnabled.isPending,
+    },
+    busy:
+      recheck.isPending ||
+      setPrimary.isPending ||
+      remove.isPending ||
+      update.isPending ||
+      setEnabled.isPending,
   };
 }

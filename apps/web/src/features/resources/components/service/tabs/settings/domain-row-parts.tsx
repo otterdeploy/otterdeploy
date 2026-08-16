@@ -16,6 +16,7 @@ import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { NativeSelect } from "@/shared/components/ui/native-select";
 import { Spinner } from "@/shared/components/ui/spinner";
+import { Switch } from "@/shared/components/ui/switch";
 import { cn } from "@/shared/lib/utils";
 
 import type { DomainView } from "./domains-card-parts";
@@ -133,6 +134,7 @@ export function DomainRowActions({
   onSetPrimary,
   onEdit,
   onRemove,
+  onSetEnabled,
 }: {
   domain: DomainView;
   busy: boolean;
@@ -144,9 +146,19 @@ export function DomainRowActions({
   onSetPrimary: () => void;
   onEdit: () => void;
   onRemove: () => void;
+  onSetEnabled: (enabled: boolean) => void;
 }) {
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-1">
+      {/* Pause/resume without deleting — checked while the operator hasn't
+          paused it, whatever the system gate currently says. */}
+      <Switch
+        checked={domain.status !== "paused"}
+        onCheckedChange={onSetEnabled}
+        disabled={busy}
+        aria-label={`Serve ${domain.domain}`}
+        className="mr-1"
+      />
       {domain.source === "custom" && (
         <Button
           size="xs"

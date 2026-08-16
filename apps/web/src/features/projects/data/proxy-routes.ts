@@ -73,12 +73,22 @@ const proxyRoutesQueryOptions = queryCollectionOptions({
   onUpdate: async ({ transaction }) => {
     await Promise.all(
       transaction.mutations.map(async (m) => {
-        const routeId = m.original.id as ProxyRouteId;
+        // Branded already: the row's id comes from the contract's output
+        // schema, so no assertion is needed to address the route.
+        const routeId = m.original.id;
         // The auth-wall toggle.
         if (m.changes.protected !== undefined) {
           await orpc.project.proxyRoute.setProtection.call({
             routeId,
             protected: m.changes.protected,
+          });
+        }
+        // The operator's route on/off switch. The collection mutates the
+        // column (`disabledByUser`); the wire speaks `enabled`, inverted.
+        if (m.changes.disabledByUser !== undefined) {
+          await orpc.project.proxyRoute.setEnabled.call({
+            routeId,
+            enabled: !m.changes.disabledByUser,
           });
         }
         if (m.changes.routePolicy !== undefined) {
@@ -145,7 +155,7 @@ const routeGuestsQueryOptions = queryCollectionOptions({
       transaction.mutations.map(async (m) => {
         const row = m.modified;
         await orpc.project.proxyRoute.inviteGuest.call({
-          routeId: row.routeId as ProxyRouteId,
+          routeId: row.routeId,
           email: row.email,
           sessionHours: row.sessionHours,
         });
@@ -153,7 +163,7 @@ const routeGuestsQueryOptions = queryCollectionOptions({
         // id, normalized email) replaces it.
         void queryClient.invalidateQueries({
           queryKey: orpc.project.proxyRoute.listGuests.queryKey({
-            input: { routeId: row.routeId as ProxyRouteId },
+            input: { routeId: row.routeId },
           }),
         });
       }),
@@ -163,7 +173,7 @@ const routeGuestsQueryOptions = queryCollectionOptions({
     await Promise.all(
       transaction.mutations.map((m) =>
         orpc.project.proxyRoute.removeGuest.call({
-          routeId: m.original.routeId as ProxyRouteId,
+          routeId: m.original.routeId,
           guestId: m.original.id,
         }),
       ),

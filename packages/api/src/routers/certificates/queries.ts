@@ -36,7 +36,8 @@ export interface OrgDomainRow {
 /** Every enabled public (http) domain across the org's projects, with the
  *  publishing project. Preview-scoped routes are excluded — same filter the
  *  per-project certificates tab applies. A domain may appear once per
- *  project; callers group. */
+ *  project; callers group. Deliberately NOT filtered on `disabledByUser`:
+ *  user-paused routes keep their certs warm so re-enable is instant. */
 export async function listOrgEnabledHttpDomains(organizationId: OrgId): Promise<OrgDomainRow[]> {
   return db
     .select({

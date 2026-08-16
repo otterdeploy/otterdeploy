@@ -14,6 +14,7 @@ import {
   saveGlobalCaddyOptions,
   setProxyRoutePolicy,
   setProxyRouteProtection,
+  setProxyRouteUserEnabled,
 } from "./handlers";
 import { proxyRouteAccessRouter } from "./router-proxy-route-access";
 
@@ -112,6 +113,26 @@ export const proxyRouteRouter = {
       {
         routeId: input.routeId,
         protected: input.protected,
+        organizationId: context.activeOrganizationId,
+      },
+      context.log,
+    );
+    if (result.isErr()) {
+      throw matchError(result.error, {
+        ProxyRouteNotFoundError: () => errors.NOT_FOUND(),
+      });
+    }
+    return result.value;
+  }),
+
+  setEnabled: requirePermission({
+    route: ["update"],
+  }).project.proxyRoute.setEnabled.handler(async ({ input, context, errors }) => {
+    context.log.set({ target: { type: "proxy-route", id: input.routeId } });
+    const result = await setProxyRouteUserEnabled(
+      {
+        routeId: input.routeId,
+        enabled: input.enabled,
         organizationId: context.activeOrganizationId,
       },
       context.log,

@@ -115,7 +115,9 @@ export const serviceDomainSchema = z.object({
   port: z.number().int(),
   source: z.enum(["generated", "custom"]),
   isPrimary: z.boolean(),
-  status: z.enum(["live", "disabled"]),
+  // "disabled" is the system gate (unexposed / verification pending);
+  // "paused" is the operator's explicit off switch — config intact, out of Caddy.
+  status: z.enum(["live", "disabled", "paused"]),
   // Reachability of the host (add-and-go): does DNS point here yet, and how.
   dnsState: z.enum(["pointed", "proxied", "unpointed", "unknown"]),
   dnsCheckedAt: z.string().nullable(),

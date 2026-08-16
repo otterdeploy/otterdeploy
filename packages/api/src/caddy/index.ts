@@ -157,7 +157,7 @@ export async function reconcile(rlog?: RequestLogger): Promise<ReconcileResult> 
   if (customCerts.length > 0) {
     const projectOrg = await mapProjectOrganizations([
       ...new Set(records.map((r) => r.projectId)),
-    ] as ProjectId[]);
+    ]);
     routes = applyCustomCertsToRoutes(routes, customCerts, projectOrg);
   }
   if (options.controlPlane) {
@@ -242,7 +242,7 @@ export interface ProjectCaddyfile {
  *  stamps — so the UI can detect drift. */
 export async function renderProjectCaddyfile(projectId: ProjectId): Promise<ProjectCaddyfile> {
   const records = await listProxyRoutesByProject(projectId);
-  let routes = records.filter((r) => r.enabled).map(toRouteInput);
+  let routes = records.filter((r) => r.enabled && !r.disabledByUser).map(toRouteInput);
   const [options, customCerts] = await Promise.all([
     loadCaddyOptions(),
     // DB-only read (no file writes) — shows the same `tls` lines reconcile
@@ -269,7 +269,7 @@ export async function renderInstalledCaddyfile(): Promise<ProjectCaddyfile> {
   if (customCerts.length > 0) {
     const projectOrg = await mapProjectOrganizations([
       ...new Set(records.map((r) => r.projectId)),
-    ] as ProjectId[]);
+    ]);
     routes = applyCustomCertsToRoutes(routes, customCerts, projectOrg);
   }
   if (options.controlPlane) {

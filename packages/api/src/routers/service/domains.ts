@@ -142,8 +142,9 @@ export async function addServiceDomain(
 }
 
 /** Load a route and confirm it belongs to the addressed resource — folds
- *  "missing" and "wrong resource" into one 404 so existence never leaks. */
-async function loadOwnedRoute(
+ *  "missing" and "wrong resource" into one 404 so existence never leaks.
+ *  Exported for the pause/resume slice in ./domains-enabled. */
+export async function loadOwnedRoute(
   input: ResourceRef & { routeId: ProxyRouteId },
 ): Promise<
   Result<{ route: ProxyRouteRecord; record: ServiceRecord }, NotFound | DomainNotFoundError>

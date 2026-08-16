@@ -2,8 +2,6 @@
  * `service.domains.*` oRPC procedures — split out of index.ts to keep the
  * router module under the line cap. Spread back in as `serviceRouter.domains`.
  */
-import type { ProxyRouteId } from "@otterdeploy/shared/id";
-
 import { matchError } from "better-result";
 
 import { projectScopedProcedure, requirePermission } from "../..";
@@ -17,6 +15,7 @@ import {
 } from "./domains";
 import { autoConfigureServiceDomainDns } from "./domains-autoconfigure";
 import { checkServiceDomain, listServiceDomains } from "./domains-check";
+import { setServiceDomainEnabled } from "./domains-enabled";
 import { generateServiceDomain } from "./expose";
 
 export const serviceDomainsRouter = {
@@ -119,7 +118,7 @@ export const serviceDomainsRouter = {
           projectId: input.projectId,
           resourceId: input.resourceId,
           organizationId: context.activeOrganizationId,
-          routeId: input.routeId as ProxyRouteId,
+          routeId: input.routeId,
           domain: input.domain,
           port: input.port,
         },
@@ -148,7 +147,7 @@ export const serviceDomainsRouter = {
           projectId: input.projectId,
           resourceId: input.resourceId,
           organizationId: context.activeOrganizationId,
-          routeId: input.routeId as ProxyRouteId,
+          routeId: input.routeId,
         },
         context.log,
       );
@@ -172,7 +171,7 @@ export const serviceDomainsRouter = {
     const result = await autoConfigureServiceDomainDns({
       organizationId: context.activeOrganizationId,
       resourceId: input.resourceId,
-      routeId: input.routeId as ProxyRouteId,
+      routeId: input.routeId,
       serverIp: await serverIpFor({
         projectId: input.projectId,
         resourceId: input.resourceId,
@@ -199,7 +198,33 @@ export const serviceDomainsRouter = {
           projectId: input.projectId,
           resourceId: input.resourceId,
           organizationId: context.activeOrganizationId,
-          routeId: input.routeId as ProxyRouteId,
+          routeId: input.routeId,
+        },
+        context.log,
+      );
+      if (result.isErr()) {
+        throw matchError(result.error, {
+          ProjectNotFoundError: () => errors.NOT_FOUND(),
+          ServiceNotFoundError: () => errors.NOT_FOUND(),
+          DomainNotFoundError: () => errors.DOMAIN_NOT_FOUND(),
+        });
+      }
+      return result.value;
+    },
+  ),
+
+  setEnabled: requirePermission({ service: ["update"] }).service.domains.setEnabled.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({
+        target: { type: "resource", id: input.resourceId, projectId: input.projectId },
+      });
+      const result = await setServiceDomainEnabled(
+        {
+          projectId: input.projectId,
+          resourceId: input.resourceId,
+          organizationId: context.activeOrganizationId,
+          routeId: input.routeId,
+          enabled: input.enabled,
         },
         context.log,
       );
@@ -224,7 +249,7 @@ export const serviceDomainsRouter = {
           projectId: input.projectId,
           resourceId: input.resourceId,
           organizationId: context.activeOrganizationId,
-          routeId: input.routeId as ProxyRouteId,
+          routeId: input.routeId,
         },
         context.log,
       );

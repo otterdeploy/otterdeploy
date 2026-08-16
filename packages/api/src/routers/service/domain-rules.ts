@@ -30,8 +30,10 @@ export interface ServiceDomainView {
   port: number;
   source: "generated" | "custom";
   isPrimary: boolean;
-  /** live = rendered into Caddy now; disabled = service currently unexposed. */
-  status: "live" | "disabled";
+  /** live = rendered into Caddy now; disabled = the system gate (service
+   *  unexposed / verification pending); paused = the operator's explicit
+   *  off switch, with all configuration kept intact. */
+  status: "live" | "disabled" | "paused";
   /** Where the host currently resolves (custom hosts). */
   dnsState: DnsState;
   dnsCheckedAt: string | null;
@@ -48,18 +50,28 @@ export interface ServiceDomainView {
   dnsTarget: string | null;
 }
 
+/** Status projection, split out so the pause/system-gate precedence is a
+ *  pure decision the tests can pin: the operator's pause wins over both
+ *  system states — a paused route must not masquerade as merely "disabled"
+ *  (which the UI treats as "fix your DNS / re-expose"). */
+export function domainStatusFor(route: Pick<ProxyRouteRecord, "enabled" | "disabledByUser">) {
+  if (route.disabledByUser) return "paused" as const;
+  return route.enabled ? ("live" as const) : ("disabled" as const);
+}
+
 export function toDomainView(route: ProxyRouteRecord, dnsTarget: string | null): ServiceDomainView {
   return {
     id: route.id,
     projectId: route.projectId,
     // Service-domain routes are always tied to a resource (proxyRoute.resourceId
-    // is nullable in general but never null for these), so it's safe to assert.
-    resourceId: route.resourceId as string,
+    // is nullable in general but never null for these); the fallback is dead in
+    // practice and only spares a type assertion.
+    resourceId: route.resourceId ?? "",
     domain: route.domain,
     port: route.upstreamPort,
     source: route.source,
     isPrimary: route.isPrimary,
-    status: route.enabled ? "live" : "disabled",
+    status: domainStatusFor(route),
     dnsState: route.dnsState,
     dnsCheckedAt: route.dnsCheckedAt ? route.dnsCheckedAt.toISOString() : null,
     certState: route.certState,
