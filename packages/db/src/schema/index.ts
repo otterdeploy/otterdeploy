@@ -8,6 +8,9 @@ export * from "./database-ephemeral";
 export * from "./deployment-guest";
 // edge_event (operational-log events) IS drizzle-managed, sparse, plain table.
 export * from "./edge-event";
+// edge_stat_minute / edge_stat_day (traffic-analytics rollups, written at
+// ingest) are drizzle-managed: bounded row counts, no partitioning needed.
+export * from "./edge-stat";
 // edge_threat_ip (all-time scanner-probe rollup) likewise: small, plain, and
 // deliberately NOT swept with the raw log's retention.
 export * from "./edge-threat";

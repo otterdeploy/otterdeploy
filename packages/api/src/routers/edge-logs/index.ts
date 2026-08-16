@@ -3,8 +3,6 @@
  * buffer (packages/api/src/edge-logs), scoped to the caller's own domains.
  */
 
-import type { ProjectId } from "@otterdeploy/shared/id";
-
 import { Result } from "better-result";
 import { log } from "evlog";
 
@@ -17,6 +15,8 @@ import {
   queryEdgeLogs,
   queryEdgeLogsDb,
 } from "../../edge-logs";
+import { queryAnalyticsBreakdowns, queryAnalyticsOverview } from "../../edge-logs/analytics-query";
+import { geoAvailable } from "../../edge-logs/geo";
 import { listProjectRoutes, listRouteUpstreams } from "./queries";
 import { bucketRequestSeries, coveringRange } from "./request-series";
 import { mergeRouteStats } from "./route-stats";
@@ -73,7 +73,7 @@ export const edgeLogsRouter = {
   tail: orgScopedProcedure.edgeLogs.tail.handler(async function* ({ input, context, signal }) {
     const orgId = context.activeOrganizationId;
     const hosts = new Set(await resolveHosts(orgId, input.projectId));
-    const upstreams = await listRouteUpstreams(orgId, input.projectId as ProjectId | undefined);
+    const upstreams = await listRouteUpstreams(orgId, input.projectId);
     for await (const line of streamEdgeLogs(hosts, input.host, signal)) {
       yield {
         ...line,
@@ -175,6 +175,31 @@ export const edgeLogsRouter = {
 
   // Operational log plane (Phase 3): cert/ACME + upstream-error events, scoped
   // to the caller's domains exactly like the access logs above.
+  // Rollup-backed analytics: no ring fallback (the rollups always live in the
+  // DB) and no raw-row scans, so every range costs the same. Host scope is the
+  // same server-side resolve as everything else; the same evlog landmine
+  // applies — never log the live `hosts` array.
+  analytics: {
+    overview: orgScopedProcedure.edgeLogs.analytics.overview.handler(
+      async ({ input, context }) => {
+        const hosts = await resolveHosts(context.activeOrganizationId, input.projectId);
+        return queryAnalyticsOverview(hosts, input.range, geoAvailable());
+      },
+    ),
+
+    breakdowns: orgScopedProcedure.edgeLogs.analytics.breakdowns.handler(
+      async ({ input, context }) => {
+        const hosts = await resolveHosts(context.activeOrganizationId, input.projectId);
+        const { breakdowns, flags } = await queryAnalyticsBreakdowns(
+          hosts,
+          input.range,
+          geoAvailable(),
+        );
+        return { ...breakdowns, flags };
+      },
+    ),
+  },
+
   events: {
     query: orgScopedProcedure.edgeLogs.events.query.handler(async ({ input, context }) => {
       const orgId = context.activeOrganizationId;

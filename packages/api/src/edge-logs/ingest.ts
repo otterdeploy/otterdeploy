@@ -11,6 +11,7 @@
 import { isJsonObject } from "@otterdeploy/shared/json";
 import { log } from "evlog";
 
+import { recordAnalytics } from "./aggregate";
 import { promoteCertEvent } from "./cert-promote";
 import { parseCaddyEvent } from "./event-parse";
 import { enqueueEdgeEvent } from "./event-persist";
@@ -25,9 +26,10 @@ import { recordThreatProbe } from "./threat-rollup";
 // long-lived TCP server. Re-`Bun.listen`ing the same port would EADDRINUSE,
 // and the existing listener's data handler already writes into the shared
 // globalThis ring/persist state, so it stays correct after reload).
-const g = globalThis as typeof globalThis & {
-  __edgeLogSink?: { stop: (closeActiveConnections?: boolean) => void };
-};
+declare global {
+  var __edgeLogSink: { stop: (closeActiveConnections?: boolean) => void } | undefined;
+}
+const g = globalThis;
 
 export function startEdgeLogSink(port: number): void {
   if (g.__edgeLogSink) return;
@@ -99,6 +101,9 @@ function ingestLine(line: string): void {
     // and of the raw log's retention: this is what makes the Firewall panel's
     // history outlive the request lines it was derived from.
     recordThreatProbe(parsed);
+    // Analytics rollups (minute + day). Same independence: the Analytics
+    // surface answers 90-day windows after the raw partitions are gone.
+    recordAnalytics(parsed);
     return;
   }
 

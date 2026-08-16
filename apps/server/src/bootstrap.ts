@@ -9,6 +9,8 @@ import { reconcile } from "@otterdeploy/api/caddy";
 import {
   startEdgeLogPersistence,
   startEdgeLogSink,
+  maybeBackfillAnalytics,
+  startEdgeAnalytics,
   startThreatRollup,
   stopThreatRollup,
 } from "@otterdeploy/api/edge-logs";
@@ -20,7 +22,7 @@ import { initializeSwarm } from "@otterdeploy/api/swarm";
 import { reloadAuth } from "@otterdeploy/auth";
 import { runMigrations } from "@otterdeploy/db/migrate";
 import { env } from "@otterdeploy/env/server";
-import { createWorkers, jobs as allJobs, type ProvisionServerPayload } from "@otterdeploy/jobs";
+import { createWorkers, jobs as allJobs, ProvisionServerPayload } from "@otterdeploy/jobs";
 import { Result } from "better-result";
 import { log } from "evlog";
 
@@ -100,6 +102,13 @@ async function bootstrap() {
         // raw log's retention sweep. The Firewall panel's all-time view reads
         // them.
         startThreatRollup();
+        // Analytics rollups, always on for the same reason: the Analytics
+        // surface reads these, not the raw log. Async (seeds today's day rows
+        // first) and self-guarding: a failed seed logs and refuses to enable
+        // rather than risking a clobbering day flush. Once running, the
+        // one-shot backfill replays surviving raw days so the Analytics tab
+        // has history on the first deploy.
+        void startEdgeAnalytics().then(() => maybeBackfillAnalytics());
       },
       catch: (cause) => new BootstrapError({ step: "edge-log-sink", cause }),
     }).match({
@@ -192,7 +201,7 @@ async function bootstrap() {
             j.name === "server.provision"
               ? {
                   ...j,
-                  handler: (payload: unknown) => runProvisionJob(payload as ProvisionServerPayload),
+                  handler: (payload: unknown) => runProvisionJob(ProvisionServerPayload.parse(payload)),
                 }
               : j,
           ),

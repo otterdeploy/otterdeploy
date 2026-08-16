@@ -138,6 +138,93 @@ const requestSeriesResultSchema = z.object({
   sampled: z.boolean(),
 });
 
+// ─── Analytics (rollup-backed, any window) ────────────────────────────────
+
+/** Windows served entirely from the `edge_stat_*` rollups: cheap at every
+ *  size, unlike the raw-scan procedures above whose 10k-row cap silently
+ *  truncates long ranges. */
+const analyticsRange = z.enum(["24h", "7d", "30d", "90d"]);
+
+const analyticsInput = z.object({
+  /** Restrict to one project's domains; omitted ⇒ all the org's domains. */
+  projectId: zId("prj").optional(),
+  range: analyticsRange.default("24h"),
+});
+
+/** One series bucket. Percentiles come from merged latency histograms; null
+ *  when the bucket saw no requests (a p95 of nothing doesn't exist). */
+const analyticsSeriesBucketSchema = z.object({
+  /** ISO start of the bucket. */
+  t: z.string(),
+  requests: z.number(),
+  botRequests: z.number(),
+  s2xx: z.number(),
+  s3xx: z.number(),
+  s4xx: z.number(),
+  s5xx: z.number(),
+  sOther: z.number(),
+  resBytes: z.number(),
+  p50: z.number().nullable(),
+  p95: z.number().nullable(),
+  p99: z.number().nullable(),
+});
+
+const analyticsSummarySchema = z.object({
+  requests: z.number(),
+  botRequests: z.number(),
+  /** Sum of per-day distinct visitors. Deliberately NOT named "visitors":
+   *  per-day counts cannot be combined into a window-distinct figure, so this
+   *  is the honest upper bound and `peakDayVisitors` the exact lower bound. */
+  visitorDays: z.number(),
+  peakDayVisitors: z.number(),
+  bytesOut: z.number(),
+  avgLatencyMs: z.number().nullable(),
+  p50: z.number().nullable(),
+  p95: z.number().nullable(),
+  p99: z.number().nullable(),
+  /** 4xx+5xx over total, 0..1. */
+  errorRate: z.number(),
+  hostCount: z.number(),
+});
+
+const analyticsFlagsSchema = z.object({
+  /** Some day in the window is degraded: visitor-set eviction or a
+   *  restart-reseed. Numbers are honest floors, not measurements. */
+  approximate: z.boolean(),
+  /** "rollup+live" when the current in-process accumulator was merged in. */
+  source: z.enum(["rollup", "rollup+live"]),
+  /** False ⇒ no GeoIP database configured: an empty countries list means
+   *  "unknown", never "no visitors". */
+  geoAvailable: z.boolean(),
+});
+
+const analyticsOverviewResultSchema = z.object({
+  series: z.array(analyticsSeriesBucketSchema),
+  bucketSeconds: z.number(),
+  summary: analyticsSummarySchema,
+  flags: analyticsFlagsSchema,
+});
+
+const analyticsTopEntrySchema = z.object({
+  key: z.string(),
+  count: z.number(),
+});
+
+const analyticsBreakdownsResultSchema = z.object({
+  statuses: z.array(analyticsTopEntrySchema),
+  paths: z.array(analyticsTopEntrySchema),
+  referrers: z.array(analyticsTopEntrySchema),
+  countries: z.array(analyticsTopEntrySchema),
+  browsers: z.array(analyticsTopEntrySchema),
+  oses: z.array(analyticsTopEntrySchema),
+  deviceTypes: z.array(analyticsTopEntrySchema),
+  /** Breakdowns are day-granular: the UTC days intersecting the range. For
+   *  "24h" that is typically 2 calendar days — the UI labels this honestly
+   *  instead of pretending sub-day precision. */
+  breakdownDays: z.number(),
+  flags: analyticsFlagsSchema,
+});
+
 // ─── Operational log plane (Phase 3) ──────────────────────────────────────
 
 const eventCategory = z.enum(["cert", "upstream", "config", "other"]);
@@ -203,6 +290,20 @@ export const edgeLogsContract = {
     .meta({ path: "/edge-logs/request-series", tag, method: "GET" })
     .input(requestSeriesInput)
     .output(requestSeriesResultSchema),
+
+  // Traffic analytics from the ingest-time rollups: any window, exact counts,
+  // no raw-row scans. Same org host-scope guard as everything above.
+  analytics: {
+    overview: oc
+      .meta({ path: "/edge-logs/analytics/overview", tag, method: "GET" })
+      .input(analyticsInput)
+      .output(analyticsOverviewResultSchema),
+
+    breakdowns: oc
+      .meta({ path: "/edge-logs/analytics/breakdowns", tag, method: "GET" })
+      .input(analyticsInput)
+      .output(analyticsBreakdownsResultSchema),
+  },
 
   // Operational events (cert/ACME, upstream errors): the second Caddy log
   // plane. Same org host-scope guard as access logs.

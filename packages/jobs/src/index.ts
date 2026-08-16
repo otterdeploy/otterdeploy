@@ -24,8 +24,10 @@ export type {
   DataProcessingPayload,
   UserSignupPayload,
   DeployTriggeredPayload,
-  ProvisionServerPayload,
 } from "./triggers";
+// Value export (zod schema + its inferred type): the server's worker registry
+// parses queue payloads with it instead of casting.
+export { ProvisionServerPayload } from "./jobs/provision";
 export { buildWebhookBody } from "./jobs/webhook";
 
 // Worker + queue lifecycle (apps/server boot/shutdown).
