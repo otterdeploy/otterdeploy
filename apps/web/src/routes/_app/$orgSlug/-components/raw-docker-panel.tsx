@@ -17,8 +17,14 @@ import { Tabs, TabsContent } from "@/shared/components/ui/tabs";
 import { orpc } from "@/shared/server/orpc";
 
 import { ConfirmRemoveDialog } from "./docker-dialogs";
+import { DockerEventsFeed } from "./docker-events-feed";
 import { formatBytes } from "./docker-format";
-import { DockerPageHeader, ManagerScopeCaption, type DockerTab } from "./docker-page-header";
+import {
+  DockerPageHeader,
+  ManagerScopeCaption,
+  toDockerTab,
+  type DockerTab,
+} from "./docker-page-header";
 import { ContainersTable } from "./docker-table-containers";
 import { ImagesTable } from "./docker-table-images";
 import { NetworksTable } from "./docker-table-networks";
@@ -154,6 +160,8 @@ export function RawDockerPanel({
     ["volumes", "Volumes", volumes.data?.volumes.length],
     ["networks", "Networks", networks.data?.length],
     ["tasks", "Tasks", tasks.data?.length],
+    // No count — the feed is a live stream, not an inventory.
+    ["events", "Events", undefined],
   ];
 
   const nodeItems = [
@@ -167,7 +175,7 @@ export function RawDockerPanel({
   return (
     <Tabs
       value={tab}
-      onValueChange={(v) => setTab(v as DockerTab)}
+      onValueChange={(v) => setTab(toDockerTab(v))}
       className="flex min-w-0 flex-1 flex-col gap-0"
     >
       <DockerPageHeader
@@ -211,6 +219,15 @@ export function RawDockerPanel({
             service.
           </p>
           <TasksTable query={filteredTasks} nodeNames={nodeNames} />
+        </TabsContent>
+        <TabsContent value="events">
+          <p className="mb-3 text-xs text-muted-foreground">
+            Everything the docker daemon reports in real time — container lifecycle, image pulls,
+            network and volume changes. History is buffered in this tab only.
+          </p>
+          {/* Mount-gated so the stream only subscribes while this tab is
+              active; leaving the tab aborts the daemon connection. */}
+          {tab === "events" && <DockerEventsFeed />}
         </TabsContent>
       </div>
 

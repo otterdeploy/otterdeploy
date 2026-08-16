@@ -1,4 +1,4 @@
-import { oc } from "@orpc/contract";
+import { eventIterator, oc } from "@orpc/contract";
 import * as z from "zod";
 
 const tag = "docker";
@@ -161,6 +161,36 @@ const networkInspectSchema = z.object({
   attachedContainers: z.number(),
 });
 
+/** Daemon object classes the events feed distinguishes. The normalizer only
+ *  types container/service/task/network/node; image and volume come off the
+ *  raw payload, and anything else (plugin, config, secret, daemon, future
+ *  types) lands in "unknown". */
+const dockerEventTypeSchema = z.enum([
+  "container",
+  "service",
+  "task",
+  "network",
+  "node",
+  "image",
+  "volume",
+  "unknown",
+]);
+
+/** One daemon event, flattened for display — no nested Actor, no raw echo. */
+const dockerEventSchema = z.object({
+  /** Daemon event timestamp, epoch milliseconds. */
+  ts: z.number(),
+  type: dockerEventTypeSchema,
+  /** Daemon action verb — `start`, `die`, `pull`, `connect`, … */
+  action: z.string(),
+  actorId: z.string(),
+  /** Human name when the daemon reports one (container/service/network name,
+   *  image ref); null for events that only carry an id. */
+  actorName: z.string().nullable(),
+  /** Actor attributes as the daemon sent them — labels, exitCode, signal, … */
+  attributes: z.record(z.string(), z.string()),
+});
+
 const listContainersInput = z.object({
   all: z.boolean().optional(),
 });
@@ -259,6 +289,15 @@ export const dockerContract = {
       .meta({ path: `${basePath}/tasks`, tag, method: "GET" })
       .input(z.object({}))
       .output(z.array(taskSchema)),
+  },
+  events: {
+    stream: oc
+      .errors(serverError)
+      .meta({ path: `${basePath}/events/stream`, tag, method: "GET" })
+      // Optional server-side narrowing; the web UI streams everything and
+      // filters client-side so toggling a chip never tears the buffer.
+      .input(z.object({ types: z.array(dockerEventTypeSchema).optional() }))
+      .output(eventIterator(dockerEventSchema)),
   },
   nodes: {
     list: oc
