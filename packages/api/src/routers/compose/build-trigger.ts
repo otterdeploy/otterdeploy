@@ -14,6 +14,7 @@ import { createHash } from "node:crypto";
 
 import { type BranchHead, fetchBranchHead } from "../../git/github-app";
 import { resolveRepoCloneBinding } from "../../git/repo-binding";
+import { resolveBuildLane } from "../../lib/build-lane";
 import { parseGitHubUrl } from "./util";
 
 /**
@@ -99,13 +100,18 @@ export async function enqueueComposeBuild(input: {
     })
     .returning({ id: deployment.id });
 
-  await triggerDeploy({
-    projectId: input.projectId,
-    gitRepoId: input.gitRepoId ?? input.resourceId,
-    ref: input.gitRef,
-    sha,
-    deploymentIds: [dep?.id ?? ""],
-  });
+  await triggerDeploy(
+    {
+      projectId: input.projectId,
+      gitRepoId: input.gitRepoId ?? input.resourceId,
+      ref: input.gitRef,
+      sha,
+      deploymentIds: [dep?.id ?? ""],
+    },
+    undefined,
+    // Route to the project's build server lane, if it has a dedicated one.
+    await resolveBuildLane(input.projectId),
+  );
   return Result.ok({ sha });
 }
 
@@ -136,13 +142,17 @@ export async function enqueueInlineComposeBuild(input: {
     })
     .returning({ id: deployment.id });
 
-  await triggerDeploy({
-    projectId: input.projectId,
-    // Correlation-only (no repo) — the builder loads everything off the row.
-    gitRepoId: input.resourceId,
-    ref: "inline",
-    sha,
-    deploymentIds: [dep?.id ?? ""],
-  });
+  await triggerDeploy(
+    {
+      projectId: input.projectId,
+      // Correlation-only (no repo) — the builder loads everything off the row.
+      gitRepoId: input.resourceId,
+      ref: "inline",
+      sha,
+      deploymentIds: [dep?.id ?? ""],
+    },
+    undefined,
+    await resolveBuildLane(input.projectId),
+  );
   return Result.ok({ sha });
 }

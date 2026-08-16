@@ -251,6 +251,21 @@ export const env = createEnv({
     // docker builds from contending on the daemon.
     BUILDER_CONCURRENCY: z.coerce.number().int().positive().default(1),
 
+    // Which deploy lane this builder process drains (packages/jobs/src/lanes.ts).
+    // "default" (the default) consumes the shared `deploy.triggered` queue, so a
+    // single-builder install needs no configuration and behaves exactly as
+    // before lanes existed. A named lane consumes `deploy.triggered.<lane>`
+    // instead: run one builder per dedicated build server, give each the lane
+    // name here, and set the matching `server.build_lane` column so projects
+    // placed on that server enqueue to it. Lowercase letters/digits/hyphens,
+    // ≤63 chars — kept queue-name and DNS-label safe.
+    BUILDER_LANE: z
+      .string()
+      .min(1)
+      .max(63)
+      .regex(/^[a-z0-9-]+$/)
+      .default("default"),
+
     // Per-build isolation: each deployment runs in a throwaway "helper"
     // container (Coolify-style) the worker spawns via `docker run --rm`.
     // IMAGE is what it runs (the builder image itself, which carries the

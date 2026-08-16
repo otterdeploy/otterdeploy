@@ -30,7 +30,16 @@ export { buildWebhookBody } from "./jobs/webhook";
 
 // Worker + queue lifecycle (apps/server boot/shutdown).
 export { createWorkers } from "./workers";
-export { getAllQueues, getQueue, closeQueues } from "./queues";
+export { getAllQueues, getQueue, getDeployQueue, allDeployQueues, closeQueues } from "./queues";
+
+// Deploy lanes — per-build-node queues (see lanes.ts).
+export {
+  DEFAULT_DEPLOY_LANE,
+  deployQueueName,
+  isDeployLaneName,
+  listDeployLanes,
+  registerDeployLane,
+} from "./lanes";
 
 // Dashboard.
 export { workbenchQueues } from "./dashboard";

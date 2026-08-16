@@ -122,7 +122,7 @@ function makeDb(rows: Row[], joins: Record<string, JoinInfo> = {}) {
     const builder: UnknownRecord = {
       set: (fields: Partial<Row>) => {
         setFields = fields;
-        nextStatus = (fields.status as Status) ?? "failed";
+        nextStatus = fields.status ?? "failed";
         return builder;
       },
       where: (pred: { __id?: string; __allowed?: Status[] }) => {
@@ -194,7 +194,8 @@ function makeGetQueue(ownedDeploymentIds: string[][]) {
   const getJobs = mock(async () =>
     ownedDeploymentIds.map((deploymentIds) => ({ data: { deploymentIds } })),
   );
-  const getQueue = mock(() => ({ getJobs })) as never;
+  // Structurally satisfies reconcile's DeployQueueLike — no assertion needed.
+  const getQueue = mock(() => ({ getJobs }));
   return { getQueue, getJobs };
 }
 
@@ -202,10 +203,14 @@ function makeGetQueue(ownedDeploymentIds: string[][]) {
 // emitEvent is injected per call rather than module-mocked, so reconcile's
 // import graph never pulls in the notification/email delivery stack.
 
-const triggerSpy = mock(async (_event: unknown) => undefined as unknown);
+const triggerSpy = mock(async (_event: unknown): Promise<unknown> => undefined);
 
 // always-acquire lock for the happy paths
 const acquire = () => Promise.resolve(async () => undefined);
+
+// Deterministic lane discovery — the default listDeployLanes reads a Redis
+// set, and these tests must run without Redis (or env) present.
+const lanes = () => Promise.resolve(["default"]);
 
 beforeAll(async () => {
   ({ reconcileInterruptedDeployments } = await import("../reconcile"));
@@ -228,6 +233,7 @@ describe("reconcileInterruptedDeployments", () => {
     const summary = await reconcileInterruptedDeployments({
       db,
       getQueue,
+      listLanes: lanes,
       acquireLock: acquire,
       emitEvent: triggerSpy,
     });
@@ -252,6 +258,7 @@ describe("reconcileInterruptedDeployments", () => {
     const summary = await reconcileInterruptedDeployments({
       db,
       getQueue,
+      listLanes: lanes,
       acquireLock: acquire,
       emitEvent: triggerSpy,
     });
@@ -268,6 +275,7 @@ describe("reconcileInterruptedDeployments", () => {
     const summary = await reconcileInterruptedDeployments({
       db,
       getQueue,
+      listLanes: lanes,
       acquireLock: acquire,
       emit: false,
     });
@@ -287,6 +295,7 @@ describe("reconcileInterruptedDeployments", () => {
     const summary = await reconcileInterruptedDeployments({
       db,
       getQueue,
+      listLanes: lanes,
       acquireLock: acquire,
       emit: false,
     });
@@ -308,6 +317,7 @@ describe("reconcileInterruptedDeployments", () => {
     const summary = await reconcileInterruptedDeployments({
       db,
       getQueue,
+      listLanes: lanes,
       acquireLock: acquire,
       emit: false,
     });
@@ -325,6 +335,7 @@ describe("reconcileInterruptedDeployments", () => {
     const first = await reconcileInterruptedDeployments({
       db,
       getQueue,
+      listLanes: lanes,
       acquireLock: acquire,
       emit: false,
     });
@@ -333,6 +344,7 @@ describe("reconcileInterruptedDeployments", () => {
     const second = await reconcileInterruptedDeployments({
       db,
       getQueue,
+      listLanes: lanes,
       acquireLock: acquire,
       emit: false,
     });
@@ -347,6 +359,7 @@ describe("reconcileInterruptedDeployments", () => {
     const summary = await reconcileInterruptedDeployments({
       db,
       getQueue,
+      listLanes: lanes,
       acquireLock: () => Promise.resolve(null), // lock held elsewhere
       emitEvent: triggerSpy,
     });
@@ -370,6 +383,7 @@ describe("reconcileInterruptedDeployments", () => {
     const summary = await reconcileInterruptedDeployments({
       db,
       getQueue,
+      listLanes: lanes,
       acquireLock: acquire,
       emitEvent: triggerSpy,
     });
@@ -377,5 +391,34 @@ describe("reconcileInterruptedDeployments", () => {
     expect(summary.failed).toBe(1);
     expect(firstRow(rows).status).toBe("failed");
     expect(triggerSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("(i) a job on a NAMED lane's queue still protects its row from the orphan scan", async () => {
+    const { db, rows } = makeDb([
+      { id: "d1", resourceId: "r1", status: "building", createdAt: 1 },
+      { id: "d2", resourceId: "r2", status: "pending", createdAt: 1 },
+    ]);
+    // Per-queue ownership: the default queue is empty, the fast lane owns d1.
+    const jobsByQueue: Record<string, string[][]> = {
+      "deploy.triggered": [],
+      "deploy.triggered.fast": [["d1"]],
+    };
+    const getQueue = mock((name: string) => ({
+      getJobs: async () =>
+        (jobsByQueue[name] ?? []).map((deploymentIds) => ({ data: { deploymentIds } })),
+    }));
+
+    const summary = await reconcileInterruptedDeployments({
+      db,
+      getQueue,
+      listLanes: () => Promise.resolve(["default", "fast"]),
+      acquireLock: acquire,
+      emit: false,
+    });
+
+    // d1 is owned by the fast lane → untouched; d2 is owned by nothing → reset.
+    expect(summary.failed).toBe(1);
+    expect(rowById(rows, "d1").status).toBe("building");
+    expect(rowById(rows, "d2").status).toBe("failed");
   });
 });

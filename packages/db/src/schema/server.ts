@@ -108,6 +108,13 @@ export const server = pgTable(
     // build workloads can be placed on it, off the deploy nodes. Image hand-off
     // is via a registry (build here, deploy nodes pull) — see the design doc.
     buildServer: boolean("build_server").notNull().default(false),
+    // Name of the deploy lane a dedicated builder on this server drains — the
+    // BUILDER_LANE of the builder process running there (lowercase [a-z0-9-],
+    // ≤63 chars). NULL = projects placed on this server build on the shared
+    // default lane. Only consulted when buildServer is true; resolveBuildLane
+    // (packages/api/src/lib/build-lane.ts) maps a project's placement server
+    // to this lane at enqueue time.
+    buildLane: text("build_lane"),
     // Host-firewall provisioning state (nftables baseline + native CrowdSec
     // bouncer) — see host-firewall.ts's isFirewallDrifted(). Set by
     // provision-runner.ts on join and by the reapplyFirewall remediation

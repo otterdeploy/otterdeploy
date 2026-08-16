@@ -4,6 +4,8 @@ import type { RequestLogger } from "evlog";
 import { db } from "@otterdeploy/db";
 import { deployment } from "@otterdeploy/db/schema/project";
 import { triggerDeploy } from "@otterdeploy/jobs";
+
+import { resolveBuildLane } from "../../lib/build-lane";
 /**
  * Reconcile a compose stack declared in the project manifest. Called by the
  * manifest reconciler (routers/project/manifest-apply.ts) when a `compose`
@@ -172,14 +174,19 @@ async function createGitStackFromManifest(
     })
     .returning({ id: deployment.id });
 
-  await triggerDeploy({
-    projectId,
-    // Real binding when picked (correlation); else the resource id.
-    gitRepoId: gitRepoId ?? created.value.resource.id,
-    ref,
-    sha: head.sha,
-    deploymentIds: [dep?.id ?? ""],
-  });
+  await triggerDeploy(
+    {
+      projectId,
+      // Real binding when picked (correlation); else the resource id.
+      gitRepoId: gitRepoId ?? created.value.resource.id,
+      ref,
+      sha: head.sha,
+      deploymentIds: [dep?.id ?? ""],
+    },
+    undefined,
+    // Route to the project's build server lane, if it has a dedicated one.
+    await resolveBuildLane(projectId),
+  );
   log.set({ manifestComposeBuild: { resourceId: created.value.resource.id, ref } });
   return Result.ok({ resourceId: created.value.resource.id as ResourceId });
 }

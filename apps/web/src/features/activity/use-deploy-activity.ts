@@ -48,6 +48,9 @@ export function useDeployActivity() {
     queued,
     total: building + queued,
     builderStalled: query.data?.builderStalled ?? false,
+    /** Per-deploy-lane queue occupancy. Empty on single-lane installs' idle
+     *  polls; more than one entry only when named build lanes exist. */
+    lanes: query.data?.lanes ?? [],
     /** Anything at all owed. Drives whether the pill renders and how fast the
      *  notification inbox polls. */
     busy: building + queued > 0,

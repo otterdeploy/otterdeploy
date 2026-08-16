@@ -1,6 +1,7 @@
 import { Queue } from "bullmq";
 
 import { getConnection } from "./connection";
+import { DEFAULT_DEPLOY_LANE, deployQueueName, listDeployLanes } from "./lanes";
 import { jobs } from "./registry";
 
 /**
@@ -21,6 +22,23 @@ export function getQueue(name: string): Queue {
 /** Eagerly build a Queue for every job. Useful for the dashboard. */
 export function getAllQueues(): Queue[] {
   return jobs.map((job) => getQueue(job.name));
+}
+
+/** The deploy queue for one lane. The default lane is the plain
+ *  `deploy.triggered` queue — same object the registry-derived paths use. */
+export function getDeployQueue(lane: string = DEFAULT_DEPLOY_LANE): Queue {
+  return getQueue(deployQueueName(lane));
+}
+
+/**
+ * Every deploy lane queue currently known — the default lane first, then any
+ * named lanes discovered via the Redis lane set. Readers that must not miss a
+ * build (in-flight watchdog, reconcile, activity, cancel) fan out over this
+ * instead of reading the single global queue.
+ */
+export async function allDeployQueues(): Promise<Queue[]> {
+  const lanes = await listDeployLanes();
+  return lanes.map((lane) => getDeployQueue(lane));
 }
 
 /** Close every cached queue. Call on shutdown. */

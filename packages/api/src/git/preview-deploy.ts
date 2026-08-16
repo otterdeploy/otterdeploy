@@ -13,6 +13,7 @@ import { triggerDeploy } from "@otterdeploy/jobs";
 import { Result } from "better-result";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 
+import { resolveBuildLane } from "../lib/build-lane";
 import { emitDeployStarted } from "../routers/project/deployments-emit";
 import { fetchBranchHead } from "./github-app";
 import { resolveInstallationId } from "./installation-id";
@@ -137,13 +138,18 @@ export async function triggerPreviewBuild(input: TriggerPreviewBuildInput): Prom
     }
   }
 
-  await triggerDeploy({
-    projectId: input.projectId,
-    gitRepoId: input.gitRepoId,
-    ref,
-    sha: input.sha,
-    previewId: input.previewId,
-    deploymentIds: inserted.map((d) => d.id),
-  });
+  await triggerDeploy(
+    {
+      projectId: input.projectId,
+      gitRepoId: input.gitRepoId,
+      ref,
+      sha: input.sha,
+      previewId: input.previewId,
+      deploymentIds: inserted.map((d) => d.id),
+    },
+    undefined,
+    // Route to the project's build server lane, if it has a dedicated one.
+    await resolveBuildLane(input.projectId),
+  );
   return inserted.length;
 }
