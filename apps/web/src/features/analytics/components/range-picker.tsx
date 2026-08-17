@@ -1,13 +1,17 @@
 /**
  * Window control: the preset toggle plus a real custom range. Presets are the
- * common reads; the popover's from/to pair covers "that incident last
- * Tuesday" without leaving the page. The selection is owned by the URL (the
- * route passes it down), so a custom window is shareable.
+ * common reads; the popover's calendar covers "that incident last Tuesday"
+ * without leaving the page. Custom windows are day-granular (start of the
+ * first day to end of the last), and the selection is owned by the URL, so a
+ * custom window is shareable.
  */
 
 import { useState } from "react";
 
+import { type DateRange } from "react-day-picker";
+
 import { Button } from "@/shared/components/ui/button";
+import { Calendar } from "@/shared/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/components/ui/popover";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/components/ui/toggle-group";
 
@@ -26,19 +30,14 @@ function isPreset(value: string): value is AnalyticsRangeKey {
   return ANALYTICS_RANGES.some((range) => range === value);
 }
 
-/** Local-time value for <input type="datetime-local"> (minute precision). */
-function toLocalInput(ms: number): string {
-  const d = new Date(ms);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+const dayStamp = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
 
-const stamp = new Intl.DateTimeFormat(undefined, {
-  month: "short",
-  day: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
+function endOfDay(d: Date): number {
+  const end = new Date(d);
+  end.setHours(23, 59, 59, 999);
+  // A range ending today must not reach into the future.
+  return Math.min(end.getTime(), Date.now());
+}
 
 export function RangePicker({
   value,
@@ -48,14 +47,13 @@ export function RangePicker({
   onChange: (next: AnalyticsWindowSel) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [draftFrom, setDraftFrom] = useState(() =>
-    toLocalInput(value.from ?? Date.now() - 24 * 60 * 60 * 1000),
+  const [draft, setDraft] = useState<DateRange | undefined>(() =>
+    value.from !== undefined && value.to !== undefined
+      ? { from: new Date(value.from), to: new Date(value.to) }
+      : undefined,
   );
-  const [draftTo, setDraftTo] = useState(() => toLocalInput(value.to ?? Date.now()));
 
-  const fromMs = Date.parse(draftFrom);
-  const toMs = Date.parse(draftTo);
-  const draftValid = !Number.isNaN(fromMs) && !Number.isNaN(toMs) && fromMs < toMs;
+  const draftComplete = draft?.from !== undefined && draft.to !== undefined;
 
   return (
     <div className="flex items-center gap-2">
@@ -93,45 +91,39 @@ export function RangePicker({
           }
         >
           {value.range === "custom" && value.from !== undefined && value.to !== undefined
-            ? `${stamp.format(value.from)} – ${stamp.format(value.to)}`
+            ? `${dayStamp.format(value.from)} – ${dayStamp.format(value.to)}`
             : "Custom"}
         </PopoverTrigger>
-        <PopoverContent align="end" className="w-auto p-3">
-          <div className="flex flex-col gap-2.5">
-            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-              From
-              <input
-                type="datetime-local"
-                value={draftFrom}
-                max={draftTo}
-                onChange={(e) => setDraftFrom(e.target.value)}
-                className="rounded-md border bg-transparent px-2 py-1 font-mono text-xs text-foreground"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-              To
-              <input
-                type="datetime-local"
-                value={draftTo}
-                min={draftFrom}
-                onChange={(e) => setDraftTo(e.target.value)}
-                className="rounded-md border bg-transparent px-2 py-1 font-mono text-xs text-foreground"
-              />
-            </label>
-            <Button
-              size="sm"
-              disabled={!draftValid}
-              onClick={() => {
-                if (!draftValid) return;
-                onChange({ range: "custom", from: fromMs, to: toMs });
-                setOpen(false);
-              }}
-            >
-              Apply
-            </Button>
-            {!draftValid ? (
-              <p className="text-[11px] text-destructive">From must be before To.</p>
-            ) : null}
+        <PopoverContent align="end" className="w-auto p-2">
+          <div className="flex flex-col gap-2">
+            <Calendar
+              mode="range"
+              numberOfMonths={2}
+              selected={draft}
+              onSelect={setDraft}
+              disabled={{ after: new Date() }}
+              defaultMonth={draft?.from ?? new Date()}
+            />
+            <div className="flex items-center justify-between gap-2 px-1 pb-1">
+              <span className="font-mono text-[11px] text-muted-foreground">
+                {draftComplete && draft.from && draft.to
+                  ? `${dayStamp.format(draft.from)} – ${dayStamp.format(draft.to)}`
+                  : "Pick a start and end day."}
+              </span>
+              <Button
+                size="sm"
+                disabled={!draftComplete}
+                onClick={() => {
+                  if (!draft?.from || !draft.to) return;
+                  const from = new Date(draft.from);
+                  from.setHours(0, 0, 0, 0);
+                  onChange({ range: "custom", from: from.getTime(), to: endOfDay(draft.to) });
+                  setOpen(false);
+                }}
+              >
+                Apply
+              </Button>
+            </div>
           </div>
         </PopoverContent>
       </Popover>

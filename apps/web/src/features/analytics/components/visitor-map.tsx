@@ -94,10 +94,12 @@ export function VisitorMap({
 
       <div className="grid gap-2 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         {/* ── Map ─────────────────────────────────────────────────────── */}
-        <div className="relative px-2 pb-2">
+        <div className="relative flex items-center justify-center px-2 pb-2">
           <svg
             viewBox="0 12 360 150"
-            className="h-auto w-full"
+            // Height-capped: a full-width card would otherwise balloon to the
+            // map's natural aspect and dwarf everything else on the page.
+            className="h-auto max-h-80 w-full"
             role="img"
             aria-label="World map of visitor countries"
             onPointerLeave={() => setHover(null)}
@@ -143,7 +145,7 @@ export function VisitorMap({
         {/* ── Donut + ranked list ─────────────────────────────────────── */}
         <div className="flex flex-col gap-2 px-4 pb-3 lg:pr-4 lg:pl-0">
           {countries.length === 0 ? (
-            <p className="py-6 text-xs text-muted-foreground">
+            <p className="flex h-full min-h-32 items-center justify-center text-center text-xs text-muted-foreground">
               {geoAvailable
                 ? "No visitor countries in this window."
                 : "Countries appear here once GeoIP is configured."}

@@ -15,9 +15,12 @@ import { ANALYTICS_RANGES } from "@/features/analytics/analytics-model";
 import { AnalyticsView } from "@/features/analytics/components/analytics-view";
 import { projectCollection } from "@/features/projects/data/project";
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@/shared/components/ui/native-select";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
 const zAnalyticsSearch = z.object({
@@ -44,6 +47,38 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/analytics")({
   },
 });
 
+function ProjectFilter({
+  value,
+  allLabel,
+  projects,
+  onChange,
+}: {
+  value: string;
+  allLabel: string;
+  projects: ReadonlyArray<{ slug: string; name: string }>;
+  onChange: (slug: string) => void;
+}) {
+  // Base UI's <SelectValue> resolves the selected label through `items`.
+  const items = [
+    { value: "all", label: allLabel },
+    ...projects.map((p) => ({ value: p.slug, label: p.name })),
+  ];
+  return (
+    <Select items={items} value={value} onValueChange={(next) => onChange(next ?? value)}>
+      <SelectTrigger className="h-8 w-44 text-xs">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {items.map((item) => (
+          <SelectItem key={item.value} value={item.value}>
+            {item.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 function RouteComponent() {
   const { isInstallAdmin } = Route.useRouteContext();
   const { range, from, to, project } = Route.useSearch();
@@ -68,25 +103,12 @@ function RouteComponent() {
                 : "Requests, visitors, and response health across your organization's public domains."}
           </p>
         </div>
-        <label className="flex items-center gap-2 text-xs text-muted-foreground">
-          Project
-          <NativeSelect
-            value={project ?? "all"}
-            onChange={(e) =>
-              patch({ project: e.target.value === "all" ? undefined : e.target.value })
-            }
-            className="h-8 w-44 text-xs"
-          >
-            <NativeSelectOption value="all">
-              {isInstallAdmin ? "All (whole install)" : "All projects"}
-            </NativeSelectOption>
-            {projects.map((p) => (
-              <NativeSelectOption key={p.id} value={p.slug}>
-                {p.name}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        </label>
+        <ProjectFilter
+          value={project ?? "all"}
+          allLabel={isInstallAdmin ? "All (whole install)" : "All projects"}
+          projects={projects.map((p) => ({ slug: p.slug, name: p.name }))}
+          onChange={(slug) => patch({ project: slug === "all" ? undefined : slug })}
+        />
       </div>
       <AnalyticsView
         projectId={selected?.id}
