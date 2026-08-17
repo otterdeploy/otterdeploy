@@ -6,6 +6,8 @@
  */
 import { hkdfSync } from "node:crypto";
 
+import type { RusticRepo } from "./backends";
+
 /** GFS keep policy for `forget`. Maps 1:1 onto rustic's `--keep-*` flags. */
 export interface ForgetSpec {
   keepLast?: number;
@@ -58,7 +60,7 @@ export function buildForgetArgs(spec: ForgetSpec, filterTags: string[]): string[
 }
 
 /** Quote a value as a TOML basic string (escapes `\`, `"`, and controls). */
-export function tomlString(value: string): string {
+function tomlString(value: string): string {
   const escaped = value
     .replace(/\\/g, "\\\\")
     .replace(/"/g, '\\"')
@@ -66,6 +68,22 @@ export function tomlString(value: string): string {
     .replace(/\r/g, "\\r")
     .replace(/\t/g, "\\t");
   return `"${escaped}"`;
+}
+
+export function buildRusticProfile(repo: RusticRepo, password: string): string {
+  const lines = [
+    "[repository]",
+    `repository = ${tomlString(repo.repository)}`,
+    `password = ${tomlString(password)}`,
+  ];
+  const keys = Object.keys(repo.options);
+  if (keys.length > 0) {
+    lines.push("", "[repository.options]");
+    for (const key of keys) {
+      lines.push(`${key} = ${tomlString(repo.options[key] ?? "")}`);
+    }
+  }
+  return `${lines.join("\n")}\n`;
 }
 
 /** Does a rustic failure read as "wrong repository password"? Drives the

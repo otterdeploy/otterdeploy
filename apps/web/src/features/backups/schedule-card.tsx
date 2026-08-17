@@ -15,6 +15,8 @@ import {
   SquareLock01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { errorFromUnknown } from "@otterdeploy/shared/promise";
+import { Result } from "better-result";
 import { toast } from "sonner";
 
 import { Badge } from "@/shared/components/ui/badge";
@@ -29,37 +31,39 @@ import { cronHuman, retentionLabel } from "./labels";
 import { StatusBadge, encLabel, relTime } from "./shared";
 
 export function ScheduleCard({ schedule: s, onEdit }: { schedule: Schedule; onEdit: () => void }) {
-  const toggle = (checked: boolean) => {
+  const toggle = async (checked: boolean) => {
     const tx = schedulesCollection.update(s.id, (draft) => {
       draft.enabled = checked;
     });
-    tx.isPersisted.promise.catch((err: unknown) =>
-      toast.error(err instanceof Error ? err.message : "Couldn't update schedule"),
-    );
+    const persisted = await Result.tryPromise({
+      try: () => tx.isPersisted.promise,
+      catch: errorFromUnknown,
+    });
+    if (persisted.isErr()) toast.error(persisted.error.message);
   };
 
-  const remove = () => {
+  const remove = async () => {
     const tx = schedulesCollection.delete(s.id);
-    tx.isPersisted.promise
-      .then(() => toast.success("Schedule deleted"))
-      .catch((err: unknown) =>
-        toast.error(err instanceof Error ? err.message : "Couldn't delete schedule"),
-      );
+    const persisted = await Result.tryPromise({
+      try: () => tx.isPersisted.promise,
+      catch: errorFromUnknown,
+    });
+    if (persisted.isErr()) toast.error(persisted.error.message);
+    else toast.success("Schedule deleted");
   };
 
   const [running, setRunning] = useState(false);
-  const triggerRun = () => {
+  const triggerRun = async () => {
     setRunning(true);
-    runSchedule(s.id)
-      .then((res) =>
-        res.queued > 0
-          ? toast.success(`Queued ${res.queued} backup${res.queued === 1 ? "" : "s"}`)
-          : toast.info("No database sources resolved for this schedule"),
-      )
-      .catch((err: unknown) =>
-        toast.error(err instanceof Error ? err.message : "Couldn't run schedule"),
-      )
-      .finally(() => setRunning(false));
+    const run = await Result.tryPromise({
+      try: () => runSchedule(s.id),
+      catch: errorFromUnknown,
+    });
+    if (run.isErr()) toast.error(run.error.message);
+    else if (run.value.queued > 0) {
+      toast.success(`Queued ${run.value.queued} backup${run.value.queued === 1 ? "" : "s"}`);
+    } else toast.info("No database sources resolved for this schedule");
+    setRunning(false);
   };
 
   const encryption = encLabel(s.encryption);
@@ -148,7 +152,13 @@ export function ScheduleCard({ schedule: s, onEdit }: { schedule: Schedule; onEd
 }
 
 /** Last/next run + the policy badges (auto-verify, retry, encryption). */
-function ScheduleRunFooter({ schedule: s, encryption }: { schedule: Schedule; encryption: string }) {
+function ScheduleRunFooter({
+  schedule: s,
+  encryption,
+}: {
+  schedule: Schedule;
+  encryption: string;
+}) {
   return (
     <div className="flex items-end gap-4 border-t pt-3">
       <div className="flex flex-col gap-0.5">
@@ -161,7 +171,9 @@ function ScheduleRunFooter({ schedule: s, encryption }: { schedule: Schedule; en
           ) : (
             <span className="font-mono text-[11px] text-muted-foreground">never</span>
           )}
-          <span className="font-mono text-[11px] text-muted-foreground">{relTime(s.lastRunAt)}</span>
+          <span className="font-mono text-[11px] text-muted-foreground">
+            {relTime(s.lastRunAt)}
+          </span>
         </span>
       </div>
       <div className="flex flex-col gap-0.5">

@@ -4,7 +4,15 @@
  * budget; schedule-card is the consumer.
  */
 
-const CRON_WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const CRON_WEEKDAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
 
 const CRON_NICKNAMES: Record<string, string> = {
   "@hourly": "Every hour on the hour",

@@ -35,7 +35,7 @@ type Protection =
   | { kind: "unsupported" };
 
 /** Pure classifier so the row rendering stays declarative. */
-export function classifyProtection(db: CatalogDatabase, schedules: Schedule[]): Protection {
+function classifyProtection(db: CatalogDatabase, schedules: Schedule[]): Protection {
   if (db.engine === "redis") return { kind: "volume-only" };
   if (db.engine === "clickhouse") return { kind: "unsupported" };
   const covering = schedules.filter(
@@ -48,14 +48,20 @@ function ProtectionBadge({ p }: { p: Protection }) {
   switch (p.kind) {
     case "protected":
       return (
-        <Badge variant="outline" className="gap-1 border-success/30 bg-success/10 font-mono text-[10px] text-success">
+        <Badge
+          variant="outline"
+          className="gap-1 border-success/30 bg-success/10 font-mono text-[10px] text-success"
+        >
           <span className="size-1.5 rounded-full bg-current" />
           {p.schedules.length === 1 ? "protected" : `protected ×${p.schedules.length}`}
         </Badge>
       );
     case "unprotected":
       return (
-        <Badge variant="outline" className="gap-1 border-warning/30 bg-warning/10 font-mono text-[10px] text-warning">
+        <Badge
+          variant="outline"
+          className="gap-1 border-warning/30 bg-warning/10 font-mono text-[10px] text-warning"
+        >
           <span className="size-1.5 rounded-full bg-current" />
           not scheduled
         </Badge>
@@ -102,9 +108,7 @@ export function CoverageSection({
         />
         <div className="flex-1" />
         {unprotected > 0 && (
-          <span className="font-mono text-[11px] text-warning">
-            {unprotected} unprotected
-          </span>
+          <span className="font-mono text-[11px] text-warning">{unprotected} unprotected</span>
         )}
       </div>
 

@@ -39,8 +39,8 @@ Everything below landed after a code-level comparison against databasus
 (competitive analysis: the epic's artifact) and supersedes older statements in
 this doc where they conflict:
 
-- **Orchestration**: cron validated at the boundary by the same native parser
-  (`Bun.cron`, `packages/api/src/lib/cron.ts`) the scheduler fires with;
+- **Orchestration**: cron validated at the boundary by the same parser
+  (`cron-parser`, `packages/api/src/lib/cron.ts`) the scheduler fires with;
   single-in-flight lock per source (`backup_lock`, claim in `engine.ts`);
   boot-time reaper fails runs stranded `running` by a restart; per-schedule
   bounded retry (`maxRetries`); scheduler liveness folded into `/health`.

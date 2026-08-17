@@ -1,3 +1,4 @@
+import { errorFromUnknown } from "@otterdeploy/shared/promise";
 /**
  * Retention application for a schedule's snapshots, driven by the scheduler
  * after a successful pass. Two layers:
@@ -92,7 +93,7 @@ async function applyStorageCap(
           if (pruneIds.has(b.id)) await deleteBackupRow(b.id);
         }
       },
-      catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
+      catch: errorFromUnknown,
     });
     if (applied.isErr()) {
       log.error({
@@ -128,7 +129,7 @@ export async function applyRetention(schedule: DueSchedule): Promise<void> {
         await cli.forget(spec, filterTags);
         await reconcileRows(cli, rows);
       },
-      catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
+      catch: errorFromUnknown,
     });
     if (applied.isErr()) {
       log.error({

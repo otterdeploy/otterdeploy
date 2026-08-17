@@ -21,7 +21,7 @@ import {
   project,
   resource,
 } from "@otterdeploy/db/schema";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, lt, sql } from "drizzle-orm";
 
 // The execution-context read (source + destination + credentials → engine ctx)
 // lives in ./context; re-exported here so the engine's existing `./db` imports
@@ -109,9 +109,9 @@ export async function releaseBackupLock(backupId: BackupId): Promise<void> {
  * `running` (they can never complete: the dump pipeline lives in-process) and
  * clear all orphaned locks. Returns the failed rows so the caller can notify.
  */
-export async function reconcileInterruptedBackups(): Promise<
-  Array<{ id: BackupId; organizationId: OrganizationId }>
-> {
+export async function reconcileInterruptedBackups(
+  startedAt: Date,
+): Promise<Array<{ id: BackupId; organizationId: OrganizationId }>> {
   const rows = await db
     .update(backup)
     .set({
@@ -119,9 +119,9 @@ export async function reconcileInterruptedBackups(): Promise<
       completedAt: new Date(),
       errorMessage: "backup interrupted: the server restarted while this run was in progress",
     })
-    .where(inArray(backup.status, ["queued", "running"]))
+    .where(and(inArray(backup.status, ["queued", "running"]), lt(backup.createdAt, startedAt)))
     .returning({ id: backup.id, organizationId: backup.organizationId });
-  await db.delete(backupLock);
+  await db.delete(backupLock).where(lt(backupLock.claimedAt, startedAt));
   return rows;
 }
 

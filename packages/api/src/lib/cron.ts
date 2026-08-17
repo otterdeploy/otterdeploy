@@ -1,16 +1,20 @@
 /**
- * Cron parsing, backed by the native `Bun.cron.parse` (Bun ≥ 1.3): one parser
- * for BOTH boundary validation and scheduler math, so "valid at create time"
- * and "fires at run time" can never disagree. Throws from Bun carry
+ * Cron parsing, backed by the native `Bun.cron.parse` (Bun ≥ 1.3.12): one
+ * parser for BOTH boundary validation and scheduler math, so "valid at create
+ * time" and "fires at run time" can never disagree. Throws from Bun carry
  * field-level detail ("value out of range for field", "expected 5
  * space-separated fields…"), which the contract surfaces to the form as-is.
  *
  * Accepts the standard 5-field syntax plus `@hourly`/`@daily`/`@weekly`/
  * `@monthly`/`@yearly` nicknames. Seconds (6-field) are not supported.
+ *
+ * Runtime floor: CI and the server image both run Bun ≥ 1.3.14 (see
+ * .github/workflows/ci.yml and apps/server/Dockerfile BUN_VERSION); older
+ * runtimes lack `Bun.cron` entirely.
  */
 import { Result, TaggedError } from "better-result";
 
-export class InvalidCronError extends TaggedError("InvalidCronError")<{
+class InvalidCronError extends TaggedError("InvalidCronError")<{
   message: string;
   expression: string;
 }>() {

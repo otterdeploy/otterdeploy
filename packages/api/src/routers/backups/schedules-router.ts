@@ -1,6 +1,9 @@
+import type { OrganizationId } from "@otterdeploy/shared/id";
+
 import { orgScopedProcedure, requirePermission } from "../..";
 import { enforceProjectScope, enforceScheduleScope } from "../../authz/project-scope-guards";
 import { createBackupRun, executeBackup } from "../../backups";
+import { activeDestinationIdsFor } from "../../backups/destination-availability";
 import {
   createScheduleRecord,
   deleteScheduleRecord,
@@ -9,6 +12,23 @@ import {
 import { classifyScheduleSources, getScheduleRunTarget } from "../../backups/schedule-db";
 import { presentSchedule } from "./presenters";
 import { listSchedules, scheduleDestinationNames } from "./service";
+
+type ScheduleRecord = Awaited<ReturnType<typeof createScheduleRecord>>;
+
+async function presentScheduleWithDetails(
+  organizationId: OrganizationId,
+  schedule: ScheduleRecord,
+) {
+  const [destinationNames, resolution] = await Promise.all([
+    scheduleDestinationNames({ organizationId, ids: schedule.destinationIds }),
+    classifyScheduleSources(organizationId, schedule.sources),
+  ]);
+  return presentSchedule({
+    schedule,
+    destinationNames,
+    missingSources: resolution.missing,
+  });
+}
 
 export const backupSchedulesRouter = {
   list: orgScopedProcedure.backups.schedules.list.handler(async ({ context }) => {
@@ -19,43 +39,23 @@ export const backupSchedulesRouter = {
   }),
 
   create: requirePermission({ backup: ["create"] }).backups.schedules.create.handler(
-    async ({ input, context }) => {
+    async ({ input, context, errors }) => {
       enforceProjectScope(context, input.projectId);
+      const destinationIds = await activeDestinationIdsFor(
+        context.activeOrganizationId,
+        input.destinationIds,
+      );
+      if (destinationIds.length !== input.destinationIds.length) {
+        throw errors.INVALID_DESTINATION();
+      }
       const row = await createScheduleRecord({
+        ...input,
         organizationId: context.activeOrganizationId,
-        name: input.name,
-        sources: input.sources,
-        cron: input.cron,
-        destinationIds: input.destinationIds,
+        destinationIds,
         projectId: input.projectId ?? null,
-        keepLast: input.keepLast,
-        keepHourly: input.keepHourly,
-        keepDaily: input.keepDaily,
-        keepWeekly: input.keepWeekly,
-        keepMonthly: input.keepMonthly,
-        keepYearly: input.keepYearly,
-        retentionDays: input.retentionDays,
-        maxStorageGb: input.maxStorageGb,
-        preHook: input.preHook,
-        encryption: input.encryption,
-        enabled: input.enabled,
-        maxRetries: input.maxRetries,
-        verifyAfterBackup: input.verifyAfterBackup,
-        overdueAfterHours: input.overdueAfterHours,
       });
       context.log.set({ target: { type: "backup_schedule", id: row.id } });
-      const [destinationNames, resolution] = await Promise.all([
-        scheduleDestinationNames({
-          organizationId: context.activeOrganizationId,
-          ids: row.destinationIds,
-        }),
-        classifyScheduleSources(context.activeOrganizationId, row.sources),
-      ]);
-      return presentSchedule({
-        schedule: row,
-        destinationNames,
-        missingSources: resolution.missing,
-      });
+      return presentScheduleWithDetails(context.activeOrganizationId, row);
     },
   ),
 
@@ -63,39 +63,19 @@ export const backupSchedulesRouter = {
     async ({ input, context, errors }) => {
       context.log.set({ target: { type: "backup_schedule", id: input.id } });
       await enforceScheduleScope(context, input.id);
+      const destinationIds = input.destinationIds
+        ? await activeDestinationIdsFor(context.activeOrganizationId, input.destinationIds)
+        : undefined;
+      if (input.destinationIds && destinationIds?.length !== input.destinationIds.length) {
+        throw errors.INVALID_DESTINATION();
+      }
       const row = await updateScheduleRecord({
+        ...input,
         organizationId: context.activeOrganizationId,
-        id: input.id,
-        name: input.name,
-        sources: input.sources,
-        cron: input.cron,
-        keepLast: input.keepLast,
-        keepHourly: input.keepHourly,
-        keepDaily: input.keepDaily,
-        keepWeekly: input.keepWeekly,
-        keepMonthly: input.keepMonthly,
-        keepYearly: input.keepYearly,
-        retentionDays: input.retentionDays,
-        maxStorageGb: input.maxStorageGb,
-        preHook: input.preHook,
-        enabled: input.enabled,
-        maxRetries: input.maxRetries,
-        verifyAfterBackup: input.verifyAfterBackup,
-        overdueAfterHours: input.overdueAfterHours,
+        destinationIds,
       });
       if (!row) throw errors.NOT_FOUND();
-      const [destinationNames, resolution] = await Promise.all([
-        scheduleDestinationNames({
-          organizationId: context.activeOrganizationId,
-          ids: row.destinationIds,
-        }),
-        classifyScheduleSources(context.activeOrganizationId, row.sources),
-      ]);
-      return presentSchedule({
-        schedule: row,
-        destinationNames,
-        missingSources: resolution.missing,
-      });
+      return presentScheduleWithDetails(context.activeOrganizationId, row);
     },
   ),
 
@@ -127,9 +107,13 @@ export const backupSchedulesRouter = {
           data: { missing },
         });
       }
+      const destinationIds = await activeDestinationIdsFor(
+        context.activeOrganizationId,
+        schedule.destinationIds,
+      );
       let queued = 0;
       for (const { id: resourceId, kind } of resolved) {
-        for (const destinationId of schedule.destinationIds) {
+        for (const destinationId of destinationIds) {
           const id = await createBackupRun({
             organizationId: context.activeOrganizationId,
             source: { kind, resourceId },

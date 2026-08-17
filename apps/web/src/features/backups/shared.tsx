@@ -199,7 +199,8 @@ export function VerifiedBadge({ status }: { status: Backup["verifiedStatus"] }) 
       : status === "failed"
         ? "border-destructive/30 bg-destructive/10 text-destructive"
         : "border-info/30 bg-info/10 text-info";
-  const label = status === "passed" ? "verified" : status === "failed" ? "verify failed" : "verifying";
+  const label =
+    status === "passed" ? "verified" : status === "failed" ? "verify failed" : "verifying";
   return (
     <Badge variant="outline" className={cn("gap-1 font-mono text-[10px]", tone)}>
       <span className="size-1.5 rounded-full bg-current" />

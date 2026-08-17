@@ -142,7 +142,11 @@ export function restoreCommand(ctx: DumpTarget): { cmd: string[]; env: string[];
       // mysqldump emits plain SQL; the mysql client replays it. mariadb images
       // ship both `mysql` and `mariadb` client names; `mysql` exists on both.
       return {
-        cmd: ["sh", "-c", `exec mysql -u ${shellQuote(ctx.username)} ${shellQuote(ctx.databaseName)}`],
+        cmd: [
+          "sh",
+          "-c",
+          `exec mysql -u ${shellQuote(ctx.username)} ${shellQuote(ctx.databaseName)}`,
+        ],
         env: [`MYSQL_PWD=${ctx.password}`],
         method: "mysql < dump.sql",
       };

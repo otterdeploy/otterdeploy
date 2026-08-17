@@ -85,9 +85,7 @@ export const DEST_TYPE_FIELDS: Record<
       { key: "bucket", label: "Bucket", required: true },
       { key: "prefix", label: "Prefix (optional)", placeholder: "backups/" },
     ],
-    secret: [
-      { key: "credential", label: "Service-account JSON (base64)", multiline: true },
-    ],
+    secret: [{ key: "credential", label: "Service-account JSON (base64)", multiline: true }],
   },
 };
 

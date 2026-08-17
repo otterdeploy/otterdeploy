@@ -1,4 +1,6 @@
 import { env } from "@otterdeploy/env/server";
+import { errorFromUnknown } from "@otterdeploy/shared/promise";
+import { Result } from "better-result";
 /**
  * Thin wrapper around the `rustic` CLI (v0.11.3, GNU x86_64, vendored into the
  * server image, see apps/server/Dockerfile). rustic is the ONLY backup engine:
@@ -15,7 +17,7 @@ import { env } from "@otterdeploy/env/server";
  *     [repository.options]        # OpenDAL backend keys (bucket, root, …)
  *
  * and invokes `rustic -P <profilePathWithout.toml> <subcmd> …`. The profile is
- * unlinked in a `finally`. stderr is streamed line-by-line to a log callback so
+ * unlinked after every invocation. stderr is streamed line-by-line to a log callback so
  * a run's progress/errors land in the backup log; a non-zero exit rejects.
  *
  * The verified rustic command surface lives in docs/rustic-backup-implementation-plan.md §0.
@@ -26,7 +28,6 @@ import { unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable, Writable } from "node:stream";
-import { Result } from "better-result";
 import * as z from "zod";
 
 import type { RusticRepo } from "./backends";
@@ -34,15 +35,20 @@ import type { RusticRepo } from "./backends";
 import { masterSecretCandidates } from "../lib/crypto";
 import {
   type ForgetSpec,
+  buildRusticProfile,
   buildForgetArgs,
   deriveRepoPassword,
   isPasswordError,
-  tomlString,
 } from "./rustic-args";
 
 // Re-exported so existing importers (tests, retention-apply, scheduler) keep
 // their `./rustic` entry point.
-export { type ForgetSpec, buildForgetArgs, deriveRepoPassword, isPasswordError } from "./rustic-args";
+export {
+  type ForgetSpec,
+  buildForgetArgs,
+  deriveRepoPassword,
+  isPasswordError,
+} from "./rustic-args";
 
 /** Where run progress/errors are surfaced (matches the engine's log closure). */
 type LogFn = (stream: "stdout" | "stderr" | "system", line: string) => void | Promise<void>;
@@ -95,23 +101,6 @@ export class RusticCli {
     return [...new Set(base.map((s) => deriveRepoPassword(s, this.repo.passwordDomain)))];
   }
 
-  /** The config-profile TOML delivering repository URL, password, and backend options. */
-  private profileToml(password: string): string {
-    const lines = [
-      "[repository]",
-      `repository = ${tomlString(this.repo.repository)}`,
-      `password = ${tomlString(password)}`,
-    ];
-    const keys = Object.keys(this.repo.options);
-    if (keys.length > 0) {
-      lines.push("", "[repository.options]");
-      for (const key of keys) {
-        lines.push(`${key} = ${tomlString(this.repo.options[key] ?? "")}`);
-      }
-    }
-    return `${lines.join("\n")}\n`;
-  }
-
   /** Write the throwaway profile, run `rustic -P <base> <args>`, always unlink it. */
   private async runWithPassword(
     password: string,
@@ -121,12 +110,18 @@ export class RusticCli {
     const base = join(tmpdir(), `rustic-${randomBytes(12).toString("hex")}`);
     // `-P <base>` reads `<base>.toml` (verified). Write with the extension,
     // pass the extensionless base.
-    await writeFile(`${base}.toml`, this.profileToml(password), { mode: 0o600 });
-    try {
-      return await this.spawn(["-P", base, ...subArgs], opts);
-    } finally {
-      await unlink(`${base}.toml`).catch(() => undefined);
-    }
+    await writeFile(`${base}.toml`, buildRusticProfile(this.repo, password), { mode: 0o600 });
+    const spawned = await Result.tryPromise({
+      try: () => this.spawn(["-P", base, ...subArgs], opts),
+      catch: errorFromUnknown,
+    });
+    const cleaned = await Result.tryPromise({
+      try: () => unlink(`${base}.toml`),
+      catch: errorFromUnknown,
+    });
+    if (cleaned.isErr()) throw cleaned.error;
+    if (spawned.isErr()) throw spawned.error;
+    return spawned.value;
   }
 
   /**

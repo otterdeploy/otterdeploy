@@ -13,7 +13,9 @@
  */
 import { useState } from "react";
 
+import { errorFromUnknown } from "@otterdeploy/shared/promise";
 import { useLiveQuery } from "@tanstack/react-db";
+import { Result } from "better-result";
 import { toast } from "sonner";
 
 import { resourceCollection } from "@/features/resources/data/resource";
@@ -45,7 +47,7 @@ export function RestoreWizard({
 }
 
 /** Runs the chosen restore mode and reports the outcome; resolves either way. */
-function performRestore({
+async function performRestore({
   backup,
   mode,
   confirm,
@@ -66,26 +68,30 @@ function performRestore({
 }): Promise<void> {
   // `into` is `in-place` plus a target. The server has one destructive mode,
   // and `targetResourceId` is what redirects it.
-  return restoreBackup({
-    id: backup.id,
-    mode: mode === "download" ? "download" : "in-place",
-    confirm: mode === "download" ? undefined : confirm,
-    ...(mode === "into" && targetResourceId ? { targetResourceId } : {}),
-  })
-    .then((res) => {
-      if (mode === "download") {
-        if (res.data && res.filename) downloadBase64(res.data, res.filename);
-        else toast.error("Backup archive is unavailable");
-      } else if (mode === "into") {
-        toast.success(`Restored ${source} into ${targetName ?? "the selected database"}`);
-      } else {
-        toast.success(isVolume ? `Restored volume ${source}` : `Restored ${source} in place`);
-      }
-      onClose();
-    })
-    .catch((err: unknown) => {
-      toast.error(err instanceof Error ? err.message : "Restore failed");
-    });
+  const restored = await Result.tryPromise({
+    try: () =>
+      restoreBackup({
+        id: backup.id,
+        mode: mode === "download" ? "download" : "in-place",
+        confirm: mode === "download" ? undefined : confirm,
+        ...(mode === "into" && targetResourceId ? { targetResourceId } : {}),
+      }),
+    catch: errorFromUnknown,
+  });
+  if (restored.isErr()) {
+    toast.error(restored.error.message);
+    return;
+  }
+  if (mode === "download") {
+    if (restored.value.data && restored.value.filename) {
+      downloadBase64(restored.value.data, restored.value.filename);
+    } else toast.error("Backup archive is unavailable");
+  } else if (mode === "into") {
+    toast.success(`Restored ${source} into ${targetName ?? "the selected database"}`);
+  } else {
+    toast.success(isVolume ? `Restored volume ${source}` : `Restored ${source} in place`);
+  }
+  onClose();
 }
 
 /**

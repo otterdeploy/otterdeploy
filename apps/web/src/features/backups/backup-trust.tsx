@@ -9,7 +9,9 @@ import { useState } from "react";
 
 import { ShieldEnergyIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { errorFromUnknown } from "@otterdeploy/shared/promise";
 import { useQuery } from "@tanstack/react-query";
+import { Result } from "better-result";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/components/ui/button";
@@ -32,17 +34,18 @@ export function VerificationSection({ backup }: { backup: Backup }) {
 
   if (backup.kind !== "database") return null;
 
-  const startVerification = () => {
+  const startVerification = async () => {
     setStarting(true);
-    verifyRestore(backup.id)
-      .then(() => {
-        toast.success("Verification started: restoring the snapshot into a sandbox");
-        return queryClient.invalidateQueries({ queryKey: key.queryKey });
-      })
-      .catch((err: unknown) =>
-        toast.error(err instanceof Error ? err.message : "Couldn't start verification"),
-      )
-      .finally(() => setStarting(false));
+    const started = await Result.tryPromise({
+      try: async () => {
+        await verifyRestore(backup.id);
+        await queryClient.invalidateQueries({ queryKey: key.queryKey });
+      },
+      catch: errorFromUnknown,
+    });
+    if (started.isErr()) toast.error(started.error.message);
+    else toast.success("Verification started: restoring the snapshot into a sandbox");
+    setStarting(false);
   };
 
   return (
@@ -91,7 +94,9 @@ function VerificationRowView({ row, first }: { row: VerificationRow; first: bool
         ? "text-destructive"
         : "text-info";
   return (
-    <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-2.5 py-1.5 ${first ? "" : "border-t"}`}>
+    <div
+      className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-2.5 py-1.5 ${first ? "" : "border-t"}`}
+    >
       <span className={`font-mono text-[11px] font-medium ${tone}`}>{row.status}</span>
       <span className="font-mono text-[11px] text-muted-foreground">{relTime(row.createdAt)}</span>
       <span className="font-mono text-[10px] text-muted-foreground">{row.trigger}</span>
@@ -107,7 +112,10 @@ function VerificationRowView({ row, first }: { row: VerificationRow; first: bool
         </span>
       )}
       {row.failMessage && (
-        <span className="w-full truncate font-mono text-[11px] text-destructive" title={row.failMessage}>
+        <span
+          className="w-full truncate font-mono text-[11px] text-destructive"
+          title={row.failMessage}
+        >
           {row.failMessage}
         </span>
       )}

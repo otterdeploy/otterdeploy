@@ -1,6 +1,6 @@
 /**
  * Pure decision surfaces added by the production-hardening pass: cron
- * validation (native Bun.cron), retry backoff, overdue thresholds,
+ * validation, retry backoff, overdue thresholds,
  * restore-verification verdicts, per-engine restore commands, the probe repo
  * key, and the keyring-fallback password-error matcher.
  */
@@ -23,7 +23,7 @@ const HOUR = 3_600_000;
 const SCHEDULE_ID = createId(ID_PREFIX.backupSchedule);
 const ORG_ID = createId(ID_PREFIX.organization);
 
-describe("cron (Bun.cron-backed)", () => {
+describe("cron", () => {
   it("accepts standard 5-field expressions and nicknames", () => {
     expect(validateCron("*/15 * * * *").isOk()).toBe(true);
     expect(validateCron("0 4 * * MON-FRI").isOk()).toBe(true);
@@ -104,9 +104,9 @@ describe("overdue policy", () => {
 
 describe("verificationVerdict", () => {
   it("passes a clean restore with tables and a sane size ratio", () => {
-    expect(
-      verificationVerdict({ restoreExitCode: 0, tableCount: 12, sizeRatio: 1.4 }).passed,
-    ).toBe(true);
+    expect(verificationVerdict({ restoreExitCode: 0, tableCount: 12, sizeRatio: 1.4 }).passed).toBe(
+      true,
+    );
   });
 
   it("fails on a non-zero restore exit", () => {
@@ -116,9 +116,9 @@ describe("verificationVerdict", () => {
   });
 
   it("fails an empty restored database", () => {
-    expect(
-      verificationVerdict({ restoreExitCode: 0, tableCount: 0, sizeRatio: null }).passed,
-    ).toBe(false);
+    expect(verificationVerdict({ restoreExitCode: 0, tableCount: 0, sizeRatio: null }).passed).toBe(
+      false,
+    );
   });
 
   it("fails an implausibly small restore (databasus's 20% floor)", () => {
@@ -128,9 +128,9 @@ describe("verificationVerdict", () => {
   });
 
   it("tolerates an unknown ratio (no dump size recorded)", () => {
-    expect(
-      verificationVerdict({ restoreExitCode: 0, tableCount: 3, sizeRatio: null }).passed,
-    ).toBe(true);
+    expect(verificationVerdict({ restoreExitCode: 0, tableCount: 3, sizeRatio: null }).passed).toBe(
+      true,
+    );
   });
 });
 

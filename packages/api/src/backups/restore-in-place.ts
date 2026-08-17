@@ -141,7 +141,9 @@ export async function restoreDatabaseInPlace(
     filenameInSnapshot: "dump",
   });
   if (restore.exitCode !== 0) {
-    throw new Error(`${method} failed (exit ${restore.exitCode}): ${restore.stderr.slice(0, 2000)}`);
+    throw new Error(
+      `${method} failed (exit ${restore.exitCode}): ${restore.stderr.slice(0, 2000)}`,
+    );
   }
   return { ok: true };
 }

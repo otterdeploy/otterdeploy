@@ -72,6 +72,7 @@ export async function updateScheduleRecord(input: {
   name?: string;
   sources?: string[];
   cron?: string;
+  destinationIds?: BackupDestinationId[];
   keepLast?: number;
   keepHourly?: number;
   keepDaily?: number;
@@ -81,6 +82,7 @@ export async function updateScheduleRecord(input: {
   retentionDays?: number | null;
   maxStorageGb?: number | null;
   preHook?: string | null;
+  encryption?: "none" | "aes-256-gcm";
   enabled?: boolean;
   maxRetries?: number;
   verifyAfterBackup?: boolean;
@@ -90,6 +92,7 @@ export async function updateScheduleRecord(input: {
     name: input.name,
     sources: input.sources,
     cron: input.cron,
+    destinationIds: input.destinationIds,
     keepLast: input.keepLast,
     keepHourly: input.keepHourly,
     keepDaily: input.keepDaily,
@@ -99,6 +102,7 @@ export async function updateScheduleRecord(input: {
     retentionDays: input.retentionDays,
     maxStorageGb: input.maxStorageGb,
     preHook: input.preHook,
+    encryption: input.encryption,
     enabled: input.enabled,
     maxRetries: input.maxRetries,
     verifyAfterBackup: input.verifyAfterBackup,

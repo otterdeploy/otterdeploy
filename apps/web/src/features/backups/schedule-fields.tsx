@@ -7,8 +7,8 @@ import type { Destination } from "./data/destinations";
 
 import { SelectField, TextField } from "./form-fields";
 import { MultiSelectCombobox } from "./multi-combobox";
-import { ReliabilityFields, RetentionFields } from "./schedule-policy-fields";
 import { type ScheduleFormApi, cronFromPreset } from "./schedule-form";
+import { ReliabilityFields, RetentionFields } from "./schedule-policy-fields";
 import { Field, Segmented, destUri } from "./shared";
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];

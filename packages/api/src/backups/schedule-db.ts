@@ -15,13 +15,12 @@ import type {
 import { db } from "@otterdeploy/db";
 import {
   backup,
-  backupDestination,
   backupSchedule,
   databaseResource,
   project,
   resource,
 } from "@otterdeploy/db/schema";
-import { and, desc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, lte, or, sql } from "drizzle-orm";
 
 import { listStackDatabaseResources } from "./stack";
 
@@ -109,43 +108,6 @@ export async function getScheduleRunTarget(input: {
     )
     .limit(1);
   return row ?? null;
-}
-
-/**
- * Which of a schedule's `destinationIds` should a run actually write to?
- *
- * Pure so the rule is testable without a database. Two ids get dropped:
- *   - `disabled`: operator intent; the destination keeps its restorable
- *     snapshots but takes no new backups.
- *   - ids with no matching row: `destinationIds` is a plain jsonb array with no
- *     foreign key, so a deleted destination leaves a dangling id that would
- *     otherwise fail deep inside the engine instead of being skipped here.
- * `degraded` is deliberately kept: it's a health signal, not intent, and
- * dropping it would stop backups exactly when they matter most.
- *
- * Order is preserved so run ordering stays deterministic.
- */
-export function runnableDestinationIds(
-  ids: BackupDestinationId[],
-  rows: { id: BackupDestinationId; status: string }[],
-): BackupDestinationId[] {
-  const statusById = new Map(rows.map((r) => [r.id, r.status]));
-  return ids.filter((id) => {
-    const status = statusById.get(id);
-    return status !== undefined && status !== "disabled";
-  });
-}
-
-/** `runnableDestinationIds` against the live rows for those ids. */
-export async function activeDestinationIdsFor(
-  ids: BackupDestinationId[],
-): Promise<BackupDestinationId[]> {
-  if (ids.length === 0) return [];
-  const rows = await db
-    .select({ id: backupDestination.id, status: backupDestination.status })
-    .from(backupDestination)
-    .where(inArray(backupDestination.id, ids));
-  return runnableDestinationIds(ids, rows);
 }
 
 export async function updateScheduleAfterRun(

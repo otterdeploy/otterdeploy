@@ -72,6 +72,7 @@ const schedulesQueryOptions = queryCollectionOptions({
             name: c.name,
             sources: c.sources,
             cron: c.cron,
+            destinationIds: c.destinationIds,
             keepLast: c.keepLast,
             keepHourly: c.keepHourly,
             keepDaily: c.keepDaily,
@@ -81,6 +82,12 @@ const schedulesQueryOptions = queryCollectionOptions({
             retentionDays: c.retentionDays,
             maxStorageGb: c.maxStorageGb,
             preHook: c.preHook,
+            encryption:
+              c.encryption === undefined
+                ? undefined
+                : c.encryption === "none"
+                  ? "none"
+                  : "aes-256-gcm",
             enabled: c.enabled,
             maxRetries: c.maxRetries,
             verifyAfterBackup: c.verifyAfterBackup,

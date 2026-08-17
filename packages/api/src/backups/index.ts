@@ -7,11 +7,7 @@ export { executeBackup } from "./engine";
 export { restoreBackup, verifyBackup } from "./restore";
 export type { RestoreMode, VerifyResult } from "./restore";
 export { listRestores } from "./restore-db";
-export {
-  backupSchedulerLiveness,
-  runDueBackupSchedules,
-  startBackupScheduler,
-} from "./scheduler";
+export { backupSchedulerLiveness, runDueBackupSchedules, startBackupScheduler } from "./scheduler";
 export { createBackupRun, getDatabaseResourceInOrg, listBackupLogs } from "./db";
 export type { BackupRunSource } from "./db";
 export {

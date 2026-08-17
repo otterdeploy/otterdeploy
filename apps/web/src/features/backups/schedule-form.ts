@@ -9,7 +9,9 @@
  * scheduler fires with, so a saved schedule always actually fires).
  */
 import { ID_PREFIX, createId, idSchema } from "@otterdeploy/shared/id";
+import { errorFromUnknown } from "@otterdeploy/shared/promise";
 import { useForm } from "@tanstack/react-form";
+import { Result } from "better-result";
 import { toast } from "sonner";
 
 import type { Destination } from "./data/destinations";
@@ -28,7 +30,7 @@ export interface CronParts {
   dayOfMonth: number;
 }
 
-export const DEFAULT_PARTS: CronParts = { atHour: 3, weekday: 0, dayOfMonth: 1 };
+const DEFAULT_PARTS: CronParts = { atHour: 3, weekday: 0, dayOfMonth: 1 };
 
 /** Compile a preset + its knobs into the cron the scheduler fires with. */
 export function cronFromPreset(preset: Exclude<CronPreset, "custom">, parts: CronParts): string {
@@ -45,7 +47,7 @@ export function cronFromPreset(preset: Exclude<CronPreset, "custom">, parts: Cro
 }
 
 /** Recognize a stored cron as one of the presets (else `custom`). */
-export function presetFromCron(cron: string): { preset: CronPreset; parts: CronParts } {
+function presetFromCron(cron: string): { preset: CronPreset; parts: CronParts } {
   const parts = { ...DEFAULT_PARTS };
   const trimmed = cron.trim();
   if (trimmed === "0 * * * *") return { preset: "hourly", parts };
@@ -199,6 +201,7 @@ function saveSchedule(
       draft.name = value.name.trim();
       draft.sources = sources;
       draft.cron = cron;
+      draft.destinationIds = value.destinationIds.map((id) => idSchema.backupDestination.parse(id));
       draft.keepLast = value.keepLast;
       draft.keepHourly = value.keepHourly;
       draft.keepDaily = value.keepDaily;
@@ -208,6 +211,7 @@ function saveSchedule(
       draft.retentionDays = retentionDays;
       draft.maxStorageGb = maxStorageGb;
       draft.preHook = preHook;
+      draft.encryption = value.encryptionNone ? "none" : "aes-256-gcm";
       draft.enabled = value.enabled;
       draft.maxRetries = value.maxRetries;
       draft.verifyAfterBackup = value.verifyAfterBackup;
@@ -275,14 +279,15 @@ export function useScheduleForm({
       !editing && presetSources && presetSources.length > 0
         ? { ...defaults, sources: presetSources }
         : defaults,
-    onSubmit: ({ value }) => {
+    onSubmit: async ({ value }) => {
       const tx = saveSchedule(initial, organizationId, value, destinations);
       onClose();
-      tx.isPersisted.promise
-        .then(() => toast.success(editing ? "Schedule updated" : "Schedule created"))
-        .catch((err: unknown) =>
-          toast.error(err instanceof Error ? err.message : "Couldn't save schedule"),
-        );
+      const persisted = await Result.tryPromise({
+        try: () => tx.isPersisted.promise,
+        catch: errorFromUnknown,
+      });
+      if (persisted.isErr()) toast.error(persisted.error.message);
+      else toast.success(editing ? "Schedule updated" : "Schedule created");
     },
   });
 }

@@ -20,13 +20,13 @@ import { log } from "evlog";
 import { nextCronFire } from "../lib/cron";
 import { emitPlatformEvent } from "../notifications/emit";
 import { createBackupRun, getBackupStatus, reconcileInterruptedBackups } from "./db";
+import { activeDestinationIdsFor } from "./destination-availability";
 import { executeBackup } from "./engine";
 import { sweepOverdueSchedules } from "./overdue";
 import { applyRetention } from "./retention-apply";
 import {
   type DueSchedule,
   type ResolvedSource,
-  activeDestinationIdsFor,
   listDueSchedules,
   resolveScheduleSources,
   updateScheduleAfterRun,
@@ -93,7 +93,8 @@ export function backupSchedulerLiveness(): {
 } {
   const reference = lastTickAt ?? startedAt;
   const healthy =
-    startedAt == null || (reference != null && Date.now() - reference.getTime() < LIVENESS_STALL_MS);
+    startedAt == null ||
+    (reference != null && Date.now() - reference.getTime() < LIVENESS_STALL_MS);
   return { startedAt, lastTickAt, healthy };
 }
 
@@ -139,7 +140,10 @@ async function runSchedule(schedule: DueSchedule, now: Date): Promise<void> {
   const resolved = await resolveScheduleSources(schedule.organizationId, schedule.sources);
   // Operator intent is enforced here, at fan-out: a disabled destination stops
   // receiving new backups while its existing snapshots stay restorable.
-  const destinationIds = await activeDestinationIdsFor(schedule.destinationIds);
+  const destinationIds = await activeDestinationIdsFor(
+    schedule.organizationId,
+    schedule.destinationIds,
+  );
 
   // A due schedule that resolves to no runnable (source × destination) pair is
   // orphaned or misconfigured: record `failed`, not a benign placeholder.
@@ -171,10 +175,10 @@ async function runSchedule(schedule: DueSchedule, now: Date): Promise<void> {
 
 /** Boot-time crash recovery: fail runs the previous process left in flight,
  *  clear orphaned locks, and notify each affected org. */
-async function reconcileAtBoot(): Promise<void> {
+async function reconcileAtBoot(bootStartedAt: Date): Promise<void> {
   const outcome = await Result.tryPromise({
     try: async () => {
-      const failed = await reconcileInterruptedBackups();
+      const failed = await reconcileInterruptedBackups(bootStartedAt);
       if (failed.length === 0) return;
       log.warn({ backups: { reconcile: "interrupted-runs-failed", count: failed.length } });
       for (const run of failed) {
@@ -196,9 +200,10 @@ async function reconcileAtBoot(): Promise<void> {
 
 /** Start the periodic scanner. Returns a stop handle. */
 export function startBackupScheduler(intervalMs = 60_000): () => void {
-  startedAt = new Date();
+  const bootStartedAt = new Date();
+  startedAt = bootStartedAt;
   lastTickAt = null;
-  void reconcileAtBoot();
+  void reconcileAtBoot(bootStartedAt);
   const timer = setInterval(() => {
     lastTickAt = new Date();
     void runDueBackupSchedules();

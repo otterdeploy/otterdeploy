@@ -13,8 +13,6 @@ import type { JsonObject } from "@otterdeploy/shared/json";
 
 import { Result } from "better-result";
 
-import { decryptDestinationSecret, probeDestination } from "./destination-probe";
-
 import type { OrgRef } from "../scopes";
 import type { DestinationResult } from "./service";
 
@@ -24,6 +22,7 @@ import {
 } from "../../backups/managed-destination";
 import { encryptSecret } from "../../lib/crypto";
 import { missingConfigKeys, missingSecret } from "./destination-config";
+import { decryptDestinationSecret, probeDestination } from "./destination-probe";
 import {
   DestinationConfigInvalidError,
   DestinationInUseError,

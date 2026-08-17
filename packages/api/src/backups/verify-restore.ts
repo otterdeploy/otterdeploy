@@ -29,18 +29,18 @@ import { emitPlatformEvent } from "../notifications/emit";
 import { appendBackupLog, getExecutionContext } from "./db";
 import { findResourceContainerId } from "./exec";
 import {
+  createVerificationRun,
+  finishVerification,
+  markBackupVerifying,
+  markVerificationRunning,
+} from "./verify-db";
+import {
   type DatabaseContext,
   type Evidence,
   restoreAndInspect,
   toChecks,
   waitSandboxReady,
 } from "./verify-inspect";
-import {
-  createVerificationRun,
-  finishVerification,
-  markBackupVerifying,
-  markVerificationRunning,
-} from "./verify-db";
 
 /** Reject a restore whose resulting database is under this fraction of the
  *  dump's byte size (databasus uses the same 20% floor against source size). */
@@ -54,7 +54,6 @@ export interface VerificationCandidate {
   storagePath?: string | null;
   approach?: "logical" | "physical";
 }
-
 /** The one gate callers can pre-check: which runs verification can prove. */
 export function verificationSupport(ctx: VerificationCandidate): { ok: boolean; reason?: string } {
   if (ctx.kind === "volume") {
@@ -267,4 +266,3 @@ async function emitVerifyFailed(
     data: { backupId, resource: ctx.resourceName, project: ctx.projectSlug },
   });
 }
-

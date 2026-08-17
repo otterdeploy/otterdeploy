@@ -16,7 +16,6 @@ import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
 import { validateCron } from "../../lib/cron";
-
 import { zJsonObject } from "../../lib/z-json";
 import { projectIdField, resourceIdField } from "../project/contract/shared";
 import { volumeNameField } from "../volumes/contract";
@@ -32,15 +31,18 @@ const backupRestoreIdField = zId(ID_PREFIX.backupRestore);
 
 /** Cron expressions are validated at the boundary — an unparseable expression
  *  would otherwise be accepted, silently null the schedule's nextRunAt, and
- *  dead-end it forever with a green-looking row. Same native parser
- *  (Bun.cron) the scheduler fires with, so valid-here always means
- *  fires-there, and the error carries Bun's field-level reason. */
-const cronField = z.string().min(1).check((ctx) => {
-  const valid = validateCron(ctx.value);
-  if (valid.isErr()) {
-    ctx.issues.push({ code: "custom", message: valid.error.message, input: ctx.value });
-  }
-});
+ *  dead-end it forever with a green-looking row. The same parser drives
+ *  scheduler math, so valid-here always means fires-there, and the error
+ *  carries a field-level reason. */
+const cronField = z
+  .string()
+  .min(1)
+  .check((ctx) => {
+    const valid = validateCron(ctx.value);
+    if (valid.isErr()) {
+      ctx.issues.push({ code: "custom", message: valid.error.message, input: ctx.value });
+    }
+  });
 
 // "stack" exists only as a reserved DB-enum value with no engine. It is
 // deliberately NOT offered here (or in the UI filter).
@@ -246,6 +248,7 @@ const updateScheduleInput = z.object({
   name: z.string().min(1).max(120).optional(),
   sources: z.array(z.string()).optional(),
   cron: cronField.optional(),
+  destinationIds: z.array(backupDestinationIdField).min(1).optional(),
   keepLast: z.number().int().nonnegative().optional(),
   keepHourly: z.number().int().nonnegative().optional(),
   keepDaily: z.number().int().nonnegative().optional(),
@@ -255,6 +258,7 @@ const updateScheduleInput = z.object({
   retentionDays: z.number().int().positive().nullable().optional(),
   maxStorageGb: z.number().int().positive().nullable().optional(),
   preHook: z.string().max(2000).nullable().optional(),
+  encryption: z.enum(["none", "aes-256-gcm"]).optional(),
   enabled: z.boolean().optional(),
   maxRetries: z.number().int().min(0).max(5).optional(),
   verifyAfterBackup: z.boolean().optional(),
@@ -265,6 +269,13 @@ const scheduleIdInput = z.object({ id: backupScheduleIdField });
 
 const scheduleNotFound = {
   NOT_FOUND: { status: 404 as const, message: "Schedule not found" as const },
+};
+
+const scheduleInvalidDestination = {
+  INVALID_DESTINATION: {
+    status: 422 as const,
+    message: "Every destination must be active and belong to this organization" as const,
+  },
 };
 
 /** A manual run against an orphaned schedule. Every source ref has lost its
@@ -283,7 +294,7 @@ const backupRunNotFound = {
   NOT_FOUND: { status: 404 as const, message: "Backup not found" as const },
   INVALID: {
     status: 422 as const,
-    message: "Source is not a backupable database or volume" as const,
+    message: "Source or destination is not available to this organization" as const,
   },
 };
 
@@ -414,12 +425,13 @@ export const backupsContract = {
       .output(z.array(scheduleSchema)),
 
     create: oc
+      .errors(scheduleInvalidDestination)
       .meta({ path: `${basePath}/schedules`, tag, method: "POST" })
       .input(createScheduleInput)
       .output(scheduleSchema),
 
     update: oc
-      .errors(scheduleNotFound)
+      .errors({ ...scheduleNotFound, ...scheduleInvalidDestination })
       .meta({ path: `${basePath}/schedules/{id}`, tag, method: "PATCH" })
       .input(updateScheduleInput)
       .output(scheduleSchema),

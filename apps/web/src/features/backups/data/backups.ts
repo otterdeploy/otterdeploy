@@ -93,7 +93,4 @@ export async function verifyRestore(id: Backup["id"]) {
   return res;
 }
 
-export type VerificationRow = Awaited<
-  ReturnType<typeof orpc.backups.verifications.call>
->[number];
-export type RestoreRow = Awaited<ReturnType<typeof orpc.backups.restores.call>>[number];
+export type VerificationRow = Awaited<ReturnType<typeof orpc.backups.verifications.call>>[number];
