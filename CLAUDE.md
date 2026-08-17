@@ -82,8 +82,9 @@ otterdeploy/
   Do not blanket-disable the rule; a `// oxlint-disable-next-line` needs a comment
   justifying why the type system genuinely cannot express the fact (rare,
   third-party internals only).
-- **Legacy debt**: ~1,169 assertion sites predate this rule. Clean them up in any
-  file you touch; never add new ones. The repo-wide error count is the debt meter.
+- **Debt: PAID (2026-08-17).** The ~1,169 legacy assertion sites are gone; the
+  repo-wide oxlint error count is ZERO and the lint CI job gates on it. Keep it
+  at zero: never add a new assertion, and fix any that sneak in immediately.
 - **JSON boundaries are parsed, not cast.** Text → `parseJson(text, schema)`;
   already-decoded values → `parseWith(value, schema)`: both in
   `packages/api/src/lib/z-json.ts`, returning better-result typed errors
