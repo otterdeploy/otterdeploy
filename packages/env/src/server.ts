@@ -27,12 +27,12 @@ export const env = createEnv({
     BETTER_AUTH_URL: z.url(),
     BETTER_AUTH_SECRET: z.string().min(32),
 
-    // Data-encryption keyring (packages/api/src/lib/crypto.ts): separate
+    // Data-encryption keyring (packages/api/src/lib/crypto.ts) — separate
     // from BETTER_AUTH_SECRET (auth signing) by design, so the two can
     // rotate independently. Optional: an install with neither set falls
     // back to deriving every secret domain's key from BETTER_AUTH_SECRET
     // (zero-config default; each domain still gets its own HKDF-derived
-    // key). Format: "id:secret,id:secret,...": each secret must be >= 32
+    // key). Format: "id:secret,id:secret,..." — each secret must be >= 32
     // chars (fails closed at boot otherwise). Never remove an id that's
     // still referenced by stored ciphertext; add a new id + set
     // DATA_ENCRYPTION_KEY_ID to rotate instead. See
@@ -59,8 +59,8 @@ export const env = createEnv({
     RESEND_API_KEY: z.string().min(1).optional(),
     RESEND_FROM_EMAIL: z.email().default("onboarding@resend.dev"),
 
-    // Notification channels (packages/jobs notification.send). All optional.
-    // Every notification persists an in-app row regardless; these only enable
+    // Notification channels (packages/jobs notification.send). All optional —
+    // every notification persists an in-app row regardless; these only enable
     // the external push/sms fan-out. Twilio for SMS, FCM HTTP v1 for push.
     // Unset ⇒ that channel is a logged no-op (in-app row still written).
     TWILIO_ACCOUNT_SID: z.string().min(1).optional(),
@@ -75,7 +75,7 @@ export const env = createEnv({
     CADDY_ADMIN_URL: z.url().default(`unix://${defaultCaddySocketPath}`),
     CADDY_ADMIN_BIND: z.string().min(1).default(`unix/${defaultCaddySocketPath}|0600`),
 
-    // Public IP the swarm manager exposes, embedded in sslip.io fallback
+    // Public IP the swarm manager exposes — embedded in sslip.io fallback
     // domains (`<ip>.sslip.io`) so a fresh install resolves without the
     // operator owning a domain. Persisted to platform_settings.server_ip on
     // first boot: set here = operator override (used verbatim, never
@@ -86,8 +86,8 @@ export const env = createEnv({
 
     // Dev-only local wildcard base domain (e.g. `otterdeploy.localhost`).
     // When set AND NODE_ENV=development, exposed services resolve to
-    // `<resource>-<project>.<LOCAL_BASE_DOMAIN>`, which resolves to loopback
-    // and hits the Caddy edge on :443: instead of the `127.0.0.1.sslip.io`
+    // `<resource>-<project>.<LOCAL_BASE_DOMAIN>` — which resolves to loopback
+    // and hits the Caddy edge on :443 — instead of the `127.0.0.1.sslip.io`
     // form. Ignored in production (real installs issue ACME certs off
     // org/project domains, so the local wildcard must never leak in).
     //
@@ -113,7 +113,7 @@ export const env = createEnv({
     DEPLOY_AUTHZ_UPSTREAM: z.string().min(1).default("host.docker.internal:3000"),
     // Dev-only: bind a deterministic extra HTTP port for the control plane
     // so Caddy (in a container) can reach forward_auth/callback/share at a
-    // stable address: portless assigns the main server's port dynamically.
+    // stable address — portless assigns the main server's port dynamically.
     // Set this to the PORT in DEPLOY_AUTHZ_UPSTREAM (e.g. 3000). Unset in
     // production (the Swarm service has stable DNS).
     CONTROL_PLANE_PORT: z.coerce.number().int().positive().optional(),
@@ -121,11 +121,11 @@ export const env = createEnv({
     // Trusted-proxy allowlist for X-Forwarded-For / X-Forwarded-Proto
     // (packages/api/src/security/trusted-proxy.ts). A request's forwarding
     // headers are only honored when its IMMEDIATE TCP peer matches one of
-    // these bare IPs/CIDRs (comma-separated): otherwise they're ignored
+    // these bare IPs/CIDRs (comma-separated) — otherwise they're ignored
     // outright and the raw connection is authoritative, so a tenant workload
     // or a direct internet caller can never spoof its IP/scheme past rate
     // limits, IP allowlists, the firewall/blocklist, or audit-log
-    // attribution. Default: loopback only: safe with zero configuration
+    // attribution. Default: loopback only — safe with zero configuration
     // (matches the SSH-tunnel/localhost bootstrap path). The published prod
     // compose install writes the shared install network's actual subnet
     // here (scripts/install.sh `ensure_network` + `write_env`) so requests
@@ -139,31 +139,31 @@ export const env = createEnv({
     // equals it (docker-compose passes both as 3000) and skip binding a second,
     // colliding listener on the same port.
     PORT: z.coerce.number().int().positive().default(3000),
-    // Public URL of the web app, used to redirect unauthenticated
+    // Public URL of the web app — used to redirect unauthenticated
     // visitors of a protected deployment to the login page. The auth
     // *authority* (master session + getSession) is BETTER_AUTH_URL.
     PUBLIC_WEB_URL: z.url().optional(),
 
     // Public URL of the API/control plane as reachable from the *public
-    // internet*, used only where a third party must call back in (the
+    // internet* — used only where a third party must call back in (the
     // GitHub App manifest's webhook + callback URLs). In production this is
     // the same host as BETTER_AUTH_URL and can be left unset (the git flow
     // falls back to BETTER_AUTH_URL). In dev, BETTER_AUTH_URL is a private
     // `.localhost` address GitHub can't reach, so point this at your tunnel
     // (e.g. a Tailscale Funnel URL) to register a working App. Does NOT touch
-    // auth, CORS, or cookies: those stay anchored to BETTER_AUTH_URL.
+    // auth, CORS, or cookies — those stay anchored to BETTER_AUTH_URL.
     PUBLIC_API_URL: z.url().optional(),
 
     // Edge logs (packages/api/src/edge-logs). EDGE_LOG_SINK is the host:port
     // Caddy streams JSON to via `output net` (dev: host.docker.internal:9100;
-    // Swarm: server service DNS), BOTH the per-site access logs and, via the
+    // Swarm: server service DNS) — BOTH the per-site access logs and, via the
     // global default logger, the operational events (cert/ACME, upstream
-    // errors: Phase 3). EDGE_LOG_PORT is the port the server's TCP sink binds.
+    // errors — Phase 3). EDGE_LOG_PORT is the port the server's TCP sink binds.
     // Both unset ⇒ edge logging off (the Edge Logs page shows an empty tail).
     EDGE_LOG_SINK: z.string().min(1).optional(),
     EDGE_LOG_PORT: z.coerce.number().int().positive().default(9100),
     // Persist access logs to the edge_log table behind the live ring
-    // (Phase 2, enables 24h/7d ranges + percentiles across restarts).
+    // (Phase 2 — enables 24h/7d ranges + percentiles across restarts).
     // Default on whenever the sink is configured; set to false for a
     // pure in-memory tail.
     EDGE_LOG_PERSIST: z
@@ -172,8 +172,8 @@ export const env = createEnv({
       .default(true),
     // Absolute path to an IP→country .mmdb file (MaxMind DB format). When set,
     // the edge-log sink opens it directly and skips the managed download. Unset
-    // ⇒ the sink downloads a free, no-key DB to <DATA_ROOT>/geoip and uses that.
-    // See edge-logs/geo.ts.
+    // ⇒ the sink downloads a free, no-key DB to <DATA_ROOT>/platform/geoip and
+    // uses that. See edge-logs/geo.ts.
     EDGE_LOG_GEOIP_DB: z.string().min(1).optional(),
     // Source URL for the auto-downloaded country DB when EDGE_LOG_GEOIP_DB is
     // unset. Defaults to the public-domain DB-IP country-lite MMDB (no license
@@ -183,7 +183,7 @@ export const env = createEnv({
       .url()
       .default("https://cdn.jsdelivr.net/npm/@ip-location-db/dbip-country-mmdb/dbip-country.mmdb"),
     // Companion IP→ASN database (AS number + org), same managed-download
-    // semantics: enriches firewall decisions with network ownership. The
+    // semantics — enriches firewall decisions with network ownership. The
     // default is the public-domain RouteViews-derived build from the same
     // ip-location-db project. Set to an empty-ish mirror or your own GeoLite2-ASN
     // via EDGE_LOG_GEOIP_ASN_DB to skip the download.
@@ -200,7 +200,7 @@ export const env = createEnv({
     // PR previews: most previews one project may have open at once. Idle
     // teardown bounds how long a preview lives; this bounds how many exist, so
     // a busy repository cannot provision a database per open pull request. 0
-    // disables the cap. Default 10: high enough that a normal team never
+    // disables the cap. Default 10 — high enough that a normal team never
     // notices, low enough to stop a runaway.
     PREVIEW_MAX_PER_PROJECT: z.coerce.number().int().min(0).default(10),
 
@@ -210,25 +210,25 @@ export const env = createEnv({
     // LAPI. The agent ships bundled (docker-compose `crowdsec` service, the
     // `firewall` profile) and auto-registers the Caddy bouncer with this key;
     // the plugin is already compiled into infra/caddy/Dockerfile. So enabling
-    // is just: set these two + start the profile, no manual agent, no rebuild.
+    // is just: set these two + start the profile — no manual agent, no rebuild.
     // LAPI_URL is the agent's service DNS on the compose network
     // (http://crowdsec:8080).
     CROWDSEC_LAPI_URL: z.url().optional(),
     CROWDSEC_BOUNCER_KEY: z.string().min(1).optional(),
 
-    // Outbound egress policy (SSRF hardening, packages/shared/src/egress-policy.ts).
+    // Outbound egress policy (SSRF hardening — packages/shared/src/egress-policy.ts).
     // Every outbound call the control plane makes on a tenant's behalf
     // (webhook delivery, Slack/Discord/generic notification channels,
     // container registry probes, self-hosted git provider calls) resolves
     // the destination and denies loopback/link-local/RFC1918/CGNAT/ULA/
-    // metadata addresses by default: safe with zero configuration.
+    // metadata addresses by default — safe with zero configuration.
     // Homelab/LAN operators who WANT a tenant-supplied target to reach an
     // internal address (e.g. a webhook receiver on their own LAN) can carve
     // out specific IPs or CIDRs here. Comma-separated bare IPs and/or CIDRs
-    // only (no hostnames, an allowlisted name could itself be rebound).
+    // only (no hostnames — an allowlisted name could itself be rebound).
     // Empty by default: nothing private is reachable until an operator
     // opts in. This can NEVER re-permit the control plane's own detected
-    // address/origins: that denial is unconditional.
+    // address/origins — that denial is unconditional.
     OTTERDEPLOY_EGRESS_ALLOWLIST: z
       .string()
       .default("")
@@ -242,11 +242,11 @@ export const env = createEnv({
     // GitHub Apps are created through the manifest flow (UI button in
     // Settings → Git Providers). App ID, client secret, webhook secret,
     // PEM private key, and slug all live on the `git_provider` row
-    // (secrets encrypted at rest via packages/api/src/lib/crypto.ts),
+    // (secrets encrypted at rest via packages/api/src/lib/crypto.ts) —
     // no env vars for any of it. Matches how Coolify and Dokploy
     // configure GitHub Apps.
 
-    // Build pipeline. Apps/builder. Concurrency is how many deploy
+    // Build pipeline — apps/builder. Concurrency is how many deploy
     // jobs the builder pulls from the queue at once; default 1 keeps
     // docker builds from contending on the daemon.
     BUILDER_CONCURRENCY: z.coerce.number().int().positive().default(1),
@@ -260,12 +260,12 @@ export const env = createEnv({
     BUILDER_HELPER_NETWORK: z.string().min(1).default("otterdeploy_default"),
 
     // Basic-auth creds for the Workbench BullMQ dashboard (/jobs on the
-    // server). Both must be set for the dashboard to mount. It can
+    // server). Both must be set for the dashboard to mount — it can
     // retry/remove jobs, so it never runs unauthenticated.
     WORKBENCH_USER: z.string().min(1).optional(),
     WORKBENCH_PASS: z.string().min(1).optional(),
 
-    // Social sign-in (SSO). All optional: a provider is only registered when
+    // Social sign-in (SSO). All optional — a provider is only registered when
     // BOTH its client id + secret are set, so leaving these unset is a clean
     // no-op. Distinct from the GitHub *App* used for git providers (that's
     // configured in the UI, not env).
@@ -287,13 +287,13 @@ export const env = createEnv({
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 
     // Container runtime backend. `docker` (default) runs each service/database
-    // as a plain container on a per-project bridge network: single node, no
+    // as a plain container on a per-project bridge network — single node, no
     // Swarm required. `swarm` is opt-in for scaling across nodes (replicas,
     // overlay networking). See docs/designs/runtime.md.
     DEPLOY_RUNTIME: z.enum(["docker", "swarm"]).default("docker"),
 
     // ─── Platform self-updater (packages/api/src/routers/system) ────────────
-    // The image tag the compose stack booted with: written into .env by the
+    // The image tag the compose stack booted with — written into .env by the
     // installer and passed through `env_file`. This is the CURRENT version the
     // updater reports and compares against the latest release. "dev" in a
     // source checkout (never a real release ⇒ nothing to update to).
@@ -305,11 +305,12 @@ export const env = createEnv({
     // helper container bind-mounts this (same path in+out) to bump the version
     // and run `docker compose pull && up -d`. The installer writes the real value
     // into .env (it derives from OTTERDEPLOY_DATA_DIR), so this default only
-    // applies to source checkouts. It mirrors install.sh's `$DATA_DIR/source`.
-    OTTERDEPLOY_INSTALL_DIR: z.string().min(1).default("/data/otterdeploy/source"),
+    // applies to source checkouts — it mirrors install.sh's
+    // `$DATA_DIR/platform/source`.
+    OTTERDEPLOY_INSTALL_DIR: z.string().min(1).default("/data/otterdeploy/platform/source"),
     // GitHub repo (owner/name) whose `releases/latest` is the version source.
     OTTERDEPLOY_UPDATE_REPO: z.string().min(1).default("otterdeploy/otterdeploy"),
-    // Override the release manifest URL: point at a fixture/mirror for testing
+    // Override the release manifest URL — point at a fixture/mirror for testing
     // or an air-gapped install. Unset ⇒ derived from OTTERDEPLOY_UPDATE_REPO.
     OTTERDEPLOY_UPDATE_MANIFEST_URL: z.url().optional(),
     // Image the detached update helper container runs (needs docker CLI + the
@@ -317,7 +318,7 @@ export const env = createEnv({
     OTTERDEPLOY_UPDATE_HELPER_IMAGE: z.string().min(1).default("docker:28-cli"),
     // Image the host-terminal helper runs. Only needs `nsenter` (busybox has
     // it), and it is started --privileged --pid=host purely to re-enter PID 1's
-    // namespaces: see apps/server/src/handlers/terminal/pty.ts. Keep it tiny;
+    // namespaces — see apps/server/src/handlers/terminal/pty.ts. Keep it tiny;
     // it must already be pullable on the box.
     OTTERDEPLOY_HOST_SHELL_IMAGE: z.string().min(1).default("alpine:3"),
     // Force dry-run apply (simulate the whole update, touch no containers).

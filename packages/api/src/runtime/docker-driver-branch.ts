@@ -152,8 +152,8 @@ export async function destroyDatabaseBranchOnDocker(
     const inspectResult = await docker.containers.inspect(input.serviceName);
     const volumeNames =
       inspectResult.isOk() && Array.isArray(inspectResult.value.Mounts)
-        ? inspectResult.value.Mounts.filter((m) => m.Type === "volume" && m.Name).map(
-            (m) => m.Name as string,
+        ? inspectResult.value.Mounts.flatMap((m) =>
+            m.Type === "volume" && m.Name ? [m.Name] : [],
           )
         : [];
 

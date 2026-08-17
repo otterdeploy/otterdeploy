@@ -48,6 +48,10 @@ interface ExecutionContextBase {
     type: "s3" | "local" | "sftp";
     config: JsonObject;
     encryptedSecret: string | null;
+    /** Platform-managed local destination — changes how `deriveRepoKey` roots
+     *  the repo (bare scope under the org's `orgBackupRepoRoot`, org-qualified
+     *  password domain). */
+    managed: boolean;
   };
 }
 
@@ -92,6 +96,7 @@ interface ContextRow {
   destType: "s3" | "local" | "sftp";
   destConfig: JsonObject;
   destSecret: string | null;
+  destManaged: boolean;
   preHook: string | null;
   scheduleId: BackupScheduleId | null;
 }
@@ -110,6 +115,7 @@ function toBase(row: ContextRow): ExecutionContextBase {
       type: row.destType,
       config: row.destConfig,
       encryptedSecret: row.destSecret,
+      managed: row.destManaged,
     },
   };
 }
@@ -190,6 +196,7 @@ export async function getExecutionContext(backupId: BackupId): Promise<Execution
       destType: backupDestination.type,
       destConfig: backupDestination.config,
       destSecret: backupDestination.encryptedSecret,
+      destManaged: backupDestination.managed,
       // Pre-hook lives on the schedule; null for manual (scheduleId null) runs.
       preHook: backupSchedule.preHook,
       scheduleId: backup.scheduleId,

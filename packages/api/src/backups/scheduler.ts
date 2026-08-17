@@ -13,7 +13,7 @@ import { log } from "evlog";
 
 import type { ResolvedDestination } from "./backends";
 
-import { deriveRepoId, toRusticRepo } from "./backends";
+import { deriveRepoKey, toRusticRepo } from "./backends";
 import { createBackupRun, getExecutionContext } from "./db";
 import { executeBackup } from "./engine";
 import { resolveSecret } from "./engine-helpers";
@@ -126,14 +126,18 @@ async function applyRetention(schedule: DueSchedule): Promise<void> {
   if (all.length === 0) return;
 
   // Group snapshots by their rustic repo (one repo per resource × destination).
-  // Each run's execution context yields the repo id + backend creds we need to
-  // build a driver; snapshots for the same repo share one `forget` pass.
+  // Each run's execution context yields the repo key + backend creds we need to
+  // build a driver; snapshots for the same repo share one `forget` pass. The
+  // group key includes the destination id because two destinations can derive
+  // the same repo id (e.g. two S3 buckets with no prefix) while being distinct
+  // repos with distinct backends.
   const repos = new Map<string, { cli: RusticCli; rows: typeof all }>();
   for (const b of all) {
     const ctx = await getExecutionContext(b.id);
     if (!ctx) continue;
-    const repoId = deriveRepoId(ctx);
-    let entry = repos.get(repoId);
+    const repoKey = deriveRepoKey(ctx);
+    const groupKey = `${ctx.destination.id}:${repoKey.repoId}`;
+    let entry = repos.get(groupKey);
     if (!entry) {
       const secret = await resolveSecret(ctx);
       const dest: ResolvedDestination = {
@@ -141,8 +145,8 @@ async function applyRetention(schedule: DueSchedule): Promise<void> {
         config: ctx.destination.config,
         secret,
       };
-      entry = { cli: new RusticCli(toRusticRepo(dest, repoId)), rows: [] };
-      repos.set(repoId, entry);
+      entry = { cli: new RusticCli(toRusticRepo(dest, repoKey)), rows: [] };
+      repos.set(groupKey, entry);
     }
     entry.rows.push(b);
   }
@@ -157,7 +161,7 @@ async function applyRetention(schedule: DueSchedule): Promise<void> {
   };
   const filterTags = ["otterdeploy", `schedule:${schedule.id}`];
 
-  for (const [repoId, { cli, rows }] of repos) {
+  for (const [groupKey, { cli, rows }] of repos) {
     try {
       await cli.forget(spec, filterTags);
       // Reconcile: drop any succeeded row whose snapshot `forget` just pruned.
@@ -168,7 +172,7 @@ async function applyRetention(schedule: DueSchedule): Promise<void> {
       }
     } catch (cause) {
       log.error({
-        backups: { scheduler: schedule.id, repo: repoId, status: "retention-error" },
+        backups: { scheduler: schedule.id, repo: groupKey, status: "retention-error" },
         error: cause instanceof Error ? cause.message : String(cause),
       });
     }

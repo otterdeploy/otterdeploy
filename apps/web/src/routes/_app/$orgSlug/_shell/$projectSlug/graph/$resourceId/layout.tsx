@@ -28,6 +28,7 @@ import * as z from "zod";
 import { AnimatePresence } from "motion/react";
 
 import { resourceCollection } from "@/features/resources/data/resource";
+import { inActiveEnvironment } from "@/features/shell/environment-scope";
 import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -165,9 +166,9 @@ function RouteComponent() {
       q
         .from({ r: resourceCollection })
         .where(({ r }) =>
-          and(eq(r.projectId, project.id), eq(r.environmentId, activeEnv.id ?? "")),
+          and(eq(r.projectId, project.id), inActiveEnvironment(r.environmentId, activeEnv)),
         ),
-    [project.id, activeEnv.id],
+    [project.id, activeEnv.id, activeEnv.isMain],
   );
 
   const resource =

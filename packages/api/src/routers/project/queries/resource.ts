@@ -1,4 +1,4 @@
-import type { EnvironmentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import {
@@ -8,6 +8,7 @@ import {
   resource,
   serviceResource,
 } from "@otterdeploy/db/schema/project";
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { and, eq, isNull, or } from "drizzle-orm";
 
 import { pruneSchedulesForDeletedResource } from "../../../backups/schedule-cleanup";
@@ -34,7 +35,7 @@ export interface ComposeResourceJoined {
  *
  * A NULL `environment_id` means the project's MAIN environment. Resources
  * pre-date environment scoping and were all created unstamped, so main has to
- * own them or they'd be invisible everywhere, but that equivalence holds ONLY
+ * own them or they'd be invisible everywhere — but that equivalence holds ONLY
  * for main, which is why `isMain` is a required argument rather than something
  * inferred from `environmentId` being absent.
  *
@@ -46,7 +47,7 @@ export interface ComposeResourceJoined {
  *
  * This is what stops staging's resources appearing in production's graph and
  * vice versa. Without it every environment renders every environment's
- * resources: the symptom that started this work.
+ * resources — the symptom that started this work.
  */
 export function inEnvironmentScope(scope: ResourceScope) {
   // Reverse lookups (container name → resource) must span environments or a
@@ -61,7 +62,7 @@ export function inEnvironmentScope(scope: ResourceScope) {
 
 /**
  * Which environment a read is scoped to. `isMain` is the project's own
- * `environment_id` pointer matching this environment: see resolveEnvironmentScope.
+ * `environment_id` pointer matching this environment — see resolveEnvironmentScope.
  */
 export interface EnvironmentScopeInput {
   environmentId: EnvironmentId;
@@ -70,7 +71,7 @@ export interface EnvironmentScopeInput {
 
 /**
  * One environment, or deliberately every one of them. `"all"` is for reverse
- * lookups that map a container/service NAME back to a resource. Those must see
+ * lookups that map a container/service NAME back to a resource — those must see
  * every environment or a non-main container resolves to nothing. It is never
  * correct for a list the operator is looking at.
  */
@@ -82,7 +83,7 @@ export type ResourceScope = EnvironmentScopeInput | "all";
  * Callers hold a project row and an OPTIONAL environment id (the client sends
  * one once the operator has picked from the switcher; deep links, internal
  * callers and the CLI often don't). Absent means the project's main
- * environment (the same thing the UI defaults to) so every caller lands on a
+ * environment — the same thing the UI defaults to — so every caller lands on a
  * real environment id rather than the old implicit `IS NULL`.
  *
  * Returns null only for a project with no `environment_id` pointer at all,
@@ -188,7 +189,7 @@ export async function getResourceById(
 }
 
 /**
- * The swarm service names a compose stack fans out to: one `${stack}-${key}`
+ * The swarm service names a compose stack fans out to — one `${stack}-${key}`
  * per compose service, paired with the compose key so task/log views can
  * attribute output back to the sub-service. Runtime views (tasks, deployment
  * logs) aggregate across these; the stack has no swarm service of its own.
@@ -203,12 +204,14 @@ export function composeChildSwarmServices(
 }
 
 export async function deleteResourceById(resourceId: ResourceId) {
-  // Capture the project + name + org before the row is gone. The artifact dir
-  // is nested under the project (`resources/<projectId>/<resourceId>`), and the
+  // Capture the org/project/env + name before the row is gone — the artifact
+  // dir mirrors the DB hierarchy
+  // (`orgs/<org>/projects/<prj>/envs/<env|main>/resources/<res>`), and the
   // name/org drive backup-schedule cleanup below.
   const [row] = await db
     .select({
       projectId: resource.projectId,
+      environmentId: resource.environmentId,
       name: resource.name,
       organizationId: project.organizationId,
     })
@@ -217,15 +220,25 @@ export async function deleteResourceById(resourceId: ResourceId) {
     .where(eq(resource.id, resourceId))
     .limit(1);
   await db.delete(resource).where(eq(resource.id, resourceId));
-  if (row) {
+  // The project row's org id is a plain string in the schema — narrow it with a
+  // real runtime check (ids are minted as `org_…`) instead of an assertion. A
+  // malformed id can't address either the host dir or the org's schedules, so
+  // both cleanups are skipped rather than aimed at a bogus path.
+  if (row && hasPrefix(row.organizationId, ID_PREFIX.organization)) {
     // Drop the resource's host artifact dir (no-op unless the data folder is in
-    // use). Best-effort, never blocks the row delete. See lib/data-dir.ts.
-    await removeResourceDir(row.projectId, resourceId);
+    // use). Best-effort — never blocks the row delete. See lib/data-dir.ts.
+    // `environmentId: null` means the project's main environment.
+    await removeResourceDir({
+      organizationId: row.organizationId,
+      projectId: row.projectId,
+      environmentId: row.environmentId ?? null,
+      resourceId,
+    });
     // Prune this now-deleted resource from any backup schedule that referenced
     // it (FK-less jsonb `sources`), disabling schedules left with no live
     // source. Runs AFTER the delete so the live set is accurate; never throws.
     await pruneSchedulesForDeletedResource({
-      organizationId: row.organizationId as OrganizationId,
+      organizationId: row.organizationId,
       resourceId,
       resourceName: row.name,
     });

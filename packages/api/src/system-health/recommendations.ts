@@ -30,7 +30,7 @@ function dockerRecommendations(docker: DockerUsage): HealthRecommendation[] {
       severity: "info",
       title: `${gb(docker.buildCache.reclaimableBytes)} of idle build cache`,
       detail:
-        "BuildKit keeps layer caches to speed up rebuilds. Clearing it slows the next build of each service but frees the space immediately.",
+        "BuildKit keeps layer caches (in the daemon and under the data folder's cache/) to speed up rebuilds. Clearing them slows the next build of each service but frees the space immediately.",
       action: "build-cache",
     });
   }

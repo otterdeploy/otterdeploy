@@ -30,9 +30,8 @@ export interface ActiveEnvironment {
   id: string | undefined;
   slug: string | undefined;
   /** Whether this is the project's main environment (its own `environmentId`
-   *  pointer). NULL-stamped resource rows belong to main; the resource
-   *  collection normalizes that at ingest (features/resources/data/resource.ts)
-   *  so consumers can filter with a plain eq. */
+   *  pointer). Main additionally owns NULL-stamped resource rows. See
+   *  `inActiveEnvironment` in ./environment-scope. */
   isMain: boolean;
 }
 

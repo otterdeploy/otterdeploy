@@ -257,9 +257,10 @@ export async function deleteProject(
   // 3. Refresh Caddy so removed proxy routes drop out of the live config.
   await reconcile(log);
 
-  // 4. Drop the project's DR escape-hatch dir (rendered compose + snapshot).
+  // 4. Drop the project's whole host subtree
+  //    (`orgs/<org>/projects/<prj>/` — envs, resources, DR escape hatch).
   //    Guarded + best-effort; no-op when the data folder isn't in use.
-  await removeProjectDir(input.id);
+  await removeProjectDir(input.organizationId, input.id);
 
   log.set({
     teardown: {

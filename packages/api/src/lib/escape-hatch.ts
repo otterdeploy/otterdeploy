@@ -1,12 +1,12 @@
-import type { ProjectId } from "@otterdeploy/shared/id";
+import type { OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 
-import { projectDir } from "@otterdeploy/shared/paths";
+import { escapeHatchDir } from "@otterdeploy/shared/paths";
 import { log as globalLog } from "evlog";
 /**
  * Disaster-recovery escape hatch: Phase 4 of docs/designs/data-folder.md.
  *
  * On every successful manifest apply we render the project's CURRENT deployed
- * state to two files under `projects/<projectId>/`:
+ * state to two files under `orgs/<orgId>/projects/<projectId>/escape-hatch/`:
  *
  *   - `compose.yml`: a plain Docker Compose file you can `docker compose
  *                           -f compose.yml up` BY HAND if the control plane
@@ -32,11 +32,14 @@ import { dataRootAvailable } from "./data-dir";
  * (same path as the `manifest.export` procedure) and writes both files. Never
  * throws: failures are logged and swallowed so they can't break an apply.
  */
-export async function writeProjectEscapeHatch(projectId: ProjectId): Promise<void> {
+export async function writeProjectEscapeHatch(
+  organizationId: OrganizationId,
+  projectId: ProjectId,
+): Promise<void> {
   if (!(await dataRootAvailable())) return;
   try {
     const file = await renderProjectFromRows(projectId);
-    const dir = projectDir(projectId);
+    const dir = escapeHatchDir(organizationId, projectId);
     await mkdir(dir, { recursive: true, mode: 0o700 });
     await Promise.all([
       writeFile(join(dir, "compose.yml"), toComposeYaml(file), { mode: 0o600 }),

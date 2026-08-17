@@ -7,6 +7,7 @@ import { useProjectDeployStatus } from "@/features/deployments/hooks/use-deploy-
 import { envCollection } from "@/features/projects/data/env";
 import { projectCollection } from "@/features/projects/data/project";
 import { resourceCollection } from "@/features/resources/data/resource";
+import { inActiveEnvironment } from "@/features/shell/environment-scope";
 import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { useProjectEvents } from "@/features/projects/hooks/use-project-events";
 import { useProjectStatus } from "@/features/projects/hooks/use-project-status";
@@ -94,9 +95,9 @@ function RouteComponent() {
       q
         .from({ r: resourceCollection })
         .where(({ r }) =>
-          and(eq(r.projectId, project?.id ?? ""), eq(r.environmentId, activeEnv.id ?? "")),
+          and(eq(r.projectId, project?.id ?? ""), inActiveEnvironment(r.environmentId, activeEnv)),
         ),
-    [project?.id, activeEnv.id],
+    [project?.id, activeEnv.id, activeEnv.isMain],
   );
 
   const { data: environments } = useLiveQuery(

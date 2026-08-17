@@ -4,6 +4,8 @@ import type { InferSelectModel } from "drizzle-orm";
 import { db } from "@otterdeploy/db";
 import { environment, project, resource } from "@otterdeploy/db/schema/project";
 import { and, asc, eq } from "drizzle-orm";
+
+import { removeEnvDir } from "../../lib/data-dir";
 type OrgId = OrganizationId;
 
 export type EnvironmentRecord = InferSelectModel<typeof environment>;
@@ -103,7 +105,7 @@ export async function deleteEnvRecord(input: {
     return { ok: false, reason: "has-resources" };
   }
 
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     await tx
       .update(project)
       .set({ environmentId: null })
@@ -124,4 +126,12 @@ export async function deleteEnvRecord(input: {
       ? ({ ok: true, id: deleted.id } as const)
       : ({ ok: false, reason: "not-found" } as const);
   });
+
+  // The env's whole disk subtree (envs/<envId>/: resource homes, volumes,
+  // backup staging) goes with the rows. A standalone env (no project) never
+  // had a dir. Best-effort like every data-dir removal.
+  if (result.ok && owned.projectId) {
+    await removeEnvDir(input.organizationId, owned.projectId, input.environmentId);
+  }
+  return result;
 }

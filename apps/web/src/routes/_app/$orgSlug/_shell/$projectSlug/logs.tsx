@@ -34,6 +34,7 @@ import { LogsToolbar } from "@/features/logs/components/logs-toolbar";
 import { statusBadge } from "@/features/logs/components/logs-status";
 import { useLogsTable } from "@/features/logs/components/use-logs-table";
 import { resourceCollection } from "@/features/resources/data/resource";
+import { inActiveEnvironment } from "@/features/shell/environment-scope";
 import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { useDebouncedCallback } from "@/shared/components/data-grid/hooks/use-debounced-callback";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
@@ -89,9 +90,9 @@ function RouteComponent() {
       q
         .from({ r: resourceCollection })
         .where(({ r }) =>
-          and(eq(r.projectId, project.id), eq(r.environmentId, activeEnv.id ?? "")),
+          and(eq(r.projectId, project.id), inActiveEnvironment(r.environmentId, activeEnv)),
         ),
-    [project.id, activeEnv.id],
+    [project.id, activeEnv.id, activeEnv.isMain],
   );
   const services = useMemo(
     () =>

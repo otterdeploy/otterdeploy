@@ -6,7 +6,7 @@
  * Returns `Result<View, TaggedError>` so the oRPC handler layer can switch
  * on `result.error._tag` to translate to the right wire-level error code.
  */
-import type { EnvironmentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { EnvironmentId, ProjectId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
@@ -66,7 +66,7 @@ export { exposeService, unexposeService } from "./expose";
 export { bulkSetEnv, setEnv, syncManifestEnvAfterLiveEdit, unsetEnv } from "./env-handlers";
 export { rollbackService } from "./rollback";
 
-// Common error shapes: keep handler signatures legible.
+// Common error shapes — keep handler signatures legible.
 type NotFound = ProjectNotFoundError | ServiceNotFoundError;
 type RedeployFailure = NotFound | ResolveError;
 
@@ -78,7 +78,7 @@ export async function listServices(
 
   const records = await listServiceRecordsByProject(input.projectId);
   // Resolve every service's live runtime in ONE runtime round-trip, then hand
-  // each pre-resolved status to mapServiceView, instead of mapServiceView
+  // each pre-resolved status to mapServiceView — instead of mapServiceView
   // opening a fresh Docker connection + lookup per service (the list N+1).
   const projectSlug = sanitizeSlug(project.value.slug);
   const runtimes = await runtime().inspectMany(
@@ -106,8 +106,8 @@ export async function listEnv(input: ResourceRef): Promise<Result<EnvVarView[], 
  * Is this service name already used IN THE TARGET ENVIRONMENT?
  *
  * Scoped deliberately: the unique index is (project, environment, name), so an
- * unscoped check rejected `api` in staging because production owned the name.
- * A collision the database would never have raised.
+ * unscoped check rejected `api` in staging because production owned the name —
+ * a collision the database would never have raised.
  *
  * A project with no environment pointer can't be scoped; nothing is "taken"
  * there, and the insert's own unique constraint remains the backstop.
@@ -144,7 +144,7 @@ export async function createService(
 
   const source = input.source ?? "image";
 
-  // Git-sourced services now own their own repo. The build worker reads
+  // Git-sourced services now own their own repo — the build worker reads
   // gitRepoId off the service row. Only the repo gates creation (registry +
   // image are optional; the builder falls back to a registry-less local
   // build). Fail fast with a typed error the UI uses to prompt "pick a repo".
@@ -182,13 +182,13 @@ export async function createService(
     throw error;
   }
 
-  // Image-sourced creates deploy right here (no build). Record the deployment
+  // Image-sourced creates deploy right here (no build) — record the deployment
   // BEFORE provisioning so the ledger has a row for it (history, logs anchor,
   // rollback anchor) and buildSwarmSpec stamps its id onto the container's
   // labels. Git/upload creates skip this: their row is inserted by the build
   // enqueue (manifest-apply-git / upload-source) when the build actually starts.
   // Compose stacks don't pass through here (reconcileStackServices owns its
-  // own per-service rows). The image is prebuilt/pulled (nothing compiles)
+  // own per-service rows). The image is prebuilt/pulled — nothing compiles —
   // so the row starts at "pending", not "building".
   const deploysNow = !record.service.image.startsWith("pending:");
   const deploymentRow = deploysNow
@@ -264,14 +264,14 @@ export async function deleteService(
     return Result.err(
       new ServiceInUseError({
         resourceId: input.resourceId,
-        referrers: externalDependents as unknown as ReadonlyArray<ResourceId>,
+        referrers: externalDependents,
       }),
     );
   }
 
-  // Strip it from the manifest FIRST: before any physical teardown. Once a
+  // Strip it from the manifest FIRST — before any physical teardown. Once a
   // delete is initiated the service is no longer "desired", so even if teardown
-  // fails partway the next diff can only ever show a (recoverable) delete,
+  // fails partway the next diff can only ever show a (recoverable) delete —
   // NEVER a phantom `create` ghost. A deployed service must never revert to
   // pending-create.
   await removeServiceFromManifest(
@@ -296,17 +296,20 @@ export async function deleteService(
         ref: record.service.serviceName,
         projectId: input.projectId,
         label: `service teardown failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-        payload: { projectId: input.projectId, resourceId: input.resourceId },
+        // environmentId (null = main env) lets a GC retry rebuild the
+        // resource's env-keyed on-disk ref.
+        payload: {
+          projectId: input.projectId,
+          resourceId: input.resourceId,
+          environmentId: record.resource.environmentId ?? null,
+        },
       });
     });
-  // Reclaim host artifacts (built images, buildx cache, volumes). The container
-  // teardown above only removes the running container.
-  await reclaimServiceHostArtifacts(
-    record.service.serviceName,
-    input.projectId,
-    input.resourceId,
-    log,
-  );
+  // Reclaim host artifacts (built images, buildx cache, volumes) — the container
+  // teardown above only removes the running container. The host ref is
+  // environment-keyed (null = main env).
+  const hostRef = { ...input, environmentId: record.resource.environmentId ?? null };
+  await reclaimServiceHostArtifacts(record.service.serviceName, hostRef, log);
   await deleteServiceRecord(input.resourceId);
   await reconcile(log);
 
@@ -322,7 +325,7 @@ export async function restartService(
   const ctx = await loadResource(input);
   if (ctx.isErr()) return Result.err(ctx.error);
 
-  // redeployOne now bumps ForceUpdate unconditionally, no explicit bump
+  // redeployOne now bumps ForceUpdate unconditionally — no explicit bump
   // needed here.
   const redeployed = await redeployAndFanOut(
     input.projectId,

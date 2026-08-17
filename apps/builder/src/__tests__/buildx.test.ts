@@ -32,9 +32,9 @@ describe("cacheFlags", () => {
 });
 
 describe("cachePathFor", () => {
-  test("maps an image repo to one path-safe dir under buildx-cache", () => {
+  test("maps an image repo to one path-safe dir under cache/buildx", () => {
     const path = cachePathFor("ghcr.io/acme/web");
-    expect(path.endsWith("/buildx-cache/ghcr.io_acme_web")).toBe(true);
+    expect(path.endsWith("/cache/buildx/ghcr.io_acme_web")).toBe(true);
   });
 
   test("collapses registry host + slashes so distinct repos don't collide dirs", () => {

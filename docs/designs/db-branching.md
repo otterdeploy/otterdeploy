@@ -105,8 +105,8 @@ ZFS does **not** need a spare disk. The installer (`scripts/install.sh`) can
 build a pool from a file on the existing root fs:
 
 ```
-truncate -s <size> /data/otterdeploy/branch-pool.img
-zpool create otter /data/otterdeploy/branch-pool.img
+truncate -s <size> /data/otterdeploy/platform/branch-pool.img
+zpool create otter /data/otterdeploy/platform/branch-pool.img
 ```
 
 Performance is lower than a real vdev but irrelevant for preview/staging DBs (no

@@ -2,12 +2,13 @@
  * Custom-certificate installation for the Caddy edge.
  *
  * Operator-uploaded certs live in the DB (chain in the clear, key AES-GCM
- * encrypted: see packages/db/src/schema/certificates.ts). Caddy can only
+ * encrypted — see packages/db/src/schema/certificates.ts). Caddy can only
  * serve them from FILES, so on every reconcile we materialize each servable
  * cert under the host dir that is bind-mounted into the edge container at
- * `/etc/caddy` (`${OTTERDEPLOY_DATA_DIR}/caddy` in docker-compose.prod.yml):
+ * `/etc/caddy` (`${OTTERDEPLOY_DATA_DIR}/platform/caddy` in
+ * docker-compose.prod.yml):
  *
- *     host:      ${DATA_ROOT}/caddy/certs/<certId>/{cert.pem,key.pem}
+ *     host:      ${DATA_ROOT}/platform/caddy/certs/<certId>/{cert.pem,key.pem}
  *     container: /etc/caddy/certs/<certId>/{cert.pem,key.pem}
  *
  * and the builder emits `tls <cert> <key>` (container paths) on every enabled
@@ -18,7 +19,7 @@
  * emission (its row is flipped to installState="error" with the reason), so a
  * broken cert can never fail the global Caddy load and take other routes
  * down. Deployments whose data dir isn't shared with the edge container (or
- * isn't writable at all. Bare dev) therefore surface "install failed"
+ * isn't writable at all — bare dev) therefore surface "install failed"
  * honestly instead of pretending the cert is live.
  */
 
@@ -28,7 +29,8 @@ import type { RequestLogger } from "evlog";
 import { db } from "@otterdeploy/db";
 import { customCertificate } from "@otterdeploy/db/schema/certificates";
 import { project } from "@otterdeploy/db/schema/project";
-import { DATA_ROOT } from "@otterdeploy/shared/paths";
+import { idSchema } from "@otterdeploy/shared/id";
+import { caddyDir } from "@otterdeploy/shared/paths";
 import { eq, inArray, ne } from "drizzle-orm";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -39,8 +41,9 @@ import { removeGuardedDir } from "../lib/data-dir";
 import { asStepLogger } from "../lib/logger";
 import { certCoversDomain } from "../lib/x509";
 
-/** Host-side dir the cert files are written to (inside the data folder). */
-const caddyCertsHostDir = (): string => `${DATA_ROOT}/caddy/certs`;
+/** Host-side dir the cert files are written to (inside the data folder's
+ *  `platform/caddy` subtree — the edge container's `/etc/caddy` mount). */
+const caddyCertsHostDir = (): string => `${caddyDir()}/certs`;
 
 /** Where the same dir appears INSIDE the edge container (`/etc/caddy` mount).
  *  These are the paths the emitted `tls` directives must reference. */
@@ -60,8 +63,8 @@ export interface ServableCustomCert {
 
 interface ServableRow {
   id: CustomCertificateId;
-  /** Plain string off the select, branded to OrganizationId in toServable
-   *  (the schema column carries no $type brand). */
+  /** Plain string off the select — branded via idSchema.organization.parse in
+   *  toServable (the schema column carries no $type brand). */
   organizationId: string;
   hostname: string;
   subject: string | null;
@@ -76,9 +79,9 @@ function toServable(
 ): ServableCustomCert {
   return {
     id: row.id,
-    organizationId: row.organizationId as OrganizationId,
+    organizationId: idSchema.organization.parse(row.organizationId),
     hostname: row.hostname,
-    // subject column stores the one-line DN ("CN=x, O=y"), extract the CN.
+    // subject column stores the one-line DN ("CN=x, O=y") — extract the CN.
     subjectCN: row.subject?.match(/(?:^|, )CN=([^,]+)/)?.[1] ?? null,
     sans: row.sans,
     certPath: `${CADDY_CERTS_CONTAINER_DIR}/${row.id}/cert.pem`,
@@ -104,7 +107,7 @@ async function listServableRows(): Promise<ServableRow[]> {
 }
 
 /**
- * DB-only view of the servable certs (no file writes). Used by the read-only
+ * DB-only view of the servable certs (no file writes) — used by the read-only
  * per-project Caddyfile render so it shows the same `tls` lines reconcile
  * emits, without touching disk on every page view.
  */
@@ -173,7 +176,9 @@ export async function mapProjectOrganizations(
     .select({ id: project.id, organizationId: project.organizationId })
     .from(project)
     .where(inArray(project.id, projectIds));
-  return new Map(rows.map((r) => [r.id as string, r.organizationId as OrganizationId]));
+  return new Map<string, OrganizationId>(
+    rows.map((r) => [r.id, idSchema.organization.parse(r.organizationId)]),
+  );
 }
 
 /**

@@ -1,4 +1,4 @@
-# otterdeploy: PRODUCTION stack (published images)
+# otterdeploy — PRODUCTION stack (published images)
 # =================================================
 # This is the image-based compose the installer fetches to a host and runs with
 #   docker compose -f docker-compose.yml --env-file .env up -d
@@ -9,8 +9,8 @@
 #   - all services join the shared EXTERNAL `otterdeploy` network the installer
 #     created (see `networks:` at the bottom).
 #   - the `firewall` profile (CrowdSec) is started by DEFAULT by install.sh
-#     (od-5j8.11). Set OTTERDEPLOY_FIREWALL=false / --no-firewall to opt out.
-#   - 5432 is intentionally NOT published. The control plane reaches its own
+#     (od-5j8.11) — set OTTERDEPLOY_FIREWALL=false / --no-firewall to opt out.
+#   - 5432 is intentionally NOT published — the control plane reaches its own
 #     Postgres over the container network; databases are never exposed on the host.
 #
 # All values come from the installer-generated .env (OTTERDEPLOY_VERSION,
@@ -36,7 +36,7 @@ services:
       # version-specific subdirectory (`/var/lib/postgresql/18/docker`) so that
       # `pg_upgrade --link` can hard-link between majors on one volume instead
       # of copying. Mounting at the old `.../data` path makes 18+ refuse to
-      # start. Same rule the platform applies to user databases. See
+      # start. Same rule the platform applies to user databases — see
       # `resolveMount` in swarm/database-engines/postgres.ts.
       - otterdeploy-postgres-data:/var/lib/postgresql
     healthcheck:
@@ -90,10 +90,10 @@ services:
     # The dashboard/API listens on 3000. od-5j8.10 published it to the host
     # loopback only; od-cse made the bind an operator choice, because the
     # loopback-only default ended a fresh install with SSH-tunnel homework
-    # instead of a URL, and left the platform with no way at all to reach a
+    # instead of a URL — and left the platform with no way at all to reach a
     # service at this machine's address.
     #
-    # Default (0.0.0.0): reachable at http://<host-ip>:3000: plaintext, so
+    # Default (0.0.0.0): reachable at http://<host-ip>:3000 — plaintext, so
     # it's the setup posture, not the destination. CONTROL_PLANE_BIND=127.0.0.1
     # restores loopback-only for an internet-facing or multi-tenant box.
     # Either way, once a control-plane domain is configured, Caddy fronts the
@@ -119,7 +119,7 @@ services:
       CADDY_ADMIN_BIND: unix//run/caddy-admin/admin.sock|0600
       # Where the edge Caddy reaches the control plane for deploy-protection
       # forward_auth (and the control-plane-domain route). The default
-      # (host.docker.internal:3000) assumes the server runs on the host. A dev
+      # (host.docker.internal:3000) assumes the server runs on the host — a dev
       # setup; in this compose the server is a container, so point Caddy at its
       # service DNS on the shared network or forward_auth times out → 502.
       DEPLOY_AUTHZ_UPSTREAM: server:3000
@@ -131,7 +131,7 @@ services:
       # reaches it by service DNS on the shared network.
       EDGE_LOG_SINK: server:9100
     volumes:
-      # Drive the HOST Docker daemon. This is how the runtime() driver
+      # Drive the HOST Docker daemon — this is how the runtime() driver
       # provisions services/databases/compose stacks.
       - /var/run/docker.sock:/var/run/docker.sock
       - otterdeploy-caddy-admin:/run/caddy-admin
@@ -162,7 +162,7 @@ services:
 
   # ── build worker (git-sourced services) ───────────────────────────────────
   builder:
-    # SAME image as `server` (unified): the build worker is just a different
+    # SAME image as `server` (unified) — the build worker is just a different
     # command (bun runs the builder's TS source) on top of the docker CLI +
     # buildx + railpack toolchain the image already carries.
     image: ${OTTERDEPLOY_REGISTRY:-ghcr.io/otterdeploy}/server:${OTTERDEPLOY_VERSION:-latest}
@@ -185,7 +185,8 @@ services:
       # Docker-out-of-Docker: build images land in the same daemon the stack
       # runs from (so the runtime can pull them).
       - /var/run/docker.sock:/var/run/docker.sock
-      # Same-path data folder: holds the persistent BuildKit layer cache.
+      # Same-path data folder — holds the persistent BuildKit layer cache
+      # (cache/buildx) and the ephemeral build scratch (work/).
       - ${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}:${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -219,13 +220,14 @@ services:
       - "443:443"
       - "443:443/udp"
     volumes:
-      # Reconciled Caddyfile lives under the data folder (written by the server).
-      - ${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}/caddy:/etc/caddy
+      # Reconciled Caddyfile lives under the data folder's platform subtree
+      # (written by the server).
+      - ${OTTERDEPLOY_DATA_DIR:-/data/otterdeploy}/platform/caddy:/etc/caddy
       - otterdeploy-caddy-data:/data
       - otterdeploy-caddy-state:/config
       - otterdeploy-caddy-admin:/run/caddy-admin
       # Rolled access-log mirror the CrowdSec agent tails below (`log
-      # crowdsec-access` in the reconciled Caddyfile): od-5j8.11: without
+      # crowdsec-access` in the reconciled Caddyfile) — od-5j8.11: without
       # this mount, CrowdSec's `crowdsecurity/caddy` collection never sees a
       # request and HTTP brute-force/CVE-probe scenarios never fire.
       - otterdeploy-caddy-logs:/var/log/caddy
@@ -237,9 +239,9 @@ services:
       timeout: 3s
       retries: 5
 
-  # ── firewall (od-5j8.11: on by DEFAULT via install.sh. Set
+  # ── firewall (od-5j8.11: on by DEFAULT via install.sh — set
   # OTTERDEPLOY_FIREWALL=false / COMPOSE_PROFILES= to opt out) ───────────────
-  # Full parity with the dev compose (docker-compose.yml): this is the file
+  # Full parity with the dev compose (docker-compose.yml) — this is the file
   # install.sh actually fetches to a host, so it's the one that must carry
   # the log acquisition + collections wiring or CrowdSec never sees SSH/HTTP
   # attack traffic in production (the gap od-5j8.11 closed: this block used
@@ -252,24 +254,24 @@ services:
     environment:
       # Auto-register the Caddy bouncer with our shared key on first boot.
       BOUNCER_KEY_caddy: ${CROWDSEC_BOUNCER_KEY:-}
-      # The native host firewall bouncer's own key. Install.sh sets it up as
+      # The native host firewall bouncer's own key — install.sh sets it up as
       # a systemd service on the primary (provision-host-firewall.ts extends
       # the same install to every node added afterward). Separate key so
       # either bouncer can be revoked without breaking the other. Empty ⇒
       # registration skipped.
       BOUNCER_KEY_firewall: ${CROWDSEC_FIREWALL_BOUNCER_KEY:-}
-      # Parsers + scenarios for the two log sources below (installed on boot):
-      # od-5j8.11: without this, the agent only ever consumes the CAPI
+      # Parsers + scenarios for the two log sources below (installed on boot)
+      # — od-5j8.11: without this, the agent only ever consumes the CAPI
       # community blocklist; SSH brute force and HTTP/CVE probes never
       # generate decisions.
       COLLECTIONS: "crowdsecurity/sshd crowdsecurity/caddy"
-      # SQLite WAL: without it, concurrent access (cscli + LAPI + blocklist
+      # SQLite WAL — without it, concurrent access (cscli + LAPI + blocklist
       # imports) starves the LAPI into "database is locked" 401s.
       USE_WAL: "true"
     volumes:
       - otterdeploy-crowdsec-config:/etc/crowdsec
       - otterdeploy-crowdsec-data:/var/lib/crowdsec/data
-      # Host logs, read-only. The whole directory rather than auth.log
+      # Host logs, read-only — the whole directory rather than auth.log
       # alone, so logrotate's rename doesn't strand a single-file bind mount
       # on a stale inode.
       - /var/log:/var/log/host:ro
@@ -279,7 +281,7 @@ services:
       - source: crowdsec-acquis
         target: /etc/crowdsec/acquis.d/otterdeploy.yaml
     ports:
-      # LAPI on the host LOOPBACK by default: how the native firewall
+      # LAPI on the host LOOPBACK by default — how the native firewall
       # bouncer (a host process, outside the compose network) reaches the
       # engine. Multi-server installs: set CROWDSEC_LAPI_BIND to the
       # manager's routable/mesh IP so firewall bouncers installed on added
@@ -312,7 +314,7 @@ volumes:
   otterdeploy-crowdsec-data:
 
 configs:
-  # CrowdSec log acquisition, which logs the agent parses for its
+  # CrowdSec log acquisition — which logs the agent parses for its
   # scenarios. Inline so the compose file stays the single artifact an
   # install carries (mirrors docker-compose.yml).
   crowdsec-acquis:

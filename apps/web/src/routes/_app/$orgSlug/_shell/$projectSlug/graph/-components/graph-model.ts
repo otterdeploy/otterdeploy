@@ -29,6 +29,7 @@ import { type ComposeServiceInfo } from "@/features/projects/components/graph/re
 import { dependenciesCollection } from "@/features/projects/data/dependencies";
 import { resourceCollection } from "@/features/resources/data/resource";
 import { serviceTasksCollection } from "@/features/resources/data/service-tasks";
+import { inActiveEnvironment } from "@/features/shell/environment-scope";
 import { type ActiveEnvironment } from "@/features/shell/use-active-environment";
 import { orpc } from "@/shared/server/orpc";
 
@@ -52,7 +53,7 @@ const svcSchema = z.object({
 })
 /** Map a compose `create` change's parsed `details.services` (set server-side
  *  by enrichComposeCreates) into the ghost group's member cards. Every service
- *  reads `pending`. The stack hasn't deployed yet, so nothing is running. */
+ *  reads `pending` — the stack hasn't deployed yet, so nothing is running. */
 function composeGhostServices(details: JsonObject | undefined): ComposeServiceInfo[] {
   const raw = details?.services;
   if (!Array.isArray(raw)) return [];
@@ -75,8 +76,8 @@ type NodeResourceKind = PendingCreate["resource"];
 
 /**
  * Build the ghost card for one staged `create`. Split out of
- * {@link computePendingByName} so the per-kind enrichment: compose member
- * cards + template brand, service framework hint: is branching that belongs to
+ * {@link computePendingByName} so the per-kind enrichment — compose member
+ * cards + template brand, service framework hint — is branching that belongs to
  * the card it decorates rather than to the change loop.
  */
 function ghostCreate(
@@ -97,7 +98,7 @@ function ghostCreate(
     };
   }
   // A staged service ghost shows the wizard-detected framework logo immediately
-  // (client hint, no build/persist round-trip).
+  // (client hint — no build/persist round-trip).
   if (resource === "service") {
     return { resource, name, framework: frameworks.get(`${resource}:${name}`) };
   }
@@ -107,7 +108,7 @@ function ghostCreate(
 /**
  * Bridge the apply gap: a create that was just Deployed but whose resource
  * hasn't streamed into the collection yet keeps its ghost so the node stays put.
- * Split out of {@link computePendingByName}: it's a second, independent pass
+ * Split out of {@link computePendingByName} — it's a second, independent pass
  * over a different input, and folding it inline pushed that function past its
  * branch budget.
  */
@@ -121,12 +122,7 @@ function bridgeAppliedCreates(
   for (const key of appliedCreates) {
     if (createKeys.has(key) || idByName.has(key)) continue;
     const sep = key.indexOf(":");
-    const kind = key.slice(0, sep);
-    // Real narrowing instead of an assertion: an applied-create key is always
-    // minted as `${resource}:${name}`, but a malformed one must be skipped,
-    // not smuggled into the node list as a fake kind.
-    if (kind !== "service" && kind !== "database" && kind !== "compose") continue;
-    const resource: NodeResourceKind = kind;
+    const resource = key.slice(0, sep) as NodeResourceKind;
     bridged.push({
       resource,
       name: key.slice(sep + 1),
@@ -167,14 +163,14 @@ function computePendingByName(
     const key = `${c.resource}:${c.name}`;
     const id = idByName.get(key);
     if (c.kind === "create" && !id) {
-      // Narrow the wire `details` to JsonObject at the boundary: the diff
+      // Narrow the wire `details` to JsonObject at the boundary — the diff
       // payload is plain JSON, the contract just types it loosely.
       const details = isJsonObject(c.details) ? c.details : undefined;
       creates.push(ghostCreate(c.resource, c.name, details, frameworks));
       createKeys.add(key);
     } else if (id && (c.kind === "update" || c.kind === "delete")) {
       // Key by the node id (`${resource}:${name}`), which is what the node
-      // carries, not the resourceId.
+      // carries — not the resourceId.
       marker.set(key, c.kind);
     }
   }
@@ -184,7 +180,7 @@ function computePendingByName(
 
 /**
  * Loads everything GraphCanvas renders from: resources, dependency edges, live
- * tasks, and the staged manifest diff, folding them into the React Flow node
+ * tasks, and the staged manifest diff — folding them into the React Flow node
  * + edge lists. Polls the diff on a 5s cadence (matching the pending-changes
  * bar) and bridges create-ghosts across the apply handover.
  */
@@ -199,9 +195,9 @@ export function useGraphModel(
       q
         .from({ r: resourceCollection })
         .where(({ r }) =>
-          and(eq(r.projectId, project.id), eq(r.environmentId, activeEnv.id ?? "")),
+          and(eq(r.projectId, project.id), inActiveEnvironment(r.environmentId, activeEnv)),
         ),
-    [project.id, activeEnv.id],
+    [project.id, activeEnv.id, activeEnv.isMain],
   );
 
   // Edges come from parsing ${{Resource.VAR}} references in service env vars
@@ -223,9 +219,9 @@ export function useGraphModel(
     [project.id],
   );
 
-  // Pending manifest changes. Overlay as ghost nodes for creates and markers
+  // Pending manifest changes — overlay as ghost nodes for creates and markers
   // on existing nodes for updates/deletes. The input MUST match the
-  // pending-changes bar's (`{ projectId, environment }`). oRPC derives the
+  // pending-changes bar's (`{ projectId, environment }`) — oRPC derives the
   // query key from the input, so a mismatched input is a second cache entry
   // polling the same procedure in parallel. Manifest writes push a `manifest`
   // resync over the event stream (and local staging invalidates via
@@ -246,7 +242,7 @@ export function useGraphModel(
   const pendingFrameworks = usePendingFrameworks(project.id);
 
   // Once a just-Deployed create's resource has landed, stop bridging it so the
-  // store doesn't pin a ghost over the now-real node, and drop its framework
+  // store doesn't pin a ghost over the now-real node — and drop its framework
   // hint, since the real row now carries the persisted value.
   useEffect(() => {
     if (appliedCreates.size === 0 && pendingFrameworks.size === 0) return;
@@ -259,7 +255,7 @@ export function useGraphModel(
     }
   }, [appliedCreates, pendingFrameworks, resources, project.id]);
 
-  // Open PR previews. Satellite cards hanging off the service they preview.
+  // Open PR previews — satellite cards hanging off the service they preview.
   // The PR webhook handlers push a `previews` resync over the event stream,
   // so this poll is only the backstop for a missed event.
   const previews = useQuery(
@@ -269,7 +265,7 @@ export function useGraphModel(
     }),
   );
 
-  // Per-host traffic stats over the last 5m: feeds the corner rollup chip
+  // Per-host traffic stats over the last 5m — feeds the corner rollup chip
   // only, so a slow cadence is fine. Domains themselves live in the
   // Networking tab, not on the graph. (The traffic drawer keeps its own
   // faster query while open.)
@@ -282,7 +278,7 @@ export function useGraphModel(
 
   // Convert resources to nodes, then append the preview satellites (nodes +
   // dashed edges together, so an edge can never reference a node that wasn't
-  // emitted). The framework brand logo rides on each resource record, no
+  // emitted). The framework brand logo rides on each resource record — no
   // per-service git-API lookup.
   //
   // Memoized on the underlying data (not recomputed per render): a drag
@@ -323,7 +319,7 @@ export function useGraphModel(
     pendingFrameworks,
   ]);
 
-  // Corner chip rollup: null (chip omitted) when no host saw traffic.
+  // Corner chip rollup — null (chip omitted) when no host saw traffic.
   const traffic = useMemo(() => summarizeTraffic(routeStats.data), [routeStats.data]);
 
   return { liveNodes: graph.nodes, liveEdges: graph.edges, traffic };

@@ -9,7 +9,8 @@ import { open as openMaxmind } from "maxmind";
  * Returns an ISO country code for a client IP, or null when GeoIP is
  * unavailable. Zero-config by default: when `EDGE_LOG_GEOIP_DB` is unset, the
  * sink downloads a free, no-key IP→country database (public-domain DB-IP
- * country-lite, MaxMind DB format) to `<DATA_ROOT>/geoip` and opens that. Set
+ * country-lite, MaxMind DB format) to `<DATA_ROOT>/platform/geoip` and opens
+ * that. Set
  * `EDGE_LOG_GEOIP_DB` to point at your own `.mmdb` and the download is skipped.
  *
  * Everything is best-effort: a missing file, a failed download, or an unreadable

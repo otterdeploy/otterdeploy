@@ -1,7 +1,8 @@
-import type { DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { DeploymentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
-import { resourceDir } from "@otterdeploy/shared/paths";
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
+import { resourceDir, type ResourceRef } from "@otterdeploy/shared/paths";
 import { Result } from "better-result";
 /**
  * Deploy a `type: compose` resource: parse the stored file → resolve each
@@ -63,13 +64,10 @@ export interface ComposeDeployResult {
 async function materializeInlineTree(
   record: ComposeRecord,
   parsed: { services: Array<{ envFile: string[]; env: Record<string, string> }> },
-  ids: { projectId: ProjectId; resourceId: ResourceId },
+  ref: ResourceRef,
 ): Promise<string | undefined> {
   if (record.compose.files.length === 0) return undefined;
-  const stackDir = await materializeComposeFiles(
-    record.compose.files,
-    resourceDir(ids.projectId, ids.resourceId),
-  );
+  const stackDir = await materializeComposeFiles(record.compose.files, resourceDir(ref));
   for (const svc of parsed.services) {
     if (svc.envFile.length === 0) continue;
     const fromFiles = await readEnvFiles(svc.envFile, stackDir);
@@ -98,6 +96,12 @@ export async function deployCompose(
   if (!project) {
     return Result.err(new ComposeDeployError("Project not found"));
   }
+  // Narrow the row's plain-string org id to the branded type with a real
+  // runtime check (ids are minted as `org_…`) instead of an assertion.
+  const organizationId = project.organizationId;
+  if (!hasPrefix(organizationId, ID_PREFIX.organization)) {
+    return Result.err(new ComposeDeployError("Project has a malformed organization id"));
+  }
 
   // Invariant: only inline stacks reach a direct deploy. Git stacks always go
   // through the build worker (compose/index.ts redeploy + create, and
@@ -121,7 +125,13 @@ export async function deployCompose(
       })
     : {};
 
-  const stackDir = await materializeInlineTree(record, parsed.value, input);
+  // The stack's on-disk home is env-keyed (null environmentId = main env).
+  const stackDir = await materializeInlineTree(record, parsed.value, {
+    organizationId,
+    projectId: input.projectId,
+    environmentId: record.resource.environmentId ?? null,
+    resourceId: input.resourceId,
+  });
 
   // `build:` services need an image the build worker produced. Resolve each
   // service's image from `image:` or the builder's `builtImages` map, then
@@ -192,7 +202,7 @@ export async function deployCompose(
           parsed.value,
           {
             projectId: input.projectId,
-            organizationId: project.organizationId as OrganizationId,
+            organizationId,
             exposedSeedServiceNames,
             stackResourceId: input.resourceId,
             projectSlug: project.slug,

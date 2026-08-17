@@ -15,7 +15,7 @@ import { revalidateLogic } from "@tanstack/react-form";
 import { composeDefaults, composeFormSchema, type ComposeFormValues } from "./compose-schema";
 import { useAppForm } from "./form-context";
 
-export type { ComposeFormValues, ComposeStep } from "./compose-schema";
+export type { ComposeFormValues } from "./compose-schema";
 
 export interface DetectedService {
   name: string;

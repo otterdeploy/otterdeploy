@@ -190,7 +190,7 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
   // Refresh the project's DR escape hatch (rendered compose + JSON snapshot)
   // from the now-current rows. Best-effort: it never throws, never blocks the
   // apply result, and no-ops when the data folder isn't writable.
-  await writeProjectEscapeHatch(projectId);
+  await writeProjectEscapeHatch(organizationId, projectId);
 
   // lastAppliedManifest just moved, so every open tab's pending-changes diff
   // is stale, announce it so the stream resyncs them now instead of at the

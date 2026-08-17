@@ -1,7 +1,19 @@
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
-import type { DeploymentId } from "@otterdeploy/shared/id";
+import type {
+  DeploymentId,
+  EnvironmentId,
+  OrganizationId,
+  ProjectId,
+} from "@otterdeploy/shared/id";
+import type { ResourceRef } from "@otterdeploy/shared/paths";
 
-import { DATA_ROOT, projectDir, resourceDir, sourceTarballPath } from "@otterdeploy/shared/paths";
+import {
+  DATA_ROOT,
+  envDir,
+  orgDir,
+  projectDir,
+  resourceDir,
+  sourceTarballPath,
+} from "@otterdeploy/shared/paths";
 /**
  * `fs` operations against the host data folder (`/data/otterdeploy`). The path
  * derivation is pure and lives in `@otterdeploy/shared/paths`; the side effects
@@ -51,16 +63,41 @@ export async function removeGuardedDir(path: string, id: string): Promise<void> 
   await rm(dir, { recursive: true, force: true }).catch(() => undefined);
 }
 
-/** Remove a resource's artifact dir on delete. */
-export async function removeResourceDir(projectId: ProjectId, id: ResourceId): Promise<void> {
+/** Remove a resource's whole home (`…/resources/<resourceId>/`: meta, ssl,
+ *  init, volumes, backup staging) on delete. */
+export async function removeResourceDir(ref: ResourceRef): Promise<void> {
   if (!(await dataRootAvailable())) return;
-  await removeGuardedDir(resourceDir(projectId, id), id);
+  await removeGuardedDir(resourceDir(ref), ref.resourceId);
 }
 
-/** Remove a project's escape-hatch dir (`projects/<projectId>/`) on delete. */
-export async function removeProjectDir(id: ProjectId): Promise<void> {
+/** Remove one environment's subtree (`…/envs/<envId>/`) on env delete — a
+ *  preview's whole disk footprint in one step. Never called for `main` (the
+ *  main environment cannot be deleted), and the id guard enforces that: the
+ *  path ends with the env id, which `main` is not. */
+export async function removeEnvDir(
+  organizationId: OrganizationId,
+  projectId: ProjectId,
+  environmentId: EnvironmentId,
+): Promise<void> {
   if (!(await dataRootAvailable())) return;
-  await removeGuardedDir(projectDir(id), id);
+  await removeGuardedDir(envDir(organizationId, projectId, environmentId), environmentId);
+}
+
+/** Remove a project's subtree (`orgs/<orgId>/projects/<projectId>/`) on delete. */
+export async function removeProjectDir(
+  organizationId: OrganizationId,
+  projectId: ProjectId,
+): Promise<void> {
+  if (!(await dataRootAvailable())) return;
+  await removeGuardedDir(projectDir(organizationId, projectId), projectId);
+}
+
+/** Remove an organization's whole subtree (`orgs/<orgId>/`) on org delete.
+ *  Includes the org's durable backup repos — org deletion is the one place
+ *  that is allowed to drop them. */
+export async function removeOrgDir(organizationId: OrganizationId): Promise<void> {
+  if (!(await dataRootAvailable())) return;
+  await removeGuardedDir(orgDir(organizationId), organizationId);
 }
 
 /**

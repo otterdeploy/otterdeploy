@@ -257,14 +257,14 @@ describe("dockerfileBuildArgs", () => {
     const args = dockerfileBuildArgs({
       ...cacheBase,
       builderName: "otterdeploy-cache",
-      cachePath: "/data/otterdeploy/buildx-cache/repo",
+      cachePath: "/data/otterdeploy/cache/buildx/repo",
     });
     // --builder comes right after `buildx build`
     expect(args.slice(0, 4)).toEqual(["buildx", "build", "--builder", "otterdeploy-cache"]);
     expect(args).toContain("--cache-from");
-    expect(args).toContain("type=local,src=/data/otterdeploy/buildx-cache/repo");
+    expect(args).toContain("type=local,src=/data/otterdeploy/cache/buildx/repo");
     expect(args).toContain("--cache-to");
-    expect(args).toContain("type=local,dest=/data/otterdeploy/buildx-cache/repo,mode=max");
+    expect(args).toContain("type=local,dest=/data/otterdeploy/cache/buildx/repo,mode=max");
     // context dir stays last
     expect(args[args.length - 1]).toBe("/work");
   });
@@ -273,7 +273,7 @@ describe("dockerfileBuildArgs", () => {
     // The default docker driver rejects cache export. Flags must be absent.
     const noBuilder = dockerfileBuildArgs({
       ...cacheBase,
-      cachePath: "/data/otterdeploy/buildx-cache/repo",
+      cachePath: "/data/otterdeploy/cache/buildx/repo",
     });
     expect(noBuilder).not.toContain("--builder");
     expect(noBuilder).not.toContain("--cache-from");
