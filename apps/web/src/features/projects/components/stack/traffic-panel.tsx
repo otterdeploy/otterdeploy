@@ -14,7 +14,6 @@ import { useLiveQuery } from "@tanstack/react-db";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { resourceCollection } from "@/features/resources/data/resource";
-import { inActiveEnvironment } from "@/features/shell/environment-scope";
 import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { PublicHostLink } from "@/shared/components/public-host-link";
 import { Skeleton } from "@/shared/components/ui/skeleton";
@@ -42,11 +41,13 @@ export function TrafficPanel({ projectId }: { projectId: ProjectId }) {
       q
         .from({ r: resourceCollection })
         .where(({ r }) =>
-          and(eq(r.projectId, projectId), inActiveEnvironment(r.environmentId, activeEnv)),
+          and(eq(r.projectId, projectId), eq(r.environmentId, activeEnv.id ?? "")),
         ),
-    [projectId, activeEnv.id, activeEnv.isMain],
+    [projectId, activeEnv.id],
   );
-  const nameByResourceId = new Map(resources.map((r) => [r.resourceId as string, r.name]));
+  // Explicit <string, string>: routeStats rows carry plain-string ids, and a
+  // map keyed by the branded id type would reject those lookups.
+  const nameByResourceId = new Map<string, string>(resources.map((r) => [r.resourceId, r.name]));
 
   if (query.isLoading) return <TrafficPending />;
   if (query.isError) {

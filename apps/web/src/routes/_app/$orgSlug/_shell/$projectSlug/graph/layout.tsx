@@ -22,7 +22,6 @@ import {
   useStackPanelState,
   type StackPanelState,
 } from "@/features/projects/components/stack";
-import { inActiveEnvironment } from "@/features/shell/environment-scope";
 import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { resourceCollection } from "@/features/resources/data/resource";
 import { orpc } from "@/shared/server/orpc";
@@ -74,9 +73,9 @@ function RouteComponent() {
       q
         .from({ r: resourceCollection })
         .where(({ r }) =>
-          and(eq(r.projectId, project.id), inActiveEnvironment(r.environmentId, activeEnv)),
+          and(eq(r.projectId, project.id), eq(r.environmentId, activeEnv.id ?? "")),
         ),
-    [project.id, activeEnv.id, activeEnv.isMain],
+    [project.id, activeEnv.id],
   );
   const hasResources = resourceStatus !== "loading" && resourceRows.length > 0;
 

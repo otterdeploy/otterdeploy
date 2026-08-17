@@ -4,6 +4,7 @@ import { createCollection, type SimpleComparison } from "@tanstack/db";
 import { parseLoadSubsetOptions, queryCollectionOptions } from "@tanstack/query-db-collection";
 import * as z from "zod";
 
+import { projectCollection } from "@/features/projects/data/project";
 import { persistence } from "@/shared/db/sqlite-persistence";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
@@ -85,7 +86,24 @@ const resourceQueryOptions = queryCollectionOptions({
     if (!filters.at(0)) return [];
     const projectId = parseCol(projectIdSchema, filters, "projectId");
     const environmentId = parseOptionalCol(environmentIdSchema, filters, "environmentId");
-    return orpc.project.resource.list.call({ projectId, environmentId });
+    const rows = await orpc.project.resource.list.call({ projectId, environmentId });
+    // NULL environment_id means the project's MAIN environment, so stamp NULL
+    // rows with the project's own main pointer (falling back to the requested
+    // environment: the server only returns NULL rows inside the main scope,
+    // so when they appear the requested scope WAS main). This is THE
+    // enforcement point of the null-is-main rule on the client: every
+    // consumer then filters with a plain eq. Do NOT move this into the live
+    // queries as or(eq, isNull): the persistence layer's subset parser only
+    // understands simple comparisons, and the or() variant silently emptied
+    // the whole graph once collections became SQLite-persisted (od-lqm redux).
+    const mainEnvironmentId =
+      projectCollection.toArray.find((p) => p.id === projectId)?.environmentId ??
+      environmentId ??
+      null;
+    if (mainEnvironmentId === null) return rows;
+    return rows.map((row) =>
+      row.environmentId === null ? { ...row, environmentId: mainEnvironmentId } : row,
+    );
   },
   onDelete: async ({ transaction }) => {
     await Promise.all(
@@ -118,7 +136,10 @@ export const resourceCollection = persistence
       persistedCollectionOptions<ResourceRow, string | number>({
         ...resourceQueryOptions,
         persistence,
-        schemaVersion: 1,
+        // v2: environmentId normalized at ingest (null → owning main env).
+        // Bumped so rows persisted before the normalization don't linger with
+        // null and stay invisible to the eq() filters.
+        schemaVersion: 2,
       }),
     )
   : createCollection(resourceQueryOptions);

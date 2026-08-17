@@ -25,7 +25,6 @@ import {
 } from "@/features/deployments/data/deployments-search";
 import { projectIdBySlug } from "@/features/projects/data/project";
 import { resourceCollection } from "@/features/resources/data/resource";
-import { inActiveEnvironment } from "@/features/shell/environment-scope";
 import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { Page, PageHeader } from "@/shared/components/page";
 import { orpc, queryClient } from "@/shared/server/orpc";
@@ -88,9 +87,9 @@ function RouteComponent() {
       q
         .from({ r: resourceCollection })
         .where(({ r }) =>
-          and(eq(r.projectId, project.id), inActiveEnvironment(r.environmentId, activeEnv)),
+          and(eq(r.projectId, project.id), eq(r.environmentId, activeEnv.id ?? "")),
         ),
-    [project.id, activeEnv.id, activeEnv.isMain],
+    [project.id, activeEnv.id],
   );
   const resourceOptions = resources.map((r) => ({
     id: r.resourceId as string,

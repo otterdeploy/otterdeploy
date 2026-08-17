@@ -59,13 +59,9 @@ export function AnalyticsView({ projectId, range, onRangeChange }: AnalyticsView
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">
-          {projectId
-            ? "Traffic across this project's public domains, from the edge access logs."
-            : "Traffic across every public domain on this install, from the edge access logs."}
-          {data?.flags.source === "rollup+live" ? " Includes the current live minute." : null}
-        </p>
+      {/* The surrounding page/tab owns the title + description; this row owns
+          only the window choice, so embedding the view never doubles copy. */}
+      <div className="flex flex-wrap items-center justify-end gap-2">
         <ToggleGroup
           value={[range]}
           onValueChange={(next) => {

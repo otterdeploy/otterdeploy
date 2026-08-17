@@ -111,7 +111,7 @@ function RouteComponent() {
     <Tabs
       value={tab}
       onValueChange={(value) => {
-        if (isEdgeTab(value)) setTab(value);
+        if (isEdgeTab(value)) void setTab(value);
       }}
       className="flex h-[calc(100svh-var(--header-height))] min-w-0 flex-col gap-0 overflow-hidden"
     >
@@ -189,7 +189,14 @@ function AnalyticsTab() {
   // Local range state: the page's `?tab=` search already names the plane and
   // the org-wide window choice isn't worth a second URL param.
   const [range, setRange] = useState<AnalyticsRangeKey>("24h");
-  return <AnalyticsView range={range} onRangeChange={setRange} />;
+  return (
+    <div className="flex flex-col gap-1">
+      <p className="text-xs text-muted-foreground">
+        Traffic across every public domain on this install, from the edge access logs.
+      </p>
+      <AnalyticsView range={range} onRangeChange={setRange} />
+    </div>
+  );
 }
 
 // ─── Caddyfile plane (formerly the standalone Networking page) ──────────

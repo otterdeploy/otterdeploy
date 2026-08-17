@@ -13,7 +13,6 @@ import {
 } from "@/features/projects/components/graph/build-live-nodes";
 import { resourceCollection } from "@/features/resources/data/resource";
 import { serviceTasksCollection } from "@/features/resources/data/service-tasks";
-import { inActiveEnvironment } from "@/features/shell/environment-scope";
 import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 
 import { baseStatus, type StackServiceStatus } from "./panel-parts";
@@ -37,9 +36,9 @@ export function useComposeServiceStatus(resource: {
       q
         .from({ r: resourceCollection })
         .where(({ r }) =>
-          and(eq(r.projectId, resource.projectId), inActiveEnvironment(r.environmentId, activeEnv)),
+          and(eq(r.projectId, resource.projectId), eq(r.environmentId, activeEnv.id ?? "")),
         ),
-    [resource.projectId, activeEnv.id, activeEnv.isMain],
+    [resource.projectId, activeEnv.id],
   );
   const tasksByResourceId = (() => {
     const m = new Map<string, Task[]>();

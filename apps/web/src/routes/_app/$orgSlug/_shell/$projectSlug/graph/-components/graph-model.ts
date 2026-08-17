@@ -29,7 +29,6 @@ import { type ComposeServiceInfo } from "@/features/projects/components/graph/re
 import { dependenciesCollection } from "@/features/projects/data/dependencies";
 import { resourceCollection } from "@/features/resources/data/resource";
 import { serviceTasksCollection } from "@/features/resources/data/service-tasks";
-import { inActiveEnvironment } from "@/features/shell/environment-scope";
 import { type ActiveEnvironment } from "@/features/shell/use-active-environment";
 import { orpc } from "@/shared/server/orpc";
 
@@ -122,7 +121,12 @@ function bridgeAppliedCreates(
   for (const key of appliedCreates) {
     if (createKeys.has(key) || idByName.has(key)) continue;
     const sep = key.indexOf(":");
-    const resource = key.slice(0, sep) as NodeResourceKind;
+    const kind = key.slice(0, sep);
+    // Real narrowing instead of an assertion: an applied-create key is always
+    // minted as `${resource}:${name}`, but a malformed one must be skipped,
+    // not smuggled into the node list as a fake kind.
+    if (kind !== "service" && kind !== "database" && kind !== "compose") continue;
+    const resource: NodeResourceKind = kind;
     bridged.push({
       resource,
       name: key.slice(sep + 1),
@@ -195,9 +199,9 @@ export function useGraphModel(
       q
         .from({ r: resourceCollection })
         .where(({ r }) =>
-          and(eq(r.projectId, project.id), inActiveEnvironment(r.environmentId, activeEnv)),
+          and(eq(r.projectId, project.id), eq(r.environmentId, activeEnv.id ?? "")),
         ),
-    [project.id, activeEnv.id, activeEnv.isMain],
+    [project.id, activeEnv.id],
   );
 
   // Edges come from parsing ${{Resource.VAR}} references in service env vars

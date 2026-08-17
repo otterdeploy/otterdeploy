@@ -22,7 +22,6 @@ import {
   type DomainStatusView,
 } from "@/features/resources/components/service/tabs/settings/domains-card-parts";
 import { resourceCollection } from "@/features/resources/data/resource";
-import { inActiveEnvironment } from "@/features/shell/environment-scope";
 import { useActiveEnvironment } from "@/features/shell/use-active-environment";
 import { buttonVariants } from "@/shared/components/ui/button";
 import { orpc } from "@/shared/server/orpc";
@@ -62,9 +61,9 @@ export function ComposeExposedSummary({
       q
         .from({ r: resourceCollection })
         .where(({ r }) =>
-          and(eq(r.projectId, projectId), inActiveEnvironment(r.environmentId, activeEnv)),
+          and(eq(r.projectId, projectId), eq(r.environmentId, activeEnv.id ?? "")),
         ),
-    [projectId, activeEnv.id, activeEnv.isMain],
+    [projectId, activeEnv.id],
   );
 
   const exposed = projectResources.filter(

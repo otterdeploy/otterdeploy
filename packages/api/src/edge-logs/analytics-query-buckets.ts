@@ -151,6 +151,12 @@ export async function loadMinuteBuckets(
   const buckets = new Map<number, InternalBucket>();
   if (hosts.length === 0) return buckets;
   const step = sql.raw(String(stepMinutes));
+  // A bare JS array in a sql`` template renders as `(($1, $2, …))` — a record,
+  // not an array — and Postgres rejects `= ANY(record)`. Join into an IN list.
+  const hostList = sql.join(
+    hosts.map((h) => sql`${h}`),
+    sql`, `,
+  );
 
   const scalarRes = await db.execute(sql`
     SELECT (floor(minute / ${step})::int * ${step}) AS bucket,
@@ -162,7 +168,7 @@ export async function loadMinuteBuckets(
       sum(res_bytes)::float8 AS res_bytes,
       sum(latency_sum_ms)::float8 AS latency_sum_ms
     FROM edge_stat_minute
-    WHERE host = ANY(${hosts}) AND minute >= ${fromMinute}
+    WHERE host IN (${hostList}) AND minute >= ${fromMinute}
     GROUP BY 1
   `);
   for (const raw of executeRows(scalarRes)) {
@@ -187,7 +193,7 @@ export async function loadMinuteBuckets(
     SELECT (floor(minute / ${step})::int * ${step}) AS bucket,
       u.ord::int AS idx, sum(u.v)::float8 AS c
     FROM edge_stat_minute, unnest(latency_buckets) WITH ORDINALITY AS u(v, ord)
-    WHERE host = ANY(${hosts}) AND minute >= ${fromMinute}
+    WHERE host IN (${hostList}) AND minute >= ${fromMinute}
     GROUP BY 1, 2
   `);
   for (const raw of executeRows(histRes)) {
