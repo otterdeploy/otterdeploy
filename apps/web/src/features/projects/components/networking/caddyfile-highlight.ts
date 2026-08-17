@@ -15,13 +15,16 @@ export type TokenKind =
   | "punct"
   | "plain";
 
+// Each hue needs BOTH theme shades: the pale `-300` steps that read on the
+// dark canvas are near-invisible on the light one (and vice versa for the
+// `-700` steps), so a single fixed shade can never serve both.
 export const KIND_CLASS: Record<TokenKind, string> = {
   comment: "text-muted-foreground/55 italic",
-  directive: "text-sky-300/90",
-  site: "text-emerald-300/85",
-  placeholder: "text-orange-300/85",
-  number: "text-orange-300/85",
-  string: "text-emerald-300/85",
+  directive: "text-sky-700 dark:text-sky-300/90",
+  site: "text-emerald-700 dark:text-emerald-300/85",
+  placeholder: "text-amber-700 dark:text-orange-300/85",
+  number: "text-amber-700 dark:text-orange-300/85",
+  string: "text-emerald-700 dark:text-emerald-300/85",
   punct: "text-muted-foreground/70",
   plain: "text-foreground/85",
 };
