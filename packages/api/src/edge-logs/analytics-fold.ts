@@ -40,7 +40,7 @@ export type AnalyticsLine = Pick<
 
 /** Distinct path keys persisted per (host, day); the tail folds into this. */
 export const PATHS_PER_DAY_CAP = 2_000;
-export const REFERRERS_PER_DAY_CAP = 500;
+const REFERRERS_PER_DAY_CAP = 500;
 export const OVERFLOW_KEY = "__other";
 /** Global cap on retained visitor hashes across all (host, day) sets. Past
  *  it, new visitors stop being counted and the day is marked approximate:
@@ -106,7 +106,7 @@ export function zeroHistogram(): number[] {
   return Array.from({ length: LATENCY_BUCKET_COUNT }, () => 0);
 }
 
-export function newMinuteAcc(host: string, minute: number): MinuteAcc {
+function newMinuteAcc(host: string, minute: number): MinuteAcc {
   return {
     host,
     minute,
@@ -125,7 +125,7 @@ export function newMinuteAcc(host: string, minute: number): MinuteAcc {
   };
 }
 
-export function newDayAcc(host: string, day: string): DayAcc {
+function newDayAcc(host: string, day: string): DayAcc {
   return {
     host,
     day,

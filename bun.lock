@@ -150,7 +150,6 @@
         "@tanstack/db": "catalog:",
         "@tanstack/query-core": "catalog:",
         "@tanstack/query-db-collection": "catalog:",
-        "@tanstack/react-charts": "^0.14.0",
         "@tanstack/react-db": "catalog:",
         "@tanstack/react-form": "catalog:",
         "@tanstack/react-hotkeys": "catalog:",
@@ -1487,8 +1486,6 @@
     "@tanstack/query-core": ["@tanstack/query-core@5.100.14", "", {}, "sha512-5X41dGpxgeaHISCRW2oYwcSycZeULZzAunaudXT9ov1KOTj9xwt0CH6hbwqP1/z74ZWF7rYFnDpyYH07XFcZew=="],
 
     "@tanstack/query-db-collection": ["@tanstack/query-db-collection@1.0.46", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "@tanstack/db": "0.6.14" }, "peerDependencies": { "@tanstack/query-core": "^5.0.0", "typescript": ">=4.7" } }, "sha512-5rRGESbfcKlNUNvGGvlQQWnCFP1yfunE0MUAyweJJUMTOupG0kFXOjQB64CX7Ij7L4VpFZpa3hVMMIgG/ntytg=="],
-
-    "@tanstack/react-charts": ["@tanstack/react-charts@0.14.0", "", { "dependencies": { "@tanstack/charts": "0.14.0" }, "peerDependencies": { "react": "^19.0.0", "react-dom": "^19.0.0" } }, "sha512-hE/X6u8LQqpPa0SYdu8rJqOeWlXorApkdQAcLmAHe7eOb81I5PUdY3IfjzsdvO1Jxlpj54wU/oA6kAwpKQfPWQ=="],
 
     "@tanstack/react-db": ["@tanstack/react-db@0.1.92", "", { "dependencies": { "@tanstack/db": "0.6.14", "use-sync-external-store": "^1.6.0" }, "peerDependencies": { "react": ">=16.8.0" } }, "sha512-Ymgwu+4Wq5n2ij/iCh8WxBla0dD8eP1/aivkNWfVe2GIQO9e3AM0vwtSIiOB6r5oFqJbE0x8sY7rQHPzljwf/Q=="],
 

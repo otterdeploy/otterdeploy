@@ -1,4 +1,13 @@
-import { bigint, boolean, index, integer, jsonb, pgTable, primaryKey, text } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+} from "drizzle-orm/pg-core";
 
 /**
  * Traffic-analytics rollups, aggregated AT INGEST from Caddy access logs.
@@ -33,6 +42,31 @@ export const LATENCY_BUCKET_BOUNDS_MS = [
 ] as const;
 export const LATENCY_BUCKET_COUNT = LATENCY_BUCKET_BOUNDS_MS.length + 1;
 
+/** Columns identical across both granularities: status classes, byte
+ *  counters, and the mergeable latency histogram. A factory (not a shared
+ *  const) so each table gets fresh builder instances.
+ *
+ *  bigint bytes: an int4 byte counter caps at ~2 GB/min (~286 Mbps), which
+ *  routine video/download traffic exceeds; the busiest hosts must not be the
+ *  ones whose analytics break. */
+function trafficStatColumns() {
+  return {
+    s2xx: integer("s2xx").notNull(),
+    s3xx: integer("s3xx").notNull(),
+    s4xx: integer("s4xx").notNull(),
+    s5xx: integer("s5xx").notNull(),
+    /** Status 0 (client gone before response) / 1xx / out-of-range. Kept apart
+     *  so the four class shares still add up in the UI. */
+    sOther: integer("s_other").notNull(),
+    reqBytes: bigint("req_bytes", { mode: "number" }).notNull(),
+    resBytes: bigint("res_bytes", { mode: "number" }).notNull(),
+    /** LATENCY_BUCKET_COUNT counters over LATENCY_BUCKET_BOUNDS_MS + overflow.
+     *  Histograms merge across any window, so percentiles never need raw rows. */
+    latencyBuckets: integer("latency_buckets").array().notNull(),
+    latencySumMs: bigint("latency_sum_ms", { mode: "number" }).notNull(),
+  };
+}
+
 export const edgeStatMinute = pgTable(
   "edge_stat_minute",
   {
@@ -44,22 +78,7 @@ export const edgeStatMinute = pgTable(
     requests: integer("requests").notNull(),
     /** Subset of `requests` classified as bots/CLI tools by user agent. */
     botRequests: integer("bot_requests").notNull(),
-    s2xx: integer("s2xx").notNull(),
-    s3xx: integer("s3xx").notNull(),
-    s4xx: integer("s4xx").notNull(),
-    s5xx: integer("s5xx").notNull(),
-    /** Status 0 (client gone before response) / 1xx / out-of-range. Kept apart
-     *  so the four class shares still add up in the UI. */
-    sOther: integer("s_other").notNull(),
-    // bigint: an int4 byte counter caps at ~2 GB/min (~286 Mbps), which routine
-    // video/download traffic exceeds; the busiest hosts must not be the ones
-    // whose analytics break.
-    reqBytes: bigint("req_bytes", { mode: "number" }).notNull(),
-    resBytes: bigint("res_bytes", { mode: "number" }).notNull(),
-    /** LATENCY_BUCKET_COUNT counters over LATENCY_BUCKET_BOUNDS_MS + overflow.
-     *  Histograms merge across any window, so percentiles never need raw rows. */
-    latencyBuckets: integer("latency_buckets").array().notNull(),
-    latencySumMs: bigint("latency_sum_ms", { mode: "number" }).notNull(),
+    ...trafficStatColumns(),
     latencyMaxMs: integer("latency_max_ms").notNull(),
   },
   (t) => [
@@ -80,13 +99,7 @@ export const edgeStatDay = pgTable(
     day: text("day").notNull(),
     requests: bigint("requests", { mode: "number" }).notNull(),
     botRequests: bigint("bot_requests", { mode: "number" }).notNull(),
-    reqBytes: bigint("req_bytes", { mode: "number" }).notNull(),
-    resBytes: bigint("res_bytes", { mode: "number" }).notNull(),
-    s2xx: integer("s2xx").notNull(),
-    s3xx: integer("s3xx").notNull(),
-    s4xx: integer("s4xx").notNull(),
-    s5xx: integer("s5xx").notNull(),
-    sOther: integer("s_other").notNull(),
+    ...trafficStatColumns(),
     /** Exact status code → count ({"200": 4210, "404": 17}). Classes above are
      *  derived at write time so readers never re-bucket. */
     statuses: jsonb("statuses").$type<Record<string, number>>().notNull(),
@@ -111,10 +124,6 @@ export const edgeStatDay = pgTable(
     browsers: jsonb("browsers").$type<Record<string, number>>().notNull(),
     oses: jsonb("oses").$type<Record<string, number>>().notNull(),
     deviceTypes: jsonb("device_types").$type<Record<string, number>>().notNull(),
-    /** Same histogram shape as the minute rows, so 30/90-day percentiles read
-     *  ~90 rows per host instead of ~130k minute rows. */
-    latencyBuckets: integer("latency_buckets").array().notNull(),
-    latencySumMs: bigint("latency_sum_ms", { mode: "number" }).notNull(),
   },
   (t) => [
     primaryKey({ columns: [t.host, t.day] }),

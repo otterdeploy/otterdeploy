@@ -63,7 +63,8 @@ export function ResourceCardNode({ data, selected }: NodeProps<ResourceFlowNode>
 
       {/* Hover/selected action pill (Connect · Restart · Edit), parked until
           Connect and Edit do something. The component and its actions hook live
-          in ./resource-card-toolbar; to bring it back, restore the hover state
+          in resource-card-toolbar.tsx (removed 2026-08-17, retrieve from git
+          history); to bring it back, restore the hover state
           + `useResourceActions(id, data)` and render:
 
           <ResourceCardToolbar

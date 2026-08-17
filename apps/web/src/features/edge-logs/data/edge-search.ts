@@ -10,7 +10,6 @@
 import * as z from "zod";
 
 const EDGE_TABS = ["logs", "caddy", "firewall"] as const;
-export type EdgeTab = (typeof EDGE_TABS)[number];
 
 export const zEdgeLogsSearch = z.object({
   // `.catch` covers both a missing param and a bad value → default to Access,

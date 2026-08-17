@@ -7,7 +7,7 @@ import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import { db } from "@otterdeploy/db";
 import { databaseResource, resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { and, eq } from "drizzle-orm";
-import * as z from "zod"
+import * as z from "zod";
 
 import { type Change } from "../../stack/manifest";
 
@@ -69,9 +69,13 @@ export function groupChanges(changes: Change[]): GroupedChanges {
   );
   return out;
 }
-const oSchema = z.object({
-  owner: z.string().optional()
-})
+/** The slice of an env change's `details` the synthesis below reads: which
+ *  resource kind owns the env row, and that owner's manifest name. */
+const envOwnerSchema = z.object({
+  parent: z.string().optional(),
+  owner: z.string().optional(),
+});
+
 function synthesizeEnvOnlyUpdates(
   changes: Change[],
   parent: "service" | "database",
@@ -82,9 +86,9 @@ function synthesizeEnvOnlyUpdates(
   const covered = new Set([...creates, ...updates, ...deletes].map((c) => c.name));
   for (const c of changes) {
     if (c.resource !== "env" || c.kind === "no-op") continue;
-    const details = c.details
-    if (details?.parent !== parent) continue;
-    const {owner} = oSchema.parse(details.owner);
+    const details = envOwnerSchema.safeParse(c.details);
+    if (!details.success || details.data.parent !== parent) continue;
+    const owner = details.data.owner;
     if (!owner || covered.has(owner)) continue;
     covered.add(owner);
     updates.push({

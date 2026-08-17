@@ -12,6 +12,8 @@
  * still a bounded, small regex count.
  */
 
+import { UA_CLI_TOOLS, UA_GENERIC_BOT, UA_KNOWN_BOTS, uaOsFamily } from "@otterdeploy/shared/ua";
+
 export interface UaClass {
   /** Browser family ("Chrome", "Safari", …) or null for non-browsers. */
   browser: string | null;
@@ -20,46 +22,6 @@ export interface UaClass {
   deviceType: "desktop" | "mobile" | "tablet" | "bot" | "other";
   /** Crawlers, webhooks, monitors AND CLI tools: excluded from visitors. */
   bot: boolean;
-}
-
-const CLI_TOOLS =
-  /^(curl|wget|httpie|python-requests|python-urllib|go-http-client|node-fetch|node|undici|axios|okhttp|java|libwww-perl|deno|bun|postmanruntime|insomnia)[/ ]\d/i;
-
-/** Well-known crawler / webhook agents, matched anywhere in the string. */
-const KNOWN_BOTS: Array<[RegExp, string]> = [
-  [/googlebot/i, "Googlebot"],
-  [/bingbot/i, "Bingbot"],
-  [/duckduckbot/i, "DuckDuckBot"],
-  [/yandex(bot)?/i, "YandexBot"],
-  [/baiduspider/i, "Baiduspider"],
-  [/ahrefsbot/i, "AhrefsBot"],
-  [/semrushbot/i, "SemrushBot"],
-  [/facebookexternalhit|meta-externalagent/i, "Facebook"],
-  [/twitterbot/i, "Twitterbot"],
-  [/slackbot|slack-imgproxy/i, "Slackbot"],
-  [/discordbot/i, "Discordbot"],
-  [/telegrambot/i, "TelegramBot"],
-  [/applebot/i, "Applebot"],
-  [/gptbot/i, "GPTBot"],
-  [/claudebot|anthropic/i, "ClaudeBot"],
-  [/stripe/i, "Stripe"],
-  [/github-hookshot/i, "GitHub hooks"],
-  [/uptimerobot/i, "UptimeRobot"],
-  [/pingdom/i, "Pingdom"],
-];
-
-// No leading \b: "bot" is usually the END of a compound name (Googlebot,
-// FooBot), so only the right edge is anchored.
-const GENERIC_BOT = /(bot|crawler|spider)(?![a-z])/i;
-
-function osFamily(ua: string): string | null {
-  if (/iphone|ipad|ipod/i.test(ua)) return "iOS";
-  if (/android/i.test(ua)) return "Android";
-  if (/windows nt/i.test(ua)) return "Windows";
-  if (/mac os x|macintosh/i.test(ua)) return "macOS";
-  if (/cros/i.test(ua)) return "ChromeOS";
-  if (/linux|x11/i.test(ua)) return "Linux";
-  return null;
 }
 
 /** Browser family. Order matters: Edge and Opera embed "Chrome/", Chrome
@@ -85,17 +47,17 @@ function classify(uaRaw: string): UaClass {
   const ua = uaRaw.trim();
   if (!ua) return { browser: null, os: null, deviceType: "other", bot: false };
 
-  if (CLI_TOOLS.test(ua)) return { browser: null, os: null, deviceType: "bot", bot: true };
-  for (const [re] of KNOWN_BOTS) {
+  if (UA_CLI_TOOLS.test(ua)) return { browser: null, os: null, deviceType: "bot", bot: true };
+  for (const [re] of UA_KNOWN_BOTS) {
     if (re.test(ua)) return { browser: null, os: null, deviceType: "bot", bot: true };
   }
 
   const browser = browserFamily(ua);
-  const os = osFamily(ua);
+  const os = uaOsFamily(ua);
   // The generic hint only after browser matching: "Chrome/…" agents that also
   // mention "bot" in a product token are overwhelmingly real bots, but a plain
   // browser UA never contains the token.
-  if (browser === null && GENERIC_BOT.test(ua)) {
+  if (browser === null && UA_GENERIC_BOT.test(ua)) {
     return { browser: null, os: null, deviceType: "bot", bot: true };
   }
 

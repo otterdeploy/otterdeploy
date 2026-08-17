@@ -72,7 +72,7 @@ const flaggedIpSchema = z.object({
  * `edge_threat_ip` rollup instead, which is never swept, so it reports every
  * probe ever recorded — including IPs whose request rows are long gone.
  */
-export const flaggedWindowSchema = z.enum(["1h", "6h", "24h", "7d", "all"]);
+const flaggedWindowSchema = z.enum(["1h", "6h", "24h", "7d", "all"]);
 
 const firewallStatusSchema = z.object({
   /** Both LAPI url + bouncer key are configured (enforcement wired into Caddy). */

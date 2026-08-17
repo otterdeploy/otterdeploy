@@ -20,8 +20,8 @@ import type { DayAcc, MinuteAcc } from "./analytics-fold";
 import { zeroHistogram } from "./analytics-fold";
 import { dayKey, epochMinute } from "./analytics-normalize";
 
-export const EDGE_STAT_MINUTE_RETENTION_DAYS = 90;
-export const EDGE_STAT_DAY_RETENTION_DAYS = 400;
+const EDGE_STAT_MINUTE_RETENTION_DAYS = 90;
+const EDGE_STAT_DAY_RETENTION_DAYS = 400;
 
 /** Closed-minute deltas: insert-once, conflicts dropped (idempotent across
  *  restarts and backfill overlap). */

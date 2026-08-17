@@ -46,8 +46,8 @@ import { Mongodb } from "@/shared/components/ui/svgs/mongodb";
 import { Mysql } from "@/shared/components/ui/svgs/mysql";
 import { N8n } from "@/shared/components/ui/svgs/n8n";
 import { Nats } from "@/shared/components/ui/svgs/nats";
-import { Nodejs } from "@/shared/components/ui/svgs/nodejs";
 import { Nocodb } from "@/shared/components/ui/svgs/nocodb";
+import { Nodejs } from "@/shared/components/ui/svgs/nodejs";
 import { Ntfy } from "@/shared/components/ui/svgs/ntfy";
 import { Ollama } from "@/shared/components/ui/svgs/ollama";
 import { Plausible } from "@/shared/components/ui/svgs/plausible";
@@ -167,7 +167,7 @@ function imageKeys(image: string): string[] {
   return [path, name, owner].filter(Boolean);
 }
 
-export function resolveImageBrand(
+function resolveImageBrand(
   image: string | null | undefined,
 ): { Icon: BrandSvg; invertInDark: boolean } | null {
   if (!image) return null;

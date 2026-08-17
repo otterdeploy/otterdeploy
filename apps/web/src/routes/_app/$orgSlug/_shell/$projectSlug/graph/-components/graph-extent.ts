@@ -139,7 +139,7 @@ export function applyBounds(
  * needs these too: real sizes are what let the overlap guarantee separate the
  * cards that are actually on screen instead of dagre's estimates of them.
  */
-export function useNodeDimensions() {
+function useNodeDimensions() {
   const [measured, setMeasured] = useState<ReadonlyMap<string, Size>>(() => new Map());
   const capture = useCallback((changes: NodeChange[]) => {
     setMeasured((prev) => {

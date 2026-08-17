@@ -6,10 +6,7 @@
  */
 
 import { db } from "@otterdeploy/db";
-import {
-  LATENCY_BUCKET_BOUNDS_MS,
-  LATENCY_BUCKET_COUNT,
-} from "@otterdeploy/db/schema/edge-stat";
+import { LATENCY_BUCKET_BOUNDS_MS, LATENCY_BUCKET_COUNT } from "@otterdeploy/db/schema/edge-stat";
 import { sql } from "drizzle-orm";
 import * as z from "zod";
 
@@ -49,11 +46,11 @@ export function percentileFromBuckets(buckets: readonly number[], q: number): nu
   return null;
 }
 
-export function emptyHistogram(): number[] {
+function emptyHistogram(): number[] {
   return zeroHistogram();
 }
 
-export function addHistogram(into: number[], from: readonly number[]): void {
+function addHistogram(into: number[], from: readonly number[]): void {
   for (let i = 0; i < into.length; i++) into[i] = (into[i] ?? 0) + (from[i] ?? 0);
 }
 

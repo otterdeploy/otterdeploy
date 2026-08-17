@@ -37,11 +37,9 @@ export { percentileFromBuckets } from "./analytics-query-buckets";
 export type {
   AnalyticsBreakdowns,
   AnalyticsFlags,
-  AnalyticsRange,
   AnalyticsSummary,
   ResolvedWindow,
   SeriesBucket,
-  TopEntry,
 } from "./analytics-query-shared";
 export { resolveAnalyticsWindow } from "./analytics-query-shared";
 

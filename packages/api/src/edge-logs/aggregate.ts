@@ -41,19 +41,8 @@ import {
 import { foldLine } from "./analytics-fold";
 import { dayKey } from "./analytics-normalize";
 
-export type {
-  AnalyticsLine,
-  DayAcc,
-  FoldMaps,
-  MinuteAcc,
-} from "./analytics-fold";
-export {
-  foldLine,
-  OVERFLOW_KEY,
-  PATHS_PER_DAY_CAP,
-  REFERRERS_PER_DAY_CAP,
-  VISITOR_HASH_CAP,
-} from "./analytics-fold";
+export type { AnalyticsLine, DayAcc, MinuteAcc } from "./analytics-fold";
+export { foldLine, OVERFLOW_KEY, PATHS_PER_DAY_CAP, VISITOR_HASH_CAP } from "./analytics-fold";
 
 const FLUSH_INTERVAL_MS = 5_000;
 /** Day rows flush every Nth minute-flush tick (5s × 6 = 30s). */

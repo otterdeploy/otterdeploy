@@ -46,7 +46,6 @@
     "@tanstack/db": "catalog:",
     "@tanstack/query-core": "catalog:",
     "@tanstack/query-db-collection": "catalog:",
-    "@tanstack/react-charts": "^0.14.0",
     "@tanstack/react-db": "catalog:",
     "@tanstack/react-form": "catalog:",
     "@tanstack/react-hotkeys": "catalog:",

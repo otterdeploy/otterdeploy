@@ -3,10 +3,13 @@
  * buffer (packages/api/src/edge-logs), scoped to the caller's own domains.
  */
 
+import type { ProjectId } from "@otterdeploy/shared/id";
+
 import { Result } from "better-result";
 import { log } from "evlog";
 
 import { orgScopedProcedure } from "../..";
+import { type ResolvedActor } from "../../authz/actor";
 import { authorizeCapability } from "../../authz/capability";
 import {
   eventPersistenceEnabled,
@@ -27,6 +30,54 @@ import { bucketRequestSeries, coveringRange } from "./request-series";
 import { mergeRouteStats } from "./route-stats";
 import { resolveHosts, streamEdgeEvents, streamEdgeLogs } from "./streams";
 
+/** DB-backed when persistence is on (covers long windows + survives restarts),
+ *  else the in-memory ring; on a DB error (e.g. the table missing before
+ *  `bun db:push`) fall back to the ring so pages render instead of 500-ing.
+ *  `tag` names the caller in the fallback warning. */
+async function withRingFallback<T>(
+  enabled: boolean,
+  tag: string,
+  dbQuery: () => Promise<T>,
+  ringQuery: () => T,
+): Promise<{ result: T; servedFrom: "db" | "ring" }> {
+  if (!enabled) return { result: ringQuery(), servedFrom: "ring" };
+  const res = await Result.tryPromise({ try: dbQuery, catch: (cause) => cause });
+  if (res.isOk()) return { result: res.value, servedFrom: "db" };
+  log.warn({
+    edgeLog: { [tag]: "db-failed-fallback-ring" },
+    error: res.error instanceof Error ? res.error.message : String(res.error),
+  });
+  return { result: ringQuery(), servedFrom: "ring" };
+}
+
+/** Host scope for the analytics procedures. installWide = null scope (every
+ *  host, control plane included) behind the server-owned install-admin
+ *  attribute; otherwise the caller's org/project domains. The optional `host`
+ *  input INTERSECTS with that scope, never replaces it: a host outside the
+ *  scope leaves an empty list = honest zeros, not someone else's traffic. */
+async function resolveAnalyticsHosts(
+  input: { installWide?: boolean; projectId?: ProjectId; host?: string },
+  context: {
+    actor: ResolvedActor;
+    activeOrganizationId: Parameters<typeof resolveHosts>[0];
+  },
+  forbid: (message: string) => never,
+): Promise<string[] | null> {
+  let hosts: string[] | null;
+  if (input.installWide) {
+    const decision = await authorizeCapability(context.actor, { scope: "install", mode: "read" });
+    if (!decision.allowed) forbid(decision.reason);
+    hosts = null;
+  } else {
+    hosts = await resolveHosts(context.activeOrganizationId, input.projectId);
+  }
+  if (input.host !== undefined) {
+    const wanted = input.host.toLowerCase();
+    hosts = hosts === null ? [wanted] : hosts.filter((h) => h === wanted);
+  }
+  return hosts;
+}
+
 export const edgeLogsRouter = {
   query: orgScopedProcedure.edgeLogs.query.handler(async ({ input, context }) => {
     const orgId = context.activeOrganizationId;
@@ -45,27 +96,12 @@ export const edgeLogsRouter = {
     const filter = { ...rest, hosts, selectedHosts };
     const now = Date.now();
 
-    // DB-backed when persistence is on (covers 24h/7d + survives restarts);
-    // otherwise the in-memory ring. Fall back to the ring if the DB query
-    // fails (e.g. edge_log missing before `bun db:push`) so the page still
-    // renders instead of 500-ing.
-    let result;
-    if (!persistenceEnabled()) {
-      result = queryEdgeLogs(filter, now);
-    } else {
-      const res = await Result.tryPromise({
-        try: () => queryEdgeLogsDb(filter, now),
-        catch: (cause) => cause,
-      });
-      if (res.isOk()) result = res.value;
-      else {
-        log.warn({
-          edgeLog: { query: "db-failed-fallback-ring" },
-          error: res.error instanceof Error ? res.error.message : String(res.error),
-        });
-        result = queryEdgeLogs(filter, now);
-      }
-    }
+    const { result } = await withRingFallback(
+      persistenceEnabled(),
+      "query",
+      () => queryEdgeLogsDb(filter, now),
+      () => queryEdgeLogs(filter, now),
+    );
 
     // Resolve upstream per row from the route map (not in Caddy's log).
     const upstreams = await listRouteUpstreams(orgId, projectId);
@@ -100,25 +136,12 @@ export const edgeLogsRouter = {
     // `limit: 1` keeps the row payload minimal. Only hostStats are consumed.
     const filter = { range: input.range, hosts: routes.map((r) => r.host), limit: 1 };
     const now = Date.now();
-    // Same storage split + fallback as `query` above: DB when persistence is
-    // on (fall back to the ring on error), else the in-memory ring.
-    let result;
-    if (!persistenceEnabled()) {
-      result = queryEdgeLogs(filter, now);
-    } else {
-      const res = await Result.tryPromise({
-        try: () => queryEdgeLogsDb(filter, now),
-        catch: (cause) => cause,
-      });
-      if (res.isOk()) result = res.value;
-      else {
-        log.warn({
-          edgeLog: { routeStats: "db-failed-fallback-ring" },
-          error: res.error instanceof Error ? res.error.message : String(res.error),
-        });
-        result = queryEdgeLogs(filter, now);
-      }
-    }
+    const { result } = await withRingFallback(
+      persistenceEnabled(),
+      "routeStats",
+      () => queryEdgeLogsDb(filter, now),
+      () => queryEdgeLogs(filter, now),
+    );
 
     return mergeRouteStats(routes, result.hostStats);
   }),
@@ -148,25 +171,12 @@ export const edgeLogsRouter = {
       limit: REQUEST_SERIES_MAX,
     };
     const now = Date.now();
-    let result;
-    let servedFrom = source;
-    if (source === "ring") {
-      result = queryEdgeLogs(filter, now);
-    } else {
-      const res = await Result.tryPromise({
-        try: () => queryEdgeLogsDb(filter, now),
-        catch: (cause) => cause,
-      });
-      if (res.isOk()) result = res.value;
-      else {
-        log.warn({
-          edgeLog: { requestSeries: "db-failed-fallback-ring" },
-          error: res.error instanceof Error ? res.error.message : String(res.error),
-        });
-        result = queryEdgeLogs(filter, now);
-        servedFrom = "ring";
-      }
-    }
+    const { result, servedFrom } = await withRingFallback(
+      source === "db",
+      "requestSeries",
+      () => queryEdgeLogsDb(filter, now),
+      () => queryEdgeLogs(filter, now),
+    );
 
     const { buckets, bucketSeconds } = bucketRequestSeries(result.rows, input.windowMinutes, now);
     return {
@@ -190,23 +200,9 @@ export const edgeLogsRouter = {
         // installWide = null host scope (every host, control plane included).
         // Server-owned install-admin attribute, same check the install-admin
         // middleware runs; org RBAC alone never grants it.
-        let hosts: string[] | null;
-        if (input.installWide) {
-          const decision = await authorizeCapability(context.actor, {
-            scope: "install",
-            mode: "read",
-          });
-          if (!decision.allowed) throw errors.FORBIDDEN({ message: decision.reason });
-          hosts = null;
-        } else {
-          hosts = await resolveHosts(context.activeOrganizationId, input.projectId);
-        }
-        // Domain filter: INTERSECT with the authorized scope, never replace
-        // it. A host outside the scope leaves an empty list = honest zeros.
-        if (input.host !== undefined) {
-          const wanted = input.host.toLowerCase();
-          hosts = hosts === null ? [wanted] : hosts.filter((h) => h === wanted);
-        }
+        const hosts = await resolveAnalyticsHosts(input, context, (message) => {
+          throw errors.FORBIDDEN({ message });
+        });
         const window = resolveAnalyticsWindow(input.range, input.from, input.to, Date.now());
         // The equal-length window immediately before, for the tiles' trend
         // deltas (rollup reads are cheap enough to just run twice).
@@ -235,23 +231,9 @@ export const edgeLogsRouter = {
 
     breakdowns: orgScopedProcedure.edgeLogs.analytics.breakdowns.handler(
       async ({ input, context, errors }) => {
-        let hosts: string[] | null;
-        if (input.installWide) {
-          const decision = await authorizeCapability(context.actor, {
-            scope: "install",
-            mode: "read",
-          });
-          if (!decision.allowed) throw errors.FORBIDDEN({ message: decision.reason });
-          hosts = null;
-        } else {
-          hosts = await resolveHosts(context.activeOrganizationId, input.projectId);
-        }
-        // Domain filter: INTERSECT with the authorized scope, never replace
-        // it. A host outside the scope leaves an empty list = honest zeros.
-        if (input.host !== undefined) {
-          const wanted = input.host.toLowerCase();
-          hosts = hosts === null ? [wanted] : hosts.filter((h) => h === wanted);
-        }
+        const hosts = await resolveAnalyticsHosts(input, context, (message) => {
+          throw errors.FORBIDDEN({ message });
+        });
         const window = resolveAnalyticsWindow(input.range, input.from, input.to, Date.now());
         const { breakdowns, flags } = await queryAnalyticsBreakdowns(hosts, window, geoAvailable());
         return { ...breakdowns, flags };
@@ -266,19 +248,13 @@ export const edgeLogsRouter = {
       const hosts = await resolveHosts(orgId, input.projectId);
       const filter = { ...rest, hosts, selectedHosts };
       const now = Date.now();
-      // DB-backed when persistence is on (survives restarts); else the ring.
-      // Fall back to the ring on a DB error so the page still renders.
-      if (!eventPersistenceEnabled()) return queryEdgeEvents(filter, now);
-      const res = await Result.tryPromise({
-        try: () => queryEdgeEventsDb(filter, now),
-        catch: (cause) => cause,
-      });
-      if (res.isOk()) return res.value;
-      log.warn({
-        edgeLog: { eventsQuery: "db-failed-fallback-ring" },
-        error: res.error instanceof Error ? res.error.message : String(res.error),
-      });
-      return queryEdgeEvents(filter, now);
+      const { result } = await withRingFallback(
+        eventPersistenceEnabled(),
+        "eventsQuery",
+        () => queryEdgeEventsDb(filter, now),
+        () => queryEdgeEvents(filter, now),
+      );
+      return result;
     }),
 
     tail: orgScopedProcedure.edgeLogs.events.tail.handler(async function* ({
