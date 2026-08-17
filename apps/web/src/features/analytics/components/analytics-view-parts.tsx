@@ -14,8 +14,10 @@ import { formatBytes } from "@/features/resources/components/_shared/metrics/for
 import { Card } from "@/shared/components/ui/card";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
-import type { AnalyticsRangeKey, TopEntry } from "../analytics-model";
+import type { TopEntry } from "../analytics-model";
 import type { Stat } from "./stat-strip";
+
+import { deltaPct } from "./stat-strip";
 
 import { formatCount, formatShare } from "../analytics-model";
 import { StatusMix } from "./status-mix";
@@ -42,7 +44,19 @@ interface SparkBucket {
   p95: number | null;
 }
 
-export function headlineStats(summary: OverviewSummary, series: readonly SparkBucket[]): Stat[] {
+export interface PreviousTotals {
+  requests: number;
+  visitorDays: number;
+  bytesOut: number;
+  p95: number | null;
+  errorRate: number;
+}
+
+export function headlineStats(
+  summary: OverviewSummary,
+  series: readonly SparkBucket[],
+  previous: PreviousTotals,
+): Stat[] {
   return [
     {
       label: "Requests",
@@ -52,6 +66,7 @@ export function headlineStats(summary: OverviewSummary, series: readonly SparkBu
           ? `${formatShare(summary.botRequests, summary.requests)} bots`
           : undefined,
       spark: series.map((b) => b.requests),
+      delta: { pct: deltaPct(summary.requests, previous.requests) },
     },
     {
       label: "Visitor-days",
@@ -62,11 +77,13 @@ export function headlineStats(summary: OverviewSummary, series: readonly SparkBu
           : undefined,
       title:
         "Distinct visitors summed per UTC day (bots excluded). Per-day counts can't be merged into unique visitors for the whole window.",
+      delta: { pct: deltaPct(summary.visitorDays, previous.visitorDays) },
     },
     {
       label: "Bandwidth out",
       value: formatBytes(summary.bytesOut),
       spark: series.map((b) => b.resBytes),
+      delta: { pct: deltaPct(summary.bytesOut, previous.bytesOut) },
     },
     {
       label: "Latency",
@@ -74,12 +91,17 @@ export function headlineStats(summary: OverviewSummary, series: readonly SparkBu
       sub: summary.avgLatencyMs === null ? undefined : `avg ${summary.avgLatencyMs} ms`,
       title: "p95 over the window, from merged latency histograms.",
       spark: series.map((b) => b.p95 ?? 0),
+      delta:
+        summary.p95 !== null && previous.p95 !== null
+          ? { pct: deltaPct(summary.p95, previous.p95), goodWhenDown: true }
+          : undefined,
     },
     {
       label: "Error rate",
       value: `${(summary.errorRate * 100).toFixed(summary.errorRate < 0.01 ? 2 : 1)}%`,
       sub: "4xx + 5xx",
       spark: series.map((b) => b.s4xx + b.s5xx),
+      delta: { pct: deltaPct(summary.errorRate, previous.errorRate), goodWhenDown: true },
     },
   ];
 }
@@ -170,11 +192,12 @@ export function ChartCard({ title, children }: { title: string; children: ReactN
 export function HonestyNotes({
   approximate,
   breakdownDays,
-  range,
+  shortWindow,
 }: {
   approximate: boolean;
   breakdownDays: number | undefined;
-  range: AnalyticsRangeKey;
+  /** Sub-day buckets: the day-granular breakdowns cover more than the series. */
+  shortWindow: boolean;
 }) {
   return (
     <div className="flex flex-col gap-0.5">
@@ -185,7 +208,7 @@ export function HonestyNotes({
           visitors.
         </p>
       ) : null}
-      {range === "24h" && breakdownDays !== undefined ? (
+      {shortWindow && breakdownDays !== undefined ? (
         <p className="text-xs text-muted-foreground">
           Breakdowns (statuses, paths, countries, devices) are per UTC day and cover the{" "}
           {breakdownDays} calendar day{breakdownDays === 1 ? "" : "s"} touching this window.

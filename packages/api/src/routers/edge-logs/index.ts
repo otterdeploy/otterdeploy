@@ -16,7 +16,11 @@ import {
   queryEdgeLogs,
   queryEdgeLogsDb,
 } from "../../edge-logs";
-import { queryAnalyticsBreakdowns, queryAnalyticsOverview } from "../../edge-logs/analytics-query";
+import {
+  queryAnalyticsBreakdowns,
+  queryAnalyticsOverview,
+  resolveAnalyticsWindow,
+} from "../../edge-logs/analytics-query";
 import { geoAvailable } from "../../edge-logs/geo";
 import { listProjectRoutes, listRouteUpstreams } from "./queries";
 import { bucketRequestSeries, coveringRange } from "./request-series";
@@ -197,7 +201,29 @@ export const edgeLogsRouter = {
         } else {
           hosts = await resolveHosts(context.activeOrganizationId, input.projectId);
         }
-        return queryAnalyticsOverview(hosts, input.range, geoAvailable());
+        const window = resolveAnalyticsWindow(input.range, input.from, input.to, Date.now());
+        // The equal-length window immediately before, for the tiles' trend
+        // deltas (rollup reads are cheap enough to just run twice).
+        const span = window.toMs - window.fromMs;
+        const previousWindow = {
+          fromMs: window.fromMs - span,
+          toMs: window.fromMs,
+          bucketMinutes: window.bucketMinutes,
+        };
+        const [current, previous] = await Promise.all([
+          queryAnalyticsOverview(hosts, window, geoAvailable()),
+          queryAnalyticsOverview(hosts, previousWindow, geoAvailable()),
+        ]);
+        return {
+          ...current,
+          previous: {
+            requests: previous.summary.requests,
+            visitorDays: previous.summary.visitorDays,
+            bytesOut: previous.summary.bytesOut,
+            p95: previous.summary.p95,
+            errorRate: previous.summary.errorRate,
+          },
+        };
       },
     ),
 
@@ -214,11 +240,8 @@ export const edgeLogsRouter = {
         } else {
           hosts = await resolveHosts(context.activeOrganizationId, input.projectId);
         }
-        const { breakdowns, flags } = await queryAnalyticsBreakdowns(
-          hosts,
-          input.range,
-          geoAvailable(),
-        );
+        const window = resolveAnalyticsWindow(input.range, input.from, input.to, Date.now());
+        const { breakdowns, flags } = await queryAnalyticsBreakdowns(hosts, window, geoAvailable());
         return { ...breakdowns, flags };
       },
     ),

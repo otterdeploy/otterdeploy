@@ -1,25 +1,23 @@
 /**
  * The one traffic-analytics surface: install-wide on the top-level Analytics
- * page (admins), org-scoped otherwise. Rollup-backed (`edgeLogs.analytics.*`),
- * so every range costs the same and the numbers outlive the raw log's
- * retention.
+ * page (admins), org- or project-scoped via the page's filters. Rollup-backed
+ * (`edgeLogs.analytics.*`), so every range costs the same and the numbers
+ * outlive the raw log's retention.
  *
- * Honesty over polish, same house rules as the metrics cards: approximate
- * visitor windows say so, breakdowns admit their UTC-day granularity, and a
- * missing GeoIP database reads as "geo isn't set up", never as "no visitors".
+ * Layout follows the Plausible shape: stat cards with trend deltas, one
+ * full-width hero chart, then the map and the breakdowns.
  */
 
 import { useMemo } from "react";
 
 import { useQuery } from "@tanstack/react-query";
 
-import { ToggleGroup, ToggleGroupItem } from "@/shared/components/ui/toggle-group";
 import { orpc } from "@/shared/server/orpc";
 
-import type { AnalyticsRangeKey } from "../analytics-model";
 import type { ChartSeriesDef } from "./analytics-chart";
+import type { AnalyticsWindowSel } from "./range-picker";
 
-import { ANALYTICS_RANGES, formatCount, seriesPoints } from "../analytics-model";
+import { formatCount, seriesPoints } from "../analytics-model";
 import { AnalyticsChart } from "./analytics-chart";
 import {
   BreakdownPanels,
@@ -29,6 +27,7 @@ import {
   Note,
   ViewSkeleton,
 } from "./analytics-view-parts";
+import { RangePicker } from "./range-picker";
 import { StatStrip } from "./stat-strip";
 
 const POLL_MS = 30_000;
@@ -39,20 +38,27 @@ interface AnalyticsViewProps {
   /** Every host on the install, control plane included. Install-admin only:
    *  the server verifies; pass it only when the route context says admin. */
   installWide?: boolean;
-  range: AnalyticsRangeKey;
-  onRangeChange: (range: AnalyticsRangeKey) => void;
+  window: AnalyticsWindowSel;
+  onWindowChange: (next: AnalyticsWindowSel) => void;
 }
 
-function isRange(value: string): value is AnalyticsRangeKey {
-  return ANALYTICS_RANGES.some((range) => range === value);
-}
-
-export function AnalyticsView({ projectId, installWide, range, onRangeChange }: AnalyticsViewProps) {
-  const input = installWide
-    ? { installWide: true, range }
+export function AnalyticsView({
+  projectId,
+  installWide,
+  window: win,
+  onWindowChange,
+}: AnalyticsViewProps) {
+  const windowInput =
+    win.range === "custom" && win.from !== undefined && win.to !== undefined
+      ? ({ range: "24h", from: win.from, to: win.to } as const)
+      : ({ range: win.range === "custom" ? "24h" : win.range } as const);
+  const scopeInput = installWide
+    ? ({ installWide: true } as const)
     : projectId === undefined
-      ? { range }
-      : { projectId, range };
+      ? {}
+      : ({ projectId } as const);
+  const input = { ...scopeInput, ...windowInput };
+
   const overview = useQuery({
     ...orpc.edgeLogs.analytics.overview.queryOptions({ input }),
     refetchInterval: POLL_MS,
@@ -106,30 +112,8 @@ export function AnalyticsView({ projectId, installWide, range, onRangeChange }: 
 
   return (
     <div className="flex flex-col gap-3">
-      {/* The surrounding page owns the title + description; this row owns
-          only the window choice, so embedding the view never doubles copy. */}
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <ToggleGroup
-          value={[range]}
-          onValueChange={(next) => {
-            const value = next[0];
-            if (value !== undefined && isRange(value)) onRangeChange(value);
-          }}
-          variant="outline"
-          size="sm"
-          spacing={0}
-        >
-          {ANALYTICS_RANGES.map((key) => (
-            <ToggleGroupItem
-              key={key}
-              value={key}
-              aria-label={`Last ${key}`}
-              className="px-2.5 font-mono text-xs"
-            >
-              {key}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
+        <RangePicker value={win} onChange={onWindowChange} />
       </div>
 
       {((): React.ReactNode => {
@@ -145,41 +129,47 @@ export function AnalyticsView({ projectId, installWide, range, onRangeChange }: 
         }
         return (
           <>
-            <StatStrip stats={headlineStats(data.summary, data.series)} />
+            <StatStrip stats={headlineStats(data.summary, data.series, data.previous)} />
 
-            <div className="grid gap-3 md:grid-cols-2">
-              <ChartCard title="Requests">
-                {data.summary.requests === 0 ? (
-                  <Note>No requests in this window.</Note>
-                ) : (
-                  <AnalyticsChart
-                    series={requestSeries}
-                    kind="area"
-                    format={formatCount}
-                    tickFace={tickFace}
-                  />
-                )}
-              </ChartCard>
-              <ChartCard title="Latency">
-                {data.summary.p95 === null ? (
-                  <Note>No requests in this window.</Note>
-                ) : (
-                  <AnalyticsChart
-                    series={latencySeries}
-                    kind="line"
-                    format={(v) => `${Math.round(v)} ms`}
-                    tickFace={tickFace}
-                  />
-                )}
-              </ChartCard>
-            </div>
+            {/* The hero: requests over the window, full width. */}
+            <ChartCard title="Requests">
+              {data.summary.requests === 0 ? (
+                <Note>No requests in this window.</Note>
+              ) : (
+                <AnalyticsChart
+                  series={requestSeries}
+                  kind="area"
+                  format={formatCount}
+                  tickFace={tickFace}
+                  ariaLabel="Requests and errors over time"
+                  height={280}
+                />
+              )}
+            </ChartCard>
 
-            {dims ? <BreakdownPanels dims={dims} visitorDays={data.summary.visitorDays} /> : null}
+            {dims ? (
+              <BreakdownPanels dims={dims} visitorDays={data.summary.visitorDays} />
+            ) : null}
+
+            <ChartCard title="Latency">
+              {data.summary.p95 === null ? (
+                <Note>No requests in this window.</Note>
+              ) : (
+                <AnalyticsChart
+                  series={latencySeries}
+                  kind="line"
+                  format={(v) => `${Math.round(v)} ms`}
+                  tickFace={tickFace}
+                  ariaLabel="Latency percentiles over time"
+                  height={200}
+                />
+              )}
+            </ChartCard>
 
             <HonestyNotes
               approximate={data.flags.approximate}
               breakdownDays={dims?.breakdownDays}
-              range={range}
+              shortWindow={data.bucketSeconds < 86_400}
             />
           </>
         );

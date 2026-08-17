@@ -463,17 +463,16 @@
   }
 }
 
-/* ── TanStack react-charts theming (Analytics) ────────────────────────────
-   The lib inline-styles tick-label fill/size (only beatable with !important)
-   and sets grid/domain strokes as SVG attributes (plain CSS wins). */
-.ReactChart text.tickLabel {
-  fill: var(--muted-foreground) !important;
-  font-size: 10px !important;
-}
-.ReactChart .domain {
-  stroke: var(--border);
-}
-.ReactChart .grid line {
-  stroke: var(--border);
-  opacity: 0.5;
+/* ── TanStack Charts theming (Analytics) ──────────────────────────────────
+   Axis, grid, and tick text all default to currentColor, and the palette +
+   tooltip read CSS variables, so the whole chart follows the theme with no
+   JS theme object. */
+.analytics-chart {
+  color: var(--muted-foreground);
+  font-size: 11px;
+  --ts-chart-tooltip-background: var(--popover);
+  --ts-chart-tooltip-color: var(--popover-foreground);
+  --ts-chart-tooltip-border: 1px solid var(--border);
+  --ts-chart-tooltip-border-radius: 0.5rem;
+  --ts-chart-tooltip-font: 500 0.75rem/1.35 var(--font-mono, ui-monospace, monospace);
 }

@@ -1,20 +1,22 @@
 /**
- * TanStack react-charts wrapper for the Analytics time series. One place owns
- * the library's sharp edges so panel code stays declarative:
- * - axis option objects are memoized (the Chart rebuilds every scale on
- *   identity change),
- * - empty data is short-circuited BEFORE the Chart mounts (the lib throws on
- *   data it can't infer a scale from),
- * - the parent box carries the explicit height the lib's ResizeObserver
- *   measurement requires,
- * - tooltips render through our own token-styled popover, not the lib's
- *   hardcoded dark box.
- * Tick/grid colors are themed globally in index.css (.ReactChart rules).
+ * TanStack Charts (@tanstack/charts) wrapper for the Analytics time series.
+ * One place owns the library's conventions so panel code stays declarative:
+ * per-series input is folded to the long rows the color scale wants, areas
+ * get explicit y1/y2 endpoints (the default is an implicit stack) with a
+ * decorative fill under an interaction-owning line, focus is group-x so the
+ * tooltip lists every series at the hovered x, and axis/grid/tooltip colors
+ * ride currentColor + the CSS variables set in index.css (.analytics-chart),
+ * so themes need zero JS.
  */
 
 import { useMemo } from "react";
 
-import { Chart, type AxisOptions, type UserSerie } from "react-charts";
+import { colorLegend, defineChart, areaY, lineY } from "@tanstack/charts";
+import { decorative } from "@tanstack/charts/mark/decorative";
+import { Chart } from "@tanstack/charts/react/tooltip";
+import { scaleLinear } from "@tanstack/charts/scales/linear";
+import { tooltip } from "@tanstack/charts/tooltip";
+import { scaleUtc } from "d3-scale";
 
 export interface ChartPoint {
   date: Date;
@@ -36,7 +38,14 @@ interface AnalyticsChartProps {
   /** Bucket granularity decides the tick face: times for sub-day buckets,
    *  dates for day buckets (a 90d axis of "02:00 AM" repeated is noise). */
   tickFace: "time" | "date";
-  className?: string;
+  ariaLabel: string;
+  height?: number;
+}
+
+interface LongRow {
+  t: Date;
+  series: string;
+  value: number | null;
 }
 
 const timeTick = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" });
@@ -48,92 +57,103 @@ const tooltipStamp = new Intl.DateTimeFormat(undefined, {
   minute: "2-digit",
 });
 
-export function AnalyticsChart({ series, kind, format, tickFace, className }: AnalyticsChartProps) {
-  const data: UserSerie<ChartPoint>[] = useMemo(
-    () => series.map((s) => ({ label: s.label, data: s.data })),
-    [series],
-  );
+export function AnalyticsChart({
+  series,
+  kind,
+  format,
+  tickFace,
+  ariaLabel,
+  height = 200,
+}: AnalyticsChartProps) {
+  const definition = useMemo(() => {
+    // Per-series props → long rows, row-major per series so each path keeps
+    // chronological order. Nulls survive: the line mark renders them as gaps.
+    const long: LongRow[] = series.flatMap((s) =>
+      s.data.map((p) => ({ t: p.date, series: s.label, value: p.value })),
+    );
+    const tick = tickFace === "time" ? timeTick : dateTick;
 
-  const primaryAxis = useMemo<AxisOptions<ChartPoint>>(
-    () => ({
-      getValue: (datum) => datum.date,
-      scaleType: "localTime",
-      formatters: {
-        scale: (value: Date | null) =>
-          value === null ? "" : (tickFace === "time" ? timeTick : dateTick).format(value),
+    // Shared spec pieces. Marks stay per-branch: a union-typed marks array
+    // defeats defineChart's inference, so each kind calls it directly.
+    const x = {
+      scale: scaleUtc,
+      nice: true,
+      axis: { ticks: { spacing: 90, format: (value: Date) => tick.format(value) } },
+    } as const;
+    const y = {
+      scale: scaleLinear,
+      nice: true,
+      grid: true,
+      axis: { ticks: { count: 4, format: (value: number) => format(value) } },
+    } as const;
+    const color = {
+      domain: series.map((s) => s.label),
+      range: series.map((s) => s.color),
+      legend: series.length > 1 ? colorLegend({ placement: "bottom" }) : undefined,
+    };
+    const interaction = {
+      clip: true,
+      focus: "group-x",
+      maxFocusDistance: Number.POSITIVE_INFINITY,
+      tooltip: {
+        use: tooltip,
+        placement: ["top", "right", "left", "bottom"],
+        sort: "color-domain",
+        items: [
+          { channel: "x", text: (p: { xValue: Date }) => tooltipStamp.format(p.xValue) },
+          { channel: "group" },
+          {
+            channel: "y",
+            text: (p: { yValue: number | null }) =>
+              p.yValue === null ? "–" : format(p.yValue),
+          },
+        ],
       },
-    }),
-    [tickFace],
-  );
+    } as const;
 
-  const secondaryAxes = useMemo<AxisOptions<ChartPoint>[]>(
-    () => [
-      {
-        getValue: (datum) => datum.value,
-        scaleType: "linear",
-        elementType: kind,
-        // Explicit: `elementType: "area"` alone flips the stacker on, and
-        // stacking coerces our honest null gaps into zeros.
-        stacked: false,
-        min: 0,
-        formatters: { scale: (value: number | null) => (value === null ? "" : format(value)) },
-      },
-    ],
-    [kind, format],
-  );
+    const line = lineY(long, {
+      id: "series-line",
+      x: "t",
+      y: "value",
+      z: "series",
+      strokeWidth: 1.75,
+    });
 
-  const colors = useMemo(() => series.map((s) => s.color), [series]);
+    if (kind === "area") {
+      return defineChart({
+        // Fill only, no interaction points; explicit y1/y2 endpoints keep the
+        // areas OVERLAID (the default is an implicit stack).
+        marks: [
+          decorative(
+            areaY(long, {
+              id: "series-area",
+              x: "t",
+              y1: 0,
+              y2: "value",
+              z: "series",
+              fillOpacity: 0.14,
+            }),
+          ),
+          line,
+        ],
+        x,
+        y,
+        color,
+        ...interaction,
+      });
+    }
+    return defineChart({ marks: [line], x, y, color, ...interaction });
+  }, [series, kind, format, tickFace]);
 
   const hasData = series.some((s) => s.data.some((p) => (p.value ?? 0) > 0));
   if (!hasData) return null;
 
   return (
-    <div className={className ?? "h-44"}>
-      <Chart
-        options={{
-          data,
-          primaryAxis,
-          secondaryAxes,
-          interactionMode: "primary",
-          getSeriesStyle: (s) => ({
-            color: colors[s.index] ?? "var(--primary)",
-            line: { strokeWidth: 1.75 },
-            area: { fillOpacity: 0.12, opacity: 1 },
-          }),
-          tooltip: {
-            render: ({ focusedDatum }) => {
-              if (!focusedDatum) return null;
-              const group = focusedDatum.tooltipGroup ?? [focusedDatum];
-              return (
-                <div className="rounded-md border bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-md">
-                  <div className="mb-1 font-mono text-[10px] text-muted-foreground">
-                    {tooltipStamp.format(focusedDatum.primaryValue)}
-                  </div>
-                  <div className="flex flex-col gap-0.5">
-                    {group.map((datum) => (
-                      <div
-                        key={datum.seriesLabel}
-                        className="flex items-center justify-between gap-4"
-                      >
-                        <span className="flex items-center gap-1.5">
-                          <span
-                            className="size-2 rounded-[2px]"
-                            style={{ background: colors[datum.seriesIndex] }}
-                          />
-                          <span className="text-muted-foreground">{datum.seriesLabel}</span>
-                        </span>
-                        <span className="font-mono font-medium tabular-nums">
-                          {datum.secondaryValue == null ? "–" : format(datum.secondaryValue)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            },
-          },
-        }}
-      />
-    </div>
+    <Chart
+      definition={definition}
+      height={height}
+      ariaLabel={ariaLabel}
+      className="analytics-chart"
+    />
   );
 }

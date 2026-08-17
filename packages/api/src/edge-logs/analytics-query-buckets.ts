@@ -146,6 +146,7 @@ const histogramAggRow = z.object({
 export async function loadMinuteBuckets(
   hosts: string[] | null,
   fromMinute: number,
+  toMinute: number,
   stepMinutes: number,
 ): Promise<Map<number, InternalBucket>> {
   const buckets = new Map<number, InternalBucket>();
@@ -172,7 +173,7 @@ export async function loadMinuteBuckets(
       sum(res_bytes)::float8 AS res_bytes,
       sum(latency_sum_ms)::float8 AS latency_sum_ms
     FROM edge_stat_minute
-    WHERE ${hostPredicate} AND minute >= ${fromMinute}
+    WHERE ${hostPredicate} AND minute >= ${fromMinute} AND minute <= ${toMinute}
     GROUP BY 1
   `);
   for (const raw of executeRows(scalarRes)) {
@@ -197,7 +198,7 @@ export async function loadMinuteBuckets(
     SELECT (floor(minute / ${step})::int * ${step}) AS bucket,
       u.ord::int AS idx, sum(u.v)::float8 AS c
     FROM edge_stat_minute, unnest(latency_buckets) WITH ORDINALITY AS u(v, ord)
-    WHERE ${hostPredicate} AND minute >= ${fromMinute}
+    WHERE ${hostPredicate} AND minute >= ${fromMinute} AND minute <= ${toMinute}
     GROUP BY 1, 2
   `);
   for (const raw of executeRows(histRes)) {
@@ -241,13 +242,14 @@ export function foldLiveMinutesIntoBuckets(
   /** null = install-wide: every host passes. */
   hostSet: ReadonlySet<string> | null,
   fromMs: number,
+  toMs: number,
   bucketMs: number,
 ): boolean {
   let used = false;
   for (const acc of live) {
     if (hostSet !== null && !hostSet.has(acc.host)) continue;
     const accMs = acc.minute * 60_000;
-    if (accMs < fromMs) continue;
+    if (accMs < fromMs || accMs > toMs) continue;
     const startMs = Math.floor(accMs / bucketMs) * bucketMs;
     let b = buckets.get(startMs);
     if (!b) {

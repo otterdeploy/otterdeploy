@@ -145,16 +145,30 @@ const requestSeriesResultSchema = z.object({
  *  truncates long ranges. */
 const analyticsRange = z.enum(["24h", "7d", "30d", "90d"]);
 
-const analyticsInput = z.object({
-  /** Restrict to one project's domains; omitted ⇒ all the org's domains. */
-  projectId: zId("prj").optional(),
-  /** Install-wide: EVERY host in the rollups, including the control-plane
-   *  dashboard domain (which no org's domain list contains — the dominant
-   *  traffic on a small install would otherwise be invisible everywhere).
-   *  Install-admin only; overrides projectId. */
-  installWide: z.boolean().optional(),
-  range: analyticsRange.default("24h"),
-});
+const analyticsInput = z
+  .object({
+    /** Restrict to one project's domains; omitted ⇒ all the org's domains. */
+    projectId: zId("prj").optional(),
+    /** Install-wide: EVERY host in the rollups, including the control-plane
+     *  dashboard domain (which no org's domain list contains — the dominant
+     *  traffic on a small install would otherwise be invisible everywhere).
+     *  Install-admin only; overrides projectId. */
+    installWide: z.boolean().optional(),
+    range: analyticsRange.default("24h"),
+    /** Custom window (epoch ms), overriding `range`. Both or neither. */
+    from: z.number().int().positive().optional(),
+    to: z.number().int().positive().optional(),
+  })
+  .refine((v) => (v.from === undefined) === (v.to === undefined), {
+    message: "from and to must be provided together",
+  })
+  .refine((v) => v.from === undefined || v.to === undefined || v.from < v.to, {
+    message: "from must be before to",
+  })
+  .refine(
+    (v) => v.from === undefined || v.to === undefined || v.to - v.from <= 400 * 24 * 60 * 60 * 1000,
+    { message: "window must be 400 days or less" },
+  );
 
 const analyticsErrors = {
   FORBIDDEN: {
@@ -210,10 +224,20 @@ const analyticsFlagsSchema = z.object({
   geoAvailable: z.boolean(),
 });
 
+/** The previous window of equal length, for the tiles' trend deltas. */
+const analyticsPreviousSchema = z.object({
+  requests: z.number(),
+  visitorDays: z.number(),
+  bytesOut: z.number(),
+  p95: z.number().nullable(),
+  errorRate: z.number(),
+});
+
 const analyticsOverviewResultSchema = z.object({
   series: z.array(analyticsSeriesBucketSchema),
   bucketSeconds: z.number(),
   summary: analyticsSummarySchema,
+  previous: analyticsPreviousSchema,
   flags: analyticsFlagsSchema,
 });
 

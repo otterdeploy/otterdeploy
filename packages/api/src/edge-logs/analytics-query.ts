@@ -16,8 +16,8 @@ import type { InternalBucket } from "./analytics-query-buckets";
 import type {
   AnalyticsBreakdowns,
   AnalyticsFlags,
-  AnalyticsRange,
   AnalyticsSummary,
+  ResolvedWindow,
   SeriesBucket,
   TopEntry,
 } from "./analytics-query-shared";
@@ -31,7 +31,7 @@ import {
   newInternalBucket,
   percentileFromBuckets,
 } from "./analytics-query-buckets";
-import { coveringDayKeys, mergedDayRows, RANGES } from "./analytics-query-shared";
+import { coveringDayKeys, mergedDayRows } from "./analytics-query-shared";
 
 export { percentileFromBuckets } from "./analytics-query-buckets";
 export type {
@@ -39,9 +39,11 @@ export type {
   AnalyticsFlags,
   AnalyticsRange,
   AnalyticsSummary,
+  ResolvedWindow,
   SeriesBucket,
   TopEntry,
 } from "./analytics-query-shared";
+export { resolveAnalyticsWindow } from "./analytics-query-shared";
 
 const TOP_N = 50;
 
@@ -80,39 +82,43 @@ function buildSeries(
 export async function queryAnalyticsOverview(
   /** null = install-wide (caller has authorized install scope). */
   hosts: string[] | null,
-  range: AnalyticsRange,
+  window: ResolvedWindow,
   geoConfigured: boolean,
-  nowMs = Date.now(),
 ): Promise<{
   series: SeriesBucket[];
   bucketSeconds: number;
   summary: AnalyticsSummary;
   flags: AnalyticsFlags;
 }> {
-  const spec = RANGES[range];
-  const fromMs = nowMs - spec.windowMs;
+  const { fromMs, toMs, bucketMinutes } = window;
   const live = snapshotAccumulators();
-  const dayKeys = coveringDayKeys(fromMs, nowMs);
+  const dayKeys = coveringDayKeys(fromMs, toMs);
   const { rows: dayRows, usedLive: liveDay } = await mergedDayRows(hosts, dayKeys, live.days);
 
   let buckets: Map<number, InternalBucket>;
   let usedLiveMinute = false;
-  if (spec.bucketMinutes === "day") {
+  if (bucketMinutes === "day") {
     buckets = new Map();
     foldDayRowsIntoBuckets(buckets, dayRows);
   } else {
-    buckets = await loadMinuteBuckets(hosts, Math.floor(fromMs / 60_000), spec.bucketMinutes);
+    buckets = await loadMinuteBuckets(
+      hosts,
+      Math.floor(fromMs / 60_000),
+      Math.floor(toMs / 60_000),
+      bucketMinutes,
+    );
     usedLiveMinute = foldLiveMinutesIntoBuckets(
       buckets,
       live.minutes,
       hosts === null ? null : new Set(hosts),
       fromMs,
-      spec.bucketMinutes * 60_000,
+      toMs,
+      bucketMinutes * 60_000,
     );
   }
 
-  const bucketSeconds = spec.bucketMinutes === "day" ? 86_400 : spec.bucketMinutes * 60;
-  const { series, overall } = buildSeries(buckets, fromMs, nowMs, bucketSeconds * 1000);
+  const bucketSeconds = bucketMinutes === "day" ? 86_400 : bucketMinutes * 60;
+  const { series, overall } = buildSeries(buckets, fromMs, toMs, bucketSeconds * 1000);
 
   // Visitors are day-granular regardless of range: sum of per-day distinct as
   // the labeled upper bound, largest single day as the exact lower bound.
@@ -178,13 +184,11 @@ type DimName = (typeof DIM_NAMES)[number];
 export async function queryAnalyticsBreakdowns(
   /** null = install-wide (caller has authorized install scope). */
   hosts: string[] | null,
-  range: AnalyticsRange,
+  window: ResolvedWindow,
   geoConfigured: boolean,
-  nowMs = Date.now(),
 ): Promise<{ breakdowns: AnalyticsBreakdowns; flags: AnalyticsFlags }> {
-  const spec = RANGES[range];
-  const fromMs = nowMs - spec.windowMs;
-  const dayKeys = coveringDayKeys(fromMs, nowMs);
+  const { fromMs, toMs } = window;
+  const dayKeys = coveringDayKeys(fromMs, toMs);
   const live = snapshotAccumulators();
   const { rows, usedLive } = await mergedDayRows(hosts, dayKeys, live.days);
 

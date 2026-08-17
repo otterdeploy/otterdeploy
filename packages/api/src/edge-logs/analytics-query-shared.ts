@@ -15,15 +15,46 @@ import { dayKey } from "./analytics-normalize";
 
 export type AnalyticsRange = "24h" | "7d" | "30d" | "90d";
 
-export const RANGES: Record<AnalyticsRange, { windowMs: number; bucketMinutes: number | "day" }> =
-  {
-    "24h": { windowMs: 24 * 60 * 60 * 1000, bucketMinutes: 15 },
-    "7d": { windowMs: 7 * 24 * 60 * 60 * 1000, bucketMinutes: 60 },
-    "30d": { windowMs: 30 * 24 * 60 * 60 * 1000, bucketMinutes: "day" },
-    "90d": { windowMs: 90 * 24 * 60 * 60 * 1000, bucketMinutes: "day" },
-  };
-
 const DAY_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+
+const RANGES: Record<AnalyticsRange, number> = {
+  "24h": 24 * HOUR_MS,
+  "7d": 7 * DAY_MS,
+  "30d": 30 * DAY_MS,
+  "90d": 90 * DAY_MS,
+};
+
+export interface ResolvedWindow {
+  fromMs: number;
+  toMs: number;
+  bucketMinutes: number | "day";
+}
+
+/** Bucket granularity from span: ~100 buckets for short windows, hours for a
+ *  week-scale one, whole days past two weeks (day rows are the cheap store). */
+function bucketMinutesFor(spanMs: number): number | "day" {
+  if (spanMs <= 48 * HOUR_MS) return 15;
+  if (spanMs <= 14 * DAY_MS) return 60;
+  return "day";
+}
+
+/**
+ * A preset window ends NOW; a custom `from`/`to` pair (epoch ms, validated at
+ * the contract) wins over the preset and may end anywhere in the past.
+ */
+export function resolveAnalyticsWindow(
+  range: AnalyticsRange,
+  fromMs: number | undefined,
+  toMs: number | undefined,
+  nowMs: number,
+): ResolvedWindow {
+  if (fromMs !== undefined && toMs !== undefined) {
+    return { fromMs, toMs, bucketMinutes: bucketMinutesFor(toMs - fromMs) };
+  }
+  const spanMs = RANGES[range];
+  return { fromMs: nowMs - spanMs, toMs: nowMs, bucketMinutes: bucketMinutesFor(spanMs) };
+}
 
 export interface SeriesBucket {
   t: string;
