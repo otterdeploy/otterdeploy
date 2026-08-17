@@ -7,6 +7,7 @@ import type { ComposeFile, ComposeServiceSummary } from "@otterdeploy/shared/com
 import type { GitRepoId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
+import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 
 import { fetchBranchHead } from "../../git/github-app";
@@ -58,6 +59,10 @@ export type ComposeCreateFailure =
 
 const invalid = (message: string): ComposeCreateFailure => ({ reason: "invalid", message });
 
+/** The contract carries `gitRepoId` as a plain string; parse it to the branded
+ *  id at this boundary (also canonicalizing a legacy "gitrepo_" spelling). */
+const gitRepoIdSchema = zId(ID_PREFIX.gitRepo);
+
 /**
  * Persist the filled-in `${VAR}` values as project variables so the compose
  * interpolation (and any future redeploy) resolves them. Applies to both
@@ -91,13 +96,17 @@ async function createGitCompose(
   let owner: string;
   let repoName: string;
   let cloneUrl: string;
-  let gitRepoId: string | null = null;
+  let gitRepoId: GitRepoId | null = null;
   let installationId: string | null = null;
 
   const boundRepoId = input.gitRepoId?.trim();
   if (boundRepoId) {
+    const parsedRepoId = gitRepoIdSchema.safeParse(boundRepoId);
+    if (!parsedRepoId.success) {
+      return Result.err(invalid(`"${boundRepoId}" is not a repository id`));
+    }
     const bound = await Result.tryPromise({
-      try: () => resolveRepoCloneBinding(boundRepoId as GitRepoId),
+      try: () => resolveRepoCloneBinding(parsedRepoId.data),
       catch: (e) => (e instanceof Error ? e.message : String(e)),
     });
     if (bound.isErr()) return Result.err(invalid(bound.error));
@@ -147,7 +156,7 @@ async function createGitCompose(
         name,
         source: "git",
         composeContent: null,
-        gitRepoId: gitRepoId as GitRepoId | null,
+        gitRepoId,
         gitRepoUrl: cloneUrl,
         gitRef: ref,
         // null → the build worker auto-detects common compose file names.
@@ -171,7 +180,7 @@ async function createGitCompose(
     gitRef: ref,
     // Real binding id when picked (drives the private clone in the builder);
     // null for a legacy public-URL stack.
-    gitRepoId: gitRepoId as GitRepoId | null,
+    gitRepoId,
     reason: "create",
     head: headRes.value,
   });

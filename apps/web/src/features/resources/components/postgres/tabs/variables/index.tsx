@@ -2,8 +2,6 @@
 // sections so the eye/copy toggles work the same across both. The user
 // vars editor owns its own reveal/copy state internally.
 
-import type { ProjectId } from "@otterdeploy/shared/id";
-
 import { useRef, useState } from "react";
 
 import { useQuery } from "@tanstack/react-query";
@@ -135,7 +133,7 @@ function PendingVariables({
   resource: PostgresBodyProps["resource"];
   dbName?: string;
 }) {
-  const stage = useStageManifestChange(resource.projectId as ProjectId, {
+  const stage = useStageManifestChange(resource.projectId, {
     successToast: "Variables staged. Deploy to apply.",
   });
   const [hintDismissed, setHintDismissed] = useState(false);

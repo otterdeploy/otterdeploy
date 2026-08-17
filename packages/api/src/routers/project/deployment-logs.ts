@@ -27,7 +27,7 @@ interface DeploymentLogsRef {
   projectId: ProjectId;
   organizationId: OrganizationId;
   resourceId: ResourceId;
-  deploymentId: string;
+  deploymentId: DeploymentId;
   tail?: number;
 }
 
@@ -99,7 +99,7 @@ export async function* tailDeploymentLogs(
   // builder ("updating swarm service", "deployment running") and crash-watcher
   // ("container exited, restarting…") recorded. These belong with Deploy, not
   // Build. The containers' own stdout/stderr streams underneath.
-  for (const line of await fetchLogsAfter(input.deploymentId as DeploymentId, 0, "deploy")) {
+  for (const line of await fetchLogsAfter(input.deploymentId, 0, "deploy")) {
     yield { stream: line.stream, line: line.line, ts: line.ts };
   }
 

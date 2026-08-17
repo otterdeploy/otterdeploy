@@ -9,13 +9,14 @@
  */
 
 import type { Builder, BuildConfig } from "@otterdeploy/shared/build-config";
-import type { DeploymentId, OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { DeploymentId } from "@otterdeploy/shared/id";
 
 import { getInstallationToken } from "@otterdeploy/api/git/github-app";
 import { decryptSecret } from "@otterdeploy/api/lib/crypto";
 import { emitPlatformEvent } from "@otterdeploy/api/notifications/emit";
 import { db } from "@otterdeploy/db";
 import { containerRegistry, deployment, project, resource } from "@otterdeploy/db/schema";
+import { idSchema } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 import { log as globalLog } from "evlog";
@@ -219,8 +220,8 @@ export function runPreDeploy(args: {
     phase: "pre-deploy",
     commands,
     image,
-    projectId: ctx.project.id as ProjectId,
-    resourceId: ctx.resource.id as ResourceId,
+    projectId: ctx.project.id,
+    resourceId: ctx.resource.id,
     projectSlug: ctx.project.slug,
     // Preview builds resolve hook env (migrations!) against the preview's
     // branch DBs, byte-identical to the container's own resolution.
@@ -247,8 +248,8 @@ export async function runPostDeploy(args: {
     commands,
     image,
     previewId: ctx.deployment.previewId ?? null,
-    projectId: ctx.project.id as ProjectId,
-    resourceId: ctx.resource.id as ResourceId,
+    projectId: ctx.project.id,
+    resourceId: ctx.resource.id,
     projectSlug: ctx.project.slug,
     deploymentId,
     sink,
@@ -310,7 +311,9 @@ async function emitBuildFailed(deploymentId: DeploymentId, message: string): Pro
     .limit(1);
   if (!ctx) return;
   await emitPlatformEvent({
-    organizationId: ctx.organizationId as OrganizationId,
+    // Plain string off the select (project.organizationId isn't a branded
+    // column): branded via the boundary validator, same as caddy/certs.ts.
+    organizationId: idSchema.organization.parse(ctx.organizationId),
     eventId: "build.failed",
     title: "Build failed",
     message: `${ctx.resourceName}: ${message}`.slice(0, 500),

@@ -47,7 +47,7 @@ export async function loadManifest(
 
   if (!row) return Result.err(new ProjectNotFoundError({ projectId: scope.projectId }));
   return Result.ok({
-    manifest: row.manifest ? (manifestSchema.parse(row.manifest) as Manifest) : null,
+    manifest: row.manifest ? manifestSchema.parse(row.manifest) : null,
     version: row.version,
   });
 }
@@ -110,8 +110,10 @@ export async function discardManifest(
   if (!row) return Result.err(new ProjectNotFoundError({ projectId: scope.projectId }));
 
   const nextManifest = manifestAfterDiscard({
-    manifest: row.manifest as Manifest | null,
-    applied: row.lastApplied as Manifest | null,
+    // jsonb columns are typed as free-form JSON; the schema parse is the
+    // boundary that turns them back into Manifest, same as loadManifest.
+    manifest: row.manifest ? manifestSchema.parse(row.manifest) : null,
+    applied: row.lastApplied ? manifestSchema.parse(row.lastApplied) : null,
     only,
   });
 

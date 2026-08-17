@@ -79,7 +79,7 @@ export async function rebuildPreview(
   const { preview } = g.value;
   await resumeActivity(preview);
   const created = await triggerPreviewBuild({
-    projectId: preview.projectId as ProjectId,
+    projectId: preview.projectId,
     gitRepoId: preview.gitRepoId,
     previewId: preview.id,
     sha: preview.headSha,
@@ -108,7 +108,7 @@ export async function pausePreview(
   const scope = scopeOf(preview);
   // Stop ALL of this repo's services (incl. ones that opted out after deploy)
   // plus the preview's branch DB containers. Everything the preview runs.
-  const services = await allPreviewServiceNames(preview.projectId as ProjectId, preview.gitRepoId);
+  const services = await allPreviewServiceNames(preview.projectId, preview.gitRepoId);
   let destroyFailed = 0;
   for (const serviceName of services.map((n) => runtimeServiceName(n, scope))) {
     const r = await Result.tryPromise({
@@ -123,7 +123,7 @@ export async function pausePreview(
   // Stop branch DB containers too (destroy the container, keep the volume/row,
   // resume re-runs the DB and its data survives). buildContainerName gives the
   // branch container's name; runtime().destroy removes the container only.
-  const branches = (await listDatabaseResourceRecords(preview.projectId as ProjectId)).filter(
+  const branches = (await listDatabaseResourceRecords(preview.projectId)).filter(
     (r) => r.resource.previewId === preview.id,
   );
   for (const br of branches) {
@@ -164,7 +164,7 @@ export async function teardownPreviewNow(
   await teardownPreview(
     {
       id: preview.id,
-      projectId: preview.projectId as ProjectId,
+      projectId: preview.projectId,
       projectSlug: project.slug,
       gitRepoId: preview.gitRepoId,
       slug: preview.slug,

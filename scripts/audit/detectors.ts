@@ -69,11 +69,30 @@ export const EXCLUDED =
   /(\.gen\.ts|route-tree|\/__generated__\/|\/shared\/components\/ui\/|\.d\.ts$)/;
 
 export function countSignals(source: string): Signals {
-  const out = {} as Signals;
-  for (const [name, re] of Object.entries(DETECTORS) as [SignalName, RegExp][]) {
+  const count = (re: RegExp): number => {
     // Reset lastIndex: these are shared module-level /g regexes.
     re.lastIndex = 0;
-    out[name] = (source.match(re) ?? []).length;
-  }
-  return out;
+    return (source.match(re) ?? []).length;
+  };
+  // Spelled out key by key (rather than looped) so the result is a Signals
+  // by construction: TS checks the key set is exactly `keyof typeof DETECTORS`.
+  return {
+    tryCatch: count(DETECTORS.tryCatch),
+    promiseCatch: count(DETECTORS.promiseCatch),
+    throws: count(DETECTORS.throws),
+    usesResult: count(DETECTORS.usesResult),
+    handTypes: count(DETECTORS.handTypes),
+    rowTypes: count(DETECTORS.rowTypes),
+    literalUnions: count(DETECTORS.literalUnions),
+    zodSchemas: count(DETECTORS.zodSchemas),
+    zodInfer: count(DETECTORS.zodInfer),
+    drizzleInfer: count(DETECTORS.drizzleInfer),
+    usesDbSchema: count(DETECTORS.usesDbSchema),
+    infersContract: count(DETECTORS.infersContract),
+    casts: count(DETECTORS.casts),
+    doubleCasts: count(DETECTORS.doubleCasts),
+    nonNullAssert: count(DETECTORS.nonNullAssert),
+    suppressions: count(DETECTORS.suppressions),
+    reExports: count(DETECTORS.reExports),
+  };
 }

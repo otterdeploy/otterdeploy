@@ -55,12 +55,12 @@ export function preloadNodeRoute(
 ): void {
   if (node.data.pending === "delete") return;
   if (node.data.kind === "preview") {
-    const preview = node.data.preview as { id?: string } | undefined;
-    if (typeof preview?.id === "string" && preview.id.length > 0) {
+    const previewId = previewIdOf(node.data);
+    if (previewId !== null && previewId.length > 0) {
       void router
         .preloadRoute({
           to: "/$orgSlug/$projectSlug/graph/preview/$previewId",
-          params: { ...params, previewId: preview.id },
+          params: { ...params, previewId },
         })
         .catch(() => {});
     }
@@ -73,6 +73,16 @@ export function preloadNodeRoute(
       params: { ...params, resourceId },
     })
     .catch(() => {});
+}
+
+/** xyflow hands `preloadNodeRoute` the generic `Node`, whose `data` is
+ *  `Record<string, unknown>`, so the preview satellite's id is read with real
+ *  narrowing rather than a cast of `data.preview`. */
+function previewIdOf(data: Node["data"]): string | null {
+  const preview = data.preview;
+  if (typeof preview !== "object" || preview === null) return null;
+  if (!("id" in preview) || typeof preview.id !== "string") return null;
+  return preview.id;
 }
 
 /**

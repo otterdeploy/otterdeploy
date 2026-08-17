@@ -18,8 +18,10 @@
 import { db } from "@otterdeploy/db";
 import { gitInstallation } from "@otterdeploy/db/schema";
 import { gitRepo } from "@otterdeploy/db/schema";
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { Result, TaggedError } from "better-result";
 import { eq } from "drizzle-orm";
+import * as z from "zod";
 
 import { getInstallationToken, ghFetch } from "../../git/github-app";
 
@@ -101,6 +103,11 @@ function cacheKeyForRepo(gitRepoId: string): string {
 }
 
 export async function resolveRepoBinding(gitRepoId: string): Promise<RepoBinding | null> {
+  // Every gitRepo row's id is minted by `createId` with the `gitr_` prefix
+  // (legacy `gitrepo_` included via hasPrefix), so a string without it cannot
+  // match a row. The guard both skips the doomed query and narrows the raw
+  // string to the branded column type without a cast.
+  if (!hasPrefix(gitRepoId, ID_PREFIX.gitRepo)) return null;
   const [row] = await db
     .select({
       installationId: gitRepo.installationId,
@@ -109,8 +116,7 @@ export async function resolveRepoBinding(gitRepoId: string): Promise<RepoBinding
       providerRepoId: gitRepo.providerRepoId,
     })
     .from(gitRepo)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .where(eq(gitRepo.id, gitRepoId as any))
+    .where(eq(gitRepo.id, gitRepoId))
     .limit(1);
   if (!row) return null;
 
@@ -186,11 +192,11 @@ export function rateLimitReset(res: RateLimitResponseLike): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-interface GhTreeEntry {
-  path: string;
-  type: "blob" | "tree" | "commit";
-  sha: string;
-}
+/** Only the fields the snapshot derivation reads; deliberately tolerant of
+ *  whatever else GitHub sends (sha, mode, size, url, unknown `type` values). */
+const ghTreeResponseSchema = z.object({
+  tree: z.array(z.object({ path: z.string(), type: z.string() })).optional(),
+});
 
 /**
  * One-shot fetch of the entire repo tree. Recursive flag returns every
@@ -217,13 +223,12 @@ async function fetchFullTree(
       new InspectRepoUpstreamError(res.status, humanizeUpstreamBody(body, res.status)),
     );
   }
-  let parsed: { tree?: GhTreeEntry[]; truncated?: boolean };
-  try {
-    parsed = JSON.parse(body) as typeof parsed;
-  } catch {
+  const json = Result.try((): unknown => JSON.parse(body));
+  const parsed = ghTreeResponseSchema.safeParse(json.isOk() ? json.value : null);
+  if (!parsed.success) {
     return Result.err(new InspectRepoUpstreamError(502, "Could not parse GitHub response"));
   }
-  const entries = parsed.tree ?? [];
+  const entries = parsed.data.tree ?? [];
   const pathTypes = new Map<string, "dir" | "file">();
   for (const e of entries) {
     if (e.type === "tree") pathTypes.set(e.path, "dir");
@@ -257,6 +262,18 @@ export interface PkgJson {
   scripts?: Record<string, string>;
 }
 
+/** The subset of package.json the inspector reads. Unknown keys are dropped;
+ *  a file that is not shaped like a package.json parses to null below, the
+ *  same "no package.json" degrade path a fetch failure takes. */
+const pkgJsonSchema: z.ZodType<PkgJson> = z.object({
+  dependencies: z.record(z.string(), z.string()).optional(),
+  devDependencies: z.record(z.string(), z.string()).optional(),
+  workspaces: z
+    .union([z.array(z.string()), z.object({ packages: z.array(z.string()).optional() })])
+    .optional(),
+  scripts: z.record(z.string(), z.string()).optional(),
+});
+
 export async function fetchPackageJson(
   binding: RepoBinding,
   path: string,
@@ -277,12 +294,10 @@ export async function fetchPackageJson(
     pkgCache.set(key, { value: null, expiresAt: Date.now() + CACHE_TTL_MS });
     return null;
   }
-  let parsed: PkgJson | null = null;
-  try {
-    parsed = JSON.parse(await res.text()) as PkgJson;
-  } catch {
-    parsed = null;
-  }
+  const text = await res.text();
+  const json = Result.try((): unknown => JSON.parse(text));
+  const checked = pkgJsonSchema.safeParse(json.isOk() ? json.value : null);
+  const parsed = checked.success ? checked.data : null;
   pkgCache.set(key, { value: parsed, expiresAt: Date.now() + CACHE_TTL_MS });
   return parsed;
 }
@@ -306,13 +321,10 @@ export async function fetchTextFile(binding: RepoBinding, path: string): Promise
  * the screen if we somehow miss the typed detection above.
  */
 export function humanizeUpstreamBody(body: string, status: number): string {
-  try {
-    const parsed = JSON.parse(body) as { message?: string };
-    if (typeof parsed.message === "string" && parsed.message.length > 0) {
-      return parsed.message;
-    }
-  } catch {
-    /* not json */
-  }
+  const json = Result.try((): unknown => JSON.parse(body));
+  const parsed = json.isOk() ? json.value : null;
+  const message =
+    typeof parsed === "object" && parsed !== null && "message" in parsed ? parsed.message : null;
+  if (typeof message === "string" && message.length > 0) return message;
   return body.slice(0, 200) || `GitHub returned ${status}`;
 }

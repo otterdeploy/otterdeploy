@@ -1,11 +1,10 @@
-import type { EnvironmentId } from "@otterdeploy/shared/id";
-
+import { idSchema } from "@otterdeploy/shared/id";
 import { describe, expect, it } from "vite-plus/test";
 
 import { resolveEnvironmentScope } from "../resource";
 
-const MAIN = "env_main" as EnvironmentId;
-const STAGING = "env_staging" as EnvironmentId;
+const MAIN = idSchema.environment.parse("env_main");
+const STAGING = idSchema.environment.parse("env_staging");
 
 describe("resolveEnvironmentScope", () => {
   it("defaults to the project's main environment when none is requested", () => {

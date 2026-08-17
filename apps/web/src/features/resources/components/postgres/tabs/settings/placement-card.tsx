@@ -171,6 +171,7 @@ function isDataLossRefusal(err: unknown): boolean {
   return (
     typeof err === "object" &&
     err !== null &&
-    (err as { code?: string }).code === "DATABASE_MOVE_DATA_LOSS"
+    "code" in err &&
+    err.code === "DATABASE_MOVE_DATA_LOSS"
   );
 }

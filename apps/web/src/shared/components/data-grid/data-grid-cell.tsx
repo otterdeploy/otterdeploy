@@ -1,8 +1,8 @@
 "use client";
 
-import * as React from "react";
-
 import type { UnknownRecord } from "@otterdeploy/shared/json";
+
+import * as React from "react";
 
 import type { DataGridCellProps } from "@/shared/components/data-grid/types";
 
@@ -18,7 +18,23 @@ import {
   UrlCell,
 } from "@/shared/components/data-grid/data-grid-cell-variants";
 
-export const DataGridCell = React.memo(DataGridCellImpl, (prev, next) => {
+/** Rows are arbitrary runtime objects, not JSON: narrow before indexing. */
+function isUnknownRecord(value: unknown): value is UnknownRecord {
+  return typeof value === "object" && value !== null;
+}
+
+/**
+ * `React.memo` retyped with a bare generic signature so higher-order type
+ * inference carries `DataGridCellImpl`'s `TData` through to call sites
+ * (memo's own `FunctionComponent<P>` parameter erases it). Runtime is memo
+ * itself, untouched.
+ */
+const typedMemo: <P extends object>(
+  component: (props: P) => React.ReactNode,
+  propsAreEqual?: (prev: Readonly<P>, next: Readonly<P>) => boolean,
+) => (props: P) => React.ReactNode = React.memo;
+
+export const DataGridCell = typedMemo(DataGridCellImpl, (prev, next) => {
   // Fast path: check stable primitive props first
   if (prev.isFocused !== next.isFocused) return false;
   if (prev.isEditing !== next.isEditing) return false;
@@ -32,9 +48,10 @@ export const DataGridCell = React.memo(DataGridCellImpl, (prev, next) => {
 
   // Check cell value using row.original instead of getValue() for stability
   // getValue() is unstable and recreates on every render, breaking memoization.
-  // UnknownRecord: TData rows are arbitrary runtime objects, not JSON.
-  const prevValue = (prev.cell.row.original as UnknownRecord)[prev.columnId];
-  const nextValue = (next.cell.row.original as UnknownRecord)[next.columnId];
+  const prevRow: unknown = prev.cell.row.original;
+  const nextRow: unknown = next.cell.row.original;
+  const prevValue = isUnknownRecord(prevRow) ? prevRow[prev.columnId] : undefined;
+  const nextValue = isUnknownRecord(nextRow) ? nextRow[next.columnId] : undefined;
   if (prevValue !== nextValue) {
     return false;
   }
@@ -43,7 +60,7 @@ export const DataGridCell = React.memo(DataGridCellImpl, (prev, next) => {
   if (prev.cell.row.id !== next.cell.row.id) return false;
 
   return true;
-}) as typeof DataGridCellImpl;
+});
 
 function DataGridCellImpl<TData>({
   cell,

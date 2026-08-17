@@ -22,6 +22,7 @@ import { and, eq, inArray } from "drizzle-orm";
 
 import { isSwarmRuntime } from "../../runtime";
 import { isLiveTask, localHostRowIndex, unreachableNodeIds } from "./stats-attribution";
+import { readMemoryBytes, readNanoCpus } from "./stats-reservations";
 type OrgId = OrganizationId;
 
 export interface ServerNodeStats {
@@ -40,19 +41,6 @@ export interface ServerClusterStats {
 export interface ServerStats {
   perServer: ServerNodeStats[];
   cluster: ServerClusterStats;
-}
-
-// Type-safe nibbles into the loosely-typed Task.Spec blob from the docker SDK.
-function readNanoCpus(spec: unknown): number {
-  if (typeof spec !== "object" || spec === null) return 0;
-  const resources = (spec as { Resources?: { Reservations?: { NanoCPUs?: number } } }).Resources;
-  return resources?.Reservations?.NanoCPUs ?? 0;
-}
-
-function readMemoryBytes(spec: unknown): number {
-  if (typeof spec !== "object" || spec === null) return 0;
-  const resources = (spec as { Resources?: { Reservations?: { MemoryBytes?: number } } }).Resources;
-  return resources?.Reservations?.MemoryBytes ?? 0;
 }
 
 const BYTES_PER_GB = 1024 ** 3;
@@ -198,7 +186,7 @@ async function getDockerServerStats(
 
   for (const c of list.value) {
     tasksRunning++;
-    const slug = (c as { Labels?: Record<string, string> }).Labels?.["otterdeploy.project"];
+    const slug = c.Labels["otterdeploy.project"];
     if (slug) {
       projects.add(slug);
       projectTaskCount.set(slug, (projectTaskCount.get(slug) ?? 0) + 1);

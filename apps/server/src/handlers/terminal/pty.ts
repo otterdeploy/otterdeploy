@@ -1,9 +1,9 @@
 import type { WSContext } from "hono/ws";
-import type { Duplex } from "node:stream";
 
 import { Docker } from "@otterdeploy/docker";
 import { Result } from "better-result";
 import { log } from "evlog";
+import { Duplex } from "node:stream";
 
 import type { PtyBackend, StartArgs, StartError } from "./pty-backend";
 
@@ -78,7 +78,18 @@ async function startContainerExec(
     const stream = yield* (await exec.start({ stdin: true, Tty: true })).mapError(
       (cause) => new PtyExecError({ step: "start", cause }),
     );
-    const duplex = stream as Duplex;
+    // exec.start is typed ReadableStream | Duplex; with `stdin: true` the
+    // docker client always hands back the writable hijacked duplex. Verify
+    // instead of asserting so a non-writable stream fails loudly at start.
+    if (!(stream instanceof Duplex)) {
+      return Result.err(
+        new PtyExecError({
+          step: "start",
+          cause: new Error("exec stream is not writable (expected a duplex)"),
+        }),
+      );
+    }
+    const duplex = stream;
 
     // Initial resize is best-effort: the stream is already live, so we'd
     // rather log and continue than tear down a working session.
@@ -127,7 +138,12 @@ async function startContainerExec(
 
 export function toShellInput(raw: unknown): string | Buffer {
   if (typeof raw === "string") return raw;
-  return Buffer.from(raw as ArrayBufferLike);
+  // Same copy semantics as the old `Buffer.from(raw as ArrayBufferLike)`
+  // call: Buffer/Uint8Array frames are copied, ArrayBuffer frames wrapped.
+  if (raw instanceof Uint8Array) return Buffer.from(raw);
+  if (raw instanceof ArrayBuffer || raw instanceof SharedArrayBuffer) return Buffer.from(raw);
+  // Buffer.from threw a TypeError for any other frame type before, too.
+  throw new TypeError("Unsupported shell input frame type");
 }
 
 // Send a schema-typed control message as a JSON text frame. Control messages
@@ -139,7 +155,7 @@ export function sendControl(ws: WSContext, msg: ServerMessage): void {
 
 export function decodeClientMessage(text: string): Result<ClientMessage, PtyMessageError> {
   return Result.try({
-    try: () => JSON.parse(text) as unknown,
+    try: (): unknown => JSON.parse(text),
     catch: (cause) =>
       new PtyMessageError({
         reason: "invalid-json",

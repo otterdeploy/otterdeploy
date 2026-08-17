@@ -14,9 +14,10 @@
  * create became permanent.
  */
 
+import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { describe, expect, it } from "vite-plus/test";
 
-import type { Manifest } from "../../../stack/manifest";
+import type { DatabaseManifest, Manifest, ServiceManifest } from "../../../stack/manifest";
 
 import {
   manifestAfterDiscard,
@@ -24,18 +25,20 @@ import {
   snapshotAfterApply,
 } from "../manifest-applied-snapshot";
 
-const db = (version: string) => ({ engine: "mariadb", version }) as never;
-const svc = (repo: string) => ({ source: "git", repo }) as never;
+const db = (version: string): DatabaseManifest => ({ engine: "mariadb", version });
+const svc = (repo: string): ServiceManifest => ({ source: "git", repo });
+
+const projectSlug = zSlug(ID_PREFIX.project).parse("store");
 
 function manifest(parts: Partial<Manifest> = {}): Manifest {
   return {
     version: 1,
-    project: "store",
+    project: projectSlug,
     services: {},
     databases: {},
     composes: {},
     ...parts,
-  } as Manifest;
+  };
 }
 
 describe("snapshotAfterApply", () => {
@@ -123,8 +126,8 @@ describe("snapshotAfterApply", () => {
   it("reverts the owning resource when an env change was skipped", () => {
     // `env` is not its own section. The failure belongs to the service.
     const out = snapshotAfterApply({
-      submitted: manifest({ services: { api: { source: "git", env: { A: "2" } } as never } }),
-      previous: manifest({ services: { api: { source: "git", env: { A: "1" } } as never } }),
+      submitted: manifest({ services: { api: { source: "git", env: { A: "2" } } } }),
+      previous: manifest({ services: { api: { source: "git", env: { A: "1" } } } }),
       skipped: [{ resource: "env", name: "api" }],
     });
     expect(out.services?.api).toEqual({ source: "git", env: { A: "1" } });
@@ -132,7 +135,7 @@ describe("snapshotAfterApply", () => {
 
   it("handles a compose skip", () => {
     const out = snapshotAfterApply({
-      submitted: manifest({ composes: { stack: { file: "x" } as never } }),
+      submitted: manifest({ composes: { stack: { source: "inline", content: "x" } } }),
       previous: manifest(),
       skipped: [{ resource: "compose", name: "stack" }],
     });

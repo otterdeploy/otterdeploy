@@ -6,7 +6,9 @@
  * (handlers.ts) via the same `server.provision` job in `firewallOnly` mode.
  */
 import type { ProvisionServerPayload } from "@otterdeploy/jobs";
-import type { OrganizationId, ServerId, SshKeyId } from "@otterdeploy/shared/id";
+import type { OrganizationId, ServerId } from "@otterdeploy/shared/id";
+
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import { decryptForDomain } from "../../lib/crypto";
 import { getSshKeyInOrg } from "../sshKeys/queries";
@@ -56,15 +58,26 @@ async function resolveManagerAddr(): Promise<string> {
  * enforces).
  */
 export async function runFirewallOnlyJob(payload: ProvisionServerPayload): Promise<void> {
-  const serverId = payload.serverId as ServerId;
-  const organizationId = payload.organizationId as OrganizationId;
+  // The payload round-trips through Redis as plain strings; both ids were
+  // minted by createId, so these prefix checks brand them without an
+  // assertion. A payload that fails them is corrupt: it addresses no
+  // provision stream and no server row, so there is nothing to remediate,
+  // emit to, or patch.
+  if (
+    !hasPrefix(payload.serverId, ID_PREFIX.server) ||
+    !hasPrefix(payload.organizationId, ID_PREFIX.organization)
+  ) {
+    return;
+  }
+  const serverId: ServerId = payload.serverId;
+  const organizationId: OrganizationId = payload.organizationId;
   const emit = (line: string) => emitProvisionLine(serverId, line);
   try {
-    if (!payload.sshKeyId) {
+    if (!payload.sshKeyId || !hasPrefix(payload.sshKeyId, ID_PREFIX.sshKey)) {
       throw new Error("No stored SSH key on this server, remediation requires a managed key.");
     }
     const managerAddr = await resolveManagerAddr();
-    const key = await getSshKeyInOrg({ id: payload.sshKeyId as SshKeyId, organizationId });
+    const key = await getSshKeyInOrg({ id: payload.sshKeyId, organizationId });
     if (!key?.privateKeyCiphertext) {
       throw new Error("The stored SSH key has no private half. Pick a generated key.");
     }

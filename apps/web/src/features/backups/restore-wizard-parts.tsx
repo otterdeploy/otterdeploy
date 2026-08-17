@@ -147,6 +147,11 @@ export function ConfirmStep({
   );
 }
 
+/** Adjacent-step tables: keep `Step` closed under back/forward navigation
+ *  without arithmetic that would widen the union to `number`. */
+const PREV_STEP: Record<Step, Step> = { 0: 0, 1: 0, 2: 1 };
+const NEXT_STEP: Record<Step, Step> = { 0: 1, 1: 2, 2: 2 };
+
 /** Cancel / Back / Continue / run controls along the wizard's bottom edge. */
 export function WizardFooter({
   step,
@@ -172,12 +177,12 @@ export function WizardFooter({
         Cancel
       </Button>
       {step > 0 && (
-        <Button variant="outline" size="sm" onClick={() => onStep((step - 1) as Step)}>
+        <Button variant="outline" size="sm" onClick={() => onStep(PREV_STEP[step])}>
           Back
         </Button>
       )}
       {step < 2 ? (
-        <Button size="sm" onClick={() => onStep((step + 1) as Step)}>
+        <Button size="sm" onClick={() => onStep(NEXT_STEP[step])}>
           Continue
         </Button>
       ) : (

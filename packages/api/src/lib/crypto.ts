@@ -87,8 +87,10 @@ export const SECRET_DOMAINS = [
 ] as const;
 export type SecretDomain = (typeof SECRET_DOMAINS)[number];
 
+const SECRET_DOMAIN_NAMES: readonly string[] = SECRET_DOMAINS;
+
 function isSecretDomain(value: string): value is SecretDomain {
-  return (SECRET_DOMAINS as readonly string[]).includes(value);
+  return SECRET_DOMAIN_NAMES.includes(value);
 }
 
 /**
@@ -193,13 +195,9 @@ const derivedKeyCache = new Map<string, CryptoKey>();
 let legacyKeyCache: CryptoKey | null = null;
 
 async function importMaster(secret: string): Promise<CryptoKey> {
-  return crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret) as unknown as ArrayBuffer,
-    "HKDF",
-    false,
-    ["deriveKey"],
-  );
+  return crypto.subtle.importKey("raw", new TextEncoder().encode(secret), "HKDF", false, [
+    "deriveKey",
+  ]);
 }
 
 /** The original v1 key: HKDF(BETTER_AUTH_SECRET) with the fixed v1 salt/info.
@@ -275,10 +273,14 @@ async function seal(
 }
 
 async function open(key: CryptoKey, nonce: Uint8Array, ciphertext: Uint8Array): Promise<string> {
+  // DOM's BufferSource only admits ArrayBuffer-backed views, while the
+  // envelope decoder types its output over ArrayBufferLike. Re-wrapping
+  // copies the (small) bytes into fresh ArrayBuffer-backed views, proving
+  // the backing instead of asserting it.
   const plaintext = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: nonce.buffer as ArrayBuffer },
+    { name: "AES-GCM", iv: new Uint8Array(nonce) },
     key,
-    ciphertext.buffer as ArrayBuffer,
+    new Uint8Array(ciphertext),
   );
   return new TextDecoder().decode(plaintext);
 }

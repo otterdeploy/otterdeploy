@@ -41,18 +41,23 @@ const VERSION_RE = /^v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/;
 
 /** Strip a leading `v` and reject anything that isn't a release version. */
 export function normalizeVersion(input: string): string {
-  const match = VERSION_RE.exec(input.trim());
-  if (!match) {
+  const version = VERSION_RE.exec(input.trim())?.[1];
+  if (version === undefined) {
     throw new Error(
       `Invalid release version ${JSON.stringify(input)}, expected [v]MAJOR.MINOR.PATCH[-prerelease].`,
     );
   }
-  return match[1] as string;
+  return version;
 }
 
 interface StampResult {
   /** Files whose version actually moved. */
   updated: string[];
+}
+
+/** A parsed package.json must be a plain JSON object before we can stamp it. */
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function updateReleasePackageVersions(version: string, rootDir: string): StampResult {
@@ -61,7 +66,10 @@ export function updateReleasePackageVersions(version: string, rootDir: string): 
   for (const relativePath of RELEASE_PACKAGE_FILES) {
     const filePath = resolve(rootDir, relativePath);
     const source = readFileSync(filePath, "utf8");
-    const manifest = JSON.parse(source) as Record<string, unknown>;
+    const manifest: unknown = JSON.parse(source);
+    if (!isJsonObject(manifest)) {
+      throw new Error(`${relativePath} does not contain a JSON object.`);
+    }
     if (manifest.version === version) continue;
 
     // Spreading re-assigns `version` in place rather than appending it, so the
@@ -79,7 +87,8 @@ function main(argv: string[]): void {
   let githubOutput = false;
 
   for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i] as string;
+    const arg = argv[i];
+    if (arg === undefined) continue;
     if (arg === "--github-output") {
       githubOutput = true;
     } else if (arg === "--root") {

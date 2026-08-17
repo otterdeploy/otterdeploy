@@ -10,6 +10,13 @@ import { abort, detail, dim, hint, ok } from "../lib/ui";
 
 type ServiceEntry = Manifest["services"][string];
 
+const DB_ENGINES = ["postgres", "redis", "mariadb", "mongodb"] as const;
+
+/** Narrow a raw --engine flag to a supported engine without asserting. */
+function parseEngine(value: string): (typeof DB_ENGINES)[number] | undefined {
+  return DB_ENGINES.find((engine) => engine === value);
+}
+
 // citty keeps only the last value of a repeated string flag, so repeatable
 // flags (--domain, --env, --expose) are re-collected from rawArgs.
 function collectFlag(rawArgs: string[], flag: string): string[] {
@@ -169,8 +176,8 @@ const addDatabase = defineCommand({
     if (manifest.databases[args.name]) {
       abort(`Database ${args.name} already exists.`);
     }
-    const engine = args.engine as "postgres" | "redis" | "mariadb" | "mongodb";
-    if (!["postgres", "redis", "mariadb", "mongodb"].includes(engine)) {
+    const engine = parseEngine(args.engine);
+    if (!engine) {
       abort(`Unknown engine: ${args.engine}`);
     }
 
@@ -178,11 +185,12 @@ const addDatabase = defineCommand({
       ...manifest,
       databases: { ...manifest.databases },
     };
-    next.databases[args.name] = {
+    const entry: Manifest["databases"][string] = {
       engine,
       ...(args.version ? { version: args.version } : {}),
       ...(args["public-enabled"] ? { publicEnabled: true } : {}),
-    } as Manifest["databases"][string];
+    };
+    next.databases[args.name] = entry;
 
     const path = writeConfig(next, args.config);
     ok(`Added database ${args.name}.`);

@@ -1,7 +1,8 @@
-import type { OrganizationId, ResourceId } from "@otterdeploy/shared/id";
+import type { ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { project, resource } from "@otterdeploy/db/schema";
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 /**
  * Service health-transition detector: emits `health.degraded` /
  * `health.recovered` when a managed service's container health flips. Fed from
@@ -74,11 +75,15 @@ async function emitHealthEvent(resourceId: ResourceId, health: Health): Promise<
     .innerJoin(project, eq(project.id, resource.projectId))
     .where(eq(resource.id, resourceId))
     .limit(1);
-  if (!info?.organizationId) return;
+  // `project.organization_id` is plain text in the schema, but every real row
+  // references an organization minted by createId, so the prefix check is a
+  // true narrowing, not a filter that can drop live rows.
+  const organizationId = info?.organizationId;
+  if (!organizationId || !hasPrefix(organizationId, ID_PREFIX.organization)) return;
 
   const degraded = health === "unhealthy";
   await emitPlatformEvent({
-    organizationId: info.organizationId as OrganizationId,
+    organizationId,
     eventId: degraded ? "health.degraded" : "health.recovered",
     title: degraded ? "Service health degraded" : "Service recovered",
     message: degraded

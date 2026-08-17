@@ -12,13 +12,11 @@ import { handlePullRequest } from "./handle-pull-request";
 import { handlePush } from "./handle-push";
 import { handleGithubWebhook } from "./webhook-handler";
 
-type Mock = ReturnType<typeof vi.fn>;
-
 describe("handleGithubWebhook dispatch", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("routes pull_request to handlePullRequest with payload + deliveryId", async () => {
-    (handlePullRequest as unknown as Mock).mockResolvedValue({
+    vi.mocked(handlePullRequest).mockResolvedValue({
       kind: "pull_request",
       action: "opened",
       prNumber: 7,
@@ -39,7 +37,7 @@ describe("handleGithubWebhook dispatch", () => {
   });
 
   it("still routes push to handlePush", async () => {
-    (handlePush as unknown as Mock).mockResolvedValue({
+    vi.mocked(handlePush).mockResolvedValue({
       kind: "push",
       ref: "refs/heads/main",
       sha: "abc",

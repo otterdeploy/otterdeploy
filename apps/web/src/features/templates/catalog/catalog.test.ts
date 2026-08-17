@@ -64,8 +64,7 @@ describe("template catalog", () => {
         const mounted = new Set(
           parsed.services
             .flatMap((s) => s.volumes)
-            .filter((m) => m.type === "volume" && m.source)
-            .map((m) => m.source as string),
+            .flatMap((m) => (m.type === "volume" && m.source ? [m.source] : [])),
         );
         expect([...mounted].sort()).toEqual([...parsed.volumeNames].sort());
       });

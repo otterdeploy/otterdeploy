@@ -30,26 +30,38 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import * as z from "zod";
 
 import { FALLOW_VERSION, fallowJson } from "./fallow";
 
 const ROOT = join(import.meta.dir, "..", "..");
 const BASELINE_PATH = join(ROOT, "docs", "audit", "baseline.json");
 
-interface Totals {
-  deadCodeIssues: number;
-  circularDependencies: number;
-  cloneGroups: number;
-  duplicationPercentage: number;
+const totalsSchema = z.object({
+  deadCodeIssues: z.number(),
+  circularDependencies: z.number(),
+  cloneGroups: z.number(),
+  duplicationPercentage: z.number(),
+});
+
+const baselineSchema = z.object({
+  fallowVersion: z.string(),
+  measured: z.string(),
+  totals: totalsSchema,
+});
+
+type Totals = z.infer<typeof totalsSchema>;
+type Baseline = z.infer<typeof baselineSchema>;
+
+type Finding = Record<string, unknown>;
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
 }
 
-interface Baseline {
-  fallowVersion: string;
-  measured: string;
-  totals: Totals;
+function asString(v: unknown): string | undefined {
+  return typeof v === "string" ? v : undefined;
 }
-
-type Finding = Record<string, unknown> & { introduced?: boolean };
 
 const MEASURES: { key: keyof Totals; label: string }[] = [
   { key: "deadCodeIssues", label: "dead-code findings" },
@@ -76,8 +88,8 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 /** Read one number out of a fallow report, refusing to guess if it is absent. */
 function num(report: Record<string, unknown>, section: string, key: string): number {
-  const holder = report[section] as Record<string, unknown> | undefined;
-  const value = holder?.[key];
+  const holder = report[section];
+  const value = isRecord(holder) ? holder[key] : undefined;
   if (typeof value !== "number") {
     throw new Error(
       `fallow report has no numeric ${section}.${key}. The schema moved under the ` +
@@ -102,7 +114,7 @@ function measure(): Totals {
 }
 
 function readBaseline(): Baseline {
-  const parsed = JSON.parse(readFileSync(BASELINE_PATH, "utf8")) as Baseline;
+  const parsed = baselineSchema.parse(JSON.parse(readFileSync(BASELINE_PATH, "utf8")));
   if (parsed.fallowVersion !== FALLOW_VERSION) {
     throw new Error(
       `baseline was measured with fallow ${parsed.fallowVersion} but the pin is ` +
@@ -137,20 +149,26 @@ function compareTotals(now: Totals, base: Totals): (keyof Totals)[] {
 
 /** The one file a finding points at, for the findings that point at one. */
 function findingPath(item: Finding): string | undefined {
-  return (item.path ?? item.file) as string | undefined;
+  return asString(item.path) ?? asString(item.file);
 }
 
 /** The symbol or package a finding names, for the findings that name one. */
 function findingName(item: Finding): string | undefined {
-  return (item.export_name ?? item.type_name ?? item.package_name ?? item.name) as
-    | string
-    | undefined;
+  return (
+    asString(item.export_name) ??
+    asString(item.type_name) ??
+    asString(item.package_name) ??
+    asString(item.name)
+  );
 }
 
 /** The files a finding spans: cycles list them, clone groups nest them. */
 function findingFiles(item: Finding): string[] | undefined {
-  const instances = item.instances as { file?: string }[] | undefined;
-  return (item.files as string[] | undefined) ?? instances?.map((i) => i.file ?? "?");
+  if (Array.isArray(item.files)) return item.files.map((f) => asString(f) ?? "?");
+  if (Array.isArray(item.instances)) {
+    return item.instances.map((i) => (isRecord(i) ? asString(i.file) : undefined) ?? "?");
+  }
+  return undefined;
 }
 
 /**
@@ -158,8 +176,9 @@ function findingFiles(item: Finding): string[] | undefined {
  * the first importer is what tells the reader where to start looking.
  */
 function withFirstImporter(name: string, item: Finding): string {
-  const importers = item.imported_from as { path?: string }[] | undefined;
-  const first = importers?.[0]?.path;
+  const importers = Array.isArray(item.imported_from) ? item.imported_from : undefined;
+  const head = importers?.[0];
+  const first = isRecord(head) ? asString(head.path) : undefined;
   if (!first) return name;
   const rest = (importers?.length ?? 1) - 1;
   return rest > 0 ? `${name} (${first}, +${rest} more)` : `${name} (${first})`;
@@ -179,14 +198,16 @@ function describe(item: Finding): string {
 /** Every finding the changeset introduced, category → findings. */
 function introducedByCategory(audit: Record<string, unknown>): Map<string, Finding[]> {
   const out = new Map<string, Finding[]>();
-  const dead = (audit.dead_code ?? {}) as Record<string, unknown>;
+  const dead = isRecord(audit.dead_code) ? audit.dead_code : {};
   for (const [category, items] of Object.entries(dead)) {
     if (!Array.isArray(items)) continue;
-    const introduced = (items as Finding[]).filter((i) => i.introduced);
+    const introduced = items.filter(isRecord).filter((i) => Boolean(i.introduced));
     if (introduced.length > 0) out.set(category, introduced);
   }
-  const duplication = audit.duplication as { clone_groups?: Finding[] } | undefined;
-  const clones = (duplication?.clone_groups ?? []).filter((g) => g.introduced);
+  const duplication = isRecord(audit.duplication) ? audit.duplication : undefined;
+  const groupsRaw = duplication ? duplication.clone_groups : undefined;
+  const groups = Array.isArray(groupsRaw) ? groupsRaw : [];
+  const clones = groups.filter(isRecord).filter((g) => Boolean(g.introduced));
   if (clones.length > 0) out.set("clone_groups", clones);
   return out;
 }
@@ -202,7 +223,9 @@ function report(audit: Record<string, unknown>, baseRef: string): void {
     const mark = GATED_FINDINGS.has(category) ? "FAIL" : "note";
     for (const item of items) console.log(`  ${mark}  ${category}  ${describe(item)}`);
   }
-  const complexity = (audit.complexity as { findings?: unknown[] } | undefined)?.findings ?? [];
+  const complexityHolder = isRecord(audit.complexity) ? audit.complexity : undefined;
+  const complexityRaw = complexityHolder ? complexityHolder.findings : undefined;
+  const complexity = Array.isArray(complexityRaw) ? complexityRaw : [];
   if (complexity.length > 0) {
     const n = complexity.length;
     console.log(`\n  ${n} complexity findings in changed files. Reported only;`);

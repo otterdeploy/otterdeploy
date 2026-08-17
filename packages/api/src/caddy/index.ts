@@ -155,9 +155,7 @@ export async function reconcile(rlog?: RequestLogger): Promise<ReconcileResult> 
     materializeCustomCerts(rlog),
   ]);
   if (customCerts.length > 0) {
-    const projectOrg = await mapProjectOrganizations([
-      ...new Set(records.map((r) => r.projectId)),
-    ] as ProjectId[]);
+    const projectOrg = await mapProjectOrganizations([...new Set(records.map((r) => r.projectId))]);
     routes = applyCustomCertsToRoutes(routes, customCerts, projectOrg);
   }
   if (options.controlPlane) {
@@ -267,9 +265,7 @@ export async function renderInstalledCaddyfile(): Promise<ProjectCaddyfile> {
   let routes = records.map(toRouteInput);
   const [options, customCerts] = await Promise.all([loadCaddyOptions(), listServableCustomCerts()]);
   if (customCerts.length > 0) {
-    const projectOrg = await mapProjectOrganizations([
-      ...new Set(records.map((r) => r.projectId)),
-    ] as ProjectId[]);
+    const projectOrg = await mapProjectOrganizations([...new Set(records.map((r) => r.projectId))]);
     routes = applyCustomCertsToRoutes(routes, customCerts, projectOrg);
   }
   if (options.controlPlane) {

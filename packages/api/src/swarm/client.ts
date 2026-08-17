@@ -211,8 +211,7 @@ export async function ensureEdgeOnProjectNetworks(rlog?: RequestLogger): Promise
   const list = await docker.networks.list({ filters: { label: ["otterdeploy.managed=true"] } });
   if (list.isErr()) return;
   for (const net of list.value) {
-    const name = (net as { Name?: string }).Name;
-    if (name) await connectCaddyToNetwork(docker, name, rlog);
+    if (net.Name) await connectCaddyToNetwork(docker, net.Name, rlog);
   }
 }
 

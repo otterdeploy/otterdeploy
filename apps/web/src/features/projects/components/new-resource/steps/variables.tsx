@@ -23,8 +23,8 @@ interface StepVariablesProps {
  */
 export function StepVariables({ projectId }: StepVariablesProps) {
   const form = useFormContext();
-  const repo = useStore(form.store, (s) => s.values.repo as string);
-  const root = useStore(form.store, (s) => s.values.root as string);
+  const repo = useStore(form.store, (s) => s.values.repo);
+  const root = useStore(form.store, (s) => s.values.root);
 
   const env = useQuery({
     ...orpc.git.inspectEnv.queryOptions({

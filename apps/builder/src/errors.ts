@@ -20,7 +20,7 @@ import { TaggedError } from "better-result";
  *  and de-duplicated so a message that already embeds its cause isn't doubled. */
 function describeCause(cause: unknown, depth = 0): string {
   if (cause instanceof Error) {
-    const inner = depth < 5 ? describeCause((cause as { cause?: unknown }).cause, depth + 1) : "";
+    const inner = depth < 5 ? describeCause(cause.cause, depth + 1) : "";
     return inner && !cause.message.includes(inner) ? `${cause.message}: ${inner}` : cause.message;
   }
   return cause == null ? "" : String(cause);

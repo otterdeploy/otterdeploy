@@ -30,7 +30,7 @@ import type { Manifest } from "../../stack/manifest";
 import type { ApplyContext, GitBuild, PhaseContribution } from "./manifest-apply-phases";
 
 import { writeProjectEscapeHatch } from "../../lib/escape-hatch";
-import { diffManifest } from "../../stack/manifest";
+import { diffManifest, manifestSchema } from "../../stack/manifest";
 import { snapshotAfterApply } from "./manifest-applied-snapshot";
 import {
   runComposeCreates,
@@ -176,9 +176,13 @@ async function runApply(input: ApplyInput): Promise<ApplyResult> {
     .from(project)
     .where(and(eq(project.id, projectId), eq(project.organizationId, organizationId)))
     .limit(1);
+  // `lastApplied` is a jsonb column written exclusively by this pipeline from
+  // schema-validated manifests, so re-parse it at the read boundary instead of
+  // asserting. A row that no longer parses is treated as a first apply.
+  const parsedBefore = manifestSchema.safeParse(before?.lastApplied);
   const applied = snapshotAfterApply({
     submitted: manifest,
-    previous: (before?.lastApplied as Manifest | null) ?? null,
+    previous: parsedBefore.success ? parsedBefore.data : null,
     skipped,
   });
 

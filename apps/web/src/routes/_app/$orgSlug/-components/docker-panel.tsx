@@ -67,7 +67,7 @@ export function Panel<T>({
     return (
       <ErrorState
         title="Couldn't reach the Docker daemon"
-        message={(query.error as Error | null)?.message}
+        message={query.error instanceof Error ? query.error.message : undefined}
         onRetry={() => query.refetch()}
       />
     );

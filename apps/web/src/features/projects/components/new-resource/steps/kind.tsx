@@ -30,7 +30,7 @@ function isPristinePorts(ports: Port[]): boolean {
 
 export function StepKind({ dbView, onDbViewChange, onChosen }: StepKindProps) {
   const form = useFormContext();
-  const kindId = useStore(form.store, (s) => s.values.kindId as string);
+  const kindId = useStore(form.store, (s) => s.values.kindId);
 
   return (
     <KindPicker

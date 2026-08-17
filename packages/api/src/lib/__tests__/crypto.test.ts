@@ -39,7 +39,10 @@ describe("encryptSecret/decryptSecret (v1, legacy)", () => {
     // Flip many characters mid-ciphertext so the GCM tag can't possibly
     // still verify. One-char flips have a ~1/2^16 chance of landing on a
     // valid tag through luck: too flaky for CI.
-    const [v, n, last] = ct.split(".") as [string, string, string];
+    const [v, n, last] = ct.split(".");
+    if (v === undefined || n === undefined || last === undefined) {
+      throw new Error("expected a 3-segment v1 envelope");
+    }
     const mid = Math.floor(last.length / 2);
     const tampered = `${v}.${n}.${last.slice(0, mid)}AAAA${last.slice(mid + 4)}`;
     await expect(decryptSecret(tampered)).rejects.toThrow();
@@ -98,7 +101,8 @@ describe("encryptForDomain/decryptForDomain (v2, domain-separated)", () => {
   it("rejects tampered v2 ciphertext", async () => {
     const ct = await encryptForDomain("secret", "certs");
     const parts = ct.split(":");
-    const last = parts[4] as string;
+    const last = parts[4];
+    if (last === undefined) throw new Error("expected a 5-segment v2 envelope");
     const mid = Math.floor(last.length / 2);
     parts[4] = `${last.slice(0, mid)}AAAA${last.slice(mid + 4)}`;
     await expect(decryptForDomain(parts.join(":"), "certs")).rejects.toThrow();

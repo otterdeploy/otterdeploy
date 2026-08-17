@@ -268,7 +268,9 @@ export async function testDestination(
 
   // `local` needs no secret; s3/sftp must carry decryptable creds.
   if (row.type !== "local") {
-    if (!row.encryptedSecret) {
+    // Hoisted so the narrowing survives into the `try` closure below.
+    const encryptedSecret = row.encryptedSecret;
+    if (!encryptedSecret) {
       return Result.err(
         new DestinationTestFailedError({
           destinationId: input.id,
@@ -277,7 +279,7 @@ export async function testDestination(
       );
     }
     const decrypted = await Result.tryPromise({
-      try: () => decryptSecret(row.encryptedSecret as string),
+      try: () => decryptSecret(encryptedSecret),
       catch: (cause) => (cause instanceof Error ? cause : new Error("decrypt")),
     });
     if (Result.isError(decrypted)) {

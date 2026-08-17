@@ -43,24 +43,18 @@ function decodeSessionToken(token: string): SessionSource | null {
   switch (parts[0]) {
     case "container": {
       if (parts.length !== 5) return null;
-      const [, project, service, replica, containerId] = parts as [
-        string,
-        string,
-        string,
-        string,
-        string,
-      ];
+      const [, project, service, replica, containerId] = parts;
       return { kind: "container", project, service, replica, containerId };
     }
     case "ssh": {
       if (parts.length !== 4) return null;
-      const [, mode, node, host] = parts as [string, string, string, string];
+      const [, mode, node, host] = parts;
       if (mode !== "local" && mode !== "remote") return null;
       return { kind: "ssh", mode, node, host };
     }
     case "database": {
       if (parts.length !== 4) return null;
-      const [, engine, service, project] = parts as [string, string, string, string];
+      const [, engine, service, project] = parts;
       return { kind: "database", engine, service, project };
     }
     default:

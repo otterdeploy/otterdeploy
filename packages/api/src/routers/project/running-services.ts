@@ -92,7 +92,7 @@ async function countRunningServicesUncached(
 
   const runningResourceIds = new Set<string>();
   for (const c of list.value) {
-    const raw = (c as { Labels?: Record<string, string> }).Labels?.["otterdeploy.resource.id"];
+    const raw = c.Labels["otterdeploy.resource.id"];
     // Old prefix on containers created before the rename; without this they
     // never match a resource and read as not-running.
     const rid = raw ? canonicalId(raw) : raw;

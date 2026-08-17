@@ -114,8 +114,15 @@ describe.skipIf(!canRun)("bootstrap (fresh install): real better-auth hook + Pos
   });
 
   async function userCount(): Promise<number> {
-    // `sql` template results are `any`; name the one shape we select.
-    const [row] = (await sql`select count(*)::int as count from "user"`) as [{ count: number }];
+    // `sql` template results are `any`; narrow to the one shape we select
+    // with runtime checks (a mismatch should fail the test loudly anyway).
+    const rows: unknown = await sql`select count(*)::int as count from "user"`;
+    if (!Array.isArray(rows)) throw new Error("expected an array of rows");
+    const row: unknown = rows[0];
+    if (typeof row !== "object" || row === null || !("count" in row)) {
+      throw new Error("expected a { count } row");
+    }
+    if (typeof row.count !== "number") throw new Error("expected count to be a number");
     return row.count;
   }
 

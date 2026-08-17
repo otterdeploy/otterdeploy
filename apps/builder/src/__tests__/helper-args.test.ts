@@ -1,3 +1,4 @@
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 /**
  * Unit tests for the per-build helper's `docker run` argv composition
  * (od-5j8.15, container hardening + trimmed secret forwarding). These are
@@ -182,9 +183,17 @@ describe("helperHardeningFromEnv", () => {
   });
 });
 
+/** Recover the branded DeploymentId for a fixture via a real prefix check. */
+function deploymentIdFixture(raw: string) {
+  if (!hasPrefix(raw, ID_PREFIX.deployment)) {
+    throw new Error(`fixture ${raw} is not a deployment id`);
+  }
+  return raw;
+}
+
 describe("buildHelperRunArgs", () => {
   const baseArgs = {
-    deploymentId: "dep_123" as never,
+    deploymentId: deploymentIdFixture("dep_123"),
     network: "otterdeploy_default",
     image: "otterdeploy-builder:latest",
     envFlags: ["-e", "DATABASE_URL"],

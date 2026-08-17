@@ -195,14 +195,16 @@ export async function listRepoBranches(
       );
     }
 
-    const parsed = Result.try(() => JSON.parse(body) as unknown);
+    const parsed = Result.try((): unknown => JSON.parse(body));
     if (parsed.isErr()) {
       return Result.err(new InspectRepoUpstreamError(502, "Could not parse GitHub response"));
     }
     const pageItems = parsed.value;
     if (!Array.isArray(pageItems)) break;
-    for (const b of pageItems) {
-      const name = (b as { name?: unknown })?.name;
+    const items: unknown[] = pageItems;
+    for (const b of items) {
+      if (typeof b !== "object" || b === null || !("name" in b)) continue;
+      const { name } = b;
       if (typeof name === "string") names.push(name);
     }
     if (pageItems.length < 100) break;

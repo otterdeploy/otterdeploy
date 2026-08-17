@@ -26,9 +26,7 @@ export function TwoFactorCard() {
   const accountsQ = useLinkedAccounts();
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const enabled = Boolean(
-    (sessionQ.data?.user as { twoFactorEnabled?: boolean } | undefined)?.twoFactorEnabled,
-  );
+  const enabled = Boolean(sessionQ.data?.user.twoFactorEnabled);
   const hasCredential = (accountsQ.data ?? []).some((a) => a.providerId === "credential");
   const loading = sessionQ.isPending || accountsQ.isPending;
 

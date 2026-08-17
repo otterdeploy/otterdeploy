@@ -171,8 +171,13 @@ async function reconcileOrphans(
   const queue = getQueue(deployTriggeredJob.name);
   const jobs = await queue.getJobs(["waiting", "active", "delayed", "paused"]);
   for (const job of jobs) {
-    const ids = (job?.data as { deploymentIds?: string[] } | undefined)?.deploymentIds;
-    if (Array.isArray(ids)) for (const id of ids) owned.add(id);
+    const data: unknown = job?.data;
+    const ids =
+      typeof data === "object" && data !== null && "deploymentIds" in data
+        ? data.deploymentIds
+        : undefined;
+    if (!Array.isArray(ids)) continue;
+    for (const id of ids) if (typeof id === "string") owned.add(id);
   }
 
   let count = 0;

@@ -33,6 +33,7 @@ import type { GitProviderId, OrganizationId } from "@otterdeploy/shared/id";
 import { db } from "@otterdeploy/db";
 import { gitProvider } from "@otterdeploy/db/schema";
 import { and, eq } from "drizzle-orm";
+import * as z from "zod";
 
 import { encryptForDomain } from "../lib/crypto";
 import { apiBaseUrlForHost, ghFetch } from "./github-app";
@@ -154,20 +155,21 @@ export function buildManifestRequest(opts: {
   };
 }
 
-interface ManifestConversionResponse {
-  id: number;
-  slug: string;
-  node_id: string;
-  owner: { login: string };
-  name: string;
-  description: string | null;
-  external_url: string;
-  html_url: string;
-  client_id: string;
-  client_secret: string;
-  webhook_secret: string;
-  pem: string;
-}
+/**
+ * The fields of GitHub's app-manifest conversion response this flow consumes
+ * (the full payload also carries node_id, name, description, html_url, …).
+ * Parsed, not cast: the credentials below get encrypted and persisted, so a
+ * payload missing them must fail the exchange loudly rather than store junk.
+ */
+const manifestConversionSchema = z.object({
+  id: z.number(),
+  slug: z.string(),
+  owner: z.object({ login: z.string() }),
+  client_id: z.string(),
+  client_secret: z.string(),
+  webhook_secret: z.string(),
+  pem: z.string(),
+});
 
 /**
  * Completes the manifest round-trip: exchanges the GitHub-issued temp
@@ -202,7 +204,13 @@ export async function completeManifestExchange(opts: {
     const body = await res.text();
     throw new Error(`GitHub manifest exchange failed (${res.status}): ${body.slice(0, 500)}`);
   }
-  const json = (await res.json()) as ManifestConversionResponse;
+  const parsed = manifestConversionSchema.safeParse(await res.json());
+  if (!parsed.success) {
+    throw new Error(
+      "GitHub manifest exchange succeeded but the response payload is missing expected App credential fields",
+    );
+  }
+  const json = parsed.data;
 
   const [clientSecretCt, webhookSecretCt, privateKeyCt] = await Promise.all([
     encryptForDomain(json.client_secret, "git-secrets"),

@@ -14,6 +14,8 @@
  * Design: docs/designs/vpn-mesh.md
  */
 
+import * as z from "zod";
+
 import type {
   AccessPolicySpec,
   MeshEnrolmentKey,
@@ -28,11 +30,12 @@ import {
   clampTtl,
   describeFailure,
   ignoreMissing,
-  type NetbirdAccount,
-  type NetbirdGroup,
   type NetbirdPeer,
-  type NetbirdPolicy,
-  type NetbirdSetupKey,
+  netbirdAccountSchema,
+  netbirdGroupSchema,
+  netbirdPeerSchema,
+  netbirdPolicySchema,
+  netbirdSetupKeySchema,
   resolvePeerDomain,
   toMeshGroup,
 } from "./netbird-wire";
@@ -78,7 +81,17 @@ export class NetbirdClient implements MeshProviderClient {
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
-  private async request<T>(path: string, init?: { method?: string; body?: unknown }): Promise<T> {
+  /** Reachability/shape failures share one channel: status null = not HTTP. */
+  private fail(message: string): MeshProviderError {
+    return new MeshProviderError({ provider: "netbird", status: null, message });
+  }
+
+  /** HTTP round-trip + JSON decode, no shape claims. `undefined` = no body
+   *  (204, or the empty 200 DELETE sends). Validation happens in {@link request}. */
+  private async requestRaw(
+    path: string,
+    init?: { method?: string; body?: unknown },
+  ): Promise<unknown> {
     const url = `${this.base}/api${path}`;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -120,25 +133,47 @@ export class NetbirdClient implements MeshProviderClient {
       });
     }
     // DELETE returns 200 with an empty body.
-    if (response.status === 204) return undefined as T;
+    if (response.status === 204) return undefined;
     const text = await response.text();
-    if (!text) return undefined as T;
-    return JSON.parse(text) as T;
+    if (!text) return undefined;
+    const decoded: unknown = JSON.parse(text);
+    return decoded;
+  }
+
+  /** {@link requestRaw} + boundary parse. `undefined` = no body; a body that
+   *  fails validation surfaces as a MeshProviderError like every other failure. */
+  private async request<T>(
+    path: string,
+    schema: z.ZodType<T>,
+    init?: { method?: string; body?: unknown },
+  ): Promise<T | undefined> {
+    const decoded = await this.requestRaw(path, init);
+    if (decoded === undefined) return undefined;
+    const parsed = schema.safeParse(decoded);
+    if (!parsed.success) {
+      throw this.fail(
+        `The NetBird management server at ${this.base} returned an unexpected response shape for ${path}.`,
+      );
+    }
+    return parsed.data;
+  }
+
+  /** A call whose response body (if any) is irrelevant: fire, decode, discard. */
+  private async requestVoid(path: string, init?: { method?: string; body?: unknown }) {
+    await this.requestRaw(path, init);
   }
 
   async verify(): Promise<MeshIdentity> {
-    const accounts = await this.request<NetbirdAccount[]>("/accounts");
+    const accounts = await this.request("/accounts", z.array(netbirdAccountSchema));
     const account = accounts?.[0];
     if (!account) {
-      throw new MeshProviderError({
-        provider: "netbird",
-        status: null,
-        message:
-          "The token authenticated but the NetBird API returned no account. Use a token from an account you administer.",
-      });
+      throw this.fail(
+        "The token authenticated but the NetBird API returned no account. Use a token from an account you administer.",
+      );
     }
 
-    const peers = await this.request<NetbirdPeer[]>("/peers").catch(() => [] as NetbirdPeer[]);
+    const peers: NetbirdPeer[] =
+      (await this.request("/peers", z.array(netbirdPeerSchema)).catch(() => undefined)) ?? [];
     const { domain, source } = resolvePeerDomain(account, peers);
 
     return {
@@ -151,22 +186,27 @@ export class NetbirdClient implements MeshProviderClient {
   }
 
   async listGroups(): Promise<MeshGroup[]> {
-    const groups = await this.request<NetbirdGroup[]>("/groups");
+    const groups = await this.request("/groups", z.array(netbirdGroupSchema));
     return (groups ?? []).map(toMeshGroup);
   }
 
   async ensureGroup(name: string): Promise<MeshGroup> {
     const existing = (await this.listGroups()).find((g) => g.name === name);
     if (existing) return existing;
-    const created = await this.request<NetbirdGroup>("/groups", {
+    const created = await this.request("/groups", netbirdGroupSchema, {
       method: "POST",
       body: { name },
     });
+    if (!created) {
+      throw this.fail(
+        `The NetBird management server at ${this.base} returned an empty response when creating group "${name}".`,
+      );
+    }
     return toMeshGroup(created);
   }
 
   async mintNodeKey(options: MintNodeKeyOptions): Promise<MeshEnrolmentKey> {
-    const created = await this.request<NetbirdSetupKey>("/setup-keys", {
+    const created = await this.request("/setup-keys", netbirdSetupKeySchema, {
       method: "POST",
       body: {
         name: options.name,
@@ -180,6 +220,11 @@ export class NetbirdClient implements MeshProviderClient {
         allow_extra_dns_labels: options.allowExtraDnsLabels,
       },
     });
+    if (!created) {
+      throw this.fail(
+        `The NetBird management server at ${this.base} returned an empty response when minting a setup key.`,
+      );
+    }
     return {
       id: created.id,
       key: created.key,
@@ -188,13 +233,13 @@ export class NetbirdClient implements MeshProviderClient {
   }
 
   async revokeKey(keyId: string): Promise<void> {
-    await this.request<void>(`/setup-keys/${encodeURIComponent(keyId)}`, {
+    await this.requestVoid(`/setup-keys/${encodeURIComponent(keyId)}`, {
       method: "DELETE",
     }).catch(ignoreMissing);
   }
 
   async listPeers(): Promise<MeshPeer[]> {
-    const peers = await this.request<NetbirdPeer[]>("/peers");
+    const peers = await this.request("/peers", z.array(netbirdPeerSchema));
     return (peers ?? []).map((p) => ({
       id: p.id,
       name: p.name ?? p.hostname ?? p.id,
@@ -208,7 +253,7 @@ export class NetbirdClient implements MeshProviderClient {
   }
 
   async removePeer(peerId: string): Promise<void> {
-    await this.request<void>(`/peers/${encodeURIComponent(peerId)}`, {
+    await this.requestVoid(`/peers/${encodeURIComponent(peerId)}`, {
       method: "DELETE",
     }).catch(ignoreMissing);
   }
@@ -239,15 +284,15 @@ export class NetbirdClient implements MeshProviderClient {
       ],
     };
 
-    const policies = await this.request<NetbirdPolicy[]>("/policies");
+    const policies = await this.request("/policies", z.array(netbirdPolicySchema));
     const existing = (policies ?? []).find((p) => p.name === spec.name);
     if (existing) {
-      await this.request<void>(`/policies/${encodeURIComponent(existing.id)}`, {
+      await this.requestVoid(`/policies/${encodeURIComponent(existing.id)}`, {
         method: "PUT",
         body,
       });
       return;
     }
-    await this.request<void>("/policies", { method: "POST", body });
+    await this.requestVoid("/policies", { method: "POST", body });
   }
 }

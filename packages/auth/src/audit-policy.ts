@@ -188,10 +188,9 @@ export function auditEntryForPath(path: string): AuditedPath | null {
  */
 export function classifyAuthOutcome(returned: unknown): { outcome: Outcome; reason?: string } {
   if (!isAPIError(returned)) return { outcome: "success" };
-  const error = returned as { statusCode?: number; body?: { message?: string; code?: string } };
-  const status = error.statusCode;
+  const status = returned.statusCode;
   const outcome: Outcome = status === 401 || status === 403 ? "denied" : "failure";
-  const reason = error.body?.message ?? error.body?.code;
+  const reason = returned.body?.message ?? returned.body?.code;
   return { outcome, reason: reason ? reason.slice(0, MAX_REASON) : undefined };
 }
 

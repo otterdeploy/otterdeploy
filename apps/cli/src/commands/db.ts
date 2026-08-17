@@ -131,12 +131,10 @@ const urlCmd = defineCommand({
       );
       return;
     }
-    printUrls([
-      ["internal", resource.internalConnectionString],
-      ...(resource.publicEnabled
-        ? ([["public", resource.publicConnectionString]] as Array<[string, string]>)
-        : []),
-    ]);
+    const publicPair: Array<[string, string]> = resource.publicEnabled
+      ? [["public", resource.publicConnectionString]]
+      : [];
+    printUrls([["internal", resource.internalConnectionString], ...publicPair]);
   },
 });
 

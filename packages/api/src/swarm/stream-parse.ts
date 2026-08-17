@@ -36,8 +36,10 @@ export async function* demuxDockerStream(
   let buffer = Buffer.alloc(0);
   const partial: Record<"stdout" | "stderr", string> = { stdout: "", stderr: "" };
 
-  for await (const chunk of stream as AsyncIterable<Buffer>) {
-    buffer = Buffer.concat([buffer, chunk]);
+  for await (const chunk of stream) {
+    // NodeJS.ReadableStream iterates `string | Buffer`; the docker log stream
+    // is binary, but normalize defensively so framing math stays byte-exact.
+    buffer = Buffer.concat([buffer, typeof chunk === "string" ? Buffer.from(chunk) : chunk]);
 
     while (buffer.length >= 8) {
       const streamByte = buffer[0];
@@ -94,7 +96,7 @@ export async function* readLines(
   stream: NodeJS.ReadableStream,
 ): AsyncGenerator<string, void, void> {
   let buffer = "";
-  for await (const chunk of stream as AsyncIterable<Buffer | string>) {
+  for await (const chunk of stream) {
     buffer += typeof chunk === "string" ? chunk : chunk.toString("utf8");
     let nl = buffer.indexOf("\n");
     while (nl !== -1) {
@@ -113,12 +115,18 @@ export async function* readLines(
  * Unparseable lines are skipped. Docker occasionally batches multiple JSON
  * objects on a line or emits status noise we don't care about.
  */
-export async function* readNdjson<T>(stream: NodeJS.ReadableStream): AsyncGenerator<T, void, void> {
+export function readNdjson<T>(stream: NodeJS.ReadableStream): AsyncGenerator<T, void, void>;
+export async function* readNdjson(
+  stream: NodeJS.ReadableStream,
+): AsyncGenerator<unknown, void, void> {
   for await (const line of readLines(stream)) {
+    let parsed: unknown;
     try {
-      yield JSON.parse(line) as T;
+      parsed = JSON.parse(line);
     } catch {
       // skip unparseable line
+      continue;
     }
+    yield parsed;
   }
 }

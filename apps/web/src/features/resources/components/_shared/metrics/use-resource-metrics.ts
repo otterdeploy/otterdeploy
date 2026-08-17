@@ -91,7 +91,8 @@ export function useResourceMetrics(resourceId: string, windowMinutes: number): R
 
   const { rows, summary } = (() => {
     if (!points || points.length === 0) {
-      return { rows: [] as MetricRow[], summary: EMPTY_SUMMARY };
+      const empty: MetricRow[] = [];
+      return { rows: empty, summary: EMPTY_SUMMARY };
     }
 
     const rows: MetricRow[] = points.map((p, i) => {

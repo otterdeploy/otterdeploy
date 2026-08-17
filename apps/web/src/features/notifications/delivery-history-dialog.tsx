@@ -34,8 +34,10 @@ import {
 } from "./shared";
 
 type DeliveriesPage = Awaited<ReturnType<typeof client.notifications.deliveries>>;
+type DeliveryCursor = NonNullable<DeliveriesPage["nextCursor"]>;
 
 const PAGE_SIZE = 50;
+const FIRST_PAGE: DeliveryCursor | null = null;
 
 interface DeliveryHistoryDialogProps {
   open: boolean;
@@ -49,14 +51,16 @@ export function DeliveryHistoryDialog({ open, onOpenChange, channel }: DeliveryH
   const query = useInfiniteQuery({
     queryKey: [...orpc.notifications.deliveries.key(), channelId],
     enabled: open && channel !== null,
-    initialPageParam: null as string | null,
-    queryFn: ({ pageParam }) =>
-      client.notifications.deliveries({
-        // enabled-gated: only runs with a channel present.
-        channelId: channelId as Channel["id"],
+    initialPageParam: FIRST_PAGE,
+    queryFn: async ({ pageParam }) => {
+      // enabled-gated: only runs with a channel present.
+      if (channelId === undefined) throw new Error("No channel selected");
+      return client.notifications.deliveries({
+        channelId,
         limit: PAGE_SIZE,
-        ...(pageParam ? { cursor: pageParam as DeliveriesPage["items"][number]["id"] } : {}),
-      }),
+        ...(pageParam ? { cursor: pageParam } : {}),
+      });
+    },
     getNextPageParam: (last) => last.nextCursor,
   });
 

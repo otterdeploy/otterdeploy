@@ -42,7 +42,7 @@ export const resourceListCacheMiddleware = cacheApiResponse<ResourceListInput, P
   version: 1,
   ttlSeconds: 10,
   dependencyTables,
-  outputSchema: z.array(resourceSchema) as z.ZodType<ProjectResource[]>,
+  outputSchema: z.array(resourceSchema),
   scope: async ({ context, input }) => {
     // Authorization must happen before cache lookup. Missing/foreign projects
     // bypass the cache and let the handler return its normal typed NOT_FOUND.

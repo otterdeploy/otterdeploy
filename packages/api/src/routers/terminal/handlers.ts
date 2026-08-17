@@ -18,8 +18,11 @@ import type { OrganizationId, ProjectId, ProjectSlug, ResourceId } from "@otterd
 import { db } from "@otterdeploy/db";
 import { databaseResource, project, resource } from "@otterdeploy/db/schema/project";
 import { type ContainerSummary, Docker } from "@otterdeploy/docker";
-import { canonicalId } from "@otterdeploy/shared/id";
+import { canonicalId, hasPrefix, ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { and, eq, isNull } from "drizzle-orm";
+
+/** Brands raw slugs (docker labels, unbranded DB columns) at the boundary. */
+const projectSlugSchema = zSlug(ID_PREFIX.project);
 type OrgId = OrganizationId;
 
 export interface TerminalContainer {
@@ -60,7 +63,8 @@ const TERMINAL_RESOURCE_TYPES = new Set<TerminalContainer["resourceType"]>([
 function isTerminalResourceType(
   value: string | undefined,
 ): value is TerminalContainer["resourceType"] {
-  return TERMINAL_RESOURCE_TYPES.has(value as TerminalContainer["resourceType"]);
+  const widened: ReadonlySet<string> = TERMINAL_RESOURCE_TYPES;
+  return value !== undefined && widened.has(value);
 }
 
 /**
@@ -85,7 +89,7 @@ function splitTaskName(name: string): {
  */
 function toTerminalContainer(
   c: ContainerSummary,
-  slugToProject: Map<string, { id: string; name: string }>,
+  slugToProject: Map<string, { id: ProjectId; name: string }>,
 ): TerminalContainer | null {
   const labels = c.Labels ?? {};
   const labelProjectSlug = labels["otterdeploy.project"] ?? null;
@@ -104,19 +108,24 @@ function toTerminalContainer(
   // Old prefix on pre-rename containers; callers match this against DB ids.
   const labelResourceId = rawLabelResourceId ? canonicalId(rawLabelResourceId) : rawLabelResourceId;
 
+  // The slug came off a docker label as a raw string. We've already verified
+  // above (slugToProject.has) that it matches an org-owned project, so the
+  // schema parse is just the brand-at-the-boundary formality.
+  const parsedSlug = projectSlugSchema.safeParse(labelProjectSlug);
+
   return {
     containerId: c.Id,
-    projectId: terminalProject.id as ProjectId,
+    projectId: terminalProject.id,
     name: serviceName,
     image: c.Image,
     state: c.State,
     resourceType,
-    // Cast: the slug came off a docker label as a raw string. We've
-    // already verified above (slugToProject.has) that it matches an
-    // org-owned project, so it's safe to brand here.
-    projectSlug: labelProjectSlug as ProjectSlug,
+    projectSlug: parsedSlug.success ? parsedSlug.data : null,
     projectName: terminalProject.name,
-    serviceResourceId: (labelResourceId as ResourceId | undefined) ?? null,
+    serviceResourceId:
+      labelResourceId !== undefined && hasPrefix(labelResourceId, ID_PREFIX.resource)
+        ? labelResourceId
+        : null,
     serviceName,
     replicaSlot: slot,
   };
@@ -133,7 +142,7 @@ export async function listTerminalTargets(input: {
     .from(project)
     .where(eq(project.organizationId, input.organizationId));
 
-  const slugToProject = new Map<string, { id: string; name: string }>();
+  const slugToProject = new Map<string, { id: ProjectId; name: string }>();
   const allowedProjectIds = input.projectIds ? new Set(input.projectIds) : null;
   for (const p of projects) {
     if (!allowedProjectIds || allowedProjectIds.has(p.id)) {
@@ -193,7 +202,7 @@ export async function listTerminalTargets(input: {
       resourceId: r.resourceId,
       name: r.name,
       engine: r.engine,
-      projectSlug: r.projectSlug as ProjectSlug,
+      projectSlug: projectSlugSchema.parse(r.projectSlug),
       projectName: r.projectName,
     }));
 

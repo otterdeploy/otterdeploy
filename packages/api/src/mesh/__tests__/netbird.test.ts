@@ -22,23 +22,45 @@ function at<T>(items: readonly T[], index: number, what: string): T {
   return item;
 }
 
+/** The client only ever passes string URLs; recover one from any fetch input. */
+function urlOf(input: Parameters<typeof fetch>[0]): string {
+  if (typeof input === "string") return input;
+  if (input instanceof URL) return input.toString();
+  return input.url;
+}
+
+/** Bun's `typeof fetch` carries a `preconnect` extension; stub it inertly so a
+ *  plain recording function can satisfy the client's `fetchImpl` type. */
+function asFetch(fn: (...args: Parameters<typeof fetch>) => Promise<Response>): typeof fetch {
+  return Object.assign(fn, { preconnect: () => {} });
+}
+
+/** Narrow a recorded `headers` init to the plain object the client sends. */
+function headerBag(init: RequestInit): Record<string, string> {
+  const headers = init.headers;
+  if (!headers || headers instanceof Headers || Array.isArray(headers)) {
+    throw new Error("expected the client to send headers as a plain object");
+  }
+  const bag: Record<string, string> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    bag[key] = typeof value === "string" ? value : value.join(", ");
+  }
+  return bag;
+}
+
 function stubFetch(responses: Array<{ status?: number; body?: unknown; text?: string }>): {
   impl: typeof fetch;
   calls: Array<{ url: string; init: RequestInit }>;
 } {
   const calls: Array<{ url: string; init: RequestInit }> = [];
   let i = 0;
-  const impl = (async (url: string, init: RequestInit) => {
-    calls.push({ url, init });
+  const impl = asFetch(async (input, init) => {
+    calls.push({ url: urlOf(input), init: init ?? {} });
     const spec = at(responses, Math.min(i++, responses.length - 1), "responses");
     const status = spec.status ?? 200;
     const text = spec.text ?? (spec.body === undefined ? "" : JSON.stringify(spec.body));
-    return {
-      ok: status >= 200 && status < 300,
-      status,
-      text: async () => text,
-    } as Response;
-  }) as unknown as typeof fetch;
+    return new Response(text, { status });
+  });
   return { impl, calls };
 }
 
@@ -64,7 +86,7 @@ describe("auth header", () => {
       fetchImpl: impl,
     }).verify();
 
-    const headers = at(calls, 0, "calls").init.headers as Record<string, string>;
+    const headers = headerBag(at(calls, 0, "calls").init);
     expect(headers.Authorization).toBe("Token pat_abc");
     expect(at(calls, 0, "calls").url).toBe("https://api.netbird.io/api/accounts");
   });
@@ -118,13 +140,17 @@ describe("mintNodeKey", () => {
       ephemeral: true,
     });
 
-    const body = JSON.parse(at(calls, 0, "calls").init.body as string);
+    const rawBody = at(calls, 0, "calls").init.body;
+    if (typeof rawBody !== "string") throw new Error("expected a string request body");
+    const body: unknown = JSON.parse(rawBody);
     // Without allow_extra_dns_labels the management server rejects the
     // wildcard label at registration and private hostnames never resolve.
-    expect(body.allow_extra_dns_labels).toBe(true);
-    expect(body.type).toBe("one-off");
-    expect(body.usage_limit).toBe(1);
-    expect(body.auto_groups).toEqual(["g1"]);
+    expect(body).toMatchObject({
+      allow_extra_dns_labels: true,
+      type: "one-off",
+      usage_limit: 1,
+      auto_groups: ["g1"],
+    });
   });
 });
 
@@ -139,9 +165,9 @@ describe("clampTtl", () => {
 
 describe("error classification", () => {
   it("reports an unreachable management server as reachability, not bad credentials", async () => {
-    const impl = (async () => {
+    const impl = asFetch(async () => {
       throw new TypeError("fetch failed");
-    }) as unknown as typeof fetch;
+    });
     const client = new NetbirdClient({
       managementUrl: "https://nb.example.com",
       token: "t",
@@ -150,24 +176,27 @@ describe("error classification", () => {
 
     const error = await client.verify().catch((e: unknown) => e);
     expect(error).toBeInstanceOf(MeshProviderError);
-    const meshError = error as MeshProviderError;
+    if (!(error instanceof MeshProviderError)) throw new Error("expected a MeshProviderError");
     // status null => "we never got a response". Calling this an auth failure
     // sends the operator to regenerate a token that was never the problem.
-    expect(meshError.status).toBeNull();
-    expect(meshError.isAuthFailure).toBe(false);
-    expect(meshError.message).toContain("Could not reach");
+    expect(error.status).toBeNull();
+    expect(error.isAuthFailure).toBe(false);
+    expect(error.message).toContain("Could not reach");
   });
 
   it("flags 401 and 403 as auth failures", async () => {
     for (const status of [401, 403]) {
       const { impl } = stubFetch([{ status, text: "" }]);
-      const error = (await new NetbirdClient({
+      const error = await new NetbirdClient({
         managementUrl: "https://api.netbird.io",
         token: "t",
         fetchImpl: impl,
       })
         .verify()
-        .catch((e: unknown) => e)) as MeshProviderError;
+        .catch((e: unknown) => e);
+      if (!(error instanceof MeshProviderError)) {
+        throw new Error(`expected a MeshProviderError for status ${status}`);
+      }
       expect(error.isAuthFailure).toBe(true);
     }
   });

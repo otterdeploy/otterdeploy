@@ -26,7 +26,7 @@ function parseTimeout(raw: string | undefined): number | undefined {
 async function announceAndWait(
   ctx: ResourceContext,
   opts: { wait: boolean; timeoutMs?: number; json: boolean },
-  announce: { deploymentId?: string; status?: string; payload: unknown },
+  announce: { deploymentId?: string; status?: string; payload: object },
 ): Promise<void> {
   if (!opts.json) {
     ok(`Redeploy queued for ${ctx.resourceName}.`);
@@ -55,7 +55,7 @@ async function announceAndWait(
   });
   if (opts.json) {
     process.stdout.write(
-      `${JSON.stringify({ ...(announce.payload as object), ok: succeeded, outcomes }, null, 2)}\n`,
+      `${JSON.stringify({ ...announce.payload, ok: succeeded, outcomes }, null, 2)}\n`,
     );
   }
   if (!succeeded) process.exitCode = 1;

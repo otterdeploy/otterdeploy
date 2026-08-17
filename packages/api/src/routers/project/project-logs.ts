@@ -63,7 +63,7 @@ async function resolveTargets(
   const dbTargets: TargetService[] = databases
     .filter((d) => (wanted ? wanted.has(d.resource.id) : false))
     .map((d) => ({
-      resourceId: d.resource.id as ResourceId,
+      resourceId: d.resource.id,
       serviceName: buildContainerName({
         engine: d.database.engine,
         projectSlug: slug,
@@ -74,7 +74,7 @@ async function resolveTargets(
   const svcTargets: TargetService[] = services
     .filter((s) => (wanted ? wanted.has(s.resource.id) : true))
     .map((s) => ({
-      resourceId: s.resource.id as ResourceId,
+      resourceId: s.resource.id,
       serviceName: s.service.serviceName,
     }));
 
@@ -114,10 +114,8 @@ async function openTargetLogStream(
       push(systemEvent(target, `services.list failed: ${listResult.error.message}`));
       return null;
     }
-    const found = listResult.value.find(
-      (s) => (s as { Spec?: { Name?: string } }).Spec?.Name === target.serviceName,
-    );
-    const serviceId = (found as { ID?: string } | undefined)?.ID;
+    const found = listResult.value.find((s) => s.Spec?.Name === target.serviceName);
+    const serviceId = found?.ID;
     if (!serviceId) {
       push(systemEvent(target, "no swarm service yet"));
       return null;
@@ -202,7 +200,7 @@ export async function* tailProjectLogs(
       stream: "system",
       line: "Project not found",
       ts: nowIso(),
-      resourceId: "" as ResourceId,
+      resourceId: "",
       serviceName: "",
     };
     return;
@@ -214,7 +212,7 @@ export async function* tailProjectLogs(
       stream: "system",
       line: "No services in this project yet",
       ts: nowIso(),
-      resourceId: "" as ResourceId,
+      resourceId: "",
       serviceName: "",
     };
     return;
@@ -247,7 +245,7 @@ export async function* tailProjectLogs(
     stream: "system",
     line: `Tailing ${targets.length} service${targets.length === 1 ? "" : "s"} in ${project.name}`,
     ts: nowIso(),
-    resourceId: "" as ResourceId,
+    resourceId: "",
     serviceName: "",
   };
 

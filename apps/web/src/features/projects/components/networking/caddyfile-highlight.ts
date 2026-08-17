@@ -100,7 +100,7 @@ export function buildModel(source: string, query: string): ViewModel {
   let counter = 0;
   const lines = source.split("\n").map((line) => {
     const tokens = tokenize(line);
-    if (!q) return tokens as Segment[];
+    if (!q) return tokens;
     const segs: Segment[] = [];
     for (const tok of tokens) {
       const lower = tok.text.toLowerCase();

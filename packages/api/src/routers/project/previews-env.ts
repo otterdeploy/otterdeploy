@@ -6,7 +6,7 @@
  * container picks it up; with no successful build yet the change simply
  * applies to the next build.
  */
-import type { PreviewId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { PreviewId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
@@ -152,7 +152,7 @@ async function redeployPreviewService(
 
   const rolled = await Result.tryPromise({
     try: () =>
-      redeployOne(input.projectId as ProjectId, input.serviceResourceId, projectSlug, log, {
+      redeployOne(input.projectId, input.serviceResourceId, projectSlug, log, {
         previewId: input.previewId,
         imageOverride: latestBuilt.image,
       }),
@@ -256,7 +256,7 @@ export async function listPreviewEffectiveEnv(
 
   // Fully-resolved effective values (refs expanded against the preview scope).
   const resolved = await resolveServiceEnv(
-    input.projectId as ProjectId,
+    input.projectId,
     input.serviceResourceId,
     input.previewId,
   );

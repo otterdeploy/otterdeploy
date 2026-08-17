@@ -1,8 +1,6 @@
 import type { PermissionCheck } from "@otterdeploy/auth/permissions";
-import type { Id } from "@otterdeploy/shared/id";
 
 import { implement, os as orpc } from "@orpc/server";
-import { ID_PREFIX } from "@otterdeploy/shared/id";
 
 import type { Context } from "./context";
 
@@ -129,7 +127,7 @@ const orgScopedMiddleware = orpc
         actor: context.actor,
         session: context.session,
         apiKey: context.apiKey,
-        activeOrganizationId: context.activeOrganizationId as Id<typeof ID_PREFIX.organization>,
+        activeOrganizationId: context.activeOrganizationId,
       },
     });
   });
@@ -150,10 +148,7 @@ const installAdminMiddleware = orpc
   })
   .middleware(async ({ context, procedure, next, errors }) => {
     const definition = procedure["~orpc"];
-    const mode =
-      (isReadMethod(definition.meta, definition.route as { method?: string } | undefined) ?? false)
-        ? "read"
-        : "write";
+    const mode = (isReadMethod(definition.meta, definition.route) ?? false) ? "read" : "write";
     const decision = await authorizeCapability(context.actor, {
       scope: "install",
       mode,
@@ -187,8 +182,8 @@ const projectScopeMiddleware = orpc
   .middleware(async ({ context, next, errors }, input: unknown) => {
     if (context.apiKey) {
       const projectId =
-        input && typeof input === "object" && "projectId" in input
-          ? (input as { projectId?: unknown }).projectId
+        input !== null && typeof input === "object" && "projectId" in input
+          ? input.projectId
           : undefined;
       if (typeof projectId === "string" && !requireProjectScope(context.apiKey, projectId)) {
         throw errors.FORBIDDEN();
@@ -225,13 +220,12 @@ export function requirePermission(permission: PermissionCheck) {
       }
       const definition = procedure["~orpc"];
       const mode =
-        (isReadMethod(definition.meta, definition.route as { method?: string } | undefined) ??
-        isReadAction(path.join(".")))
+        (isReadMethod(definition.meta, definition.route) ?? isReadAction(path.join(".")))
           ? "read"
           : "write";
       const projectId =
-        input && typeof input === "object" && "projectId" in input
-          ? (input as { projectId?: unknown }).projectId
+        input !== null && typeof input === "object" && "projectId" in input
+          ? input.projectId
           : undefined;
       const decision = await authorizeCapability(context.actor, {
         scope: "organization",

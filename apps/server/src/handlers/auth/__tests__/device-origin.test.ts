@@ -2,6 +2,7 @@ import type { JsonObject } from "@otterdeploy/shared/json";
 
 import { mock } from "bun:test";
 import { describe, expect, test } from "vite-plus/test";
+import * as z from "zod";
 
 /**
  * The device flow hands the CLI an absolute URL to open in a browser. Because
@@ -18,6 +19,18 @@ mock.module("@otterdeploy/auth/web-origin", () => ({ resolveCanonicalWebOrigin }
 const { withCanonicalDeviceOrigin } = await import("../device-origin");
 
 const DEVICE_PATH = "/api/auth/device/code";
+
+/** Every field the assertions read, parsed (not cast) off the response body. */
+const deviceBodySchema = z.looseObject({
+  device_code: z.string().optional(),
+  user_code: z.string().optional(),
+  verification_uri: z.string().optional(),
+  verification_uri_complete: z.string().optional(),
+  expires_in: z.number().optional(),
+  interval: z.number().optional(),
+});
+
+const readBody = async (res: Response) => deviceBodySchema.parse(await res.json());
 
 const deviceResponse = (body: JsonObject, init?: ResponseInit) =>
   new Response(JSON.stringify(body), {
@@ -38,7 +51,7 @@ const BODY = {
 describe("withCanonicalDeviceOrigin", () => {
   test("rebases both verification URLs onto the canonical origin, dropping the port", async () => {
     const out = await withCanonicalDeviceOrigin(DEVICE_PATH, deviceResponse(BODY));
-    const json = (await out.json()) as Record<string, string>;
+    const json = await readBody(out);
 
     expect(json.verification_uri).toBe("https://deploy.acme.com/device");
     expect(json.verification_uri_complete).toBe(
@@ -48,7 +61,7 @@ describe("withCanonicalDeviceOrigin", () => {
 
   test("preserves every other field and the plugin's headers", async () => {
     const out = await withCanonicalDeviceOrigin(DEVICE_PATH, deviceResponse(BODY));
-    const json = (await out.json()) as JsonObject;
+    const json = await readBody(out);
 
     expect(json.device_code).toBe("dev-code");
     expect(json.user_code).toBe("WDJB-MJHT");
@@ -81,7 +94,7 @@ describe("withCanonicalDeviceOrigin", () => {
       throw new Error("db down");
     });
     const out = await withCanonicalDeviceOrigin(DEVICE_PATH, deviceResponse(BODY));
-    const json = (await out.json()) as Record<string, string>;
+    const json = await readBody(out);
     // Stale origin, but still a working login, not a 500.
     expect(json.verification_uri).toBe("http://10.0.0.4:3000/device");
   });

@@ -1,7 +1,6 @@
-import type { AuditLogId } from "@otterdeploy/shared/id";
-
 import { db } from "@otterdeploy/db";
 import { auditLog } from "@otterdeploy/db/schema";
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import {
   and,
   count,
@@ -208,9 +207,13 @@ export const auditRouter = {
 
     const rel: SQL[] = [];
     if (input.correlationId) rel.push(eq(auditLog.correlationId, input.correlationId));
-    // causationId is stored as free text (it names the causing event), so cast
-    // to the branded id type for the primary-key comparison.
-    if (input.causationId) rel.push(eq(auditLog.id, input.causationId as AuditLogId));
+    // causationId is stored as free text (it names the causing event). Narrow
+    // it through the real prefix guard for the primary-key comparison; a value
+    // without an audit-log prefix could never match a row anyway, so skipping
+    // it changes nothing observable.
+    if (input.causationId && hasPrefix(input.causationId, ID_PREFIX.auditLog)) {
+      rel.push(eq(auditLog.id, input.causationId));
+    }
     if (rel.length === 0) return { items: [] };
 
     const rows = await db

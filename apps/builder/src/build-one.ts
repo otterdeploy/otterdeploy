@@ -13,10 +13,9 @@
  *   exit 2, invoked without a deployment id (misuse)
  */
 
-import type { DeploymentId } from "@otterdeploy/shared/id";
-
 import { db } from "@otterdeploy/db";
 import { deployment } from "@otterdeploy/db/schema/project";
+import { idSchema } from "@otterdeploy/shared/id";
 import { log } from "evlog";
 
 import { runBuildPipeline } from "./pipeline";
@@ -50,13 +49,16 @@ async function warmUpClients(): Promise<void> {
 }
 
 async function main(): Promise<never> {
-  const deploymentId = process.argv[2] as DeploymentId | undefined;
-  if (!deploymentId) {
+  // The CLI arg is untrusted text: parse it into the branded id. Missing OR
+  // malformed both exit 2, the "invoked without a deployment id" misuse code.
+  const argParse = idSchema.deployment.safeParse(process.argv[2] ?? "");
+  if (!argParse.success) {
     log.error({
       build: { event: "build-one-missing-id" },
     });
     process.exit(2);
   }
+  const deploymentId = argParse.data;
 
   await warmUpClients();
   const publisher = createPublisher();

@@ -47,12 +47,30 @@ interface StreamSnapshot<TLine> {
  * treats as a bug. Bounded so a long session can't grow it without limit.
  */
 const MAX_CACHED_STREAMS = 24;
-const finished = new Map<string, StreamSnapshot<unknown>>();
+
+/**
+ * One completed tail, type-erased so a single module-level map can hold every
+ * `TLine` instantiation. The lines travel back out through `consume`, declared
+ * with METHOD syntax on purpose: method parameters are compared bivariantly
+ * (the same rule React's own event-handler types lean on), which is what lets
+ * the typed read below hand a `(lines: TLine[]) => …` consumer to the erased
+ * entry without any assertion. Correctness rests on the key contract: one
+ * cache key always identifies one line type.
+ */
+interface CachedTail {
+  restoreInto(consumer: { consume(lines: unknown[], status: LogStreamStatus): void }): void;
+}
+
+const finished = new Map<string, CachedTail>();
 
 function remember<TLine>(key: string, snapshot: StreamSnapshot<TLine>): void {
   // Re-insert so the map's insertion order is a true LRU, then evict the oldest.
   finished.delete(key);
-  finished.set(key, snapshot as StreamSnapshot<unknown>);
+  finished.set(key, {
+    restoreInto(consumer) {
+      consumer.consume(snapshot.lines, snapshot.status);
+    },
+  });
   if (finished.size > MAX_CACHED_STREAMS) {
     const oldest = finished.keys().next();
     if (!oldest.done) finished.delete(oldest.value);
@@ -215,11 +233,11 @@ export function useLogStream<TRaw, TLine>(
     // A finished tail for this exact key: paint it and skip the network
     // entirely. This is what makes returning to a completed build's logs
     // instant instead of a full re-stream.
-    const cached = cacheCompleted
-      ? (finished.get(key) as StreamSnapshot<TLine> | undefined)
-      : undefined;
+    const cached = cacheCompleted ? finished.get(key) : undefined;
     if (cached) {
-      buffer.restore(cached);
+      cached.restoreInto({
+        consume: (lines: TLine[], status) => buffer.restore({ lines, status }),
+      });
       return () => buffer.dispose();
     }
 

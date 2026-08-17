@@ -106,9 +106,7 @@ export async function* streamImagePull(
   // The docker SDK returns a Node stream; ensure we have something with
   // an async iterator regardless of the underlying transport.
   const stream =
-    pullResult.value instanceof Readable
-      ? pullResult.value
-      : Readable.from(pullResult.value as NodeJS.ReadableStream);
+    pullResult.value instanceof Readable ? pullResult.value : Readable.from(pullResult.value);
 
   for await (const line of readNdjson<DockerPullLine>(stream)) {
     yield toEvent(image, line);

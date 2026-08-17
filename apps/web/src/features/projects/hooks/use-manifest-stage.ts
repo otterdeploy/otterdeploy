@@ -28,18 +28,27 @@ import { orpc, queryClient } from "@/shared/server/orpc";
 
 type ProjectId = Id<typeof ID_PREFIX.project>;
 
+/**
+ * A manifest as the save endpoint accepts it: the project slug is a plain
+ * string (the schema brands it server-side on parse). Every read `Manifest`
+ * is assignable to this, and it lets the empty seed carry the deliberate
+ * falsy `""` slug (which mutators replace via `current.project || slug`)
+ * without asserting a brand it doesn't have.
+ */
+type ManifestDraft = Omit<Manifest, "project"> & { project: string };
+
 /** A pure transform producing the next manifest from the current one. */
-export type ManifestMutator = (current: Manifest) => Manifest;
+export type ManifestMutator = (current: ManifestDraft) => ManifestDraft;
 
 /** Seed an empty manifest so a mutator never has to special-case the
  *  first-ever change on a fresh project. */
-const emptyManifest = (): Manifest =>
-  ({
-    version: 1 as const,
-    project: "" as Manifest["project"],
-    services: {},
-    databases: {},
-  }) as Manifest;
+const emptyManifest = (): ManifestDraft => ({
+  version: 1,
+  project: "",
+  services: {},
+  databases: {},
+  composes: {},
+});
 
 /** Invalidate everything the pending-changes bar, graph, stack-code drawer,
  *  and resource panels read so a manifest write (stage OR apply) is reflected

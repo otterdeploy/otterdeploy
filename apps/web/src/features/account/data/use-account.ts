@@ -60,7 +60,7 @@ export function useSessions() {
       if (res.error) {
         throw new Error(res.error.message ?? "Failed to load sessions");
       }
-      return (res.data ?? []) as SessionRow[];
+      return res.data ?? [];
     },
   });
 }

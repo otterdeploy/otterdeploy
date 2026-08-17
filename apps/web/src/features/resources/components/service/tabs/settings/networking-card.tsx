@@ -78,7 +78,7 @@ export function ServiceNetworkingCard({
     >
       <DomainList
         loading={domains.isLoading}
-        rows={rows as DomainView[]}
+        rows={rows}
         noHttpPort={noHttpPort}
         unpublished={unpublished}
         republish={republish}

@@ -38,7 +38,7 @@ interface DataGridRowProps<TData> extends React.ComponentProps<"div"> {
   adjustLayout: boolean;
 }
 
-export const DataGridRow = React.memo(DataGridRowImpl, (prev, next) => {
+const MemoizedDataGridRow = React.memo(DataGridRowImpl, (prev, next) => {
   const prevRowIndex = prev.virtualItem.index;
   const nextRowIndex = next.virtualItem.index;
 
@@ -140,7 +140,15 @@ export const DataGridRow = React.memo(DataGridRowImpl, (prev, next) => {
 
   // Skip re-render - props are equal
   return true;
-}) as typeof DataGridRowImpl;
+});
+
+// React.memo erases the generic, so re-expose it through an overloaded
+// wrapper: callers see the generic signature, the memoized inner component
+// still short-circuits re-renders. No assertion involved.
+export function DataGridRow<TData>(props: DataGridRowProps<TData>): React.JSX.Element;
+export function DataGridRow(props: DataGridRowProps<unknown>): React.JSX.Element {
+  return <MemoizedDataGridRow {...props} />;
+}
 
 function DataGridRowImpl<TData>({
   row,

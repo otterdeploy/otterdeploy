@@ -1,5 +1,6 @@
 import { ORPCError } from "@orpc/client";
 import { defineCommand } from "citty";
+import * as z from "zod";
 
 import { ensureAuthenticated } from "../auth-flow";
 import { createCliClient } from "../client";
@@ -15,10 +16,19 @@ type ServerMessage =
   | { type: "session:exit"; exitCode: number | null; signal: string | null }
   | { type: "error"; code: string; message: string };
 
+const serverMessageSchema: z.ZodType<ServerMessage> = z.union([
+  z.object({
+    type: z.literal("session:exit"),
+    exitCode: z.number().nullable(),
+    signal: z.string().nullable(),
+  }),
+  z.object({ type: z.literal("error"), code: z.string(), message: z.string() }),
+]);
+
 function parseServerMessage(raw: string): ServerMessage | null {
   try {
-    const msg = JSON.parse(raw) as ServerMessage;
-    return msg.type === "session:exit" || msg.type === "error" ? msg : null;
+    const parsed = serverMessageSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }

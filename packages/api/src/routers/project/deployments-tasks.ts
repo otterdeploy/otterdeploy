@@ -40,7 +40,7 @@ interface TasksByDeploymentInput {
   projectId: ProjectId;
   organizationId: OrganizationId;
   resourceId: ResourceId;
-  deploymentId: string;
+  deploymentId: DeploymentId;
 }
 
 function instanceTime(i: ResourceInstance): number {
@@ -56,7 +56,7 @@ function toDeploymentTaskInfo(
     id: instance.id,
     projectId: input.projectId,
     resourceId: input.resourceId,
-    deploymentId: input.deploymentId as DeploymentId,
+    deploymentId: input.deploymentId,
     slot: instance.slot,
     label: instance.slot != null ? `${serviceName}.${instance.slot}` : serviceName,
     state: collapseInstanceState(instance.state),

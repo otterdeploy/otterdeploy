@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
+import * as z from "zod";
 
 import type { AuditDraft } from "../changes";
 
@@ -8,6 +9,17 @@ function draftContext(): { auditDraft: AuditDraft } {
   return { auditDraft: {} };
 }
 
+// The recorded changes value is JSON destined for a jsonb column; read it back
+// through a schema instead of asserting its shape. `looseObject` keeps any
+// extra keys, so the `toEqual` assertions stay exactly as strict as before.
+const recordedPatchSchema = z.object({
+  patch: z.array(z.looseObject({ path: z.string(), op: z.string() })),
+});
+
+function patchOf(changes: unknown) {
+  return recordedPatchSchema.parse(changes).patch;
+}
+
 describe("recordAuditChanges", () => {
   test("records a patch of what actually changed", () => {
     const ctx = draftContext();
@@ -15,7 +27,7 @@ describe("recordAuditChanges", () => {
       before: { replicas: 1, healthCheck: { path: "/health" } },
       after: { replicas: 3, healthCheck: { path: "/health" } },
     });
-    const patch = (ctx.auditDraft.changes as { patch: Array<{ path: string; op: string }> }).patch;
+    const patch = patchOf(ctx.auditDraft.changes);
     expect(patch).toHaveLength(1);
     expect(patch[0]).toMatchObject({ op: "replace", path: "/replicas" });
   });
@@ -50,7 +62,7 @@ describe("recordAuditChanges", () => {
   test("snapshots are omitted unless asked for", () => {
     const ctx = draftContext();
     recordAuditChanges(ctx, { before: { replicas: 1 }, after: { replicas: 2 } });
-    const changes = ctx.auditDraft.changes as { before?: unknown; after?: unknown };
+    const changes = z.record(z.string(), z.unknown()).parse(ctx.auditDraft.changes);
     expect(changes.before).toBeUndefined();
     expect(changes.after).toBeUndefined();
   });
@@ -63,7 +75,7 @@ describe("recordSecretMapChanges", () => {
       before: { KEEP: "same", ROTATE: "old-secret", DROP: "gone-secret" },
       after: { KEEP: "same", ROTATE: "new-secret", ADD: "fresh-secret" },
     });
-    const patch = (ctx.auditDraft.changes as { patch: Array<{ path: string; op: string }> }).patch;
+    const patch = patchOf(ctx.auditDraft.changes);
     expect(patch).toEqual([
       { op: "add", path: "/ADD" },
       { op: "remove", path: "/DROP" },
@@ -84,7 +96,7 @@ describe("recordSecretMapChanges", () => {
       before: { API_TOKEN: "aaa" },
       after: { API_TOKEN: "bbb" },
     });
-    const patch = (ctx.auditDraft.changes as { patch: Array<{ path: string; op: string }> }).patch;
+    const patch = patchOf(ctx.auditDraft.changes);
     expect(patch).toEqual([{ op: "replace", path: "/API_TOKEN" }]);
   });
 

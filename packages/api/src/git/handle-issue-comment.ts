@@ -127,18 +127,16 @@ export async function handleIssueComment(
     .limit(1);
   if (!repo) return ignored;
 
-  const projects = await projectsForRepo(repo.id as GitRepoId);
+  const projects = await projectsForRepo(repo.id);
   if (projects.length === 0) return ignored;
 
   // The comment payload carries the issue, not the pull request, so the head
   // to build has to be resolved from the API.
+  // `fullName` is always "owner/name"; destructuring with defaults keeps the
+  // tuple typed without asserting on `split`'s unbounded array.
+  const [repoOwner = "", repoName = ""] = repo.fullName.split("/");
   const head = await Result.tryPromise({
-    try: () =>
-      fetchPullRequestHead(
-        repo.installationId,
-        ...(repo.fullName.split("/") as [string, string]),
-        ev.issue.number,
-      ),
+    try: () => fetchPullRequestHead(repo.installationId, repoOwner, repoName, ev.issue.number),
     catch: (cause) => cause,
   });
   if (head.isErr()) {

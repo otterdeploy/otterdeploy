@@ -33,6 +33,10 @@ import { queryClient } from "@/shared/server/orpc";
 
 const organizationIdSchema = z.string().min(1);
 
+/** The two roles the Team UI can write. Parsed (not asserted) before handing
+ *  to better-auth, which types the role parameter as this union. */
+const writableRoleSchema = z.enum(["member", "admin"]);
+
 /** React-query key for one org's members subset. Must extend the collection's
  *  base prefix `["org", "members"]` (query-db-collection requires every subset
  *  key to extend the base key, or cache cleanup/invalidations go stale). */
@@ -92,7 +96,7 @@ const membersQueryOptions = queryCollectionOptions({
       transaction.mutations.map(async (m) => {
         const res = await authClient.organization.updateMemberRole({
           memberId: m.original.id,
-          role: m.modified.role as "member" | "admin",
+          role: writableRoleSchema.parse(m.modified.role),
           organizationId: m.original.organizationId,
         });
         if (res.error) {
@@ -175,7 +179,7 @@ const invitationsQueryOptions = queryCollectionOptions({
         const row = m.modified;
         const res = await authClient.organization.inviteMember({
           email: row.email,
-          role: row.role as "member" | "admin",
+          role: writableRoleSchema.parse(row.role),
           organizationId: row.organizationId,
         });
         if (res.error) {

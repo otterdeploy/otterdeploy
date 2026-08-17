@@ -30,6 +30,9 @@ function readSidebarDefaultOpen(): boolean {
   return match ? match[1] === "true" : true;
 }
 
+/** CSSProperties + the shell's custom property, so no cast is needed. */
+type ShellStyle = CSSProperties & { "--header-height": string };
+
 function RouteComponent() {
   const { user } = Route.useRouteContext();
   const match = useMatch({
@@ -47,13 +50,13 @@ function RouteComponent() {
   const firstSession = useIsFirstSession();
   const bannerShown = !firstSession && status.bannerVisible && status.latest !== null;
 
+  // header bar (12) + banner (11) when shown, else just the header bar.
+  const shellStyle: ShellStyle = {
+    "--header-height": `calc(var(--spacing) * ${bannerShown ? 23 : 12})`,
+  };
+
   return (
-    <div
-      // header bar (12) + banner (11) when shown, else just the header bar.
-      style={
-        { "--header-height": `calc(var(--spacing) * ${bannerShown ? 23 : 12})` } as CSSProperties
-      }
-    >
+    <div style={shellStyle}>
       {/* UpdateProvider lives in the parent $orgSlug layout, both chromes
           consume it (banner here, UpdatesCard in the settings zone). */}
       <SidebarProvider defaultOpen={defaultSidebarOpen} className="flex flex-col">

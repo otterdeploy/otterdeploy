@@ -112,13 +112,10 @@ async function produceArchive(
  * written to the row and surfaced via the log stream, so callers can fire it
  * detached without unhandled rejections.
  */
-export async function executeBackup(backupId: string): Promise<void> {
-  const ctx = await getExecutionContext(backupId as ExecutionContext["backupId"]);
+export async function executeBackup(backupId: ExecutionContext["backupId"]): Promise<void> {
+  const ctx = await getExecutionContext(backupId);
   if (!ctx) {
-    await markBackupFailed(
-      backupId as ExecutionContext["backupId"],
-      "execution context not found (source or destination missing)",
-    );
+    await markBackupFailed(backupId, "execution context not found (source or destination missing)");
     return;
   }
 

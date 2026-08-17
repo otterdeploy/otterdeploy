@@ -58,7 +58,8 @@ export const initCommand = defineCommand({
       project = await client.project.create({ name, slug });
       ok(`Created project ${slug}.`);
     } catch (error) {
-      const code = (error as { code?: string }).code;
+      const code =
+        typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
       if (code !== "CONFLICT") throw error;
       project = await client.project.getBySlug({ slug });
       // Linking to an existing project is the expected path on a second

@@ -219,7 +219,9 @@ function ServersRoute() {
       value={tab}
       onValueChange={(v) =>
         void navigate({
-          search: (prev) => ({ ...prev, tab: v as ServersTab }),
+          // Radix hands the trigger's value back as a plain string; re-brand
+          // it through the same schema the route's search params use.
+          search: (prev) => ({ ...prev, tab: serversSearch.shape.tab.parse(v) }),
           replace: true,
         })
       }

@@ -24,6 +24,7 @@
  */
 
 import { Result, TaggedError } from "better-result";
+import * as z from "zod";
 
 const CLOUDFLARE_API = "https://api.cloudflare.com/client/v4";
 
@@ -43,21 +44,35 @@ export class CloudflareError extends TaggedError("CloudflareError")<{
 }
 
 interface CFEnvelope<T> {
-  success: boolean;
-  errors: { code: number; message: string }[];
-  messages: { code: number; message: string }[];
   result: T;
   result_info?: { page: number; per_page: number; total_pages: number };
 }
 
 /**
+ * Tolerant probe of the envelope's error side, checked BEFORE the `result`
+ * schema: an error envelope carries `result: null`, so parsing it against the
+ * caller's result schema would bury Cloudflare's own error message. Loose +
+ * optional throughout because the code path it feeds already treated every
+ * field as possibly missing.
+ */
+const cfStatusSchema = z.looseObject({
+  success: z.unknown().optional(),
+  errors: z
+    .array(z.looseObject({ code: z.number().optional(), message: z.string().optional() }))
+    .optional(),
+});
+
+/**
  * One request, returning the WHOLE envelope: pagination needs `result_info`,
  * which {@link cfFetch} discards. Both live here so the `success`/`errors`
- * unwrapping is spelled exactly once.
+ * unwrapping is spelled exactly once. `resultSchema` validates the `result`
+ * payload at the JSON boundary; a success envelope whose result doesn't match
+ * it is reported as a transport-class error rather than trusted blindly.
  */
 async function cfEnvelope<T>(
   path: string,
   token: string,
+  resultSchema: z.ZodType<T>,
   init: RequestInit = {},
 ): Promise<Result<CFEnvelope<T>, CloudflareError>> {
   const res = await Result.tryPromise({
@@ -83,7 +98,7 @@ async function cfEnvelope<T>(
   // front of it may not. An HTML error page here would otherwise surface as a
   // raw SyntaxError from a module that promises not to throw.
   const body = await Result.tryPromise({
-    try: () => res.value.json() as Promise<CFEnvelope<T>>,
+    try: (): Promise<unknown> => res.value.json(),
     catch: (cause) =>
       new CloudflareError(
         `Cloudflare API ${res.value.status} ${res.value.statusText}: unparseable response body`,
@@ -93,25 +108,54 @@ async function cfEnvelope<T>(
   });
   if (body.isErr()) return Result.err(body.error);
 
-  if (!body.value.success) {
+  const status = cfStatusSchema.safeParse(body.value);
+  if (!status.success) {
     return Result.err(
       new CloudflareError(
-        body.value.errors?.[0]?.message ??
-          `Cloudflare API ${res.value.status} ${res.value.statusText}`,
-        body.value.errors?.[0]?.code ?? res.value.status,
+        `Cloudflare API ${res.value.status} ${res.value.statusText}: unparseable response body`,
+        CLOUDFLARE_TRANSPORT_CODE,
+        status.error,
       ),
     );
   }
-  return Result.ok(body.value);
+  if (!status.data.success) {
+    return Result.err(
+      new CloudflareError(
+        status.data.errors?.[0]?.message ??
+          `Cloudflare API ${res.value.status} ${res.value.statusText}`,
+        status.data.errors?.[0]?.code ?? res.value.status,
+      ),
+    );
+  }
+
+  const envelope = z
+    .looseObject({
+      result: resultSchema,
+      result_info: z
+        .object({ page: z.number(), per_page: z.number(), total_pages: z.number() })
+        .optional(),
+    })
+    .safeParse(body.value);
+  if (!envelope.success) {
+    return Result.err(
+      new CloudflareError(
+        `Cloudflare API ${res.value.status} ${res.value.statusText}: unexpected response shape`,
+        CLOUDFLARE_TRANSPORT_CODE,
+        envelope.error,
+      ),
+    );
+  }
+  return Result.ok({ result: envelope.data.result, result_info: envelope.data.result_info });
 }
 
 /** One request, unwrapped to its `result` payload. */
 async function cfFetch<T>(
   path: string,
   token: string,
+  resultSchema: z.ZodType<T>,
   init: RequestInit = {},
 ): Promise<Result<T, CloudflareError>> {
-  return (await cfEnvelope<T>(path, token, init)).map((body) => body.result);
+  return (await cfEnvelope(path, token, resultSchema, init)).map((body) => body.result);
 }
 
 export interface CloudflareZone {
@@ -119,6 +163,14 @@ export interface CloudflareZone {
   name: string;
   status: string;
 }
+
+const cloudflareZoneSchema = z.looseObject({
+  id: z.string(),
+  name: z.string(),
+  status: z.string(),
+});
+
+const tokenVerifySchema = z.looseObject({ status: z.string() });
 
 /**
  * Ask Cloudflare what it thinks of this token.
@@ -133,7 +185,7 @@ export interface CloudflareZone {
 export async function verifyCloudflareToken(
   token: string,
 ): Promise<Result<{ active: boolean; status: string }, CloudflareError>> {
-  const result = await cfFetch<{ id: string; status: string }>("/user/tokens/verify", token);
+  const result = await cfFetch("/user/tokens/verify", token, tokenVerifySchema);
   return result.map((r) => ({ active: r.status === "active", status: r.status }));
 }
 
@@ -147,7 +199,11 @@ export async function listCloudflareZones(
   const all: CloudflareZone[] = [];
   let page = 1;
   while (true) {
-    const body = await cfEnvelope<CloudflareZone[]>(`/zones?per_page=50&page=${page}`, token);
+    const body = await cfEnvelope(
+      `/zones?per_page=50&page=${page}`,
+      token,
+      z.array(cloudflareZoneSchema),
+    );
     if (body.isErr()) return Result.err(body.error);
 
     all.push(...body.value.result.map((z) => ({ id: z.id, name: z.name, status: z.status })));
@@ -158,12 +214,9 @@ export async function listCloudflareZones(
   return Result.ok(all);
 }
 
-interface DnsRecord {
-  id: string;
-  type: string;
-  name: string;
-  content: string;
-}
+const dnsRecordSchema = z.looseObject({
+  id: z.string(),
+});
 
 /**
  * Idempotent upsert. Lists records matching name+type on the zone; if
@@ -183,17 +236,19 @@ export async function upsertCloudflareDnsRecord(input: {
   proxied?: boolean;
   ttl?: number;
 }): Promise<Result<{ id: string }, CloudflareError>> {
-  const existing = await cfFetch<DnsRecord[]>(
+  const existing = await cfFetch(
     `/zones/${encodeURIComponent(input.zoneId)}/dns_records?type=${input.type}&name=${encodeURIComponent(input.name)}`,
     input.token,
+    z.array(dnsRecordSchema),
   );
   if (existing.isErr()) return Result.err(existing.error);
 
   const target = existing.value[0];
   if (target) {
-    const patched = await cfFetch<DnsRecord>(
+    const patched = await cfFetch(
       `/zones/${encodeURIComponent(input.zoneId)}/dns_records/${target.id}`,
       input.token,
+      dnsRecordSchema,
       {
         method: "PATCH",
         body: JSON.stringify({
@@ -205,9 +260,10 @@ export async function upsertCloudflareDnsRecord(input: {
     );
     return patched.map(() => ({ id: target.id }));
   }
-  const created = await cfFetch<DnsRecord>(
+  const created = await cfFetch(
     `/zones/${encodeURIComponent(input.zoneId)}/dns_records`,
     input.token,
+    dnsRecordSchema,
     {
       method: "POST",
       body: JSON.stringify({

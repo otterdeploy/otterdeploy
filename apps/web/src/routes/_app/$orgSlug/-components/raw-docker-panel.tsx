@@ -24,6 +24,19 @@ import { ImagesTable } from "./docker-table-images";
 import { NetworksTable } from "./docker-table-networks";
 import { TasksTable } from "./docker-tables";
 
+/** Real narrowing for the Tabs callback, which hands the value back as a
+ *  plain string. Values come only from the triggers this panel renders, so
+ *  the guard is exhaustive over `DockerTab`. */
+function isDockerTab(value: string): value is DockerTab {
+  return (
+    value === "containers" ||
+    value === "images" ||
+    value === "volumes" ||
+    value === "networks" ||
+    value === "tasks"
+  );
+}
+
 /** Narrow swarm tasks to one node. Pulled out of the panel so the "all nodes"
  *  branch doesn't sit in the component body. See the note at the call site
  *  for why only this tab can honestly filter by node. */
@@ -167,7 +180,9 @@ export function RawDockerPanel({
   return (
     <Tabs
       value={tab}
-      onValueChange={(v) => setTab(v as DockerTab)}
+      onValueChange={(v) => {
+        if (isDockerTab(v)) setTab(v);
+      }}
       className="flex min-w-0 flex-1 flex-col gap-0"
     >
       <DockerPageHeader

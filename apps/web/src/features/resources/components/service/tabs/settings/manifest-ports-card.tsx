@@ -104,17 +104,14 @@ export function ManifestPortsCard({
   projectId,
   serviceName,
 }: {
-  projectId: string;
+  projectId: ProjectId;
   serviceName: string;
 }) {
-  const manifest = useQuery(
-    orpc.project.manifest.get.queryOptions({ input: { id: projectId as ProjectId } }),
-  );
+  const manifest = useQuery(orpc.project.manifest.get.queryOptions({ input: { id: projectId } }));
   const svc = manifest.data?.manifest?.services?.[serviceName];
-  const ports: ManifestPort[] =
-    svc && "ports" in svc && Array.isArray(svc.ports) ? (svc.ports as ManifestPort[]) : [];
+  const ports: ManifestPort[] = svc && "ports" in svc && Array.isArray(svc.ports) ? svc.ports : [];
 
-  const stage = useStageManifestChange(projectId as ProjectId);
+  const stage = useStageManifestChange(projectId);
 
   // Stage a new ports array onto this service's manifest entry.
   const setPorts = (next: ManifestPort[]) =>

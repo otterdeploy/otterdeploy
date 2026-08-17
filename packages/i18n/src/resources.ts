@@ -8,7 +8,9 @@ export const resources = {
   es: { translation: es },
 } as const;
 
-export const supportedLngs = Object.keys(resources) as Array<keyof typeof resources>;
+// Spelled out (not `Object.keys(resources)`) so the element type stays the
+// literal union without asserting over the runtime `string[]`.
+export const supportedLngs: Array<keyof typeof resources> = ["en", "de", "es"];
 
 /**
  * Endonyms: each language named in itself, which is what a language switcher

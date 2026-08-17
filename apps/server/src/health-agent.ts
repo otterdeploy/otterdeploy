@@ -34,6 +34,11 @@ if (!INGEST_URL || !TOKEN) {
   process.exit(1);
 }
 
+// Rebound after the exit guard above, so control flow (not an assertion) is
+// what proves these are set.
+const ingestUrl: string = INGEST_URL;
+const token: string = TOKEN;
+
 log.info({
   healthAgent: {
     event: "start",
@@ -47,9 +52,9 @@ let failures = 0;
 
 async function reportOnce(): Promise<void> {
   const health = await getHostHealth();
-  const res = await fetch(INGEST_URL as string, {
+  const res = await fetch(ingestUrl, {
     method: "POST",
-    headers: { "content-type": "application/json", authorization: `Bearer ${TOKEN}` },
+    headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
     body: JSON.stringify({
       hostname: NODE_HOSTNAME,
       health,

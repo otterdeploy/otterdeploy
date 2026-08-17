@@ -12,6 +12,7 @@ import { type NixpacksConfig } from "@otterdeploy/db/schema";
 import { preview, resource } from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
 import { and, count, eq, inArray } from "drizzle-orm";
+import * as z from "zod";
 
 import type { OrgRef } from "../scopes";
 
@@ -73,6 +74,9 @@ export async function getProject(
   return Result.ok(record);
 }
 
+/** See the comment at its use: brands a slug standing in for a missing id. */
+const slugStandingInForProjectId = z.custom<ProjectId>((v) => typeof v === "string");
+
 export async function getProjectBySlugForOrg(
   input: { slug: string } & OrgRef,
 ): Promise<Result<Project, ProjectNotFoundError>> {
@@ -82,10 +86,13 @@ export async function getProjectBySlugForOrg(
   });
   if (!record) {
     // We don't have the projectId yet, so pass the slug through as the
-    // identifying detail for the error.
+    // identifying detail for the error. `ProjectNotFoundError` insists on a
+    // branded ProjectId it can't actually have on a slug miss (callers only
+    // surface NOT_FOUND; the id lands in the message), so the slug is branded
+    // through an explicit runtime-checked schema rather than a type assertion.
     return Result.err(
       new ProjectNotFoundError({
-        projectId: input.slug as unknown as ProjectId,
+        projectId: slugStandingInForProjectId.parse(input.slug),
       }),
     );
   }

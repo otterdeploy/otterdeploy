@@ -8,8 +8,6 @@
 import { ArrowLeft01Icon, Cancel01Icon, RefreshIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
-import type { ResourceEngine } from "@/features/projects/components/graph/resource-node";
-
 import { PanelIcon } from "@/features/resources/components/_shared/atoms";
 import { UnsupportedDataViewer } from "@/features/resources/components/_shared/data/unsupported-data-viewer";
 import { MariadbDataTabBody } from "@/features/resources/components/mariadb/tabs/data";
@@ -56,7 +54,7 @@ export function DatabasePanelHeader({
             kind: "database",
             name: resource.name,
             description: "",
-            engine: resource.engine as ResourceEngine,
+            engine: resource.engine,
           }}
         />
         <div className="flex min-w-0 flex-col gap-0.5">

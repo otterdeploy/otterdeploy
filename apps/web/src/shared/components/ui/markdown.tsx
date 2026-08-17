@@ -101,6 +101,17 @@ function parseInline(text: string, keyPrefix = ""): ReactNode[] {
 
 // ── Block ─────────────────────────────────────────────────────────────────
 
+// Keyed by heading depth (1-6, guaranteed by the `#{1,6}` regex below), so the
+// element name comes from a typed table instead of a template-string assertion.
+const HEADING_TAG: Record<number, "h1" | "h2" | "h3" | "h4" | "h5" | "h6"> = {
+  1: "h1",
+  2: "h2",
+  3: "h3",
+  4: "h4",
+  5: "h5",
+  6: "h6",
+};
+
 const HEADING_CLASS: Record<number, string> = {
   1: "mt-4 mb-2 text-base font-semibold text-foreground first:mt-0",
   2: "mt-4 mb-2 text-sm font-semibold text-foreground first:mt-0",
@@ -153,7 +164,7 @@ function parseBlocks(src: string): ReactNode[] {
     const h = heading.exec(line);
     if (h) {
       const level = h[1].length;
-      const Tag = `h${level}` as "h1";
+      const Tag = HEADING_TAG[level] ?? "h6";
       blocks.push(
         <Tag key={k()} className={HEADING_CLASS[level]}>
           {parseInline(h[2])}

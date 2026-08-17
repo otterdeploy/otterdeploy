@@ -26,7 +26,10 @@ function isLocalHost(url: string): boolean {
   }
 }
 
-const isBun = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
+// The published CLI can run under Node, where the `Bun` global (typed by
+// bun-types as always present) does not actually exist: hence a runtime
+// `in` check rather than trusting the ambient declaration.
+const isBun = "Bun" in globalThis;
 
 /**
  * A `fetch` for the given base URL: the stock global fetch for remote hosts, or
@@ -48,12 +51,14 @@ export function fetchFor(baseUrl: string): typeof fetch {
     isBun &&
     isLocalHost(baseUrl)
   ) {
-    return ((input: Parameters<typeof fetch>[0], init?: RequestInit) =>
-      fetch(input, {
-        ...init,
-        // `tls` is a Bun-specific fetch option (absent from RequestInit).
-        tls: { rejectUnauthorized: false },
-      } as RequestInit)) as typeof fetch;
+    // Bun's own fetch typing (`BunFetchRequestInit`) already includes `tls`,
+    // so the wrapper needs no cast; `preconnect` is delegated so the result
+    // genuinely satisfies `typeof fetch` (call signature + namespace).
+    const relaxed = (
+      input: Parameters<typeof fetch>[0],
+      init?: Parameters<typeof fetch>[1],
+    ): Promise<Response> => fetch(input, { ...init, tls: { rejectUnauthorized: false } });
+    return Object.assign(relaxed, { preconnect: fetch.preconnect });
   }
   return fetch;
 }

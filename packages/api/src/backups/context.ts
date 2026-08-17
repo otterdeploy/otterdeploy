@@ -28,7 +28,16 @@ import { and, eq } from "drizzle-orm";
 
 import { resolveStackDumpTarget } from "./stack";
 
-export type DatabaseEngine = "postgres" | "redis" | "mariadb" | "mongodb";
+const BACKUP_ENGINES = ["postgres", "redis", "mariadb", "mongodb"] as const;
+
+export type DatabaseEngine = (typeof BACKUP_ENGINES)[number];
+
+/** Narrow a stored engine string to the engines the dump pipeline supports.
+ *  The DB enum is wider (it also has `clickhouse`), so this is a real check,
+ *  not a formality: an unsupported engine resolves to no context/target. */
+function toBackupEngine(engine: string): DatabaseEngine | null {
+  return BACKUP_ENGINES.find((e) => e === engine) ?? null;
+}
 
 /** Fields common to every run, regardless of what it backs up. */
 interface ExecutionContextBase {
@@ -146,12 +155,13 @@ async function toStackContext(
 /** Managed database: require the full resource + database join to have
  *  resolved, same as the old inner joins. */
 function toDatabaseContext(base: ExecutionContextBase, row: ContextRow): ExecutionContext | null {
+  const engine = row.engine ? toBackupEngine(row.engine) : null;
   if (
     !row.resourceId ||
     !row.resourceName ||
     !row.projectId ||
     !row.projectSlug ||
-    !row.engine ||
+    !engine ||
     row.databaseName == null ||
     row.username == null ||
     row.password == null
@@ -165,7 +175,7 @@ function toDatabaseContext(base: ExecutionContextBase, row: ContextRow): Executi
     resourceName: row.resourceName,
     projectId: row.projectId,
     projectSlug: row.projectSlug,
-    engine: row.engine as DatabaseEngine,
+    engine,
     databaseName: row.databaseName,
     username: row.username,
     password: row.password,
@@ -266,11 +276,13 @@ export async function resolveDatabaseTarget(
   if (!row || row.databaseName == null || row.username == null || row.password == null) {
     return null;
   }
+  const engine = toBackupEngine(row.engine);
+  if (!engine) return null;
   return {
     resourceId: row.resourceId,
     resourceName: row.resourceName,
     projectSlug: row.projectSlug,
-    engine: row.engine as DatabaseEngine,
+    engine,
     databaseName: row.databaseName,
     username: row.username,
     password: row.password,

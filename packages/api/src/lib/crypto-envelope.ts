@@ -53,7 +53,10 @@ export function parseV1Envelope(blob: string): ParsedV1Envelope {
   if (parts.length !== 3) {
     throw new Error("encryptSecret: malformed ciphertext (expected v.n.c)");
   }
-  const [version, nonceB64, cipherB64] = parts as [string, string, string];
+  const [version, nonceB64, cipherB64] = parts;
+  if (nonceB64 === undefined || cipherB64 === undefined) {
+    throw new Error("encryptSecret: malformed ciphertext (expected v.n.c)");
+  }
   if (version !== V1_FORMAT) {
     throw new Error(`encryptSecret: unsupported version ${version}`);
   }
@@ -72,7 +75,15 @@ export function parseV2Envelope(blob: string): ParsedV2Envelope {
   if (parts.length !== 5 || parts[0] !== V2_FORMAT) {
     throw new Error("decryptForDomain: malformed ciphertext (expected v2:domain:keyId:nonce:ct)");
   }
-  const [, domain, keyId, nonceB64, cipherB64] = parts as [string, string, string, string, string];
+  const [, domain, keyId, nonceB64, cipherB64] = parts;
+  if (
+    domain === undefined ||
+    keyId === undefined ||
+    nonceB64 === undefined ||
+    cipherB64 === undefined
+  ) {
+    throw new Error("decryptForDomain: malformed ciphertext (expected v2:domain:keyId:nonce:ct)");
+  }
   return {
     domain,
     keyId,

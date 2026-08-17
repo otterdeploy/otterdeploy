@@ -17,7 +17,7 @@
  * something the execution won't deliver.
  */
 
-import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
@@ -80,17 +80,16 @@ async function buildPlan(
     .where(eq(resource.projectId, input.projectId));
 
   const selected = new Set(input.resourceIds);
-  const sources: CloneSource[] = all
-    .filter((r) => selected.has(r.id))
-    .map((r) => ({
-      resourceId: r.id,
-      name: r.name,
-      type: r.type as CloneSource["type"],
-    }));
+  const selectedRows = all.filter((r) => selected.has(r.id));
+  const sources: CloneSource[] = selectedRows.map((r) => ({
+    resourceId: r.id,
+    name: r.name,
+    type: r.type,
+  }));
 
   // Env values are needed to find refs that will reach outside the set. Only
   // services carry them; a database's config holds no refs.
-  const envRows = sources.length
+  const envRows = selectedRows.length
     ? await db
         .select({
           resourceId: serviceEnvVar.serviceResourceId,
@@ -101,7 +100,9 @@ async function buildPlan(
         .where(
           inArray(
             serviceEnvVar.serviceResourceId,
-            sources.map((s) => s.resourceId) as ResourceId[],
+            // From `selectedRows` (not `sources`) so the ids keep their
+            // ResourceId brand from the select above.
+            selectedRows.map((r) => r.id),
           ),
         )
     : [];

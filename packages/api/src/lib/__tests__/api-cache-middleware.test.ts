@@ -1,6 +1,8 @@
 import type { OrganizationId } from "@otterdeploy/shared/id";
 
 import { createProcedureClient, os as orpc } from "@orpc/server";
+import { idSchema } from "@otterdeploy/shared/id";
+import { createRequestLogger } from "evlog";
 import { beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import * as z from "zod";
 
@@ -15,9 +17,15 @@ import type { Context } from "../../context";
 import * as store from "../api-cache";
 import { cacheApiResponse, invalidateApiResponses } from "../api-cache-middleware";
 
-const context = {
-  activeOrganizationId: "org_acme" as OrganizationId,
-} as unknown as Context & { activeOrganizationId: OrganizationId };
+const context: Context & { activeOrganizationId: OrganizationId } = {
+  actor: null,
+  session: null,
+  apiKey: null,
+  activeOrganizationId: idSchema.organization.parse("org_acme"),
+  headers: new Headers(),
+  log: createRequestLogger({ method: "TEST", path: "/api-cache" }),
+  broadcast: () => {},
+};
 
 describe("cacheApiResponse", () => {
   beforeEach(() => vi.clearAllMocks());

@@ -63,7 +63,7 @@ async function previewServices(
         isNull(resource.previewId),
       ),
     );
-  return rows.map((r) => ({ resourceId: r.resourceId as ResourceId, serviceName: r.serviceName }));
+  return rows.map((r) => ({ resourceId: r.resourceId, serviceName: r.serviceName }));
 }
 
 /** Resume/rebuild/redeploy are activity: clear the pause flag and re-arm the
@@ -85,7 +85,7 @@ export async function rollFromLastImage(
   projectSlug: string,
   log?: RequestLogger,
 ): Promise<number> {
-  const services = await previewServices(preview.projectId as ProjectId, preview.gitRepoId);
+  const services = await previewServices(preview.projectId, preview.gitRepoId);
   let rolled = 0;
   for (const svc of services) {
     const [built] = await db
@@ -106,7 +106,7 @@ export async function rollFromLastImage(
     if (!built || built.image.startsWith("pending:")) continue;
     const res = await Result.tryPromise({
       try: () =>
-        redeployOne(preview.projectId as ProjectId, svc.resourceId, projectSlug, log, {
+        redeployOne(preview.projectId, svc.resourceId, projectSlug, log, {
           previewId: preview.id,
           imageOverride: built.image,
         }),

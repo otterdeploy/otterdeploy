@@ -101,7 +101,10 @@ export function bodyLimitMiddleware(
       }
       chunks.push(value);
     }
-    c.req.raw = new Request(c.req.raw, {
+    // Annotated (not cast): `duplex` is required by the fetch spec for a
+    // stream body but missing from the lib's RequestInit, so widen the
+    // declaration instead of asserting the literal.
+    const rebuiltInit: RequestInit & { duplex: "half" } = {
       body: new ReadableStream({
         start(controller) {
           for (const chunk of chunks) controller.enqueue(chunk);
@@ -109,7 +112,8 @@ export function bodyLimitMiddleware(
         },
       }),
       duplex: "half",
-    } as RequestInit);
+    };
+    c.req.raw = new Request(c.req.raw, rebuiltInit);
     await next();
   };
 }

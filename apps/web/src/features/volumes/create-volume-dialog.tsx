@@ -70,11 +70,13 @@ export function CreateVolumeDialog({
 
 function CreateVolumeBody({ drivers, onClose }: { drivers: string[]; onClose: () => void }) {
   const { t } = useTranslation();
+  // Annotated so the form's `labels` field infers LabelRow[] rather than never[].
+  const noLabels: LabelRow[] = [];
   const form = useForm({
     defaultValues: {
       name: "",
       driver: drivers.includes("local") ? "local" : (drivers[0] ?? "local"),
-      labels: [] as LabelRow[],
+      labels: noLabels,
     },
     onSubmit: async ({ value }) => {
       if (!NAME_RE.test(value.name)) return;

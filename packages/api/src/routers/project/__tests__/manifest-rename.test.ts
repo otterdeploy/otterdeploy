@@ -9,24 +9,35 @@
 
 import { describe, expect, it } from "vite-plus/test";
 
-import type { Manifest } from "../../../stack/manifest";
+import type {
+  ComposeManifest,
+  DatabaseManifest,
+  Manifest,
+  ServiceManifest,
+} from "../../../stack/manifest";
 
+import { manifestSchema } from "../../../stack/manifest";
 import { renameInManifest, rewriteRefsInValue } from "../manifest-rename";
 
 function manifest(parts: Partial<Manifest> = {}): Manifest {
+  // Parse the base (the branded `project` slug can only be minted by the
+  // schema); the parts are already typed fixtures.
   return {
-    version: 1,
-    project: "store",
-    services: {},
-    databases: {},
-    composes: {},
+    ...manifestSchema.parse({ version: 1, project: "store" }),
     ...parts,
-  } as Manifest;
+  };
 }
 
-const svc = (env: Record<string, string> = {}) => ({ source: "git", repo: "me/api", env }) as never;
-const database = (extraEnv: Record<string, string> = {}) =>
-  ({ engine: "postgres", version: "18", extraEnv }) as never;
+const svc = (env: Record<string, string> = {}): ServiceManifest => ({
+  source: "git",
+  repo: "me/api",
+  env,
+});
+const database = (extraEnv: Record<string, string> = {}): DatabaseManifest => ({
+  engine: "postgres",
+  version: "18",
+  extraEnv,
+});
 
 describe("rewriteRefsInValue", () => {
   it("rewrites a plain database ref", () => {
@@ -185,9 +196,10 @@ describe("renameInManifest", () => {
 
   it("renames a compose stack without touching env refs", () => {
     // Compose stacks aren't ref-addressable; only the key moves.
+    const composeStack: ComposeManifest = { source: "inline", content: "services: {}" };
     const out = renameInManifest({
       manifest: manifest({
-        composes: { stack: { file: "x" } as never },
+        composes: { stack: composeStack },
         services: { api: svc({ K: "${service:stack.host}" }) },
       }),
       kind: "compose",

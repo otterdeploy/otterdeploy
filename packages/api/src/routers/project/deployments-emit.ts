@@ -7,6 +7,7 @@ import type { DeploymentId, OrganizationId, ResourceId } from "@otterdeploy/shar
 
 import { db } from "@otterdeploy/db";
 import { project, resource } from "@otterdeploy/db/schema/project";
+import { idSchema } from "@otterdeploy/shared/id";
 import { eq } from "drizzle-orm";
 
 import { emitPlatformEvent } from "../../notifications/emit";
@@ -27,7 +28,12 @@ async function resolveDeployContext(resourceId: ResourceId): Promise<{
     .from(resource)
     .innerJoin(project, eq(project.id, resource.projectId))
     .where(eq(resource.id, resourceId));
-  return info ? { ...info, organizationId: info.organizationId as OrganizationId } : null;
+  if (!info) return null;
+  // project.organization_id is a plain text column: brand it at this boundary.
+  // An unparseable id can't be routed to an org, so treat it like a gone row.
+  const orgId = idSchema.organization.safeParse(info.organizationId);
+  if (!orgId.success) return null;
+  return { ...info, organizationId: orgId.data };
 }
 
 /**

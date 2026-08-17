@@ -73,6 +73,15 @@ async function waitForRunningContainer(
   });
 }
 
+/** The docker client types `logs()` as a plain NodeJS.ReadableStream, but the
+ *  runtime object is a node Readable with `destroy()`. Narrow with a real
+ *  guard instead of asserting the extra method onto the type. */
+function isDestroyable(
+  stream: NodeJS.ReadableStream,
+): stream is NodeJS.ReadableStream & { destroy: () => void } {
+  return "destroy" in stream && typeof stream.destroy === "function";
+}
+
 export async function* tailContainerBootLogs(input: {
   serviceName: string;
   timeoutMs: number;
@@ -101,12 +110,10 @@ export async function* tailContainerBootLogs(input: {
     if (logsResult.isErr()) throw logsResult.error;
 
     const deadline = Date.now() + input.timeoutMs;
-    const stream = logsResult.value as NodeJS.ReadableStream & {
-      destroy?: () => void;
-    };
+    const stream = logsResult.value;
     const closeStream = () => {
       try {
-        stream.destroy?.();
+        if (isDestroyable(stream)) stream.destroy();
       } catch {
         // best-effort: the demuxer's for-await will end either way.
       }

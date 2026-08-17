@@ -67,9 +67,11 @@ export function ComposeExposedSummary({
     [projectId, activeEnv.id, activeEnv.isMain],
   );
 
-  const exposed = projectResources.filter(
-    (r) => r.type === "service" && r.stackId === resourceId && r.publicEnabled,
-  ) as Array<{ resourceId: string; name: string; publicDomain: string | null }>;
+  // `flatMap` (rather than `filter`) so the `type === "service"` check narrows
+  // the discriminated union: the service branch carries stackId/publicDomain.
+  const exposed = projectResources
+    .flatMap((r) => (r.type === "service" ? [r] : []))
+    .filter((r) => r.stackId === resourceId && r.publicEnabled);
 
   // Generated hostnames route under the org's base domain. Read the same
   // verification signal the child's own Domains card does, so this chip never

@@ -1,5 +1,4 @@
-import type { PreviewId } from "@otterdeploy/shared/id";
-
+import { idSchema } from "@otterdeploy/shared/id";
 import { describe, expect, it } from "vite-plus/test";
 
 import { isEnvironmentSlugAllowed } from "./reserved-slugs";
@@ -16,7 +15,7 @@ import {
 } from "./scoping";
 
 const scope: PreviewScope = {
-  id: "prev_pr7" as PreviewId,
+  id: idSchema.preview.parse("prev_pr7"),
   slug: "acme-app-pr-7",
   prNumber: 7,
 };

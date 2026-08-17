@@ -46,7 +46,7 @@ export function TrafficPanel({ projectId }: { projectId: ProjectId }) {
         ),
     [projectId, activeEnv.id, activeEnv.isMain],
   );
-  const nameByResourceId = new Map(resources.map((r) => [r.resourceId as string, r.name]));
+  const nameByResourceId = new Map<string, string>(resources.map((r) => [r.resourceId, r.name]));
 
   if (query.isLoading) return <TrafficPending />;
   if (query.isError) {

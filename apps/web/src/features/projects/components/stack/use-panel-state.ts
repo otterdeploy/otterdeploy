@@ -8,6 +8,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import * as z from "zod";
+
 import type { StackTab } from "./panel-header";
 
 const PANEL_MIN_HEIGHT = 160;
@@ -23,6 +25,15 @@ interface PanelState {
 }
 
 const storageKey = (projectId: string) => `otterdeploy:stack-panel:${projectId}`;
+
+/** localStorage is a JSON boundary: parse, never cast. Per-field `.catch`
+ *  keeps the old tolerance, where one corrupt field falls back to its default
+ *  without discarding the rest of the stored state. */
+const storedPanelSchema = z.object({
+  open: z.boolean().optional().catch(undefined),
+  tab: z.enum(["stack", "activity", "traffic"]).optional().catch(undefined),
+  height: z.number().optional().catch(undefined),
+});
 
 function clampHeight(h: number): number {
   const max =
@@ -41,13 +52,14 @@ function readState(projectId: string, defaultOpen: boolean): PanelState {
   try {
     const raw = window.localStorage.getItem(storageKey(projectId));
     if (!raw) return defaults;
-    const parsed = JSON.parse(raw) as Partial<PanelState>;
-    const tab: StackTab =
-      parsed.tab === "activity" || parsed.tab === "traffic" ? parsed.tab : "stack";
+    const parsed = storedPanelSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) return defaults;
+    const stored = parsed.data;
+    const tab: StackTab = stored.tab ?? "stack";
     return {
-      open: parsed.open ?? defaultOpen,
+      open: stored.open ?? defaultOpen,
       tab,
-      height: clampHeight(typeof parsed.height === "number" ? parsed.height : PANEL_DEFAULT_HEIGHT),
+      height: clampHeight(stored.height ?? PANEL_DEFAULT_HEIGHT),
     };
   } catch {
     return defaults;

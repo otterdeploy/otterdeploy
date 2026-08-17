@@ -1,3 +1,6 @@
+import { db } from "@otterdeploy/db";
+import { platformMetric } from "@otterdeploy/db/schema";
+import { organization } from "@otterdeploy/db/schema/auth";
 /**
  * Host-health monitor: the background tick that turns introspection into
  * warnings the operator actually sees. Every interval it snapshots host
@@ -13,11 +16,7 @@
  *
  * Started from apps/server alongside startMetricsSampler; same lifecycle.
  */
-import type { OrganizationId } from "@otterdeploy/shared/id";
-
-import { db } from "@otterdeploy/db";
-import { platformMetric } from "@otterdeploy/db/schema";
-import { organization } from "@otterdeploy/db/schema/auth";
+import { hasPrefix, ID_PREFIX, type OrganizationId } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 import { log } from "evlog";
 
@@ -63,6 +62,15 @@ async function recordSeries(health: HostHealth): Promise<void> {
   await db.insert(platformMetric).values(values);
 }
 
+/** Every org on this install, branded. The auth table stores plain text ids,
+ *  so the brand comes from the runtime prefix check rather than an assertion. */
+async function listOrganizationIds(): Promise<OrganizationId[]> {
+  const rows = await db.select({ id: organization.id }).from(organization);
+  return rows
+    .map((row) => row.id)
+    .filter((id): id is OrganizationId => hasPrefix(id, ID_PREFIX.organization));
+}
+
 async function notifyPressure(health: HostHealth): Promise<void> {
   const now = Date.now();
   // Only warning/critical interrupt people; info-level stays UI-only.
@@ -76,12 +84,12 @@ async function notifyPressure(health: HostHealth): Promise<void> {
 
   // Instance-wide condition → every org on this install gets it; their
   // channel subscriptions decide where it lands.
-  const orgs = await db.select({ id: organization.id }).from(organization);
+  const orgIds = await listOrganizationIds();
   for (const rec of urgent) {
     lastNotified.set(rec.id, now);
-    for (const org of orgs) {
+    for (const organizationId of orgIds) {
       await emitPlatformEvent({
-        organizationId: org.id as OrganizationId,
+        organizationId,
         eventId: "host.pressure",
         title: rec.title,
         message: rec.detail,
@@ -114,10 +122,10 @@ async function autoReclaim(health: HostHealth): Promise<void> {
   if (reclaimedBytes <= 0) return;
 
   const gb = (b: number) => `${(b / 1024 ** 3).toFixed(1)} GB`;
-  const orgs = await db.select({ id: organization.id }).from(organization);
-  for (const org of orgs) {
+  const orgIds = await listOrganizationIds();
+  for (const organizationId of orgIds) {
     await emitPlatformEvent({
-      organizationId: org.id as OrganizationId,
+      organizationId,
       eventId: "host.pressure",
       title: `Auto-reclaimed ${gb(reclaimedBytes)} of disk`,
       message: `The data root was at ${disk.usedPct}%. Otterdeploy pruned unused images and idle build cache so builds don't stall.`,

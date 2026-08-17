@@ -1,4 +1,11 @@
 import type { ResourceId } from "@otterdeploy/shared/id";
+
+import { db } from "@otterdeploy/db";
+import { resourceMetric } from "@otterdeploy/db/schema";
+import { Docker } from "@otterdeploy/docker";
+import { idSchema } from "@otterdeploy/shared/id";
+import { log } from "evlog";
+import { Readable } from "node:stream";
 /**
  * Metrics sampler. On a fixed tick, lists otterdeploy-managed running
  * containers and records one CPU/memory/network sample each into
@@ -8,32 +15,42 @@ import type { ResourceId } from "@otterdeploy/shared/id";
  * read the second frame. Its `precpu_stats` is populated from the first, which
  * a one-shot read can't give us. Each sample closes its stream immediately.
  */
-import type { Readable } from "node:stream";
-
-import { db } from "@otterdeploy/db";
-import { resourceMetric } from "@otterdeploy/db/schema";
-import { Docker } from "@otterdeploy/docker";
-import { canonicalId } from "@otterdeploy/shared/id";
-import { log } from "evlog";
+import * as z from "zod";
 
 import { healthFromStatus, recordHealthObservations } from "./health-detector";
 import { samplePlatformMetrics } from "./platform";
 
 const RESOURCE_ID_LABEL = "otterdeploy.resource.id";
 
-interface DockerStatsFrame {
-  cpu_stats?: {
-    cpu_usage?: { total_usage?: number; percpu_usage?: number[] | null };
-    system_cpu_usage?: number;
-    online_cpus?: number;
-  };
-  precpu_stats?: {
-    cpu_usage?: { total_usage?: number };
-    system_cpu_usage?: number;
-  };
-  memory_stats?: { usage?: number; limit?: number };
-  networks?: Record<string, { rx_bytes?: number; tx_bytes?: number }>;
-}
+const dockerStatsFrameSchema = z.object({
+  cpu_stats: z
+    .object({
+      cpu_usage: z
+        .object({
+          total_usage: z.number().optional(),
+          percpu_usage: z.array(z.number()).nullable().optional(),
+        })
+        .optional(),
+      system_cpu_usage: z.number().optional(),
+      online_cpus: z.number().optional(),
+    })
+    .optional(),
+  precpu_stats: z
+    .object({
+      cpu_usage: z.object({ total_usage: z.number().optional() }).optional(),
+      system_cpu_usage: z.number().optional(),
+    })
+    .optional(),
+  memory_stats: z.object({ usage: z.number().optional(), limit: z.number().optional() }).optional(),
+  networks: z
+    .record(
+      z.string(),
+      z.object({ rx_bytes: z.number().optional(), tx_bytes: z.number().optional() }),
+    )
+    .optional(),
+});
+
+type DockerStatsFrame = z.infer<typeof dockerStatsFrameSchema>;
 
 function computeCpuPct(f: DockerStatsFrame): number {
   const cur = f.cpu_stats ?? {};
@@ -56,14 +73,28 @@ function sumNetwork(f: DockerStatsFrame): { rx: number; tx: number } {
   return { rx, tx };
 }
 
+/** Parse one stats line. Null (→ skip the sample) on malformed JSON or a
+ *  frame that doesn't look like the stats shape, exactly like a timeout. */
+function parseStatsFrame(line: string): DockerStatsFrame | null {
+  try {
+    const parsed = dockerStatsFrameSchema.safeParse(JSON.parse(line));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Read the Docker stats stream and resolve the second JSON frame (with a
  *  populated precpu delta). Resolves null on timeout / parse failure. */
-function readSecondFrame(stream: Readable, timeoutMs = 3000): Promise<DockerStatsFrame | null> {
+function readSecondFrame(
+  stream: NodeJS.ReadableStream,
+  timeoutMs = 3000,
+): Promise<DockerStatsFrame | null> {
   return new Promise((resolve) => {
     let buf = "";
     let frames = 0;
     const done = (value: DockerStatsFrame | null) => {
-      stream.destroy();
+      if (stream instanceof Readable) stream.destroy();
       clearTimeout(timer);
       resolve(value);
     };
@@ -77,11 +108,7 @@ function readSecondFrame(stream: Readable, timeoutMs = 3000): Promise<DockerStat
         if (line) {
           frames++;
           if (frames >= 2) {
-            try {
-              done(JSON.parse(line) as DockerStatsFrame);
-            } catch {
-              done(null);
-            }
+            done(parseStatsFrame(line));
             return;
           }
         }
@@ -103,7 +130,7 @@ async function readContainerMetric(
   const statsResult = await docker.containers.getContainer(containerId).stats({ stream: true });
   if (statsResult.isErr()) return null;
 
-  const frame = await readSecondFrame(statsResult.value as Readable);
+  const frame = await readSecondFrame(statsResult.value);
   if (!frame) return null;
 
   const net = sumNetwork(frame);
@@ -138,16 +165,18 @@ export async function sampleAllContainers(): Promise<void> {
       if (!labelled) continue; // only chart label-tagged resources
       // A container created before the ID prefixes were shortened carries the
       // old spelling, and a label can't be rewritten without recreating the
-      // container. Left as-is, its samples key to an ID no resource has and
-      // drop off that resource's charts.
-      const resourceId = canonicalId(labelled);
+      // container. `idSchema.resource` accepts both spellings and rewrites to
+      // the current one, so those samples still key to the resource's charts.
+      const parsedId = idSchema.resource.safeParse(labelled);
+      if (!parsedId.success) continue; // label carries no resource id shape
+      const resourceId = parsedId.data;
 
       // Observe health BEFORE the (fallible) stats read so a stats hiccup never
       // hides a health transition. Only healthcheck-bearing containers signal.
       const health = healthFromStatus(container.Status);
-      if (health) healthObserved.push({ resourceId: resourceId as ResourceId, health });
+      if (health) healthObserved.push({ resourceId, health });
 
-      const row = await readContainerMetric(docker, container.Id, resourceId as ResourceId);
+      const row = await readContainerMetric(docker, container.Id, resourceId);
       if (row) rows.push(row);
     }
 

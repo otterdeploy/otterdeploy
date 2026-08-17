@@ -1,6 +1,4 @@
-import type { ProjectId } from "@otterdeploy/shared/id";
-
-import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
+import { ID_PREFIX, createId, idSchema } from "@otterdeploy/shared/id";
 import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
@@ -50,14 +48,17 @@ export function EnvironmentCreateDialog({ projectId, open, onOpenChange }: Props
           id,
           name: value.name.trim(),
           slug,
-          projectId: projectId as ProjectId,
+          // The shell hands over a plain string; brand it at this boundary.
+          projectId: idSchema.project.parse(projectId),
         }),
       );
 
       // Switch the URL to the freshly-created env so the user lands on it.
+      // `to: "."` = stay on the current route, only the search changes.
       void navigate({
-        search: (prev: { env?: string }) => ({ ...prev, env: slug }),
-      } as never);
+        to: ".",
+        search: (prev) => ({ ...prev, env: slug }),
+      });
       setOpen(false);
       tx.isPersisted.promise.catch((err: unknown) =>
         toast.error(err instanceof Error ? err.message : "Failed to create environment"),

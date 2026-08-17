@@ -106,12 +106,10 @@ export async function resolveServiceId(
     filters: { name: [serviceName] },
   });
   if (listResult.isErr()) return { serviceName, serviceId: null };
-  const service = listResult.value.find(
-    (s) => (s as { Spec?: { Name?: string } }).Spec?.Name === serviceName,
-  );
+  const service = listResult.value.find((s) => s.Spec?.Name === serviceName);
   return {
     serviceName,
-    serviceId: (service as { ID?: string } | undefined)?.ID ?? null,
+    serviceId: service?.ID ?? null,
   };
 }
 

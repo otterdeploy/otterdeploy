@@ -40,12 +40,27 @@ export async function queryEdgeEventsDb(
   return filterEdgeEvents(lines, filter, now);
 }
 
+// The DB columns are plain text; the writer only ever stores these unions
+// (see event-ring's parser), so anything else is a foreign row. Narrow with a
+// real membership check and bucket unknowns into the neutral value rather
+// than laundering the string through a cast.
+const LEVELS: readonly EdgeEventLevel[] = ["debug", "info", "warn", "error"];
+const CATEGORIES: readonly EdgeEventCategory[] = ["cert", "upstream", "config", "other"];
+
+function toLevel(value: string): EdgeEventLevel {
+  return LEVELS.find((level) => level === value) ?? "info";
+}
+
+function toCategory(value: string): EdgeEventCategory {
+  return CATEGORIES.find((category) => category === value) ?? "other";
+}
+
 function rowToLine(r: typeof edgeEvent.$inferSelect): EdgeEventLine {
   return {
     id: String(r.id),
     ts: r.ts.toISOString(),
-    level: r.level as EdgeEventLevel,
-    category: r.category as EdgeEventCategory,
+    level: toLevel(r.level),
+    category: toCategory(r.category),
     logger: r.logger,
     msg: r.msg,
     host: r.host,

@@ -46,12 +46,12 @@ export function ServiceDeployHooksCard({
   projectId,
   serviceName,
 }: {
-  projectId: string;
+  projectId: ProjectId;
   serviceName: string;
 }) {
   const manifest = useQuery(
     orpc.project.manifest.get.queryOptions({
-      input: { id: projectId as ProjectId },
+      input: { id: projectId },
     }),
   );
 
@@ -88,7 +88,7 @@ function DeployHooksEditor({
   initialPre,
   initialPost,
 }: {
-  projectId: string;
+  projectId: ProjectId;
   serviceName: string;
   initialPre: string[];
   initialPost: string[];
@@ -96,7 +96,7 @@ function DeployHooksEditor({
   const [preRows, setPreRows] = useState<CmdRow[]>(() => initialPre.map(newCmdRow));
   const [postRows, setPostRows] = useState<CmdRow[]>(() => initialPost.map(newCmdRow));
 
-  const stage = useStageManifestChange(projectId as ProjectId, {
+  const stage = useStageManifestChange(projectId, {
     successToast: "Deploy hooks saved. Deploy to apply.",
   });
 

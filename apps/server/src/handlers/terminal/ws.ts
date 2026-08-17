@@ -44,9 +44,21 @@ function targetLabel(target: Target): { kind: "container" | "host"; id: string }
     : { kind: "host", id: "host" };
 }
 
-function ptyEvents(claims: TerminalTicketClaims, target: Target): WSEvents {
-  const state = {
-    backend: null as PtyBackend | null,
+interface PtySessionState {
+  backend: PtyBackend | null;
+  cols: number;
+  rows: number;
+  opened: boolean;
+}
+
+// The events are typed over Bun's ServerWebSocket: that's what hono/bun hands
+// back as `ws.raw`, so `raw` comes out correctly typed instead of being cast.
+function ptyEvents(
+  claims: TerminalTicketClaims,
+  target: Target,
+): WSEvents<ServerWebSocket<unknown>> {
+  const state: PtySessionState = {
+    backend: null,
     cols: 80,
     rows: 24,
     // Recorded once: a real backend either started (open worth auditing) or
@@ -56,7 +68,7 @@ function ptyEvents(claims: TerminalTicketClaims, target: Target): WSEvents {
 
   return {
     async onOpen(_evt, ws) {
-      const raw = ws.raw as ServerWebSocket<unknown> | undefined;
+      const raw = ws.raw;
       if (!raw) {
         log.error({
           pty: { event: "ws-raw-missing", detail: "not running on Bun?" },

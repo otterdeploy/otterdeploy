@@ -9,7 +9,7 @@
  * the base domain flows (expose/domains-card read `previewId IS NULL`),
  * so a preview can never steal a service's primary host.
  */
-import type { GitRepoId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { GitRepoId, ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { resource, serviceResource } from "@otterdeploy/db/schema/project";
@@ -73,7 +73,7 @@ export async function ensurePreviewRoutes(input: EnsurePreviewRoutesInput): Prom
   let changed = false;
 
   for (const svc of exposed) {
-    const primary = getPrimaryHttpPort(await listServicePorts(svc.resourceId as ResourceId));
+    const primary = getPrimaryHttpPort(await listServicePorts(svc.resourceId));
     if (!primary) continue;
     const upstreamHost = runtimeServiceName(svc.serviceName, input.preview);
 
@@ -102,7 +102,7 @@ export async function ensurePreviewRoutes(input: EnsurePreviewRoutesInput): Prom
     );
     await insertProxyRoute({
       projectId: input.projectId,
-      resourceId: svc.resourceId as ResourceId,
+      resourceId: svc.resourceId,
       previewId: input.preview.id,
       type: "http",
       domain: resolved.fqdn,

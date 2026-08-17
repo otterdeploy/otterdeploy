@@ -14,8 +14,20 @@
 
 import { env } from "@otterdeploy/env/server";
 import { base64UrlDecode, base64UrlEncode, timingSafeEqual } from "@otterdeploy/shared/crypto";
+import * as z from "zod";
 
 const TTL_SECONDS = 15 * 60;
+
+/** Wire shape of the signed state payload: {@link InstallState} plus `exp`.
+ *  Parsed (not cast) on verify; the HMAC already vouches for provenance, the
+ *  schema vouches for shape. */
+const installStatePayloadSchema = z.object({
+  orgId: z.string(),
+  userId: z.string(),
+  host: z.string().optional(),
+  returnTo: z.string().optional(),
+  exp: z.number(),
+});
 
 export interface InstallState {
   orgId: string;
@@ -62,11 +74,13 @@ export async function verifyInstallState(token: string): Promise<InstallState | 
   let payload: InstallState & { exp: number };
   try {
     const json = new TextDecoder().decode(base64UrlDecode(body));
-    payload = JSON.parse(json) as InstallState & { exp: number };
+    const parsed = installStatePayloadSchema.safeParse(JSON.parse(json));
+    if (!parsed.success) return null;
+    payload = parsed.data;
   } catch {
     return null;
   }
-  if (typeof payload.exp !== "number" || payload.exp < Math.floor(Date.now() / 1000)) {
+  if (payload.exp < Math.floor(Date.now() / 1000)) {
     return null;
   }
   return {

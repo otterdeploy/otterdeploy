@@ -16,11 +16,12 @@
  * underlying tasks when the UI reads the list. See `listResourceDeployments`
  * in ./deployments-list. The notification emitters live in ./deployments-emit.
  */
-import type { DeploymentId, OrganizationId, PreviewId, ResourceId } from "@otterdeploy/shared/id";
+import type { DeploymentId, PreviewId, ResourceId } from "@otterdeploy/shared/id";
 import type { JsonObject } from "@otterdeploy/shared/json";
 
 import { db } from "@otterdeploy/db";
 import { deployment, project, resource } from "@otterdeploy/db/schema/project";
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 
 import { emitPlatformEvent } from "../../notifications/emit";
@@ -152,8 +153,11 @@ export async function markDeploymentFailed(
   if (info) {
     // Real-time: flip the node/panel to "failed" without waiting for a poll.
     void publishResourceChanged(info.resourceId);
+    // The column is an unbranded text FK; hasPrefix is a real narrowing check
+    // (every org id is minted "org_…" by the auth generateId hook).
+    if (!hasPrefix(info.organizationId, ID_PREFIX.organization)) return;
     await emitPlatformEvent({
-      organizationId: info.organizationId as OrganizationId,
+      organizationId: info.organizationId,
       eventId: "deploy.failed",
       title: "Deploy failed",
       message: `${info.resourceName}: ${errorMessage}`,

@@ -29,10 +29,10 @@ async function applyToTargets(
   const applied: EnvironmentRef[] = [];
   const failed: { env: EnvironmentRef; message: string }[] = [];
   const results = await Promise.all(
-    targets.map(async (target) => {
+    targets.map(async (target): Promise<{ target: EnvironmentRef; message: string | null }> => {
       try {
         await replaceEnv(target);
-        return { target, message: null as string | null };
+        return { target, message: null };
       } catch (err) {
         return {
           target,

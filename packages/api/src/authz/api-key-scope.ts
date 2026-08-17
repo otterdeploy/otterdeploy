@@ -65,8 +65,35 @@ export function authorizeKeyScope(
  * `referenceId` is the org id, not a user) plus a role lookup at verify time.
  * When that lands, swap `roles.member` here for the resolved creator role.
  */
+type MemberAuthorizeRequest = Parameters<typeof roles.member.authorize>[0];
+
+/**
+ * Genuine narrowing from the full-catalog `PermissionCheck` to the subset the
+ * `member` role's `authorize` accepts: every requested resource must exist in
+ * the member statements and every requested action must be one the member
+ * statements list. When this returns false, `authorize` would have returned
+ * `success: false` anyway (unknown resource / uncovered action), so callers
+ * can short-circuit to `false` without changing behavior.
+ */
+function fitsMemberStatements(
+  required: PermissionCheck,
+): required is MemberAuthorizeRequest & PermissionCheck {
+  const memberStatements = new Map<string, readonly string[]>(
+    Object.entries(roles.member.statements),
+  );
+  for (const [resource, actions] of Object.entries(required)) {
+    const allowed = memberStatements.get(resource);
+    if (!allowed) return false;
+    // `undefined` actions pass through to `authorize` unchanged (same crash
+    // semantics as before this guard existed); arrays must be fully covered.
+    if (actions && !actions.every((action) => allowed.includes(action))) return false;
+  }
+  return true;
+}
+
 export function authorizeRoleScope(required: PermissionCheck): boolean {
-  return roles.member.authorize(required as Parameters<typeof roles.member.authorize>[0]).success;
+  if (!fitsMemberStatements(required)) return false;
+  return roles.member.authorize(required).success;
 }
 
 /**

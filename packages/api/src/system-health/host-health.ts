@@ -149,6 +149,16 @@ interface BuildCacheItem {
   InUse?: boolean;
 }
 
+/** The docker SDK types `BuildCache` entries as `unknown`; pull out the two
+ *  fields this section reads with real runtime checks. */
+function toBuildCacheItem(value: unknown): BuildCacheItem {
+  if (typeof value !== "object" || value === null) return {};
+  return {
+    Size: "Size" in value && typeof value.Size === "number" ? value.Size : undefined,
+    InUse: "InUse" in value && typeof value.InUse === "boolean" ? value.InUse : undefined,
+  };
+}
+
 async function readDockerUsage(): Promise<DockerUsage | null> {
   const docker = Docker.fromEnv();
   try {
@@ -190,7 +200,7 @@ async function readDockerUsage(): Promise<DockerUsage | null> {
       ),
     };
 
-    const cacheItems = (BuildCache ?? []) as BuildCacheItem[];
+    const cacheItems = (BuildCache ?? []).map(toBuildCacheItem);
     const idleCache = cacheItems.filter((c) => !c.InUse);
     const buildCache: DockerUsageSection = {
       count: cacheItems.length,

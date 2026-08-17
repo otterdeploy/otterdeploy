@@ -11,14 +11,14 @@ import type { JsonObject } from "@otterdeploy/shared/json";
 
 import { beforeEach, describe, expect, test, vi } from "vite-plus/test";
 
-const selectRow = vi.fn();
+const selectRow = vi.fn<() => unknown>();
 
 vi.mock("@otterdeploy/db", () => ({
   db: {
     select: () => ({
       from: () => ({
         where: () => ({
-          limit: () => selectRow() as unknown,
+          limit: () => selectRow(),
         }),
       }),
     }),

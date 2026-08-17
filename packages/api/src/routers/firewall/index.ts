@@ -5,7 +5,7 @@
  * require the active organization's firewall:update capability.
  */
 
-import type { BlocklistId } from "@otterdeploy/shared/id";
+import { hasPrefix, ID_PREFIX, type BlocklistId } from "@otterdeploy/shared/id";
 
 import { requireInstallAdmin, requireInstallAdminPermission, requirePermission } from "../..";
 // The bounded flagged-IP windows are a subset of the edge-log time ranges, so
@@ -170,7 +170,10 @@ export const firewallRouter = {
 
     toggle: globalFirewallWrite.firewall.blocklists.toggle.handler(
       async ({ input, context, errors }) => {
-        const id = input.id as BlocklistId;
+        // The contract carries a plain string; a non-`blk_` id can't be a row,
+        // so it gets the same NOT_FOUND the DB miss would produce.
+        if (!hasPrefix(input.id, ID_PREFIX.blocklist)) throw errors.NOT_FOUND();
+        const id: BlocklistId = input.id;
         const existing = await getBlocklist(id);
         if (!existing) throw errors.NOT_FOUND();
         context.log.set({
@@ -198,7 +201,8 @@ export const firewallRouter = {
 
     remove: globalFirewallWrite.firewall.blocklists.remove.handler(
       async ({ input, context, errors }) => {
-        const id = input.id as BlocklistId;
+        if (!hasPrefix(input.id, ID_PREFIX.blocklist)) throw errors.NOT_FOUND();
+        const id: BlocklistId = input.id;
         const row = await getBlocklist(id);
         if (!row) throw errors.NOT_FOUND();
         context.log.set({ target: { type: "blocklist", id } });
@@ -214,7 +218,8 @@ export const firewallRouter = {
 
     syncNow: globalFirewallWrite.firewall.blocklists.syncNow.handler(
       async ({ input, context, errors }) => {
-        const id = input.id as BlocklistId;
+        if (!hasPrefix(input.id, ID_PREFIX.blocklist)) throw errors.NOT_FOUND();
+        const id: BlocklistId = input.id;
         const row = await getBlocklist(id);
         if (!row) throw errors.NOT_FOUND();
         context.log.set({ target: { type: "blocklist", id } });

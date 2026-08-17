@@ -34,7 +34,7 @@ async function getKey(): Promise<CryptoKey> {
   if (cachedKey) return cachedKey;
   const base = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(env.BETTER_AUTH_SECRET) as unknown as ArrayBuffer,
+    new TextEncoder().encode(env.BETTER_AUTH_SECRET),
     "HKDF",
     false,
     ["deriveKey"],
@@ -62,13 +62,18 @@ async function decryptOrNull(blob: string | null | undefined): Promise<string | 
   if (!blob) return null;
   const parts = blob.split(".");
   if (parts.length !== 3 || parts[0] !== V1_FORMAT) return null;
+  const [, nonceB64, cipherB64] = parts;
+  if (nonceB64 === undefined || cipherB64 === undefined) return null;
   try {
-    const nonce = base64UrlDecode(parts[1] as string);
-    const ciphertext = base64UrlDecode(parts[2] as string);
+    // Copied into fresh (ArrayBuffer-backed) views: `base64UrlDecode` types
+    // its result over ArrayBufferLike, which WebCrypto's BufferSource won't
+    // take. Same resolution as packages/jobs/src/delivery/secret-crypto.ts.
+    const nonce = new Uint8Array(base64UrlDecode(nonceB64));
+    const ciphertext = new Uint8Array(base64UrlDecode(cipherB64));
     const plaintext = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: nonce.buffer as ArrayBuffer },
+      { name: "AES-GCM", iv: nonce },
       await getKey(),
-      ciphertext.buffer as ArrayBuffer,
+      ciphertext,
     );
     return new TextDecoder().decode(plaintext);
   } catch {

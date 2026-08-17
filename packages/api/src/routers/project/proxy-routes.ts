@@ -6,12 +6,13 @@
  * docs/designs/deployment-protection.md.
  */
 
-import type { DeploymentGuestId, ProxyRouteId } from "@otterdeploy/shared/id";
+import type { ProxyRouteId } from "@otterdeploy/shared/id";
 import type { RoutePolicy } from "@otterdeploy/shared/route-policy";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
 import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 
@@ -231,6 +232,11 @@ export async function removeDeploymentGuest(
   if (!route) {
     return Result.err(new ProxyRouteNotFoundError({ routeId: input.routeId }));
   }
-  await removeGuest(input.routeId, input.guestId as DeploymentGuestId);
+  // The contract sends guestId as a plain string. An id we never minted (wrong
+  // prefix) can't match a row, so skipping the delete is the same no-op the
+  // unmatched DELETE would have been.
+  if (hasPrefix(input.guestId, ID_PREFIX.deploymentGuest)) {
+    await removeGuest(input.routeId, input.guestId);
+  }
   return Result.ok({ ok: true });
 }

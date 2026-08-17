@@ -16,6 +16,7 @@
  * pattern, the same primitive applied to a new caller.
  */
 import { Result, TaggedError } from "better-result";
+import * as z from "zod";
 
 import type { TerminalTarget } from "./authorize";
 
@@ -38,7 +39,7 @@ export interface TicketStore {
 
 let client: TicketStore | null = null;
 function redis(): TicketStore {
-  if (!client) client = createRedis() as unknown as TicketStore;
+  if (!client) client = createRedis();
   return client;
 }
 
@@ -108,6 +109,19 @@ export interface TerminalTicketClaims {
   clientIp: string | null;
 }
 
+/** Parse schema for claims coming back out of Redis. We wrote the JSON
+ *  ourselves at mint time, so a mismatch means corruption / tampering and is
+ *  treated exactly like an invalid ticket. */
+const terminalTicketClaimsSchema = z.object({
+  userId: z.string(),
+  organizationId: z.string(),
+  target: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("container"), id: z.string() }),
+    z.object({ kind: z.literal("host") }),
+  ]),
+  clientIp: z.string().nullable(),
+}) satisfies z.ZodType<TerminalTicketClaims>;
+
 class TerminalTicketError extends TaggedError("TerminalTicketError")<{
   status: 401 | 403;
   reason: "invalid_or_replayed" | "ip_mismatch";
@@ -172,7 +186,7 @@ export async function consumeTerminalTicket(
 
   let claims: TerminalTicketClaims;
   try {
-    claims = JSON.parse(raw) as TerminalTicketClaims;
+    claims = terminalTicketClaimsSchema.parse(JSON.parse(raw));
   } catch {
     return Result.err(
       new TerminalTicketError({

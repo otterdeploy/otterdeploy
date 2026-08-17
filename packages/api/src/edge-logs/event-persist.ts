@@ -29,11 +29,12 @@ interface EventPersistState {
   flushTimer: ReturnType<typeof setInterval> | null;
   sweepTimer: ReturnType<typeof setInterval> | null;
 }
-const state: EventPersistState = ((
-  globalThis as typeof globalThis & {
-    __edgeEventPersist?: EventPersistState;
-  }
-).__edgeEventPersist ??= {
+declare global {
+  // `var` (not let/const) is what lands the declaration on `typeof globalThis`.
+  var __edgeEventPersist: EventPersistState | undefined;
+}
+
+const state: EventPersistState = (globalThis.__edgeEventPersist ??= {
   buffer: [],
   enabled: false,
   flushTimer: null,

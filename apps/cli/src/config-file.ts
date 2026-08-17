@@ -21,9 +21,7 @@ import { pathToFileURL } from "node:url";
 // The JSON config path uses plain fs so it runs on both Bun and Node; the .ts
 // path relies on the runtime being able to import TypeScript (Bun natively, or
 // Node ≥22.6 with type-stripping / a loader).
-const canImportTs =
-  typeof (globalThis as { Bun?: unknown }).Bun !== "undefined" ||
-  Number.parseInt(process.versions.node ?? "0", 10) >= 22;
+const canImportTs = "Bun" in globalThis || Number.parseInt(process.versions.node ?? "0", 10) >= 22;
 
 // .json is the default format. .ts is supported for users who want
 // type-checked authoring + env-var interpolation; .json is preferred
@@ -94,12 +92,13 @@ export async function loadConfig(override?: string): Promise<Manifest> {
       if (ext === ".json") return JSON.parse(readFileSync(path, "utf8"));
       // file:// URL avoids ESM resolver issues with absolute paths on
       // Windows + keeps cache-busting deterministic across reloads.
-      const mod = (await import(pathToFileURL(path).href)) as { default?: unknown };
+      const mod: unknown = await import(pathToFileURL(path).href);
+      const config = mod && typeof mod === "object" && "default" in mod ? mod.default : undefined;
       assert(
-        mod.default !== undefined,
+        config !== undefined,
         `${path} must \`export default\` a config (use defineConfig()).`,
       );
-      return mod.default;
+      return config;
     },
     catch: (cause): Error => (cause instanceof Error ? cause : new Error(String(cause))),
   });
@@ -110,7 +109,7 @@ export async function loadConfig(override?: string): Promise<Manifest> {
     throw new LoadConfigError({ path, message: rawResult.error.message });
   }
 
-  return manifestSchema.parse(rawResult.value) as Manifest;
+  return manifestSchema.parse(rawResult.value);
 }
 
 // Write a populated manifest back to disk in the same format as the

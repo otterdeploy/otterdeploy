@@ -18,12 +18,13 @@
  * (or bumping BUILDER_CONCURRENCY).
  */
 
-import type { DeploymentId, ProjectId } from "@otterdeploy/shared/id";
+import type { DeploymentId } from "@otterdeploy/shared/id";
 
 import { reportPreviewBuildOutcome } from "@otterdeploy/api/git/preview-report";
 import { env } from "@otterdeploy/env/server";
 import { defineJob } from "@otterdeploy/jobs";
 import { DeployTriggeredPayload, deployTriggeredJob } from "@otterdeploy/jobs/jobs/deploy";
+import { idSchema } from "@otterdeploy/shared/id";
 import { DATA_ROOT, buildxCacheDir, sourceTarballPath } from "@otterdeploy/shared/paths";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -215,11 +216,14 @@ export function makeBuildJob() {
       const MAX_ATTEMPTS = 2;
 
       for (const id of payload.deploymentIds) {
-        const deploymentId = id as DeploymentId;
+        // BullMQ payloads carry IDs as plain JSON strings; re-brand them at
+        // this boundary. Both were minted server-side, so a parse failure is
+        // a genuinely malformed payload and fails the job loudly.
+        const deploymentId: DeploymentId = idSchema.deployment.parse(id);
         // Upload builds: the staged tarball is bind-mounted into the helper.
         const sourceTarball =
           payload.sourceKind === "tarball"
-            ? sourceTarballPath(payload.projectId as ProjectId, deploymentId)
+            ? sourceTarballPath(idSchema.project.parse(payload.projectId), deploymentId)
             : undefined;
         let outcome: { ok: boolean; error?: string } = { ok: false, error: "not attempted" };
 

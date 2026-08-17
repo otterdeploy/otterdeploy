@@ -23,9 +23,12 @@ export type Backup = z.infer<typeof backupSchema>;
 /** Stable key shared by the collection fetch and the action invalidations. */
 const backupsListKey = orpc.backups.list.queryKey({ input: {} });
 
-/** A run that hasn't reached a terminal state yet, so the row will still change. */
-function isInFlight(b: Backup): boolean {
-  return b.status === "queued" || b.status === "running";
+/** A run that hasn't reached a terminal state yet, so the row will still change.
+ *  Takes `unknown` and checks structurally: `refetchInterval` below reads the
+ *  query's data without the collection's typing, and a real check beats a cast. */
+function isInFlight(row: unknown): boolean {
+  if (typeof row !== "object" || row === null || !("status" in row)) return false;
+  return row.status === "queued" || row.status === "running";
 }
 
 const backupsQueryOptions = queryCollectionOptions({
@@ -43,8 +46,10 @@ const backupsQueryOptions = queryCollectionOptions({
   // visible inside it, since logs are fetched separately, and Restore /
   // Download stayed disabled because both gate on status === "succeeded".
   // Poll only while something is in flight; stop dead once it settles.
-  refetchInterval: (query) =>
-    (query.state.data as Backup[] | undefined)?.some(isInFlight) ? 2000 : false,
+  refetchInterval: (query) => {
+    const data: unknown = query.state.data;
+    return Array.isArray(data) && data.some(isInFlight) ? 2000 : false;
+  },
 });
 
 type BackupRow = Awaited<ReturnType<typeof orpc.backups.list.call>>[number];

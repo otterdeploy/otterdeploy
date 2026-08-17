@@ -1,5 +1,3 @@
-import type { JsonObject } from "@otterdeploy/shared/json";
-
 import { describe, expect, it } from "vite-plus/test";
 
 import type { Port } from "./form-fields/ports-field";
@@ -299,7 +297,7 @@ describe("buildServiceSpec", () => {
       spa: false,
     });
     expect(spec).toMatchObject({ source: "git" });
-    const build = (spec as { build?: JsonObject }).build;
+    const build = "build" in spec ? spec.build : undefined;
     expect(build).toEqual({ builder: "railpack", staticRoot: "dist" });
   });
 

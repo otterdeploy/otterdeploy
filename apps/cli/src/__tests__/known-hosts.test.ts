@@ -31,11 +31,15 @@ function clearConfigDir(): void {
 // config.ts reads its directory from env at module load, so point it at a temp
 // dir and re-import per test rather than writing to the developer's real
 // ~/.config/otterdeploy.
-async function freshConfigModule() {
+async function freshConfigModule(): Promise<typeof import("../config")> {
   dir = mkdtempSync(join(tmpdir(), "otterdeploy-cli-test-"));
   setConfigDir(dir);
-  const mod = await import(`../config?${Math.random().toString(36).slice(2)}`);
-  return mod as typeof import("../config");
+  // The query string busts the module cache, so TS can't resolve the
+  // specifier; the annotation supplies the module's shape.
+  const mod: typeof import("../config") = await import(
+    `../config?${Math.random().toString(36).slice(2)}`
+  );
+  return mod;
 }
 
 beforeEach(() => {

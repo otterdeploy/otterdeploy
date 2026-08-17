@@ -1,10 +1,10 @@
-import type { ProxyRouteId } from "@otterdeploy/shared/id";
 import type { RoutePolicy } from "@otterdeploy/shared/route-policy";
 
 import { useId, useState } from "react";
 
 import { Settings02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { idSchema } from "@otterdeploy/shared/id";
 import { toast } from "sonner";
 
 import {
@@ -60,7 +60,16 @@ function SelectField<T extends string>({
       <Label htmlFor={id}>{label}</Label>
       {/* `items` is what lets the trigger show the option's label instead of
           its wire value: "Same origin", not "same-origin". */}
-      <Select value={value} onValueChange={(next) => onChange(next as T)} items={options}>
+      <Select
+        value={value}
+        onValueChange={(next) => {
+          // The wire value can only be one of the rendered options; look it up
+          // so the narrow value comes from `options` rather than a cast.
+          const picked = options.find((option) => option.value === next);
+          if (picked) onChange(picked.value);
+        }}
+        items={options}
+      >
         <SelectTrigger id={id} className="w-full">
           <SelectValue />
         </SelectTrigger>
@@ -196,7 +205,8 @@ export function RoutePolicyButton({
 
   const save = async () => {
     setSaving(true);
-    const tx = proxyRoutesCollection.update(routeId as ProxyRouteId, (row) => {
+    // The row model widens ids to string; re-brand at the mutation boundary.
+    const tx = proxyRoutesCollection.update(idSchema.proxyRoute.parse(routeId), (row) => {
       row.routePolicy = draft;
     });
     try {

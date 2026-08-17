@@ -83,7 +83,7 @@ const deploymentsQueryOptions = queryCollectionOptions({
   // project current, so the slow tick only exists to survive a stream that
   // silently died.
   refetchInterval: (query) => {
-    const rows = query.state.data as { status?: string }[] | undefined;
+    const rows = query.state.data;
     const inFlight = rows?.some((d) => d.status === "pending" || d.status === "building");
     return inFlight ? 5000 : 30_000;
   },
@@ -157,10 +157,10 @@ const deploymentTasksQueryOptions = queryCollectionOptions({
   // are still settling. A converged task set changes on a docker event, which
   // the project stream already pushes.
   refetchInterval: (query) => {
-    const rows = query.state.data as { state?: string }[] | undefined;
-    const settling = rows?.some(
-      (t) => t.state !== "running" && t.state !== "complete" && t.state !== "shutdown",
-    );
+    const rows = query.state.data;
+    // The API collapses raw swarm task states to running | building | error
+    // (see deployments-tasks.ts), so anything not running is still settling.
+    const settling = rows?.some((t) => t.state !== "running");
     return settling ? 5000 : 30_000;
   },
   queryClient,

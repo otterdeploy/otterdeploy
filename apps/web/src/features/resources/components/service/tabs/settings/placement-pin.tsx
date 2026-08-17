@@ -197,8 +197,9 @@ export function PlacementPin({
  *  other failure. */
 function volumeLossMounts(err: unknown): string[] | undefined {
   if (typeof err !== "object" || err === null) return undefined;
-  const e = err as { code?: string; data?: { mounts?: unknown } };
-  if (e.code !== "PLACEMENT_VOLUME_LOSS") return undefined;
-  const mounts = e.data?.mounts;
+  if (!("code" in err) || err.code !== "PLACEMENT_VOLUME_LOSS") return undefined;
+  const data = "data" in err ? err.data : undefined;
+  const mounts =
+    typeof data === "object" && data !== null && "mounts" in data ? data.mounts : undefined;
   return Array.isArray(mounts) ? mounts.filter((m): m is string => typeof m === "string") : [];
 }

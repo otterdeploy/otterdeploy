@@ -1,5 +1,3 @@
-import type { JsonObject } from "@otterdeploy/shared/json";
-
 /**
  * One destination in the destinations list: name + connection summary, storage
  * usage, status, and test/edit/delete affordances. Delete mutates the
@@ -79,7 +77,7 @@ export function DestinationRow({
 
   // `usedBytes` is computed; `maxStorageGb` (if set) lives in config.
   const usedGB = dest.usedBytes / 1e9;
-  const maxRaw = (dest.config as JsonObject | undefined)?.maxStorageGb;
+  const maxRaw = dest.config.maxStorageGb;
   const totalGB = typeof maxRaw === "number" ? maxRaw : undefined;
   const pct = totalGB ? (usedGB / totalGB) * 100 : null;
 

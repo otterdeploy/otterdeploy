@@ -9,6 +9,7 @@ import type { CustomCertificateId, ProjectId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { eq } from "drizzle-orm";
 
 import type { OrgRef } from "../scopes";
@@ -48,9 +49,12 @@ async function readEdgeHost(): Promise<string> {
 function groupDomains(rows: OrgDomainRow[]): Map<string, InventoryProject[]> {
   const byDomain = new Map<string, Map<string, InventoryProject>>();
   for (const r of rows) {
+    // OrgDomainRow widens project.id to a plain string; the id was minted
+    // with createId, so the prefix check just re-brands it (never skips).
+    if (!hasPrefix(r.projectId, ID_PREFIX.project)) continue;
     const projects = byDomain.get(r.domain) ?? new Map<string, InventoryProject>();
     projects.set(r.projectId, {
-      id: r.projectId as ProjectId,
+      id: r.projectId,
       name: r.projectName,
       slug: r.projectSlug,
     });

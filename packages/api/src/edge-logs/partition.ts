@@ -18,6 +18,7 @@ import { db } from "@otterdeploy/db";
 import { Result } from "better-result";
 import { sql } from "drizzle-orm";
 import { log } from "evlog";
+import * as z from "zod";
 
 /**
  * UNLOGGED partitions skip the WAL for a large write-throughput win. A fit for
@@ -172,11 +173,18 @@ export async function dropOldPartitions(retentionDays: number): Promise<void> {
     return;
   }
 
-  // bun-sql returns rows as an array; tolerate a { rows } wrapper too.
-  const value = res.value;
-  const rows = (
-    Array.isArray(value) ? value : ((value as { rows?: unknown[] }).rows ?? [])
-  ) as Array<{ name: string }>;
+  // bun-sql returns rows as an array; tolerate a { rows } wrapper too. The
+  // driver result is an untyped boundary, so it's schema-parsed, not cast:
+  // the regex in the query means every row genuinely is `{ name: string }`.
+  const value: unknown = res.value;
+  const rowsSchema = z.array(z.object({ name: z.string() }));
+  const rows = rowsSchema.parse(
+    Array.isArray(value)
+      ? value
+      : typeof value === "object" && value !== null && "rows" in value && Array.isArray(value.rows)
+        ? value.rows
+        : [],
+  );
 
   // Zero-padded YYYY_MM_DD compares correctly lexicographically.
   const cutoffKey = isoDay(addDaysUtc(new Date(), -retentionDays)).replace(/-/g, "_");

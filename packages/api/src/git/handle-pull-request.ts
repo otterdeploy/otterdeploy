@@ -11,8 +11,6 @@
  * with `previewBranching` enabled get an isolated branch.
  */
 
-import type { GitRepoId, ProjectId } from "@otterdeploy/shared/id";
-
 import { db } from "@otterdeploy/db";
 import { gitRepo, project, resource, serviceResource } from "@otterdeploy/db/schema";
 import { Result } from "better-result";
@@ -129,13 +127,13 @@ async function closePreviews(
   const prNumber = ev.pull_request.number;
   let environmentsTouched = 0;
   for (const p of projects) {
-    const closed = await markPreviewsClosed(p.id as ProjectId, repo.id as GitRepoId, prNumber);
+    const closed = await markPreviewsClosed(p.id, repo.id, prNumber);
     environmentsTouched += closed.length;
     // Destroy each closed preview's containers + branched databases.
     for (const row of closed) {
       await teardownPreview({
         id: row.id,
-        projectId: p.id as ProjectId,
+        projectId: p.id,
         projectSlug: p.slug,
         gitRepoId: row.gitRepoId,
         slug: row.slug,
@@ -144,7 +142,7 @@ async function closePreviews(
     }
   }
   if (environmentsTouched > 0) {
-    await report({ gitRepoId: repo.id as GitRepoId, prNumber, phase: "closed" });
+    await report({ gitRepoId: repo.id, prNumber, phase: "closed" });
   }
   return {
     kind: "pull_request",
@@ -188,7 +186,7 @@ export async function deployPreviews(
     }
   }
   if (environmentsTouched > 0) {
-    await report({ gitRepoId: repo.id as GitRepoId, prNumber: pr.number, phase: "building" });
+    await report({ gitRepoId: repo.id, prNumber: pr.number, phase: "building" });
   }
   return {
     kind: "pull_request",

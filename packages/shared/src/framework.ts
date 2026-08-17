@@ -82,10 +82,17 @@ const FRAMEWORK_DEFAULT_PORTS: Readonly<Partial<Record<Framework, number>>> = {
   ruby: 3000,
 };
 
+/** The port table's own keys are all `Framework` literals, so own-key
+ *  membership is a genuine runtime proof (and, unlike a bare index, can
+ *  never surface an `Object.prototype` member for keys like "toString"). */
+function hasDefaultPort(value: string): value is Framework {
+  return Object.hasOwn(FRAMEWORK_DEFAULT_PORTS, value);
+}
+
 /** String-tolerant port lookup; null for unknown/static frameworks. */
 export function frameworkDefaultPort(framework: string | null | undefined): number | null {
-  if (!framework) return null;
-  return FRAMEWORK_DEFAULT_PORTS[framework as Framework] ?? null;
+  if (!framework || !hasDefaultPort(framework)) return null;
+  return FRAMEWORK_DEFAULT_PORTS[framework] ?? null;
 }
 
 /** Minimal shape of a parsed `package.json` the detector needs. */

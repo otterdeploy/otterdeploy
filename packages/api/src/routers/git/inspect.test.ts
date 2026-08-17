@@ -54,9 +54,12 @@ vi.mock("@otterdeploy/db", () => ({
 
 // ghFetch (github-app.ts) routes every request through the shared egress
 // policy: stub the same seam github-app-repos.test.ts /
-// github-app-writeback.test.ts / inspect-github.test.ts use.
+// github-app-writeback.test.ts / inspect-github.test.ts use. The fn is
+// created inside `vi.hoisted` so the test can hold the untyped mock handle
+// directly instead of casting the typed `egressFetch` import back to a mock.
+const { egressFetchMock } = vi.hoisted(() => ({ egressFetchMock: vi.fn() }));
 vi.mock("@otterdeploy/shared/egress-policy", () => ({
-  egressFetch: vi.fn(),
+  egressFetch: egressFetchMock,
   EgressPolicyError: class EgressPolicyError extends Error {},
 }));
 vi.mock("../../lib/egress-denylist", () => ({
@@ -66,27 +69,25 @@ vi.mock("../../lib/egress-options", () => ({
   egressAllowlist: () => [],
 }));
 
-import { EgressPolicyError, egressFetch } from "@otterdeploy/shared/egress-policy";
+import { EgressPolicyError } from "@otterdeploy/shared/egress-policy";
 
 import { listRepoBranches } from "./inspect";
 
-type FetchMock = ReturnType<typeof vi.fn>;
-
-function jsonResponse(body: unknown, ok = true, status = 200): Response {
+/** The minimal Response surface the code under test touches. */
+function jsonResponse(body: unknown, ok = true, status = 200) {
   return {
     ok,
     status,
     headers: { get: () => null },
     text: async () => JSON.stringify(body),
     json: async () => body,
-  } as unknown as Response;
+  };
 }
 
 describe("listRepoBranches → routed through the shared egress policy", () => {
-  let fetchMock: FetchMock;
+  const fetchMock = egressFetchMock;
 
   beforeEach(() => {
-    fetchMock = egressFetch as unknown as FetchMock;
     fetchMock.mockReset();
     currentRow = {
       installationId: null,
@@ -99,15 +100,17 @@ describe("listRepoBranches → routed through the shared egress policy", () => {
   it("calls egressFetch (not raw fetch) for a legitimate host and returns the branch list", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse([{ name: "main" }, { name: "feat/x" }]));
 
-    const result = await listRepoBranches("repo-1");
+    const result = await listRepoBranches("gitr_repo1");
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value.branches).toEqual(["main", "feat/x"]);
     }
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url] = fetchMock.mock.calls[0] as [string];
-    expect(url).toBe("https://api.github.com/repos/acme/widgets/branches?per_page=100&page=1");
+    const firstCall: unknown[] = fetchMock.mock.calls[0] ?? [];
+    expect(firstCall[0]).toBe(
+      "https://api.github.com/repos/acme/widgets/branches?per_page=100&page=1",
+    );
   });
 
   it("fails closed with the policy's clear error when the target is blocked by the egress policy", async () => {
@@ -115,7 +118,7 @@ describe("listRepoBranches → routed through the shared egress policy", () => {
       new EgressPolicyError("The hostname resolves to a non-public address."),
     );
 
-    await expect(listRepoBranches("repo-2")).rejects.toThrow(
+    await expect(listRepoBranches("gitr_repo2")).rejects.toThrow(
       /GitHub API request blocked by outbound egress policy/,
     );
   });

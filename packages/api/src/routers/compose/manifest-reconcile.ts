@@ -4,6 +4,7 @@ import type { RequestLogger } from "evlog";
 import { db } from "@otterdeploy/db";
 import { deployment } from "@otterdeploy/db/schema/project";
 import { triggerDeploy } from "@otterdeploy/jobs";
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 /**
  * Reconcile a compose stack declared in the project manifest. Called by the
  * manifest reconciler (routers/project/manifest-apply.ts) when a `compose`
@@ -77,6 +78,48 @@ async function persistManifestEnv(
   }
 }
 
+interface GitSourceBinding {
+  owner: string;
+  repoName: string;
+  cloneUrl: string;
+  gitRepoId: GitRepoId | null;
+  installationId: string | null;
+}
+
+/** Prefer the bound repo (private-capable); fall back to a legacy public URL. */
+async function resolveGitSource(
+  spec: GitManifest,
+  name: string,
+): Promise<Result<GitSourceBinding, ManifestApplySkipError>> {
+  const boundRepoId = spec.gitRepoId?.trim();
+  if (boundRepoId) {
+    if (!hasPrefix(boundRepoId, ID_PREFIX.gitRepo)) {
+      return skip(name, `not a git repo id: ${boundRepoId}`);
+    }
+    const bound = await Result.tryPromise({
+      try: () => resolveRepoCloneBinding(boundRepoId),
+      catch: (e) => (e instanceof Error ? e.message : String(e)),
+    });
+    if (bound.isErr()) return skip(name, bound.error);
+    return Result.ok({
+      owner: bound.value.owner,
+      repoName: bound.value.repo,
+      cloneUrl: bound.value.cloneUrl,
+      gitRepoId: bound.value.gitRepoId,
+      installationId: bound.value.githubInstallationId,
+    });
+  }
+  const gh = parseGitHubUrl(spec.gitRepoUrl ?? "");
+  if (!gh) return skip(name, `not a cloneable GitHub URL: ${spec.gitRepoUrl ?? ""}`);
+  return Result.ok({
+    owner: gh.owner,
+    repoName: gh.repo,
+    cloneUrl: gh.cloneUrl,
+    gitRepoId: null,
+    installationId: null,
+  });
+}
+
 /** Git source: enqueue a build that deploys on completion. */
 async function createGitStackFromManifest(
   args: CreateComposeArgs,
@@ -87,31 +130,9 @@ async function createGitStackFromManifest(
 ): Promise<CreateResult> {
   const { projectId, name, log } = args;
 
-  // Prefer the bound repo (private-capable); fall back to a legacy public URL.
-  let owner: string;
-  let repoName: string;
-  let cloneUrl: string;
-  let gitRepoId: string | null = null;
-  let installationId: string | null = null;
-  const boundRepoId = spec.gitRepoId?.trim();
-  if (boundRepoId) {
-    const bound = await Result.tryPromise({
-      try: () => resolveRepoCloneBinding(boundRepoId as GitRepoId),
-      catch: (e) => (e instanceof Error ? e.message : String(e)),
-    });
-    if (bound.isErr()) return skip(name, bound.error);
-    owner = bound.value.owner;
-    repoName = bound.value.repo;
-    cloneUrl = bound.value.cloneUrl;
-    gitRepoId = bound.value.gitRepoId;
-    installationId = bound.value.githubInstallationId;
-  } else {
-    const gh = parseGitHubUrl(spec.gitRepoUrl ?? "");
-    if (!gh) return skip(name, `not a cloneable GitHub URL: ${spec.gitRepoUrl ?? ""}`);
-    owner = gh.owner;
-    repoName = gh.repo;
-    cloneUrl = gh.cloneUrl;
-  }
+  const source = await resolveGitSource(spec, name);
+  if (source.isErr()) return Result.err(source.error);
+  const { owner, repoName, cloneUrl, gitRepoId, installationId } = source.value;
 
   const branch = spec.gitRef?.trim() || "main";
   const headRes = await Result.tryPromise({
@@ -136,7 +157,7 @@ async function createGitStackFromManifest(
         name,
         source: "git",
         composeContent: null,
-        gitRepoId: gitRepoId as GitRepoId | null,
+        gitRepoId,
         gitRepoUrl: cloneUrl,
         gitRef: ref,
         composePath: spec.composePath?.trim() || null,
@@ -181,7 +202,7 @@ async function createGitStackFromManifest(
     deploymentIds: [dep?.id ?? ""],
   });
   log.set({ manifestComposeBuild: { resourceId: created.value.resource.id, ref } });
-  return Result.ok({ resourceId: created.value.resource.id as ResourceId });
+  return Result.ok({ resourceId: created.value.resource.id });
 }
 
 /** Inline source: parse + create the row, then deploy now. */
@@ -234,16 +255,16 @@ async function createInlineStackFromManifest(
   if (services.some((s) => s.hasBuild)) {
     const enq = await enqueueInlineComposeBuild({
       projectId,
-      resourceId: created.value.resource.id as ResourceId,
+      resourceId: created.value.resource.id,
       composeContent,
       reason: "create",
     });
     if (enq.isErr()) return skip(name, `created but build enqueue failed: ${enq.error}`);
-    return Result.ok({ resourceId: created.value.resource.id as ResourceId });
+    return Result.ok({ resourceId: created.value.resource.id });
   }
 
   const deployed = await deployCompose(
-    { projectId, resourceId: created.value.resource.id as ResourceId },
+    { projectId, resourceId: created.value.resource.id },
     "create",
     log,
   );
@@ -255,7 +276,7 @@ async function createInlineStackFromManifest(
   if (deployed.value.status === "failed") {
     return skip(name, `deploy failed: ${deployed.value.failed.join(", ")} did not roll out`);
   }
-  return Result.ok({ resourceId: created.value.resource.id as ResourceId });
+  return Result.ok({ resourceId: created.value.resource.id });
 }
 
 export async function createComposeFromManifest(args: CreateComposeArgs): Promise<CreateResult> {

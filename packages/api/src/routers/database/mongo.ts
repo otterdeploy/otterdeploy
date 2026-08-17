@@ -18,6 +18,7 @@
  * exec would fail with a clear error rather than silently misbehave.
  */
 import { Docker } from "@otterdeploy/docker";
+import * as z from "zod";
 
 import { execCapture, findResourceContainerId } from "../../backups/exec";
 import { buildContainerName } from "../project/views";
@@ -97,10 +98,23 @@ async function withMongosh<T>(
  * EJSON-parsed value. The expression is authored server-side (never caller
  * input), used by the org-catalog stats collector for db.stats()/serverStatus.
  */
-export async function mongoEvalJson<T>(conn: DbConnInfo, jsExpr: string): Promise<T> {
+export async function mongoEvalJson<T>(
+  conn: DbConnInfo,
+  jsExpr: string,
+  schema: z.ZodType<T>,
+): Promise<T>;
+// Schema-less form kept for callers that author the expression and its
+// expected shape together; prefer passing a schema so the boundary is parsed.
+export async function mongoEvalJson<T>(conn: DbConnInfo, jsExpr: string): Promise<T>;
+export async function mongoEvalJson(
+  conn: DbConnInfo,
+  jsExpr: string,
+  schema?: z.ZodType<unknown>,
+): Promise<unknown> {
   return withMongosh(conn, async (run) => {
     const raw = await run(`print("${S}" + EJSON.stringify(${jsExpr}) + "${S}")`);
-    return JSON.parse(raw) as T;
+    const value: unknown = JSON.parse(raw);
+    return schema ? schema.parse(value) : value;
   });
 }
 
@@ -111,7 +125,11 @@ export async function mongoCollections(conn: DbConnInfo): Promise<MongoCollectio
       `print("${S}" + EJSON.stringify(db.getCollectionNames().map(n => ` +
         `({ name: n, count: db.getCollection(n).estimatedDocumentCount() }))) + "${S}")`,
     );
-    const parsed = JSON.parse(raw) as Array<{ name: string; count: number }>;
+    // `count` stays unknown: EJSON renders big counts as `{"$numberLong": …}`
+    // objects, which `Number(…) || 0` collapses to 0 exactly as before.
+    const parsed = z
+      .array(z.object({ name: z.string(), count: z.unknown() }))
+      .parse(JSON.parse(raw));
     return parsed.map((c) => ({ name: c.name, count: Number(c.count) || 0 }));
   });
 }
@@ -129,7 +147,7 @@ export async function mongoDocuments(
       `print("${S}" + EJSON.stringify(db.getCollection(${coll}).find()` +
         `.skip(${opts.skip}).limit(${opts.limit + 1}).toArray()) + "${S}")`,
     );
-    const parsed = JSON.parse(raw) as unknown[];
+    const parsed = z.array(z.unknown()).parse(JSON.parse(raw));
     const hasMore = parsed.length > opts.limit;
     return {
       docs: parsed.slice(0, opts.limit).map((d) => JSON.stringify(d, null, 2)),

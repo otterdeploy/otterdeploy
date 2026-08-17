@@ -32,15 +32,15 @@ describe("nav manifest", () => {
   // two nav entries pointing at the same page (one of them through a redirect
   // shim) is how a "moved" page keeps appearing in its old home.
   it("no settings entry points at a page the operational shell owns", () => {
-    const operational = new Set(OPERATIONAL_NAV.flatMap((g) => g.items.map((i) => i.to)));
+    const operational = new Set<string>(
+      OPERATIONAL_NAV.flatMap((g) => g.items.map((i) => String(i.to))),
+    );
     for (const group of SETTINGS_NAV) {
       for (const item of group.items) {
         const asOperational = String(item.to)
           .replace("/settings/workspace", "")
           .replace("/settings", "");
-        expect(operational.has(asOperational as typeof item.to), `${item.title} → ${item.to}`).toBe(
-          false,
-        );
+        expect(operational.has(asOperational), `${item.title} → ${item.to}`).toBe(false);
       }
     }
   });

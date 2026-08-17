@@ -98,7 +98,8 @@ export async function hmacSha256Hex(secret: string, body: string | ArrayBuffer):
     false,
     ["sign"],
   );
-  const data = typeof body === "string" ? new TextEncoder().encode(body) : new Uint8Array(body);
-  const mac = await crypto.subtle.sign("HMAC", key, data as unknown as ArrayBuffer);
+  const data: Uint8Array<ArrayBuffer> =
+    typeof body === "string" ? new TextEncoder().encode(body) : new Uint8Array(body);
+  const mac = await crypto.subtle.sign("HMAC", key, data);
   return bytesToHex(new Uint8Array(mac));
 }

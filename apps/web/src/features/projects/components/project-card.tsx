@@ -1,5 +1,4 @@
-import type { ProjectSlug } from "@otterdeploy/shared/id";
-
+import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { Link } from "@tanstack/react-router";
 
 import { MiniCanvasPreview } from "./mini-canvas-preview";
@@ -32,7 +31,7 @@ export function ProjectCard({ orgSlug, project }: Props) {
       to="/$orgSlug/$projectSlug"
       params={{
         orgSlug,
-        projectSlug: project.slug as ProjectSlug,
+        projectSlug: zSlug(ID_PREFIX.project).parse(project.slug),
       }}
       className="group flex flex-col gap-3 rounded-xl border bg-card p-4 transition-colors hover:border-foreground/20"
     >

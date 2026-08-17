@@ -3,10 +3,18 @@ import { nodeEnrollment, swarmJoinRotation } from "@otterdeploy/db/schema";
 import { Docker } from "@otterdeploy/docker";
 import { and, eq, isNotNull, isNull, lte, sql } from "drizzle-orm";
 import { log } from "evlog";
+import * as z from "zod";
 
-import type { EnrollmentRole, SwarmInspect } from "./enrollment-credential";
+import type { EnrollmentRole } from "./enrollment-credential";
 
+import { zJsonObject } from "../../lib/z-json";
 import { buildSwarmRotationOptions } from "./enrollment-credential";
+
+/** The slice of docker's untyped swarm-inspect payload the rotation reads. */
+const swarmInspectSchema = z.object({
+  Version: z.object({ Index: z.number().optional() }).optional(),
+  Spec: zJsonObject.optional(),
+});
 
 function rotationError(cause: unknown): string {
   const message = cause instanceof Error ? cause.message : String(cause);
@@ -34,7 +42,7 @@ async function performSwarmJoinCredentialRotation(
   try {
     const inspected = await docker.system.swarmInspect();
     if (inspected.isErr()) throw inspected.error;
-    const swarm = inspected.value as SwarmInspect;
+    const swarm = swarmInspectSchema.parse(inspected.value);
     const rotated = await docker.system.swarmUpdate(buildSwarmRotationOptions(swarm, role));
     if (rotated.isErr()) throw rotated.error;
   } catch (cause) {

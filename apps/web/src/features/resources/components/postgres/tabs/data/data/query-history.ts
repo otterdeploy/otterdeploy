@@ -8,22 +8,26 @@
 
 import { useState } from "react";
 
+import * as z from "zod";
+
 export const HISTORY_LIMIT = 50;
 
-export interface QueryHistoryEntry {
-  id: string;
-  sql: string;
+const queryHistoryEntrySchema = z.object({
+  id: z.string(),
+  sql: z.string(),
   /** Did the statement run without error? */
-  ok: boolean;
+  ok: z.boolean(),
   /** Returned/affected rows (null when the run failed). */
-  rowCount: number | null;
+  rowCount: z.number().nullable(),
   /** Wall-clock duration (null when the run failed before timing). */
-  durationMs: number | null;
+  durationMs: z.number().nullable(),
   /** Failure reason (null on success). */
-  error: string | null;
+  error: z.string().nullable(),
   /** Epoch ms. */
-  at: number;
-}
+  at: z.number(),
+});
+
+export type QueryHistoryEntry = z.infer<typeof queryHistoryEntrySchema>;
 
 /** Prepend `entry`, cap at {@link HISTORY_LIMIT} (newest first). Re-running a
  *  statement records a NEW entry: history is a log, not a set. */
@@ -40,9 +44,9 @@ function loadHistory(resourceId: string): QueryHistoryEntry[] {
   try {
     const raw = localStorage.getItem(storageKey(resourceId));
     if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return (parsed as QueryHistoryEntry[]).slice(0, HISTORY_LIMIT);
+    const parsed = z.array(queryHistoryEntrySchema).safeParse(JSON.parse(raw));
+    if (!parsed.success) return [];
+    return parsed.data.slice(0, HISTORY_LIMIT);
   } catch {
     return [];
   }

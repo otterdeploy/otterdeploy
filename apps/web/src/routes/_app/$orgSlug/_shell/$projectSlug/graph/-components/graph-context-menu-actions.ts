@@ -31,6 +31,21 @@ import { orpc } from "@/shared/server/orpc";
 
 import { usePreviewActions } from "./preview-panel/use-preview-actions";
 
+/** Structural check for the only node shape this canvas renders: every
+ *  `ResourceNodeData` carries at least `kind` + `name` (see
+ *  resource-node-types.ts), which no other node data on this graph does. */
+function isResourceFlowNode(node: { data: unknown; id: string }): node is ResourceFlowNode {
+  const d = node.data;
+  return (
+    typeof d === "object" &&
+    d !== null &&
+    "kind" in d &&
+    typeof d.kind === "string" &&
+    "name" in d &&
+    typeof d.name === "string"
+  );
+}
+
 export interface UseGraphContextMenuArgs {
   /** Needed for the preview lifecycle mutations, which are project-scoped. */
   projectId: string;
@@ -171,10 +186,13 @@ export function useGraphContextMenu({
     event.preventDefault();
     // React Flow's generic handler types the node as the untyped base
     // `Node`: this canvas only ever renders `ResourceNode`, which always
-    // gets `ResourceNodeData` (see nodeTypes in graph-flow.tsx).
+    // gets `ResourceNodeData` (see nodeTypes in graph-flow.tsx). The guard
+    // checks that shape for real instead of asserting it; a node that
+    // somehow isn't one simply opens no menu.
+    if (!isResourceFlowNode(node)) return;
     setTarget({
       kind: "node",
-      node: node as ResourceFlowNode,
+      node,
       x: event.clientX,
       y: event.clientY,
     });

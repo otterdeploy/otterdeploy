@@ -69,31 +69,35 @@ export function classifyCliCompat({
   serverVersion,
   minCliVersion,
 }: CliCompatInput): CliCompat {
+  // `parseVersion(null | undefined)` is always null, so narrowing the raw
+  // string first changes nothing at runtime and lets the returns below carry
+  // the strings without a cast.
+  if (cliVersion == null) return { kind: "ok" };
   const cli = parseVersion(cliVersion);
   if (!cli) return { kind: "ok" };
 
   // A CLI below the floor is the actionable case, and the floor alone is enough
   // to decide it: report even when the server's own version is a sentinel.
   const min = parseVersion(minCliVersion);
-  if (min && isOlderCore(cli, min)) {
+  if (min && minCliVersion != null && isOlderCore(cli, min)) {
     return {
       kind: "cli-too-old",
-      cliVersion: cliVersion as string,
-      serverVersion: parseVersion(serverVersion) ? (serverVersion as string) : null,
-      minCliVersion: minCliVersion as string,
+      cliVersion,
+      serverVersion: serverVersion != null && parseVersion(serverVersion) ? serverVersion : null,
+      minCliVersion,
     };
   }
 
   const server = parseVersion(serverVersion);
-  if (!server) return { kind: "ok" };
+  if (!server || serverVersion == null) return { kind: "ok" };
 
   // Compared at MINOR granularity: a patch gap is a bugfix on one side, never a
   // contract change, and flagging it would fire on nearly every pair.
   if (server.major < cli.major || (server.major === cli.major && server.minor < cli.minor)) {
     return {
       kind: "server-behind",
-      cliVersion: cliVersion as string,
-      serverVersion: serverVersion as string,
+      cliVersion,
+      serverVersion,
     };
   }
 

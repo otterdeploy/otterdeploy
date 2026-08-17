@@ -71,7 +71,7 @@ function isNetworkError(error: unknown): boolean {
     "ConnectionClosed",
     "FailedToOpenSocket",
   ];
-  const code = (error as { code?: string }).code;
+  const code = "code" in error && typeof error.code === "string" ? error.code : undefined;
   if (code && codes.includes(code)) return true;
   if (error.message.includes("Unable to connect") || error.message === "fetch failed") return true;
   return error.cause !== undefined && isNetworkError(error.cause);
@@ -155,12 +155,19 @@ function withBoundary(run: RunFn): RunFn {
  */
 export function wrapCommand(cmd_: CommandDef): CommandDef {
   const wrapped: CommandDef = { ...cmd_ };
-  if (typeof cmd_.run === "function") wrapped.run = withBoundary(cmd_.run as RunFn);
-  if (cmd_.subCommands && typeof cmd_.subCommands === "object") {
+  if (typeof cmd_.run === "function") wrapped.run = withBoundary(cmd_.run);
+  // A `Resolvable` subCommands map can also be a Promise / factory; only a
+  // plain object of definitions can be walked and wrapped here. Lazy entries
+  // (functions) pass through unwrapped, exactly as before.
+  if (
+    cmd_.subCommands &&
+    typeof cmd_.subCommands === "object" &&
+    !(cmd_.subCommands instanceof Promise)
+  ) {
     wrapped.subCommands = Object.fromEntries(
       Object.entries(cmd_.subCommands).map(([name, sub]) => [
         name,
-        typeof sub === "function" ? sub : wrapCommand(sub as CommandDef),
+        typeof sub === "function" || sub instanceof Promise ? sub : wrapCommand(sub),
       ]),
     );
   }

@@ -52,7 +52,7 @@ export function opNeedsValue(op: FilterOp | ""): boolean {
 }
 
 /** Ordering comparisons take a NUMBER (validated, emitted unquoted). */
-export function isNumericOp(op: FilterOp | ""): boolean {
+export function isNumericOp(op: FilterOp | ""): op is "gt" | "lt" | "gte" | "lte" {
   return op === "gt" || op === "lt" || op === "gte" || op === "lte";
 }
 
@@ -89,7 +89,7 @@ function clause(f: Filter): string {
   if (isNumericOp(f.op)) {
     // Guarded by isFilterActive → isValidNumericValue; the trimmed literal is
     // digits/sign/dot/exponent only.
-    return `${col} ${NUMERIC_SQL_OP[f.op as "gt" | "lt" | "gte" | "lte"]} ${f.value.trim()}`;
+    return `${col} ${NUMERIC_SQL_OP[f.op]} ${f.value.trim()}`;
   }
   switch (f.op) {
     case "isnull":

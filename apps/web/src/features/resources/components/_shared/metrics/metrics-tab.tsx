@@ -153,7 +153,10 @@ function Toolbar({
         value={[window]}
         onValueChange={(next) => {
           const v = next[0];
-          if (v) onWindowChange(v as MetricWindowLabel);
+          // Only values rendered below can come back; find() recovers the
+          // narrowed label type without asserting.
+          const match = METRIC_WINDOWS.find((w) => w.label === v);
+          if (match) onWindowChange(match.label);
         }}
         variant="outline"
         size="sm"

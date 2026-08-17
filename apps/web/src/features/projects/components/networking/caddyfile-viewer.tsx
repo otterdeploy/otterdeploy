@@ -130,16 +130,19 @@ function CodeBody({
             <span className="mr-4 inline-block text-right text-muted-foreground/40 tabular-nums select-none">
               {String(idx + 1).padStart(gutterWidth, " ")}
             </span>
-            {segs.map((seg, i) =>
-              seg.match !== undefined ? (
+            {segs.map((seg, i) => {
+              // Hoisted so the narrowing to `number` survives into the ref
+              // closure (property narrowings don't cross function boundaries).
+              const match = seg.match;
+              return match !== undefined ? (
                 <span
                   key={i}
                   ref={(el) => {
-                    matchRefs.current.set(seg.match as number, el);
+                    matchRefs.current.set(match, el);
                   }}
                   className={cn(
                     "rounded-xs",
-                    seg.match === active ? "bg-amber-400/50 text-foreground" : "bg-amber-400/20",
+                    match === active ? "bg-amber-400/50 text-foreground" : "bg-amber-400/20",
                     KIND_CLASS[seg.kind],
                   )}
                 >
@@ -149,8 +152,8 @@ function CodeBody({
                 <span key={i} className={KIND_CLASS[seg.kind]}>
                   {seg.text}
                 </span>
-              ),
-            )}
+              );
+            })}
             {"\n"}
           </Fragment>
         ))}

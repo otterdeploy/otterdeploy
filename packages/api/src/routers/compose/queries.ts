@@ -28,21 +28,15 @@ export interface ComposeRecord {
 export function pgErrorInfo(err: unknown): { code: string | null; constraint: string | null } {
   const read = (o: unknown): { code: string | null; constraint: string | null } | null => {
     if (!o || typeof o !== "object") return null;
-    const r = o as { code?: unknown; constraint_name?: unknown; constraint?: unknown };
-    const code = typeof r.code === "string" ? r.code : null;
+    const code = "code" in o && typeof o.code === "string" ? o.code : null;
     const constraint =
-      (typeof r.constraint_name === "string" && r.constraint_name) ||
-      (typeof r.constraint === "string" && r.constraint) ||
+      ("constraint_name" in o && typeof o.constraint_name === "string" && o.constraint_name) ||
+      ("constraint" in o && typeof o.constraint === "string" && o.constraint) ||
       null;
     return code || constraint ? { code, constraint } : null;
   };
-  return (
-    read(err) ??
-    read(err && typeof err === "object" ? (err as { cause?: unknown }).cause : null) ?? {
-      code: null,
-      constraint: null,
-    }
-  );
+  const cause = err && typeof err === "object" && "cause" in err ? err.cause : null;
+  return read(err) ?? read(cause) ?? { code: null, constraint: null };
 }
 
 /**

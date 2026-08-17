@@ -1,6 +1,17 @@
 import { createEnv } from "@t3-oss/env-core";
 import * as z from "zod";
 
+/** `globalThis.location.origin` when it exists (browser), else "". Parsed
+ *  with a schema instead of asserting a shape onto `globalThis`. */
+const globalLocationSchema = z.object({
+  location: z.object({ origin: z.string() }).optional(),
+});
+
+function browserOrigin(): string {
+  const parsed = globalLocationSchema.safeParse(globalThis);
+  return parsed.success ? (parsed.data.location?.origin ?? "") : "";
+}
+
 export const env = createEnv({
   clientPrefix: "VITE_",
   client: {
@@ -19,9 +30,7 @@ export const env = createEnv({
     VITE_SERVER_URL: z
       .url()
       .optional()
-      .transform(
-        (v) => v ?? (globalThis as { location?: { origin?: string } }).location?.origin ?? "",
-      ),
+      .transform((v) => v ?? browserOrigin()),
     // NOTE: VITE_AUTH_SOCIAL_PROVIDERS used to live here, listing the enabled
     // SSO providers so the sign-in form knew which buttons to render. It was
     // removed because it was baked in at `vite build`: a self-hoster running

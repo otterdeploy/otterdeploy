@@ -122,7 +122,7 @@ export async function findContainer(docker: Docker, name: string): Promise<Summa
   if (list.isErr()) throw list.error;
   // Name filter is a substring match, pin to the exact `/name`.
   const found = list.value.find((c) => c.Names?.some((n) => n === `/${name}` || n === name));
-  return (found as Summary | undefined) ?? null;
+  return found ?? null;
 }
 
 export async function removeContainerByName(docker: Docker, name: string): Promise<void> {

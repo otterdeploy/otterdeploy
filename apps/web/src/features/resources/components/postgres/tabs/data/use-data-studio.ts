@@ -134,7 +134,8 @@ function useTableData(resource: Resource) {
   };
   // Switch back to the (primary) table-browse view from the SQL playground.
   const backToTable = () => {
-    if (!selected && tables.length > 0) openTable(tables[0] as TableRef);
+    const first = tables[0];
+    if (!selected && first) openTable(first);
     else setMode("table");
   };
   const changeFilters = (next: Filter[]) => {

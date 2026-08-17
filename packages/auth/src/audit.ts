@@ -85,7 +85,21 @@ export function createAuthAuditHook({
   // nameable type to the exported `auth` object's shape.
 }): AuthMiddleware {
   return createAuthMiddleware(async (rawCtx) => {
-    const ctx = rawCtx as unknown as AuthHookContext;
+    // Re-shaped field by field rather than asserted: every property below is
+    // checked against AuthHookContext by the annotation, so a better-auth
+    // upgrade that changes the hook context shape fails here at compile time.
+    const ctx: AuthHookContext = {
+      path: rawCtx.path,
+      body: rawCtx.body,
+      request: rawCtx.request,
+      headers: rawCtx.headers,
+      context: {
+        returned: rawCtx.context.returned,
+        newSession: rawCtx.context.newSession,
+        session: rawCtx.context.session,
+        options: rawCtx.context.options,
+      },
+    };
     try {
       await recordAuthEvent(ctx, resolveOrganizationId);
     } catch (cause) {
@@ -199,8 +213,8 @@ function buildTarget(
 
 /** The submitted address on an attempt that never reached a session. */
 function readEmail(body: unknown): string | null {
-  if (typeof body !== "object" || body === null) return null;
-  return clip((body as { email?: unknown }).email, MAX_EMAIL);
+  if (typeof body !== "object" || body === null || !("email" in body)) return null;
+  return clip(body.email, MAX_EMAIL);
 }
 
 /** Attribute a failed attempt to the targeted account's org, when it exists. */

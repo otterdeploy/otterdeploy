@@ -48,7 +48,8 @@ export const AUTO_WRITE = { dontUpdateMeta: true, dontRunListeners: true } as co
 
 // Typed context hook. Step files call this to get a fully-typed form.
 // useTypedAppFormContext takes the same props as useAppForm to infer TFormData,
-// but at runtime it just reads from the context (the _props are only for inference).
+// but at runtime it just reads from the context (the _props are only for
+// inference, and TFormData is given explicitly, so the options stay empty).
 export function useFormContext() {
   return formHook.useTypedAppFormContext<
     ResourceFormState,
@@ -63,5 +64,5 @@ export function useFormContext() {
     undefined,
     undefined,
     undefined
-  >({ defaultValues: {} as ResourceFormState });
+  >({});
 }

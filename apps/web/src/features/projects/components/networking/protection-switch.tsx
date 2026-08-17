@@ -5,12 +5,15 @@
  * back (with a toast) if the server rejects.
  */
 
-import type { ProxyRouteId } from "@otterdeploy/shared/id";
-
+import { zId } from "@otterdeploy/shared/id";
 import { toast } from "sonner";
 
 import { proxyRoutesCollection } from "@/features/projects/data/proxy-routes";
 import { Switch } from "@/shared/components/ui/switch";
+
+/** Callers hand routes around as `{ id: string }`; parse back to the branded
+ *  id at the collection boundary instead of asserting. */
+const routeIdSchema = zId("rt");
 
 /**
  * The word beside the switch, in a box sized to the longer of the two states.
@@ -35,7 +38,7 @@ export function ProtectionSwitch({
   projectId: string;
 }) {
   const onToggle = (checked: boolean) => {
-    const tx = proxyRoutesCollection.update(route.id as ProxyRouteId, (draft) => {
+    const tx = proxyRoutesCollection.update(routeIdSchema.parse(route.id), (draft) => {
       draft.protected = checked;
     });
     tx.isPersisted.promise

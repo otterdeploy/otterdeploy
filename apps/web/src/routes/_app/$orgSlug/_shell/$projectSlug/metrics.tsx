@@ -11,7 +11,6 @@ import {
   RESOURCE_DETAIL_MAX_MINUTES,
   type ProjectMetricWindowLabel,
 } from "@/features/resources/components/_shared/metrics/use-project-metrics";
-import type { ProjectResource } from "@/features/projects/components/graph/resource-to-node";
 import { projectIdBySlug } from "@/features/projects/data/project";
 import { resourceCollection } from "@/features/resources/data/resource";
 import { inActiveEnvironment } from "@/features/shell/environment-scope";
@@ -68,7 +67,7 @@ function RouteComponent() {
   // logical group with no container of its own. The sampler records metrics
   // under each MEMBER service's resourceId, so a stack card would always read
   // "–" while its member services already chart individually. Drop it.
-  const chartable = (resources as ProjectResource[]).filter((r) => r.type !== "compose");
+  const chartable = resources.filter((r) => r.type !== "compose");
 
   const [window, setWindow] = useState<ProjectMetricWindowLabel>("30m");
   const minutes =
@@ -90,8 +89,9 @@ function RouteComponent() {
         <ToggleGroup
           value={[window]}
           onValueChange={(next) => {
-            const v = next[0];
-            if (v) setWindow(v as ProjectMetricWindowLabel);
+            // Narrow the free-form toggle value back to a known window label.
+            const match = PROJECT_METRIC_WINDOWS.find((w) => w.label === next[0]);
+            if (match) setWindow(match.label);
           }}
           variant="outline"
           size="sm"

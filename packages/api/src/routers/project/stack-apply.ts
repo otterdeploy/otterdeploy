@@ -8,11 +8,12 @@
  * a reason). After the walk, the saved file is promoted to
  * `lastAppliedFile` and `lastAppliedAt` is stamped.
  */
-import type { OrganizationId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
 import { project } from "@otterdeploy/db/schema/project";
+import { zId } from "@otterdeploy/shared/id";
 import { Result, TaggedError } from "better-result";
 import { eq } from "drizzle-orm";
 
@@ -109,6 +110,13 @@ async function applyServiceFromStack(
     return { kind: "skipped", reason: "database service missing engine" };
   }
 
+  // The stack schema keeps `resourceId` a plain string (the file is
+  // user-editable YAML); validate the id shape here, at the boundary.
+  const resourceId = zId("res").safeParse(ext.resourceId);
+  if (!resourceId.success) {
+    return { kind: "skipped", reason: `invalid resourceId "${ext.resourceId}"` };
+  }
+
   const adapter = getEngineAdapter(ext.engine);
   const env = input.service.env ?? {};
   const nextExtraEnv: Record<string, string> = {};
@@ -121,7 +129,7 @@ async function applyServiceFromStack(
     {
       projectId: input.projectId,
       organizationId: input.organizationId,
-      resourceId: ext.resourceId as ResourceId,
+      resourceId: resourceId.data,
       nextExtraEnv,
     },
     log,

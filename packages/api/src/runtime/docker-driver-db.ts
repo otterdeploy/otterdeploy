@@ -6,9 +6,9 @@
  */
 
 import type { CreateContainerOptions, HostConfig } from "@otterdeploy/docker";
-import type { DeploymentId } from "@otterdeploy/shared/id";
 
 import { Docker } from "@otterdeploy/docker";
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import type { DatabaseSpec, DatabaseStatus } from "./types";
 
@@ -101,9 +101,12 @@ export async function runDatabase(input: DatabaseSpec): Promise<DatabaseStatus> 
   // image download otherwise looks like a hung deploy (container missing, no
   // output anywhere), and recent log lines keep the zero-task stale check
   // from flipping a slow pull to "failed".
-  const deployLog = input.deploymentId
-    ? createStackDeployLog(input.deploymentId as DeploymentId)
-    : nullStackDeployLog;
+  // `DatabaseSpec.deploymentId` is a plain string; recover the brand with a
+  // real prefix check instead of a cast.
+  const deployLog =
+    input.deploymentId && hasPrefix(input.deploymentId, ID_PREFIX.deployment)
+      ? createStackDeployLog(input.deploymentId)
+      : nullStackDeployLog;
   try {
     await pullImage(docker, options.Image, (line) => deployLog.line(line));
   } finally {

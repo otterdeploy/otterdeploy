@@ -10,8 +10,13 @@
 
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import * as z from "zod";
 
 import type { LogSink } from "./log-stream";
+
+/** Only `packageManager` is read/rewritten; loose so every other key survives
+ *  the parse → mutate → re-serialize round-trip untouched. */
+const packageJsonSchema = z.looseObject({ packageManager: z.string().optional() });
 
 /** Lowest bun version we'll build with. bun 1.3.1 (and earlier 1.3.x) abort
  *  `bun install` on Linux ARM64 while building optional native deps
@@ -52,7 +57,7 @@ export async function applyPackageManager(
     return;
   }
 
-  const pkg = JSON.parse(raw) as { packageManager?: string };
+  const pkg = packageJsonSchema.parse(JSON.parse(raw));
   const previous = pkg.packageManager;
   const pinned = resolvePackageManager(override, previous, sink);
   if (!pinned || pinned === previous) return;

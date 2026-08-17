@@ -14,7 +14,7 @@
  * a `system` log line marking the image-ready point.
  */
 
-import type { DeploymentId } from "@otterdeploy/shared/id";
+import type { DeploymentId, ResourceId } from "@otterdeploy/shared/id";
 
 import { publishResourceChanged } from "@otterdeploy/api/routers/project/project-event-bus";
 import { db } from "@otterdeploy/db";
@@ -32,10 +32,10 @@ const stripAnsi = (s: string): string => (s.includes("\x1b") ? s.replace(ANSI, "
  *  Build-phase transitions happen in THIS process and produce no docker event,
  *  so without the publish the UI only notices on its 5s poll fallback.
  *  Fire-and-forget: publishResourceChanged swallows its own errors. */
-function publishFor(rows: Array<{ resourceId: string }>): void {
+function publishFor(rows: Array<{ resourceId: ResourceId }>): void {
   const resourceId = rows[0]?.resourceId;
   if (resourceId) {
-    void publishResourceChanged(resourceId as Parameters<typeof publishResourceChanged>[0]);
+    void publishResourceChanged(resourceId);
   }
 }
 

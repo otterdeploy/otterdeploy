@@ -123,7 +123,12 @@ export function useCutoverRecovery(target: string, outcome: Outcome): void {
       // binary reports, not a cached read model.
       const res = await fetch(`${env.VITE_SERVER_URL}/api/health`, { cache: "no-store", signal });
       if (!res.ok) throw new Error(`health ${res.status}`);
-      return (await res.json()) as { version?: string };
+      const body: unknown = await res.json();
+      const version =
+        body && typeof body === "object" && "version" in body && typeof body.version === "string"
+          ? body.version
+          : undefined;
+      return { version };
     },
     enabled: armed,
     // Across a cutover the control plane is *expected* to be unreachable, so a

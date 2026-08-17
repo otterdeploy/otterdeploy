@@ -8,8 +8,7 @@
  * read org B's private repo name/branch/tree/env files just by supplying
  * org B's `gitRepoId`.
  */
-import type { GitRepoId, OrganizationId } from "@otterdeploy/shared/id";
-
+import { idSchema } from "@otterdeploy/shared/id";
 import { describe, expect, test, vi } from "vite-plus/test";
 
 // oxlint-disable-next-line node/no-process-env -- test env setup boundary: satisfy required vars so the module graph (which imports @otterdeploy/db) loads.
@@ -67,9 +66,10 @@ vi.mock("@otterdeploy/db", () => ({
 
 const { getRepoForOrg } = await import("../queries");
 
-const orgA = "org_a" as OrganizationId;
-const orgB = "org_b" as OrganizationId;
-const repoId = "gitrepo_victim" as GitRepoId;
+// Branded the way production code brands untrusted strings: parsed, not cast.
+const orgA = idSchema.organization.parse("org_a");
+const orgB = idSchema.organization.parse("org_b");
+const repoId = idSchema.gitRepo.parse("gitr_victim");
 
 describe("getRepoForOrg (git tenant boundary: od-5j8.8)", () => {
   test("private (installation-backed) repo: same-org lookup succeeds", async () => {

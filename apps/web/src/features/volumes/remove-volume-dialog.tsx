@@ -60,8 +60,15 @@ export function RemoveVolumeDialog({
       onOpenChange(false);
     } catch (err) {
       if (err instanceof ORPCError && err.code === "IN_USE") {
-        const data = err.data as { reason?: string } | undefined;
-        toast.error(data?.reason ?? "Volume is in use");
+        const data: unknown = err.data;
+        const reason =
+          typeof data === "object" &&
+          data !== null &&
+          "reason" in data &&
+          typeof data.reason === "string"
+            ? data.reason
+            : null;
+        toast.error(reason ?? "Volume is in use");
       } else if (err instanceof ORPCError && err.code === "NOT_FOUND") {
         // Already gone (raced a prune / another operator): refresh handled
         // by the data layer's invalidation.

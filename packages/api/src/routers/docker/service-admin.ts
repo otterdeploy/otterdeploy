@@ -59,7 +59,7 @@ export async function tailContainerLogs(id: string, tail: number): Promise<Liste
   // multiplex framing. Inspect first so we pick the right parser.
   const inspected = await container.inspect();
   if (inspected.isErr()) return failure(inspected.error);
-  const tty = Boolean((inspected.value as { Config?: { Tty?: boolean } }).Config?.Tty);
+  const tty = Boolean(inspected.value.Config?.Tty);
 
   const logsResult = await container.logs({
     follow: false,
@@ -127,7 +127,9 @@ export async function pruneImages(): Promise<
   // tagged images (that would eat the deploy cache).
   const result = await docker.images.prune({ filters: { dangling: ["true"] } });
   if (result.isErr()) return failure(result.error);
-  const deleted = result.value.ImagesDeleted as Array<unknown> | null | undefined;
+  // PruneResponse only types SpaceReclaimed; ImagesDeleted arrives through its
+  // index signature as `unknown`, and Array.isArray below is the real check.
+  const deleted = result.value.ImagesDeleted;
   return {
     ok: true,
     items: {

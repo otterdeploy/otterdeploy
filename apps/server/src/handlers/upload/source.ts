@@ -1,4 +1,3 @@
-import type { OrganizationId, ResourceId } from "@otterdeploy/shared/id";
 import type { Context } from "hono";
 
 import { resolveRequestActor } from "@otterdeploy/api/authz/actor";
@@ -12,6 +11,7 @@ import {
   triggerUploadBuild,
 } from "@otterdeploy/api/routers/project/upload-source";
 import { MAX_SOURCE_UPLOAD_BYTES } from "@otterdeploy/api/security/body-limit";
+import { idSchema } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 
 /**
@@ -74,10 +74,18 @@ export async function uploadSourceHandler(c: Context): Promise<Response> {
     return c.json({ error: "An active organization is required." }, 403);
   }
 
-  const resourceId = c.req.param("resourceId") as ResourceId;
+  // Brand both ids at the boundary. A malformed resource id can never match a
+  // row, and a malformed org id owns nothing, so a parse failure is the same
+  // 404 the lookup below would have answered.
+  const parsedResourceId = idSchema.resource.safeParse(c.req.param("resourceId"));
+  const parsedOrganizationId = idSchema.organization.safeParse(organizationId);
+  if (!parsedResourceId.success || !parsedOrganizationId.success) {
+    return c.json({ error: "service not found" }, 404);
+  }
+  const resourceId = parsedResourceId.data;
   const target = await resolveUploadSourceTarget({
     resourceId,
-    organizationId: organizationId as OrganizationId,
+    organizationId: parsedOrganizationId.data,
   });
   if (!target) {
     return c.json({ error: "service not found" }, 404);

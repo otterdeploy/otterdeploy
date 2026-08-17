@@ -14,7 +14,7 @@ import type { ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { composeResource, resource, serviceResource } from "@otterdeploy/db/schema/project";
-import { Docker } from "@otterdeploy/docker";
+import { Docker, type Task } from "@otterdeploy/docker";
 import { Result } from "better-result";
 import { eq } from "drizzle-orm";
 
@@ -109,12 +109,12 @@ function buildSwarmNameToOwner(
 
 // Tasks identify their service by name via Spec.Name, falling back to the swarm
 // label docker echoes for the service name we filtered by.
-function resolveTaskServiceName(task: unknown): string | null {
-  return (
-    (task as { Spec?: { Name?: string } }).Spec?.Name ??
-    (task as { Labels?: Record<string, string> }).Labels?.["com.docker.swarm.service.name"] ??
-    null
-  );
+function resolveTaskServiceName(task: Task): string | null {
+  // Task.Spec is a loose Record in the docker client's types, so the name has
+  // to be narrowed rather than assumed.
+  const specName = task.Spec?.Name;
+  if (typeof specName === "string") return specName;
+  return task.Labels?.["com.docker.swarm.service.name"] ?? null;
 }
 
 interface TaskStatusFields {
@@ -136,8 +136,8 @@ interface DockerTaskStatus {
 }
 
 // Normalize a docker task's `Status` block, mapping every missing field to null.
-function readTaskStatus(task: unknown): TaskStatusFields {
-  const status: DockerTaskStatus = (task as { Status?: DockerTaskStatus }).Status ?? {};
+function readTaskStatus(task: Task): TaskStatusFields {
+  const status: DockerTaskStatus = task.Status ?? {};
   const container = status.ContainerStatus ?? {};
   const exitCode = container.ExitCode;
   return {
@@ -152,16 +152,16 @@ function readTaskStatus(task: unknown): TaskStatusFields {
 }
 
 // Map one docker task onto the graph's ServiceTaskInfo shape.
-function buildTaskInfo(task: unknown, owner: TaskOwner, serviceName: string): ServiceTaskInfo {
+function buildTaskInfo(task: Task, owner: TaskOwner, serviceName: string): ServiceTaskInfo {
   const status = readTaskStatus(task);
-  const slot = (task as { Slot?: number }).Slot ?? null;
-  const nodeId = (task as { NodeID?: string }).NodeID ?? null;
-  const desiredState = (task as { DesiredState?: string }).DesiredState ?? null;
+  const slot = task.Slot ?? null;
+  const nodeId = task.NodeID ?? null;
+  const desiredState = task.DesiredState ?? null;
   // For a compose sub-service, label by the compose key (not the namespaced
   // swarm name) so the group's per-service rows read cleanly.
   const labelBase = owner.service ?? serviceName;
   return {
-    id: (task as { ID?: string }).ID ?? "",
+    id: task.ID ?? "",
     slot,
     label: slot != null ? `${labelBase}.${slot}` : labelBase,
     service: owner.service,

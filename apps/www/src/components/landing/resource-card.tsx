@@ -98,6 +98,11 @@ export function ResourceCard({
   className,
   style,
 }: ResourceCardProps) {
+  // React.CSSProperties has no custom-property keys; declare the one we set,
+  // same pattern as resource-node-parts.tsx's CometStyle in the product.
+  const cometStyle: React.CSSProperties & { "--comet-color": string } = {
+    "--comet-color": pending === "delete" ? "var(--warning)" : "var(--info)",
+  };
   return (
     <div
       className={cx(
@@ -107,15 +112,7 @@ export function ResourceCard({
       style={style}
     >
       {pending ? (
-        <span
-          aria-hidden
-          className="od-comet-border z-20 rounded-2xl"
-          style={
-            {
-              "--comet-color": pending === "delete" ? "var(--warning)" : "var(--info)",
-            } as React.CSSProperties
-          }
-        />
+        <span aria-hidden className="od-comet-border z-20 rounded-2xl" style={cometStyle} />
       ) : null}
 
       {/* Header: brand tile, name over kind label, status pill. */}

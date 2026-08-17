@@ -16,10 +16,7 @@ import { SectionHeader } from "../form-primitives";
 
 export function PostgresExtensionsSection() {
   const form = useFormContext();
-  const extensions = useStore(
-    form.store,
-    (s) => (s.values.extensions as string[] | undefined) ?? [],
-  );
+  const extensions = useStore(form.store, (s) => s.values.extensions ?? []);
 
   const toggleExtension = (name: string, on: boolean) => {
     const next = on ? [...extensions, name] : extensions.filter((e) => e !== name);

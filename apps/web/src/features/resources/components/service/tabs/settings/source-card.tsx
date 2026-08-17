@@ -124,7 +124,7 @@ export function ServiceSourceCard({ resource }: { resource: ServiceBuildResource
       id: inst.id,
       label: `${p.kind}: ${inst.accountLogin}`,
       // Carried so the repository field can link out to the right provider.
-      kind: p.kind as string,
+      kind: p.kind,
     })),
   );
   const [activeInstallationId, setActiveInstallationId] = useActiveInstallation(installations);

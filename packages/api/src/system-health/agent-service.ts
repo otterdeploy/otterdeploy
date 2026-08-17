@@ -21,7 +21,7 @@
 import { db } from "@otterdeploy/db";
 import { PLATFORM_SETTINGS_ID, platformSettings } from "@otterdeploy/db/schema/platform";
 import { server } from "@otterdeploy/db/schema/server";
-import { Docker } from "@otterdeploy/docker";
+import { Docker, type ServiceCreateOptions } from "@otterdeploy/docker";
 import { env } from "@otterdeploy/env/server";
 import { eq } from "drizzle-orm";
 import { log } from "evlog";
@@ -97,7 +97,11 @@ async function resolveIngestUrl(): Promise<string | null> {
   return `http://${ip}:${port}/api/agent/health`;
 }
 
-function buildAgentServiceSpec(image: string, ingestUrl: string, token: string) {
+function buildAgentServiceSpec(
+  image: string,
+  ingestUrl: string,
+  token: string,
+): ServiceCreateOptions {
   return {
     Name: AGENT_SERVICE_NAME,
     Labels: {
@@ -149,7 +153,7 @@ async function reconcileAgentService(): Promise<void> {
     const existing = listResult.value.find((s) => s.Spec?.Name === AGENT_SERVICE_NAME);
 
     if (existing) {
-      const labels = (existing.Spec?.Labels ?? {}) as Record<string, string>;
+      const labels = existing.Spec?.Labels ?? {};
       const drifted =
         labels["otterdeploy.agent.image"] !== image ||
         labels["otterdeploy.agent.ingest"] !== ingestUrl;
@@ -164,11 +168,7 @@ async function reconcileAgentService(): Promise<void> {
     }
 
     const token = await mintAgentToken();
-    const created = await docker.services.create(
-      buildAgentServiceSpec(image, ingestUrl, token) as Parameters<
-        typeof docker.services.create
-      >[0],
-    );
+    const created = await docker.services.create(buildAgentServiceSpec(image, ingestUrl, token));
     if (created.isErr()) throw created.error;
   } finally {
     docker.destroy();

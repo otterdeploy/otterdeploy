@@ -60,7 +60,7 @@ export function SignInForm({
       void (safe ? (window.location.href = safe) : navigate({ to: "/", replace: true }));
       return;
     }
-    void navigate({ to: (redirect ?? "/") as "/", replace: true });
+    void navigate({ to: redirect ?? "/", replace: true });
   };
 
   const signIn = useMutation({
@@ -73,7 +73,7 @@ export function SignInForm({
     onSuccess: (data) => {
       // 2FA-enabled accounts get no session yet. The server signals a pending
       // challenge instead. Show the code step rather than navigating.
-      if ((data as { twoFactorRedirect?: boolean } | null)?.twoFactorRedirect) {
+      if (data && "twoFactorRedirect" in data && data.twoFactorRedirect) {
         setTwoFactorRequired(true);
         return;
       }

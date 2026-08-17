@@ -1,4 +1,4 @@
-import type { EnvironmentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
@@ -101,7 +101,7 @@ export async function cleanupOrphanedComposeVars(
   if (seededKeys.length === 0) return;
 
   const project = await getProjectById(args.projectId);
-  const environmentId = project?.environmentId as EnvironmentId | null | undefined;
+  const environmentId = project?.environmentId;
   if (!environmentId) return;
 
   const referenced = await collectReferencedKeys(args.projectId, args.deletedResourceId);

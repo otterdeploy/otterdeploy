@@ -1,5 +1,4 @@
-import type { OrganizationId, ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
-
+import { idSchema } from "@otterdeploy/shared/id";
 import { describe, expect, it } from "vite-plus/test";
 
 import type { ProjectStreamEvent } from "../project/events-stream";
@@ -7,17 +6,20 @@ import type { ProjectStreamEvent } from "../project/events-stream";
 import { toCollectionEvents } from ".";
 
 const scope = {
-  organizationId: "org_test" as OrganizationId,
-  projectId: "prj_test" as ProjectId,
+  organizationId: idSchema.organization.parse("org_test"),
+  projectId: idSchema.project.parse("prj_test"),
 };
+
+const routeId = idSchema.proxyRoute.parse("rt_test");
+const resourceId = idSchema.resource.parse("res_test");
 
 describe("toCollectionEvents", () => {
   it("converts route removals to collection deletes", () => {
     const event: ProjectStreamEvent = {
       kind: "route",
       action: "removed",
-      routeId: "rt_test" as ProxyRouteId,
-      resourceId: "res_test" as ResourceId,
+      routeId,
+      resourceId,
     };
 
     expect(toCollectionEvents(event, scope)).toEqual([
@@ -35,7 +37,7 @@ describe("toCollectionEvents", () => {
     const event: ProjectStreamEvent = {
       kind: "task",
       action: "update",
-      resourceId: "res_test" as ResourceId,
+      resourceId,
       taskId: "task_test",
       state: "running",
     };
@@ -65,7 +67,7 @@ describe("toCollectionEvents", () => {
     const event: ProjectStreamEvent = {
       kind: "resource",
       action: "removed",
-      resourceId: "res_test" as ResourceId,
+      resourceId,
     };
 
     expect(toCollectionEvents(event, scope).at(-1)).toMatchObject({

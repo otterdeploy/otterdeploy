@@ -59,11 +59,8 @@ export const statusCommand = defineCommand({
     // saved manifest?" and "is what's running the same as that manifest?" fail
     // for different reasons and have different fixes.
     section("Config");
-    detail([
-      ["project", project.slug],
-      ["manifest", `v${current.version}`],
-      ...(args.env ? ([["environment", args.env]] as Array<[string, string]>) : []),
-    ]);
+    const envRow: Array<[string, string]> = args.env ? [["environment", args.env]] : [];
+    detail([["project", project.slug], ["manifest", `v${current.version}`], ...envRow]);
     out();
 
     if (localBlob === serverBlob) {

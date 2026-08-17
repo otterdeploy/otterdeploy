@@ -123,7 +123,7 @@ async function updateOneService(
     env: resolved.values,
     // Synthesized by groupChanges when the diff for this service is env-only:
     // skip the field patch, run just the env reconcile (one container roll).
-    envOnly: (change.details as { envOnly?: boolean } | undefined)?.envOnly === true,
+    envOnly: change.details?.envOnly === true,
     log: ctx.log,
   });
   // A git service created but never successfully built sits on a `pending:*`

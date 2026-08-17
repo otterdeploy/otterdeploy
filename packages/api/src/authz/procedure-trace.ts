@@ -31,8 +31,7 @@ export const traceProcedure = orpc
     // `.route()` nor `.meta({method})`) fall back to the verb-prefix guess.
     const orpcDef = procedure["~orpc"];
     const meta: UnknownRecord | undefined = orpcDef.meta;
-    const route = orpcDef.route as { method?: string } | undefined;
-    const isRead = isReadMethod(meta, route) ?? isReadAction(action);
+    const isRead = isReadMethod(meta, orpcDef.route) ?? isReadAction(action);
     // Top-level fields keep the console/observability wide event informative.
     context.log.set({
       action,

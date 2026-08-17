@@ -175,9 +175,11 @@ function taskMessage(status: { Err?: string; Message?: string } | undefined): st
   return status?.Err || status?.Message || null;
 }
 
-function taskImage(spec: unknown): string | null {
-  const s = spec as { ContainerSpec?: { Image?: string } } | undefined;
-  return s?.ContainerSpec?.Image ?? null;
+function taskImage(spec: Record<string, unknown> | undefined): string | null {
+  const containerSpec = spec?.ContainerSpec;
+  if (typeof containerSpec !== "object" || containerSpec === null) return null;
+  const image = "Image" in containerSpec ? containerSpec.Image : undefined;
+  return typeof image === "string" ? image : null;
 }
 
 export async function listTasks(): Promise<Listed<ListedTask[]>> {
@@ -217,8 +219,8 @@ export async function listNodes(): Promise<Listed<{ swarm: boolean; nodes: Liste
         hostname: n.Description?.Hostname ?? n.ID ?? "",
         role: n.Spec?.Role ?? "worker",
         availability: n.Spec?.Availability ?? "active",
-        state: (n.Status as { State?: string } | undefined)?.State ?? "",
-        addr: (n.Status as { Addr?: string } | undefined)?.Addr ?? null,
+        state: n.Status?.State ?? "",
+        addr: n.Status?.Addr ?? null,
         leader: n.ManagerStatus?.Leader ?? false,
       })),
     },

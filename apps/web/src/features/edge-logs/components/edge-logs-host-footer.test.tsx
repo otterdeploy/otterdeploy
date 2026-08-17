@@ -11,7 +11,8 @@ function stat(host: string, over: Partial<EdgeHostStat> = {}): EdgeHostStat {
 }
 
 function render(hostStats: EdgeHostStat[]) {
-  return renderToStaticMarkup(<HostFooter data={{ hostStats } as unknown as EdgeLogsData} />);
+  const data: EdgeLogsData = { rows: [], histogram: [], hostStats, total: hostStats.length };
+  return renderToStaticMarkup(<HostFooter data={data} />);
 }
 
 /** Host rows link the domain; the fold summary does not. */

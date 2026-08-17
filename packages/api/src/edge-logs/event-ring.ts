@@ -15,11 +15,15 @@ const MAX_EVENTS = 5_000;
 
 type Subscriber = (line: EdgeEventLine) => void;
 
-const state = ((
-  globalThis as typeof globalThis & {
-    __edgeEventRing?: { buffer: EdgeEventLine[]; subscribers: Set<Subscriber> };
-  }
-).__edgeEventRing ??= { buffer: [], subscribers: new Set<Subscriber>() });
+declare global {
+  // `var` (not let/const) is what lands the declaration on `typeof globalThis`.
+  var __edgeEventRing: { buffer: EdgeEventLine[]; subscribers: Set<Subscriber> } | undefined;
+}
+
+const state = (globalThis.__edgeEventRing ??= {
+  buffer: [],
+  subscribers: new Set<Subscriber>(),
+});
 
 export function pushEdgeEvent(line: EdgeEventLine): void {
   state.buffer.push(line);

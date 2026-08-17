@@ -27,7 +27,7 @@ const RESYNC_BATCH_MS = 1_000;
 
 export function useOrgEvents(): void {
   const qc = useQueryClient();
-  const params = useParams({ strict: false }) as { orgSlug?: string };
+  const params = useParams({ strict: false });
   const orgSlug = params.orgSlug;
 
   useEffect(() => {

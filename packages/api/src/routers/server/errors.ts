@@ -43,8 +43,9 @@ function describeCause(cause: unknown): string {
   if (cause == null) return "unknown error";
   if (typeof cause === "string") return cause;
   if (typeof cause === "object") {
-    const message = (cause as { message?: unknown }).message;
-    if (typeof message === "string" && message.length > 0) return message;
+    if ("message" in cause && typeof cause.message === "string" && cause.message.length > 0) {
+      return cause.message;
+    }
     try {
       return JSON.stringify(cause) ?? "unknown error";
     } catch {

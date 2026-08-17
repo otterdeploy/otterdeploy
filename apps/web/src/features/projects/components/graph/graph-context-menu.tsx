@@ -142,28 +142,28 @@ function PreviewMenuItems({
   actions: GraphContextMenuActions;
 }) {
   const pinned = preview.pinned === true;
+  // Consts so the null checks below narrow inside the onClick closures.
+  const { url, prUrl } = preview;
   return (
     <>
       <DropdownMenuItem onClick={() => actions.onOpen(node)}>
         <HugeiconsIcon icon={SquareArrowExpand01Icon} strokeWidth={2} />
         Open details
       </DropdownMenuItem>
-      {preview.url ? (
-        <DropdownMenuItem onClick={() => window.open(preview.url as string, "_blank", "noopener")}>
+      {url ? (
+        <DropdownMenuItem onClick={() => window.open(url, "_blank", "noopener")}>
           <HugeiconsIcon icon={SquareArrowExpand01Icon} strokeWidth={2} />
           Visit preview
         </DropdownMenuItem>
       ) : null}
-      {preview.prUrl ? (
-        <DropdownMenuItem
-          onClick={() => window.open(preview.prUrl as string, "_blank", "noopener")}
-        >
+      {prUrl ? (
+        <DropdownMenuItem onClick={() => window.open(prUrl, "_blank", "noopener")}>
           <HugeiconsIcon icon={SquareArrowExpand01Icon} strokeWidth={2} />
           Open pull request
         </DropdownMenuItem>
       ) : null}
-      {preview.url ? (
-        <DropdownMenuItem onClick={() => actions.onCopyUrl(preview.url as string)}>
+      {url ? (
+        <DropdownMenuItem onClick={() => actions.onCopyUrl(url)}>
           <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
           Copy preview URL
         </DropdownMenuItem>

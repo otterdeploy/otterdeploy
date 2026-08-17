@@ -40,7 +40,7 @@ function useInspectQuery(repo: string, root: string): Detection {
 /** Step-view accessor (needs a mounted form context), for detection hints. */
 export function useRepoDetection(): Detection {
   const form = useFormContext();
-  const repo = useStore(form.store, (s) => s.values.repo as string);
-  const root = useStore(form.store, (s) => s.values.root as string);
+  const repo = useStore(form.store, (s) => s.values.repo);
+  const root = useStore(form.store, (s) => s.values.root);
   return useInspectQuery(repo, root);
 }

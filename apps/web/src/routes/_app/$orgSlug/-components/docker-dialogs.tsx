@@ -52,6 +52,16 @@ export interface InspectQueryLike {
   refetch: () => void;
 }
 
+/** Message off an unknown error value, mirroring what optional-chaining a
+ *  `.message` property did: present-and-string or nothing. */
+function errorMessage(error: unknown): string | undefined {
+  if (error && typeof error === "object" && "message" in error) {
+    const { message } = error;
+    if (typeof message === "string") return message;
+  }
+  return undefined;
+}
+
 export function InspectDialog({
   open,
   onOpenChange,
@@ -99,7 +109,7 @@ export function InspectDialog({
           ) : query.isError ? (
             <ErrorState
               title="Inspect failed"
-              message={(query.error as Error | null)?.message}
+              message={errorMessage(query.error)}
               onRetry={() => query.refetch()}
             />
           ) : (
@@ -186,7 +196,7 @@ export function ContainerLogsDialog({
             </div>
           ) : logs.isError ? (
             <p className="font-mono text-xs text-red-300/90">
-              {(logs.error as Error | null)?.message ?? "Couldn't fetch logs."}
+              {errorMessage(logs.error) ?? "Couldn't fetch logs."}
             </p>
           ) : lines.length === 0 ? (
             <p className="font-mono text-xs text-terminal-foreground/40">No log output.</p>

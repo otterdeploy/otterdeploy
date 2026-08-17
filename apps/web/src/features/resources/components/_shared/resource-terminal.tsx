@@ -33,8 +33,9 @@ export type ResourceTerminalMatch =
       /** Engine label expected on the container. Terminal-targets
        *  stamps this from `otterdeploy.resource.type`. Drives whether the
        *  shell can attach (only running containers with the matching
-       *  engine label show up). */
-      engine: "postgres" | "redis" | "mariadb" | "mongodb";
+       *  engine label show up; engines the terminal backend doesn't list,
+       *  e.g. clickhouse, simply never match and render the fallback). */
+      engine: "postgres" | "redis" | "mariadb" | "mongodb" | "clickhouse";
       serviceName: string;
     };
 

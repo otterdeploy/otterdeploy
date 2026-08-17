@@ -262,7 +262,7 @@ async function applyReal(target: string): Promise<void> {
       Binds: ["/var/run/docker.sock:/var/run/docker.sock", `${installDir}:${installDir}`],
       RestartPolicy: { Name: "no" },
     },
-  } as Parameters<Docker["containers"]["create"]>[0]);
+  });
   if (created.isErr()) {
     state.finish(false, `Could not create update helper: ${errText(created.error)}`);
     return;
@@ -339,7 +339,7 @@ async function readHelperLogs(
 ): Promise<string> {
   const res = await container.logs({ follow: false, stdout: true, stderr: true, tail: "40" });
   if (res.isErr()) return "";
-  const { stdout, stderr } = demuxStream(res.value as Readable);
+  const { stdout, stderr } = demuxStream(res.value);
   const [out, err] = await Promise.all([collect(stdout), collect(stderr)]);
   const text = `${out.toString("utf8")}${err.toString("utf8")}`.trim();
   return text ? `Helper output:\n${text.slice(-1500)}` : "";

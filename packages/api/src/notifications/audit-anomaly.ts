@@ -1,7 +1,6 @@
-import type { OrganizationId } from "@otterdeploy/shared/id";
-
 import { db } from "@otterdeploy/db";
 import { auditLog } from "@otterdeploy/db/schema";
+import { idSchema } from "@otterdeploy/shared/id";
 /**
  * Audit-anomaly detector: a periodic, conservative scan over recent `audit_log`
  * rows that emits `audit.anomaly` on a small, high-signal rule set. Runs on a
@@ -61,8 +60,13 @@ async function emitAnomaly(
   message: string,
   data: Record<string, string>,
 ): Promise<void> {
+  // audit_log.organization_id is a plain text column: brand it at this
+  // boundary. An unparseable id can't be routed to an org, so skip it, the
+  // same policy as the isNotNull filters upstream.
+  const orgId = idSchema.organization.safeParse(organizationId);
+  if (!orgId.success) return;
   await emitPlatformEvent({
-    organizationId: organizationId as OrganizationId,
+    organizationId: orgId.data,
     eventId: "audit.anomaly",
     title,
     message,

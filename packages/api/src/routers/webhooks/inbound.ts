@@ -1,4 +1,3 @@
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { JsonObject } from "@otterdeploy/shared/json";
 import type { RequestLogger } from "evlog";
 
@@ -106,7 +105,10 @@ export async function handleInboundInvocation(req: InboundRequest): Promise<Inbo
     return { status: 200, body: { ok: true, action: "none" } };
   }
 
-  if (!ctx.service || !ctx.projectId || !ctx.projectSlug) {
+  // Destructured to consts so the null-check narrowing survives into the
+  // `Result.tryPromise` closure below (narrowing on `ctx.*` would not).
+  const { service, projectId, projectSlug } = ctx;
+  if (!service || !projectId || !projectSlug) {
     // Bound service was deleted (FK SET NULL) or never set, record only.
     return {
       status: 200,
@@ -115,13 +117,7 @@ export async function handleInboundInvocation(req: InboundRequest): Promise<Inbo
   }
 
   const redeployed = await Result.tryPromise({
-    try: () =>
-      redeployAndFanOut(
-        ctx.projectId as ProjectId,
-        ctx.service?.resourceId as ResourceId,
-        ctx.projectSlug as string,
-        log,
-      ),
+    try: () => redeployAndFanOut(projectId, service.resourceId, projectSlug, log),
     catch: (cause) => (cause instanceof Error ? cause.message : String(cause)),
   });
   const flattened = redeployed.isOk()
@@ -135,7 +131,7 @@ export async function handleInboundInvocation(req: InboundRequest): Promise<Inbo
     return { status: 502, body: { ok: false, action: "redeploy", error: flattened } };
   }
 
-  return { status: 200, body: { ok: true, action: "redeploy", service: ctx.service.resourceName } };
+  return { status: 200, body: { ok: true, action: "redeploy", service: service.resourceName } };
 }
 
 /** First 6 chars of the token for logs: enough to correlate, useless to replay. */

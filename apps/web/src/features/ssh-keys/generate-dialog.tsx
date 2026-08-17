@@ -34,6 +34,25 @@ const KEY_TYPES: { value: SshKeyType; label: string; sub: string }[] = [
   { value: "rsa", label: "rsa-4096", sub: "Legacy · maximum compatibility" },
 ];
 
+/** The radio group can only emit values from KEY_TYPES; check for real. */
+function isSshKeyType(v: unknown): v is SshKeyType {
+  return KEY_TYPES.some((k) => k.value === v);
+}
+
+interface GenerateKeyFormValues {
+  name: string;
+  type: SshKeyType;
+  comment: string;
+  passphrase: string;
+}
+
+const DEFAULT_VALUES: GenerateKeyFormValues = {
+  name: "",
+  type: "ed25519",
+  comment: "",
+  passphrase: "",
+};
+
 export function GenerateKeyDialog({
   open,
   onOpenChange,
@@ -53,12 +72,7 @@ export function GenerateKeyDialog({
   );
 
   const form = useForm({
-    defaultValues: {
-      name: "",
-      type: "ed25519" as SshKeyType,
-      comment: "",
-      passphrase: "",
-    },
+    defaultValues: DEFAULT_VALUES,
     onSubmit: async ({ value }) => {
       try {
         await generate.mutateAsync({
@@ -194,7 +208,7 @@ function KeyTypeOptions({
       <Label>{t("sshKeys.keyType")}</Label>
       <RadioGroup
         value={value}
-        onValueChange={(v) => typeof v === "string" && onChange(v as SshKeyType)}
+        onValueChange={(v) => isSshKeyType(v) && onChange(v)}
         className="gap-2"
       >
         {KEY_TYPES.map((t) => (

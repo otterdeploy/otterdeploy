@@ -4,7 +4,7 @@ import { env } from "@otterdeploy/env/server";
 import { type UnknownRecord, isJsonObject } from "@otterdeploy/shared/json";
 import { withTimeout } from "@otterdeploy/shared/promise";
 import { Result } from "better-result";
-import { Table, getTableName } from "drizzle-orm";
+import { getTableName, type Table } from "drizzle-orm";
 import { Cache, type MutationOption } from "drizzle-orm/cache/core";
 import { entityKind } from "drizzle-orm/entity";
 import { log as globalLog } from "evlog";
@@ -138,7 +138,10 @@ export class RedisCache extends Cache {
     const raw = result.value;
     if (raw == null) return undefined;
     try {
-      return JSON.parse(raw, reviveRichValues) as unknown[];
+      const parsed: unknown = JSON.parse(raw, reviveRichValues);
+      // Only query-result arrays are ever cached (put() serializes driver
+      // rows); anything else is a corrupt/foreign key, so degrade to a miss.
+      return Array.isArray(parsed) ? parsed : undefined;
     } catch (error) {
       globalLog.warn({
         message: "[cache] Cached value failed to parse; treating as cache miss",
@@ -204,7 +207,9 @@ export class RedisCache extends Cache {
         : [];
 
     const tableNames = tableInputs.map((tableInput) =>
-      typeof tableInput === "string" ? tableInput : getTableName(tableInput as Table),
+      // Explicit <Table> pins the return to `string`; drizzle's MutationOption
+      // carries `Table<any>`, which would otherwise infer an `any` name.
+      typeof tableInput === "string" ? tableInput : getTableName<Table>(tableInput),
     );
 
     // Endpoint-level API caches register themselves under the same dependency

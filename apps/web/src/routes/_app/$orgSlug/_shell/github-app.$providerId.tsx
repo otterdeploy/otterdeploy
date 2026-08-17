@@ -1,5 +1,4 @@
-import type { GitProviderId } from "@otterdeploy/shared/id";
-
+import { idSchema } from "@otterdeploy/shared/id";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -16,14 +15,22 @@ import { Spinner } from "@/shared/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
 import { orpc, queryClient } from "@/shared/server/orpc";
 
+// Never fetched: the query is disabled whenever the URL's id fails to parse,
+// so this branded stand-in only satisfies the input type.
+const INVALID_PROVIDER_ID = idSchema.gitProvider.parse("gitp_invalid");
+
 export const Route = createFileRoute("/_app/$orgSlug/_shell/github-app/$providerId")({
   staticData: { crumb: "GitHub App" },
   component: GitProviderDetailRoute,
   loader: ({ params }) => {
+    // Best-effort prefetch: a malformed id in the URL just skips it (the
+    // component surfaces the error state).
+    const providerId = idSchema.gitProvider.safeParse(params.providerId);
+    if (!providerId.success) return;
     void queryClient
       .prefetchQuery(
         orpc.git.getProvider.queryOptions({
-          input: { providerId: params.providerId as GitProviderId },
+          input: { providerId: providerId.data },
         }),
       )
       .catch(() => undefined);
@@ -31,12 +38,19 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/github-app/$provider
 });
 
 function GitProviderDetailRoute() {
-  const { orgSlug, providerId } = Route.useParams();
+  const { orgSlug, providerId: rawProviderId } = Route.useParams();
   const navigate = useNavigate();
 
-  const query = useQuery(
-    orpc.git.getProvider.queryOptions({ input: { providerId: providerId as GitProviderId } }),
-  );
+  // Brand the URL param at this boundary. On a malformed id the query stays
+  // disabled and the error state below renders, same surface as a server
+  // rejection.
+  const parsedProviderId = idSchema.gitProvider.safeParse(rawProviderId);
+  const providerId = parsedProviderId.success ? parsedProviderId.data : INVALID_PROVIDER_ID;
+
+  const query = useQuery({
+    ...orpc.git.getProvider.queryOptions({ input: { providerId } }),
+    enabled: parsedProviderId.success,
+  });
 
   const del = useMutation({
     ...orpc.git.deleteProvider.mutationOptions(),
@@ -82,7 +96,7 @@ function GitProviderDetailRoute() {
         actions={
           <DeleteButton
             pending={del.isPending}
-            onDelete={() => del.mutate({ providerId: providerId as GitProviderId })}
+            onDelete={() => del.mutate({ providerId })}
           />
         }
       />
@@ -101,7 +115,7 @@ function GitProviderDetailRoute() {
           <PermissionsTab provider={provider} />
         </TabsContent>
         <TabsContent value="resources">
-          <ResourcesTab orgSlug={orgSlug} providerId={providerId as GitProviderId} />
+          <ResourcesTab orgSlug={orgSlug} providerId={providerId} />
         </TabsContent>
       </Tabs>
     </Page>

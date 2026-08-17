@@ -45,11 +45,14 @@ export function CreateKeyDialog({
   onCreated: (apiKey: string) => void;
 }) {
   const { t } = useTranslation();
+  // Annotated so the form's `scopes` field infers the full record type rather
+  // than the empty object literal.
+  const noScopes: Record<string, string[]> = {};
   const form = useForm({
     defaultValues: {
       name: "",
       expiryIndex: DEFAULT_EXPIRY_INDEX,
-      scopes: {} as Record<string, string[]>,
+      scopes: noScopes,
     },
     onSubmit: async ({ value }) => {
       const expiresIn = EXPIRY_OPTIONS[value.expiryIndex]?.seconds ?? null;

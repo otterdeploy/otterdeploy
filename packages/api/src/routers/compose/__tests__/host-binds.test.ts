@@ -8,7 +8,10 @@
  * stack applied clean and the container crash-looped on "Could not connect to
  * any Docker Engine": an error that points at the image, not at us.
  */
+import { hasPrefix, type Id } from "@otterdeploy/shared/id";
 import { describe, expect, it } from "vite-plus/test";
+
+import type { StackReconcileContext } from "../reconcile";
 
 import { allowedHostBind } from "../../../lib/host-binds";
 import { parseCompose } from "../../../stack/compose";
@@ -31,17 +34,26 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
 `;
 
+/** Brand a fixture ID through the real prefix guard instead of casting.
+ *  Legacy spellings ("project_", "resource_") are still valid IDs. */
+function fixtureId<P extends string>(value: string, prefix: P): Id<P> {
+  if (!hasPrefix(value, prefix)) {
+    throw new Error(`fixture id "${value}" does not carry prefix "${prefix}"`);
+  }
+  return value;
+}
+
 /** A single-file stack, no materialized tree, so no stackDir. */
-const ctx = {
-  projectId: "project_1",
-  organizationId: "org_1",
+const ctx: StackReconcileContext = {
+  projectId: fixtureId("project_1", "prj"),
+  organizationId: fixtureId("org_1", "org"),
   exposedSeedServiceNames: new Set<string>(),
-  stackResourceId: "resource_1",
+  stackResourceId: fixtureId("resource_1", "res"),
   projectSlug: "store",
   stackName: "dozzle",
   projectVars: {},
   builtImages: {},
-} as unknown as Parameters<typeof toServiceFields>[1];
+};
 
 describe("allowedHostBind", () => {
   it("grants the docker socket read-only", () => {

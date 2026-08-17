@@ -21,6 +21,10 @@ type Manager = (typeof MANAGERS)[number];
 
 const STORAGE_KEY = "otterdeploy-docs-pm";
 
+function isManager(value: string): value is Manager {
+  return MANAGERS.some((m) => m === value);
+}
+
 /** Real install syntax per manager: these differ more than people remember. */
 function command(pm: Manager, pkg: string, global: boolean, dev: boolean): string {
   if (global) {
@@ -52,7 +56,7 @@ export function PackageManager({
     const frame = requestAnimationFrame(() => {
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved && (MANAGERS as readonly string[]).includes(saved)) setPm(saved as Manager);
+        if (saved && isManager(saved)) setPm(saved);
       } catch {
         // Storage disabled: the default is fine.
       }

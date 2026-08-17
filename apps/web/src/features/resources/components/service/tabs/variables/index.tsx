@@ -3,8 +3,6 @@
 // flavoured header: services don't have engine-exported keys, so this
 // is just the user env bag + a search/add header.
 
-import type { ProjectId } from "@otterdeploy/shared/id";
-
 import { useRef, useState } from "react";
 
 import { PlusSignIcon, Search01Icon } from "@hugeicons/core-free-icons";
@@ -31,7 +29,7 @@ export function ServiceVariablesTabBody({
   pending?: boolean;
   serviceName?: string;
 }) {
-  const stage = useStageManifestChange(resource.projectId as ProjectId, {
+  const stage = useStageManifestChange(resource.projectId, {
     successToast: "Variables staged. Deploy to apply.",
   });
   const onSave =

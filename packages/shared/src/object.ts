@@ -17,13 +17,17 @@
  */
 export function omitUndefined<T extends object>(
   obj: T,
-): { [K in keyof T]: Exclude<T[K], undefined> } {
-  const out = {} as { [K in keyof T]: Exclude<T[K], undefined> };
+): { [K in keyof T]: Exclude<T[K], undefined> };
+// Overloaded so the public signature keeps its precise mapped type while the
+// implementation works on an honest `Record<string, unknown>` view, with no
+// type assertions bridging the two.
+export function omitUndefined(obj: Record<string, unknown>): object {
+  const out: Record<string, unknown> = {};
   for (const key in obj) {
     if (Object.prototype.hasOwnProperty.call(obj, key)) {
       const value = obj[key];
       if (value !== undefined) {
-        out[key] = value as Exclude<T[typeof key], undefined>;
+        out[key] = value;
       }
     }
   }

@@ -9,6 +9,9 @@ import { cn } from "@/shared/lib/utils";
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const;
 
+// Typed key list so ChartStyle can iterate without widening to `string`.
+const THEME_KEYS = ["light", "dark"] as const satisfies readonly (keyof typeof THEMES)[];
+
 const INITIAL_DIMENSION = { width: 320, height: 200 } as const;
 type TooltipNameType = number | string;
 
@@ -87,20 +90,18 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
   return (
     <style
       dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
+        __html: THEME_KEYS.map(
+          (theme) => `
+${THEMES[theme]} [data-chart=${id}] {
 ${colorConfig
   .map(([key, itemConfig]) => {
-    const color = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ?? itemConfig.color;
+    const color = itemConfig.theme?.[theme] ?? itemConfig.color;
     return color ? `  --color-${key}: ${color};` : null;
   })
   .join("\n")}
 }
 `,
-          )
-          .join("\n"),
+        ).join("\n"),
       }}
     />
   );
@@ -180,6 +181,15 @@ function ChartTooltipContent({
           const key = String(nameKey ?? item.name ?? item.dataKey ?? "value");
           const itemConfig = getPayloadConfigFromPayload(config, item, key);
           const indicatorColor = color ?? item.payload?.fill ?? item.color;
+          // React.CSSProperties has no index signature for custom properties;
+          // the intersection declares the two we set, no assertion needed.
+          const indicatorStyle: React.CSSProperties & {
+            "--color-bg"?: string;
+            "--color-border"?: string;
+          } = {
+            "--color-bg": indicatorColor,
+            "--color-border": indicatorColor,
+          };
 
           acc.push(
             <div
@@ -208,12 +218,7 @@ function ChartTooltipContent({
                             "my-0.5": nestLabel && indicator === "dashed",
                           },
                         )}
-                        style={
-                          {
-                            "--color-bg": indicatorColor,
-                            "--color-border": indicatorColor,
-                          } as React.CSSProperties
-                        }
+                        style={indicatorStyle}
                       />
                     )
                   )}
@@ -318,17 +323,22 @@ function getPayloadConfigFromPayload(config: ChartConfig, payload: unknown, key:
 
   let configLabelKey: string = key;
 
-  if (key in payload && typeof payload[key as keyof typeof payload] === "string") {
-    configLabelKey = payload[key as keyof typeof payload] as string;
-  } else if (
-    payloadPayload &&
-    key in payloadPayload &&
-    typeof payloadPayload[key as keyof typeof payloadPayload] === "string"
-  ) {
-    configLabelKey = payloadPayload[key as keyof typeof payloadPayload] as string;
+  const direct = getStringField(payload, key);
+  const nested = payloadPayload ? getStringField(payloadPayload, key) : undefined;
+  if (direct !== undefined) {
+    configLabelKey = direct;
+  } else if (nested !== undefined) {
+    configLabelKey = nested;
   }
 
   return configLabelKey in config ? config[configLabelKey] : config[key];
+}
+
+/** `source[key]` when it exists and is a string; otherwise undefined. */
+function getStringField(source: object, key: string): string | undefined {
+  if (!(key in source)) return undefined;
+  const value: unknown = Reflect.get(source, key);
+  return typeof value === "string" ? value : undefined;
 }
 
 export {

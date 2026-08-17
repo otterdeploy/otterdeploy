@@ -7,10 +7,11 @@
  * separate route. Data + formatters are reused as-is from features/databases/
  * (same polled catalog query, same "–" degrade-when-unmeasured rule).
  */
-import type { ProjectSlug, ResourceId } from "@otterdeploy/shared/id";
+import type { ResourceId } from "@otterdeploy/shared/id";
 
 import { useState } from "react";
 
+import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { Link } from "@tanstack/react-router";
 
 import type { CatalogDatabase } from "@/features/databases/data";
@@ -84,7 +85,7 @@ function DatabaseStatsRow({
       to="/$orgSlug/$projectSlug/graph/$resourceId"
       params={{
         orgSlug,
-        projectSlug: db.projectSlug as ProjectSlug,
+        projectSlug: zSlug(ID_PREFIX.project).parse(db.projectSlug),
         resourceId: db.resourceId,
       }}
       className={`flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30 ${

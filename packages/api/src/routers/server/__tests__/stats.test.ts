@@ -1,5 +1,4 @@
-import type { OrganizationId } from "@otterdeploy/shared/id";
-
+import { idSchema } from "@otterdeploy/shared/id";
 import { describe, expect, test, vi } from "vite-plus/test";
 
 // ── Mocks ────────────────────────────────────────────────────────────────
@@ -17,7 +16,7 @@ vi.mock("@otterdeploy/db", () => ({
 
 import { clusterProjectPills } from "../stats";
 
-const organizationId = "org_test" as OrganizationId;
+const organizationId = idSchema.organization.parse("org_test");
 
 describe("clusterProjectPills (od-1kc.4: ghost project chips)", () => {
   test("drops a project slug that no longer exists in the DB instead of falling back to the raw slug", async () => {

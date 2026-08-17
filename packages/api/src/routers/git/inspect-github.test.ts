@@ -22,7 +22,11 @@ vi.mock("../../lib/egress-options", () => ({
   egressAllowlist: () => [],
 }));
 
-import { EgressPolicyError, egressFetch } from "@otterdeploy/shared/egress-policy";
+import {
+  EgressPolicyError,
+  egressFetch,
+  type EgressResponse,
+} from "@otterdeploy/shared/egress-policy";
 
 import {
   fetchPackageJson,
@@ -31,26 +35,28 @@ import {
   type RepoBinding,
 } from "./inspect-github";
 
-type FetchMock = ReturnType<typeof vi.fn>;
-
-function jsonResponse(body: unknown, ok = true, status = 200): Response {
+function jsonResponse(body: unknown, ok = true, status = 200): EgressResponse {
   return {
     ok,
     status,
+    url: "https://api.github.com/",
     headers: { get: () => null },
     text: async () => JSON.stringify(body),
     json: async () => body,
-  } as unknown as Response;
+    arrayBuffer: async () => new ArrayBuffer(0),
+  };
 }
 
-function textResponse(body: string, ok = true, status = 200): Response {
+function textResponse(body: string, ok = true, status = 200): EgressResponse {
   return {
     ok,
     status,
+    url: "https://api.github.com/",
     headers: { get: () => null },
     text: async () => body,
-    json: async () => JSON.parse(body) as unknown,
-  } as unknown as Response;
+    json: async (): Promise<unknown> => JSON.parse(body),
+    arrayBuffer: async () => new ArrayBuffer(0),
+  };
 }
 
 // installationGithubId: null → ghHeaders skips getInstallationToken, so
@@ -63,10 +69,11 @@ const binding: RepoBinding = {
 };
 
 describe("inspect-github fetch helpers → routed through the shared egress policy", () => {
-  let fetchMock: FetchMock;
+  // The module factory above replaced `egressFetch` with a `vi.fn()`;
+  // `vi.mocked` recovers that mock's typed surface without an assertion.
+  const fetchMock = vi.mocked(egressFetch);
 
   beforeEach(() => {
-    fetchMock = egressFetch as unknown as FetchMock;
     fetchMock.mockReset();
   });
 
@@ -84,7 +91,7 @@ describe("inspect-github fetch helpers → routed through the shared egress poli
 
     expect(snap.isOk()).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url] = fetchMock.mock.calls[0] as [string];
+    const url = fetchMock.mock.calls[0]?.[0];
     expect(url).toBe("https://api.github.com/repos/acme/widgets/git/trees/main?recursive=1");
   });
 
@@ -97,7 +104,7 @@ describe("inspect-github fetch helpers → routed through the shared egress poli
 
     expect(result).toEqual({ dependencies: { react: "^18" } });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url] = fetchMock.mock.calls[0] as [string];
+    const url = fetchMock.mock.calls[0]?.[0];
     expect(url).toBe("https://api.github.com/repos/acme/widgets/contents/package.json?ref=main");
   });
 

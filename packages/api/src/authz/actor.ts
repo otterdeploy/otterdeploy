@@ -1,6 +1,10 @@
 import { auth } from "@otterdeploy/auth";
 import { isJsonObject } from "@otterdeploy/shared/json";
 import { Result } from "better-result";
+import * as z from "zod";
+
+/** Shape of the permissions blob better-auth stores on an API key. */
+const permissionRecordSchema = z.record(z.string(), z.array(z.string()));
 
 /** Credentials minted by the Better Auth API-key plugin for OtterDeploy. */
 const API_KEY_PREFIX = "otter_";
@@ -105,10 +109,11 @@ export async function resolveRequestActor(
   if (verified.isErr() || !verified.value.valid || !verified.value.key) return null;
 
   const apiKey = verified.value.key;
+  const permissions = permissionRecordSchema.safeParse(apiKey.permissions);
   return {
     kind: "api-key",
     id: apiKey.id,
-    permissions: (apiKey.permissions ?? null) as Record<string, string[]> | null,
+    permissions: permissions.success ? permissions.data : null,
     organizationId: apiKey.referenceId ?? null,
     ...parseMetadata(apiKey.metadata),
   };

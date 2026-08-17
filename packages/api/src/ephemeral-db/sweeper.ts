@@ -5,10 +5,9 @@
  * `revokedAt`. Failures (e.g. container down) are logged and retried on the
  * next tick, never thrown.
  */
-import type { OrganizationId } from "@otterdeploy/shared/id";
-
 import { db } from "@otterdeploy/db";
 import { databaseEphemeralCredential, project, resource } from "@otterdeploy/db/schema";
+import { idSchema } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 import { and, eq, isNull, lt } from "drizzle-orm";
 import { log } from "evlog";
@@ -39,7 +38,9 @@ export async function sweepExpiredEphemeralCredentials(): Promise<void> {
     const disposed = await Result.tryPromise({
       try: async () => {
         const target = await getTarget({
-          organizationId: cred.organizationId as OrganizationId,
+          // `project.organization_id` is an unbranded text column; brand it at
+          // the read boundary. Every org id is minted by createId ("org_").
+          organizationId: idSchema.organization.parse(cred.organizationId),
           resourceId: cred.resourceId,
         });
         // Resource deleted out from under the credential → the role died with

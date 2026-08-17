@@ -91,7 +91,13 @@ async function dequeue(deploymentId: DeploymentId): Promise<boolean> {
   const jobs = await queue.getJobs(["waiting", "delayed", "paused"]);
   let removed = false;
   for (const job of jobs) {
-    const ids = (job?.data as { deploymentIds?: unknown })?.deploymentIds;
+    // BullMQ types `data` as any; treat it as the untrusted payload it is and
+    // narrow structurally instead of asserting the shape.
+    const data: unknown = job?.data;
+    const ids =
+      typeof data === "object" && data !== null && "deploymentIds" in data
+        ? data.deploymentIds
+        : undefined;
     if (!Array.isArray(ids) || !ids.includes(deploymentId)) continue;
     // Shared job: its other deployments are still wanted. Leave it queued;
     // the builder skips this one when it reads the `cancelled` row.

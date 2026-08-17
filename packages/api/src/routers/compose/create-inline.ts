@@ -108,7 +108,7 @@ export async function createInlineCompose(
     },
   });
 
-  const deploy = input.deploy
+  const deploy: ComposeCreateOutput["deploy"] = input.deploy
     ? await deployOrEnqueueInline({
         projectId: input.projectId,
         resourceId: created.value.resource.id,
@@ -116,7 +116,7 @@ export async function createInlineCompose(
         composeContent,
         log,
       })
-    : { ok: false, error: null as string | null, status: "created" };
+    : { ok: false, error: null, status: "created" };
 
   return Result.ok({
     resourceId: created.value.resource.id,

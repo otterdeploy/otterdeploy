@@ -38,7 +38,7 @@ function crumbOf(match: CrumbBearing): string | null {
   // staticData carries the generic one ("Project").
   const loaded = match.loaderData;
   if (loaded && typeof loaded === "object" && "crumb" in loaded) {
-    const value = (loaded as { crumb?: unknown }).crumb;
+    const value: unknown = loaded.crumb;
     if (typeof value === "string" && value.length > 0) return value;
   }
   const staticCrumb = match.staticData?.crumb;

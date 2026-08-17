@@ -31,12 +31,20 @@ import { I } from "../icons";
 import { imageBasename, knownImagePort } from "../image-defaults";
 import { ImageTagBrowser } from "./image-tags";
 
-const ANONYMOUS = {
+interface RegistryOption {
+  id: string;
+  displayName: string;
+  host: string;
+  sub: string;
+  brand: string | null;
+}
+
+const ANONYMOUS: RegistryOption = {
   id: "",
   displayName: "Anonymous pull",
   host: "any public registry",
   sub: "Public images (Docker Hub, GHCR public, …)",
-  brand: null as string | null,
+  brand: null,
 };
 
 type WizardForm = ReturnType<typeof useFormContext>;
@@ -77,19 +85,13 @@ function applyImageDefaults(form: WizardForm, image: string): void {
 
 export function StepImage() {
   const form = useFormContext();
-  const registryId = useStore(form.store, (s) => s.values.registry as string);
-  const image = useStore(form.store, (s) => s.values.image as string);
-  const tag = useStore(form.store, (s) => s.values.tag as string);
+  const registryId = useStore(form.store, (s) => s.values.registry);
+  const image = useStore(form.store, (s) => s.values.image);
+  const tag = useStore(form.store, (s) => s.values.tag);
 
   const { data: registries } = useLiveQuery((q) => q.from({ r: registryCollection }));
 
-  const options: Array<{
-    id: string;
-    displayName: string;
-    host: string;
-    sub: string;
-    brand: string | null;
-  }> = [
+  const options: RegistryOption[] = [
     ANONYMOUS,
     ...registries.map((r) => ({
       id: r.id,

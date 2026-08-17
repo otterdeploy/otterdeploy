@@ -299,12 +299,20 @@ export function buildDatabaseSpec(input: DatabaseSpecInput): DatabaseSpec {
     ...(resources ? { resources } : {}),
     ...(input.version ? { version: input.version } : {}),
   };
-  if (input.engine === "postgres") {
-    return {
-      engine: "postgres",
-      ...base,
-      ...(input.extensions.length > 0 ? { extensions: input.extensions } : {}),
-    } as DatabaseSpec;
+  // Exhaustive per-engine branches: each returns with a literal discriminant,
+  // which is what lets the union type check without a cast.
+  switch (input.engine) {
+    case "postgres":
+      return {
+        engine: "postgres",
+        ...base,
+        ...(input.extensions.length > 0 ? { extensions: input.extensions } : {}),
+      };
+    case "redis":
+      return { engine: "redis", ...base };
+    case "mariadb":
+      return { engine: "mariadb", ...base };
+    case "mongodb":
+      return { engine: "mongodb", ...base };
   }
-  return { engine: input.engine, ...base } as DatabaseSpec;
 }

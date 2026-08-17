@@ -26,11 +26,11 @@
  * planClone) may still reach production.
  */
 
-import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { db } from "@otterdeploy/db";
 import { resource } from "@otterdeploy/db/schema/project";
+import { hasPrefix, ID_PREFIX, type ProjectId, type ResourceId } from "@otterdeploy/shared/id";
 import { eq } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 
@@ -60,15 +60,19 @@ export async function executeClone(
 
   for (const item of plan.items) {
     try {
-      const service = await getServiceRecord(ctx.projectId, item.resourceId as ResourceId);
+      // Plan items carry plain-string ids; the runtime prefix check brands
+      // them. An id without the resource prefix can't match any row, so it
+      // reports the same "resource not found" the lookups below would.
+      if (!hasPrefix(item.resourceId, ID_PREFIX.resource)) {
+        failed.push({ sourceName: item.sourceName, reason: "resource not found" });
+        continue;
+      }
+      const service = await getServiceRecord(ctx.projectId, item.resourceId);
       if (service) {
         created.push(await cloneService(service, item.targetName, plan, ctx));
         continue;
       }
-      const database = await getDatabaseResourceRecord(
-        ctx.projectId,
-        item.resourceId as ResourceId,
-      );
+      const database = await getDatabaseResourceRecord(ctx.projectId, item.resourceId);
       if (database) {
         created.push(await cloneDatabase(database, item.targetName, ctx));
         continue;

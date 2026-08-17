@@ -48,15 +48,19 @@ function valueAt(tree: Tree, path: string): string | undefined {
   return typeof found === "string" ? found : undefined;
 }
 
-const enPaths = paths(en as Tree);
+// JSON imports are anonymous object types, so they satisfy `Tree`'s index
+// signature structurally; the annotation checks that instead of asserting it.
+const enTree: Tree = en;
+
+const enPaths = paths(enTree);
 
 /**
  * Every locale except the source of truth. Adding one here is all it takes to
  * hold it to the same bar.
  */
 const translations: ReadonlyArray<{ name: string; tree: Tree }> = [
-  { name: "de", tree: de as Tree },
-  { name: "es", tree: es as Tree },
+  { name: "de", tree: de },
+  { name: "es", tree: es },
 ];
 
 describe.each(translations)("locale parity: $name", ({ tree }) => {
@@ -80,7 +84,7 @@ describe.each(translations)("locale parity: $name", ({ tree }) => {
     const mismatched = enPaths
       .map((path) => ({
         path,
-        en: placeholders(valueAt(en as Tree, path) ?? ""),
+        en: placeholders(valueAt(enTree, path) ?? ""),
         translated: placeholders(valueAt(tree, path) ?? ""),
       }))
       .filter(({ en: a, translated: b }) => a.join(",") !== b.join(","));
@@ -97,7 +101,7 @@ describe.each(translations)("locale parity: $name", ({ tree }) => {
     // translated: it passes every parity check above while showing English.
     // Proper nouns and machine tokens legitimately match, so this only asserts
     // that the bulk of the bundle differs.
-    const identical = enPaths.filter((path) => valueAt(en as Tree, path) === valueAt(tree, path));
+    const identical = enPaths.filter((path) => valueAt(enTree, path) === valueAt(tree, path));
     expect(identical.length).toBeLessThan(enPaths.length / 2);
   });
 });

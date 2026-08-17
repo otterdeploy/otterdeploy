@@ -20,6 +20,7 @@
  */
 
 import { auth } from "@otterdeploy/auth";
+import { idSchema } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 
 import type { SsoProviderView } from "./contract";
@@ -40,7 +41,11 @@ function toProviderView(p: {
     providerId: p.providerId,
     issuer: p.issuer,
     domain: p.domain,
-    organizationId: p.organizationId as SsoProviderView["organizationId"],
+    // Brand at the boundary. The contract's output schema (`organizationIdField
+    // .nullable()`) enforces the same prefix on the way out, so parsing here
+    // fails no earlier than the response validation already would.
+    organizationId:
+      p.organizationId === null ? null : idSchema.organization.parse(p.organizationId),
     oidcConfig: p.oidcConfig
       ? {
           clientIdLastFour: p.oidcConfig.clientIdLastFour,

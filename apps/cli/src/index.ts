@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import type { CommandDef, SubCommandsDef } from "citty";
+import type { CommandDef, Resolvable, SubCommandsDef } from "citty";
 
 import { defineCommand, runMain } from "citty";
 
@@ -146,12 +146,18 @@ applyColorPreference(argv);
 const positional = argv.filter((token) => !token.startsWith("-"));
 const wantsHelp = argv.includes("--help") || argv.includes("-h");
 
-async function resolve<T>(value: T | (() => T | Promise<T>) | Promise<T>): Promise<T> {
-  return typeof value === "function" ? await (value as () => T | Promise<T>)() : await value;
+// Genuine narrowing: every T resolved here (SubCommandsDef, CommandDef) is a
+// plain object, so a function value can only be the thunk arm of Resolvable.
+function isThunk<T>(value: Resolvable<T>): value is (() => T) | (() => Promise<T>) {
+  return typeof value === "function";
+}
+
+async function resolve<T>(value: Resolvable<T>): Promise<T> {
+  return isThunk(value) ? await value() : await value;
 }
 
 async function subsOf(cmd: CommandDef): Promise<SubCommandsDef | null> {
-  const subs = (await resolve(cmd.subCommands)) as SubCommandsDef | undefined;
+  const subs = await resolve<SubCommandsDef | undefined>(cmd.subCommands);
   return subs && Object.keys(subs).length > 0 ? subs : null;
 }
 

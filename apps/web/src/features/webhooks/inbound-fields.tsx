@@ -33,7 +33,12 @@ export function TargetFields({
           className="w-full"
           id="inbound-action"
           value={action}
-          onChange={(e) => onActionChange(e.target.value as InboundAction)}
+          onChange={(e) => {
+            // The select only renders these two options; anything else is
+            // ignored rather than trusted.
+            const v = e.target.value;
+            if (v === "redeploy" || v === "none") onActionChange(v);
+          }}
         >
           <NativeSelectOption value="redeploy">{t("webhooks.redeployService")}</NativeSelectOption>
           <NativeSelectOption value="none">{t("webhooks.recordOnly")}</NativeSelectOption>

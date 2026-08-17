@@ -9,10 +9,9 @@
  * under the line cap.
  */
 
-import type { ProjectSlug } from "@otterdeploy/shared/id";
-
 import { Add01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
@@ -93,7 +92,7 @@ export function ProjectItems({ orgSlug, projects, activeProjectId, onCreateProje
             render={
               <Link
                 to="/$orgSlug/$projectSlug"
-                params={{ orgSlug, projectSlug: p.slug as ProjectSlug }}
+                params={{ orgSlug, projectSlug: zSlug(ID_PREFIX.project).parse(p.slug) }}
               />
             }
             className="gap-2"

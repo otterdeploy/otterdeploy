@@ -24,7 +24,8 @@ export function parseEnrollmentCredential(credential: string): { id: NodeEnrollm
   if (!hasPrefix(id, ID_PREFIX.nodeEnrollment)) return null;
   if (!/^[a-z0-9]+_[a-z0-9]{24}$/.test(id)) return null;
   if (!/^[A-Za-z0-9_-]{43}$/.test(secret)) return null;
-  return { id: id as NodeEnrollmentId };
+  // `hasPrefix` above already narrowed `id` to the branded NodeEnrollmentId.
+  return { id };
 }
 
 export interface SwarmInspect {

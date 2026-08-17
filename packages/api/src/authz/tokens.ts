@@ -28,6 +28,7 @@ import type { JsonObject } from "@otterdeploy/shared/json";
 
 import { env } from "@otterdeploy/env/server";
 import { base64UrlDecode, base64UrlEncode, timingSafeEqual } from "@otterdeploy/shared/crypto";
+import { isJsonObject } from "@otterdeploy/shared/json";
 
 /** Handoff token lifetime: long enough for one redirect, short enough
  *  that a leaked URL is near-useless. */
@@ -219,22 +220,28 @@ async function verify(
   const expected = await hmac(body);
   if (!timingSafeEqual(sig, expected)) return null;
 
-  let payload: TokenClaims;
+  let decoded: unknown;
   try {
-    payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(body))) as TokenClaims;
+    decoded = JSON.parse(new TextDecoder().decode(base64UrlDecode(body)));
   } catch {
     return null;
   }
+  // Claims are JSON by construction (see TokenClaims); a non-object body is
+  // not a token we minted.
+  if (!isJsonObject(decoded)) return null;
 
-  if (payload.p !== purpose) return null;
-  if (typeof payload.exp !== "number" || payload.exp < Math.floor(Date.now() / 1000)) {
+  const { p, exp } = decoded;
+  if (p !== purpose) return null;
+  if (typeof exp !== "number" || exp < Math.floor(Date.now() / 1000)) {
     return null;
   }
   // Domain binding: a token only validates against the domain it was
   // minted for. Mismatch (or missing) ⇒ reject.
-  if (payload.domain !== expectedDomain) return null;
+  if (decoded.domain !== expectedDomain) return null;
 
-  return payload;
+  // `p === purpose` held above, so re-attaching the checked envelope fields
+  // yields the narrowed TokenClaims without asserting.
+  return { ...decoded, p: purpose, exp };
 }
 
 async function hmac(input: string): Promise<string> {

@@ -81,6 +81,12 @@ export class EnvironmentDatabaseError extends TaggedError("EnvironmentDatabaseEr
  * We surface all of these so the operator log line spells out exactly what
  * postgres rejected and why.
  */
+/** Every non-null object is soundly readable as a string-keyed bag of
+ *  `unknown` values, which is all the dynamic `pick` reads below need. */
+function isUnknownRecord(value: unknown): value is UnknownRecord {
+  return typeof value === "object" && value !== null;
+}
+
 function describePgError(err: unknown): {
   cause: string;
   pgCode: string | null;
@@ -90,9 +96,8 @@ function describePgError(err: unknown): {
 } {
   const outerMessage =
     err instanceof Error ? err.message : typeof err === "string" ? err : JSON.stringify(err);
-  const pg =
-    err && typeof err === "object" && "cause" in err ? (err as { cause?: unknown }).cause : null;
-  if (!pg || typeof pg !== "object") {
+  const pg = err && typeof err === "object" && "cause" in err ? err.cause : null;
+  if (!isUnknownRecord(pg)) {
     return {
       cause: outerMessage,
       pgCode: null,
@@ -103,8 +108,10 @@ function describePgError(err: unknown): {
   }
   // A PostgresError instance, not parsed JSON. Dynamic string-keyed reads
   // over a runtime error object, so UnknownRecord is the honest type here.
-  const p = pg as UnknownRecord;
-  const pick = (k: string): string | null => (typeof p[k] === "string" ? (p[k] as string) : null);
+  const pick = (k: string): string | null => {
+    const v = pg[k];
+    return typeof v === "string" ? v : null;
+  };
   const code = pick("code");
   const detail = pick("detail");
   const constraint = pick("constraint_name") ?? pick("constraint");

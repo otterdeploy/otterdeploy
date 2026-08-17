@@ -53,7 +53,7 @@ export function ProjectSidebar({
   const { t } = useTranslation();
   // Org-scoped links use `useParams({ strict: false })` so they resolve
   // their `{ orgSlug }` regardless of which route is currently matched.
-  const params = useParams({ strict: false }) as { orgSlug?: string };
+  const params: { orgSlug?: string } = useParams({ strict: false });
   // Server-owned installation authority, resolved once in the `_app`
   // beforeLoad. Install-admin-only destinations are OMITTED for everyone else
   // rather than rendered into a 403. See the manifest's `installAdminOnly`.

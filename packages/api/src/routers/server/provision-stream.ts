@@ -12,12 +12,21 @@
 import type { ServerId } from "@otterdeploy/shared/id";
 import type { RedisClient } from "bun";
 
+import * as z from "zod";
+
 import { createRedis } from "../../lib/redis";
 
 export interface ProvisionLine {
   line: string;
   ts: string;
 }
+
+/** Wire schema for lines coming back over pub/sub. We're the sole writer, but
+ *  the payload crosses a JSON boundary, so it's parsed rather than cast. */
+const provisionLineSchema: z.ZodType<ProvisionLine> = z.object({
+  line: z.string(),
+  ts: z.string(),
+});
 
 const channel = (serverId: ServerId) => `server:${serverId}:provision`;
 /** Sentinel line that closes any attached stream, published on terminal. */
@@ -114,7 +123,7 @@ export async function* streamProvisionLogs(
 
   await subscriber.subscribe(ch, (payload) => {
     try {
-      const parsed = JSON.parse(payload) as ProvisionLine;
+      const parsed = provisionLineSchema.parse(JSON.parse(payload));
       if (parsed.line === END) ended = true;
       else buffer.push(parsed);
     } catch {

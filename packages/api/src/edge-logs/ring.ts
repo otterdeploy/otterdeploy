@@ -36,11 +36,15 @@ type Subscriber = (line: EdgeLogLine) => void;
 // re-imported query/persist modules all share ONE buffer + subscriber set
 // across `--hot` reloads. Module-local state would diverge. The sink would
 // push into a stale buffer the query never reads, silently breaking ingest.
-const state = ((
-  globalThis as typeof globalThis & {
-    __edgeLogRing?: { buffer: EdgeLogLine[]; subscribers: Set<Subscriber> };
-  }
-).__edgeLogRing ??= { buffer: [], subscribers: new Set<Subscriber>() });
+// The global slot is declared (not asserted) so reads/writes stay type-checked.
+declare global {
+  var __edgeLogRing: { buffer: EdgeLogLine[]; subscribers: Set<Subscriber> } | undefined;
+}
+
+const state = (globalThis.__edgeLogRing ??= {
+  buffer: [],
+  subscribers: new Set<Subscriber>(),
+});
 
 export function pushEdgeLog(line: EdgeLogLine): void {
   state.buffer.push(line);

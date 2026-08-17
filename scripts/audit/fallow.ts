@@ -20,10 +20,15 @@ export const FALLOW_VERSION = "3.10.0";
  * `ratchet` treats it as a hard failure, because a gate that passes when its
  * analyser is missing is not a gate.
  */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 export function fallowJson(args: string[], cwd: string): Record<string, unknown> | null {
   const read = (raw: string): Record<string, unknown> | null => {
     try {
-      return JSON.parse(raw) as Record<string, unknown>;
+      const parsed: unknown = JSON.parse(raw);
+      return isRecord(parsed) ? parsed : null;
     } catch {
       return null;
     }
@@ -42,7 +47,10 @@ export function fallowJson(args: string[], cwd: string): Record<string, unknown>
     // fallow exits non-zero whenever it finds issues, which is the normal case.
     // Its stdout is still the report we want. Only an unparseable stdout means
     // the run itself failed.
-    const stdout = (err as { stdout?: string }).stdout;
+    const stdout =
+      typeof err === "object" && err !== null && "stdout" in err && typeof err.stdout === "string"
+        ? err.stdout
+        : null;
     return stdout ? read(stdout) : null;
   }
 }

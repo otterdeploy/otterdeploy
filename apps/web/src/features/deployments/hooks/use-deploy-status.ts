@@ -21,6 +21,7 @@ import type { ProjectId } from "@otterdeploy/shared/id";
 
 import { useMemo } from "react";
 
+import { idSchema } from "@otterdeploy/shared/id";
 import { useQuery } from "@tanstack/react-query";
 
 import type { MarkStatus } from "@/shared/components/brand/mark-geometry";
@@ -35,6 +36,9 @@ import { orpc } from "@/shared/server/orpc";
  * fighting over the tab.
  */
 const IN_FLIGHT: ReadonlySet<string> = new Set(["pending", "building", "starting"]);
+
+/** Branded stand-in for the disabled-query state (no project selected). */
+const NO_PROJECT_PLACEHOLDER = idSchema.project.parse("prj_none");
 
 /**
  * How long a failure keeps the tab red. A failed deployment row stays failed
@@ -104,7 +108,10 @@ export function rollupDeployStatus(rows: readonly DeployRow[], now: number): Mar
 export function useProjectDeployStatus(projectId: ProjectId | null | undefined): MarkStatus {
   const query = useQuery({
     ...orpc.deployment.listByProject.queryOptions({
-      input: { projectId: projectId ?? ("" as ProjectId), limit: PAGE },
+      // The placeholder id only exists to satisfy the input type while there is
+      // no project: `enabled` gates the fetch, and the queryKey below is
+      // overridden, so it is never sent anywhere.
+      input: { projectId: projectId ?? NO_PROJECT_PLACEHOLDER, limit: PAGE },
     }),
     enabled: Boolean(projectId),
     // Deliberately its own cache entry, not the deployments page's. That query

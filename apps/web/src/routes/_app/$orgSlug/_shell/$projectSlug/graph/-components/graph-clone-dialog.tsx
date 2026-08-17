@@ -14,7 +14,9 @@ import {
 } from "@/features/projects/components/graph/clone-dialog";
 import type { ResourceFlowNode } from "@/features/projects/components/graph/resource-node-types";
 
-const CLONEABLE = new Set(["service", "database", "compose"]);
+function cloneableKind(kind: ResourceFlowNode["data"]["kind"]): CloneCandidate["kind"] | null {
+  return kind === "service" || kind === "database" || kind === "compose" ? kind : null;
+}
 
 export function GraphCloneDialog({
   projectId,
@@ -29,13 +31,12 @@ export function GraphCloneDialog({
   onClose: () => void;
 }) {
   // A ghost or unapplied node has no resourceId. There is nothing to copy.
-  const candidates: CloneCandidate[] = nodes
-    .filter((n) => !!n.data.resourceId && CLONEABLE.has(n.data.kind))
-    .map((n) => ({
-      resourceId: n.data.resourceId as string,
-      name: n.data.name,
-      kind: n.data.kind as CloneCandidate["kind"],
-    }));
+  const candidates: CloneCandidate[] = nodes.flatMap((n) => {
+    const { resourceId, name } = n.data;
+    const kind = cloneableKind(n.data.kind);
+    if (!resourceId || !kind) return [];
+    return [{ resourceId, name, kind }];
+  });
 
   return (
     <CloneDialog

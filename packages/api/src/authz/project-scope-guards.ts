@@ -52,9 +52,15 @@ function scopeIrrelevant(context: Context): boolean {
 
 /** Active org id, narrowed to non-null. Guards only run inside org-scoped
  *  procedures (orgScopedMiddleware already threw NO_ACTIVE_ORGANIZATION
- *  otherwise), so this is sound. */
+ *  otherwise), so the throw below is unreachable in practice. */
 function orgId(context: Context): OrganizationId {
-  return context.activeOrganizationId as OrganizationId;
+  const id = context.activeOrganizationId;
+  if (id === null) {
+    throw new ORPCError("FORBIDDEN", {
+      message: "No active organization for a project-scope check.",
+    });
+  }
+  return id;
 }
 
 /**

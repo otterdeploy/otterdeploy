@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import browserCollections from "collections/browser";
+import type { PageData } from "fumadocs-core/source";
 import { useFumadocsLoader } from "fumadocs-core/source/client";
 import type { OpenAPIPageData } from "fumadocs-openapi/server";
 import { DocsLayout } from "fumadocs-ui/layouts/docs";
@@ -48,6 +49,13 @@ export const Route = createFileRoute("/docs/$")({
   },
 });
 
+// `staticSource` widens the page-data union to `PageData`; this recovers the
+// OpenAPI shape the `openapi` page type guarantees at runtime by checking for
+// its distinguishing member.
+function isOpenAPIPageData(data: PageData): data is OpenAPIPageData {
+  return "getOpenAPIPageProps" in data && typeof data.getOpenAPIPageProps === "function";
+}
+
 const serverLoader = createServerFn({ method: "GET" })
   .validator((slugs: string[]) => slugs)
   .handler(async ({ data: slugs }) => {
@@ -58,10 +66,11 @@ const serverLoader = createServerFn({ method: "GET" })
 
     // OpenAPI pages are virtual (no MDX collection). Hand the renderer its
     // resolved props directly instead of going through the client loader.
-    // `staticSource` widens the union to `PageData`, so narrow the data to the
-    // OpenAPI shape the `openapi` page type guarantees at runtime.
     if (page.type === "openapi") {
-      const data = page.data as OpenAPIPageData;
+      const data = page.data;
+      if (!isOpenAPIPageData(data)) {
+        throw new Error(`openapi page ${page.url} is missing its OpenAPI render data`);
+      }
       return {
         type: "openapi" as const,
         title: data.title,
@@ -76,7 +85,7 @@ const serverLoader = createServerFn({ method: "GET" })
     // renders them from the client loader's frontmatter. These are the same
     // values, read on the server so the crawler sees them in the HTML rather
     // than after hydration.
-    const data = page.data as { title?: string; description?: string };
+    const data = page.data;
     return {
       type: "docs" as const,
       path: page.path,
@@ -116,14 +125,18 @@ function DocsContent({ path }: { path: string }) {
   return clientLoader.useContent(path);
 }
 
+// `--fd-banner-height` offsets the docs sidebar/TOC below our marketing bar,
+// so the layout reads as: marketing bar on top, then sidebar + content (the
+// Better Auth structure). 3.5rem == the bar's h-14.
+const docsShellStyle: React.CSSProperties & { "--fd-banner-height": string } = {
+  "--fd-banner-height": "3.5rem",
+};
+
 function Page() {
   const page = useFumadocsLoader(Route.useLoaderData());
 
-  // `--fd-banner-height` offsets the docs sidebar/TOC below our marketing bar,
-  // so the layout reads as: marketing bar on top, then sidebar + content (the
-  // Better Auth structure). 3.5rem == the bar's h-14.
   return (
-    <div style={{ "--fd-banner-height": "3.5rem" } as React.CSSProperties}>
+    <div style={docsShellStyle}>
       <SiteBar />
       <DocsLayout
         {...baseOptions()}

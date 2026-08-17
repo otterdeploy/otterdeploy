@@ -20,10 +20,16 @@ const TANSTACK_START_PACKAGES = [
   "@tanstack/start",
 ];
 
-/** Read + JSON.parse a file, returning null on any error (missing/malformed). */
-export async function readJson<T>(path: string): Promise<T | null> {
+/** Read + JSON.parse a file, returning null on any error (missing/malformed).
+ *
+ * The generic overload keeps the existing call sites' annotated shapes; the
+ * implementation itself only ever produces the parsed JSON as `unknown`
+ * (callers optional-chain every field, exactly as before). */
+export async function readJson<T>(path: string): Promise<T | null>;
+export async function readJson(path: string): Promise<unknown> {
   try {
-    return JSON.parse(await readFile(path, "utf8")) as T;
+    const parsed: unknown = JSON.parse(await readFile(path, "utf8"));
+    return parsed;
   } catch {
     return null;
   }

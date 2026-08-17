@@ -59,7 +59,9 @@ export async function resolveUploadSourceTarget(args: {
 
   return row
     ? {
-        organizationId: row.organizationId as OrganizationId,
+        // The WHERE clause pinned project.organization_id to exactly this
+        // value, so the caller's already-branded id IS the row's.
+        organizationId: args.organizationId,
         projectId: row.projectId,
         source: row.source,
       }
@@ -99,7 +101,7 @@ export async function createUploadDeployment(args: {
     .returning({ id: deployment.id });
   if (!inserted) return Result.err("failed to insert deployment row");
 
-  return Result.ok({ projectId: row.projectId as ProjectId, deploymentId: inserted.id });
+  return Result.ok({ projectId: row.projectId, deploymentId: inserted.id });
 }
 
 /**

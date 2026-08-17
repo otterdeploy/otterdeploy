@@ -46,7 +46,7 @@ function parseJsonArray(text: string | null): JsonObject[] {
   const trimmed = text.trim();
   if (!trimmed || trimmed === "null") return [];
   const parsed = Result.try({
-    try: () => JSON.parse(trimmed) as unknown,
+    try: (): unknown => JSON.parse(trimmed),
     catch: () => null,
   });
   if (parsed.isErr() || !Array.isArray(parsed.value)) return [];

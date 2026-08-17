@@ -21,7 +21,7 @@
  * `./pipeline-steps`.
  */
 
-import type { DeploymentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { DeploymentId } from "@otterdeploy/shared/id";
 import type { RedisClient } from "bun";
 
 import { isPreviewActive, loadPreviewScope } from "@otterdeploy/api/lib/environment/load";
@@ -165,7 +165,7 @@ function runBuildSteps(
       buildTag = opts.deploymentId;
       const extracted = yield* await step("extract", () =>
         extractTarballToWorkDir({
-          projectId: ctx.project.id as ProjectId,
+          projectId: ctx.project.id,
           deploymentId: opts.deploymentId,
           sink,
         }),
@@ -194,7 +194,7 @@ function runBuildSteps(
           cloneUrl: repo.cloneUrl,
           ref: gitRef,
           sha: gitSha,
-          projectId: ctx.project.id as ProjectId,
+          projectId: ctx.project.id,
           deploymentId: opts.deploymentId,
           installationToken,
           bindingKind,
@@ -282,7 +282,7 @@ function runBuildSteps(
         db
           .update(serviceResource)
           .set({ image: image.shaTag, imageDigest, framework })
-          .where(eq(serviceResource.resourceId, ctx.resource.id as ResourceId)),
+          .where(eq(serviceResource.resourceId, ctx.resource.id)),
       );
     }
 
@@ -294,16 +294,10 @@ function runBuildSteps(
     });
 
     const runtime = yield* (
-      await redeployOne(
-        ctx.project.id as ProjectId,
-        ctx.resource.id as ResourceId,
-        ctx.project.slug,
-        undefined,
-        {
-          previewId: ctx.deployment.previewId ?? undefined,
-          imageOverride: isPreview ? image.shaTag : undefined,
-        },
-      )
+      await redeployOne(ctx.project.id, ctx.resource.id, ctx.project.slug, undefined, {
+        previewId: ctx.deployment.previewId ?? undefined,
+        imageOverride: isPreview ? image.shaTag : undefined,
+      })
     ).mapError((cause) => new SwarmUpdateError(cause));
     sink.system(`swarm runtime: status=${runtime.status} health=${runtime.health ?? "n/a"}`);
     if (runtime.status !== "running") {

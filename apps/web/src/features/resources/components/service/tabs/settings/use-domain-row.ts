@@ -10,8 +10,9 @@
  * never written.
  */
 
-import type { ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
+import type { ProjectId, ResourceId } from "@otterdeploy/shared/id";
 
+import { idSchema } from "@otterdeploy/shared/id";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -42,7 +43,9 @@ export function useDomainRow({
   /** Called after a successful rename so the row can leave edit mode. */
   onUpdated: () => void;
 }): DomainRowActionsApi {
-  const route = { ...input, routeId: routeId as ProxyRouteId };
+  // The row hands us the route id as a plain string; brand it at this
+  // boundary with the real validator instead of a cast.
+  const route = { ...input, routeId: idSchema.proxyRoute.parse(routeId) };
 
   const recheck = useMutation({
     ...orpc.service.domains.recheck.mutationOptions(),

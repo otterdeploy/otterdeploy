@@ -229,7 +229,7 @@ export const organizationRouter = {
         catch: (e) => (e instanceof Error ? e : new Error(String(e))),
       });
       if (res.isErr()) throw errors.NOT_FOUND({ message: res.error.message });
-      return toMemberView(res.value as Parameters<typeof toMemberView>[0]);
+      return toMemberView(res.value);
     },
   ),
 
@@ -247,7 +247,7 @@ export const organizationRouter = {
     });
     if (res.isErr()) throw res.error;
     // Surface only still-actionable invites (pending), not accepted/expired.
-    const list = (res.value ?? []) as Parameters<typeof toInvitationView>[0][];
+    const list = res.value ?? [];
     return list.filter((i) => i.status === "pending").map(toInvitationView);
   }),
 

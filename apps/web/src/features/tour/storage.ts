@@ -5,6 +5,8 @@
  * theme or sidebar width, not account data.
  */
 
+import * as z from "zod";
+
 const STORAGE_KEY = "otterdeploy:tour:v1";
 
 interface TourRecord {
@@ -16,11 +18,19 @@ interface TourRecord {
   lastStep?: number;
 }
 
+/** localStorage is an untrusted boundary: parsed, not cast. A record that no
+ *  longer matches the shape falls into the existing catch and reads as {}. */
+const tourRecordSchema: z.ZodType<TourRecord> = z.object({
+  completedAt: z.string().optional(),
+  dismissedAt: z.string().optional(),
+  lastStep: z.number().optional(),
+});
+
 function read(): TourRecord {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return {};
-    return JSON.parse(raw) as TourRecord;
+    return tourRecordSchema.parse(JSON.parse(raw));
   } catch {
     return {};
   }

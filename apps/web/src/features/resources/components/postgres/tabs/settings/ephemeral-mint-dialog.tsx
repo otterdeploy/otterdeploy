@@ -109,10 +109,14 @@ export function EphemeralMintDialog({
   const form = useForm({
     defaultValues: { ttl: "60", scope: "read-only", label: "" },
     onSubmit: ({ value }) => {
+      // The Select only offers these two values; the comparison narrows the
+      // form's plain-string field back to the contract's union.
+      const scope: "read-only" | "read-write" =
+        value.scope === "read-write" ? "read-write" : "read-only";
       create.mutate({
         resourceId,
         ttlMinutes: Number(value.ttl),
-        scope: value.scope as "read-only" | "read-write",
+        scope,
         label: value.label.trim() || undefined,
       });
     },

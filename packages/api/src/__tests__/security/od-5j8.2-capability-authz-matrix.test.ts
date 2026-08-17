@@ -197,11 +197,11 @@ describe("[od-5j8.2] every API key is capped at the least-privileged org role", 
     // authorizeKeyScope alone would allow this (the key's own map grants it);
     // authorizeRoleScope is the second, independent gate that caps every key
     // at `member` regardless of what the key's stored permission map claims.
-    expect(authorizeRoleScope({ member: ["delete"] } as never)).toBe(false);
+    expect(authorizeRoleScope({ member: ["delete"] })).toBe(false);
   });
 
   test("a key requesting an ordinary member-level action is allowed by the role cap", () => {
-    expect(authorizeRoleScope({ service: ["deploy"] } as never)).toBe(true);
+    expect(authorizeRoleScope({ service: ["deploy"] })).toBe(true);
   });
 });
 

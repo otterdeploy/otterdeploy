@@ -23,7 +23,6 @@ import {
 import {
   type Filter,
   FILTER_OPS,
-  type FilterOp,
   isNumericOp,
   isValidNumericValue,
   opNeedsValue,
@@ -66,7 +65,9 @@ export function FilterBar({
           <Select
             value={f.op}
             disabled={!f.column}
-            onValueChange={(v) => patch(f.id, { op: (v ?? "") as FilterOp | "" })}
+            onValueChange={(v) =>
+              patch(f.id, { op: FILTER_OPS.find((o) => o.value === v)?.value ?? "" })
+            }
           >
             <SelectTrigger size="sm" className="w-40 text-[12px]">
               <SelectValue placeholder="Operator..." />

@@ -39,8 +39,14 @@ interface Props {
 export function StepUpDialog({ open, targetLabel, onVerified, onCancel }: Props) {
   const { t } = useTranslation();
   const sessionQ = useCurrentSession();
+  // `twoFactorEnabled` is a plugin field the base session user type doesn't
+  // declare, so it's read off the object structurally rather than asserted.
+  const sessionUser: unknown = sessionQ.data?.user;
   const twoFactorEnabled = Boolean(
-    (sessionQ.data?.user as { twoFactorEnabled?: boolean } | undefined)?.twoFactorEnabled,
+    typeof sessionUser === "object" &&
+    sessionUser !== null &&
+    "twoFactorEnabled" in sessionUser &&
+    sessionUser.twoFactorEnabled,
   );
 
   const [value, setValue] = useState("");

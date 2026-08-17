@@ -81,7 +81,7 @@ export async function listProjectDependencies(
 
       edges.push({
         projectId: input.projectId,
-        source: ev.serviceResourceId as ResourceId,
+        source: ev.serviceResourceId,
         target: targetId,
       });
     }

@@ -16,8 +16,10 @@
  * reconnect with. Those are reported, not skipped quietly.
  */
 
-import type { OrganizationId, ServerId, SshKeyId } from "@otterdeploy/shared/id";
+import type { ServerId, SshKeyId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
+
+import { idSchema } from "@otterdeploy/shared/id";
 
 import { decryptForDomain } from "../lib/crypto";
 import { asStepLogger } from "../lib/logger";
@@ -39,6 +41,10 @@ export interface NodeEdgeResult {
 /** A route paired with the server its resource is pinned to. */
 export interface PlacedRoute extends RoutePlacement {
   route: ProxyRouteInput;
+}
+
+function isPlacedRoute(r: RoutePlacement): r is PlacedRoute {
+  return "route" in r && r.route !== undefined;
 }
 
 export interface NodeReconcileOptions {
@@ -66,7 +72,10 @@ function renderNodeCaddyfile(
   // on another machine answers with a cert it can get and a backend it can't
   // reach.
   const split = routesForNode(placed, serverId, false);
-  const routes = split.routes.map((r) => (r as PlacedRoute).route);
+  // routesForNode types its output as the base RoutePlacement; every element
+  // here came from `placed`, so each really is a PlacedRoute. Checked, not
+  // assumed: the guard tests for the `route` field a bare placement lacks.
+  const routes = split.routes.filter(isPlacedRoute).map((r) => r.route);
   return {
     caddyfile: buildCaddyfile(routes, opts.adminBind, opts.buildOptions),
     routeCount: routes.length,
@@ -90,7 +99,7 @@ export async function reconcileNodeEdges(options: NodeReconcileOptions): Promise
 
     // Each server carries its own org. The SSH key lives in that org's
     // keystore, and reading it from anywhere else would cross a tenant boundary.
-    const push = await pushOneNode(server, server.organizationId as OrganizationId, caddyfile);
+    const push = await pushOneNode(server, caddyfile);
     results.push({
       serverId: server.id,
       serverName: server.name,
@@ -113,8 +122,14 @@ export async function reconcileNodeEdges(options: NodeReconcileOptions): Promise
 }
 
 async function pushOneNode(
-  server: { id: ServerId; host: string; sshPort: number; sshUser: string; sshKeyId: string | null },
-  organizationId: OrganizationId,
+  server: {
+    id: ServerId;
+    host: string;
+    sshPort: number;
+    sshUser: string;
+    sshKeyId: SshKeyId | null;
+    organizationId: string;
+  },
   caddyfile: string,
 ): Promise<NodePushOutcome> {
   if (!server.sshKeyId) {
@@ -125,7 +140,10 @@ async function pushOneNode(
   }
 
   try {
-    const key = await getSshKeyInOrg({ id: server.sshKeyId as SshKeyId, organizationId });
+    // Re-brand the row's org id at the boundary. Inside the try so a bad row
+    // reads as a per-node failure, like every other per-node fault.
+    const organizationId = idSchema.organization.parse(server.organizationId);
+    const key = await getSshKeyInOrg({ id: server.sshKeyId, organizationId });
     if (!key?.privateKeyCiphertext) {
       return { kind: "failed", error: "the stored SSH key has no private half" };
     }

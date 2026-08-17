@@ -1,5 +1,3 @@
-import type * as z from "zod";
-
 /**
  * Notification channels router: channel CRUD + the event/channel subscription
  * matrix. Mutations are RBAC-gated on the `notificationChannel` resource.
@@ -8,6 +6,7 @@ import type * as z from "zod";
  */
 import { triggerPlatformEvent } from "@otterdeploy/jobs";
 import { encryptSecret } from "@otterdeploy/jobs/delivery/secret-crypto";
+import * as z from "zod";
 
 import { orgScopedProcedure, requirePermission } from "../..";
 import { subscriptionSchema } from "./contract";
@@ -176,8 +175,9 @@ export const notificationsRouter = {
     list: orgScopedProcedure.notifications.subscriptions.list.handler(async ({ context }) => {
       const rows = await listSubscriptionRows(context.activeOrganizationId);
       // DB stores eventId as text; the contract narrows it to the catalog
-      // enum, and only catalog ids are ever written, so the cast is safe.
-      return rows as Array<z.infer<typeof subscriptionSchema>>;
+      // enum, and only catalog ids are ever written, so this parse never
+      // rejects in practice. It's the typed boundary, not a cast.
+      return z.array(subscriptionSchema).parse(rows);
     }),
 
     toggle: requirePermission({

@@ -26,6 +26,7 @@ import { unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable, Writable } from "node:stream";
+import * as z from "zod";
 
 import type { RusticRepo } from "./backends";
 
@@ -43,6 +44,20 @@ export interface BackupStdinResult {
   /** Wall-clock duration of the backup invocation. */
   durationMs: number;
 }
+
+/** `rustic backup --json` stdout: only the fields the engine reads. */
+const rusticBackupOutput = z.object({
+  id: z.string().optional(),
+  summary: z
+    .object({
+      total_bytes_processed: z.number().optional(),
+      data_added: z.number().optional(),
+    })
+    .optional(),
+});
+
+/** `rustic snapshots <id> --json` stdout: grouped snapshot lists. */
+const rusticSnapshotGroups = z.array(z.object({ snapshots: z.array(z.unknown()).optional() }));
 
 /** GFS keep policy for `forget`. Maps 1:1 onto rustic's `--keep-*` flags. */
 export interface ForgetSpec {
@@ -251,10 +266,7 @@ export class RusticCli {
       { stdin: input.stdin },
     );
     const durationMs = Date.now() - started;
-    const parsed = JSON.parse(stdout) as {
-      id?: string;
-      summary?: { total_bytes_processed?: number; data_added?: number };
-    };
+    const parsed = rusticBackupOutput.parse(JSON.parse(stdout));
     if (!parsed.id) throw new Error("rustic backup returned no snapshot id");
     return {
       snapshotId: parsed.id,
@@ -300,7 +312,7 @@ export class RusticCli {
       return false;
     }
     try {
-      const groups = JSON.parse(stdout) as Array<{ snapshots?: unknown[] }>;
+      const groups = rusticSnapshotGroups.parse(JSON.parse(stdout));
       return groups.some((g) => (g.snapshots?.length ?? 0) > 0);
     } catch {
       return false;

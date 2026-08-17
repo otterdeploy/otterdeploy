@@ -4,9 +4,20 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { DatabaseStatusBar } from "./panel-parts";
 
-type Runtime = Parameters<typeof DatabaseStatusBar>[0]["runtime"];
+type Runtime = NonNullable<Parameters<typeof DatabaseStatusBar>[0]["runtime"]>;
 
-const running = { status: "running", health: "Healthy" } as unknown as Runtime;
+/** Complete runtime as `project.resource.list` returns it; override per test. */
+function runtimeFixture(overrides: Partial<Runtime> = {}): Runtime {
+  return {
+    serviceId: "svc_1",
+    serviceName: "acme-db",
+    volumeName: "acme-db-data",
+    networkName: "acme-net",
+    status: "running",
+    health: "healthy",
+    ...overrides,
+  };
+}
 
 describe("DatabaseStatusBar", () => {
   // Regression: a staged database create has no container, so the draft the
@@ -25,16 +36,18 @@ describe("DatabaseStatusBar", () => {
   });
 
   it("shows the live status once provisioned", () => {
-    const out = renderToStaticMarkup(<DatabaseStatusBar pending={false} runtime={running} />);
+    const out = renderToStaticMarkup(
+      <DatabaseStatusBar pending={false} runtime={runtimeFixture()} />,
+    );
     expect(out).toContain("RUNNING");
-    expect(out).toContain("Healthy");
+    expect(out).toContain("healthy");
   });
 
   it("reads as deploying while a container is missing mid-deploy", () => {
     const out = renderToStaticMarkup(
       <DatabaseStatusBar
         pending={false}
-        runtime={{ status: "missing" } as unknown as Runtime}
+        runtime={runtimeFixture({ status: "missing", health: null })}
         latestDeploymentStatus="building"
       />,
     );

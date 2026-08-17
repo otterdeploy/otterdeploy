@@ -53,8 +53,9 @@ export function toDomainView(route: ProxyRouteRecord, dnsTarget: string | null):
     id: route.id,
     projectId: route.projectId,
     // Service-domain routes are always tied to a resource (proxyRoute.resourceId
-    // is nullable in general but never null for these), so it's safe to assert.
-    resourceId: route.resourceId as string,
+    // is nullable in general but never null for these); `?? ""` keeps the view
+    // type honest without an assertion, and "" is unreachable in practice.
+    resourceId: route.resourceId ?? "",
     domain: route.domain,
     port: route.upstreamPort,
     source: route.source,

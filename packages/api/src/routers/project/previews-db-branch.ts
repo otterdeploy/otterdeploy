@@ -3,7 +3,6 @@
  * branch for one preview. Split out of previews-controls.ts (which keeps the
  * lifecycle actions and re-exports these for the router).
  */
-import type { ProjectId } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
 import { Result } from "better-result";
@@ -24,7 +23,7 @@ export async function enablePreviewDbBranch(
   if (g.isErr()) return Result.err(g.error);
   const { preview, project } = g.value;
   const branched = await branchProjectDatabases({
-    projectId: preview.projectId as ProjectId,
+    projectId: input.projectId,
     projectSlug: project.slug,
     previewId: preview.id,
     previewSlug: preview.slug,
@@ -48,7 +47,7 @@ export async function disablePreviewDbBranch(
   const destroyed = await destroyPreviewBranchDbs(
     {
       id: preview.id,
-      projectId: preview.projectId as ProjectId,
+      projectId: input.projectId,
       projectSlug: project.slug,
       slug: preview.slug,
     },
@@ -73,14 +72,14 @@ export async function resetPreviewDbBranch(
   await destroyPreviewBranchDbs(
     {
       id: preview.id,
-      projectId: preview.projectId as ProjectId,
+      projectId: input.projectId,
       projectSlug: project.slug,
       slug: preview.slug,
     },
     log,
   );
   const branched = await branchProjectDatabases({
-    projectId: preview.projectId as ProjectId,
+    projectId: input.projectId,
     projectSlug: project.slug,
     previewId: preview.id,
     previewSlug: preview.slug,

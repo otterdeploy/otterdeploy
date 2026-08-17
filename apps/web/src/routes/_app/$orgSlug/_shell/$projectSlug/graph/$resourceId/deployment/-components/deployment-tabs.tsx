@@ -31,6 +31,11 @@ export  const DEPLOYMENT_TABS = [
   export type DeploymentTab =
     typeof DEPLOYMENT_TABS[number];
 
+function isDeploymentTab(v: string): v is DeploymentTab {
+  const tabs: readonly string[] = DEPLOYMENT_TABS;
+  return tabs.includes(v);
+}
+
 export function DeploymentTabs({
   tab,
   onTabChange,
@@ -55,7 +60,7 @@ export function DeploymentTabs({
     <Tabs
       value={tab}
       onValueChange={(v) => {
-        if (v) onTabChange(v as DeploymentTab);
+        if (v && isDeploymentTab(v)) onTabChange(v);
       }}
       className="mt-4 flex min-h-0 flex-1 flex-col gap-0 pb-15"
     >

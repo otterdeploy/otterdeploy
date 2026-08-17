@@ -28,6 +28,16 @@ export interface ResourceOption {
   kind: string;
 }
 
+/** Only rendered option values ever come back from the selects; these guards
+ *  make that a checked fact instead of a cast. */
+function isStatusValue(v: string): v is DeployStatusFilter | "any" {
+  return v === "any" || DEPLOY_STATUS_FILTERS.some((s) => s.id === v);
+}
+
+function isDeployWindow(v: string): v is DeployWindow {
+  return DEPLOY_WINDOWS.some((w) => w.id === v);
+}
+
 export function DeploymentsToolbar({
   resources,
   service,
@@ -80,7 +90,7 @@ export function DeploymentsToolbar({
       <Select
         items={statusItems}
         value={status}
-        onValueChange={(v) => onStatusChange((v as DeployStatusFilter | "any") ?? status)}
+        onValueChange={(v) => onStatusChange(v != null && isStatusValue(v) ? v : status)}
       >
         <SelectTrigger className="h-8 w-40" aria-label={t("deployments.filterByStatus")}>
           <SelectValue />
@@ -96,7 +106,7 @@ export function DeploymentsToolbar({
 
       <NativeSelect
         value={window}
-        onChange={(e) => onWindowChange(e.target.value as DeployWindow)}
+        onChange={(e) => onWindowChange(isDeployWindow(e.target.value) ? e.target.value : window)}
         className="h-8 w-36"
         aria-label={t("deployments.timeWindow")}
       >

@@ -1,5 +1,6 @@
 import type { OrganizationId, ServerId } from "@otterdeploy/shared/id";
 
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 vi.mock("../../../runtime", () => ({ isSwarmRuntime: vi.fn() }));
@@ -8,8 +9,18 @@ vi.mock("@otterdeploy/db", () => ({ db: {} }));
 import { isSwarmRuntime } from "../../../runtime";
 import { branchPlacementConflict } from "../branch-placement";
 
-const organizationId = "org_1" as OrganizationId;
-const worker = "srv_worker" as ServerId;
+/** Fixture ids, narrowed by the real prefix guard rather than asserted. */
+function orgId(value: string): OrganizationId {
+  if (!hasPrefix(value, ID_PREFIX.organization)) throw new Error(`not an org id: ${value}`);
+  return value;
+}
+function serverId(value: string): ServerId {
+  if (!hasPrefix(value, ID_PREFIX.server)) throw new Error(`not a server id: ${value}`);
+  return value;
+}
+
+const organizationId = orgId("org_1");
+const worker = serverId("srv_worker");
 
 /**
  * Both branch transports reach the database from the control plane's own host.

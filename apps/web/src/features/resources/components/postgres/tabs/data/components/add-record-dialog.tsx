@@ -67,8 +67,11 @@ export function AddRecordDialog({
   const mutateRow = useMutateRow();
   const [showIssues, setShowIssues] = useState(false);
 
+  // Annotated (not cast) so useForm infers the open string-keyed draft shape
+  // rather than the empty literal. Same fresh object per render as before.
+  const defaultValues: InsertDraft = {};
   const form = useForm({
-    defaultValues: {} as InsertDraft,
+    defaultValues,
     onSubmit: ({ value }) => {
       const issues = validateInsertDraft(structure, value);
       if (issues.length > 0) return setShowIssues(true);

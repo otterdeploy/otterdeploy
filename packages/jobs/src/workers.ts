@@ -90,7 +90,7 @@ function createWorker<TDef extends JobDef>(def: TDef, concurrency: number): Work
           }),
       };
 
-      const ctx: JobContext<unknown> = { log, job: job as Job };
+      const ctx: JobContext<unknown> = { log, job };
 
       try {
         return await def.handler(parsed.data, ctx);

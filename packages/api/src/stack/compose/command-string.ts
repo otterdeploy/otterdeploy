@@ -27,7 +27,8 @@ function scanQuoted(input: string, from: number, quote: '"' | "'"): Scan {
   let value = "";
   let i = from;
   for (; i < input.length; i++) {
-    const ch = input[i] as string;
+    // charAt: plain `string` under noUncheckedIndexedAccess; i is in bounds.
+    const ch = input.charAt(i);
     if (ch === "\\" && quote === '"' && i + 1 < input.length) {
       value += input[++i];
       continue;
@@ -46,7 +47,7 @@ export function splitCommandString(input: string): string[] {
   let started = false;
 
   for (let i = 0; i < input.length; i++) {
-    const ch = input[i] as string;
+    const ch = input.charAt(i);
 
     if (ch === '"' || ch === "'") {
       const scan = scanQuoted(input, i + 1, ch);

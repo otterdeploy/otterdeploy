@@ -32,9 +32,13 @@ export type {
  * Each trigger validates with the job's schema, then adds to its queue with
  * the job's default opts (callers can override via the second arg).
  */
-function enqueue<P>(jobName: string, payload: P, opts?: JobsOptions): Promise<unknown> {
+function enqueue<P extends object>(
+  jobName: string,
+  payload: P,
+  opts?: JobsOptions,
+): Promise<unknown> {
   const queue = getQueue(jobName);
-  return queue.add(jobName, payload as unknown as object, opts);
+  return queue.add(jobName, payload, opts);
 }
 
 export async function triggerEmail(payload: EmailPayload, opts?: JobsOptions) {
@@ -111,7 +115,10 @@ export async function triggerDataProcessing(payload: DataProcessingPayload, opts
 export async function cancelDataProcessing(dataId: string) {
   const queue = getQueue(processDataJob.name);
   const queued = await queue.getJobs(["waiting", "delayed", "active"]);
-  const toRemove = queued.filter((j) => (j.data as DataProcessingPayload)?.dataId === dataId);
+  const toRemove = queued.filter((j) => {
+    const data: unknown = j.data;
+    return typeof data === "object" && data !== null && "dataId" in data && data.dataId === dataId;
+  });
   await Promise.all(toRemove.map((j) => j.remove()));
   return { cancelled: toRemove.length };
 }

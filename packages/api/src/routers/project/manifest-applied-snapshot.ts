@@ -69,6 +69,9 @@ function sectionsFor(resource: SkippedResource["resource"]): Section[] {
   }
 }
 
+/** Just the revertible sections of a manifest. */
+type ManifestSections = Pick<Manifest, "services" | "databases" | "composes">;
+
 /** Shallow-clone only the sections we may touch; the rest is carried by ref. */
 function cloneSections(manifest: Manifest): Manifest {
   return {
@@ -76,7 +79,7 @@ function cloneSections(manifest: Manifest): Manifest {
     services: { ...manifest.services },
     databases: { ...manifest.databases },
     composes: { ...manifest.composes },
-  } as Manifest;
+  };
 }
 
 /**
@@ -108,10 +111,18 @@ export function manifestAfterDiscard(args: {
   manifest: Manifest | null;
   applied: Manifest | null;
   only?: readonly SkippedResource[];
-}): Manifest | null {
+}): Manifest | ManifestSections | null {
   if (!args.only?.length) return args.applied;
+  const target = args.manifest ?? args.applied;
+  if (!target) {
+    // Both sides are null, so `source` below would be null too and every
+    // revert is a delete on an empty map. That fixed point is exactly what
+    // reverting over `{}` used to compute; producing it directly keeps the
+    // type honest (there is no `project` to invent here).
+    return { services: {}, databases: {}, composes: {} };
+  }
   return revertEntries({
-    target: (args.manifest ?? args.applied ?? {}) as Manifest,
+    target,
     source: args.applied,
     resources: args.only,
   });

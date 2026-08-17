@@ -59,7 +59,7 @@ export async function listProjectEnvVars(scope: Scope): Promise<ProjectEnvVarRow
       ),
     )
     .orderBy(asc(projectEnvVar.key));
-  return rows as ProjectEnvVarRow[];
+  return rows;
 }
 
 /**
@@ -116,7 +116,7 @@ export async function upsertProjectEnvVar(input: {
       })
       .returning();
     if (!row) throw new Error("projectEnvVar upsert returned no row");
-    return row as ProjectEnvVarRow;
+    return row;
   });
 }
 
@@ -156,7 +156,7 @@ export async function bulkReplaceProjectEnvVars(
   next: ReadonlyArray<{ key: string; value: string; isSecret?: boolean }>,
 ): Promise<ProjectEnvVarRow[]> {
   return db.transaction(async (tx) => {
-    const sealedRows = (await tx
+    const sealedRows: ProjectEnvVarRow[] = await tx
       .select()
       .from(projectEnvVar)
       .where(
@@ -165,7 +165,7 @@ export async function bulkReplaceProjectEnvVars(
           eq(projectEnvVar.environmentId, scope.environmentId),
           eq(projectEnvVar.sealed, true),
         ),
-      )) as ProjectEnvVarRow[];
+      );
     const sealedKeys = new Set(sealedRows.map((r) => r.key));
 
     await tx
@@ -181,7 +181,7 @@ export async function bulkReplaceProjectEnvVars(
     const toInsert = next.filter((v) => !sealedKeys.has(v.key));
     let inserted: ProjectEnvVarRow[] = [];
     if (toInsert.length > 0) {
-      inserted = (await tx
+      inserted = await tx
         .insert(projectEnvVar)
         .values(
           toInsert.map((v) => ({
@@ -193,7 +193,7 @@ export async function bulkReplaceProjectEnvVars(
             sealed: false,
           })),
         )
-        .returning()) as ProjectEnvVarRow[];
+        .returning();
     }
 
     return [...inserted, ...sealedRows].sort((a, b) => a.key.localeCompare(b.key));

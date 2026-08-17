@@ -52,8 +52,17 @@ export function setCommandGroups(next: CommandGroup[]): void {
   groups = next;
 }
 
+/**
+ * citty's `Resolvable` treats any function value as a thunk to call, so a
+ * runtime `typeof` check is the faithful discriminator here (none of the
+ * resolved payloads -- meta, args, subcommand maps -- are themselves functions).
+ */
+function isThunk<T>(value: T | (() => T | Promise<T>) | Promise<T>): value is () => T | Promise<T> {
+  return typeof value === "function";
+}
+
 async function resolve<T>(value: T | (() => T | Promise<T>) | Promise<T>): Promise<T> {
-  return typeof value === "function" ? await (value as () => T | Promise<T>)() : await value;
+  return isThunk(value) ? await value() : await value;
 }
 
 /**
@@ -111,18 +120,14 @@ const VALUE_HINTS: Record<string, string> = {
 
 /** `--tail <n>`, `--no-follow`, `-h, --help`: one flag as the user types it. */
 function formatFlag(name: string, def: ArgsDef[string]): string {
-  const arg = def as {
-    type?: string;
-    alias?: string | string[];
-    valueHint?: string;
-    default?: unknown;
-  };
-  const aliasList = Array.isArray(arg.alias) ? arg.alias : arg.alias ? [arg.alias] : [];
+  // `alias` exists on flag defs only; positional defs omit it, hence the `in`.
+  const aliasRaw = "alias" in def ? def.alias : undefined;
+  const aliasList = Array.isArray(aliasRaw) ? aliasRaw : aliasRaw ? [aliasRaw] : [];
   const aliases = aliasList.map((a) => `-${a}`);
   // A boolean defaulting to true is only ever *disabled*, so show the negation
   // the user would actually type.
-  const flag = arg.type === "boolean" && arg.default === true ? `--no-${name}` : `--${name}`;
-  const value = arg.type === "string" ? ` <${arg.valueHint ?? VALUE_HINTS[name] ?? "value"}>` : "";
+  const flag = def.type === "boolean" && def.default === true ? `--no-${name}` : `--${name}`;
+  const value = def.type === "string" ? ` <${def.valueHint ?? VALUE_HINTS[name] ?? "value"}>` : "";
   return [...aliases, flag].join(", ") + value;
 }
 
@@ -160,16 +165,15 @@ function argEntries(args: ArgsDef): {
   const flags: Array<[string, string]> = [];
   const usage: string[] = [];
   for (const [name, def] of Object.entries(args)) {
-    const arg = def as { type?: string; description?: string; required?: boolean };
-    if (arg.type === "positional") {
+    if (def.type === "positional") {
       // Angle brackets for required, square for optional, and the ARGUMENTS
       // list uses the same notation as the usage line, so the two agree.
-      const token = arg.required !== false ? `<${name}>` : `[${name}]`;
-      positionals.push([token, arg.description ?? ""]);
+      const token = def.required !== false ? `<${name}>` : `[${name}]`;
+      positionals.push([token, def.description ?? ""]);
       usage.push(token);
       continue;
     }
-    flags.push([formatFlag(name, def), arg.description ?? ""]);
+    flags.push([formatFlag(name, def), def.description ?? ""]);
   }
   return { positionals, flags, usage };
 }
@@ -263,8 +267,8 @@ async function renderCommandHelp(cmd: HelpCommand, path: string[]): Promise<void
   line(dim(meta?.description ?? ""));
 
   const subs = await subcommandEntries(cmd);
-  const args = (await resolve(cmd.args)) ?? {};
-  const { positionals, flags, usage } = argEntries(args as ArgsDef);
+  const args: ArgsDef = (await resolve(cmd.args)) ?? {};
+  const { positionals, flags, usage } = argEntries(args);
   const hasSubs = subs.length > 0;
 
   renderUsageLines(full, {

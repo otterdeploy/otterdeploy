@@ -78,15 +78,17 @@ describe("[od-5j8.3] safe-view allowlists survive hostile / obfuscated placement
     // `__proto__`/`constructor` keys must not pollute the shared Object
     // prototype or crash inspection: it should simply be ignored like any
     // other unexpected field.
-    const hostile = JSON.parse(
+    const hostile: unknown = JSON.parse(
       '{"Id":"c1","Name":"/svc","__proto__":{"polluted":true},"constructor":{"prototype":{"polluted":true}},"Config":{"Image":"app"},"State":{"Status":"running"}}',
-    ) as unknown;
+    );
     expect(() => safeContainerInspect(hostile)).not.toThrow();
     const safe = safeContainerInspect(hostile);
     expect(safe.id).toBe("c1");
-    // Object.prototype genuinely holds arbitrary runtime values. UnknownRecord
-    // is the honest view for a pollution probe.
-    expect((Object.prototype as UnknownRecord).polluted).toBeUndefined();
+    // A fresh empty object inherits from Object.prototype, so reading the
+    // probe key off it walks the exact chain a polluted prototype would
+    // poison. UnknownRecord is the honest view for a pollution probe.
+    const pollutionProbe: UnknownRecord = {};
+    expect(pollutionProbe.polluted).toBeUndefined();
   });
 
   test("image history / build-arg secrets and volume driver-option secrets never surface even when deeply nested", () => {

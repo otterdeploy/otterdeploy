@@ -120,8 +120,8 @@ export function ServiceOverviewTab({
     [resource.projectId, resource.resourceId],
   );
 
-  const latest = (deployments.at(0) ?? null) as DeploymentInfo | null;
-  const recent = deployments.slice(0, 3) as DeploymentInfo[];
+  const latest: DeploymentInfo | null = deployments.at(0) ?? null;
+  const recent: DeploymentInfo[] = deployments.slice(0, 3);
 
   const state = deriveServicePanelState({
     pausedReplicas: service?.pausedReplicas ?? null,

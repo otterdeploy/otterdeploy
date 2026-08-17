@@ -138,11 +138,11 @@ export async function listProjectResources(
   // Batch the per-resource reads the mappers would otherwise fire one-by-one:
   // the latest deployment for every service/compose, and env vars for every
   // service: two queries total instead of ~2 per resource on every list load.
-  const deploymentResourceIds = [
+  const deploymentResourceIds: ResourceId[] = [
     ...services.map((r) => r.resource.id),
     ...composes.map((r) => r.resource.id),
-  ] as ResourceId[];
-  const serviceResourceIds = services.map((r) => r.resource.id) as ResourceId[];
+  ];
+  const serviceResourceIds: ResourceId[] = services.map((r) => r.resource.id);
   const [latestByResource, envByResource] = await Promise.all([
     getLatestDeploymentsForResources(deploymentResourceIds),
     listServiceEnvVarsForResources(serviceResourceIds),
@@ -155,15 +155,15 @@ export async function listProjectResources(
     Promise.all(
       services.map((record) =>
         mapServiceResource(record, {
-          latest: latestByResource.get(record.resource.id as ResourceId) ?? null,
-          envRows: envByResource.get(record.resource.id as ResourceId) ?? [],
+          latest: latestByResource.get(record.resource.id) ?? null,
+          envRows: envByResource.get(record.resource.id) ?? [],
         }),
       ),
     ),
     Promise.all(
       composes.map((record) =>
         mapComposeResource(record, {
-          latest: latestByResource.get(record.resource.id as ResourceId) ?? null,
+          latest: latestByResource.get(record.resource.id) ?? null,
         }),
       ),
     ),

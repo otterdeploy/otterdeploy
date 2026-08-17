@@ -9,6 +9,7 @@
 import type { JsonObject } from "@otterdeploy/shared/json";
 
 import { Docker } from "@otterdeploy/docker";
+import { isJsonObject } from "@otterdeploy/shared/json";
 import { log } from "evlog";
 
 import type { ProvisionSwarmDatabaseInput, SwarmDatabaseRuntime } from "./database";
@@ -169,15 +170,15 @@ export async function inspectSwarmService(
   const status = mapTaskStateToStatus(taskState);
   const health = mapTaskHealth(latestTask);
 
-  const mounts = (
-    service.Spec?.TaskTemplate as
-      | { ContainerSpec?: { Mounts?: Array<{ Source?: string }> } }
-      | undefined
-  )?.ContainerSpec?.Mounts;
+  // The docker client types `TaskTemplate` as a bare `Record<string, unknown>`;
+  // narrow out the one slice inspection reads (the first mount's source).
+  const tpl = service.Spec?.TaskTemplate;
+  const cs = isJsonObject(tpl) ? tpl.ContainerSpec : undefined;
+  const mount = isJsonObject(cs) && Array.isArray(cs.Mounts) ? cs.Mounts[0] : undefined;
   return {
     serviceId: service.ID ?? null,
     serviceName,
-    volumeName: mounts?.[0]?.Source ?? "",
+    volumeName: isJsonObject(mount) && typeof mount.Source === "string" ? mount.Source : "",
     networkName,
     status,
     health,

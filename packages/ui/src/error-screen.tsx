@@ -43,6 +43,10 @@ export const errorPathClass =
 
 const reveal = "animate-error-rise motion-reduce:animate-none";
 
+/** The screen's palette rides on CSS custom properties; the intersection type
+ *  admits them without a cast (same pattern as the graph's CometStyle). */
+type ErrorScreenStyle = CSSProperties & Record<`--${string}`, string>;
+
 /**
  * Full-screen error screen in the Otterdeploy console aesthetic. Presentational
  * only: each app wraps it with code-specific content, because the wrappers
@@ -64,7 +68,7 @@ export function ErrorScreen({
   message,
   actions,
 }: ErrorScreenProps) {
-  const rootStyle = {
+  const rootStyle: ErrorScreenStyle = {
     "--bg": "#0a0b0d",
     "--ink": "#e7e8ec",
     "--dim": "#8b8d95",
@@ -73,7 +77,7 @@ export function ErrorScreen({
     "--line2": "rgba(231,232,236,0.16)",
     "--accent": ACCENTS[accent].accent,
     "--glow": ACCENTS[accent].glow,
-  } as CSSProperties;
+  };
 
   return (
     <div

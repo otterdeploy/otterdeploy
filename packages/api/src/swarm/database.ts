@@ -183,8 +183,9 @@ export async function updateSwarmDatabase(
   }
 
   const existingForceUpdate = (() => {
-    const value = (inspectResult.value.Spec?.TaskTemplate as { ForceUpdate?: number } | undefined)
-      ?.ForceUpdate;
+    // TaskTemplate is typed Record<string, unknown>, so the read needs no
+    // assertion; the typeof check does the narrowing.
+    const value = inspectResult.value.Spec?.TaskTemplate?.ForceUpdate;
     return typeof value === "number" ? value : 0;
   })();
   const bumpedInput: ProvisionSwarmDatabaseInput = {

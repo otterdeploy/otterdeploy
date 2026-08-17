@@ -92,13 +92,15 @@ function MemberRow({
 
   const changeRole = (next: string) => {
     if (!next || next === member.role) return;
+    // The Select only surfaces ROLE_OPTIONS values; recover the union member
+    // from the raw string rather than trusting it.
+    const role = ROLE_OPTIONS.find((r) => r.value === next)?.value;
+    if (role === undefined) return;
     // Optimistic: the Select's value is already `member.role`, so the collection
     // update reflects instantly and rolls back itself on failure.
     membersCollection
       .update(member.id, (draft) => {
-        // The Select only surfaces valid role values, so narrow the string back to
-        // the role union the collection field expects.
-        draft.role = next as typeof member.role;
+        draft.role = role;
       })
       .isPersisted.promise.catch((err: unknown) =>
         toast.error(err instanceof Error ? err.message : "Failed to update role"),

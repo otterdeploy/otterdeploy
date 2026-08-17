@@ -11,13 +11,17 @@ import { isJsonObject } from "@otterdeploy/shared/json";
 import { resolve } from "node:path";
 import * as z from "zod";
 
-const json = z.toJSONSchema(manifestSchema, {
+const generated = z.toJSONSchema(manifestSchema, {
   target: "draft-7",
   // manifestSchema uses z.transform() in a couple of places (e.g. trim
   // helpers); JSON Schema can't express those, so we degrade them to
   // `{}` rather than throwing.
   unrepresentable: "any",
-}) as JsonObject;
+});
+if (!isJsonObject(generated)) {
+  throw new Error("gen-schema: z.toJSONSchema did not produce a JSON object");
+}
+const json: JsonObject = generated;
 
 // zod marks `.default({})` fields as required (they're never undefined
 // at runtime: the default fills them in). JSON Schema validators in

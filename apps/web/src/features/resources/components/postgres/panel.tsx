@@ -217,7 +217,7 @@ export function RealResourcePanel({
                 <ResourceTerminal
                   match={{
                     kind: "database",
-                    engine: resource.engine as "postgres" | "redis" | "mariadb" | "mongodb",
+                    engine: resource.engine,
                     serviceName: resource.runtime.serviceName,
                   }}
                   fallbackLabel={resource.runtime.serviceName}

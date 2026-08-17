@@ -15,10 +15,11 @@ import { DATABASE_ENGINES, type DatabaseEngine } from "@otterdeploy/shared/datab
 import * as z from "zod";
 
 // Engine value set, derived from the shared catalog so adding an engine there
-// keeps this validator in sync (no hand-written duplicate).
-const databaseEngineSchema = z.enum(
-  Object.keys(DATABASE_ENGINES) as [DatabaseEngine, ...DatabaseEngine[]],
-);
+// keeps this validator in sync (no hand-written duplicate). Membership in the
+// catalog is the runtime check, and the guard narrows to the shared type.
+const databaseEngineSchema = z
+  .string()
+  .refine((v): v is DatabaseEngine => v in DATABASE_ENGINES, "unknown database engine");
 
 // Strategy a branch was actually materialized with (matches branchStrategyEnum
 // in @otterdeploy/db schema/project.ts §3.3).

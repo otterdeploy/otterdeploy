@@ -19,7 +19,7 @@
  * failed), which callers render as a helpful pointer to Build Logs rather than a
  * daemon error.
  */
-import { Docker } from "@otterdeploy/docker";
+import { Docker, type ContainerSummary, type Task } from "@otterdeploy/docker";
 import { Result } from "better-result";
 
 import { isSwarmRuntime } from "../../runtime";
@@ -89,40 +89,29 @@ export function collapseInstanceState(state: string | null | undefined): Instanc
   return STATE_BUCKETS[state ?? ""] ?? "building";
 }
 
-interface SwarmTask {
-  ID?: string;
-  CreatedAt?: string;
-  UpdatedAt?: string;
-  Slot?: number;
-  NodeID?: string;
-  DesiredState?: string;
-  Spec?: { ContainerSpec?: { Labels?: Record<string, string> } };
-  Status?: {
-    State?: string;
-    Message?: string;
-    Err?: string;
-    Timestamp?: string;
-    ContainerStatus?: { ContainerID?: string; ExitCode?: number };
-  };
-}
-
-interface ContainerSummary {
-  Id: string;
-  Names?: string[];
-  State?: string;
-  Status?: string;
-  Labels?: Record<string, string>;
-  Created?: number;
-}
-
 // Coalesce undefined → null in one call so the mappers stay flat (each `?? null`
 // otherwise counts toward cyclomatic complexity on these wide data shapes).
 const orNull = <T>(v: T | undefined | null): T | null => v ?? null;
 
-function taskToInstance(t: SwarmTask): ResourceInstance {
+/**
+ * `Spec.ContainerSpec.Labels["otterdeploy.deployment.id"]`. The docker client
+ * types `Task.Spec` as `Record<string, unknown>`, so each level is narrowed
+ * for real instead of asserting a nested shape onto it.
+ */
+function taskDeploymentId(spec: Task["Spec"]): string | null {
+  const containerSpec = spec?.ContainerSpec;
+  if (typeof containerSpec !== "object" || containerSpec === null) return null;
+  if (!("Labels" in containerSpec)) return null;
+  const labels = containerSpec.Labels;
+  if (typeof labels !== "object" || labels === null) return null;
+  if (!("otterdeploy.deployment.id" in labels)) return null;
+  const id = labels["otterdeploy.deployment.id"];
+  return typeof id === "string" ? id : null;
+}
+
+function taskToInstance(t: Task): ResourceInstance {
   const status = t.Status ?? {};
   const cs = status.ContainerStatus ?? {};
-  const labels = t.Spec?.ContainerSpec?.Labels ?? {};
   return {
     id: t.ID ?? "",
     containerId: orNull(cs.ContainerID),
@@ -132,7 +121,7 @@ function taskToInstance(t: SwarmTask): ResourceInstance {
     exitCode: typeof cs.ExitCode === "number" ? cs.ExitCode : null,
     createdAt: orNull(t.CreatedAt),
     updatedAt: orNull(t.UpdatedAt ?? status.Timestamp),
-    deploymentId: orNull(labels["otterdeploy.deployment.id"]),
+    deploymentId: taskDeploymentId(t.Spec),
     slot: orNull(t.Slot),
     nodeId: orNull(t.NodeID),
     desiredState: orNull(t.DesiredState),
@@ -202,14 +191,14 @@ export async function listResourceInstances(
   if (isSwarmRuntime()) {
     const res = await docker.tasks.list({ filters: { service: [serviceName] } });
     if (res.isErr()) return Result.err(res.error);
-    return Result.ok((res.value as SwarmTask[]).map(taskToInstance));
+    return Result.ok(res.value.map(taskToInstance));
   }
 
   // Plain Docker: containers are named exactly `serviceName`. The name filter is
   // a substring match, so pin to the exact `/name` (docker prefixes a slash).
   const res = await docker.containers.list({ all: true, filters: { name: [serviceName] } });
   if (res.isErr()) return Result.err(res.error);
-  const exact = (res.value as ContainerSummary[]).filter((c) =>
+  const exact = res.value.filter((c) =>
     c.Names?.some((n) => n === `/${serviceName}` || n === serviceName),
   );
   const instances = exact.map(containerToInstance);

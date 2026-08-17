@@ -16,9 +16,7 @@ export function summarizeCompose(parsed: ParsedCompose): ComposeServiceSummary[]
     // Named volumes only (binds/tmpfs are dropped at deploy). Deduped, source
     // name as written in the compose file: the chip the graph card renders.
     volumes: [
-      ...new Set(
-        s.volumes.filter((v) => v.type === "volume" && v.source).map((v) => v.source as string),
-      ),
+      ...new Set(s.volumes.flatMap((v) => (v.type === "volume" && v.source ? [v.source] : []))),
     ],
   }));
 }

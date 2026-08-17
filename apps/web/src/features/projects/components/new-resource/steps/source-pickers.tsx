@@ -9,7 +9,7 @@ import { useEffect } from "react";
 
 import { useQuery } from "@tanstack/react-query";
 
-import { FrameworkLogo, type FrameworkKind } from "@/features/projects/components/framework-logo";
+import { FrameworkLogo } from "@/features/projects/components/framework-logo";
 import {
   Combobox,
   ComboboxContent,
@@ -185,6 +185,11 @@ export function RepoCheck({ gitRepoId, root }: { gitRepoId: string; root: string
   );
 }
 
+// Same shape the graph's comet loader uses (resource-node-parts.tsx): the
+// custom property rides on an intersection type instead of a cast.
+type CometStyle = CSSProperties & { "--comet-color": string };
+const cometStyle: CometStyle = { "--comet-color": "var(--primary)" };
+
 /**
  * The detected-framework badge: a round tile at the top-right of the service
  * card. While `git.inspectRepo` runs it shows a glowing comet ring (the same
@@ -205,7 +210,7 @@ export function DetectedFrameworkBadge({
     ...orpc.git.inspectRepo.queryOptions({ input: { gitRepoId, path: root || "" } }),
     staleTime: 5 * 60 * 1000,
   });
-  const frameworkKind = (inspect.data?.framework ?? null) as FrameworkKind | null;
+  const frameworkKind = inspect.data?.framework ?? null;
 
   // Once we know there's no framework there's nothing to badge. RepoCheck
   // already carries reachability + errors, so leave the corner empty.
@@ -224,10 +229,7 @@ export function DetectedFrameworkBadge({
       }
     >
       {inspect.isLoading ? (
-        <span
-          className="comet-border rounded-full"
-          style={{ "--comet-color": "var(--primary)" } as CSSProperties}
-        />
+        <span className="comet-border rounded-full" style={cometStyle} />
       ) : frameworkKind ? (
         <FrameworkLogo framework={frameworkKind} className="size-5" />
       ) : null}

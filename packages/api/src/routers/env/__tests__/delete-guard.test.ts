@@ -1,5 +1,4 @@
-import type { EnvironmentId, OrganizationId } from "@otterdeploy/shared/id";
-
+import { idSchema } from "@otterdeploy/shared/id";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 // The queries layer is the DB boundary; the guard being tested lives above it.
@@ -14,8 +13,9 @@ vi.mock("../queries", () => ({
 import { deleteEnv } from "../handlers";
 import * as queries from "../queries";
 
-const environmentId = "env_1" as EnvironmentId;
-const organizationId = "org_1" as OrganizationId;
+// Branded at the boundary the way production code does it: parsed, not cast.
+const environmentId = idSchema.environment.parse("env_1");
+const organizationId = idSchema.organization.parse("org_1");
 
 /**
  * A resource whose `environment_id` no longer resolves matches NO scope query.
@@ -29,7 +29,7 @@ describe("deleteEnv", () => {
     vi.mocked(queries.deleteEnvRecord).mockResolvedValue({
       ok: false,
       reason: "has-resources",
-    } as never);
+    });
 
     return deleteEnv({ id: environmentId, organizationId }).then((result) => {
       expect(result.isErr()).toBe(true);
@@ -45,7 +45,7 @@ describe("deleteEnv", () => {
     vi.mocked(queries.deleteEnvRecord).mockResolvedValue({
       ok: false,
       reason: "not-found",
-    } as never);
+    });
 
     const result = await deleteEnv({ id: environmentId, organizationId });
     expect(result.isErr()).toBe(true);
@@ -56,7 +56,7 @@ describe("deleteEnv", () => {
     vi.mocked(queries.deleteEnvRecord).mockResolvedValue({
       ok: true,
       id: environmentId,
-    } as never);
+    });
 
     const result = await deleteEnv({ id: environmentId, organizationId, cascade: true });
     expect(result.isOk()).toBe(true);
@@ -69,7 +69,7 @@ describe("deleteEnv", () => {
     vi.mocked(queries.deleteEnvRecord).mockResolvedValue({
       ok: true,
       id: environmentId,
-    } as never);
+    });
 
     await deleteEnv({ id: environmentId, organizationId });
     expect(vi.mocked(queries.deleteEnvRecord)).toHaveBeenCalledWith(

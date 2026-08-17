@@ -1,9 +1,8 @@
-import type { ProjectSlug } from "@otterdeploy/shared/id";
-
 import { useState } from "react";
 
 import { Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
@@ -43,9 +42,13 @@ export function SetupWizard({ initialOrg = null }: { initialOrg?: CreatedOrg | n
 
   function finishToProject(projectSlug: string) {
     if (!org) return;
+    // Brand the slug the create call just returned. It was validated by the
+    // same slug schema server-side, so this always passes for real input.
+    const slug = zSlug(ID_PREFIX.project).safeParse(projectSlug);
+    if (!slug.success) return;
     void navigate({
       to: "/$orgSlug/$projectSlug",
-      params: { orgSlug: org.slug, projectSlug: projectSlug as ProjectSlug },
+      params: { orgSlug: org.slug, projectSlug: slug.data },
     });
   }
 

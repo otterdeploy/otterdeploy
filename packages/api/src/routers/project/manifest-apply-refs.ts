@@ -124,6 +124,28 @@ export function resolveEnv(
   return { values, skipped };
 }
 
+/** Field lookup on the ref view for a manifest-supplied tail. An exhaustive
+ *  switch instead of a string index so an unknown tail (or a prototype name
+ *  like "toString") stays unresolved rather than leaking. */
+function databaseRefField(dbRef: DatabaseRefView, tail: string): string | number | undefined {
+  switch (tail) {
+    case "host":
+      return dbRef.host;
+    case "port":
+      return dbRef.port;
+    case "username":
+      return dbRef.username;
+    case "password":
+      return dbRef.password;
+    case "database":
+      return dbRef.database;
+    case "url":
+      return dbRef.url;
+    default:
+      return undefined;
+  }
+}
+
 // Resolve a `${database:<name>.<field>}` ref against the DB-backed view. The
 // view's fields are all string|number scalars, so coerce to string explicitly.
 function resolveDatabaseRef(
@@ -138,7 +160,7 @@ function resolveDatabaseRef(
     unresolved.push(`\${database:${name}.${tail}} (database not found)`);
     return whole;
   }
-  const value = (dbRef as unknown as Record<string, string | number>)[tail];
+  const value = databaseRefField(dbRef, tail);
   if (value === undefined) {
     unresolved.push(whole);
     return whole;

@@ -1,4 +1,4 @@
-import type { DeploymentId, ProjectId, ResourceId } from "@otterdeploy/shared/id";
+import type { DeploymentId } from "@otterdeploy/shared/id";
 
 import { deployCompose } from "@otterdeploy/api/routers/compose/deploy";
 import { parseCompose } from "@otterdeploy/api/stack/compose/parse";
@@ -141,7 +141,7 @@ export async function runComposeBuild(
             services: summarizeCompose(parsed.value),
             builtImages,
           })
-          .where(eq(composeResource.resourceId, ctx.resource.id as ResourceId)),
+          .where(eq(composeResource.resourceId, ctx.resource.id)),
       catch: (cause) => new BuildStepError({ step: "set-compose", cause }),
     });
 
@@ -159,8 +159,8 @@ export async function runComposeBuild(
       try: async () => {
         const r = await deployCompose(
           {
-            projectId: ctx.project.id as ProjectId,
-            resourceId: ctx.resource.id as ResourceId,
+            projectId: ctx.project.id,
+            resourceId: ctx.resource.id,
             deploymentId: opts.deploymentId,
           },
           "redeploy",

@@ -15,9 +15,12 @@
 
 import { env } from "@otterdeploy/env/server";
 import { base64UrlDecode, base64UrlEncode, timingSafeEqual } from "@otterdeploy/shared/crypto";
+import * as z from "zod";
 
 const PURPOSE = "health-agent";
 const TTL_SECONDS = 365 * 24 * 60 * 60;
+
+const tokenPayloadSchema = z.object({ p: z.string().optional(), exp: z.number().optional() });
 
 export async function mintAgentToken(): Promise<string> {
   const payload = { p: PURPOSE, exp: Math.floor(Date.now() / 1000) + TTL_SECONDS };
@@ -31,10 +34,11 @@ export async function verifyAgentToken(token: string): Promise<boolean> {
   const body = token.slice(0, idx);
   if (!timingSafeEqual(token.slice(idx + 1), await hmac(body))) return false;
   try {
-    const payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(body))) as {
-      p?: string;
-      exp?: number;
-    };
+    const parsed = tokenPayloadSchema.safeParse(
+      JSON.parse(new TextDecoder().decode(base64UrlDecode(body))),
+    );
+    if (!parsed.success) return false;
+    const payload = parsed.data;
     return payload.p === PURPOSE && typeof payload.exp === "number"
       ? payload.exp >= Math.floor(Date.now() / 1000)
       : false;

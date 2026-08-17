@@ -60,7 +60,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   const { activeOrgSlug, isInstallAdmin } = useRouteContext({ from: "/_app" });
   // `strict: false`: the tour is mounted above the routes that own these
   // params, so it reads whichever are present on the current match.
-  const params = useParams({ strict: false }) as { orgSlug?: string; projectSlug?: string };
+  const params: { orgSlug?: string; projectSlug?: string } = useParams({ strict: false });
 
   // Both collections are preloaded by the layouts below this one, so these are
   // cheap subscriptions rather than fetches. They decide which chapters apply:

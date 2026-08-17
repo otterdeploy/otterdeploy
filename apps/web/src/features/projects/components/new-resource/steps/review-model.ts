@@ -146,7 +146,7 @@ export function buildReviewModel(
   const isDb = kind.group === "database";
 
   // Selected postgres extensions (names), with their display labels.
-  const extensions = (values.extensions as string[] | undefined) ?? [];
+  const extensions = values.extensions ?? [];
   const isPg = kind.id === "postgres";
   const extensionLabels = extensions
     .map((n) => POSTGRES_EXTENSIONS.find((e) => e.name === n)?.label ?? n)

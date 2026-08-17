@@ -33,10 +33,13 @@ type RecordHistory = (e: Omit<QueryHistoryEntry, "id" | "at">) => void;
  *  `data.reason`), falling back to the message. */
 export function errMessage(error: unknown): string {
   if (error && typeof error === "object") {
-    const data = (error as { data?: { reason?: unknown } }).data;
-    if (data && typeof data.reason === "string") return data.reason;
-    const message = (error as { message?: unknown }).message;
-    if (typeof message === "string") return message;
+    if ("data" in error) {
+      const { data } = error;
+      if (data && typeof data === "object" && "reason" in data && typeof data.reason === "string") {
+        return data.reason;
+      }
+    }
+    if ("message" in error && typeof error.message === "string") return error.message;
   }
   return "Something went wrong.";
 }

@@ -49,7 +49,7 @@ export async function currentQueueSnapshot(): Promise<QueueSnapshot[]> {
 export async function samplePlatformMetrics(): Promise<void> {
   try {
     const snaps = await currentQueueSnapshot();
-    const sum = (k: keyof QueueSnapshot) => snaps.reduce((s, q) => s + (q[k] as number), 0);
+    const sum = (k: Exclude<keyof QueueSnapshot, "queue">) => snaps.reduce((s, q) => s + q[k], 0);
     await db.insert(platformMetric).values([
       { metric: "queue.waiting", value: sum("waiting") },
       { metric: "queue.active", value: sum("active") },

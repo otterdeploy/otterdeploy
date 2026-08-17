@@ -271,8 +271,10 @@ export async function runBulk<T>(
 
 function reasonOf(err: unknown): string {
   if (err && typeof err === "object" && "data" in err) {
-    const data = (err as { data?: { reason?: unknown } }).data;
-    if (data && typeof data.reason === "string") return data.reason;
+    const data: unknown = err.data;
+    if (data && typeof data === "object" && "reason" in data && typeof data.reason === "string") {
+      return data.reason;
+    }
   }
   return err instanceof Error ? err.message : "Failed";
 }

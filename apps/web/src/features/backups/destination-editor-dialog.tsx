@@ -1,3 +1,4 @@
+import { createId, ID_PREFIX } from "@otterdeploy/shared/id";
 /**
  * Create / edit a backup destination. TanStack Form drives the fields; on
  * submit it mutates `destinationsCollection` optimistically (secret threaded
@@ -47,16 +48,18 @@ export function DestinationEditorDialog({
   );
 }
 
+interface DestinationFormValues {
+  name: string;
+  type: DestinationKind;
+  config: Record<string, string>;
+  secret: Record<string, string>;
+}
+
 /** Build the optimistic mutation for a create or an edit. */
 function saveDestination(
   initial: Destination | null,
   organizationId: string,
-  value: {
-    name: string;
-    type: DestinationKind;
-    config: Record<string, string>;
-    secret: Record<string, string>;
-  },
+  value: DestinationFormValues,
 ) {
   const fields = DEST_TYPE_FIELDS[value.type];
   const cleanConfig: Record<string, string> = {};
@@ -83,7 +86,9 @@ function saveDestination(
   }
   return destinationsCollection.insert(
     {
-      id: crypto.randomUUID() as Destination["id"],
+      // Temp branded id for the optimistic row; the refetch in onInsert
+      // replaces it with the server-assigned one.
+      id: createId(ID_PREFIX.backupDestination),
       organizationId,
       name: value.name.trim(),
       type: value.type,
@@ -113,13 +118,14 @@ function DestinationEditorBody({
   // The platform-managed local destination: name is editable, location isn't.
   const managed = initial?.managed === true;
 
+  const defaultValues: DestinationFormValues = {
+    name: initial?.name ?? "",
+    type: initial?.type ?? "s3",
+    config: configFromInitial(initial),
+    secret: {},
+  };
   const form = useForm({
-    defaultValues: {
-      name: initial?.name ?? "",
-      type: (initial?.type ?? "s3") as DestinationKind,
-      config: configFromInitial(initial),
-      secret: {} as Record<string, string>,
-    },
+    defaultValues,
     onSubmit: ({ value }) => {
       const tx = saveDestination(initial, organizationId, value);
       onClose();

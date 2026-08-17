@@ -31,7 +31,7 @@ interface ProjectSettingsFields {
 
 function SettingsRoute() {
   const { project } = useLoaderData({ from: "/_app/$orgSlug/_shell/$projectSlug" });
-  return <SettingsForm project={project as unknown as ProjectSettingsFields} />;
+  return <SettingsForm project={project} />;
 }
 
 function SettingsForm({ project }: { project: ProjectSettingsFields }) {

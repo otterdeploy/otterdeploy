@@ -105,10 +105,7 @@ async function resolveEnvFor(
   // surface by construction.
   let rows = overlayServiceEnv(record.env, ctx.environmentId);
   if (ctx.previewId) {
-    const overrides = await listPreviewServiceEnvVars(
-      record.service.resourceId as ResourceId,
-      ctx.previewId,
-    );
+    const overrides = await listPreviewServiceEnvVars(record.service.resourceId, ctx.previewId);
     const byKey = new Map(rows.map((r) => [r.key, r]));
     for (const r of overrides) byKey.set(r.key, r);
     rows = [...byKey.values()];

@@ -51,7 +51,7 @@ export async function provisionFresh(
     });
   }
 
-  const resolved = await resolveServiceEnv(projectId, record.service.resourceId as ResourceId);
+  const resolved = await resolveServiceEnv(projectId, record.service.resourceId);
   if (resolved.isErr()) {
     await updateServiceResourceStatus(record.service.resourceId, "invalid");
     return Result.err(resolved.error);
@@ -212,7 +212,7 @@ export async function redeployAndFanOut(
   log.set({ fanout: { count: dependents.length } });
 
   for (const depId of dependents) {
-    const depResult = await redeployOne(projectId, depId as ResourceId, projectSlug, log);
+    const depResult = await redeployOne(projectId, depId, projectSlug, log);
     if (depResult.isErr()) {
       // One failed dependent shouldn't undo the rest, but we surface the first error.
       return Result.err(depResult.error);

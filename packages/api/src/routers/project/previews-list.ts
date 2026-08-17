@@ -5,8 +5,6 @@
  * same predicate the deployer uses, so the card set always matches what the
  * PR actually builds).
  */
-import type { ProjectId } from "@otterdeploy/shared/id";
-
 import { db } from "@otterdeploy/db";
 import { deployment, resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { Result } from "better-result";
@@ -71,7 +69,7 @@ export async function listProjectPreviews(
     return Result.err(new ProjectNotFoundError({ projectId: input.projectId }));
   }
 
-  const previews = await listActivePreviewsByProject(input.projectId as ProjectId);
+  const previews = await listActivePreviewsByProject(input.projectId);
   if (previews.length === 0) return Result.ok([]);
 
   // Branchable-DB count depends only on (project, repo), not the individual
@@ -82,9 +80,7 @@ export async function listProjectPreviews(
   ): Promise<number> => {
     const hit = branchableByRepo.get(gitRepoId);
     if (hit !== undefined) return hit;
-    const count = (
-      await referencedBaseDatabases({ projectId: input.projectId as ProjectId, gitRepoId })
-    ).length;
+    const count = (await referencedBaseDatabases({ projectId: input.projectId, gitRepoId })).length;
     branchableByRepo.set(gitRepoId, count);
     return count;
   };
@@ -98,7 +94,7 @@ export async function listProjectPreviews(
       .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
       .where(
         and(
-          eq(resource.projectId, input.projectId as ProjectId),
+          eq(resource.projectId, input.projectId),
           eq(resource.type, "service"),
           eq(serviceResource.source, "git"),
           eq(serviceResource.gitRepoId, row.gitRepoId),
@@ -141,9 +137,7 @@ export async function listProjectPreviews(
     const [branchRow] = await db
       .select({ id: resource.id })
       .from(resource)
-      .where(
-        and(eq(resource.projectId, input.projectId as ProjectId), eq(resource.previewId, row.id)),
-      )
+      .where(and(eq(resource.projectId, input.projectId), eq(resource.previewId, row.id)))
       .limit(1);
     const branchableDbCount = await branchableCount(row.gitRepoId);
 

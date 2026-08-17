@@ -32,7 +32,11 @@ export async function pgDumpToBuffer(
   // execDump now streams (backup pipes it into rustic); the copy/branch path
   // still wants the whole archive, so drain the stream into a buffer here.
   const chunks: Buffer[] = [];
-  for await (const chunk of dump.stream) chunks.push(chunk as Buffer);
+  // The exec stream is binary (no encoding set), so chunks are Buffers at
+  // runtime; `Buffer.from` covers the type-level string arm without a cast.
+  for await (const chunk of dump.stream) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
   const exitCode = await dump.exitCode;
   if (exitCode !== 0) {
     const stderr = await dump.stderr();

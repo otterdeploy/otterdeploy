@@ -31,6 +31,7 @@ import {
 } from "@otterdeploy/shared/framework";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import * as z from "zod";
 
 import type { LogSink } from "./log-stream";
 
@@ -39,17 +40,26 @@ import { RAILPACK_INFO_FILE } from "./railpack";
 /** Shape of the bits of `railpack-info.json` we read. railpack emits more
  *  (plan, resolvedPackages, logs); we only need the detected providers and
  *  the node runtime/framework. */
-interface RailpackInfo {
-  detectedProviders?: string[];
-  metadata?: Record<string, string>;
-  success?: boolean;
-}
+const railpackInfoSchema = z.object({
+  detectedProviders: z.array(z.string()).optional(),
+  metadata: z.record(z.string(), z.string()).optional(),
+  success: z.boolean().optional(),
+});
+type RailpackInfo = z.infer<typeof railpackInfoSchema>;
 
-/** Read + JSON.parse a file, returning null on any error (missing, unreadable,
- *  malformed). The caller treats null as "nothing detected". */
-async function readJsonFile<T>(path: string): Promise<T | null> {
+/** The two `package.json` fields the dependency heuristic reads. */
+const packageJsonLikeSchema: z.ZodType<PackageJsonLike> = z.object({
+  dependencies: z.record(z.string(), z.string()).optional(),
+  devDependencies: z.record(z.string(), z.string()).optional(),
+});
+
+/** Read + JSON.parse + schema-check a file, returning null on any error
+ *  (missing, unreadable, malformed). The caller treats null as "nothing
+ *  detected". */
+async function readJsonFile<T>(path: string, schema: z.ZodType<T>): Promise<T | null> {
   try {
-    return JSON.parse(await readFile(path, "utf8")) as T;
+    const parsed = schema.safeParse(JSON.parse(await readFile(path, "utf8")));
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
@@ -112,8 +122,9 @@ export async function detectServiceFramework(opts: {
   // 1. Local package.json heuristic: finest granularity for Node services.
   //    Always the app's own package.json (its subdir), even when the build ran
   //    from the workspace root.
-  const pkg = await readJsonFile<PackageJsonLike>(
+  const pkg = await readJsonFile(
     join(opts.workDir, opts.sourceSubdir ?? "", "package.json"),
+    packageJsonLikeSchema,
   );
   const fromPkg = detectFrameworkFromPkg(pkg);
   if (fromPkg && fromPkg !== "node") {
@@ -124,8 +135,9 @@ export async function detectServiceFramework(opts: {
   // 2. railpack's analysis. Non-Node languages + bun + plain node. Written by
   //    `railpack prepare` into the build dir (the repo root for a workspace
   //    service, else the service's subdir), so read it from there.
-  const info = await readJsonFile<RailpackInfo>(
+  const info = await readJsonFile(
     join(opts.buildDir ?? join(opts.workDir, opts.sourceSubdir ?? ""), RAILPACK_INFO_FILE),
+    railpackInfoSchema,
   );
   const fromRailpack = frameworkFromRailpackInfo(info);
   const framework = fromRailpack ?? fromPkg ?? null;

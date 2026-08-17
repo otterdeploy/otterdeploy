@@ -49,7 +49,7 @@ export async function listServiceEnvVarsForResources(
     .from(serviceEnvVar)
     .where(
       and(
-        inArray(serviceEnvVar.serviceResourceId, serviceResourceIds as ResourceId[]),
+        inArray(serviceEnvVar.serviceResourceId, [...serviceResourceIds]),
         isNull(serviceEnvVar.previewId),
       ),
     )
@@ -58,9 +58,9 @@ export async function listServiceEnvVarsForResources(
     // 60s TTL lapses (the "I saved it but it's not in the UI" bug).
     .$withCache(false);
   for (const row of rows) {
-    const list = result.get(row.serviceResourceId as ResourceId);
+    const list = result.get(row.serviceResourceId);
     if (list) list.push(row);
-    else result.set(row.serviceResourceId as ResourceId, [row]);
+    else result.set(row.serviceResourceId, [row]);
   }
   return result;
 }
@@ -161,7 +161,7 @@ export async function bulkReplaceServiceEnvVars(
   vars: Array<{ key: string; value: string; isSecret?: boolean }>,
 ): Promise<ServiceEnvVarRow[]> {
   return db.transaction(async (tx) => {
-    const sealedRows = (await tx
+    const sealedRows: ServiceEnvVarRow[] = await tx
       .select()
       .from(serviceEnvVar)
       .where(
@@ -170,7 +170,7 @@ export async function bulkReplaceServiceEnvVars(
           isNull(serviceEnvVar.previewId),
           eq(serviceEnvVar.sealed, true),
         ),
-      )) as ServiceEnvVarRow[];
+      );
     const sealedKeys = new Set(sealedRows.map((r) => r.key));
 
     // Base, unsealed rows only: a bulk edit of the base env must never wipe
@@ -188,7 +188,7 @@ export async function bulkReplaceServiceEnvVars(
     const toInsert = vars.filter((v) => !sealedKeys.has(v.key));
     let inserted: ServiceEnvVarRow[] = [];
     if (toInsert.length > 0) {
-      inserted = (await tx
+      inserted = await tx
         .insert(serviceEnvVar)
         .values(
           toInsert.map((v) => ({
@@ -199,7 +199,7 @@ export async function bulkReplaceServiceEnvVars(
             sealed: false,
           })),
         )
-        .returning()) as ServiceEnvVarRow[];
+        .returning();
     }
 
     return [...inserted, ...sealedRows].sort((a, b) => a.key.localeCompare(b.key));
@@ -269,5 +269,5 @@ export async function findServiceDependentsByName(input: {
     );
 
   // Dedupe: a service can reference the target via multiple env vars.
-  return Array.from(new Set(rows.map((r) => r.serviceResourceId))) as ResourceId[];
+  return Array.from(new Set(rows.map((r) => r.serviceResourceId)));
 }

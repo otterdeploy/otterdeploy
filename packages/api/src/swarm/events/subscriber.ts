@@ -22,9 +22,10 @@
  * authoritative answers (snapshot-then-watch pattern).
  */
 
-import { Docker } from "@otterdeploy/docker";
+import { Docker, type EventMessage } from "@otterdeploy/docker";
 import { log } from "evlog";
 import { EventEmitter } from "node:events";
+import * as z from "zod";
 
 import type { DockerEvent } from "./types";
 
@@ -32,6 +33,22 @@ import { readLines } from "../stream-parse";
 import { normalizeDockerEvent } from "./normalize";
 
 type Listener = (event: DockerEvent) => void;
+
+/** Boundary schema for one line off `/events`. Every field is optional on the
+ *  wire (see `EventMessage`), and loose so daemon additions pass through. */
+const eventMessageSchema: z.ZodType<EventMessage> = z.looseObject({
+  Type: z.string().optional(),
+  Action: z.string().optional(),
+  Actor: z
+    .looseObject({
+      ID: z.string().optional(),
+      Attributes: z.record(z.string(), z.string()).optional(),
+    })
+    .optional(),
+  scope: z.string().optional(),
+  time: z.number().optional(),
+  timeNano: z.number().optional(),
+});
 
 const EVENT_NAME = "event";
 const IDLE_SHUTDOWN_MS = 15_000;
@@ -147,8 +164,10 @@ class DockerEventBus {
 
   private dispatch(line: string): void {
     try {
-      const parsed = JSON.parse(line) as Parameters<typeof normalizeDockerEvent>[0];
-      const event = normalizeDockerEvent(parsed);
+      const decoded: unknown = JSON.parse(line);
+      const parsed = eventMessageSchema.safeParse(decoded);
+      if (!parsed.success) return;
+      const event = normalizeDockerEvent(parsed.data);
       this.emitter.emit(EVENT_NAME, event);
     } catch {
       // Malformed line: daemon sometimes batches partial JSON or sends
@@ -159,7 +178,17 @@ class DockerEventBus {
   private cleanupConnection(): void {
     if (this.stream) {
       try {
-        (this.stream as { destroy?: () => void }).destroy?.();
+        // NodeJS.ReadableStream doesn't declare destroy(); real Node streams
+        // (Readable, IncomingMessage) have it. Duck-check instead of casting.
+        const candidate: unknown = this.stream;
+        if (
+          typeof candidate === "object" &&
+          candidate !== null &&
+          "destroy" in candidate &&
+          typeof candidate.destroy === "function"
+        ) {
+          candidate.destroy();
+        }
       } catch {
         // Best-effort: the reader loop has already moved on.
       }

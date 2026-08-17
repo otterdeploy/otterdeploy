@@ -16,9 +16,8 @@
  * See docs/designs/runtime.md.
  */
 
-import type { DeploymentId } from "@otterdeploy/shared/id";
-
 import { Docker } from "@otterdeploy/docker";
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 
 import type { Summary } from "./docker-driver-helpers";
 import type { ContainerSpec, RuntimeDriver, RuntimeStatus } from "./types";
@@ -48,9 +47,12 @@ import {
  * row → the null log swallows the lines and the pull still runs.
  */
 async function pullWithDeployLog(docker: Docker, spec: ContainerSpec): Promise<void> {
-  const deployLog = spec.deploymentId
-    ? createStackDeployLog(spec.deploymentId as DeploymentId)
-    : nullStackDeployLog;
+  // `ContainerSpec.deploymentId` is a plain string; recover the brand with a
+  // real prefix check instead of a cast (mirrors docker-driver-db).
+  const deployLog =
+    spec.deploymentId && hasPrefix(spec.deploymentId, ID_PREFIX.deployment)
+      ? createStackDeployLog(spec.deploymentId)
+      : nullStackDeployLog;
   try {
     await pullImage(docker, spec.image, (line) => deployLog.line(line));
   } finally {
@@ -162,7 +164,7 @@ export const dockerDriver: RuntimeDriver = {
 
     const byName = new Map<string, Summary>();
     for (const container of list.value) {
-      const summary = container as unknown as Summary;
+      const summary: Summary = container;
       // Name filter would be a substring match; index by the exact `/name` the
       // way findContainer pins it, stripping docker's leading slash.
       for (const name of summary.Names ?? []) byName.set(name.replace(/^\//, ""), summary);

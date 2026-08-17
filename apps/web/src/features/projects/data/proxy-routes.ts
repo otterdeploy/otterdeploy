@@ -73,7 +73,7 @@ const proxyRoutesQueryOptions = queryCollectionOptions({
   onUpdate: async ({ transaction }) => {
     await Promise.all(
       transaction.mutations.map(async (m) => {
-        const routeId = m.original.id as ProxyRouteId;
+        const routeId = routeIdSchema.parse(m.original.id);
         // The auth-wall toggle.
         if (m.changes.protected !== undefined) {
           await orpc.project.proxyRoute.setProtection.call({
@@ -144,8 +144,9 @@ const routeGuestsQueryOptions = queryCollectionOptions({
     await Promise.all(
       transaction.mutations.map(async (m) => {
         const row = m.modified;
+        const routeId = routeIdSchema.parse(row.routeId);
         await orpc.project.proxyRoute.inviteGuest.call({
-          routeId: row.routeId as ProxyRouteId,
+          routeId,
           email: row.email,
           sessionHours: row.sessionHours,
         });
@@ -153,7 +154,7 @@ const routeGuestsQueryOptions = queryCollectionOptions({
         // id, normalized email) replaces it.
         void queryClient.invalidateQueries({
           queryKey: orpc.project.proxyRoute.listGuests.queryKey({
-            input: { routeId: row.routeId as ProxyRouteId },
+            input: { routeId },
           }),
         });
       }),
@@ -163,7 +164,7 @@ const routeGuestsQueryOptions = queryCollectionOptions({
     await Promise.all(
       transaction.mutations.map((m) =>
         orpc.project.proxyRoute.removeGuest.call({
-          routeId: m.original.routeId as ProxyRouteId,
+          routeId: routeIdSchema.parse(m.original.routeId),
           guestId: m.original.id,
         }),
       ),

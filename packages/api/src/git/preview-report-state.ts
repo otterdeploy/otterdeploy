@@ -6,7 +6,7 @@
  * host and dashboard inspect link. Read-only; rendering lives in
  * preview-comment.ts, GitHub calls in preview-report.ts.
  */
-import type { GitRepoId, ProjectId } from "@otterdeploy/shared/id";
+import type { GitRepoId } from "@otterdeploy/shared/id";
 
 import { resolveCanonicalWebOrigin } from "@otterdeploy/auth/web-origin";
 import { db } from "@otterdeploy/db";
@@ -64,7 +64,7 @@ async function loadPreviewRows(row: PreviewRow, repoId: GitRepoId): Promise<Prev
     .select({ name: project.name, slug: project.slug, orgSlug: organization.slug })
     .from(project)
     .innerJoin(organization, eq(organization.id, project.organizationId))
-    .where(eq(project.id, row.projectId as ProjectId))
+    .where(eq(project.id, row.projectId))
     .limit(1);
   if (!proj) return [];
 
@@ -74,7 +74,7 @@ async function loadPreviewRows(row: PreviewRow, repoId: GitRepoId): Promise<Prev
     .innerJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
     .where(
       and(
-        eq(resource.projectId, row.projectId as ProjectId),
+        eq(resource.projectId, row.projectId),
         eq(resource.type, "service"),
         eq(serviceResource.source, "git"),
         eq(serviceResource.gitRepoId, repoId),

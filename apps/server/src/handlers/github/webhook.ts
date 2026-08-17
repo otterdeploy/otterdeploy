@@ -77,7 +77,7 @@ export const githubWebhookHandler: Handler = async (c) => {
   }
 
   const parsed = Result.try({
-    try: () => JSON.parse(new TextDecoder().decode(rawBody)) as unknown,
+    try: (): unknown => JSON.parse(new TextDecoder().decode(rawBody)),
     catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
   });
   if (parsed.isErr()) {

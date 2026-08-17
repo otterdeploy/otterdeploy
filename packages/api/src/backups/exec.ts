@@ -60,9 +60,8 @@ export async function execCapture(
 
   const startResult = await exec.start({ Detach: false, Tty: false });
   if (startResult.isErr()) throw startResult.error;
-  const stream = startResult.value as Readable;
 
-  const { stdout, stderr } = demuxStream(stream);
+  const { stdout, stderr } = demuxStream(startResult.value);
   const [out, err] = await Promise.all([collect(stdout), collect(stderr)]);
 
   const inspectResult = await exec.inspect();
@@ -116,9 +115,8 @@ export async function execDump(
 
   const startResult = await exec.start({ Detach: false, Tty: false });
   if (startResult.isErr()) throw startResult.error;
-  const source = startResult.value as Readable;
 
-  const { stdout, stderr } = demuxStream(source);
+  const { stdout, stderr } = demuxStream(startResult.value);
   // Collect stderr eagerly: it drives the source pump alongside the stdout
   // consumer, and its completion (source end) is the signal that the exec has
   // exited and `inspect()` now carries a real exit code. Memoized so repeated

@@ -8,7 +8,7 @@ import { useState } from "react";
 
 import { Delete02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { createId, ID_PREFIX, type ProxyRouteId } from "@otterdeploy/shared/id";
+import { createId, ID_PREFIX, idSchema } from "@otterdeploy/shared/id";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
@@ -75,10 +75,12 @@ function GuestList({
 export function GuestsSection({ routeId }: { routeId: string }) {
   const [adding, setAdding] = useState(false);
 
+  // The panel hands over a plain string; brand it at this boundary once.
+  const guestRouteId = idSchema.proxyRoute.parse(routeId);
+
   const { data: rows } = useLiveQuery(
-    (q) =>
-      q.from({ g: routeGuestsCollection }).where(({ g }) => eq(g.routeId, routeId as ProxyRouteId)),
-    [routeId],
+    (q) => q.from({ g: routeGuestsCollection }).where(({ g }) => eq(g.routeId, guestRouteId)),
+    [guestRouteId],
   );
 
   // Optimistic invite: the form closes the instant the row lands in the
@@ -91,7 +93,7 @@ export function GuestsSection({ routeId }: { routeId: string }) {
       if (!EMAIL_RE.test(trimmedEmail)) return;
       const tx = routeGuestsCollection.insert({
         id: createId(ID_PREFIX.deploymentGuest),
-        routeId: routeId as ProxyRouteId,
+        routeId: guestRouteId,
         email: trimmedEmail.toLowerCase(),
         sessionHours: Number(value.hours),
         createdAt: new Date().toISOString(),

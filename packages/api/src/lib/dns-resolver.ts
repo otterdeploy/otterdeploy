@@ -54,7 +54,10 @@ export type DnsError = DnsRecordMissing | DnsLookupFailed;
 
 /** The single place `err.code` is interpreted. */
 function classify(name: string, cause: unknown): DnsError {
-  const code = (cause as { code?: string }).code;
+  const code =
+    cause && typeof cause === "object" && "code" in cause && typeof cause.code === "string"
+      ? cause.code
+      : undefined;
   return code !== undefined && DEFINITIVE_MISS.has(code)
     ? new DnsRecordMissing({ name, code, cause })
     : new DnsLookupFailed({ name, cause });

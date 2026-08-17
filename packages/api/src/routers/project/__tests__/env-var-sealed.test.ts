@@ -10,6 +10,7 @@
  */
 import type { EnvironmentId, OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 
+import { idSchema } from "@otterdeploy/shared/id";
 import { describe, expect, test, vi } from "vite-plus/test";
 
 // env-var.ts pulls EVERYTHING (getProjectInOrg + the env-var CRUD) from the
@@ -31,13 +32,37 @@ import {
 } from "../env-var";
 import * as queries from "../queries";
 
-const projectId = "project_test" as ProjectId;
-const environmentId = "env_test" as EnvironmentId;
-const organizationId = "org_test" as OrganizationId;
+const projectId: ProjectId = idSchema.project.parse("prj_test");
+const environmentId: EnvironmentId = idSchema.environment.parse("env_test");
+const organizationId: OrganizationId = idSchema.organization.parse("org_test");
+
+/** Full project row fixture matching `getProjectInOrg`'s drizzle select shape. */
+const projectRow: NonNullable<Awaited<ReturnType<typeof queries.getProjectInOrg>>> = {
+  id: projectId,
+  organizationId,
+  name: "p",
+  slug: "p",
+  environmentId: null,
+  stackFile: null,
+  stackFileVersion: 0,
+  lastAppliedFile: null,
+  lastAppliedAt: null,
+  manifest: null,
+  manifestVersion: 0,
+  lastAppliedManifest: null,
+  lastManifestAppliedAt: null,
+  customDomain: null,
+  customDomainVerifiedAt: null,
+  customDomainVerifyToken: null,
+  nixpacksConfig: null,
+  graphLayout: {},
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
 
 function sealedRow(overrides: Partial<ProjectEnvVarRow> = {}): ProjectEnvVarRow {
   return {
-    id: "pev_1" as ProjectEnvVarRow["id"],
+    id: idSchema.projectEnvVar.parse("penv_1"),
     projectId,
     environmentId,
     key: "API_SECRET",
@@ -54,7 +79,7 @@ function sealedRow(overrides: Partial<ProjectEnvVarRow> = {}): ProjectEnvVarRow 
 
 describe("sealed project env vars never leak through env-var.ts's read paths", () => {
   test('list masks a sealed row\'s value to ""', async () => {
-    vi.mocked(queries.getProjectInOrg).mockResolvedValue({ id: projectId } as never);
+    vi.mocked(queries.getProjectInOrg).mockResolvedValue(projectRow);
     vi.mocked(queries.listProjectEnvVars).mockResolvedValue([sealedRow()]);
 
     const result = await listProjectEnvVarsForOrg({ projectId, environmentId, organizationId });
@@ -67,7 +92,7 @@ describe("sealed project env vars never leak through env-var.ts's read paths", (
   });
 
   test("list leaves a NON-sealed row's value untouched (masking is scoped)", async () => {
-    vi.mocked(queries.getProjectInOrg).mockResolvedValue({ id: projectId } as never);
+    vi.mocked(queries.getProjectInOrg).mockResolvedValue(projectRow);
     vi.mocked(queries.listProjectEnvVars).mockResolvedValue([
       sealedRow({ key: "PLAIN", value: "hello", sealed: false }),
     ]);
@@ -80,7 +105,7 @@ describe("sealed project env vars never leak through env-var.ts's read paths", (
   });
 
   test("upsert's own response masks the row when the final state is sealed", async () => {
-    vi.mocked(queries.getProjectInOrg).mockResolvedValue({ id: projectId } as never);
+    vi.mocked(queries.getProjectInOrg).mockResolvedValue(projectRow);
     // The query layer is the one that actually encrypts; simulate its
     // contract (returns the sealed row with `value` = ciphertext) and prove
     // the handler still refuses to echo it back, even on the write that
@@ -104,7 +129,7 @@ describe("sealed project env vars never leak through env-var.ts's read paths", (
   });
 
   test("bulk-replace masks every sealed row in the returned set", async () => {
-    vi.mocked(queries.getProjectInOrg).mockResolvedValue({ id: projectId } as never);
+    vi.mocked(queries.getProjectInOrg).mockResolvedValue(projectRow);
     vi.mocked(queries.bulkReplaceProjectEnvVars).mockResolvedValue([
       sealedRow({ key: "SEALED_ONE", sealed: true }),
       sealedRow({ key: "PLAIN_ONE", value: "visible", sealed: false }),

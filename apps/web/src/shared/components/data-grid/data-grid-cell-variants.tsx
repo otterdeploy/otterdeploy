@@ -16,6 +16,7 @@ import {
   formatFileSize,
   getCellKey,
   getFileIcon,
+  getIsFileCellData,
   getLineCount,
   getUrlHref,
   parseLocalDate,
@@ -47,6 +48,30 @@ import { cn } from "@/shared/lib/utils";
 
 import { Check, LinkIcon, Upload, X } from "./icons";
 
+/** Cell values arrive as `unknown` (`Cell<TData, unknown>`). Text-ish cells
+ *  hold `string | null` in practice (SQL NULL stays null so the NULL sentinel
+ *  renders); any stray scalar gets the same string coercion the DOM applied
+ *  when these were written straight into `textContent`. */
+function toTextCellValue(value: unknown): string | null {
+  if (value == null) return null;
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "bigint" || typeof value === "boolean") {
+    return String(value);
+  }
+  // Non-scalar values have no meaningful text form; treat like SQL NULL.
+  return null;
+}
+
+/** Number cells hold `number | null`; pg numeric/bigint columns arrive as
+ *  strings and pass through unchanged for display. */
+function toNumberCellValue(value: unknown): number | string | null {
+  return typeof value === "number" || typeof value === "string" ? value : null;
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
 export function ShortTextCell<TData>({
   cell,
   tableMeta,
@@ -61,7 +86,7 @@ export function ShortTextCell<TData>({
   readOnly,
 }: DataGridCellProps<TData>) {
   const { t } = useTranslation();
-  const initialValue = cell.getValue() as string;
+  const initialValue = toTextCellValue(cell.getValue());
   const [value, setValue] = React.useState(initialValue);
   const cellRef = React.useRef<HTMLDivElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -238,7 +263,7 @@ export function LongTextCell<TData>({
   readOnly,
 }: DataGridCellProps<TData>) {
   const { t } = useTranslation();
-  const initialValue = cell.getValue() as string;
+  const initialValue = toTextCellValue(cell.getValue());
   const [value, setValue] = React.useState(initialValue ?? "");
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -424,7 +449,7 @@ export function NumberCell<TData>({
   isActiveSearchMatch,
   readOnly,
 }: DataGridCellProps<TData>) {
-  const initialValue = cell.getValue() as number;
+  const initialValue = toNumberCellValue(cell.getValue());
   const [value, setValue] = React.useState(String(initialValue ?? ""));
   const inputRef = React.useRef<HTMLInputElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -552,7 +577,7 @@ export function UrlCell<TData>({
   readOnly,
 }: DataGridCellProps<TData>) {
   const { t } = useTranslation();
-  const initialValue = cell.getValue() as string;
+  const initialValue = toTextCellValue(cell.getValue());
   const [value, setValue] = React.useState(initialValue ?? "");
   const cellRef = React.useRef<HTMLDivElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -756,7 +781,7 @@ export function CheckboxCell<TData>({
   isActiveSearchMatch,
   readOnly,
 }: Omit<DataGridCellProps<TData>, "isEditing">) {
-  const initialValue = cell.getValue() as boolean;
+  const initialValue = cell.getValue();
   const [value, setValue] = React.useState(Boolean(initialValue));
   const containerRef = React.useRef<HTMLDivElement>(null);
 
@@ -806,11 +831,11 @@ export function CheckboxCell<TData>({
     event.stopPropagation();
   }, []);
 
-  const onCheckboxMouseDown = React.useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+  const onCheckboxMouseDown = React.useCallback((event: React.MouseEvent) => {
     event.stopPropagation();
   }, []);
 
-  const onCheckboxDoubleClick = React.useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+  const onCheckboxDoubleClick = React.useCallback((event: React.MouseEvent) => {
     event.stopPropagation();
   }, []);
 
@@ -838,12 +863,8 @@ export function CheckboxCell<TData>({
         disabled={readOnly}
         className="border-primary"
         onClick={onCheckboxClick}
-        onMouseDown={
-          onCheckboxMouseDown as unknown as React.ComponentProps<typeof Checkbox>["onMouseDown"]
-        }
-        onDoubleClick={
-          onCheckboxDoubleClick as unknown as React.ComponentProps<typeof Checkbox>["onDoubleClick"]
-        }
+        onMouseDown={onCheckboxMouseDown}
+        onDoubleClick={onCheckboxDoubleClick}
       />
     </DataGridCellWrapper>
   );
@@ -862,7 +883,7 @@ export function SelectCell<TData>({
   isActiveSearchMatch,
   readOnly,
 }: DataGridCellProps<TData>) {
-  const initialValue = cell.getValue() as string;
+  const initialValue = toTextCellValue(cell.getValue());
   const [value, setValue] = React.useState(initialValue);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const cellOpts = cell.column.columnDef.meta?.cell;
@@ -919,7 +940,7 @@ export function SelectCell<TData>({
     [isEditing, isFocused, initialValue, tableMeta],
   );
 
-  const displayLabel = optionByValue.get(value)?.label ?? value;
+  const displayLabel = value == null ? null : (optionByValue.get(value)?.label ?? value);
 
   return (
     <DataGridCellWrapper<TData>
@@ -996,8 +1017,8 @@ export function MultiSelectCell<TData>({
 }: DataGridCellProps<TData>) {
   const { t } = useTranslation();
   const cellValue = React.useMemo(() => {
-    const value = cell.getValue() as string[];
-    return value ?? [];
+    const value = cell.getValue();
+    return isStringArray(value) ? value : [];
   }, [cell]);
 
   const cellKey = getCellKey(rowIndex, columnId);
@@ -1279,8 +1300,10 @@ export function DateCell<TData>({
   isActiveSearchMatch,
   readOnly,
 }: DataGridCellProps<TData>) {
-  const initialValue = cell.getValue() as string;
-  const [value, setValue] = React.useState(initialValue ?? "");
+  const initialValue = toTextCellValue(cell.getValue());
+  // `string | null` state: Escape restores the raw initial value, which is
+  // null for a SQL NULL cell (matches what the cast used to smuggle through).
+  const [value, setValue] = React.useState<string | null>(initialValue ?? "");
   const containerRef = React.useRef<HTMLDivElement>(null);
 
   const prevInitialValueRef = React.useRef(initialValue);
@@ -1387,7 +1410,10 @@ export function FileCell<TData>({
   readOnly,
 }: DataGridCellProps<TData>) {
   const { t } = useTranslation();
-  const cellValue = React.useMemo(() => (cell.getValue() as FileCellData[]) ?? [], [cell]);
+  const cellValue = React.useMemo(() => {
+    const value = cell.getValue();
+    return Array.isArray(value) && value.every(getIsFileCellData) ? value : [];
+  }, [cell]);
 
   const cellKey = getCellKey(rowIndex, columnId);
   const prevCellKeyRef = React.useRef(cellKey);

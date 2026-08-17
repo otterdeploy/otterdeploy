@@ -23,7 +23,13 @@ const webhookIdField = zId(ID_PREFIX.webhook);
 const inboundEndpointIdField = zId(ID_PREFIX.inboundEndpoint);
 const resourceIdField = zId(ID_PREFIX.resource);
 
-const eventId = z.enum(EVENT_IDS as [string, ...string[]]);
+// Widening [EventId, ...] → [string, ...] keeps the schema's inferred type
+// `string` (what every consumer of this contract already sees) without an
+// assertion; the runtime values are still exactly the catalog's ids.
+const [firstEventId, ...restEventIds] = EVENT_IDS;
+if (firstEventId === undefined) throw new Error("PLATFORM_EVENTS catalog is empty");
+const eventIdValues: [string, ...string[]] = [firstEventId, ...restEventIds];
+const eventId = z.enum(eventIdValues);
 
 // Display status: `failing` is derived from recent delivery failures on an
 // active webhook, never stored.

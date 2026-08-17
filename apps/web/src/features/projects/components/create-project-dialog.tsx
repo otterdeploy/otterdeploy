@@ -1,8 +1,6 @@
-import type { ProjectSlug } from "@otterdeploy/shared/id";
-
 import { useState, type ReactElement } from "react";
 
-import { ID_PREFIX, createId } from "@otterdeploy/shared/id";
+import { ID_PREFIX, createId, zSlug } from "@otterdeploy/shared/id";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useNavigate, useParams } from "@tanstack/react-router";
@@ -27,6 +25,11 @@ import { projectCollection } from "../data/project";
 // `.slugify()` alone, used to derive the slug live as the user types the name.
 // Doesn't throw on short/empty input, just normalizes whatever's there.
 const slugifier = z.string().slugify();
+
+// Brands the (already slugified + length-checked) form value as a ProjectSlug
+// for the route param. Re-runs the same slugify/min/max pipeline, so a value
+// the form schema accepted parses to itself, just branded.
+const projectSlugSchema = zSlug(ID_PREFIX.project);
 
 const schema = z.object({
   name: z.string().min(1, "Project name is required"),
@@ -109,7 +112,7 @@ export function CreateProjectDialog({
       setOpen(false);
       void navigate({
         to: "/$orgSlug/$projectSlug",
-        params: { orgSlug, projectSlug: value.slug as ProjectSlug },
+        params: { orgSlug, projectSlug: projectSlugSchema.parse(value.slug) },
       });
 
       // Surface server-side failures asynchronously; tanstack/db rolls back

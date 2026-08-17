@@ -60,7 +60,7 @@ export function parseCompose(yaml: string): Result<ParsedCompose, ComposeParseEr
   // The `yaml` package resolves anchors + `<<` merge keys (which compose uses
   // and Bun.YAML mishandles) and gives ACCURATE line/column on errors (Bun's
   // are bogus, constant regardless of input).
-  const raw = Result.try(() => parseYaml(yaml, { merge: true }) as unknown);
+  const raw = Result.try((): unknown => parseYaml(yaml, { merge: true }));
   if (raw.isErr()) {
     return Result.err(yamlParseError(raw.error.message));
   }

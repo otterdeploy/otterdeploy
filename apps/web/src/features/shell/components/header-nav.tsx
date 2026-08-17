@@ -106,7 +106,7 @@ export function HeaderNav() {
 
   // `strict: false`: this nav also renders on org-level routes, which have no
   // `env` search param in their schema at all.
-  const search = useSearch({ strict: false }) as { env?: string };
+  const search: { env?: string } = useSearch({ strict: false });
   // The project's own pointer decides which environment is main. Deriving it
   // from list position is what made a newly added environment look like the
   // main one; see environment-default.ts.
@@ -129,10 +129,12 @@ export function HeaderNav() {
     void navigate({ to: "/$orgSlug", params: { orgSlug: org.slug } });
   };
 
+  // `to: "."` = stay on the current route, only the search changes.
   const selectEnv = (slug: string) =>
     void navigate({
-      search: (prev: { env?: string }) => ({ ...prev, env: slug }),
-    } as never);
+      to: ".",
+      search: (prev) => ({ ...prev, env: slug }),
+    });
 
   const lists = {
     orgs: organizations,

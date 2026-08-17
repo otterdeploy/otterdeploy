@@ -26,12 +26,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/components/ui/dialog";
-import { Input } from "@/shared/components/ui/input";
-import { Label } from "@/shared/components/ui/label";
-import { Textarea } from "@/shared/components/ui/textarea";
 import { client, orpc } from "@/shared/server/orpc";
 
 import { invalidateInbound } from "./data/webhooks";
+import { AllowlistField, NameField } from "./inbound-dialog-fields";
 import { TargetFields, type InboundAction } from "./inbound-fields";
 import { SuccessScreen, type Created } from "./inbound-success";
 import { inboundUrl, type InboundEndpoint } from "./shared";
@@ -90,36 +88,6 @@ function persistEndpoint(args: {
         });
 }
 
-/** Raw IP-allowlist textarea, parsed into entries on submit. */
-function AllowlistField({
-  value,
-  onBlur,
-  onChange,
-}: {
-  value: string;
-  onBlur: () => void;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      <Label htmlFor="inbound-allowlist">
-        IP allowlist{" "}
-        <span className="font-normal text-muted-foreground">
-          (one per line, IPv4 CIDR ok; empty allows any)
-        </span>
-      </Label>
-      <Textarea
-        id="inbound-allowlist"
-        className="min-h-16 font-mono text-[12px]"
-        placeholder={"140.82.112.0/20\n192.30.252.0/22"}
-        value={value}
-        onBlur={onBlur}
-        onChange={(e) => onChange(e.target.value)}
-      />
-    </div>
-  );
-}
-
 export function InboundDialog({ open, onOpenChange, editing }: InboundDialogProps) {
   const { t } = useTranslation();
   const isEdit = editing !== null;
@@ -131,13 +99,22 @@ export function InboundDialog({ open, onOpenChange, editing }: InboundDialogProp
     enabled: open,
   });
 
+  // Annotated (rather than asserted) so the form's `action` field carries the
+  // full InboundAction union, not the literal "redeploy".
+  const defaultValues: {
+    name: string;
+    action: InboundAction;
+    resourceId: string;
+    allowlistRaw: string;
+  } = {
+    name: "",
+    action: "redeploy",
+    resourceId: "",
+    allowlistRaw: "",
+  };
+
   const form = useForm({
-    defaultValues: {
-      name: "",
-      action: "redeploy" as InboundAction,
-      resourceId: "",
-      allowlistRaw: "",
-    },
+    defaultValues,
     onSubmit: async ({ value }) => {
       const trimmedName = value.name.trim();
       if (!trimmedName) {
@@ -215,17 +192,12 @@ export function InboundDialog({ open, onOpenChange, editing }: InboundDialogProp
             >
               <form.Field name="name">
                 {(field) => (
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="inbound-name">{t("common.name")}</Label>
-                    <Input
-                      id="inbound-name"
-                      className="font-mono"
-                      placeholder="github-push-api"
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                    />
-                  </div>
+                  <NameField
+                    label={t("common.name")}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={field.handleChange}
+                  />
                 )}
               </form.Field>
 

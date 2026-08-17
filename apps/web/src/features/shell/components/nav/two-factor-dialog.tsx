@@ -55,9 +55,13 @@ export function TwoFactorDialog({
   // the same key: two fetchers under one key is a race over which one a
   // refetch uses. Opening the dialog is now usually a cache hit too.
   const sessionQ = useQuery({ ...sessionQuery, enabled: open });
-  const enabled = Boolean(
-    (sessionQ.data?.user as { twoFactorEnabled?: boolean } | undefined)?.twoFactorEnabled,
-  );
+  // The session user type doesn't carry the twoFactor plugin's field, so
+  // narrow structurally instead of asserting the plugin-augmented shape.
+  const sessionUser: unknown = sessionQ.data?.user;
+  const enabled =
+    typeof sessionUser === "object" && sessionUser !== null && "twoFactorEnabled" in sessionUser
+      ? Boolean(sessionUser.twoFactorEnabled)
+      : false;
 
   // Multi-step enable flow: the password/code entries live in the form; the
   // server-issued secret + backup codes are flow state.
@@ -92,7 +96,13 @@ export function TwoFactorDialog({
     },
     onSuccess: (data) => {
       setTotpURI(data?.totpURI ?? "");
-      setBackupCodes((data?.backupCodes as string[] | undefined) ?? null);
+      // Same structural narrowing as the session user above: the client
+      // response type doesn't guarantee `backupCodes`, so verify the shape.
+      const codesRaw: unknown =
+        data && typeof data === "object" && "backupCodes" in data ? data.backupCodes : undefined;
+      setBackupCodes(
+        Array.isArray(codesRaw) ? codesRaw.filter((c): c is string => typeof c === "string") : null,
+      );
       // The server just attached a 2FA secret to the user record: refetch the
       // session in the background so its user object can't go stale mid-flow.
       void refreshSession();

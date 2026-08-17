@@ -6,8 +6,6 @@
  * resource-node.tsx to keep that file + this component under the line caps.
  */
 
-import type { ProjectSlug } from "@otterdeploy/shared/id";
-
 import { Loading03Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useMutation } from "@tanstack/react-query";
@@ -167,10 +165,7 @@ export function ComposeGroupNode({ data, selected }: NodeProps<ResourceFlowNode>
   // service resource, so this routes to the same panel a standalone service
   // gets (deployments/logs/terminal/variables/settings).
   const navigate = useNavigate();
-  const params = useParams({ strict: false }) as {
-    orgSlug?: string;
-    projectSlug?: ProjectSlug;
-  };
+  const params = useParams({ strict: false });
   const openService = (resourceId: string) => {
     if (!params.orgSlug || !params.projectSlug) return;
     void navigate({

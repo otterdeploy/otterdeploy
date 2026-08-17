@@ -137,8 +137,12 @@ function parse(pathname: string): Route {
   const checksum = file.endsWith(".sha256");
   if (checksum) file = file.slice(0, -".sha256".length);
 
-  if (!(file in ARTIFACTS)) return { kind: "unknown" };
-  return { kind: "artifact", version, name: file as ArtifactName, checksum };
+  if (!isArtifactName(file)) return { kind: "unknown" };
+  return { kind: "artifact", version, name: file, checksum };
+}
+
+function isArtifactName(file: string): file is ArtifactName {
+  return file in ARTIFACTS;
 }
 
 // ── serving ─────────────────────────────────────────────────────────────────

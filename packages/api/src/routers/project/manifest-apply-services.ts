@@ -13,6 +13,7 @@ import type {
 } from "@otterdeploy/shared/id";
 import type { RequestLogger } from "evlog";
 
+import { idSchema } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 
 import { declaredEnvOf, type ServiceManifest } from "../../stack/manifest";
@@ -129,7 +130,9 @@ export async function createServiceFromManifest(
       }),
     );
   }
-  return Result.ok({ resourceId: result.value.id as ResourceId });
+  // ServiceView.id is a plain string on the wire shape; the row was minted by
+  // createId, so branding it back through the boundary validator can't fail.
+  return Result.ok({ resourceId: idSchema.resource.parse(result.value.id) });
 }
 
 /**
@@ -165,7 +168,7 @@ export async function seedServiceDomains(args: {
       skip(`domain ${d.domain} skipped: ${added.error.message}`);
       continue;
     }
-    if (d.primary) primaryRouteId = added.value.id as ProxyRouteId;
+    if (d.primary) primaryRouteId = idSchema.proxyRoute.parse(added.value.id);
   }
 
   // Nothing landed (e.g. no http port → every add failed). Don't expose.

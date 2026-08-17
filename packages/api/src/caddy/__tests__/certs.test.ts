@@ -1,5 +1,4 @@
-import type { CustomCertificateId, OrganizationId } from "@otterdeploy/shared/id";
-
+import { idSchema } from "@otterdeploy/shared/id";
 /**
  * Custom-cert emission: the pure matching/attachment layer (certs.ts) and the
  * `tls <cert> <key>` directive the builder emits for a matched route. The
@@ -11,8 +10,8 @@ import { buildHttpBlock, type ProxyRouteInput } from "../builder";
 import { applyCustomCertsToRoutes, matchCustomCert, type ServableCustomCert } from "../certs";
 
 const cert = (over: Partial<ServableCustomCert> = {}): ServableCustomCert => ({
-  id: "cert_a" as CustomCertificateId,
-  organizationId: "org_1" as OrganizationId,
+  id: idSchema.customCertificate.parse("cert_a"),
+  organizationId: idSchema.organization.parse("org_1"),
   hostname: "app.example.com",
   subjectCN: "app.example.com",
   sans: ["app.example.com"],
@@ -36,7 +35,7 @@ const route = (over: Partial<ProxyRouteInput> = {}): ProxyRouteInput => ({
 describe("matchCustomCert", () => {
   test("exact hostname wins over a wildcard cover", () => {
     const wildcard = cert({
-      id: "cert_w" as CustomCertificateId,
+      id: idSchema.customCertificate.parse("cert_w"),
       hostname: "*.example.com",
       subjectCN: "*.example.com",
       sans: ["*.example.com"],
@@ -77,7 +76,7 @@ describe("applyCustomCertsToRoutes", () => {
   test("routes of a project outside the cert's org are untouched", () => {
     const out = applyCustomCertsToRoutes(
       [route()],
-      [cert({ organizationId: "org_2" as OrganizationId })],
+      [cert({ organizationId: idSchema.organization.parse("org_2") })],
       projectOrg,
     );
     expect(out[0]?.customCert).toBeUndefined();

@@ -3,6 +3,7 @@
  * create/update mutation, and the `useScheduleForm` hook. No JSX. The field
  * layout lives in `./schedule-fields`.
  */
+import { ID_PREFIX, createId, idSchema } from "@otterdeploy/shared/id";
 import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 
@@ -20,9 +21,10 @@ export const PRESET_CRON: Record<Exclude<CronPreset, "custom">, string> = {
   monthly: "0 2 1 * *",
 };
 
+const PRESETS = ["hourly", "daily", "weekly", "monthly"] as const;
+
 function presetFromCron(cron: string): CronPreset {
-  const entries = Object.entries(PRESET_CRON) as [Exclude<CronPreset, "custom">, string][];
-  return entries.find(([, c]) => c === cron)?.[0] ?? "custom";
+  return PRESETS.find((preset) => PRESET_CRON[preset] === cron) ?? "custom";
 }
 
 export interface ScheduleFormValues {
@@ -134,7 +136,9 @@ function saveSchedule(
     });
   }
   return schedulesCollection.insert({
-    id: crypto.randomUUID() as Schedule["id"],
+    // Temp optimistic id (a refetch swaps in the server's row): minted with
+    // the real bsch_ prefix so it satisfies the branded id without a cast.
+    id: createId(ID_PREFIX.backupSchedule),
     organizationId,
     projectId: null,
     name: value.name.trim(),
@@ -147,7 +151,9 @@ function saveSchedule(
     retentionDays,
     maxStorageGb,
     preHook,
-    destinationIds: value.destinationIds as Schedule["destinationIds"],
+    // The picker only ever offers real destination rows, so each id parses;
+    // parsing (not casting) keeps a corrupted form value from reaching the API.
+    destinationIds: value.destinationIds.map((id) => idSchema.backupDestination.parse(id)),
     encryption: value.encryptionNone ? "none" : "aes-256-gcm",
     enabled: value.enabled,
     lastRunAt: null,

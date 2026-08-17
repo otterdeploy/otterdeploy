@@ -12,6 +12,11 @@ import {
   zId,
 } from "../id";
 
+/** Object.entries erases the key type; this genuinely checks membership. */
+function isPrefixKey(key: string): key is keyof typeof ID_PREFIX {
+  return key in ID_PREFIX;
+}
+
 describe("ID_PREFIX", () => {
   test("every prefix is unique", () => {
     const values = Object.values(ID_PREFIX);
@@ -76,7 +81,8 @@ describe("legacy compatibility", () => {
   test("legacy entries name a real prefix key and differ from the current one", () => {
     for (const [key, old] of Object.entries(LEGACY_ID_PREFIX)) {
       expect(ID_PREFIX).toHaveProperty(key);
-      expect(old).not.toBe((ID_PREFIX as Record<string, string>)[key]);
+      if (!isPrefixKey(key)) continue; // toHaveProperty above already failed
+      expect(old).not.toBe(ID_PREFIX[key]);
     }
   });
 });
@@ -84,7 +90,8 @@ describe("legacy compatibility", () => {
 describe("canonicalId", () => {
   test("rewrites every legacy prefix to its current spelling", () => {
     for (const [key, old] of Object.entries(LEGACY_ID_PREFIX)) {
-      const current = (ID_PREFIX as Record<string, string>)[key];
+      if (!isPrefixKey(key)) throw new Error(`legacy key ${key} is not an ID_PREFIX key`);
+      const current = ID_PREFIX[key];
       expect(canonicalId(`${old}_abcdefghijkmnpqrstuvwxyz`)).toBe(
         `${current}_abcdefghijkmnpqrstuvwxyz`,
       );

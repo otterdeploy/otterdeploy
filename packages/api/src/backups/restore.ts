@@ -7,11 +7,11 @@
  * run's `storagePath` is the snapshot id, which is all we need to address it.
  * Split out of engine.ts, which keeps the backup write path (executeBackup).
  */
-import type { ResourceId } from "@otterdeploy/shared/id";
-import type { Duplex, Readable, Writable } from "node:stream";
+import type { BackupId, ResourceId } from "@otterdeploy/shared/id";
+import type { Readable, Writable } from "node:stream";
 
 import { Docker, demuxStream } from "@otterdeploy/docker";
-import { Writable as NodeWritable } from "node:stream";
+import { Duplex, Writable as NodeWritable } from "node:stream";
 
 import type { ResolvedDestination } from "./backends";
 
@@ -157,7 +157,10 @@ async function restorePostgresInPlace(
 
   const startResult = await exec.start({ Detach: false, Tty: false, stdin: true });
   if (startResult.isErr()) throw startResult.error;
-  const duplex = startResult.value as Duplex;
+  // `stdin: true` hijacks the connection, so the stream is a full Duplex
+  // (HttpDuplex extends node's Duplex); a read-only stream is a driver bug.
+  const duplex = startResult.value;
+  if (!(duplex instanceof Duplex)) throw new Error("exec.start with stdin gave no writable stream");
 
   // Drain stdout + capture stderr BEFORE piping the dump in: demux back-pressures
   // behind unread output, so an unconsumed pg_restore stream would deadlock the
@@ -197,14 +200,14 @@ async function restorePostgresInPlace(
  */
 async function resolveRestoreTarget(
   ctx: ExecutionContext,
-  targetResourceId: string | undefined,
+  targetResourceId: ResourceId | undefined,
 ): Promise<DatabaseTarget | null> {
   if (!targetResourceId) return null;
   if (ctx.kind === "volume") {
     throw new Error("a volume snapshot cannot be restored into a database");
   }
   if (targetResourceId === ctx.resourceId) return null;
-  const target = await resolveDatabaseTarget(targetResourceId as ResourceId, ctx.organizationId);
+  const target = await resolveDatabaseTarget(targetResourceId, ctx.organizationId);
   if (!target) throw new Error("restore target not found, or is not a managed database");
   if (target.engine !== ctx.engine) {
     throw new Error(`cannot restore a ${ctx.engine} snapshot into a ${target.engine} database`);
@@ -213,7 +216,7 @@ async function resolveRestoreTarget(
 }
 
 export async function restoreBackup(input: {
-  backupId: string;
+  backupId: BackupId;
   mode: RestoreMode;
   /** Typed-name confirmation, required for the destructive in-place mode.
    *  Must equal the name of whatever gets OVERWRITTEN. The target database
@@ -222,9 +225,9 @@ export async function restoreBackup(input: {
   confirm?: string;
   /** Restore into this database instead of the one the snapshot came from.
    *  Database runs only. A volume snapshot has no such notion. */
-  targetResourceId?: string;
+  targetResourceId?: ResourceId;
 }): Promise<{ ok: true; bytes?: Buffer; filename?: string }> {
-  const ctx = await getExecutionContext(input.backupId as ExecutionContext["backupId"]);
+  const ctx = await getExecutionContext(input.backupId);
   if (!ctx) throw new Error("backup execution context not found");
 
   // Resolved before the confirmation gate: what the operator has to type is
@@ -302,8 +305,8 @@ export interface VerifyResult {
  * This proves the destination still holds an intact repo containing the exact
  * snapshot the run recorded, no download/decrypt/restore needed.
  */
-export async function verifyBackup(backupId: string): Promise<VerifyResult> {
-  const ctx = await getExecutionContext(backupId as ExecutionContext["backupId"]);
+export async function verifyBackup(backupId: BackupId): Promise<VerifyResult> {
+  const ctx = await getExecutionContext(backupId);
   if (!ctx) {
     return {
       ok: false,

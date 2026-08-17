@@ -19,7 +19,7 @@ export function useEscapeKey(enabled: boolean, onEscape: () => void): void {
     if (!enabled) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || e.defaultPrevented) return;
-      const target = e.target as HTMLElement | null;
+      const target = e.target instanceof Element ? e.target : null;
       // Dialogs, popovers and menus close themselves on Escape; a text field or
       // the terminal may be using the key too (vim, a select's type-ahead).
       // Any of those means this keypress was not "go up a level".

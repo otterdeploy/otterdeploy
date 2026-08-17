@@ -27,6 +27,7 @@ import { webhook, webhookDelivery } from "@otterdeploy/db/schema";
  */
 import { hmacSha256Hex } from "@otterdeploy/shared/crypto";
 import { EgressPolicyError, egressFetch } from "@otterdeploy/shared/egress-policy";
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { and, arrayContains, eq } from "drizzle-orm";
 import * as z from "zod";
 
@@ -125,10 +126,10 @@ export const WebhookDeliveryPayload = z.object({
 });
 export type WebhookDeliveryPayload = z.infer<typeof WebhookDeliveryPayload>;
 
-type WebhookRow = typeof webhook.$inferSelect;
 // Job payloads carry IDs as plain strings (BullMQ JSON); columns are branded.
-type OrgId = WebhookRow["organizationId"];
-type WhId = WebhookRow["id"];
+// `hasPrefix` re-brands them in the handlers: an ID without its entity prefix
+// can't match any row, so the guard's false branch takes the same no-match
+// exit the query would have.
 
 /** The wire format receivers get. Kept flat and stable. It's an API.
  * (A type alias, not an interface, so it keeps the implicit index signature
@@ -164,12 +165,18 @@ export const webhookEventJob = defineJob({
     removeOnFail: { age: 60 * 60 * 24 * 7 },
   },
   async handler(payload, { log }) {
+    const orgId = payload.organizationId;
+    if (!hasPrefix(orgId, ID_PREFIX.organization)) {
+      // No org row can carry this ID, so the fan-out below would match zero
+      // webhooks anyway. Same outcome, minus the round trip.
+      return { eventId: payload.eventId, enqueued: 0 };
+    }
     const subscribed = await db
       .select({ id: webhook.id })
       .from(webhook)
       .where(
         and(
-          eq(webhook.organizationId, payload.organizationId as OrgId),
+          eq(webhook.organizationId, orgId),
           eq(webhook.status, "active"),
           arrayContains(webhook.events, [payload.eventId]),
         ),
@@ -212,15 +219,17 @@ export const webhookDeliverJob = defineJob({
     removeOnFail: { age: 60 * 60 * 24 * 7 },
   },
   async handler(payload, { log, job }) {
+    const webhookId = payload.webhookId;
+    const orgId = payload.organizationId;
+    if (!hasPrefix(webhookId, ID_PREFIX.webhook) || !hasPrefix(orgId, ID_PREFIX.organization)) {
+      // Unbranded IDs match no row: the same "deleted" exit the lookup below
+      // takes when the target is gone.
+      return { skipped: true as const, reason: "deleted" };
+    }
     const [target] = await db
       .select()
       .from(webhook)
-      .where(
-        and(
-          eq(webhook.id, payload.webhookId as WhId),
-          eq(webhook.organizationId, payload.organizationId as OrgId),
-        ),
-      );
+      .where(and(eq(webhook.id, webhookId), eq(webhook.organizationId, orgId)));
     // Deleted or paused mid-flight. Drop silently, nothing to record against.
     if (!target || target.status !== "active") {
       return { skipped: true as const, reason: target ? "paused" : "deleted" };
@@ -253,7 +262,7 @@ export const webhookDeliverJob = defineJob({
     const latencyMs = Math.round(performance.now() - started);
 
     await db.insert(webhookDelivery).values({
-      organizationId: payload.organizationId as OrgId,
+      organizationId: orgId,
       webhookId: target.id,
       event: payload.event,
       payload: payload.body,

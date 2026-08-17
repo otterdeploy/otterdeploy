@@ -26,8 +26,10 @@ interface ProjectDangerZoneProps {
 
 /** Pull the staged-services count off a `project.delete` CONFLICT error. */
 function serviceCountOf(err: unknown): number | null {
-  const data = (err as { data?: { serviceCount?: unknown } } | null)?.data;
-  return typeof data?.serviceCount === "number" ? data.serviceCount : null;
+  if (err === null || typeof err !== "object" || !("data" in err)) return null;
+  const { data } = err;
+  if (data === null || typeof data !== "object" || !("serviceCount" in data)) return null;
+  return typeof data.serviceCount === "number" ? data.serviceCount : null;
 }
 
 export function ProjectDangerZone({ project, orgSlug }: ProjectDangerZoneProps) {

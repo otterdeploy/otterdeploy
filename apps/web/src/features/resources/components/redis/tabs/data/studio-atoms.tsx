@@ -88,10 +88,11 @@ export function prettyMaybeJson(s: string): string {
 /** Pull the human reason out of an oRPC error (QUERY_FAILED carries `data.reason`). */
 export function errMessage(error: unknown): string {
   if (error && typeof error === "object") {
-    const data = (error as { data?: { reason?: unknown } }).data;
-    if (data && typeof data.reason === "string") return data.reason;
-    const message = (error as { message?: unknown }).message;
-    if (typeof message === "string") return message;
+    const data = "data" in error ? error.data : undefined;
+    if (data && typeof data === "object" && "reason" in data && typeof data.reason === "string") {
+      return data.reason;
+    }
+    if ("message" in error && typeof error.message === "string") return error.message;
   }
   return "Something went wrong.";
 }

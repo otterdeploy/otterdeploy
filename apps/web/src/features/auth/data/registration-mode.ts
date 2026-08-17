@@ -18,21 +18,28 @@ export interface AuthPublicConfig {
   socialProviders: string[];
 }
 
-const MODES = new Set<string>(["bootstrap", "invite-only", "open"]);
+function isRegistrationMode(value: string): value is RegistrationMode {
+  return value === "bootstrap" || value === "invite-only" || value === "open";
+}
 
 export async function fetchAuthPublicConfig(): Promise<AuthPublicConfig> {
   const response = await fetch(`${env.VITE_SERVER_URL}/api/auth/public-config`, {
     cache: "no-store",
   });
   if (!response.ok) throw new Error("Unable to read registration status");
-  const body = (await response.json()) as { mode?: unknown; socialProviders?: unknown };
-  if (typeof body.mode !== "string" || !MODES.has(body.mode)) {
+  const body: unknown = await response.json();
+  if (typeof body !== "object" || body === null) {
     throw new Error("Invalid registration status");
   }
+  const mode = "mode" in body ? body.mode : undefined;
+  if (typeof mode !== "string" || !isRegistrationMode(mode)) {
+    throw new Error("Invalid registration status");
+  }
+  const socialProviders = "socialProviders" in body ? body.socialProviders : undefined;
   return {
-    mode: body.mode as RegistrationMode,
-    socialProviders: Array.isArray(body.socialProviders)
-      ? body.socialProviders.filter((p): p is string => typeof p === "string")
+    mode,
+    socialProviders: Array.isArray(socialProviders)
+      ? socialProviders.filter((p): p is string => typeof p === "string")
       : [],
   };
 }

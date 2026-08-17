@@ -58,8 +58,8 @@ const BUILDERS: Builder[] = [
 // Real auto-detect, straight from `git.inspectRepo` for the bound repo + root.
 function DetectionBanner() {
   const form = useFormContext();
-  const repo = useStore(form.store, (s) => s.values.repo as string);
-  const root = useStore(form.store, (s) => s.values.root as string);
+  const repo = useStore(form.store, (s) => s.values.repo);
+  const root = useStore(form.store, (s) => s.values.root);
 
   const inspect = useQuery({
     ...orpc.git.inspectRepo.queryOptions({
@@ -123,7 +123,7 @@ function DetectionBanner() {
 // ────── StepBuilder ──────
 export function StepBuilder() {
   const form = useFormContext();
-  const builderId = useStore(form.store, (s) => s.values.builderId as string);
+  const builderId = useStore(form.store, (s) => s.values.builderId);
 
   return (
     <>

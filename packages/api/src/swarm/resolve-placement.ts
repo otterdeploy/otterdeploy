@@ -22,6 +22,7 @@ import type { OrganizationId, ProjectId, ResourceId, ServerId } from "@otterdepl
 import { db } from "@otterdeploy/db";
 import { project, resource } from "@otterdeploy/db/schema";
 import { Docker } from "@otterdeploy/docker";
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { eq } from "drizzle-orm";
 
 import { getServerInOrg } from "../routers/server/queries";
@@ -39,8 +40,10 @@ export interface PlacementOutcome {
 const UNPINNED: PlacementOutcome = { nodeId: null, warning: null };
 
 async function resolve(input: {
-  placementServerId: ServerId | string | null | undefined;
-  organizationId: OrganizationId;
+  placementServerId: ServerId | null | undefined;
+  /** Branded when read off a branded column; the plain-`text` project column
+   *  yields a string, narrowed here by its `org_` prefix. */
+  organizationId: OrganizationId | string;
 }): Promise<{ outcome: PlacementOutcome; resolution: NodeResolution | null }> {
   if (!input.placementServerId) return { outcome: UNPINNED, resolution: null };
 
@@ -50,8 +53,16 @@ async function resolve(input: {
     return { outcome: UNPINNED, resolution: null };
   }
 
+  // An organization id that isn't one (impossible via the FK, which points at
+  // `organization.id`, always minted with this prefix) resolves the same way a
+  // server missing from the org does: an unhonoured pin with a warning.
+  if (!hasPrefix(input.organizationId, ID_PREFIX.organization)) {
+    const reason = `Placement target ${input.placementServerId} is not a server in this organization.`;
+    return { outcome: { nodeId: null, warning: reason }, resolution: { kind: "unknown", reason } };
+  }
+
   const server = await getServerInOrg({
-    serverId: input.placementServerId as ServerId,
+    serverId: input.placementServerId,
     organizationId: input.organizationId,
   });
   if (!server) {
@@ -88,8 +99,8 @@ async function resolve(input: {
  * degrades to "schedule anywhere" with a warning the caller should surface.
  */
 async function resolvePlacementNodeId(input: {
-  placementServerId: ServerId | string | null | undefined;
-  organizationId: OrganizationId;
+  placementServerId: ServerId | null | undefined;
+  organizationId: OrganizationId | string;
 }): Promise<PlacementOutcome> {
   const { outcome } = await resolve(input);
   return outcome;
@@ -100,8 +111,8 @@ async function resolvePlacementNodeId(input: {
  * a stateful service away from its data: see the module note.
  */
 async function requirePlacementNodeId(input: {
-  placementServerId: ServerId | string | null | undefined;
-  organizationId: OrganizationId;
+  placementServerId: ServerId | null | undefined;
+  organizationId: OrganizationId | string;
   /** Named in the error so the operator knows which resource stalled. */
   resourceName: string;
 }): Promise<PlacementOutcome> {
@@ -123,7 +134,7 @@ async function requirePlacementNodeId(input: {
  * unpinned deploy pays for neither query.
  */
 export async function resolvePlacementForProject(input: {
-  placementServerId: ServerId | string | null | undefined;
+  placementServerId: ServerId | null | undefined;
   projectId: ProjectId;
   /** Named in the failure message for a stateful resource. */
   resourceName: string;
@@ -141,7 +152,7 @@ export async function resolvePlacementForProject(input: {
 
   const args = {
     placementServerId: input.placementServerId,
-    organizationId: row.organizationId as OrganizationId,
+    organizationId: row.organizationId,
   };
   return input.stateful
     ? requirePlacementNodeId({ ...args, resourceName: input.resourceName })
@@ -157,7 +168,7 @@ export async function resolvePlacementForProject(input: {
  * call.
  */
 export async function resolvePlacementForResource(input: {
-  resourceId: ResourceId | string;
+  resourceId: ResourceId;
   /** True for anything owning a local volume: see the module note. */
   stateful: boolean;
 }): Promise<PlacementOutcome> {
@@ -169,7 +180,7 @@ export async function resolvePlacementForResource(input: {
     })
     .from(resource)
     .innerJoin(project, eq(resource.projectId, project.id))
-    .where(eq(resource.id, input.resourceId as ResourceId))
+    .where(eq(resource.id, input.resourceId))
     .limit(1);
 
   // A missing row is the caller's problem, not a placement failure. Deploying
@@ -178,7 +189,7 @@ export async function resolvePlacementForResource(input: {
 
   const args = {
     placementServerId: row.placementServerId,
-    organizationId: row.organizationId as OrganizationId,
+    organizationId: row.organizationId,
   };
   return input.stateful
     ? requirePlacementNodeId({ ...args, resourceName: row.name })

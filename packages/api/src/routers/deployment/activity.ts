@@ -24,6 +24,7 @@ import type {
 import { db } from "@otterdeploy/db";
 import { deployment, project, resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { deployTriggeredJob, getQueue } from "@otterdeploy/jobs";
+import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { and, asc, eq, gte, inArray, isNull } from "drizzle-orm";
 
 /**
@@ -42,6 +43,10 @@ const STRANDED_AFTER_MS = 45 * 60_000;
 /** The two stored statuses that mean "work is owed". `running` is already live,
  *  `starting` never reaches the row (it is derived at render time). */
 const IN_FLIGHT = ["pending", "building"] as const;
+
+/** `project.slug` is plain text in the schema; the brand is applied at this
+ *  read boundary by parsing, the same way route/form boundaries brand slugs. */
+const projectSlugSchema = zSlug(ID_PREFIX.project);
 
 export interface DeployActivityItem {
   id: DeploymentId;
@@ -146,11 +151,11 @@ export async function getDeployActivity(input: {
     resourceId: row.resourceId,
     resourceName: row.resourceName,
     projectId: row.projectId,
-    // `project.slug` is plain text in the schema; the brand is applied at the
-    // boundary, same as routers/terminal/handlers.ts.
-    projectSlug: row.projectSlug as ProjectSlug,
+    projectSlug: projectSlugSchema.parse(row.projectSlug),
     projectName: row.projectName,
-    status: row.status as "pending" | "building",
+    // The SQL filter admits exactly the two IN_FLIGHT statuses, so this
+    // narrowing is total over what the query can return.
+    status: row.status === "building" ? "building" : "pending",
     reason: row.reason,
     gitRef: row.gitRef,
     createdAt: row.createdAt.toISOString(),

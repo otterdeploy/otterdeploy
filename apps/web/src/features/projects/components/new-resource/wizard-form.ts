@@ -1,6 +1,9 @@
+import type { DeepKeys } from "@tanstack/react-form";
+
 import { useState } from "react";
 
 import { useStore } from "@tanstack/react-form";
+import * as z from "zod";
 
 import { SERVICE_KINDS } from "@/features/projects/data/service-kinds";
 
@@ -10,6 +13,54 @@ import { flowFor } from "./flows";
 import { useAppForm } from "./form-context";
 import { DOCKER_PORT_DEFAULTS } from "./image-defaults";
 import { resourceDefaults, resourceFormSchema, type ResourceFormState, type Step } from "./schemas";
+
+/**
+ * The step union's *input* type is the union of its arms, which the flat
+ * `ResourceFormState` can never satisfy statically: its `__step` is the union
+ * of every step literal even though each runtime probe matches exactly one
+ * arm. Wrap the union in a schema whose declared input IS the form state and
+ * which delegates validation to the union, so the form's validator slot
+ * typechecks without an assertion while surfacing identical issues (same
+ * paths, so field error mapping is unchanged).
+ */
+const resourceFormValidator = z.custom<ResourceFormState>().check((ctx) => {
+  const parsed = resourceFormSchema.safeParse(ctx.value);
+  if (parsed.success) return;
+  for (const issue of parsed.error.issues) {
+    // Re-emitted as `custom` issues: the standard-schema surface TanStack
+    // reads carries only message + path, both preserved verbatim here.
+    ctx.issues.push({
+      code: "custom",
+      path: [...issue.path],
+      message: issue.message,
+      input: ctx.value,
+    });
+  }
+});
+
+/**
+ * Runtime check that `name` names a real path in the form's values, typed as
+ * the `DeepKeys` guard `setFieldMeta` requires. Walks the value object one
+ * segment at a time (both `a.b` and `a[0].b` spellings), so it genuinely
+ * verifies the path exists instead of asserting it.
+ */
+function isFieldPath<TFormData>(
+  values: TFormData,
+  name: string,
+): name is DeepKeys<TFormData> & string {
+  let node: unknown = values;
+  for (const segment of name.replace(/\[(\d+)\]/g, ".$1").split(".")) {
+    if (Array.isArray(node)) {
+      const index = Number(segment);
+      if (!Number.isInteger(index) || index < 0 || index >= node.length) return false;
+      node = node[index];
+      continue;
+    }
+    if (typeof node !== "object" || node === null || !(segment in node)) return false;
+    node = Object.getOwnPropertyDescriptor(node, segment)?.value;
+  }
+  return true;
+}
 
 /**
  * The wizard's final submit. Routes the collected fields to the right
@@ -140,8 +191,7 @@ export function useWizardForm({
       repo: initialGitRepoId ?? "",
       branch: initialBranch ?? "main",
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    validators: { onChange: resourceFormSchema as any },
+    validators: { onChange: resourceFormValidator },
     onSubmit: ({ value }) => submitWizard(value, runDatabaseCreate, runServiceCreate),
   });
 
@@ -232,8 +282,8 @@ export function useWizardForm({
       // quiet until blurred or a continue is attempted, no premature red).
       setAttemptedStep(step);
       for (const [fieldName, f] of Object.entries(allErrors.fields)) {
-        if (f.errors.length > 0) {
-          form.setFieldMeta(fieldName as never, (meta) => ({
+        if (f.errors.length > 0 && isFieldPath(formValues, fieldName)) {
+          form.setFieldMeta(fieldName, (meta) => ({
             ...meta,
             isTouched: true,
             isBlurred: true,

@@ -44,15 +44,16 @@ export function StepSource() {
   const form = useFormContext();
   // Reactive read. These re-render the step the instant setFieldValue
   // fires from the PublicRepoCTA below.
-  const repo = useStore(form.store, (s) => s.values.repo as string);
-  const branch = useStore(form.store, (s) => s.values.branch as string);
-  const root = useStore(form.store, (s) => s.values.root as string);
-  const name = useStore(form.store, (s) => s.values.name as string);
-  const kindId = useStore(form.store, (s) => s.values.kindId as string);
-  const { orgSlug, projectSlug } = useParams({ strict: false }) as {
-    orgSlug: string;
-    projectSlug: string;
-  };
+  const repo = useStore(form.store, (s) => s.values.repo);
+  const branch = useStore(form.store, (s) => s.values.branch);
+  const root = useStore(form.store, (s) => s.values.root);
+  const name = useStore(form.store, (s) => s.values.name);
+  const kindId = useStore(form.store, (s) => s.values.kindId);
+  // This step only renders inside a project route, so both params exist; the
+  // `?? ""` only satisfies the `strict: false` typing.
+  const params = useParams({ strict: false });
+  const orgSlug = params.orgSlug ?? "";
+  const projectSlug = params.projectSlug ?? "";
   const summary = useBindingSummary(projectSlug);
   // Resolve the bound repo's owner/repo from the DB (no GitHub call), so the
   // binding card shows the real name even for public-URL bindings that aren't

@@ -18,6 +18,7 @@ import type { OrganizationId, ServerId, SshKeyId } from "@otterdeploy/shared/id"
 
 import { env } from "@otterdeploy/env/server";
 import { triggerProvisionServer } from "@otterdeploy/jobs";
+import { idSchema } from "@otterdeploy/shared/id";
 
 import { decryptForDomain, encryptForDomain } from "../../lib/crypto";
 import { getSshKeyInOrg } from "../sshKeys/queries";
@@ -94,8 +95,9 @@ export async function runProvisionJob(payload: ProvisionServerPayload): Promise<
     await runFirewallOnlyJob(payload);
     return;
   }
-  const serverId = payload.serverId as ServerId;
-  const organizationId = payload.organizationId as OrganizationId;
+  // The payload crossed Redis as JSON: re-brand the IDs by parsing, not casting.
+  const serverId: ServerId = idSchema.server.parse(payload.serverId);
+  const organizationId: OrganizationId = idSchema.organization.parse(payload.organizationId);
   const emit = (line: string) => emitProvisionLine(serverId, line);
 
   try {
@@ -117,8 +119,21 @@ export async function runProvisionJob(payload: ProvisionServerPayload): Promise<
     ]);
 
     const privateKey = await resolvePrivateKey(payload.sshKeyId, organizationId, password != null);
-    if (payload.meshProvider !== "none" && !meshAuthKey) {
-      throw new Error(`A ${payload.meshProvider} auth key is required to join over the mesh.`);
+    // Building the mesh config here (instead of inline below) lets the
+    // narrowing from these checks carry into its type: provider excludes
+    // "none" and authKey is a proven string.
+    let meshConfig:
+      | { provider: MeshProvider; authKey: string; managementUrl?: string | null }
+      | undefined;
+    if (payload.meshProvider !== "none") {
+      if (!meshAuthKey) {
+        throw new Error(`A ${payload.meshProvider} auth key is required to join over the mesh.`);
+      }
+      meshConfig = {
+        provider: payload.meshProvider,
+        authKey: meshAuthKey,
+        managementUrl: payload.meshManagementUrl,
+      };
     }
 
     emit(`── connecting to ${payload.host}:${payload.sshPort} as ${payload.sshUser} ──`);
@@ -143,14 +158,7 @@ export async function runProvisionJob(payload: ProvisionServerPayload): Promise<
         {
           joinToken,
           managerAddr,
-          mesh:
-            payload.meshProvider === "none"
-              ? undefined
-              : {
-                  provider: payload.meshProvider as MeshProvider,
-                  authKey: meshAuthKey as string,
-                  managementUrl: payload.meshManagementUrl,
-                },
+          mesh: meshConfig,
           cloudflareTunnelToken: cloudflareToken ?? undefined,
         },
         emit,
@@ -286,7 +294,8 @@ async function resolvePrivateKey(
   hasPassword: boolean,
 ): Promise<string | undefined> {
   if (sshKeyId) {
-    const key = await getSshKeyInOrg({ id: sshKeyId as SshKeyId, organizationId });
+    const id: SshKeyId = idSchema.sshKey.parse(sshKeyId);
+    const key = await getSshKeyInOrg({ id, organizationId });
     if (!key?.privateKeyCiphertext) {
       throw new Error("The selected SSH key has no private half stored. Pick a generated key.");
     }

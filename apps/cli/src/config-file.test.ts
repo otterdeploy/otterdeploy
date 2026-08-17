@@ -1,5 +1,6 @@
-import type { Manifest } from "@otterdeploy/api/manifest";
+import type { Manifest, ServiceManifest } from "@otterdeploy/api/manifest";
 
+import { ID_PREFIX, zSlug } from "@otterdeploy/shared/id";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -19,17 +20,18 @@ function tempConfig(name: string): { path: string; cleanup: () => void } {
   return { path: join(dir, name), cleanup: () => rmSync(dir, { recursive: true, force: true }) };
 }
 
+const webService: ServiceManifest = {
+  source: "image",
+  image: "nginx:latest",
+  replicas: 1,
+  ports: [{ container: 80, appProtocol: "http", primary: true }],
+};
+
 const base: Manifest = {
   version: 1,
-  project: "demo" as Manifest["project"],
-  services: {
-    web: {
-      source: "image",
-      image: "nginx:latest",
-      replicas: 1,
-      ports: [{ container: 80, appProtocol: "http", primary: true }],
-    },
-  },
+  // Brand the slug the same way the manifest schema does at the boundary.
+  project: zSlug(ID_PREFIX.project).parse("demo"),
+  services: { web: webService },
   databases: { primary: { engine: "postgres", version: "16" } },
   composes: {},
 };
@@ -72,11 +74,12 @@ describe("writeConfig round-trip", () => {
   it("rejects an invalid resource name before writing (no corrupt file)", async () => {
     const { path, cleanup } = tempConfig("otterdeploy.json");
     try {
-      const bad = {
+      // Type-level the key is any string; the runtime resourceName slug rule
+      // is what rejects the upper-case + space name.
+      const bad: Manifest = {
         ...base,
-        // Upper-case + space violate the resourceName slug rule.
-        services: { "Bad Name": base.services.web },
-      } as unknown as Manifest;
+        services: { "Bad Name": webService },
+      };
       expect(() => writeConfig(bad, path)).toThrow();
       // Nothing was persisted. The write is gated behind validation.
       expect(await Bun.file(path).exists()).toBe(false);

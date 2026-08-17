@@ -37,7 +37,7 @@ async function controlPlaneServerId(organizationId: OrganizationId): Promise<Ser
     .from(server)
     .where(and(eq(server.organizationId, organizationId), eq(server.host, "127.0.0.1")))
     .limit(1);
-  return (row?.id as ServerId | undefined) ?? null;
+  return row?.id ?? null;
 }
 
 /**

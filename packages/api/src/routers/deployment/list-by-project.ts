@@ -213,7 +213,7 @@ export async function listProjectDeployments(
   }
   if (input.since) conditions.push(gte(deployment.createdAt, input.since));
 
-  const rows = (await db
+  const rows: JoinedRow[] = await db
     .select({
       id: deployment.id,
       resourceId: deployment.resourceId,
@@ -240,7 +240,7 @@ export async function listProjectDeployments(
     // as "not a child" (kept).
     .leftJoin(serviceResource, eq(serviceResource.resourceId, deployment.resourceId))
     .where(and(...conditions))
-    .orderBy(desc(deployment.createdAt), desc(deployment.id))) as JoinedRow[];
+    .orderBy(desc(deployment.createdAt), desc(deployment.id));
 
   // First row per resource in the desc ordering is that resource's newest.
   // (A `since` window can only hide a resource entirely, never its newest row

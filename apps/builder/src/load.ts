@@ -149,11 +149,18 @@ export async function loadPipelineContext(deploymentId: DeploymentId): Promise<P
     };
   }
 
-  const [repo] = await db
-    .select()
-    .from(gitRepo)
-    .where(eq(gitRepo.id, svc.gitRepoId as NonNullable<typeof svc.gitRepoId>))
-    .limit(1);
+  // Unreachable in practice: every upload service returned above and the
+  // `!isUpload && !svc.gitRepoId` guard already threw. Restated as a real
+  // narrow so the query below needs no non-null assertion.
+  const gitRepoId = svc.gitRepoId;
+  if (!gitRepoId) {
+    throw new PipelineLoadError(
+      "service.gitRepoId",
+      `service ${res.name} has no git repo binding. Pick a repo in its Source settings`,
+    );
+  }
+
+  const [repo] = await db.select().from(gitRepo).where(eq(gitRepo.id, gitRepoId)).limit(1);
   if (!repo) {
     throw new PipelineLoadError("repo", `git_repo ${svc.gitRepoId} not found`);
   }

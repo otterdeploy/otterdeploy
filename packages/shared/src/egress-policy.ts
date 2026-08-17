@@ -243,13 +243,14 @@ export async function resolveEgressAddresses(
 ): Promise<[LookupAddress, ...LookupAddress[]]> {
   const hostname = normalizedHostname(url);
   const addresses = await resolveHost(hostname);
-  if (addresses.length === 0) {
+  const [first, ...rest] = addresses;
+  if (first === undefined) {
     throw new EgressPolicyError("The hostname resolved to no addresses.");
   }
   if (addresses.some((resolved) => isForbiddenEgressAddress(resolved.address, addressPolicy))) {
     throw new EgressPolicyError("The hostname resolves to a non-public address.");
   }
-  return addresses as [LookupAddress, ...LookupAddress[]];
+  return [first, ...rest];
 }
 
 // ─── Pinned-address request (defeats DNS rebinding / TOCTOU) ──────────────
@@ -282,13 +283,13 @@ export type PinnedRequest = (
  *  is the pin that makes the connection immune to the record changing
  *  between validation and connect. */
 function fixedLookup(address: LookupAddress): LookupFunction {
-  return ((_hostname, options, callback) => {
+  return (_hostname, options, callback) => {
     if (typeof options === "object" && options.all) {
-      Reflect.apply(callback, undefined, [null, [address]]);
+      callback(null, [address]);
       return;
     }
-    Reflect.apply(callback, undefined, [null, address.address, address.family]);
-  }) as LookupFunction;
+    callback(null, address.address, address.family);
+  };
 }
 
 function toBuffer(body: EgressRequestInit["body"]): Buffer | undefined {
@@ -479,14 +480,16 @@ function toEgressResponse(raw: RawEgressResponse, finalUrl: string): EgressRespo
     async text() {
       return raw.body.toString("utf8");
     },
-    async json() {
-      return JSON.parse(raw.body.toString("utf8")) as unknown;
+    async json(): Promise<unknown> {
+      return JSON.parse(raw.body.toString("utf8"));
     },
-    async arrayBuffer() {
-      return raw.body.buffer.slice(
-        raw.body.byteOffset,
-        raw.body.byteOffset + raw.body.byteLength,
-      ) as ArrayBuffer;
+    async arrayBuffer(): Promise<ArrayBuffer> {
+      // Copy the body bytes into a fresh ArrayBuffer (what `buffer.slice`
+      // did), which also guarantees a plain ArrayBuffer even if the Buffer
+      // were ever backed by a SharedArrayBuffer.
+      const copy = new ArrayBuffer(raw.body.byteLength);
+      new Uint8Array(copy).set(raw.body);
+      return copy;
     },
   };
 }

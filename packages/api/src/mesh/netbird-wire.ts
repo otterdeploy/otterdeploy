@@ -10,9 +10,14 @@
  * server, and keeps NetBird's snake_case vocabulary from leaking further up.
  */
 
+import * as z from "zod";
+
 import type { MeshGroup, MeshIdentity } from "./types";
 
 import { MeshProviderError } from "./types";
+
+/** The `{ message }` envelope NetBird wraps API errors in. */
+const errorEnvelopeSchema = z.object({ message: z.string().optional() });
 
 /**
  * Peer DNS zone assumed only when the account exposes no `dns_domain` AND has
@@ -112,8 +117,8 @@ export async function describeFailure(response: Response, base: string): Promise
   const body = await response.text().catch(() => "");
   let detail = body.slice(0, 300);
   try {
-    const parsed = JSON.parse(body) as { message?: string };
-    if (parsed?.message) detail = parsed.message;
+    const parsed = errorEnvelopeSchema.safeParse(JSON.parse(body));
+    if (parsed.success && parsed.data.message) detail = parsed.data.message;
   } catch {
     // Non-JSON body (an HTML error page from a reverse proxy, typically):
     // the truncated raw text is more useful than pretending we parsed it.
@@ -130,3 +135,35 @@ export async function describeFailure(response: Response, base: string): Promise
       return `NetBird API error ${response.status}${detail ? `: ${detail}` : ""}`;
   }
 }
+
+// Boundary schemas for the NetBird wire shapes declared in ./netbird-wire.
+// Loose objects: NetBird may add fields at any time and we only read these.
+// Each schema is pinned to its interface so the two can never drift apart.
+const s = z.string();
+const sn = s.nullish();
+export const netbirdAccountSchema: z.ZodType<NetbirdAccount> = z.looseObject({
+  id: s,
+  domain: sn,
+  settings: z.looseObject({ dns_domain: sn }).nullish(),
+});
+export const netbirdGroupSchema: z.ZodType<NetbirdGroup> = z.looseObject({
+  id: s,
+  name: s,
+  peers_count: z.number().nullish(),
+});
+export const netbirdSetupKeySchema: z.ZodType<NetbirdSetupKey> = z.looseObject({
+  id: s,
+  key: s,
+  expires: sn,
+});
+export const netbirdPeerSchema: z.ZodType<NetbirdPeer> = z.looseObject({
+  id: s,
+  name: sn,
+  hostname: sn,
+  ip: sn,
+  dns_label: sn,
+  last_seen: sn,
+  connected: z.boolean().nullish(),
+  groups: z.array(z.looseObject({ id: s })).nullish(),
+});
+export const netbirdPolicySchema: z.ZodType<NetbirdPolicy> = z.looseObject({ id: s, name: s });

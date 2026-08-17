@@ -2,6 +2,7 @@ import type { UnknownRecord } from "@otterdeploy/shared/json";
 
 import { ORPCError } from "@orpc/server";
 import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
+import { createRequestLogger } from "evlog";
 import { describe, expect, test } from "vite-plus/test";
 
 // The guards module imports `@otterdeploy/db`, whose client validates the full
@@ -28,6 +29,10 @@ const {
   enforceResourceScope,
   enforceScheduleScope,
 } = await import("../project-scope-guards");
+// Imported dynamically for the same env-at-import reason as the guards. Only
+// its TYPE is load-bearing here: `dbReturning` proxies it so no query ever
+// reaches a database.
+const { db } = await import("@otterdeploy/db");
 import type { ApiKeyActor } from "../../context";
 import type { Context } from "../../context";
 
@@ -35,10 +40,19 @@ import type { Context } from "../../context";
 // Test doubles
 // ---------------------------------------------------------------------------
 
-/** Minimal context factory: only the fields the guards read. The rest of the
- *  Context surface is irrelevant to project-scope enforcement, so we cast. */
+/** Complete context fixture (same shape as tenant-scope.test.ts builds): the
+ *  guards only read `apiKey` and `activeOrganizationId`, but the fixture fills
+ *  the whole Context surface so no cast is needed. */
 function ctx(apiKey: ApiKeyActor | null, activeOrganizationId = "org_1"): Context {
-  return { apiKey, activeOrganizationId } as unknown as Context;
+  return {
+    actor: apiKey,
+    session: null,
+    apiKey,
+    activeOrganizationId: zId(ID_PREFIX.organization).parse(activeOrganizationId),
+    headers: new Headers(),
+    log: createRequestLogger({ method: "TEST", path: "/authz" }),
+    broadcast: () => undefined,
+  };
 }
 
 function selectedKey(projectIds: string[]): ApiKeyActor {
@@ -81,13 +95,22 @@ function dbReturning(rows: Array<{ projectId: string | null }>) {
   chain.innerJoin = passthrough;
   chain.where = passthrough;
   chain.limit = () => Promise.resolve(rows);
-  const client = {
-    select: () => {
-      queried = true;
-      return chain;
+  // A Proxy over the real client carries `typeof db` (so it satisfies the
+  // guards' DbLike parameter without an assertion) while every property access
+  // is intercepted: `select` is answered by the recording chain and anything
+  // else throws, so no query can ever reach a database.
+  const client = new Proxy(db, {
+    get: (_target, prop) => {
+      if (prop !== "select") {
+        throw new Error(`unexpected db access in test double: ${String(prop)}`);
+      }
+      return () => {
+        queried = true;
+        return chain;
+      };
     },
-  };
-  return { client: client as never, wasQueried: () => queried };
+  });
+  return { client, wasQueried: () => queried };
 }
 
 // ---------------------------------------------------------------------------
@@ -105,7 +128,7 @@ describe("enforceProjectScope", () => {
       throw new Error("expected throw");
     } catch (err) {
       expect(err).toBeInstanceOf(ORPCError);
-      expect((err as ORPCError<string, unknown>).code).toBe("FORBIDDEN");
+      if (err instanceof ORPCError) expect(err.code).toBe("FORBIDDEN");
     }
   });
 

@@ -91,7 +91,9 @@ export function ResultsToolbar({
         <ToggleGroup
           size="sm"
           value={[view]}
-          onValueChange={([v]) => v && onViewChange(v as ResultView)}
+          onValueChange={([v]) => {
+            if (v === "grid" || v === "json") onViewChange(v);
+          }}
           className="gap-0.5"
         >
           <ToggleGroupItem value="grid" aria-label="Grid view" className="h-6 px-1.5">

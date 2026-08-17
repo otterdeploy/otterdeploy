@@ -1,6 +1,6 @@
-import * as React from "react";
-
 import type { UnknownRecord } from "@otterdeploy/shared/json";
+
+import * as React from "react";
 
 import {
   type ColumnDef,
@@ -331,7 +331,7 @@ function useDataGrid<TData>({
     return columns
       .map((c) => {
         if (c.id) return c.id;
-        if ("accessorKey" in c) return c.accessorKey as string;
+        if ("accessorKey" in c) return String(c.accessorKey);
         return undefined;
       })
       .filter((id): id is string => Boolean(id));
@@ -390,12 +390,11 @@ function useDataGrid<TData>({
         if (existingRow == null) continue;
 
         if (updates) {
-          // UnknownRecord: TData rows are arbitrary runtime objects, not JSON.
-          const updatedRow = { ...existingRow } as UnknownRecord;
+          const patch: UnknownRecord = {};
           for (const { columnId, value } of updates) {
-            updatedRow[columnId] = value;
+            patch[columnId] = value;
           }
-          newData[i] = updatedRow as TData;
+          newData[i] = Object.assign({}, existingRow, patch);
         } else {
           newData[i] = existingRow;
         }
@@ -824,9 +823,9 @@ function useDataGrid<TData>({
                   values = pastedValue ? pastedValue.split(",").map((v) => v.trim()) : [];
                 }
 
-                const validated = values.flatMap(
+                const validated = values.flatMap<string>(
                   (v) => matchSelectOption(v, options) || [],
-                ) as string[];
+                );
 
                 if (values.length > 0 && validated.length === 0) {
                   shouldSkip = true;
@@ -909,8 +908,8 @@ function useDataGrid<TData>({
                     if (Array.isArray(parsed)) {
                       if (parsed.length > 0 && parsed.every(getIsFileCellData)) {
                         processedValue = parsed.map((f) => f.name).join(", ");
-                      } else if (parsed.every((v) => typeof v === "string")) {
-                        processedValue = (parsed as string[]).join(", ");
+                      } else if (parsed.every((v): v is string => typeof v === "string")) {
+                        processedValue = parsed.join(", ");
                       }
                     } else if (typeof parsed === "boolean") {
                       processedValue = parsed ? "Checked" : "Unchecked";
@@ -2127,7 +2126,7 @@ function useDataGrid<TData>({
       const navigableIds = propsRef.current.columns
         .map((c) => {
           if (c.id) return c.id;
-          if ("accessorKey" in c) return c.accessorKey as string;
+          if ("accessorKey" in c) return String(c.accessorKey);
           return undefined;
         })
         .filter((id): id is string => id != null && id !== "" && !NON_NAVIGABLE_COLUMN_IDS.has(id));
@@ -2904,7 +2903,7 @@ function useDataGrid<TData>({
       const relatedTarget = event.relatedTarget;
 
       const isFocusMovingOutsideGrid =
-        !relatedTarget || !currentContainer.contains(relatedTarget as Node);
+        !(relatedTarget instanceof Node) || !currentContainer.contains(relatedTarget);
 
       const isFocusMovingToPopover = getIsInPopover(relatedTarget);
 
@@ -2938,7 +2937,11 @@ function useDataGrid<TData>({
         return;
       }
 
-      if (dataGridRef.current && !dataGridRef.current.contains(event.target as Node)) {
+      const { target } = event;
+      if (
+        dataGridRef.current &&
+        !(target instanceof Node && dataGridRef.current.contains(target))
+      ) {
         const elements = document.elementsFromPoint(event.clientX, event.clientY);
 
         // Compensate for event.target bubbling up

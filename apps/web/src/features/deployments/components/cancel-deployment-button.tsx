@@ -64,7 +64,7 @@ export function CancelDeploymentButton({
         // The common "failure" is a benign race. It finished while the dialog
         // was open. Say that, rather than showing a raw 409.
         const message =
-          (error as { status?: number })?.status === 409
+          "status" in error && error.status === 409
             ? "That build already finished."
             : (error.message ?? "Could not cancel the build.");
         toast.error(message);

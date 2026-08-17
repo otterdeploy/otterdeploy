@@ -141,5 +141,9 @@ export function recordSecretMapChanges(
   if (patch.length === 0) return;
   // Sorted so the same edit produces the same row regardless of key order.
   patch.sort((a, b) => a.path.localeCompare(b.path) || a.op.localeCompare(b.op));
-  draft.changes = { patch } as AuditFields["changes"];
+  // evlog types `changes` as `{ before?; after? }`; the intersection keeps the
+  // patch-only shape assignable without asserting (matching what `auditDiff`
+  // itself returns on the generic path above).
+  const changes: AuditFields["changes"] & { patch: typeof patch } = { patch };
+  draft.changes = changes;
 }

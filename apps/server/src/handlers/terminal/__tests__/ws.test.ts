@@ -23,6 +23,7 @@ import {
 import { env } from "@otterdeploy/env/server";
 import { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
+import * as z from "zod";
 
 import { terminalWebSocketHandler } from "../ws";
 
@@ -74,6 +75,12 @@ function app() {
   return a;
 }
 
+/** Parse a rejection body instead of casting it: a shape drift fails loudly. */
+const errorBody = z.object({ message: z.string() });
+async function rejectionMessage(res: Response): Promise<string> {
+  return errorBody.parse(await res.json()).message;
+}
+
 function upgradeRequest(opts: { origin?: string; ticket?: string }) {
   const url = new URL("http://server.test/pty");
   if (opts.ticket !== undefined) url.searchParams.set("ticket", opts.ticket);
@@ -86,8 +93,7 @@ describe("[od-5j8.9] /pty Origin validation", () => {
   test("a foreign Origin is rejected before any ticket is inspected", async () => {
     const res = await upgradeRequest({ origin: "https://evil.example.com", ticket: "whatever" });
     expect(res.status).toBe(403);
-    const body = (await res.json()) as { message: string };
-    expect(body.message).toMatch(/origin/i);
+    expect(await rejectionMessage(res)).toMatch(/origin/i);
   });
 
   test("a missing Origin is rejected. Every browser sends one on a WS handshake", async () => {
@@ -107,8 +113,7 @@ describe("[od-5j8.9] /pty requires a single-use ticket, no cookie/ambient fallba
   test("no ticket at all is rejected (cookie-only upgrades are dead)", async () => {
     const res = await upgradeRequest({ origin: TRUSTED_ORIGIN });
     expect(res.status).toBe(401);
-    const body = (await res.json()) as { message: string };
-    expect(body.message).toMatch(/ticket/i);
+    expect(await rejectionMessage(res)).toMatch(/ticket/i);
   });
 
   test("a garbage ticket is rejected", async () => {
@@ -130,8 +135,7 @@ describe("[od-5j8.9] /pty requires a single-use ticket, no cookie/ambient fallba
 
     const res = await upgradeRequest({ origin: TRUSTED_ORIGIN, ticket: minted.token });
     expect(res.status).toBe(401);
-    const body = (await res.json()) as { message: string };
-    expect(body.message).toMatch(/already been used|invalid|expired/i);
+    expect(await rejectionMessage(res)).toMatch(/already been used|invalid|expired/i);
   });
 
   test("a non-upgrade GET falls through untouched (health checks etc. aren't caught by the gate)", async () => {

@@ -13,8 +13,13 @@ import { orpc } from "@/shared/server/orpc";
 import { useEdgeBans } from "../data/use-edge-bans";
 import { classifyThreat } from "../threat";
 import { BlockAllButton } from "./edge-logs-block-ip";
-import { BUCKETS, BUCKET_TEXT, METHOD_TEXT, METHODS } from "./edge-logs-constants";
+import { BUCKETS, BUCKET_TEXT, METHOD_TEXT, METHODS, type Bucket } from "./edge-logs-constants";
 import { Chips, LiveBadge, RANGES, type Range, Segmented, toggleSet } from "./edge-logs-shared";
+
+// `Chips`/`Segmented` traffic in plain strings, but only ever hand back one of
+// the options they were given; these guards recover the literal types.
+const isBucket = (v: string): v is Bucket => BUCKETS.some((b) => b === v);
+const isRange = (v: string): v is Range => RANGES.some((r) => r === v);
 import { exportCsv, HostFooter, LogHistogram, LogTable } from "./edge-logs-view-parts";
 import { HostFilter } from "./host-filter";
 
@@ -41,7 +46,7 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
         projectId,
         range,
         methods: methods.size ? [...methods] : undefined,
-        statuses: statuses.size ? ([...statuses] as ("2xx" | "3xx" | "4xx" | "5xx")[]) : undefined,
+        statuses: statuses.size ? [...statuses].filter(isBucket) : undefined,
         hosts: hostFilter.length ? hostFilter : undefined,
         search: search.trim() || undefined,
       },
@@ -84,7 +89,13 @@ export function EdgeLogsView({ projectId }: { projectId?: string }) {
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
-        <Segmented options={RANGES} value={range} onChange={(v) => setRange(v as Range)} />
+        <Segmented
+          options={RANGES}
+          value={range}
+          onChange={(v) => {
+            if (isRange(v)) setRange(v);
+          }}
+        />
         <Chips
           options={METHODS}
           selected={methods}

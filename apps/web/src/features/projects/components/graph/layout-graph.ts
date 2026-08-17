@@ -131,42 +131,88 @@ export function incrementalLayout(
   const owner = nearestPinnedOwner(edges, pinnedIds);
   const isOrphan = (id: string) => isNew(id) && !owner.has(id);
 
-  // Per-pinned-node offset between where it sits now and where the fresh
-  // dagre pass just put it. Wired new nodes borrow their owner's offset.
+  const wiredDelta = pinnedDeltas(pinnedIds, cached, fresh);
+  const orphanOffset = orphanBlockOffset(nodes, isNew, isOrphan, cached, fresh, sizes);
+  const next = placeNodes(nodes, cached, fresh, isOrphan, owner, wiredDelta, orphanOffset);
+
+  // Translating orphans as one rigid block only keeps THEM apart from each
+  // other; it says nothing about the pinned cluster's actual shape (an
+  // operator-dragged layout is never a tidy rectangle). Nudge every new node
+  // clear, pinned ones stay put.
+  resolveNewCollisions(next, nodes, isNew, sizes);
+  return next;
+}
+
+/**
+ * Per-pinned-node offset between where it sits now and where the fresh
+ * dagre pass just put it. Wired new nodes borrow their owner's offset.
+ */
+function pinnedDeltas(
+  pinnedIds: string[],
+  cached: Map<string, XY>,
+  fresh: Map<string, XY>,
+): Map<string, XY> {
   const wiredDelta = new Map<string, XY>();
   for (const p of pinnedIds) {
     const c = cached.get(p);
     const f = fresh.get(p);
     if (c && f) wiredDelta.set(p, { x: c.x - f.x, y: c.y - f.y });
   }
+  return wiredDelta;
+}
 
+/**
+ * Translation that re-anchors the orphan block onto the row below the pinned
+ * cluster. Orphans keep their position RELATIVE TO EACH OTHER from the fresh
+ * pass (so several added in the same render still read as one group). Only
+ * the block as a whole is re-anchored, from dagre's origin onto the row
+ * below the pinned cluster. Zero when either bounding box is empty.
+ */
+function orphanBlockOffset(
+  nodes: Node[],
+  isNew: (id: string) => boolean,
+  isOrphan: (id: string) => boolean,
+  cached: Map<string, XY>,
+  fresh: Map<string, XY>,
+  sizes?: SizeLookup,
+): XY {
   const pinnedRects: Rect[] = [];
   for (const n of nodes) {
     const pos = !isNew(n.id) ? cached.get(n.id) : undefined;
     if (pos) pinnedRects.push(rectFor(n, pos, sizes));
   }
   const pinnedBox = boundingBoxOf(pinnedRects);
+  if (!pinnedBox) return { x: 0, y: 0 };
 
-  // Orphans keep their position RELATIVE TO EACH OTHER from the fresh pass
-  // (so several added in the same render still read as one group). Only the
-  // block as a whole is re-anchored, from dagre's origin onto the row below
-  // the pinned cluster.
-  let odx = 0;
-  let ody = 0;
-  if (pinnedBox) {
-    const orphanRects: Rect[] = [];
-    for (const n of nodes) {
-      if (!isOrphan(n.id)) continue;
-      const f = fresh.get(n.id);
-      if (f) orphanRects.push(rectFor(n, f, sizes));
-    }
-    const orphanBox = boundingBoxOf(orphanRects);
-    if (orphanBox) {
-      odx = pinnedBox.x - orphanBox.x;
-      ody = pinnedBox.y + pinnedBox.h + RANK_SEP - orphanBox.y;
-    }
+  const orphanRects: Rect[] = [];
+  for (const n of nodes) {
+    if (!isOrphan(n.id)) continue;
+    const f = fresh.get(n.id);
+    if (f) orphanRects.push(rectFor(n, f, sizes));
   }
+  const orphanBox = boundingBoxOf(orphanRects);
+  if (!orphanBox) return { x: 0, y: 0 };
 
+  return {
+    x: pinnedBox.x - orphanBox.x,
+    y: pinnedBox.y + pinnedBox.h + RANK_SEP - orphanBox.y,
+  };
+}
+
+/**
+ * Final placement pass: pinned nodes keep their cached spot, orphans ride the
+ * block offset, wired new nodes borrow their owner's delta, and anything the
+ * fresh pass somehow missed lands at the origin.
+ */
+function placeNodes(
+  nodes: Node[],
+  cached: Map<string, XY>,
+  fresh: Map<string, XY>,
+  isOrphan: (id: string) => boolean,
+  owner: Map<string, string>,
+  wiredDelta: Map<string, XY>,
+  orphanOffset: XY,
+): Map<string, XY> {
   const next = new Map<string, XY>();
   for (const n of nodes) {
     const pinned = cached.get(n.id);
@@ -180,18 +226,12 @@ export function incrementalLayout(
       continue;
     }
     if (isOrphan(n.id)) {
-      next.set(n.id, { x: f.x + odx, y: f.y + ody });
+      next.set(n.id, { x: f.x + orphanOffset.x, y: f.y + orphanOffset.y });
       continue;
     }
     const delta = wiredDelta.get(owner.get(n.id) ?? "");
     next.set(n.id, { x: f.x + (delta?.x ?? 0), y: f.y + (delta?.y ?? 0) });
   }
-
-  // Translating orphans as one rigid block only keeps THEM apart from each
-  // other; it says nothing about the pinned cluster's actual shape (an
-  // operator-dragged layout is never a tidy rectangle). Nudge every new node
-  // clear, pinned ones stay put.
-  resolveNewCollisions(next, nodes, isNew, sizes);
   return next;
 }
 

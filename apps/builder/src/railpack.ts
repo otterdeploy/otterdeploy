@@ -31,6 +31,7 @@ import type { BuildRailpackConfig } from "@otterdeploy/shared/build-config";
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import * as z from "zod";
 
 import type { LogSink } from "./log-stream";
 
@@ -315,6 +316,11 @@ function nodeBuildMaxOldSpaceMb(): number {
  */
 const NON_BUILDING_PROVIDERS = new Set(["staticfile"]);
 
+/** The one field we read out of Railpack's `--info-out` analysis JSON. A
+ *  shape mismatch is treated like a missing/absent list (no invented
+ *  failure), same as the pre-parse behavior for an absent field. */
+const railpackInfoSchema = z.object({ detectedProviders: z.array(z.string()).optional() });
+
 /**
  * Refuse a build whose declared SPA output directory the chosen provider can
  * never produce.
@@ -339,8 +345,8 @@ export function assertProviderCanServeSpa(opts: {
 
   let providers: string[];
   try {
-    const info = JSON.parse(readFileSync(infoPath, "utf8")) as { detectedProviders?: string[] };
-    providers = info.detectedProviders ?? [];
+    const info = railpackInfoSchema.safeParse(JSON.parse(readFileSync(infoPath, "utf8")));
+    providers = info.success ? (info.data.detectedProviders ?? []) : [];
   } catch {
     // No analysis to read: don't invent a failure from a missing file. The
     // build proceeds exactly as it did before this check existed.

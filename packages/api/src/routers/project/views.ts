@@ -4,6 +4,7 @@
  * single source of truth.
  */
 
+import type { ResourceId } from "@otterdeploy/shared/id";
 import type * as z from "zod";
 
 import type { ServiceEnvVarRow } from "../service/queries";
@@ -58,13 +59,11 @@ function latestDeploymentFields(latest: DeploymentRow | null) {
  *  fetch the single indexed row (single-resource callers). `undefined` = not
  *  supplied → fetch; `null` = supplied, resource has no deployment. */
 async function resolveLatest(
-  resourceId: string,
+  resourceId: ResourceId,
   provided: DeploymentRow | null | undefined,
 ): Promise<DeploymentRow | null> {
   if (provided !== undefined) return provided;
-  return getLatestDeploymentForResource(
-    resourceId as Parameters<typeof getLatestDeploymentForResource>[0],
-  );
+  return getLatestDeploymentForResource(resourceId);
 }
 
 /** The manifest-tracked extras block (Phase 2 build config + lifecycle
@@ -93,11 +92,7 @@ export async function mapServiceResource(
   record: ServiceResourceJoined,
   opts?: { latest?: DeploymentRow | null; envRows?: ServiceEnvVarRow[] },
 ): Promise<ServiceResourceView> {
-  const envRows =
-    opts?.envRows ??
-    (await listServiceEnvVars(
-      record.resource.id as unknown as Parameters<typeof listServiceEnvVars>[0],
-    ));
+  const envRows = opts?.envRows ?? (await listServiceEnvVars(record.resource.id));
   const extraEnv: Record<string, string> = {};
   const secretKeys: string[] = [];
   for (const row of envRows) {

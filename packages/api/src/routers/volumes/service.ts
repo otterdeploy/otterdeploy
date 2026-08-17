@@ -50,9 +50,9 @@ async function listVolumeContainerRefs(): Promise<VolumeContainerRef[]> {
     id: c.Id,
     name: (c.Names?.[0] ?? c.Id).replace(/^\//, ""),
     labels: c.Labels ?? {},
-    volumeNames: (c.Mounts ?? [])
-      .filter((m) => m.Type === "volume" && typeof m.Name === "string" && m.Name.length > 0)
-      .map((m) => m.Name as string),
+    volumeNames: (c.Mounts ?? []).flatMap((m) =>
+      m.Type === "volume" && typeof m.Name === "string" && m.Name.length > 0 ? [m.Name] : [],
+    ),
   }));
 }
 
@@ -69,6 +69,19 @@ async function volumeSizesFromDf(): Promise<Map<string, number>> {
   return sizes;
 }
 
+/** Installed volume drivers off `info.Plugins` (an untyped bag upstream).
+ *  Anything that is not a non-empty array of strings falls back to
+ *  ["local"], the driver every daemon ships. */
+function volumeDriversOf(plugins: unknown): string[] {
+  if (!plugins || typeof plugins !== "object" || !("Volume" in plugins)) return ["local"];
+  const volume = plugins.Volume;
+  return Array.isArray(volume) &&
+    volume.length > 0 &&
+    volume.every((driver): driver is string => typeof driver === "string")
+    ? volume
+    : ["local"];
+}
+
 /** Daemon identity + installed volume drivers, best-effort. */
 async function daemonInfo(): Promise<{
   node: { name: string; serverVersion: string } | null;
@@ -77,9 +90,7 @@ async function daemonInfo(): Promise<{
   const result = await docker.system.info();
   if (result.isErr()) return { node: null, drivers: ["local"] };
   const info = result.value;
-  const plugins = info.Plugins as { Volume?: string[] } | undefined;
-  const drivers =
-    Array.isArray(plugins?.Volume) && plugins.Volume.length > 0 ? plugins.Volume : ["local"];
+  const drivers = volumeDriversOf(info.Plugins);
   return {
     node: { name: info.Name, serverVersion: info.ServerVersion },
     drivers,

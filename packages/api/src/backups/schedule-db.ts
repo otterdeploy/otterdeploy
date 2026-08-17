@@ -71,7 +71,7 @@ export async function listDueSchedules(now: Date): Promise<DueSchedule[]> {
         or(isNull(backupSchedule.nextRunAt), lte(backupSchedule.nextRunAt, now)),
       ),
     );
-  return rows as DueSchedule[];
+  return rows;
 }
 
 /** A schedule's run inputs (sources + destination) for a manual "run now". */
@@ -101,7 +101,7 @@ export async function getScheduleRunTarget(input: {
       and(eq(backupSchedule.id, input.id), eq(backupSchedule.organizationId, input.organizationId)),
     )
     .limit(1);
-  return (row as ScheduleRunTarget | undefined) ?? null;
+  return row ?? null;
 }
 
 /**

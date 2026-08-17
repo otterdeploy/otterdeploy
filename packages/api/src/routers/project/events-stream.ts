@@ -101,10 +101,10 @@ async function loadServiceNameMap(
       projectSlug: sanitizedSlug,
       resourceName: row.resource.name,
     });
-    map.set(serviceName, row.resource.id as ResourceId);
+    map.set(serviceName, row.resource.id);
   }
   for (const row of services) {
-    map.set(row.service.serviceName, row.resource.id as ResourceId);
+    map.set(row.service.serviceName, row.resource.id);
   }
   return map;
 }

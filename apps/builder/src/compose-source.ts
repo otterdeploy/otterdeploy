@@ -11,7 +11,7 @@
  * stops it from leaking branches into the pipeline body.
  */
 
-import type { DeploymentId, ProjectId } from "@otterdeploy/shared/id";
+import type { DeploymentId } from "@otterdeploy/shared/id";
 
 import { getInstallationToken } from "@otterdeploy/api/git/github-app";
 import { resolveRepoCloneBinding } from "@otterdeploy/api/git/repo-binding";
@@ -132,10 +132,7 @@ export async function acquireComposeSource(input: {
     if (ctx.compose.source === "inline") {
       const workDir = yield* await Result.tryPromise({
         try: () =>
-          materializeComposeFiles(
-            ctx.compose.files,
-            buildDir(ctx.project.id as ProjectId, input.deploymentId),
-          ),
+          materializeComposeFiles(ctx.compose.files, buildDir(ctx.project.id, input.deploymentId)),
         catch: (cause) => new BuildStepError({ step: "materialize", cause }),
       });
       sink.system(`materialized ${ctx.compose.files.length} inline file(s)`);
@@ -143,9 +140,11 @@ export async function acquireComposeSource(input: {
     }
 
     let installationToken = "";
-    if (ctx.installationId) {
+    // Capture to a const so the narrowing survives into the `try` closure.
+    const installationId = ctx.installationId;
+    if (installationId) {
       const minted = yield* await Result.tryPromise({
-        try: () => getInstallationToken(ctx.installationId as string),
+        try: () => getInstallationToken(installationId),
         catch: (cause) => new BuildStepError({ step: "token", cause }),
       });
       installationToken = minted.token;
@@ -157,7 +156,7 @@ export async function acquireComposeSource(input: {
           cloneUrl: ctx.cloneUrl,
           ref: input.gitRef,
           sha: input.gitSha,
-          projectId: ctx.project.id as ProjectId,
+          projectId: ctx.project.id,
           deploymentId: input.deploymentId,
           installationToken,
           // Private bound repos surface an installation-specific clone-failure

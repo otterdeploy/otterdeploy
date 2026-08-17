@@ -26,6 +26,12 @@ import { HostFilter } from "./host-filter";
  * scoped to the caller's domains. Mirrors the access-log view's full-bleed
  * table; no histogram/percentiles (these are discrete events, not requests).
  */
+/** Membership test that narrows a free-form string to one of the options. */
+function isMember<T extends string>(options: readonly T[], v: string): v is T {
+  const all: readonly string[] = options;
+  return all.includes(v);
+}
+
 export function EdgeEventsView({ projectId }: { projectId?: string }) {
   const { t } = useTranslation();
   const [range, setRange] = useState<Range>("1h");
@@ -42,8 +48,12 @@ export function EdgeEventsView({ projectId }: { projectId?: string }) {
       input: {
         projectId,
         range,
-        categories: categories.size ? ([...categories] as Category[]) : undefined,
-        levels: levels.size ? ([...levels] as Level[]) : undefined,
+        categories: categories.size
+          ? [...categories].filter((v): v is Category => isMember(CATEGORIES, v))
+          : undefined,
+        levels: levels.size
+          ? [...levels].filter((v): v is Level => isMember(LEVELS, v))
+          : undefined,
         hosts: hostFilter.length ? hostFilter : undefined,
         search: search.trim() || undefined,
       },
@@ -80,7 +90,13 @@ export function EdgeEventsView({ projectId }: { projectId?: string }) {
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
-        <Segmented options={RANGES} value={range} onChange={(v) => setRange(v as Range)} />
+        <Segmented
+          options={RANGES}
+          value={range}
+          onChange={(v) => {
+            if (isMember(RANGES, v)) setRange(v);
+          }}
+        />
         <Chips
           options={CATEGORIES}
           selected={categories}

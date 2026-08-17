@@ -36,6 +36,13 @@ export const EMPTY_DRAFT: Draft = {
 
 export type FieldErrors = Partial<Record<keyof Draft, string>>;
 
+/** Real narrowing from a zod issue path segment to a Draft field: the key set
+ *  comes from EMPTY_DRAFT, which is a complete Draft, so it can't drift. */
+const DRAFT_KEYS: ReadonlySet<string> = new Set(Object.keys(EMPTY_DRAFT));
+function isDraftKey(key: PropertyKey): key is keyof Draft {
+  return typeof key === "string" && DRAFT_KEYS.has(key);
+}
+
 /**
  * Run the SAME schema the server enforces, against the current draft, and key
  * the messages by field.
@@ -52,7 +59,8 @@ export function validate(draft: Draft): FieldErrors {
   if (parsed.success) return {};
   const errors: FieldErrors = {};
   for (const issue of parsed.error.issues) {
-    const field = issue.path[0] as keyof Draft | undefined;
+    const first = issue.path[0];
+    const field = isDraftKey(first) ? first : undefined;
     // First issue per field wins: later ones are usually the same problem
     // restated, and a row has room for one line.
     if (field && !errors[field]) errors[field] = issue.message;

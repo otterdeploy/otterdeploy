@@ -7,6 +7,9 @@
 // are unchanged, only the chrome around it (now a Servers tab instead of a
 // page) moved. See routes/_app/$orgSlug/_shell/platform.tsx for the redirect
 // shim that keeps old links working.
+import type { InferRouterOutputs } from "@orpc/server";
+import type { AppRouter } from "@otterdeploy/api/routers/index";
+
 import { useQuery } from "@tanstack/react-query";
 
 import { Card } from "@/shared/components/ui/card";
@@ -14,25 +17,9 @@ import { ErrorState } from "@/shared/components/ui/error-state";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { orpc } from "@/shared/server/orpc";
 
-interface PlatformData {
-  queueSnapshot: Array<{
-    queue: string;
-    waiting: number;
-    active: number;
-    failed: number;
-    delayed: number;
-    completed: number;
-  }>;
-  waitingSeries: Array<{ ts: Date; value: number }>;
-  activeSeries: Array<{ ts: Date; value: number }>;
-  deploy: {
-    succeeded: number;
-    failed: number;
-    inProgress: number;
-    total: number;
-    failureRate: number;
-  };
-}
+/** Exactly what `metrics.platform` delivers; derived so the body can never
+ *  drift from the contract. */
+type PlatformData = InferRouterOutputs<AppRouter>["metrics"]["platform"];
 
 export function InstallHealthSection() {
   const q = useQuery({
@@ -62,7 +49,7 @@ export function InstallHealthSection() {
             onRetry={() => void q.refetch()}
           />
         ) : q.data ? (
-          <InstallHealthBody data={q.data as PlatformData} />
+          <InstallHealthBody data={q.data} />
         ) : null}
       </div>
     </div>

@@ -1,16 +1,20 @@
-import type { Node } from "@otterdeploy/docker";
+import type { Node, NodeSpec } from "@otterdeploy/docker";
 
 import { describe, expect, test } from "vite-plus/test";
 
 import { pickNodeForServer } from "./node-resolver";
 
-const node = (id: string, hostname: string, state = "ready", availability = "active"): Node =>
-  ({
-    ID: id,
-    Description: { Hostname: hostname },
-    Status: { State: state },
-    Spec: { Availability: availability },
-  }) as Node;
+const node = (
+  id: string,
+  hostname: string,
+  state = "ready",
+  availability: NodeSpec["Availability"] = "active",
+): Node => ({
+  ID: id,
+  Description: { Hostname: hostname },
+  Status: { State: state },
+  Spec: { Availability: availability },
+});
 
 describe("pickNodeForServer", () => {
   test("resolves the obvious single match", () => {

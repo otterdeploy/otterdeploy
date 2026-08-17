@@ -195,14 +195,10 @@ export async function updateProxyRoute(
 /** Announce removed rows. Unlike an upsert there is no row to carry, so each
  *  delete is announced by key. The client drops exactly those. */
 function publishRemovedRows(
-  rows: Array<{ id: string; projectId: string; resourceId: string | null }>,
+  rows: Array<{ id: ProxyRouteId; projectId: ProjectId; resourceId: ResourceId | null }>,
 ): void {
   for (const row of rows) {
-    publishRouteRemoved(
-      row.projectId,
-      row.id as ProxyRouteId,
-      (row.resourceId as ResourceId | null) ?? null,
-    );
+    publishRouteRemoved(row.projectId, row.id, row.resourceId);
   }
 }
 

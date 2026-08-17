@@ -1,3 +1,4 @@
+import { idSchema } from "@otterdeploy/shared/id";
 /**
  * od-5j8.12: query-layer coverage for sealed project env vars:
  * `upsertProjectEnvVar` must encrypt on write whenever the FINAL state is
@@ -8,6 +9,7 @@
  * mock of `@otterdeploy/db`'s query builder, no real database needed.
  */
 import { describe, expect, test, vi } from "vite-plus/test";
+import * as z from "zod";
 
 // ── A minimal fluent mock of drizzle's query builder ────────────────────
 // Only the methods `project-env.ts` actually calls. Each chain step but the
@@ -87,7 +89,18 @@ vi.mock("@otterdeploy/db", () => ({
 import { decryptForDomain } from "../../../../lib/crypto";
 import { bulkReplaceProjectEnvVars, upsertProjectEnvVar } from "../project-env";
 
-const scope = { projectId: "project_1", environmentId: "env_1" } as never;
+const scope = {
+  projectId: idSchema.project.parse("prj_1"),
+  environmentId: idSchema.environment.parse("env_1"),
+};
+
+/** The captured `.values()` payload, narrowed to the one field under test. */
+function capturedInsertValue(): string {
+  return z.object({ value: z.string() }).parse(lastInsertCapture.values).value;
+}
+function capturedInsertSealed(): boolean {
+  return z.object({ sealed: z.boolean() }).parse(lastInsertCapture.values).sealed;
+}
 
 describe("upsertProjectEnvVar, sealed write path", () => {
   test("encrypts the value with the env-vars domain key when sealed: true on a fresh key", async () => {
@@ -102,7 +115,7 @@ describe("upsertProjectEnvVar, sealed write path", () => {
         // `.values()`: echo back exactly what was captured so this test
         // proves the STORED value (not some other string) round-trips.
         get value() {
-          return (lastInsertCapture.values as { value: string }).value;
+          return capturedInsertValue();
         },
         isSecret: true,
         sealed: true,
@@ -136,11 +149,11 @@ describe("upsertProjectEnvVar, sealed write path", () => {
         environmentId: "env_1",
         key: "TOKEN",
         get value() {
-          return (lastInsertCapture.values as { value: string }).value;
+          return capturedInsertValue();
         },
         isSecret: true,
         get sealed() {
-          return (lastInsertCapture.values as { sealed: boolean }).sealed;
+          return capturedInsertSealed();
         },
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -168,7 +181,7 @@ describe("upsertProjectEnvVar, sealed write path", () => {
         environmentId: "env_1",
         key: "PLAIN",
         get value() {
-          return (lastInsertCapture.values as { value: string }).value;
+          return capturedInsertValue();
         },
         isSecret: true,
         sealed: false,

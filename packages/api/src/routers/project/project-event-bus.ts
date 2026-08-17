@@ -16,19 +16,93 @@
  * Best-effort by design: publishing must never throw into the deploy path.
  */
 
-import type { ProjectId, ProxyRouteId, ResourceId } from "@otterdeploy/shared/id";
 import type { OrgBusEvent, OrgStreamCollection } from "@otterdeploy/shared/org-events";
 import type { RedisClient } from "bun";
 
 import { db } from "@otterdeploy/db";
 import { resource } from "@otterdeploy/db/schema";
-import { orgEventsChannel } from "@otterdeploy/shared/org-events";
+import {
+  ID_PREFIX,
+  zId,
+  type ProjectId,
+  type ProxyRouteId,
+  type ResourceId,
+} from "@otterdeploy/shared/id";
+import { ORG_STREAM_COLLECTIONS, orgEventsChannel } from "@otterdeploy/shared/org-events";
 import { eq } from "drizzle-orm";
+import * as z from "zod";
 
 import type { ProxyRouteRecord } from "../../caddy/queries";
 import type { ProjectStreamEvent } from "./events-stream";
 
 import { createRedis } from "../../lib/redis";
+import { proxyRouteSchema } from "./contract/proxy";
+import { proxyRouteIdField, resourceIdField } from "./contract/shared";
+
+// ── Wire schemas ─────────────────────────────────────────────────────────
+//
+// Everything on the bus crossed a JSON.stringify/parse boundary, so payloads
+// are PARSED back into the typed event shapes, never cast. Dates on route
+// rows arrive as ISO strings and are coerced back (the events contract does
+// the same on its own output for the identical reason).
+
+const orgBusEventSchema = z.object({ kind: z.enum(ORG_STREAM_COLLECTIONS) });
+
+const busRouteSchema = proxyRouteSchema.extend({
+  // The route row's previewId carries the PreviewId brand; re-apply it after
+  // the JSON round-trip or the parsed event won't satisfy PublishableRoute.
+  previewId: zId(ID_PREFIX.preview).nullable(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+  dnsCheckedAt: z.coerce.date().nullable(),
+  certCheckedAt: z.coerce.date().nullable(),
+  domainVerifiedAt: z.coerce.date().nullable(),
+});
+
+const projectBusEventSchema = z.union([
+  z.object({
+    kind: z.literal("resource"),
+    action: z.enum(["created", "updated", "removed"]),
+    resourceId: resourceIdField,
+  }),
+  z.object({
+    kind: z.literal("route"),
+    action: z.enum(["created", "updated"]),
+    route: busRouteSchema,
+  }),
+  z.object({
+    kind: z.literal("route"),
+    action: z.literal("removed"),
+    routeId: proxyRouteIdField,
+    resourceId: resourceIdField.nullable(),
+  }),
+  z.object({
+    kind: z.literal("task"),
+    action: z.string(),
+    resourceId: resourceIdField,
+    taskId: z.string(),
+    state: z.string().nullable(),
+  }),
+  z.object({ kind: z.literal("manifest"), action: z.literal("changed") }),
+  z.object({ kind: z.literal("previews"), action: z.literal("changed") }),
+  z.object({
+    kind: z.literal("container"),
+    action: z.string(),
+    resourceId: resourceIdField,
+    containerId: z.string(),
+  }),
+]);
+
+/** JSON-decode + schema-validate one bus payload; null for malformed ones. */
+function parseBusPayload<T>(payload: string, schema: z.ZodType<T>): T | null {
+  try {
+    const decoded: unknown = JSON.parse(payload);
+    const result = schema.safeParse(decoded);
+    return result.success ? result.data : null;
+  } catch {
+    return null;
+  }
+}
 
 const channel = (projectId: ProjectId | string) => `project:${projectId}:events`;
 
@@ -142,9 +216,10 @@ export function subscribeOrgEvents(
   const ch = orgEventsChannel(organizationId);
   void sub.subscribe(ch, (payload) => {
     try {
-      onEvent(JSON.parse(payload) as OrgBusEvent);
+      const event = parseBusPayload(payload, orgBusEventSchema);
+      if (event) onEvent(event);
     } catch {
-      // ignore malformed payloads
+      // best-effort: a listener error must not kill the subscriber
     }
   });
   return {
@@ -165,9 +240,10 @@ export function subscribeProjectEvents(
   const ch = channel(projectId);
   void sub.subscribe(ch, (payload) => {
     try {
-      onEvent(JSON.parse(payload) as ProjectStreamEvent);
+      const event = parseBusPayload(payload, projectBusEventSchema);
+      if (event) onEvent(event);
     } catch {
-      // ignore malformed payloads
+      // best-effort: a listener error must not kill the subscriber
     }
   });
   return {

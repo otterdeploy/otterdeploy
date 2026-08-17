@@ -82,7 +82,12 @@ export const guard =
   async (c, next) =>
     (
       await Result.tryPromise({
-        try: async (): Promise<Response | void> => handler(c, next) as Response | void,
+        // hono types a Handler's return as `any`; the wall routes only ever
+        // produce a Response (or nothing), so narrow for real at the boundary.
+        try: async (): Promise<Response | void> => {
+          const res: unknown = await handler(c, next);
+          return res instanceof Response ? res : undefined;
+        },
         catch: (e) => e,
       })
     ).match<Response | void | Promise<Response>>({

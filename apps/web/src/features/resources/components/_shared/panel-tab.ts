@@ -25,6 +25,6 @@ export function resolvePanelTab<T extends string>(
   allowed: readonly T[],
   fallback: T,
 ): T {
-  if (raw && (allowed as readonly string[]).includes(raw)) return raw as T;
-  return fallback;
+  if (!raw) return fallback;
+  return allowed.find((tab) => tab === raw) ?? fallback;
 }

@@ -45,7 +45,7 @@ export function SignUpForm({
       // A new session exists now. Anything cached under ["auth", …] describes
       // the pre-sign-up (or previous) session.
       await queryClient.invalidateQueries({ queryKey: authQueryKeys.all });
-      void navigate({ to: (redirect ?? "/") as "/", replace: true });
+      void navigate({ to: redirect ?? "/", replace: true });
       toast.success(t("auth.signUp.accountCreated"));
     },
     onError: (error) => {

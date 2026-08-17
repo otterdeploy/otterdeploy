@@ -173,7 +173,8 @@ export async function listResourceEnv(
 
   if (found.kind === "database") {
     const record = await getDatabaseResourceRecord(input.projectId, input.resourceId);
-    const env = (record?.database.extraEnv ?? {}) as Record<string, string>;
+    // `extraEnv` is `$type<Record<string, string>>` on the schema already.
+    const env = record?.database.extraEnv ?? {};
     return Result.ok(Object.entries(env).map(([key, value]) => ({ key, value })));
   }
 

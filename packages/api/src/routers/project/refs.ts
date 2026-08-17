@@ -15,6 +15,7 @@
 import type { EnvironmentId, OrganizationId, ProjectId } from "@otterdeploy/shared/id";
 
 import { Result } from "better-result";
+import * as z from "zod";
 
 import { listProxyRoutesByResourceId } from "../../caddy/queries";
 import { postgresExports, serviceExports } from "../../lib/variables/exporters";
@@ -29,7 +30,11 @@ import {
 import { listProjectResources } from "./queries/resource";
 
 type OrgId = OrganizationId;
-type DatabaseEngine = "postgres" | "redis" | "mariadb" | "mongodb";
+
+/** Engines the picker's contract knows how to badge (see the `engine` enum in
+ *  ./contract/refs.ts). Kept as a schema so the DB value is narrowed, not cast. */
+const refEngineSchema = z.enum(["postgres", "redis", "mariadb", "mongodb"]);
+type DatabaseEngine = z.infer<typeof refEngineSchema>;
 
 export interface AvailableReference {
   sourceKind: "database" | "service" | "project" | "environment";
@@ -64,10 +69,12 @@ function isSecretKey(key: string): boolean {
   return SECRET_KEY_PATTERNS.some((re) => re.test(key));
 }
 
-function projectEngineFor(engine: string): DatabaseEngine {
-  // Schema enum guarantees one of these: explicit cast keeps the
-  // discriminated UI types narrow at the call site.
-  return engine as DatabaseEngine;
+function projectEngineFor(engine: string): DatabaseEngine | null {
+  // Narrow the DB enum value against the contract's engine set. An engine the
+  // contract doesn't know (e.g. clickhouse) degrades to null (no brand icon)
+  // instead of failing the whole response's output validation.
+  const parsed = refEngineSchema.safeParse(engine);
+  return parsed.success ? parsed.data : null;
 }
 
 export async function listAvailableRefs(

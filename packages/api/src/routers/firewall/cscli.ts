@@ -1,5 +1,3 @@
-import type { Duplex } from "node:stream";
-
 /**
  * Talk to the CrowdSec agent by exec'ing `cscli` inside its container over the
  * Docker socket the control plane already manages, no LAPI credentials, no host
@@ -146,7 +144,17 @@ async function run(
   if (stream.isErr()) return null;
   const output = collectStream(stream.value);
   if (input !== undefined) {
-    (stream.value as Duplex).end(input);
+    // The exec stream is duplex when stdin was attached; the static type
+    // doesn't carry `end`, so duck-check instead of casting.
+    const writable: unknown = stream.value;
+    if (
+      typeof writable === "object" &&
+      writable !== null &&
+      "end" in writable &&
+      typeof writable.end === "function"
+    ) {
+      writable.end(input);
+    }
   }
   return demuxDockerStream(await output);
 }

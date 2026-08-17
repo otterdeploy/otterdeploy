@@ -25,10 +25,10 @@ interface StepCopy {
   title?: string;
   description?: string;
 }
-const locales = { en, es } as Record<
-  string,
-  { tour: { steps: Record<string, StepCopy | undefined> } }
->;
+const locales: Record<string, { tour: { steps: Record<string, StepCopy | undefined> } }> = {
+  en,
+  es,
+};
 
 describe("tour copy", () => {
   for (const [name, locale] of Object.entries(locales)) {
@@ -62,7 +62,7 @@ describe("tour copy", () => {
     const banned = /\b(amazing|awesome|magic(al)?|effortless|seamless|revolutionary|blazing)\b/i;
     const offenders = Object.entries(en.tour.steps)
       .filter(([, copy]) => {
-        const { title, description } = copy as { title: string; description: string };
+        const { title, description } = copy;
         return banned.test(title) || banned.test(description);
       })
       .map(([id]) => id);
@@ -73,7 +73,7 @@ describe("tour copy", () => {
     // The popover is capped at 22rem; much past ~340 characters and it stops
     // being a caption and starts being documentation nobody reads mid-tour.
     const tooLong = Object.entries(en.tour.steps)
-      .filter(([, copy]) => (copy as { description: string }).description.length > 340)
+      .filter(([, copy]) => copy.description.length > 340)
       .map(([id]) => id);
     expect(tooLong).toEqual([]);
   });

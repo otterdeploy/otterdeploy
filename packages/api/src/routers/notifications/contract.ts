@@ -31,7 +31,7 @@ const channelKind = z.enum([
 // delivery failures, not stored.
 const channelStatus = z.enum(["active", "paused", "disconnected", "warn"]);
 
-const eventId = z.enum(EVENT_IDS as [string, ...string[]]);
+const eventId = z.enum(EVENT_IDS);
 
 // ─── Output schemas ──────────────────────────────────────────────────────
 

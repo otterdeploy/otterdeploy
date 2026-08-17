@@ -25,13 +25,13 @@
  * restart at worst re-notifies one crash loop.
  */
 
-import type { DeploymentId, OrganizationId } from "@otterdeploy/shared/id";
+import type { DeploymentId, ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { deploymentLog } from "@otterdeploy/db/schema/build";
 import { deployment, project, resource, serviceResource } from "@otterdeploy/db/schema/project";
 import { Docker } from "@otterdeploy/docker";
-import { canonicalId } from "@otterdeploy/shared/id";
+import { idSchema } from "@otterdeploy/shared/id";
 import { eq } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { log } from "evlog";
@@ -52,8 +52,8 @@ const NOTIFY_DIE_THRESHOLD = 3;
 const STOP_EXIT_CODES = new Set([0, 143]);
 
 interface DieContext {
-  deploymentId: string;
-  resourceId: string;
+  deploymentId: DeploymentId;
+  resourceId: ResourceId;
   exitCode: number | null;
   /** Restarts performed so far (docker RestartCount at the moment of death). */
   attemptsSoFar: number;
@@ -148,12 +148,12 @@ async function inspectRestartState(
   }
 }
 
-async function appendSystemLine(deploymentId: string, line: string): Promise<void> {
+async function appendSystemLine(deploymentId: DeploymentId, line: string): Promise<void> {
   await db
     .insert(deploymentLog)
     // Runtime restart/health events are deploy-phase. They belong in Deploy
     // Logs, not Build Logs.
-    .values({ deploymentId: deploymentId as DeploymentId, stream: "system", phase: "deploy", line })
+    .values({ deploymentId, stream: "system", phase: "deploy", line })
     .catch(() => undefined);
 }
 
@@ -182,12 +182,15 @@ async function notifyCrashed(
     // database has no serviceResource row at all. Neither may drop the alert.
     .leftJoin(serviceResource, eq(serviceResource.resourceId, resource.id))
     .leftJoin(stack, eq(stack.id, serviceResource.stackId))
-    .where(eq(deployment.id, ctx.deploymentId as DeploymentId));
+    .where(eq(deployment.id, ctx.deploymentId));
   if (!info) return;
+  // The column is a plain-text FK; brand it via the schema rather than a cast.
+  const organizationId = idSchema.organization.safeParse(info.organizationId);
+  if (!organizationId.success) return;
   // `authentik / server` for a stack member, plain `web` for a standalone one.
   const label = info.stackName ? `${info.stackName} / ${info.resourceName}` : info.resourceName;
   await emitPlatformEvent({
-    organizationId: info.organizationId as OrganizationId,
+    organizationId: organizationId.data,
     eventId: "deploy.crashed",
     title: "Service crashed",
     message: `${label}: ${detail}`,
@@ -215,21 +218,26 @@ function isManagedDie(event: DockerEvent): event is ContainerEvent {
 async function handleDie(event: ContainerEvent): Promise<void> {
   // Labels are stamped at container creation and never rewritten, so a
   // container predating the ID-prefix shortening still reports the old
-  // spelling; canonicalise before either is used to look anything up.
-  const rawDeploymentId = event.labels["otterdeploy.deployment.id"];
-  const rawResourceId = event.labels["otterdeploy.resource.id"];
-  const deploymentId = rawDeploymentId ? canonicalId(rawDeploymentId) : rawDeploymentId;
-  const resourceId = rawResourceId ? canonicalId(rawResourceId) : rawResourceId;
-  if (!deploymentId || !resourceId) return;
+  // spelling; the idSchema parse canonicalises (and brands) both before
+  // either is used to look anything up.
+  const parsedDeploymentId = idSchema.deployment.safeParse(
+    event.labels["otterdeploy.deployment.id"],
+  );
+  const parsedResourceId = idSchema.resource.safeParse(event.labels["otterdeploy.resource.id"]);
+  if (!parsedDeploymentId.success || !parsedResourceId.success) return;
+  const deploymentId = parsedDeploymentId.data;
+  const resourceId = parsedResourceId.data;
 
-  const rawExit = (event.raw.Actor?.Attributes as Record<string, string> | undefined)?.exitCode;
+  const rawExit = event.raw.Actor?.Attributes?.exitCode;
   const exitCode = rawExit != null && rawExit !== "" ? Number(rawExit) : null;
 
-  const restartState = await inspectRestartState(event.containerId).catch(() => ({
-    attemptsSoFar: 0,
-    maxAttempts: null as number | null,
-    oomKilled: false,
-  }));
+  const restartState = await inspectRestartState(event.containerId).catch(
+    (): Awaited<ReturnType<typeof inspectRestartState>> => ({
+      attemptsSoFar: 0,
+      maxAttempts: null,
+      oomKilled: false,
+    }),
+  );
 
   // Clean stops (exit 0 / SIGTERM) are redeploys or operator stops, not
   // crashes. OOM kills report 137 and would look like a plain kill without
@@ -249,7 +257,7 @@ async function handleDie(event: ContainerEvent): Promise<void> {
   const retry = retryPhrase(ctx);
   const line = `${exitPhrase(ctx)}: ${retry.line}`;
   await appendSystemLine(deploymentId, line);
-  void publishResourceChanged(resourceId as Parameters<typeof publishResourceChanged>[0]);
+  void publishResourceChanged(resourceId);
 
   const dies = bumpDieCount(deploymentId);
   if (retry.gaveUp || dies >= NOTIFY_DIE_THRESHOLD) {

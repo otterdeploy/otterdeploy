@@ -160,8 +160,10 @@ interface PortLike {
 
 function isPortLike(x: unknown): x is PortLike {
   if (!x || typeof x !== "object") return false;
-  const p = x as PortLike;
-  return typeof p.container === "number" || typeof p.containerPort === "number";
+  return (
+    ("container" in x && typeof x.container === "number") ||
+    ("containerPort" in x && typeof x.containerPort === "number")
+  );
 }
 
 function formatPort(p: PortLike): string {

@@ -73,7 +73,10 @@ async function countScenarioDecisions(scenario: string): Promise<number> {
     if (!Array.isArray(parsed)) return 0;
     // One alert row carries the decisions it created.
     return parsed.reduce<number>((total, alert) => {
-      const decisions = (alert as { decisions?: unknown[] }).decisions;
+      const decisions =
+        typeof alert === "object" && alert !== null && "decisions" in alert
+          ? alert.decisions
+          : undefined;
       return total + (Array.isArray(decisions) ? decisions.length : 0);
     }, 0);
   } catch {

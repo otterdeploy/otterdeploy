@@ -62,8 +62,12 @@ function normalizeHost(raw: string | undefined): string | undefined {
 
 function errMessages(errors: readonly unknown[]): string[] {
   return errors
-    .map((e) => (typeof e === "string" ? e : (e as { message?: string } | undefined)?.message))
-    .filter((m): m is string => Boolean(m));
+    .map((e) => {
+      if (typeof e === "string") return e;
+      if (typeof e === "object" && e !== null && "message" in e) return e.message;
+      return undefined;
+    })
+    .filter((m): m is string => typeof m === "string" && m.length > 0);
 }
 
 export function ConnectDialog({ open, onOpenChange, returnTo }: ConnectDialogProps) {

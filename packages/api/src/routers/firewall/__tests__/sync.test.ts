@@ -13,6 +13,8 @@ vi.mock("../queries", () => ({
   setBlocklistSyncResult: vi.fn(),
 }));
 
+import { idSchema } from "@otterdeploy/shared/id";
+
 import type { BlocklistRow } from "../queries";
 
 import { fetchPublicText } from "../../../security/public-fetch";
@@ -20,8 +22,8 @@ import { cscliRun } from "../cscli";
 import { setBlocklistSyncResult } from "../queries";
 import { clearBlocklist, syncBlocklist } from "../sync";
 
-const row = {
-  id: "bl_test",
+const row: BlocklistRow = {
+  id: idSchema.blocklist.parse("blk_test"),
   name: "Test",
   url: "https://list.example/ips.txt",
   catalogSlug: null,
@@ -32,10 +34,10 @@ const row = {
   lastStatus: "ok",
   lastError: null,
   lastCount: 1,
-  activeScenario: "blocklist:bl_test:a",
+  activeScenario: "blocklist:blk_test:a",
   createdAt: new Date(0),
   updatedAt: new Date(0),
-} as BlocklistRow;
+};
 
 describe("syncBlocklist blue/green replacement", () => {
   beforeEach(() => {
@@ -70,7 +72,7 @@ describe("syncBlocklist blue/green replacement", () => {
     expect(cscliRun).toHaveBeenCalledTimes(2);
     expect(cscliRun).not.toHaveBeenCalledWith(
       expect.any(String),
-      ["blocklist:bl_test:a"],
+      ["blocklist:blk_test:a"],
       expect.anything(),
     );
     expect(setBlocklistSyncResult).not.toHaveBeenCalledWith(
@@ -98,7 +100,7 @@ describe("syncBlocklist blue/green replacement", () => {
     vi.mocked(cscliRun).mockImplementation(async (_script, args, options) => {
       if (options?.input) {
         order.push("import");
-        expect(args).toEqual(["blocklist:bl_test:b", "24h"]);
+        expect(args).toEqual(["blocklist:blk_test:b", "24h"]);
         expect(options.input).toBe("1.1.1.1\n2001:4860:4860::8888\n");
         return "Imported 2 decisions";
       }
@@ -115,15 +117,15 @@ describe("syncBlocklist blue/green replacement", () => {
     });
 
     expect(order).toEqual([
-      "clear:blocklist:bl_test:b",
+      "clear:blocklist:blk_test:b",
       "import",
       "persist",
-      "clear:blocklist:bl_test:a",
+      "clear:blocklist:blk_test:a",
     ]);
     expect(setBlocklistSyncResult).toHaveBeenCalledWith(row.id, {
       status: "ok",
       count: 2,
-      activeScenario: "blocklist:bl_test:b",
+      activeScenario: "blocklist:blk_test:b",
     });
   });
 
@@ -133,9 +135,9 @@ describe("syncBlocklist blue/green replacement", () => {
     await expect(clearBlocklist(row)).resolves.toBe(true);
 
     expect(vi.mocked(cscliRun).mock.calls.map((call) => call[1][0])).toEqual([
-      "blocklist:bl_test",
-      "blocklist:bl_test:b",
-      "blocklist:bl_test:a",
+      "blocklist:blk_test",
+      "blocklist:blk_test:b",
+      "blocklist:blk_test:a",
     ]);
   });
 });

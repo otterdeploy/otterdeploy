@@ -57,7 +57,10 @@ describe("[od-5j8.11] DB default is honest about an un-firewalled node", () => {
       return existsSync(file) && readFileSync(file, "utf8").includes("firewall_status");
     });
     expect(match, "no migration adds firewall_status").toBeDefined();
-    const sql = readFileSync(join(migrationsDir, match as string, "migration.sql"), "utf8");
+    // Real narrowing for TS: the expect above already failed the test when the
+    // migration is missing, so this throw is unreachable in practice.
+    if (match === undefined) throw new Error("no migration adds firewall_status");
+    const sql = readFileSync(join(migrationsDir, match, "migration.sql"), "utf8");
     expect(sql).not.toMatch(/DROP TABLE|DROP COLUMN|TRUNCATE/i);
     expect(sql).toContain("ADD COLUMN");
   });

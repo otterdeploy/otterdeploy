@@ -39,7 +39,7 @@ function unwrapErrorChain(err: unknown): { codes: Set<string>; texts: string[] }
   const texts: string[] = [];
   let cursor: unknown = err;
   for (let depth = 0; depth < 4 && cursor instanceof Error; depth++) {
-    const code = (cursor as Error & { code?: unknown }).code;
+    const code: unknown = "code" in cursor ? cursor.code : undefined;
     if (typeof code === "string") codes.add(code);
     texts.push(cursor.message);
     cursor = cursor.cause;

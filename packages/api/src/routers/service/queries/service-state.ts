@@ -6,10 +6,11 @@
  * surface that `updateServiceRecord` owns. They are written by the runtime
  * and edge paths instead.
  */
-import type { ResourceId, ServerId } from "@otterdeploy/shared/id";
+import type { ResourceId } from "@otterdeploy/shared/id";
 
 import { db } from "@otterdeploy/db";
 import { resource, serviceResource } from "@otterdeploy/db/schema/project";
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { eq, sql } from "drizzle-orm";
 
 import type { ServiceResourceRow } from ".";
@@ -50,10 +51,13 @@ export async function setResourcePlacement(
   resourceId: ResourceId,
   serverId: string | null,
 ): Promise<void> {
-  await db
-    .update(resource)
-    .set({ placementServerId: (serverId as ServerId | null) ?? null })
-    .where(eq(resource.id, resourceId));
+  // Callers hand this a plain string; recover the brand with a real check
+  // rather than a cast. A non-server id here is caller error, and would have
+  // failed the FK on write anyway.
+  if (serverId !== null && !hasPrefix(serverId, ID_PREFIX.server)) {
+    throw new Error(`setResourcePlacement: ${serverId} is not a server id`);
+  }
+  await db.update(resource).set({ placementServerId: serverId }).where(eq(resource.id, resourceId));
 }
 
 export async function setPublicExposure(input: {

@@ -32,11 +32,13 @@ interface PersistState {
   flushTimer: ReturnType<typeof setInterval> | null;
   sweepTimer: ReturnType<typeof setInterval> | null;
 }
-const state: PersistState = ((
-  globalThis as typeof globalThis & {
-    __edgeLogPersist?: PersistState;
-  }
-).__edgeLogPersist ??= {
+// The global slot is declared (not asserted) so reads/writes stay
+// type-checked, same pattern as ring.ts.
+declare global {
+  var __edgeLogPersist: PersistState | undefined;
+}
+
+const state: PersistState = (globalThis.__edgeLogPersist ??= {
   buffer: [],
   enabled: false,
   ready: false,

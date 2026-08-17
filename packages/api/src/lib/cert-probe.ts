@@ -76,14 +76,15 @@ function connectAndRead(opts: {
         // `true` (detailed) is required: under Bun the abbreviated form
         // (`getPeerCertificate(false)`) returns an EMPTY object, which made
         // every probe report "no certificate presented" even when the edge
-        // served a valid cert. We still only read the leaf's own fields. Cast
-        // to our structural subset so the rest of the module is socket-free.
-        const cert = socket.getPeerCertificate(true) as unknown as RawCert;
+        // served a valid cert. We still only read the leaf's own fields,
+        // narrowed into our structural subset so the rest of the module is
+        // socket-free.
+        const peer: unknown = socket.getPeerCertificate(true);
         socket.end();
-        const present = cert && Object.keys(cert).length > 0;
+        const cert = toRawCert(peer);
         done({
-          cert: present ? cert : null,
-          error: present ? null : "no certificate presented",
+          cert,
+          error: cert ? null : "no certificate presented",
         });
       },
     );
@@ -109,6 +110,36 @@ export interface RawCert {
   valid_to?: string;
   serialNumber?: string;
   fingerprint256?: string;
+}
+
+/** Keep only string-valued entries (issuer/subject DN fields are strings). */
+function toStringRecord(value: unknown): Record<string, string | undefined> | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const out: Record<string, string | undefined> = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (typeof v === "string") out[k] = v;
+  }
+  return out;
+}
+
+/**
+ * Narrow whatever the TLS runtime handed back (Bun's and node's peer-cert
+ * objects differ) into the {@link RawCert} subset. Returns `null` when no
+ * certificate was presented (empty object).
+ */
+function toRawCert(peer: unknown): RawCert | null {
+  if (typeof peer !== "object" || peer === null) return null;
+  if (Object.keys(peer).length === 0) return null;
+  const rec: Record<string, unknown> = Object.fromEntries(Object.entries(peer));
+  return {
+    issuer: toStringRecord(rec.issuer),
+    subject: toStringRecord(rec.subject),
+    subjectaltname: typeof rec.subjectaltname === "string" ? rec.subjectaltname : undefined,
+    valid_from: typeof rec.valid_from === "string" ? rec.valid_from : undefined,
+    valid_to: typeof rec.valid_to === "string" ? rec.valid_to : undefined,
+    serialNumber: typeof rec.serialNumber === "string" ? rec.serialNumber : undefined,
+    fingerprint256: typeof rec.fingerprint256 === "string" ? rec.fingerprint256 : undefined,
+  };
 }
 
 function fieldOf(

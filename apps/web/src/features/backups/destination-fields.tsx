@@ -1,5 +1,3 @@
-import type { JsonObject } from "@otterdeploy/shared/json";
-
 /**
  * Per-type field definitions for a backup destination plus the type-specific
  * config/secret inputs, factored out of the editor dialog so each stays within
@@ -7,6 +5,7 @@ import type { JsonObject } from "@otterdeploy/shared/json";
  */
 import { SquareLock01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { isJsonObject, type JsonObject } from "@otterdeploy/shared/json";
 
 import { Input } from "@/shared/components/ui/input";
 
@@ -81,7 +80,8 @@ export function missingRequiredFields(
 /** Seed the editable config record from an existing destination (or blanks). */
 export function configFromInitial(initial: Destination | null): Record<string, string> {
   const out: Record<string, string> = {};
-  const cfg = (initial?.config ?? {}) as JsonObject;
+  const raw: unknown = initial?.config ?? {};
+  const cfg: JsonObject = isJsonObject(raw) ? raw : {};
   for (const f of DEST_TYPE_FIELDS[initial?.type ?? "s3"].config) {
     const v = cfg[f.key];
     out[f.key] = typeof v === "string" || typeof v === "number" ? String(v) : "";

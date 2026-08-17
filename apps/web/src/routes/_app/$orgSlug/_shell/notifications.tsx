@@ -18,6 +18,7 @@
  * from `platform_settings` / env: see packages/email/src/transport.ts.
  */
 import { useMemo, useState } from "react";
+import { createId, ID_PREFIX, idSchema } from "@otterdeploy/shared/id";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { BellDotIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { createFileRoute } from "@tanstack/react-router";
@@ -59,7 +60,9 @@ export const Route = createFileRoute("/_app/$orgSlug/_shell/notifications")({
 function toggleSub(channelId: string, eventId: string, enabled: boolean) {
   const tx = enabled
     ? subscriptionsCollection.insert({
-        channelId: channelId as Channel["id"],
+        // The matrix hands the id back as a plain string; re-brand it at the
+        // boundary the same way route params are (idSchema, a real parse).
+        channelId: idSchema.notificationChannel.parse(channelId),
         eventId,
       })
     : subscriptionsCollection.delete(`${channelId}:${eventId}`);
@@ -120,7 +123,7 @@ function RouteComponent() {
           {
             // Optimistic placeholder: the real row (server id, masked target,
             // computed stats) replaces this on the post-create refetch.
-            id: crypto.randomUUID() as Channel["id"],
+            id: createId(ID_PREFIX.notificationChannel),
             kind: values.kind,
             name: values.name,
             target: values.target,

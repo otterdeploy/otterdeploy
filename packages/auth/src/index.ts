@@ -167,6 +167,22 @@ type SocialProvidersConfig = Record<
   { clientId: string; clientSecret: string; issuer?: string }
 >;
 
+/** Every short prefix in the registry, for the generateId membership check. */
+const ID_PREFIX_VALUES: ReadonlySet<string> = new Set(Object.values(ID_PREFIX));
+
+function isIdPrefix(value: string): value is IdPrefix {
+  return ID_PREFIX_VALUES.has(value);
+}
+
+/**
+ * Mint `{prefix}_{cuid2}` for a prefix outside the registry (better-auth
+ * models whose model name doubles as the prefix). Reuses createId's cuid2
+ * tail so the id shape is identical to a registry-minted one.
+ */
+function mintUnregisteredId(prefix: string): string {
+  return `${prefix}${createId(ID_PREFIX.user).slice(ID_PREFIX.user.length)}`;
+}
+
 function buildAuth(socialProviders: SocialProvidersConfig) {
   return betterAuth({
     appName: "otterdeploy",
@@ -270,7 +286,7 @@ function buildAuth(socialProviders: SocialProvidersConfig) {
         generateId: ({ model }) => {
           const prefix =
             model === "team" ? ID_PREFIX.project : model === "organization" ? "org" : model;
-          return createId(prefix as IdPrefix);
+          return isIdPrefix(prefix) ? createId(prefix) : mintUnregisteredId(prefix);
         },
       },
       ipAddress: {
@@ -623,18 +639,37 @@ export async function reloadAuth(): Promise<{ providers: string[] }> {
  * property that doesn't exist on the target violates a Proxy invariant and
  * throws.
  */
-export const auth: AuthInstance = new Proxy({} as AuthInstance, {
-  get(_target, prop) {
-    const value: unknown = Reflect.get(currentAuth as object, prop, currentAuth);
-    if (typeof value !== "function") return value;
-    return (value as (...args: unknown[]) => unknown).bind(currentAuth);
+const authFacade: object = new Proxy(
+  {},
+  {
+    get(_target, prop) {
+      const value: unknown = Reflect.get(currentAuth, prop, currentAuth);
+      if (typeof value !== "function") return value;
+      const bound: unknown = value.bind(currentAuth);
+      return bound;
+    },
+    has: (_target, prop) => Reflect.has(currentAuth, prop),
+    ownKeys: () => Reflect.ownKeys(currentAuth),
+    getOwnPropertyDescriptor: (_target, prop) => {
+      const descriptor = Reflect.getOwnPropertyDescriptor(currentAuth, prop);
+      return descriptor ? { ...descriptor, configurable: true } : undefined;
+    },
   },
-  has: (_target, prop) => Reflect.has(currentAuth as object, prop),
-  ownKeys: () => Reflect.ownKeys(currentAuth as object),
-  getOwnPropertyDescriptor: (_target, prop) => {
-    const descriptor = Reflect.getOwnPropertyDescriptor(currentAuth as object, prop);
-    return descriptor ? { ...descriptor, configurable: true } : undefined;
-  },
-});
+);
+
+/**
+ * The facade's `in`/`get` traps forward to the live better-auth instance, so
+ * probing the core surface here genuinely exercises the forwarding path
+ * against the real instance; a facade that stopped forwarding fails at boot.
+ */
+function isAuthInstance(candidate: object): candidate is AuthInstance {
+  return "handler" in candidate && "api" in candidate && "options" in candidate;
+}
+
+if (!isAuthInstance(authFacade)) {
+  throw new Error("auth facade does not forward to a better-auth instance");
+}
+
+export const auth: AuthInstance = authFacade;
 
 export type Session = AuthInstance["$Infer"]["Session"];

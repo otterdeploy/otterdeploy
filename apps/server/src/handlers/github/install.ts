@@ -9,7 +9,6 @@
  *   manifest/callback  GitHub sends App credentials after manifest approval
  */
 
-import type { OrganizationId } from "@otterdeploy/shared/id";
 import type { Handler } from "hono";
 
 import {
@@ -21,6 +20,7 @@ import {
 } from "@otterdeploy/api/git";
 import { resolveCanonicalWebOrigin } from "@otterdeploy/auth/web-origin";
 import { env } from "@otterdeploy/env/server";
+import { hasPrefix, ID_PREFIX } from "@otterdeploy/shared/id";
 import { Result } from "better-result";
 import { log, parseError } from "evlog";
 
@@ -69,10 +69,18 @@ export const githubInstallCallbackHandler: Handler = async (c) => {
     return c.redirect(await errorRedirectUrl(`unsupported-action:${setupAction}`, state.returnTo));
   }
 
+  // The state token is signed by us and its orgId was minted by createId, so
+  // a missing `org_` prefix means a forged or corrupted token: treat it the
+  // same as a bad signature instead of asserting the brand.
+  const organizationId = state.orgId;
+  if (!hasPrefix(organizationId, ID_PREFIX.organization)) {
+    return c.redirect(await errorRedirectUrl("invalid-state"));
+  }
+
   const connect = await Result.tryPromise({
     try: () =>
       completeGithubConnect({
-        organizationId: state.orgId as OrganizationId,
+        organizationId,
         installationId,
       }),
     catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
@@ -119,11 +127,17 @@ export const githubManifestCallbackHandler: Handler = async (c) => {
     return c.redirect(await errorRedirectUrl("invalid-state"));
   }
 
+  // Same forged-token treatment as the install callback above.
+  const organizationId = state.orgId;
+  if (!hasPrefix(organizationId, ID_PREFIX.organization)) {
+    return c.redirect(await errorRedirectUrl("invalid-state"));
+  }
+
   const exchange = await Result.tryPromise({
     try: () =>
       completeManifestExchange({
         code,
-        organizationId: state.orgId as OrganizationId,
+        organizationId,
         host: state.host,
       }),
     catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),

@@ -104,12 +104,20 @@ export function getDatabaseEngine(engine: DatabaseEngine): DatabaseEngineMeta {
   return DATABASE_ENGINES[engine];
 }
 
+/** Real membership check against the catalog: what re-brands an `Object.keys`
+ *  string (or any untrusted string) back into the `DatabaseEngine` union. */
+export function isDatabaseEngine(value: string): value is DatabaseEngine {
+  return value in DATABASE_ENGINES;
+}
+
 export function listDatabaseEngines(): ReadonlyArray<{
   id: DatabaseEngine;
   meta: DatabaseEngineMeta;
 }> {
-  return (Object.keys(DATABASE_ENGINES) as DatabaseEngine[]).map((id) => ({
-    id,
-    meta: DATABASE_ENGINES[id],
-  }));
+  return Object.keys(DATABASE_ENGINES)
+    .filter(isDatabaseEngine)
+    .map((id) => ({
+      id,
+      meta: DATABASE_ENGINES[id],
+    }));
 }
