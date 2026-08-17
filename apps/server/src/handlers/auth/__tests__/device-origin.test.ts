@@ -14,7 +14,7 @@ import * as z from "zod";
  */
 
 const resolveCanonicalWebOrigin = mock(async () => "https://deploy.acme.com");
-mock.module("@otterdeploy/auth/web-origin", () => ({ resolveCanonicalWebOrigin }));
+await mock.module("@otterdeploy/auth/web-origin", () => ({ resolveCanonicalWebOrigin }));
 
 const { withCanonicalDeviceOrigin } = await import("../device-origin");
 

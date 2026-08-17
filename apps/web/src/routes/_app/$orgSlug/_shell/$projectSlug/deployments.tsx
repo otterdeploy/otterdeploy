@@ -10,7 +10,7 @@
 
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { createFileRoute, useLoaderData, useNavigate, useSearch } from "@tanstack/react-router";
+import { createFileRoute, useLoaderData, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { DeploymentsTableSection } from "@/features/deployments/components/deployments-table";

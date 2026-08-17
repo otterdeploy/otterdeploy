@@ -6,7 +6,6 @@ import {
   useLoaderData,
   useNavigate,
   useRouter,
-  useSearch,
 } from "@tanstack/react-router";
 import { and, eq, useLiveQuery } from "@tanstack/react-db";
 import { AnimatePresence } from "motion/react";

@@ -44,14 +44,13 @@ export function makeLogColumns(t: TFunction): ColumnDef<LogLine>[] {
         />
       ),
       cell: ({ row }) => (
-        // Stop propagation so ticking the box doesn't also open the detail panel.
-        <span onClick={(e) => e.stopPropagation()}>
-          <Checkbox
-            aria-label={t("logs.selectRow")}
-            checked={row.getIsSelected()}
-            onCheckedChange={(v) => row.toggleSelected(!!v)}
-          />
-        </span>
+        <Checkbox
+          aria-label={t("logs.selectRow")}
+          checked={row.getIsSelected()}
+          // Stop propagation so ticking the box doesn't also open the detail panel.
+          onClick={(e) => e.stopPropagation()}
+          onCheckedChange={(v) => row.toggleSelected(!!v)}
+        />
       ),
     },
     {

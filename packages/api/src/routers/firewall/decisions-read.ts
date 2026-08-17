@@ -53,19 +53,26 @@ function parseJsonArray(text: string | null): JsonObject[] {
   return parsed.value.filter(isJsonObject);
 }
 
-const str = (v: unknown): string | null =>
-  v === undefined || v === null || v === "" ? null : String(v);
+/** Stringify a JSON field when it is a primitive; objects/arrays (which would
+ *  render as `[object Object]`) yield null so the caller's fallback applies. */
+const text = (v: unknown): string | null =>
+  typeof v === "string" ? v : typeof v === "number" || typeof v === "boolean" ? String(v) : null;
+
+const str = (v: unknown): string | null => {
+  const s = text(v);
+  return s === "" ? null : s;
+};
 
 /** Flatten one CrowdSec decision (within its alert wrapper) into a row. */
 function toDecision(d: JsonObject, alert: JsonObject, source: JsonObject): Decision {
   return {
     id: typeof d.id === "number" ? d.id : null,
-    origin: String(d.origin ?? alert.kind ?? "crowdsec"),
-    type: String(d.type ?? "ban"),
-    scope: String(d.scope ?? source.scope ?? "Ip"),
-    value: String(d.value ?? source.value ?? ""),
-    duration: String(d.duration ?? ""),
-    scenario: String(d.scenario ?? alert.scenario ?? ""),
+    origin: text(d.origin) ?? text(alert.kind) ?? "crowdsec",
+    type: text(d.type) ?? "ban",
+    scope: text(d.scope) ?? text(source.scope) ?? "Ip",
+    value: text(d.value) ?? text(source.value) ?? "",
+    duration: text(d.duration) ?? "",
+    scenario: text(d.scenario) ?? text(alert.scenario) ?? "",
     country: str(source.cn),
     asNumber: str(source.as_number),
     asName: str(source.as_name),

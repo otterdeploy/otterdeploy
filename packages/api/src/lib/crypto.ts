@@ -331,13 +331,16 @@ export async function decryptForDomain(blob: string, domain: SecretDomain): Prom
     throw new Error("decryptForDomain: malformed ciphertext (unrecognized format)");
   }
   const parsed = parseV2Envelope(blob);
+  // Unknown-domain first: it checks the raw envelope string (and narrows it to
+  // SecretDomain for getDomainKey); a garbage domain reports as unknown rather
+  // than as a mismatch against whatever the caller expected.
+  if (!isSecretDomain(parsed.domain)) {
+    throw new Error(`decryptForDomain: unknown domain "${parsed.domain}" in envelope`);
+  }
   if (parsed.domain !== domain) {
     throw new Error(
       `decryptForDomain: domain mismatch (envelope="${parsed.domain}", expected="${domain}")`,
     );
-  }
-  if (!isSecretDomain(parsed.domain)) {
-    throw new Error(`decryptForDomain: unknown domain "${parsed.domain}" in envelope`);
   }
   const key = await getDomainKey(parsed.domain, parsed.keyId);
   return open(key, parsed.nonce, parsed.ciphertext);

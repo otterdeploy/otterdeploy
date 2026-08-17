@@ -1,4 +1,4 @@
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 
 import { RESOURCE_PRESETS } from "@/features/projects/data/service-kinds";
 import { Card, CardContent } from "@/shared/components/ui/card";
@@ -14,10 +14,10 @@ interface StepResourcesProps {
 
 export function StepResources({ isDb }: StepResourcesProps) {
   const form = useFormContext();
-  const presetId = useStore(form.store, (s) => s.values.presetId);
-  const customCpu = useStore(form.store, (s) => s.values.customCpu);
-  const customMem = useStore(form.store, (s) => s.values.customMem);
-  const replicas = useStore(form.store, (s) => s.values.replicas);
+  const presetId = useSelector(form.store, (s) => s.values.presetId);
+  const customCpu = useSelector(form.store, (s) => s.values.customCpu);
+  const customMem = useSelector(form.store, (s) => s.values.customMem);
+  const replicas = useSelector(form.store, (s) => s.values.replicas);
 
   const preset = RESOURCE_PRESETS.find((p) => p.id === presetId);
   const cpu = preset?.cpu ?? customCpu;

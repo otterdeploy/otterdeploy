@@ -84,7 +84,6 @@ export function RegistryFormBody({
               placeholder={
                 kind === "generic" ? "Internal registry (ci-bot)" : `${meta.label} (ci-bot)`
               }
-              autoFocus
             />
           </FieldShell>
         )}

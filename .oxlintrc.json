@@ -220,6 +220,15 @@
       }
     },
     {
+      // Operator-run maintenance scripts and the integration-test harness:
+      // console IS the user interface (progress tables, suite-skip notices),
+      // there is no app logger wired in these entry points.
+      "files": ["packages/api/scripts/**", "test-infra/**"],
+      "rules": {
+        "no-console": "off"
+      }
+    },
+    {
       "files": ["**/*.test.ts", "**/__tests__/**"],
       "rules": {
         "max-lines": "off",

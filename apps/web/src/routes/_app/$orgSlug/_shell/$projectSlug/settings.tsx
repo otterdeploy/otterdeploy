@@ -6,7 +6,7 @@
  * the service's Settings → Source card.
  */
 
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -58,7 +58,7 @@ function SettingsForm({ project }: { project: ProjectSettingsFields }) {
       });
     },
   });
-  const customDomain = useStore(form.store, (s) => s.values.customDomain);
+  const customDomain = useSelector(form.store, (s) => s.values.customDomain);
   const dirty = customDomain.trim() !== (project.customDomain ?? "");
 
   return (

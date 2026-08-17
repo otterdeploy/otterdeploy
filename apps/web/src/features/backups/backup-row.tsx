@@ -133,17 +133,19 @@ export function BackupRow({
             )}
             <StatusBadge status={b.status} />
           </span>
-          <span
-            className="flex items-center justify-end gap-0.5"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <span className="flex items-center justify-end gap-0.5">
+            {/* Each action stops propagation itself so activating it (mouse or
+                keyboard) doesn't also toggle the surrounding row button. */}
             <Button
               variant="ghost"
               size="icon"
               className="size-6"
               title="Restore"
               disabled={!succeeded}
-              onClick={() => onRestore(b)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onRestore(b);
+              }}
             >
               <HugeiconsIcon icon={Refresh01Icon} className="size-3" />
             </Button>
@@ -153,7 +155,10 @@ export function BackupRow({
               className="size-6"
               title="Download"
               disabled={!succeeded || downloading}
-              onClick={download}
+              onClick={(e) => {
+                e.stopPropagation();
+                download();
+              }}
             >
               <HugeiconsIcon icon={Download01Icon} className="size-3" />
             </Button>

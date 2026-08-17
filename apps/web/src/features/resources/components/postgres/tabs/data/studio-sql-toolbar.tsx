@@ -113,22 +113,24 @@ export function SqlToolbar({
                   <label
                     htmlFor="sql-write-mode"
                     className="flex cursor-pointer items-center gap-1.5 text-[12px]"
-                  />
+                  >
+                    <Switch
+                      id="sql-write-mode"
+                      checked={t.writeMode}
+                      onCheckedChange={t.setWriteMode}
+                      disabled={t.executeSql.isPending}
+                      aria-label="SQL write mode"
+                    />
+                    <span
+                      className={
+                        t.writeMode ? "font-medium text-amber-500" : "text-muted-foreground"
+                      }
+                    >
+                      {t.executeSql.isPending ? "Running…" : "Write"}
+                    </span>
+                  </label>
                 }
-              >
-                <Switch
-                  id="sql-write-mode"
-                  checked={t.writeMode}
-                  onCheckedChange={t.setWriteMode}
-                  disabled={t.executeSql.isPending}
-                  aria-label="SQL write mode"
-                />
-                <span
-                  className={t.writeMode ? "font-medium text-amber-500" : "text-muted-foreground"}
-                >
-                  {t.executeSql.isPending ? "Running…" : "Write"}
-                </span>
-              </TooltipTrigger>
+              />
               <TooltipContent>
                 Run arbitrary DML/DDL (audited) instead of a read-only query.
               </TooltipContent>

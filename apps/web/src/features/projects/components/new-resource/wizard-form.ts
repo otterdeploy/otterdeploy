@@ -2,7 +2,7 @@ import type { DeepKeys } from "@tanstack/react-form";
 
 import { useState } from "react";
 
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import * as z from "zod";
 
 import { SERVICE_KINDS } from "@/features/projects/data/service-kinds";
@@ -207,7 +207,7 @@ export function useWizardForm({
   const [attemptedStep, setAttemptedStep] = useState<Step | null>(null);
   const attempted = attemptedStep === step;
 
-  const kindId = useStore(form.store, (s) => s.values.kindId);
+  const kindId = useSelector(form.store, (s) => s.values.kindId);
   const kind = SERVICE_KINDS.find((k) => k.id === kindId) ?? null;
   const isDb = !!kind && kind.group === "database";
   const isSourceBased = !!kind && kind.group === "source";
@@ -227,7 +227,7 @@ export function useWizardForm({
     goTo(next);
   };
 
-  const advancedSetup = useStore(form.store, (s) => s.values.advancedSetup);
+  const advancedSetup = useSelector(form.store, (s) => s.values.advancedSetup);
   const setAdvanced = (next: boolean) => form.setFieldValue("advancedSetup", next);
   const steps = flowFor(kind, advancedSetup);
   const idx = steps.findIndex((s) => s[0] === step);
@@ -253,7 +253,7 @@ export function useWizardForm({
 
   // Failing steps the user has PASSED (i < idx). The current step is
   // mid-edit; its blockers surface in the footer's "Required" line.
-  const formValues = useStore(form.store, (s) => s.values);
+  const formValues = useSelector(form.store, (s) => s.values);
   const failingSteps = new Set<Step>();
   steps.forEach(([id], i) => {
     if (i >= idx) return;

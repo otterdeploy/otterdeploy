@@ -31,7 +31,7 @@ export interface JobContext<TPayload> {
  * A typed job definition. Use the `defineJob()` helper to build one. It's
  * just an identity function that locks in the generics.
  */
-export interface JobDef<TSchema extends z.ZodTypeAny = z.ZodTypeAny> {
+export interface JobDef<TSchema extends z.ZodType = z.ZodType> {
   /** Logical job name. Becomes the BullMQ queue name. */
   name: string;
   /** Zod schema for the job payload (validated on enqueue and on worker pickup). */
@@ -51,6 +51,6 @@ export interface JobDef<TSchema extends z.ZodTypeAny = z.ZodTypeAny> {
   };
 }
 
-export function defineJob<TSchema extends z.ZodTypeAny>(def: JobDef<TSchema>): JobDef<TSchema> {
+export function defineJob<TSchema extends z.ZodType>(def: JobDef<TSchema>): JobDef<TSchema> {
   return def;
 }

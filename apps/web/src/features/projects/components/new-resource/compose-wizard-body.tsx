@@ -16,7 +16,7 @@
 import type { ProjectId, ProjectSlug } from "@otterdeploy/shared/id";
 import type { ReactCodeMirrorRef } from "@uiw/react-codemirror";
 
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 
 import { Button } from "@/shared/components/ui/button";
 
@@ -245,7 +245,7 @@ export function ComposeWizardBody({
 }) {
   // Read the source straight off the form: it drives which field group renders
   // inside the `file` step, and the owner reads the same store for it too.
-  const source = useStore(form.store, (s) => s.values.file.source);
+  const source = useSelector(form.store, (s) => s.values.file.source);
 
   if (step === "vars") {
     return (

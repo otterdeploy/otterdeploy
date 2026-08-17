@@ -23,7 +23,27 @@ function describeCause(cause: unknown, depth = 0): string {
     const inner = depth < 5 ? describeCause(cause.cause, depth + 1) : "";
     return inner && !cause.message.includes(inner) ? `${cause.message}: ${inner}` : cause.message;
   }
-  return cause == null ? "" : String(cause);
+  if (cause == null) return "";
+  if (typeof cause === "string") return cause;
+  if (typeof cause === "object") {
+    // A non-Error object has no meaningful toString; its JSON is the only
+    // honest rendering. Unserializable dumps (circular, all-symbol) yield "".
+    try {
+      return JSON.stringify(cause) ?? "";
+    } catch {
+      return "";
+    }
+  }
+  if (
+    typeof cause === "number" ||
+    typeof cause === "boolean" ||
+    typeof cause === "bigint" ||
+    typeof cause === "symbol"
+  ) {
+    return String(cause);
+  }
+  // Only functions remain; their source text is noise, not a failure reason.
+  return "";
 }
 
 /** A build step that shells out (clone, railpack, docker) or hits the DB

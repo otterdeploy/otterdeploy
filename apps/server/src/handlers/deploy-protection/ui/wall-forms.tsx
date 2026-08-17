@@ -11,7 +11,7 @@ import type { FC } from "hono/jsx";
  *  way in, no auth alternatives are offered beside it. */
 export const PinAuth: FC = () => (
   <form id="pinForm">
-    <label class="field-label" for="pin">
+    <label class="field-label" htmlFor="pin">
       Access PIN
     </label>
     <input
@@ -73,7 +73,7 @@ export const OrgEmailAuth: FC<{ orgAuthorizeUrl: string }> = ({ orgAuthorizeUrl 
     </div>
 
     <form id="emailForm">
-      <label class="field-label" for="email">
+      <label class="field-label" htmlFor="email">
         Work email
       </label>
       <input
@@ -90,7 +90,7 @@ export const OrgEmailAuth: FC<{ orgAuthorizeUrl: string }> = ({ orgAuthorizeUrl 
     </form>
 
     <form id="codeForm" class="hide">
-      <label class="field-label" for="code">
+      <label class="field-label" htmlFor="code">
         Verification code
       </label>
       <input

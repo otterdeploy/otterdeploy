@@ -17,7 +17,7 @@
  */
 
 import { useLiveQuery } from "@tanstack/react-db";
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 
 import { registryCollection } from "@/features/registries/data/registries";
 import { REGISTRY_KIND_META, kindForHost } from "@/features/registries/registry-kinds";
@@ -85,9 +85,9 @@ function applyImageDefaults(form: WizardForm, image: string): void {
 
 export function StepImage() {
   const form = useFormContext();
-  const registryId = useStore(form.store, (s) => s.values.registry);
-  const image = useStore(form.store, (s) => s.values.image);
-  const tag = useStore(form.store, (s) => s.values.tag);
+  const registryId = useSelector(form.store, (s) => s.values.registry);
+  const image = useSelector(form.store, (s) => s.values.image);
+  const tag = useSelector(form.store, (s) => s.values.tag);
 
   const { data: registries } = useLiveQuery((q) => q.from({ r: registryCollection }));
 

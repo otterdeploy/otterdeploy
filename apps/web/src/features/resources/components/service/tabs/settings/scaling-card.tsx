@@ -11,7 +11,7 @@
  * A limits-only save omits `replicas` and leaves the pause intact.
  */
 
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouteContext } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -69,7 +69,7 @@ function ScalingForm({ resource, service }: { resource: ScalingResource; service
     memoryLimitMb: service.resources.memoryLimitMb,
   };
   const scalingForm = useForm({ defaultValues: initialScalingForm(stored) });
-  const form = useStore(scalingForm.store, (s) => s.values);
+  const form = useSelector(scalingForm.store, (s) => s.values);
   const patchScaling = (patch: Partial<ScalingFormValues>) => {
     if (patch.replicas !== undefined) scalingForm.setFieldValue("replicas", patch.replicas);
     if (patch.cpuLimit !== undefined) scalingForm.setFieldValue("cpuLimit", patch.cpuLimit);

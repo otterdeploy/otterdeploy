@@ -65,9 +65,12 @@ async function runSuite() {
   try {
     parsed = JSON.parse(stdout);
   } catch (cause) {
+    // JSON.parse only ever throws SyntaxError; the fallback covers a
+    // hypothetical non-Error throw without printing `[object Object]`.
+    const parseError = cause instanceof Error ? cause.message : (JSON.stringify(cause) ?? "unknown");
     throw new Error(
       `security-certify: could not parse vitest JSON output (exit ${exitCode}).\n` +
-        `--- stdout ---\n${stdout}\n--- stderr ---\n${stderr}\n--- parse error ---\n${cause}`,
+        `--- stdout ---\n${stdout}\n--- stderr ---\n${stderr}\n--- parse error ---\n${parseError}`,
     );
   }
   return parsed;

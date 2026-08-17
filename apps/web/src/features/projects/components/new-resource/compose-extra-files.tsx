@@ -4,7 +4,7 @@
  * bind mounts). Paths may be nested (`scripts/init.sh` → a folder). Split out of
  * compose-wizard-fields.tsx to keep that file under the line cap.
  */
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import CodeMirror from "@uiw/react-codemirror";
 
 import { Button } from "@/shared/components/ui/button";
@@ -15,7 +15,7 @@ import type { ComposeForm } from "./compose-wizard-shared";
 import { editorExtensions } from "./compose-wizard-editor";
 
 export function ComposeExtraFiles({ form }: { form: ComposeForm }) {
-  const files = useStore(form.store, (s) => s.values.file.files);
+  const files = useSelector(form.store, (s) => s.values.file.files);
   const setFiles = (next: ComposeForm["state"]["values"]["file"]["files"]) =>
     form.setFieldValue("file.files", next);
 

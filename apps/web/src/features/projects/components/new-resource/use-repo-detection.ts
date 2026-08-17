@@ -11,7 +11,7 @@
  */
 
 import { frameworkDefaultPort } from "@otterdeploy/shared/framework";
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import { skipToken, useQuery } from "@tanstack/react-query";
 
 import { orpc } from "@/shared/server/orpc";
@@ -40,7 +40,7 @@ function useInspectQuery(repo: string, root: string): Detection {
 /** Step-view accessor (needs a mounted form context), for detection hints. */
 export function useRepoDetection(): Detection {
   const form = useFormContext();
-  const repo = useStore(form.store, (s) => s.values.repo);
-  const root = useStore(form.store, (s) => s.values.root);
+  const repo = useSelector(form.store, (s) => s.values.repo);
+  const root = useSelector(form.store, (s) => s.values.root);
   return useInspectQuery(repo, root);
 }

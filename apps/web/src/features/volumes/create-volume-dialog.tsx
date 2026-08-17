@@ -129,7 +129,6 @@ function CreateVolumeBody({ drivers, onClose }: { drivers: string[]; onClose: ()
                     className="font-mono"
                     placeholder="app-uploads"
                     value={field.state.value}
-                    autoFocus
                     aria-invalid={nameTouchedInvalid || undefined}
                     onBlur={field.handleBlur}
                     onChange={(e) => field.handleChange(e.target.value)}

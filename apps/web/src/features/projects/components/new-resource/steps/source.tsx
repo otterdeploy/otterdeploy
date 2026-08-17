@@ -7,7 +7,7 @@
  * bound state. It's seeded from the project's gitRepoId at wizard
  * construction (see wizard.tsx defaultValues) and overwritten by
  * `form.setFieldValue("repo", repoId)` whenever the PublicRepoCTA
- * succeeds. The BindingSummary reads the form field via `useStore` so
+ * succeeds. The BindingSummary reads the form field via `useSelector` so
  * the UI flips from CTA → green confirmation in the same render that
  * setFieldValue fires, no query invalidation in the critical path.
  *
@@ -21,7 +21,7 @@
  * the field listeners below rather than by effects watching queries.
  */
 
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 
@@ -44,11 +44,11 @@ export function StepSource() {
   const form = useFormContext();
   // Reactive read. These re-render the step the instant setFieldValue
   // fires from the PublicRepoCTA below.
-  const repo = useStore(form.store, (s) => s.values.repo);
-  const branch = useStore(form.store, (s) => s.values.branch);
-  const root = useStore(form.store, (s) => s.values.root);
-  const name = useStore(form.store, (s) => s.values.name);
-  const kindId = useStore(form.store, (s) => s.values.kindId);
+  const repo = useSelector(form.store, (s) => s.values.repo);
+  const branch = useSelector(form.store, (s) => s.values.branch);
+  const root = useSelector(form.store, (s) => s.values.root);
+  const name = useSelector(form.store, (s) => s.values.name);
+  const kindId = useSelector(form.store, (s) => s.values.kindId);
   // This step only renders inside a project route, so both params exist; the
   // `?? ""` only satisfies the `strict: false` typing.
   const params = useParams({ strict: false });
@@ -168,31 +168,27 @@ export function StepSource() {
                 )}
               </form.AppField>
               <div className="flex flex-col gap-1.5">
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-[12.5px] font-medium">Root directory (monorepo)</span>
-                  <RootDirectoryPicker
-                    gitRepoId={repo || null}
-                    value={root}
-                    repoFullName={boundFullName}
-                    // A plain write: it marks the field dirty, which is what
-                    // stops the monorepo guess from moving it again, and it
-                    // fires the `root` listener above to re-detect there.
-                    onChange={(next) => form.setFieldValue("root", next)}
-                  />
-                </label>
+                <span className="text-[12.5px] font-medium">Root directory (monorepo)</span>
+                <RootDirectoryPicker
+                  gitRepoId={repo || null}
+                  value={root}
+                  repoFullName={boundFullName}
+                  // A plain write: it marks the field dirty, which is what
+                  // stops the monorepo guess from moving it again, and it
+                  // fires the `root` listener above to re-detect there.
+                  onChange={(next) => form.setFieldValue("root", next)}
+                />
                 <p className="text-[11px] text-muted-foreground">
                   Browse the repo to pick the folder for this service. Empty = repo root.
                 </p>
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-[12.5px] font-medium">Branch</span>
-                  <BranchPicker
-                    gitRepoId={repo}
-                    value={branch}
-                    onChange={(b) => form.setFieldValue("branch", b)}
-                  />
-                </label>
+                <span className="text-[12.5px] font-medium">Branch</span>
+                <BranchPicker
+                  gitRepoId={repo}
+                  value={branch}
+                  onChange={(b) => form.setFieldValue("branch", b)}
+                />
                 <p className="text-[11px] text-muted-foreground">
                   Deploys track this branch. Manual-deploy bindings redeploy on demand; push deploys
                   fire on commits to it.

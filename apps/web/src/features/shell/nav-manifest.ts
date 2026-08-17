@@ -22,11 +22,9 @@
 import type { TranslationKey } from "@otterdeploy/i18n";
 
 import {
-  Alert01Icon,
   BellDotIcon,
   Database02Icon,
   DatabaseIcon,
-  DeviceAccessIcon,
   Analytics01Icon,
   EarthIcon,
   File01Icon,
@@ -34,14 +32,9 @@ import {
   GitBranchIcon,
   Home01Icon,
   Key01Icon,
-  Key02Icon,
   PackageIcon,
   ServerStack01Icon,
   Settings01Icon,
-  ShieldKeyIcon,
-  UserCircleIcon,
-  UserMultipleIcon,
-  WebhookIcon,
 } from "@hugeicons/core-free-icons";
 
 import type { RoutePath } from "./components/sidebar";

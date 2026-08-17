@@ -5,7 +5,7 @@ import { POSTGRES_EXTENSIONS, resolvePostgresImage } from "@otterdeploy/shared/p
  * write the `extensions` form field; the create path folds them into the
  * manifest (`databases[name].extensions`) and resolves the matching image.
  */
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import { toast } from "sonner";
 
 import { Card, CardContent } from "@/shared/components/ui/card";
@@ -16,7 +16,7 @@ import { SectionHeader } from "../form-primitives";
 
 export function PostgresExtensionsSection() {
   const form = useFormContext();
-  const extensions = useStore(form.store, (s) => s.values.extensions ?? []);
+  const extensions = useSelector(form.store, (s) => s.values.extensions ?? []);
 
   const toggleExtension = (name: string, on: boolean) => {
     const next = on ? [...extensions, name] : extensions.filter((e) => e !== name);
