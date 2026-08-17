@@ -201,6 +201,12 @@ export const edgeLogsRouter = {
         } else {
           hosts = await resolveHosts(context.activeOrganizationId, input.projectId);
         }
+        // Domain filter: INTERSECT with the authorized scope, never replace
+        // it. A host outside the scope leaves an empty list = honest zeros.
+        if (input.host !== undefined) {
+          const wanted = input.host.toLowerCase();
+          hosts = hosts === null ? [wanted] : hosts.filter((h) => h === wanted);
+        }
         const window = resolveAnalyticsWindow(input.range, input.from, input.to, Date.now());
         // The equal-length window immediately before, for the tiles' trend
         // deltas (rollup reads are cheap enough to just run twice).
@@ -239,6 +245,12 @@ export const edgeLogsRouter = {
           hosts = null;
         } else {
           hosts = await resolveHosts(context.activeOrganizationId, input.projectId);
+        }
+        // Domain filter: INTERSECT with the authorized scope, never replace
+        // it. A host outside the scope leaves an empty list = honest zeros.
+        if (input.host !== undefined) {
+          const wanted = input.host.toLowerCase();
+          hosts = hosts === null ? [wanted] : hosts.filter((h) => h === wanted);
         }
         const window = resolveAnalyticsWindow(input.range, input.from, input.to, Date.now());
         const { breakdowns, flags } = await queryAnalyticsBreakdowns(hosts, window, geoAvailable());

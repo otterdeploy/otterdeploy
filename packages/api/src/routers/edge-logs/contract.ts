@@ -155,6 +155,10 @@ const analyticsInput = z
      *  Install-admin only; overrides projectId. */
     installWide: z.boolean().optional(),
     range: analyticsRange.default("24h"),
+    /** Narrow to ONE domain. Intersected with the caller's authorized host
+     *  scope server-side: a host outside the scope yields empty data, never
+     *  someone else's. */
+    host: z.string().optional(),
     /** Custom window (epoch ms), overriding `range`. Both or neither. */
     from: z.number().int().positive().optional(),
     to: z.number().int().positive().optional(),
@@ -247,6 +251,8 @@ const analyticsTopEntrySchema = z.object({
 });
 
 const analyticsBreakdownsResultSchema = z.object({
+  /** Requests per domain: the hosts the window's traffic actually hit. */
+  hosts: z.array(analyticsTopEntrySchema),
   statuses: z.array(analyticsTopEntrySchema),
   paths: z.array(analyticsTopEntrySchema),
   referrers: z.array(analyticsTopEntrySchema),

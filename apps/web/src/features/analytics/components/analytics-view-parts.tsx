@@ -111,6 +111,7 @@ function sumCounts(entries: readonly { count: number }[]): number {
 }
 
 export interface BreakdownDims {
+  hosts: TopEntry[];
   statuses: TopEntry[];
   paths: TopEntry[];
   referrers: TopEntry[];
@@ -124,9 +125,14 @@ export interface BreakdownDims {
 export function BreakdownPanels({
   dims,
   visitorDays,
+  hostFilter,
+  onHostFilterChange,
 }: {
   dims: BreakdownDims;
   visitorDays: number;
+  hostFilter: string | undefined;
+  /** Toggle-style: clicking the active host clears the filter. */
+  onHostFilterChange: (host: string | undefined) => void;
 }) {
   return (
     <>
@@ -136,22 +142,33 @@ export function BreakdownPanels({
         geoAvailable={dims.flags.geoAvailable}
       />
       <div className="grid gap-3 md:grid-cols-2">
+        <TopList
+          title="Domains"
+          entries={dims.hosts}
+          total={sumCounts(dims.hosts)}
+          emptyNote="No domains saw traffic in this window."
+          selectedKey={hostFilter}
+          onSelectKey={(host) =>
+            onHostFilterChange(host === hostFilter ? undefined : host)
+          }
+        />
         <StatusMix entries={dims.statuses} />
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
         <TopList
           title="Top paths"
           entries={dims.paths}
           total={sumCounts(dims.paths)}
           emptyNote="No paths recorded in this window."
         />
-      </div>
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
         <TopList
           title="Referrers"
           entries={dims.referrers}
           total={sumCounts(dims.referrers)}
-          visibleRows={5}
           emptyNote="No external referrers in this window."
         />
+      </div>
+      <div className="grid gap-3 md:grid-cols-3">
         <TopList
           title="Browsers"
           entries={dims.browsers}

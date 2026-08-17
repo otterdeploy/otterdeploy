@@ -201,9 +201,11 @@ export async function queryAnalyticsBreakdowns(
     oses: {},
     deviceTypes: {},
   };
+  const byHost: Record<string, number> = {};
   let approximate = false;
   for (const row of rows) {
     if (row.approximate) approximate = true;
+    byHost[row.host] = (byHost[row.host] ?? 0) + row.requests;
     for (const name of DIM_NAMES) {
       const target = dims[name];
       for (const [key, count] of Object.entries(row[name])) {
@@ -214,6 +216,7 @@ export async function queryAnalyticsBreakdowns(
 
   return {
     breakdowns: {
+      hosts: topN(byHost, TOP_N),
       statuses: topN(dims.statuses, TOP_N),
       paths: topN(dims.paths, TOP_N),
       referrers: topN(dims.referrers, TOP_N),

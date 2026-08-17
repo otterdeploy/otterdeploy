@@ -40,6 +40,9 @@ interface AnalyticsViewProps {
   installWide?: boolean;
   window: AnalyticsWindowSel;
   onWindowChange: (next: AnalyticsWindowSel) => void;
+  /** Single-domain filter, toggled from the Domains panel. URL-owned. */
+  hostFilter?: string;
+  onHostFilterChange: (host: string | undefined) => void;
 }
 
 export function AnalyticsView({
@@ -47,6 +50,8 @@ export function AnalyticsView({
   installWide,
   window: win,
   onWindowChange,
+  hostFilter,
+  onHostFilterChange,
 }: AnalyticsViewProps) {
   const windowInput =
     win.range === "custom" && win.from !== undefined && win.to !== undefined
@@ -57,7 +62,10 @@ export function AnalyticsView({
     : projectId === undefined
       ? {}
       : ({ projectId } as const);
-  const input = { ...scopeInput, ...windowInput };
+  const input =
+    hostFilter === undefined
+      ? { ...scopeInput, ...windowInput }
+      : { ...scopeInput, ...windowInput, host: hostFilter };
 
   const overview = useQuery({
     ...orpc.edgeLogs.analytics.overview.queryOptions({ input }),
@@ -112,7 +120,20 @@ export function AnalyticsView({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          {hostFilter !== undefined ? (
+            <button
+              type="button"
+              onClick={() => onHostFilterChange(undefined)}
+              className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-xs hover:bg-muted/60"
+              title="Clear the domain filter"
+            >
+              {hostFilter}
+              <span aria-hidden className="text-muted-foreground">×</span>
+            </button>
+          ) : null}
+        </div>
         <RangePicker value={win} onChange={onWindowChange} />
       </div>
 
@@ -148,7 +169,12 @@ export function AnalyticsView({
             </ChartCard>
 
             {dims ? (
-              <BreakdownPanels dims={dims} visitorDays={data.summary.visitorDays} />
+              <BreakdownPanels
+                dims={dims}
+                visitorDays={data.summary.visitorDays}
+                hostFilter={hostFilter}
+                onHostFilterChange={onHostFilterChange}
+              />
             ) : null}
 
             <ChartCard title="Latency">

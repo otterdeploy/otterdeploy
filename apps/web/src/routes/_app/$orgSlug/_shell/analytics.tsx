@@ -29,6 +29,8 @@ const zAnalyticsSearch = z.object({
   to: z.coerce.number().int().positive().optional().catch(undefined),
   /** Project slug filter; absent = everything in scope. */
   project: z.string().optional().catch(undefined),
+  /** Single-domain filter; absent = every domain in scope. */
+  host: z.string().optional().catch(undefined),
 });
 
 export const Route = createFileRoute("/_app/$orgSlug/_shell/analytics")({
@@ -81,7 +83,7 @@ function ProjectFilter({
 
 function RouteComponent() {
   const { isInstallAdmin } = Route.useRouteContext();
-  const { range, from, to, project } = Route.useSearch();
+  const { range, from, to, project, host } = Route.useSearch();
   const navigate = Route.useNavigate();
 
   const { data: projects } = useLiveQuery((q) => q.from({ p: projectCollection }), []);
@@ -117,6 +119,8 @@ function RouteComponent() {
         onWindowChange={(next) =>
           patch({ range: next.range, from: next.from, to: next.to })
         }
+        hostFilter={host}
+        onHostFilterChange={(next) => patch({ host: next })}
       />
     </div>
   );

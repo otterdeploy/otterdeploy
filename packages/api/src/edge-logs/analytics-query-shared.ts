@@ -101,6 +101,7 @@ export interface TopEntry {
 }
 
 export interface AnalyticsBreakdowns {
+  hosts: TopEntry[];
   statuses: TopEntry[];
   paths: TopEntry[];
   referrers: TopEntry[];
