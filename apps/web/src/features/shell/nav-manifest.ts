@@ -33,6 +33,7 @@ import {
   GitBranchIcon,
   Home01Icon,
   Key01Icon,
+  LockKeyIcon,
   Key02Icon,
   PackageIcon,
   ServerStack01Icon,
@@ -236,6 +237,17 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
         to: "/$orgSlug/ssh-keys",
         icon: Key01Icon,
         keywords: ["deploy key", "git", "node", "credentials", "keypair"],
+      },
+      {
+        // Same reasoning as its neighbours: an external secret manager is a
+        // connection a deploy runs on (connect a provider, rotate its
+        // credential, re-test it), not one-time setup. Moved out of
+        // Settings → Workspace.
+        title: "Secrets",
+        i18nKey: "nav.secrets",
+        to: "/$orgSlug/secrets",
+        icon: LockKeyIcon,
+        keywords: ["vault", "hashicorp", "openbao", "infisical", "doppler", "secret manager", "secret providers"],
       },
       {
         // Same reasoning as its neighbours: routing an event to a channel is

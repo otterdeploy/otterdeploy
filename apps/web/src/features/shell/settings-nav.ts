@@ -16,7 +16,6 @@ import type { TranslationKey } from "@otterdeploy/i18n";
 import {
   DeviceAccessIcon,
   Key02Icon,
-  LockKeyIcon,
   ServerStack01Icon,
   Settings01Icon,
   ShieldKeyIcon,
@@ -108,14 +107,8 @@ export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
         icon: WebhookIcon,
         keywords: ["hmac", "deliveries", "inbound", "events"],
       },
-      {
-        // External secret managers referenced via `${{vault.<provider>.<ref>}}`
-        // env tokens. No i18nKey yet — `title` is the rendered fallback.
-        title: "Secret providers",
-        to: "/$orgSlug/settings/workspace/secret-providers",
-        icon: LockKeyIcon,
-        keywords: ["vault", "hashicorp", "openbao", "infisical", "doppler", "secrets", "secret manager"],
-      },
+      // Secret providers moved to OPERATIONAL_NAV → Workspace as "Secrets";
+      // the old settings path redirects there.
       // Notifications moved to OPERATIONAL_NAV → Workspace; the old settings
       // path now redirects there. Its transport cards (email provider, Twilio,
       // FCM) were removed outright — per-channel delivery credentials are

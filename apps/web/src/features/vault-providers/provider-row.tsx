@@ -5,8 +5,9 @@
 
 import { useState } from "react";
 
-import { Delete02Icon, LockKeyIcon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
+import { Delete02Icon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import {
@@ -29,12 +30,14 @@ import {
   useTestVaultProvider,
   type VaultProvider,
 } from "./data/vault-providers";
+import { ProviderMark } from "./kind-logos";
 
 function StatusBadge({ provider }: { provider: VaultProvider }) {
+  const { t } = useTranslation();
   if (provider.status === "connected") {
     return (
       <Badge variant="outline" className="border-success/40 text-success">
-        Connected
+        {t("vault.statusConnected")}
       </Badge>
     );
   }
@@ -45,13 +48,13 @@ function StatusBadge({ provider }: { provider: VaultProvider }) {
         className="border-destructive/40 text-destructive"
         title={provider.lastError ?? undefined}
       >
-        Error
+        {t("vault.statusError")}
       </Badge>
     );
   }
   return (
-    <Badge variant="outline" className="text-muted-foreground">
-      Not verified
+    <Badge variant="outline" className="border-warning/30 text-warning">
+      {t("vault.statusUnverified")}
     </Badge>
   );
 }
@@ -65,6 +68,7 @@ export function ProviderRow({
   canManage: boolean;
   onEdit: (provider: VaultProvider) => void;
 }) {
+  const { t } = useTranslation();
   const [confirming, setConfirming] = useState(false);
   const test = useTestVaultProvider();
   const remove = useRemoveVaultProvider();
@@ -75,21 +79,17 @@ export function ProviderRow({
       {
         onSuccess: (result) =>
           result.ok
-            ? toast.success(`"${provider.name}" is reachable`)
-            : toast.error(result.error ?? "Connection test failed"),
+            ? toast.success(t("vault.testReachable", { name: provider.name }))
+            : toast.error(result.error ?? t("vault.testFailed")),
         onError: (error) =>
-          toast.error(error instanceof Error ? error.message : "Connection test failed"),
+          toast.error(error instanceof Error ? error.message : t("vault.testFailed")),
       },
     );
   };
 
   return (
     <div className="flex items-start gap-3 rounded-md border p-3">
-      <HugeiconsIcon
-        icon={LockKeyIcon}
-        strokeWidth={1.5}
-        className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-      />
+      <ProviderMark kind={provider.kind} />
 
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
@@ -97,12 +97,6 @@ export function ProviderRow({
           <span className="text-[11px] text-muted-foreground">{KIND_LABELS[provider.kind]}</span>
           <StatusBadge provider={provider} />
         </div>
-        <span className="text-[11px] text-muted-foreground">
-          {provider.credentialSet ? "Credential stored" : "No credential"}
-          {provider.lastVerifiedAt
-            ? ` · verified ${provider.lastVerifiedAt.toLocaleString()}`
-            : " · never verified"}
-        </span>
         {provider.status === "error" && provider.lastError ? (
           <span className="truncate text-[11px] text-destructive">{provider.lastError}</span>
         ) : null}
@@ -116,13 +110,13 @@ export function ProviderRow({
       {canManage ? (
         <div className="flex shrink-0 items-center gap-1">
           <Button variant="outline" size="sm" onClick={runTest} disabled={test.isPending}>
-            {test.isPending ? "Testing…" : "Test"}
+            {test.isPending ? t("vault.testing") : t("vault.test")}
           </Button>
           <Button
             variant="ghost"
             size="icon"
             className="size-7"
-            aria-label={`Edit ${provider.name}`}
+            aria-label={t("vault.editProvider", { name: provider.name })}
             onClick={() => onEdit(provider)}
           >
             <HugeiconsIcon icon={PencilEdit02Icon} strokeWidth={2} className="size-3.5" />
@@ -131,7 +125,7 @@ export function ProviderRow({
             variant="ghost"
             size="icon"
             className="size-7 text-muted-foreground hover:text-destructive"
-            aria-label={`Remove ${provider.name}`}
+            aria-label={t("vault.removeProviderAria", { name: provider.name })}
             onClick={() => setConfirming(true)}
           >
             <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} className="size-3.5" />
@@ -140,15 +134,15 @@ export function ProviderRow({
           <AlertDialog open={confirming} onOpenChange={setConfirming}>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Remove this secret provider?</AlertDialogTitle>
+                <AlertDialogTitle>{t("vault.removeConfirmTitle")}</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Any env var still referencing{" "}
-                  <code className="font-mono">{`\${{vault.${provider.name}.…}}`}</code> will fail to
-                  resolve on its next deploy. The provider's own secrets are not touched.
+                  {t("vault.removeConfirmBefore")}{" "}
+                  <code className="font-mono">{`\${{vault.${provider.name}.…}}`}</code>{" "}
+                  {t("vault.removeConfirmAfter")}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Keep it</AlertDialogCancel>
+                <AlertDialogCancel>{t("vault.keepIt")}</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={(e) => {
                     e.preventDefault();
@@ -156,16 +150,16 @@ export function ProviderRow({
                     remove.mutate(
                       { id: provider.id },
                       {
-                        onSuccess: () => toast.success("Provider removed"),
+                        onSuccess: () => toast.success(t("vault.providerRemoved")),
                         onError: (error) =>
                           toast.error(
-                            error instanceof Error ? error.message : "Could not remove provider",
+                            error instanceof Error ? error.message : t("vault.removeError"),
                           ),
                       },
                     );
                   }}
                 >
-                  Remove provider
+                  {t("vault.removeProvider")}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

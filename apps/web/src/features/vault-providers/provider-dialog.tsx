@@ -11,10 +11,9 @@
  * returns `credentialSet: boolean`.
  */
 
-import { omitUndefined } from "@otterdeploy/shared/object";
 import { useForm, useStore } from "@tanstack/react-form";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import * as z from "zod";
 
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -26,120 +25,28 @@ import {
   DialogTitle,
 } from "@/shared/components/ui/dialog";
 import { Field, FieldLabel } from "@/shared/components/ui/field";
-import { NativeSelect, NativeSelectOption } from "@/shared/components/ui/native-select";
-
-import type { ProviderFormValues } from "./provider-fields";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select";
 
 import {
   KIND_LABELS,
   useCreateVaultProvider,
   useUpdateVaultProvider,
   type VaultProvider,
-  type VaultProviderKind,
 } from "./data/vault-providers";
-import { CREDENTIAL_LABELS, KIND_FIELDS, ProviderTextField } from "./provider-fields";
+import { ProviderMark } from "./kind-logos";
+import { CREDENTIAL_LABEL_KEYS, KIND_FIELDS, ProviderTextField } from "./provider-fields";
+import { KINDS, defaultsFor, formSchema, toCreateInput } from "./provider-form";
 
-/** Mirrors the contract's name regex — the token grammar's provider slug. */
-const NAME_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/;
-
-const KINDS: VaultProviderKind[] = ["hashicorp", "infisical", "doppler"];
-
-const EMPTY_FORM: ProviderFormValues = {
-  kind: "hashicorp",
-  name: "",
-  credential: "",
-  url: "",
-  mount: "secret",
-  namespace: "",
-  siteUrl: "",
-  clientId: "",
-  projectId: "",
-  environmentSlug: "",
-  secretPath: "",
-  dopplerProject: "",
-  dopplerConfig: "",
-};
-
-function defaultsFor(editing: VaultProvider | null): ProviderFormValues {
-  if (!editing) return { ...EMPTY_FORM };
-  // The config bag's keys line up with the flat form field names by design;
-  // omitUndefined keeps blanks at their EMPTY_FORM defaults.
-  return {
-    ...EMPTY_FORM,
-    ...omitUndefined(editing.config),
-    kind: editing.kind,
-    name: editing.name,
-  };
-}
-
-/** Per-kind required fields beyond `name` (+ credential when creating). */
-function formSchema(isEdit: boolean) {
-  return z
-    .object({
-      kind: z.enum(["hashicorp", "infisical", "doppler"]),
-      name: z
-        .string()
-        .min(1, "Required")
-        .regex(NAME_PATTERN, "Lowercase letters, digits, `-` and `_` only"),
-      credential: isEdit ? z.string() : z.string().min(1, "Required"),
-      url: z.string(),
-      mount: z.string(),
-      namespace: z.string(),
-      siteUrl: z.string(),
-      clientId: z.string(),
-      projectId: z.string(),
-      environmentSlug: z.string(),
-      secretPath: z.string(),
-      dopplerProject: z.string(),
-      dopplerConfig: z.string(),
-    })
-    .superRefine((v, ctx) => {
-      const require = (path: keyof ProviderFormValues, ok: boolean) => {
-        if (!ok) ctx.addIssue({ code: "custom", path: [path], message: "Required" });
-      };
-      if (v.kind === "hashicorp") require("url", v.url.trim().length > 0);
-      if (v.kind === "infisical") {
-        require("clientId", v.clientId.trim().length > 0);
-        require("projectId", v.projectId.trim().length > 0);
-        require("environmentSlug", v.environmentSlug.trim().length > 0);
-      }
-    });
-}
-
-const opt = (value: string): string | undefined => (value.trim() ? value.trim() : undefined);
-
-/** Assemble the discriminated create payload from the flat form values. */
-function toCreateInput(v: ProviderFormValues) {
-  const name = v.name.trim();
-  if (v.kind === "hashicorp") {
-    return {
-      kind: "hashicorp" as const,
-      name,
-      config: { url: v.url.trim(), mount: v.mount.trim() || "secret", namespace: opt(v.namespace) },
-      credential: v.credential,
-    };
-  }
-  if (v.kind === "infisical") {
-    return {
-      kind: "infisical" as const,
-      name,
-      config: {
-        siteUrl: opt(v.siteUrl),
-        clientId: v.clientId.trim(),
-        projectId: v.projectId.trim(),
-        environmentSlug: v.environmentSlug.trim(),
-        secretPath: opt(v.secretPath),
-      },
-      credential: v.credential,
-    };
-  }
-  return {
-    kind: "doppler" as const,
-    name,
-    config: { dopplerProject: opt(v.dopplerProject), dopplerConfig: opt(v.dopplerConfig) },
-    credential: v.credential,
-  };
-}
+/** The literal reference-token grammar, shown in hints. Passed to `t()` as an
+ *  interpolation value because its `${{…}}` shape would otherwise read as an
+ *  i18next placeholder inside a translation string. */
+const TOKEN_EXAMPLE = "${{vault.<provider>.<ref>}}";
 
 export function ProviderDialog({
   open,
@@ -150,13 +57,14 @@ export function ProviderDialog({
   onOpenChange: (v: boolean) => void;
   editing: VaultProvider | null;
 }) {
+  const { t } = useTranslation();
   const isEdit = editing !== null;
   const create = useCreateVaultProvider();
   const update = useUpdateVaultProvider();
 
   const form = useForm({
     defaultValues: defaultsFor(editing),
-    validators: { onSubmit: formSchema(isEdit) },
+    validators: { onSubmit: formSchema(isEdit, t) },
     onSubmit: async ({ value }) => {
       try {
         if (editing) {
@@ -167,15 +75,15 @@ export function ProviderDialog({
             config,
             ...(value.credential ? { credential: value.credential } : {}),
           });
-          toast.success("Provider updated");
+          toast.success(t("vault.providerUpdated"));
         } else {
           await create.mutateAsync(toCreateInput(value));
-          toast.success("Provider added — run a connection test to verify it");
+          toast.success(t("vault.providerAdded"));
         }
         form.reset();
         onOpenChange(false);
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Could not save provider");
+        toast.error(error instanceof Error ? error.message : t("vault.saveError"));
       }
     },
   });
@@ -186,11 +94,11 @@ export function ProviderDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit secret provider" : "Add secret provider"}</DialogTitle>
+          <DialogTitle>{isEdit ? t("vault.editTitle") : t("vault.addTitle")}</DialogTitle>
           <DialogDescription>
-            Reference its secrets from any env var as{" "}
-            <code className="font-mono text-[11px]">{"${{vault.<name>.<ref>}}"}</code>. Values are
-            fetched at deploy time and never stored here.
+            {t("vault.dialogDescriptionBefore")}{" "}
+            <code className="font-mono text-[11px]">{"${{vault.<name>.<ref>}}"}</code>
+            {t("vault.dialogDescriptionAfter")}
           </DialogDescription>
         </DialogHeader>
 
@@ -203,25 +111,37 @@ export function ProviderDialog({
           className="flex flex-col gap-4"
         >
           <Field>
-            <FieldLabel htmlFor="vault-kind">Provider</FieldLabel>
+            <FieldLabel htmlFor="vault-kind">{t("vault.providerLabel")}</FieldLabel>
             <form.Field name="kind">
               {(field) => (
-                <NativeSelect
-                  id="vault-kind"
-                  className="w-full"
+                <Select
+                  items={KINDS.map((k) => ({ value: k, label: KIND_LABELS[k] }))}
                   value={field.state.value}
                   disabled={isEdit}
-                  onChange={(e) => {
-                    const next = KINDS.find((k) => k === e.target.value);
+                  onValueChange={(v) => {
+                    const next = KINDS.find((k) => k === v);
                     if (next) field.handleChange(next);
                   }}
                 >
-                  {KINDS.map((k) => (
-                    <NativeSelectOption key={k} value={k}>
-                      {KIND_LABELS[k]}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
+                  <SelectTrigger id="vault-kind" className="h-9 w-full">
+                    <span className="flex items-center gap-2">
+                      <ProviderMark
+                        kind={field.state.value}
+                        className="size-6 rounded"
+                        logoClassName="size-3.5"
+                      />
+                      <SelectValue />
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {KINDS.map((k) => (
+                      <SelectItem key={k} value={k}>
+                        <ProviderMark kind={k} className="size-6 rounded" logoClassName="size-3.5" />
+                        {KIND_LABELS[k]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
             </form.Field>
           </Field>
@@ -230,9 +150,9 @@ export function ProviderDialog({
             {(field) => (
               <ProviderTextField
                 field={field}
-                label="Name"
+                label={t("vault.nameLabel")}
                 placeholder="prod-vault"
-                hint="The <provider> segment of ${{vault.<provider>.<ref>}} tokens."
+                hint={t("vault.nameHint", { token: TOKEN_EXAMPLE })}
               />
             )}
           </form.Field>
@@ -242,9 +162,9 @@ export function ProviderDialog({
               {(field) => (
                 <ProviderTextField
                   field={field}
-                  label={f.label}
+                  label={t(f.labelKey)}
                   placeholder={f.placeholder}
-                  hint={f.hint}
+                  hint={f.hintKey ? t(f.hintKey) : undefined}
                 />
               )}
             </form.Field>
@@ -254,25 +174,25 @@ export function ProviderDialog({
             {(field) => (
               <ProviderTextField
                 field={field}
-                label={CREDENTIAL_LABELS[kind]}
+                label={t(CREDENTIAL_LABEL_KEYS[kind])}
                 type="password"
-                hint={
-                  isEdit
-                    ? "Leave blank to keep the stored credential."
-                    : "Stored encrypted; never shown again."
-                }
+                hint={isEdit ? t("vault.credentialHintEdit") : t("vault.credentialHintCreate")}
               />
             )}
           </form.Field>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <form.Subscribe selector={(state) => state}>
               {(state) => (
                 <Button type="submit" disabled={!state.canSubmit || state.isSubmitting}>
-                  {state.isSubmitting ? "Saving…" : isEdit ? "Save changes" : "Add provider"}
+                  {state.isSubmitting
+                    ? t("common.saving")
+                    : isEdit
+                      ? t("vault.saveChanges")
+                      : t("vault.addProvider")}
                 </Button>
               )}
             </form.Subscribe>
