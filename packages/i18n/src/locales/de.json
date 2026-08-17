@@ -44,7 +44,8 @@
     "password": "Passwort",
     "slug": "Slug",
     "more": "Mehr",
-    "typeToConfirm": "Tippe {{phrase}}, um zu bestätigen"
+    "typeToConfirm": "Tippe {{phrase}}, um zu bestätigen",
+    "parsing": "Wird analysiert…"
   },
   "auth": {
     "signIn": {
@@ -166,7 +167,8 @@
       "workspace": "Workspace",
       "account": "Konto",
       "instance": "Instanz"
-    }
+    },
+    "secrets": "Secrets"
   },
   "projects": {
     "title": "Projekte",
@@ -475,7 +477,23 @@
     "rollingBackPending": "Rollback läuft…",
     "buildCancelled": "Build abgebrochen",
     "stopBuild": "Diesen Build stoppen?",
-    "keepBuilding": "Weiter bauen"
+    "keepBuilding": "Weiter bauen",
+    "allResources": "Alle Ressourcen",
+    "allStatuses": "Alle Status",
+    "statuses": {
+      "running": "Läuft",
+      "failed": "Fehlgeschlagen",
+      "building": "Wird gebaut",
+      "replaced": "Ersetzt",
+      "removed": "Entfernt"
+    },
+    "windows": {
+      "24h": "Letzte 24 Stunden",
+      "7d": "Letzte 7 Tage",
+      "30d": "Letzte 30 Tage",
+      "all": "Gesamter Zeitraum"
+    },
+    "rollBack": "Zurückrollen"
   },
   "logs": {
     "allServices": "Alle Services",
@@ -641,7 +659,10 @@
     "fixedForLifetime": "Endpoint-URL und HMAC-Secret bleiben für die gesamte Lebensdauer des Endpoints unverändert.",
     "targetAction": "Zielaktion",
     "redeployService": "Einen Service neu deployen",
-    "recordOnly": "Nichts — nur den Aufruf protokollieren"
+    "recordOnly": "Nichts — nur den Aufruf protokollieren",
+    "servicesLoading": "Services werden geladen…",
+    "servicesEmpty": "Noch keine Services in diesem Workspace",
+    "servicePlaceholder": "Service auswählen…"
   },
   "firewall": {
     "title": "Firewall",
@@ -759,7 +780,35 @@
         "local": "lokal",
         "defaultBranch": "Standard"
       }
-    }
+    },
+    "backToGraph": "Zurück zum Graphen",
+    "closePanel": "Panel schließen",
+    "stackNoServices": "Keine Services erkannt",
+    "stackNoServicesGit": "Services erscheinen, sobald der Stack aus dem Repository gebaut wurde.",
+    "stackNoServicesInline": "Die Compose-Datei dieses Stacks deklariert keine Services.",
+    "stackFromRepo": "Dieser Stack wird aus einem Repository gebaut. Die Compose-Datei liegt im Repo und wird beim Build aufgelöst.",
+    "composeLoading": "Compose-Datei wird geladen…",
+    "composeEmpty": "Noch keine Compose-Datei gespeichert.",
+    "deleteStack": "Stack löschen",
+    "deleteStackBlurb": "Entfernt jeden Service dieses Stacks aus dem Swarm, seine Routen und den Ressourcen-Eintrag. Das kann nicht rückgängig gemacht werden.",
+    "deleteStackTitle": "Den Stack {{name}} löschen?",
+    "deleteStackDescription": "Alle {{n}} Services werden aus dem Swarm entfernt, samt ihrer Routen und des Ressourcen-Eintrags. Das kann nicht rückgängig gemacht werden.",
+    "variablesStaged": "Variablen vorgemerkt — prüfe und wende die ausstehenden Änderungen an.",
+    "variablesSavedRedeploy": "Variablen gespeichert — sie greifen beim nächsten Redeploy",
+    "variablesSaveFailed": "Speichern fehlgeschlagen",
+    "publicAccessTitle": "Öffentlicher Zugriff",
+    "publicAccessDescription": "Aus hält die DB nur im internen Netzwerk. An verdrahtet den Caddy-Layer-4-Proxy und stellt den öffentlichen Hostnamen ins offene Internet.",
+    "exposePublicly": "Öffentlich freigeben",
+    "willBeExposedAfterDeploy": "Wird nach dem Deploy im öffentlichen Internet erreichbar sein",
+    "internalNetworkOnly": "Nur internes Netzwerk",
+    "reachableAt": "Erreichbar unter {{host}}",
+    "internalOnlyAt": "Nur intern unter {{host}}",
+    "publicEndpoint": "Öffentlicher Endpunkt",
+    "publicConnectionUrl": "Öffentliche Verbindungs-URL",
+    "publicEnabledToast": "Öffentlicher Zugriff aktiviert",
+    "publicDisabledToast": "Öffentlicher Zugriff deaktiviert",
+    "publicUpdateFailed": "Öffentlicher Zugriff konnte nicht geändert werden",
+    "publicAccessStaged": "Öffentlicher Zugriff vorgemerkt — zum Anwenden deployen"
   },
   "tableSelection": {
     "genericFailure": "fehlgeschlagen",
@@ -775,5 +824,126 @@
       "network_one": "{{count}} Netzwerk",
       "network_other": "{{count}} Netzwerke"
     }
+  },
+  "domains": {
+    "targetPort": "Ziel-Port",
+    "noPublishedPort": "kein veröffentlichter Port",
+    "domain": "Domain",
+    "serveDomain": "{{domain}} ausliefern",
+    "recheckDns": "DNS erneut prüfen",
+    "setPrimary": "Als primär festlegen",
+    "copyUrl": "URL kopieren",
+    "editDomain": "Domain bearbeiten",
+    "removeDomain": "Domain entfernen"
+  },
+  "backups": {
+    "restoreDialogTitle": "Wiederherstellen · {{source}}",
+    "backupMeta": "Backup {{id}} · {{when}}",
+    "downloadTitle": "Archiv herunterladen",
+    "downloadSub": "Lädt das entschlüsselte Archiv auf deinen Rechner. An der Quelle ändert sich nichts.",
+    "inPlaceTitle": "An Ort und Stelle wiederherstellen",
+    "inPlaceSubVolume": "Ersetzt den Inhalt des Volumes durch dieses Archiv. Wird verweigert, solange ein Container es eingebunden hat. Erfordert die eingetippte Namensbestätigung.",
+    "inPlaceSubDatabase": "Überschreibt die aktuelle Quelle mit diesem Snapshot. Erfordert die eingetippte Namensbestätigung.",
+    "intoTitle": "In eine andere Datenbank wiederherstellen",
+    "intoSub": "Befüllt eine andere Datenbank aus diesem Snapshot. Deren Inhalt wird überschrieben, nicht der dieser Quelle — die eingetippte Bestätigung nennt das Ziel.",
+    "targetDatabase": "Ziel-Datenbank",
+    "selectDatabase": "Datenbank auswählen…",
+    "archiveUnavailable": "Backup-Archiv ist nicht verfügbar",
+    "restoredInto": "{{source}} in {{target}} wiederhergestellt",
+    "selectedDatabase": "die ausgewählte Datenbank",
+    "restoredVolume": "Volume {{source}} wiederhergestellt",
+    "restoredInPlace": "{{source}} an Ort und Stelle wiederhergestellt",
+    "restoreFailed": "Wiederherstellung fehlgeschlagen"
+  },
+  "vault": {
+    "title": "Secret-Provider",
+    "description": "Bezieht Werte für Umgebungsvariablen beim Deploy aus einem externen Secret-Manager, statt sie hier zu speichern.",
+    "addProvider": "Provider hinzufügen",
+    "loadError": "Secret-Provider konnten nicht geladen werden",
+    "emptyTitle": "Keine Secret-Provider",
+    "emptyDescription": "Verbinde HashiCorp Vault, OpenBao, Infisical oder Doppler und referenziere deren Secrets aus den Variablen jedes Services, ohne Werte nach otterdeploy zu kopieren.",
+    "syntaxBefore": "Referenziere ein Secret in jedem Variablenwert als",
+    "syntaxAfter": "— es wird bei jedem Deploy vom Provider geholt und hier nie gespeichert.",
+    "editTitle": "Secret-Provider bearbeiten",
+    "addTitle": "Secret-Provider hinzufügen",
+    "dialogDescriptionBefore": "Referenziere seine Secrets aus jeder Umgebungsvariablen als",
+    "dialogDescriptionAfter": ". Werte werden beim Deploy geholt und hier nie gespeichert.",
+    "providerLabel": "Provider",
+    "nameLabel": "Name",
+    "nameHint": "Das <provider>-Segment in {{token}}-Tokens.",
+    "credentialHintEdit": "Leer lassen, um die gespeicherten Zugangsdaten zu behalten.",
+    "credentialHintCreate": "Verschlüsselt gespeichert; wird nie wieder angezeigt.",
+    "saveChanges": "Änderungen speichern",
+    "providerUpdated": "Provider aktualisiert",
+    "providerAdded": "Provider hinzugefügt — führe einen Verbindungstest aus, um ihn zu prüfen",
+    "saveError": "Provider konnte nicht gespeichert werden",
+    "validationRequired": "Erforderlich",
+    "validationNamePattern": "Nur Kleinbuchstaben, Ziffern, `-` und `_`",
+    "statusConnected": "Verbunden",
+    "statusError": "Fehler",
+    "statusUnverified": "Nicht verifiziert",
+    "test": "Testen",
+    "testing": "Wird getestet…",
+    "testReachable": "„{{name}}“ ist erreichbar",
+    "testFailed": "Verbindungstest fehlgeschlagen",
+    "editProvider": "{{name}} bearbeiten",
+    "removeProviderAria": "{{name}} entfernen",
+    "removeConfirmTitle": "Diesen Secret-Provider entfernen?",
+    "removeConfirmBefore": "Jede Umgebungsvariable, die noch",
+    "removeConfirmAfter": "referenziert, schlägt beim nächsten Deploy fehl. Die Secrets des Providers selbst bleiben unberührt.",
+    "keepIt": "Behalten",
+    "removeProvider": "Provider entfernen",
+    "providerRemoved": "Provider entfernt",
+    "removeError": "Provider konnte nicht entfernt werden",
+    "fields": {
+      "vaultUrl": "Vault-URL",
+      "kvMount": "KV-v2-Mount",
+      "namespaceOptional": "Namespace (optional)",
+      "namespaceHint": "Nur Vault Enterprise / HCP (X-Vault-Namespace).",
+      "siteUrlOptional": "Site-URL (optional)",
+      "siteUrlHint": "Für Infisical Cloud leer lassen.",
+      "clientId": "Client-ID der Machine Identity",
+      "projectId": "Projekt-ID",
+      "environmentSlug": "Environment-Slug",
+      "secretPathOptional": "Secret-Pfad (optional)",
+      "dopplerProjectOptional": "Projekt (optional)",
+      "dopplerProjectHint": "Nur nötig, wenn das Service-Token nicht auf eine Config beschränkt ist.",
+      "dopplerConfigOptional": "Config (optional)"
+    },
+    "credentials": {
+      "hashicorp": "Vault-Token",
+      "infisical": "Client-Secret der Machine Identity",
+      "doppler": "Service-Token"
+    },
+    "syntaxLabel": "Referenz-Syntax"
+  },
+  "refPicker": {
+    "filterPlaceholder": "Datenbank-, Service- oder geteilte Variablen filtern",
+    "loading": "Referenzen werden geladen…",
+    "noMatches": "Keine Referenzen passen zum Filter",
+    "noRefs": "In diesem Projekt sind noch keine Referenzen definiert",
+    "all": "Alle",
+    "platform": "Plattform",
+    "secret": "Secret",
+    "subDatabase": "Datenbank",
+    "subService": "Service",
+    "subVault": "Secret-Manager",
+    "subShared": "Projekt · alle Environments"
+  },
+  "variables": {
+    "draftRestored": "Ungespeicherter Entwurf wiederhergestellt.",
+    "discardDraft": "Verwerfen",
+    "bulkTitle": "Massenbearbeitung",
+    "bulkSubtitle": ".env einfügen oder direkt bearbeiten",
+    "dotenvHint": ".env-Format · # Kommentare ok · KEY=value",
+    "pasteClipboard": "Aus Zwischenablage einfügen",
+    "selectAtLeastOne": "Wähle mindestens ein Environment.",
+    "replacesIn": "Ersetzt jede Variable in {{targets}} — atomar pro Environment.",
+    "applyVars": "{{n}} Variablen anwenden →",
+    "applyVarsMulti": "{{n}} Variablen auf {{envs}} Environments anwenden →",
+    "savedToast": "{{n}} Variablen in {{targets}} gespeichert",
+    "failedToast": "Fehlgeschlagen für {{names}}: {{message}}",
+    "appliedSuffix": " — angewendet auf {{names}}",
+    "couldntSave": "Konnte nicht speichern"
   }
 }

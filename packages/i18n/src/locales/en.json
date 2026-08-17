@@ -44,7 +44,8 @@
     "password": "Password",
     "slug": "Slug",
     "more": "More",
-    "typeToConfirm": "Type {{phrase}} to confirm"
+    "typeToConfirm": "Type {{phrase}} to confirm",
+    "parsing": "Parsing…"
   },
   "auth": {
     "signIn": {
@@ -166,7 +167,8 @@
       "workspace": "Workspace",
       "account": "Account",
       "instance": "Instance"
-    }
+    },
+    "secrets": "Secrets"
   },
   "projects": {
     "title": "Projects",
@@ -475,7 +477,23 @@
     "rollingBackPending": "Rolling back…",
     "buildCancelled": "Build cancelled",
     "stopBuild": "Stop this build?",
-    "keepBuilding": "Keep building"
+    "keepBuilding": "Keep building",
+    "allResources": "All resources",
+    "allStatuses": "All statuses",
+    "statuses": {
+      "running": "Running",
+      "failed": "Failed",
+      "building": "Building",
+      "replaced": "Replaced",
+      "removed": "Removed"
+    },
+    "windows": {
+      "24h": "Last 24 hours",
+      "7d": "Last 7 days",
+      "30d": "Last 30 days",
+      "all": "All time"
+    },
+    "rollBack": "Roll back"
   },
   "logs": {
     "allServices": "All services",
@@ -641,7 +659,10 @@
     "fixedForLifetime": "The endpoint URL and HMAC secret are fixed for the endpoint's lifetime.",
     "targetAction": "Target action",
     "redeployService": "Redeploy a service",
-    "recordOnly": "Nothing — record the invocation"
+    "recordOnly": "Nothing — record the invocation",
+    "servicesLoading": "Loading services…",
+    "servicesEmpty": "No services in this workspace yet",
+    "servicePlaceholder": "Pick a service…"
   },
   "firewall": {
     "title": "Firewall",
@@ -759,7 +780,35 @@
         "local": "local",
         "defaultBranch": "default"
       }
-    }
+    },
+    "backToGraph": "Back to graph",
+    "closePanel": "Close panel",
+    "stackNoServices": "No services parsed",
+    "stackNoServicesGit": "Services appear once the stack is built from the repo.",
+    "stackNoServicesInline": "This stack's compose file declares no services.",
+    "stackFromRepo": "This stack builds from a repository. The compose file lives in the repo and is resolved at build time.",
+    "composeLoading": "Loading compose file…",
+    "composeEmpty": "No compose file stored yet.",
+    "deleteStack": "Delete stack",
+    "deleteStackBlurb": "Removes every service in this stack from swarm, its routes, and the resource record. This can't be undone.",
+    "deleteStackTitle": "Delete the {{name}} stack?",
+    "deleteStackDescription": "All {{n}} of its services are removed from swarm along with their routes and the resource record. This can't be undone.",
+    "variablesStaged": "Variables staged — review and apply the pending changes.",
+    "variablesSavedRedeploy": "Variables saved — they take effect on the next redeploy",
+    "variablesSaveFailed": "Failed to save",
+    "publicAccessTitle": "Public access",
+    "publicAccessDescription": "Off keeps the DB on the internal network only. On wires the Caddy layer-4 proxy and exposes the public hostname to the open internet.",
+    "exposePublicly": "Expose publicly",
+    "willBeExposedAfterDeploy": "Will be exposed on the public internet after deploy",
+    "internalNetworkOnly": "Internal network only",
+    "reachableAt": "Reachable at {{host}}",
+    "internalOnlyAt": "Internal-only at {{host}}",
+    "publicEndpoint": "Public endpoint",
+    "publicConnectionUrl": "Public connection URL",
+    "publicEnabledToast": "Public access enabled",
+    "publicDisabledToast": "Public access disabled",
+    "publicUpdateFailed": "Failed to update public access",
+    "publicAccessStaged": "Public access staged — Deploy to apply"
   },
   "tableSelection": {
     "genericFailure": "failed",
@@ -775,5 +824,126 @@
       "network_one": "{{count}} network",
       "network_other": "{{count}} networks"
     }
+  },
+  "domains": {
+    "targetPort": "Target port",
+    "noPublishedPort": "no published port",
+    "domain": "Domain",
+    "serveDomain": "Serve {{domain}}",
+    "recheckDns": "Recheck DNS",
+    "setPrimary": "Set primary",
+    "copyUrl": "Copy URL",
+    "editDomain": "Edit domain",
+    "removeDomain": "Remove domain"
+  },
+  "backups": {
+    "restoreDialogTitle": "Restore · {{source}}",
+    "backupMeta": "Backup {{id}} · {{when}}",
+    "downloadTitle": "Download archive",
+    "downloadSub": "Fetch the decrypted archive to your machine. Nothing on the source changes.",
+    "inPlaceTitle": "Restore in place",
+    "inPlaceSubVolume": "Replaces the volume's contents with this archive. Refused while any container mounts it. Requires typed-name confirmation.",
+    "inPlaceSubDatabase": "Overwrites the current source with this snapshot. Requires typed-name confirmation.",
+    "intoTitle": "Restore into another database",
+    "intoSub": "Seeds a different database from this snapshot. That database's contents are overwritten, not this one's — the typed confirmation names the target.",
+    "targetDatabase": "Target database",
+    "selectDatabase": "Select a database…",
+    "archiveUnavailable": "Backup archive is unavailable",
+    "restoredInto": "Restored {{source}} into {{target}}",
+    "selectedDatabase": "the selected database",
+    "restoredVolume": "Restored volume {{source}}",
+    "restoredInPlace": "Restored {{source}} in place",
+    "restoreFailed": "Restore failed"
+  },
+  "vault": {
+    "title": "Secret providers",
+    "description": "Pull env-var values from an external secret manager at deploy time instead of storing them here.",
+    "addProvider": "Add provider",
+    "loadError": "Couldn't load secret providers",
+    "emptyTitle": "No secret providers",
+    "emptyDescription": "Connect HashiCorp Vault, OpenBao, Infisical or Doppler and reference their secrets from any service's variables without copying values into otterdeploy.",
+    "syntaxBefore": "Reference a secret from any variable value as",
+    "syntaxAfter": "— it's fetched from the provider on every deploy, never stored here.",
+    "editTitle": "Edit secret provider",
+    "addTitle": "Add secret provider",
+    "dialogDescriptionBefore": "Reference its secrets from any env var as",
+    "dialogDescriptionAfter": ". Values are fetched at deploy time and never stored here.",
+    "providerLabel": "Provider",
+    "nameLabel": "Name",
+    "nameHint": "The <provider> segment of {{token}} tokens.",
+    "credentialHintEdit": "Leave blank to keep the stored credential.",
+    "credentialHintCreate": "Stored encrypted; never shown again.",
+    "saveChanges": "Save changes",
+    "providerUpdated": "Provider updated",
+    "providerAdded": "Provider added — run a connection test to verify it",
+    "saveError": "Could not save provider",
+    "validationRequired": "Required",
+    "validationNamePattern": "Lowercase letters, digits, `-` and `_` only",
+    "statusConnected": "Connected",
+    "statusError": "Error",
+    "statusUnverified": "Not verified",
+    "test": "Test",
+    "testing": "Testing…",
+    "testReachable": "“{{name}}” is reachable",
+    "testFailed": "Connection test failed",
+    "editProvider": "Edit {{name}}",
+    "removeProviderAria": "Remove {{name}}",
+    "removeConfirmTitle": "Remove this secret provider?",
+    "removeConfirmBefore": "Any env var still referencing",
+    "removeConfirmAfter": "will fail to resolve on its next deploy. The provider's own secrets are not touched.",
+    "keepIt": "Keep it",
+    "removeProvider": "Remove provider",
+    "providerRemoved": "Provider removed",
+    "removeError": "Could not remove provider",
+    "fields": {
+      "vaultUrl": "Vault URL",
+      "kvMount": "KV v2 mount",
+      "namespaceOptional": "Namespace (optional)",
+      "namespaceHint": "Vault Enterprise / HCP only (X-Vault-Namespace).",
+      "siteUrlOptional": "Site URL (optional)",
+      "siteUrlHint": "Leave blank for Infisical Cloud.",
+      "clientId": "Machine identity client ID",
+      "projectId": "Project ID",
+      "environmentSlug": "Environment slug",
+      "secretPathOptional": "Secret path (optional)",
+      "dopplerProjectOptional": "Project (optional)",
+      "dopplerProjectHint": "Only needed when the service token isn't scoped to one config.",
+      "dopplerConfigOptional": "Config (optional)"
+    },
+    "credentials": {
+      "hashicorp": "Vault token",
+      "infisical": "Machine identity client secret",
+      "doppler": "Service token"
+    },
+    "syntaxLabel": "Reference syntax"
+  },
+  "refPicker": {
+    "filterPlaceholder": "Filter database, service or shared variables",
+    "loading": "Loading references…",
+    "noMatches": "No references match your filter",
+    "noRefs": "No references defined yet in this project",
+    "all": "All",
+    "platform": "platform",
+    "secret": "secret",
+    "subDatabase": "database",
+    "subService": "service",
+    "subVault": "secret manager",
+    "subShared": "project · all environments"
+  },
+  "variables": {
+    "draftRestored": "Unsaved draft restored.",
+    "discardDraft": "Discard",
+    "bulkTitle": "Bulk edit",
+    "bulkSubtitle": "Paste a .env, or edit inline",
+    "dotenvHint": ".env format · # comments ok · KEY=value",
+    "pasteClipboard": "Paste from clipboard",
+    "selectAtLeastOne": "Select at least one environment.",
+    "replacesIn": "Replaces every variable in {{targets}} — atomic per environment.",
+    "applyVars": "Apply {{n}} vars →",
+    "applyVarsMulti": "Apply {{n}} vars to {{envs}} envs →",
+    "savedToast": "Saved {{n}} variables to {{targets}}",
+    "failedToast": "Failed for {{names}}: {{message}}",
+    "appliedSuffix": " — applied to {{names}}",
+    "couldntSave": "Couldn't save"
   }
 }

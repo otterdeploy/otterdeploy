@@ -44,7 +44,8 @@
     "password": "Contraseña",
     "slug": "Slug",
     "more": "Más",
-    "typeToConfirm": "Escribe {{phrase}} para confirmar"
+    "typeToConfirm": "Escribe {{phrase}} para confirmar",
+    "parsing": "Analizando…"
   },
   "auth": {
     "signIn": {
@@ -166,7 +167,8 @@
       "workspace": "Espacio de trabajo",
       "account": "Cuenta",
       "instance": "Instancia"
-    }
+    },
+    "secrets": "Secretos"
   },
   "projects": {
     "title": "Proyectos",
@@ -475,7 +477,23 @@
     "rollingBackPending": "Revirtiendo…",
     "buildCancelled": "Compilación cancelada",
     "stopBuild": "¿Detener esta compilación?",
-    "keepBuilding": "Seguir compilando"
+    "keepBuilding": "Seguir compilando",
+    "allResources": "Todos los recursos",
+    "allStatuses": "Todos los estados",
+    "statuses": {
+      "running": "En ejecución",
+      "failed": "Fallido",
+      "building": "Compilando",
+      "replaced": "Reemplazado",
+      "removed": "Eliminado"
+    },
+    "windows": {
+      "24h": "Últimas 24 horas",
+      "7d": "Últimos 7 días",
+      "30d": "Últimos 30 días",
+      "all": "Todo el tiempo"
+    },
+    "rollBack": "Revertir"
   },
   "logs": {
     "allServices": "Todos los servicios",
@@ -641,7 +659,10 @@
     "fixedForLifetime": "La URL del endpoint y el secreto HMAC son fijos durante toda la vida del endpoint.",
     "targetAction": "Acción de destino",
     "redeployService": "Redesplegar un servicio",
-    "recordOnly": "Nada — solo registrar la invocación"
+    "recordOnly": "Nada — solo registrar la invocación",
+    "servicesLoading": "Cargando servicios…",
+    "servicesEmpty": "Aún no hay servicios en este espacio de trabajo",
+    "servicePlaceholder": "Elige un servicio…"
   },
   "firewall": {
     "title": "Cortafuegos",
@@ -759,7 +780,35 @@
         "local": "local",
         "defaultBranch": "por defecto"
       }
-    }
+    },
+    "backToGraph": "Volver al grafo",
+    "closePanel": "Cerrar panel",
+    "stackNoServices": "No se detectaron servicios",
+    "stackNoServicesGit": "Los servicios aparecen cuando el stack se compila desde el repositorio.",
+    "stackNoServicesInline": "El archivo compose de este stack no declara servicios.",
+    "stackFromRepo": "Este stack se compila desde un repositorio. El archivo compose vive en el repo y se resuelve al compilar.",
+    "composeLoading": "Cargando archivo compose…",
+    "composeEmpty": "Aún no hay archivo compose guardado.",
+    "deleteStack": "Eliminar stack",
+    "deleteStackBlurb": "Elimina todos los servicios de este stack del swarm, sus rutas y el registro del recurso. No se puede deshacer.",
+    "deleteStackTitle": "¿Eliminar el stack {{name}}?",
+    "deleteStackDescription": "Los {{n}} servicios se eliminan del swarm junto con sus rutas y el registro del recurso. No se puede deshacer.",
+    "variablesStaged": "Variables preparadas: revisa y aplica los cambios pendientes.",
+    "variablesSavedRedeploy": "Variables guardadas — se aplican en el próximo redespliegue",
+    "variablesSaveFailed": "No se pudo guardar",
+    "publicAccessTitle": "Acceso público",
+    "publicAccessDescription": "Desactivado mantiene la BD solo en la red interna. Activado conecta el proxy de capa 4 de Caddy y expone el nombre de host público a internet.",
+    "exposePublicly": "Exponer públicamente",
+    "willBeExposedAfterDeploy": "Se expondrá en internet público tras el despliegue",
+    "internalNetworkOnly": "Solo red interna",
+    "reachableAt": "Accesible en {{host}}",
+    "internalOnlyAt": "Solo interno en {{host}}",
+    "publicEndpoint": "Endpoint público",
+    "publicConnectionUrl": "URL de conexión pública",
+    "publicEnabledToast": "Acceso público activado",
+    "publicDisabledToast": "Acceso público desactivado",
+    "publicUpdateFailed": "No se pudo actualizar el acceso público",
+    "publicAccessStaged": "Acceso público preparado — despliega para aplicar"
   },
   "tableSelection": {
     "genericFailure": "falló",
@@ -775,5 +824,126 @@
       "network_one": "{{count}} red",
       "network_other": "{{count}} redes"
     }
+  },
+  "domains": {
+    "targetPort": "Puerto de destino",
+    "noPublishedPort": "sin puerto publicado",
+    "domain": "Dominio",
+    "serveDomain": "Servir {{domain}}",
+    "recheckDns": "Volver a comprobar DNS",
+    "setPrimary": "Establecer como principal",
+    "copyUrl": "Copiar URL",
+    "editDomain": "Editar dominio",
+    "removeDomain": "Eliminar dominio"
+  },
+  "backups": {
+    "restoreDialogTitle": "Restaurar · {{source}}",
+    "backupMeta": "Copia {{id}} · {{when}}",
+    "downloadTitle": "Descargar archivo",
+    "downloadSub": "Descarga el archivo descifrado a tu equipo. La fuente no cambia.",
+    "inPlaceTitle": "Restaurar en el mismo lugar",
+    "inPlaceSubVolume": "Reemplaza el contenido del volumen con este archivo. Se rechaza mientras algún contenedor lo tenga montado. Requiere confirmación escribiendo el nombre.",
+    "inPlaceSubDatabase": "Sobrescribe la fuente actual con esta instantánea. Requiere confirmación escribiendo el nombre.",
+    "intoTitle": "Restaurar en otra base de datos",
+    "intoSub": "Puebla otra base de datos desde esta instantánea. Se sobrescribe el contenido de esa base de datos, no el de esta — la confirmación escrita nombra el destino.",
+    "targetDatabase": "Base de datos de destino",
+    "selectDatabase": "Selecciona una base de datos…",
+    "archiveUnavailable": "El archivo de copia no está disponible",
+    "restoredInto": "{{source}} restaurado en {{target}}",
+    "selectedDatabase": "la base de datos seleccionada",
+    "restoredVolume": "Volumen {{source}} restaurado",
+    "restoredInPlace": "{{source}} restaurado en el mismo lugar",
+    "restoreFailed": "La restauración falló"
+  },
+  "vault": {
+    "title": "Proveedores de secretos",
+    "description": "Obtén los valores de las variables de entorno desde un gestor de secretos externo al desplegar, en lugar de guardarlos aquí.",
+    "addProvider": "Añadir proveedor",
+    "loadError": "No se pudieron cargar los proveedores de secretos",
+    "emptyTitle": "Sin proveedores de secretos",
+    "emptyDescription": "Conecta HashiCorp Vault, OpenBao, Infisical o Doppler y referencia sus secretos desde las variables de cualquier servicio sin copiar valores a otterdeploy.",
+    "syntaxBefore": "Referencia un secreto desde cualquier valor de variable como",
+    "syntaxAfter": "— se obtiene del proveedor en cada despliegue y nunca se guarda aquí.",
+    "editTitle": "Editar proveedor de secretos",
+    "addTitle": "Añadir proveedor de secretos",
+    "dialogDescriptionBefore": "Referencia sus secretos desde cualquier variable de entorno como",
+    "dialogDescriptionAfter": ". Los valores se obtienen al desplegar y nunca se guardan aquí.",
+    "providerLabel": "Proveedor",
+    "nameLabel": "Nombre",
+    "nameHint": "El segmento <provider> de los tokens {{token}}.",
+    "credentialHintEdit": "Déjalo en blanco para conservar la credencial guardada.",
+    "credentialHintCreate": "Se guarda cifrada; no se volverá a mostrar.",
+    "saveChanges": "Guardar cambios",
+    "providerUpdated": "Proveedor actualizado",
+    "providerAdded": "Proveedor añadido — ejecuta una prueba de conexión para verificarlo",
+    "saveError": "No se pudo guardar el proveedor",
+    "validationRequired": "Obligatorio",
+    "validationNamePattern": "Solo minúsculas, dígitos, `-` y `_`",
+    "statusConnected": "Conectado",
+    "statusError": "Error",
+    "statusUnverified": "Sin verificar",
+    "test": "Probar",
+    "testing": "Probando…",
+    "testReachable": "«{{name}}» es accesible",
+    "testFailed": "La prueba de conexión falló",
+    "editProvider": "Editar {{name}}",
+    "removeProviderAria": "Eliminar {{name}}",
+    "removeConfirmTitle": "¿Eliminar este proveedor de secretos?",
+    "removeConfirmBefore": "Cualquier variable de entorno que aún haga referencia a",
+    "removeConfirmAfter": "fallará en su próximo despliegue. Los secretos del proveedor no se tocan.",
+    "keepIt": "Conservar",
+    "removeProvider": "Eliminar proveedor",
+    "providerRemoved": "Proveedor eliminado",
+    "removeError": "No se pudo eliminar el proveedor",
+    "fields": {
+      "vaultUrl": "URL de Vault",
+      "kvMount": "Montaje KV v2",
+      "namespaceOptional": "Espacio de nombres (opcional)",
+      "namespaceHint": "Solo Vault Enterprise / HCP (X-Vault-Namespace).",
+      "siteUrlOptional": "URL del sitio (opcional)",
+      "siteUrlHint": "Déjalo en blanco para Infisical Cloud.",
+      "clientId": "ID de cliente de la identidad de máquina",
+      "projectId": "ID del proyecto",
+      "environmentSlug": "Slug del entorno",
+      "secretPathOptional": "Ruta del secreto (opcional)",
+      "dopplerProjectOptional": "Proyecto (opcional)",
+      "dopplerProjectHint": "Solo es necesario cuando el token de servicio no está limitado a una configuración.",
+      "dopplerConfigOptional": "Configuración (opcional)"
+    },
+    "credentials": {
+      "hashicorp": "Token de Vault",
+      "infisical": "Secreto de cliente de la identidad de máquina",
+      "doppler": "Token de servicio"
+    },
+    "syntaxLabel": "Sintaxis de referencia"
+  },
+  "refPicker": {
+    "filterPlaceholder": "Filtrar variables de base de datos, servicio o compartidas",
+    "loading": "Cargando referencias…",
+    "noMatches": "Ninguna referencia coincide con tu filtro",
+    "noRefs": "Aún no hay referencias definidas en este proyecto",
+    "all": "Todas",
+    "platform": "plataforma",
+    "secret": "secreto",
+    "subDatabase": "base de datos",
+    "subService": "servicio",
+    "subVault": "gestor de secretos",
+    "subShared": "proyecto · todos los entornos"
+  },
+  "variables": {
+    "draftRestored": "Borrador sin guardar restaurado.",
+    "discardDraft": "Descartar",
+    "bulkTitle": "Edición masiva",
+    "bulkSubtitle": "Pega un .env o edita en línea",
+    "dotenvHint": "formato .env · # comentarios ok · KEY=value",
+    "pasteClipboard": "Pegar del portapapeles",
+    "selectAtLeastOne": "Selecciona al menos un entorno.",
+    "replacesIn": "Reemplaza todas las variables en {{targets}} — atómico por entorno.",
+    "applyVars": "Aplicar {{n}} variables →",
+    "applyVarsMulti": "Aplicar {{n}} variables a {{envs}} entornos →",
+    "savedToast": "{{n}} variables guardadas en {{targets}}",
+    "failedToast": "Falló para {{names}}: {{message}}",
+    "appliedSuffix": " — aplicado a {{names}}",
+    "couldntSave": "No se pudo guardar"
   }
 }
