@@ -70,6 +70,7 @@ import { Route as AppOrgSlugShellProjectSlugMetricsRouteImport } from "./routes/
 import { Route as AppOrgSlugShellProjectSlugLogsRouteImport } from "./routes/_app/$orgSlug/_shell/$projectSlug/logs"
 import { Route as AppOrgSlugShellProjectSlugEdgeLogsRouteImport } from "./routes/_app/$orgSlug/_shell/$projectSlug/edge-logs"
 import { Route as AppOrgSlugShellProjectSlugDeploymentsRouteImport } from "./routes/_app/$orgSlug/_shell/$projectSlug/deployments"
+import { Route as AppOrgSlugShellProjectSlugAnalyticsRouteImport } from "./routes/_app/$orgSlug/_shell/$projectSlug/analytics"
 import { Route as AppOrgSlugShellProjectSlugGraphLayoutRouteImport } from "./routes/_app/$orgSlug/_shell/$projectSlug/graph/layout"
 import { Route as AppOrgSlugSettingsWorkspaceGithubAppProviderIdRouteImport } from "./routes/_app/$orgSlug/settings/workspace/github-app.$providerId"
 import { Route as AppOrgSlugShellProjectSlugGraphResourceIdLayoutRouteImport } from "./routes/_app/$orgSlug/_shell/$projectSlug/graph/$resourceId/layout"
@@ -414,6 +415,12 @@ const AppOrgSlugShellProjectSlugDeploymentsRoute =
     path: "/deployments",
     getParentRoute: () => AppOrgSlugShellProjectSlugLayoutRoute,
   } as any)
+const AppOrgSlugShellProjectSlugAnalyticsRoute =
+  AppOrgSlugShellProjectSlugAnalyticsRouteImport.update({
+    id: "/analytics",
+    path: "/analytics",
+    getParentRoute: () => AppOrgSlugShellProjectSlugLayoutRoute,
+  } as any)
 const AppOrgSlugShellProjectSlugGraphLayoutRoute =
   AppOrgSlugShellProjectSlugGraphLayoutRouteImport.update({
     id: "/graph",
@@ -453,7 +460,7 @@ export interface FileRoutesByFullPath {
   "/device": typeof DeviceRoute
   "/sign-in": typeof SignInRoute
   "/terminal": typeof TerminalRoute
-  "/$orgSlug": typeof AppOrgSlugLayoutRouteWithChildren
+  "/$orgSlug": typeof AppOrgSlugShellLayoutRouteWithChildren
   "/accept-invite/$invitationId": typeof AcceptInviteInvitationIdRoute
   "/onboarding/create-organization": typeof OnboardingCreateOrganizationRoute
   "/$orgSlug/settings": typeof AppOrgSlugSettingsLayoutRouteWithChildren
@@ -486,6 +493,7 @@ export interface FileRoutesByFullPath {
   "/$orgSlug/": typeof AppOrgSlugShellIndexRoute
   "/$orgSlug/settings/": typeof AppOrgSlugSettingsIndexRoute
   "/$orgSlug/$projectSlug/graph": typeof AppOrgSlugShellProjectSlugGraphLayoutRouteWithChildren
+  "/$orgSlug/$projectSlug/analytics": typeof AppOrgSlugShellProjectSlugAnalyticsRoute
   "/$orgSlug/$projectSlug/deployments": typeof AppOrgSlugShellProjectSlugDeploymentsRoute
   "/$orgSlug/$projectSlug/edge-logs": typeof AppOrgSlugShellProjectSlugEdgeLogsRoute
   "/$orgSlug/$projectSlug/logs": typeof AppOrgSlugShellProjectSlugLogsRoute
@@ -549,6 +557,7 @@ export interface FileRoutesByTo {
   "/$orgSlug/git-providers/$providerId": typeof AppOrgSlugGitProvidersProviderIdRoute
   "/$orgSlug/settings": typeof AppOrgSlugSettingsIndexRoute
   "/$orgSlug/$projectSlug/graph": typeof AppOrgSlugShellProjectSlugGraphLayoutRouteWithChildren
+  "/$orgSlug/$projectSlug/analytics": typeof AppOrgSlugShellProjectSlugAnalyticsRoute
   "/$orgSlug/$projectSlug/deployments": typeof AppOrgSlugShellProjectSlugDeploymentsRoute
   "/$orgSlug/$projectSlug/edge-logs": typeof AppOrgSlugShellProjectSlugEdgeLogsRoute
   "/$orgSlug/$projectSlug/logs": typeof AppOrgSlugShellProjectSlugLogsRoute
@@ -618,6 +627,7 @@ export interface FileRoutesById {
   "/_app/$orgSlug/_shell/": typeof AppOrgSlugShellIndexRoute
   "/_app/$orgSlug/settings/": typeof AppOrgSlugSettingsIndexRoute
   "/_app/$orgSlug/_shell/$projectSlug/graph": typeof AppOrgSlugShellProjectSlugGraphLayoutRouteWithChildren
+  "/_app/$orgSlug/_shell/$projectSlug/analytics": typeof AppOrgSlugShellProjectSlugAnalyticsRoute
   "/_app/$orgSlug/_shell/$projectSlug/deployments": typeof AppOrgSlugShellProjectSlugDeploymentsRoute
   "/_app/$orgSlug/_shell/$projectSlug/edge-logs": typeof AppOrgSlugShellProjectSlugEdgeLogsRoute
   "/_app/$orgSlug/_shell/$projectSlug/logs": typeof AppOrgSlugShellProjectSlugLogsRoute
@@ -686,6 +696,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/"
     | "/$orgSlug/settings/"
     | "/$orgSlug/$projectSlug/graph"
+    | "/$orgSlug/$projectSlug/analytics"
     | "/$orgSlug/$projectSlug/deployments"
     | "/$orgSlug/$projectSlug/edge-logs"
     | "/$orgSlug/$projectSlug/logs"
@@ -749,6 +760,7 @@ export interface FileRouteTypes {
     | "/$orgSlug/git-providers/$providerId"
     | "/$orgSlug/settings"
     | "/$orgSlug/$projectSlug/graph"
+    | "/$orgSlug/$projectSlug/analytics"
     | "/$orgSlug/$projectSlug/deployments"
     | "/$orgSlug/$projectSlug/edge-logs"
     | "/$orgSlug/$projectSlug/logs"
@@ -817,6 +829,7 @@ export interface FileRouteTypes {
     | "/_app/$orgSlug/_shell/"
     | "/_app/$orgSlug/settings/"
     | "/_app/$orgSlug/_shell/$projectSlug/graph"
+    | "/_app/$orgSlug/_shell/$projectSlug/analytics"
     | "/_app/$orgSlug/_shell/$projectSlug/deployments"
     | "/_app/$orgSlug/_shell/$projectSlug/edge-logs"
     | "/_app/$orgSlug/_shell/$projectSlug/logs"
@@ -1284,6 +1297,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppOrgSlugShellProjectSlugDeploymentsRouteImport
       parentRoute: typeof AppOrgSlugShellProjectSlugLayoutRoute
     }
+    "/_app/$orgSlug/_shell/$projectSlug/analytics": {
+      id: "/_app/$orgSlug/_shell/$projectSlug/analytics"
+      path: "/analytics"
+      fullPath: "/$orgSlug/$projectSlug/analytics"
+      preLoaderRoute: typeof AppOrgSlugShellProjectSlugAnalyticsRouteImport
+      parentRoute: typeof AppOrgSlugShellProjectSlugLayoutRoute
+    }
     "/_app/$orgSlug/_shell/$projectSlug/graph": {
       id: "/_app/$orgSlug/_shell/$projectSlug/graph"
       path: "/graph"
@@ -1357,6 +1377,7 @@ const AppOrgSlugShellProjectSlugGraphLayoutRouteWithChildren =
 
 interface AppOrgSlugShellProjectSlugLayoutRouteChildren {
   AppOrgSlugShellProjectSlugGraphLayoutRoute: typeof AppOrgSlugShellProjectSlugGraphLayoutRouteWithChildren
+  AppOrgSlugShellProjectSlugAnalyticsRoute: typeof AppOrgSlugShellProjectSlugAnalyticsRoute
   AppOrgSlugShellProjectSlugDeploymentsRoute: typeof AppOrgSlugShellProjectSlugDeploymentsRoute
   AppOrgSlugShellProjectSlugEdgeLogsRoute: typeof AppOrgSlugShellProjectSlugEdgeLogsRoute
   AppOrgSlugShellProjectSlugLogsRoute: typeof AppOrgSlugShellProjectSlugLogsRoute
@@ -1371,6 +1392,8 @@ const AppOrgSlugShellProjectSlugLayoutRouteChildren: AppOrgSlugShellProjectSlugL
   {
     AppOrgSlugShellProjectSlugGraphLayoutRoute:
       AppOrgSlugShellProjectSlugGraphLayoutRouteWithChildren,
+    AppOrgSlugShellProjectSlugAnalyticsRoute:
+      AppOrgSlugShellProjectSlugAnalyticsRoute,
     AppOrgSlugShellProjectSlugDeploymentsRoute:
       AppOrgSlugShellProjectSlugDeploymentsRoute,
     AppOrgSlugShellProjectSlugEdgeLogsRoute:

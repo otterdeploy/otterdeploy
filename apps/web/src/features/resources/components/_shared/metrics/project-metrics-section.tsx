@@ -1,40 +1,25 @@
 /**
- * Project-aggregate metrics overview: the four headline cards at the top of
- * the metrics page: CPU and memory summed across every container in the
- * project (`metrics.projectAggregate`), and request rate / p95 latency across
- * all of the project's public hosts (`edgeLogs.requestSeries`).
+ * Project-aggregate metrics overview: CPU and memory summed across every
+ * container in the project (`metrics.projectAggregate`). Traffic and latency
+ * moved to the Analytics tab (edge-stat rollups), which answers them over any
+ * window instead of this page's capped edge-log scan.
  *
- * Honesty over polish: aggregate buckets nobody sampled render as gaps (never
- * zero-filled), request cards say so when the project has no public hosts,
- * and a ring-buffer-served window longer than its real history is labeled.
+ * Honesty over polish: aggregate buckets nobody sampled render as gaps,
+ * never zero-filled.
  */
 
 import type { ReactNode } from "react";
 
-import {
-  Activity03Icon,
-  Clock01Icon,
-  CpuIcon,
-  EarthIcon,
-  RamMemoryIcon,
-} from "@hugeicons/core-free-icons";
+import { Activity03Icon, CpuIcon, RamMemoryIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { Link, useParams } from "@tanstack/react-router";
 
 import { Skeleton } from "@/shared/components/ui/skeleton";
 
 import { formatBytes, formatPercent } from "./format";
 import { MetricAreaChart } from "./metric-area-chart";
 import { MetricCard, type MetricStat } from "./metric-card";
-import { useProjectAggregateMetrics, useProjectRequestSeries } from "./use-project-metrics";
-
-/** Requests/second, one decimal under 10 for readable small rates. */
-function formatRps(v: number): string {
-  return `${v >= 10 ? v.toFixed(0) : v.toFixed(1)}/s`;
-}
-
-function formatMs(v: number): string {
-  return `${Math.round(v)} ms`;
-}
+import { useProjectAggregateMetrics } from "./use-project-metrics";
 
 interface ProjectMetricsSectionProps {
   projectId: string;
@@ -42,11 +27,10 @@ interface ProjectMetricsSectionProps {
 }
 
 export function ProjectMetricsSection({ projectId, windowMinutes }: ProjectMetricsSectionProps) {
+  const { orgSlug, projectSlug } = useParams({ from: "/_app/$orgSlug/_shell/$projectSlug" });
   const agg = useProjectAggregateMetrics(projectId, windowMinutes);
-  const req = useProjectRequestSeries(projectId, windowMinutes);
 
   const aggHasData = agg.rows.length > 0;
-  const reqHasTraffic = req.summary.total > 0;
 
   const aggBody = (chart: ReactNode): ReactNode => {
     if (agg.isLoading && !aggHasData) return <ChartSkeleton />;
@@ -54,18 +38,6 @@ export function ProjectMetricsSection({ projectId, windowMinutes }: ProjectMetri
     if (!aggHasData) {
       return <ChartNote>No samples in this window yet. Sampled every 30s.</ChartNote>;
     }
-    return chart;
-  };
-
-  const reqBody = (chart: ReactNode): ReactNode => {
-    if (req.isLoading && req.rows.length === 0) return <ChartSkeleton />;
-    if (req.isError && req.rows.length === 0) {
-      return <ChartNote>Couldn’t load edge logs. Retrying.</ChartNote>;
-    }
-    if (req.hostCount === 0) {
-      return <ChartNote>No public traffic. Services are internal.</ChartNote>;
-    }
-    if (!reqHasTraffic) return <ChartNote>No requests in this window.</ChartNote>;
     return chart;
   };
 
@@ -117,63 +89,20 @@ export function ProjectMetricsSection({ projectId, windowMinutes }: ProjectMetri
           )}
         </MetricCard>
 
-        {/* Request rate, bucketed rps from the edge access logs across every
-            public host the project routes. Zero is a real measurement. */}
-        <MetricCard
-          icon={EarthIcon}
-          title="Request rate"
-          value={reqHasTraffic ? formatRps(req.summary.avgRps) : "–"}
-          stats={
-            reqHasTraffic
-              ? [
-                  { label: "peak", value: formatRps(req.summary.peakRps) },
-                  {
-                    label: "errors",
-                    value: `${(req.summary.errorRate * 100).toFixed(1)}%`,
-                  },
-                ]
-              : []
-          }
-        >
-          {reqBody(
-            <MetricAreaChart
-              data={req.rows}
-              format={formatRps}
-              series={[{ dataKey: "rps", label: "Requests", color: "var(--chart-3)" }]}
-            />,
-          )}
-        </MetricCard>
-
-        {/* P95 latency: per-bucket p95 from the same edge-log window; empty
-            buckets are gaps (a percentile of zero requests doesn't exist). */}
-        <MetricCard
-          icon={Clock01Icon}
-          title="P95 latency"
-          value={req.summary.latestP95 != null ? formatMs(req.summary.latestP95) : "–"}
-          stats={reqHasTraffic ? [{ label: "max", value: formatMs(req.summary.maxP95) }] : []}
-        >
-          {reqBody(
-            <MetricAreaChart
-              data={req.rows}
-              format={formatMs}
-              series={[{ dataKey: "p95", label: "p95", color: "var(--chart-1)" }]}
-            />,
-          )}
-        </MetricCard>
       </div>
 
-      {req.source === "ring" && windowMinutes > 60 ? (
-        <p className="text-xs text-muted-foreground">
-          Edge-log persistence is off. Request cards only cover the in-memory buffer, which is
-          shorter than the selected window.
-        </p>
-      ) : null}
-      {req.sampled ? (
-        <p className="text-xs text-muted-foreground">
-          High traffic volume. Request cards are computed over the most recent 10,000 requests, so
-          the oldest buckets may undercount.
-        </p>
-      ) : null}
+      <p className="text-xs text-muted-foreground">
+        Traffic, latency, and visitors moved to the{" "}
+        <Link
+          to="/$orgSlug/$projectSlug/analytics"
+          params={{ orgSlug, projectSlug }}
+          search={{ range: "24h" }}
+          className="text-foreground underline-offset-2 hover:underline"
+        >
+          Analytics tab
+        </Link>
+        .
+      </p>
     </div>
   );
 }

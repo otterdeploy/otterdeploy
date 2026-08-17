@@ -132,6 +132,7 @@
     "graph": "Graph",
     "deployments": "Deployments",
     "logs": "Logs",
+    "analytics": "Analytics",
     "metrics": "Metrics",
     "variables": "Variables",
     "networking": "Networking",

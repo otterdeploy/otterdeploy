@@ -45,6 +45,11 @@ const tabs: readonly Tab[] = [
     to: "/$orgSlug/$projectSlug/logs",
     tourId: "project-tab-logs",
   },
+  {
+    titleKey: "nav.analytics",
+    to: "/$orgSlug/$projectSlug/analytics",
+    fallback: "Analytics",
+  },
   { titleKey: "nav.metrics", to: "/$orgSlug/$projectSlug/metrics" },
   {
     titleKey: "nav.variables",

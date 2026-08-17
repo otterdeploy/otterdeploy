@@ -132,6 +132,7 @@
     "graph": "Grafo",
     "deployments": "Despliegues",
     "logs": "Registros",
+    "analytics": "Analítica",
     "metrics": "Métricas",
     "variables": "Variables",
     "networking": "Red",

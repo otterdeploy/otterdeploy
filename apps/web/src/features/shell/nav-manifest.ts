@@ -191,6 +191,14 @@ export const OPERATIONAL_NAV: readonly NavManifestGroup[] = [
           "ssl",
           "certificates",
           "certs",
+          // The Analytics tab (edge-stat rollups) answers these.
+          "analytics",
+          "visitors",
+          "pageviews",
+          "requests",
+          "referrers",
+          "countries",
+          "bandwidth",
         ],
       },
       // Audit folds in here rather than keeping its own single-item

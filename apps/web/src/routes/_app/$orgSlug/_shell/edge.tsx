@@ -23,6 +23,8 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import * as z from "zod";
 
+import { type AnalyticsRangeKey } from "@/features/analytics/analytics-model";
+import { AnalyticsView } from "@/features/analytics/components/analytics-view";
 import { UploadCaDialog } from "@/features/certificates/upload-ca-dialog";
 import { UploadCertDialog } from "@/features/certificates/upload-cert-dialog";
 import { EdgeEventsView } from "@/features/edge-logs/components/edge-events-view";
@@ -42,8 +44,12 @@ import { orpc, queryClient } from "@/shared/server/orpc";
 
 import { CertificatesActions, CertificatesTab } from "./-edge-certificates";
 
-const EDGE_TABS = ["caddyfile", "certificates", "logs", "caddy", "firewall"] as const;
+const EDGE_TABS = ["caddyfile", "certificates", "logs", "analytics", "caddy", "firewall"] as const;
 type EdgeTab = (typeof EDGE_TABS)[number];
+
+function isEdgeTab(value: string): value is EdgeTab {
+  return EDGE_TABS.some((tab) => tab === value);
+}
 
 /** Planes whose every query needs the installation-administrator identity. */
 const EDGE_TABS_INSTALL_ADMIN: ReadonlySet<string> = new Set<EdgeTab>(["caddyfile", "firewall"]);
@@ -104,7 +110,9 @@ function RouteComponent() {
   return (
     <Tabs
       value={tab}
-      onValueChange={(value) => setTab(value as EdgeTab)}
+      onValueChange={(value) => {
+        if (isEdgeTab(value)) setTab(value);
+      }}
       className="flex h-[calc(100svh-var(--header-height))] min-w-0 flex-col gap-0 overflow-hidden"
     >
       <div className="flex items-center justify-between gap-3 border-b px-4 pt-2 pb-2">
@@ -119,6 +127,9 @@ function RouteComponent() {
           </TabsTrigger>
           <TabsTrigger value="logs" className="px-3 py-2">
             Access logs
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="px-3 py-2">
+            Analytics
           </TabsTrigger>
           <TabsTrigger value="caddy" className="px-3 py-2">
             Events
@@ -154,6 +165,9 @@ function RouteComponent() {
       <TabsContent value="logs" className="min-h-0 flex-1">
         <EdgeLogsView />
       </TabsContent>
+      <TabsContent value="analytics" className="min-h-0 flex-1 overflow-y-auto p-4">
+        <AnalyticsTab />
+      </TabsContent>
       <TabsContent value="caddy" className="min-h-0 flex-1">
         <EdgeEventsView />
       </TabsContent>
@@ -167,6 +181,15 @@ function RouteComponent() {
       <UploadCaDialog open={uploadCaOpen} onOpenChange={setUploadCaOpen} />
     </Tabs>
   );
+}
+
+// ─── Analytics plane (install-wide, from the edge-stat rollups) ─────────
+
+function AnalyticsTab() {
+  // Local range state: the page's `?tab=` search already names the plane and
+  // the org-wide window choice isn't worth a second URL param.
+  const [range, setRange] = useState<AnalyticsRangeKey>("24h");
+  return <AnalyticsView range={range} onRangeChange={setRange} />;
 }
 
 // ─── Caddyfile plane (formerly the standalone Networking page) ──────────
