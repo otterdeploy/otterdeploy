@@ -25,7 +25,8 @@ import { cn } from "@/shared/lib/utils";
 import type { Schedule } from "./data/schedules";
 
 import { runSchedule, schedulesCollection } from "./data/schedules";
-import { StatusBadge, cronHuman, encLabel, relTime, retentionLabel } from "./shared";
+import { cronHuman, retentionLabel } from "./labels";
+import { StatusBadge, encLabel, relTime } from "./shared";
 
 export function ScheduleCard({ schedule: s, onEdit }: { schedule: Schedule; onEdit: () => void }) {
   const toggle = (checked: boolean) => {
@@ -114,38 +115,7 @@ export function ScheduleCard({ schedule: s, onEdit }: { schedule: Schedule; onEd
         </div>
       </div>
 
-      <div className="flex items-end gap-4 border-t pt-3">
-        <div className="flex flex-col gap-0.5">
-          <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-            Last run
-          </span>
-          <span className="flex items-center gap-1.5">
-            {s.lastRunStatus ? (
-              <StatusBadge status={s.lastRunStatus} />
-            ) : (
-              <span className="font-mono text-[11px] text-muted-foreground">never</span>
-            )}
-            <span className="font-mono text-[11px] text-muted-foreground">
-              {relTime(s.lastRunAt)}
-            </span>
-          </span>
-        </div>
-        <div className="flex flex-col gap-0.5">
-          <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-            Next run
-          </span>
-          <span className="font-mono text-xs text-foreground/80">
-            {s.enabled ? relTime(s.nextRunAt) : "paused"}
-          </span>
-        </div>
-        <div className="flex-1" />
-        {s.encryption !== "none" && (
-          <Badge variant="secondary" className="gap-1 text-[10px]">
-            <HugeiconsIcon icon={SquareLock01Icon} className="size-2.5" />
-            {encryption}
-          </Badge>
-        )}
-      </div>
+      <ScheduleRunFooter schedule={s} encryption={encryption} />
 
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" className="gap-1.5" onClick={onEdit}>
@@ -173,6 +143,56 @@ export function ScheduleCard({ schedule: s, onEdit }: { schedule: Schedule; onEd
           Delete
         </Button>
       </div>
+    </div>
+  );
+}
+
+/** Last/next run + the policy badges (auto-verify, retry, encryption). */
+function ScheduleRunFooter({ schedule: s, encryption }: { schedule: Schedule; encryption: string }) {
+  return (
+    <div className="flex items-end gap-4 border-t pt-3">
+      <div className="flex flex-col gap-0.5">
+        <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+          Last run
+        </span>
+        <span className="flex items-center gap-1.5">
+          {s.lastRunStatus ? (
+            <StatusBadge status={s.lastRunStatus} />
+          ) : (
+            <span className="font-mono text-[11px] text-muted-foreground">never</span>
+          )}
+          <span className="font-mono text-[11px] text-muted-foreground">{relTime(s.lastRunAt)}</span>
+        </span>
+      </div>
+      <div className="flex flex-col gap-0.5">
+        <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+          Next run
+        </span>
+        <span className="font-mono text-xs text-foreground/80">
+          {s.enabled ? relTime(s.nextRunAt) : "paused"}
+        </span>
+      </div>
+      <div className="flex-1" />
+      {s.verifyAfterBackup && (
+        <Badge
+          variant="outline"
+          className="gap-1 border-success/30 bg-success/10 font-mono text-[10px] text-success"
+          title="Each successful run is restore-verified in a sandbox"
+        >
+          auto-verify
+        </Badge>
+      )}
+      {s.maxRetries > 0 && (
+        <Badge variant="secondary" className="font-mono text-[10px]" title="Failed runs retry">
+          retry ×{s.maxRetries}
+        </Badge>
+      )}
+      {s.encryption !== "none" && (
+        <Badge variant="secondary" className="gap-1 text-[10px]">
+          <HugeiconsIcon icon={SquareLock01Icon} className="size-2.5" />
+          {encryption}
+        </Badge>
+      )}
     </div>
   );
 }

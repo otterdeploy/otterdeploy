@@ -12,6 +12,7 @@ import { orpc } from "@/shared/server/orpc";
 
 import type { Backup } from "./data/backups";
 
+import { RestoreHistorySection, VerificationSection } from "./backup-trust";
 import { fmtBytes } from "./shared";
 
 export function BackupDetail({
@@ -81,6 +82,9 @@ export function BackupDetail({
           <div className="font-mono text-[11px] text-destructive">{backup.errorMessage}</div>
         </div>
       )}
+
+      <VerificationSection backup={backup} />
+      <RestoreHistorySection backup={backup} />
 
       <BackupLog backupId={backup.id} />
     </div>

@@ -52,7 +52,7 @@ async function getDestinationForOrg(input: {
 export async function getDestinationGuardFields(input: {
   organizationId: OrganizationId;
   id: BackupDestinationId;
-}): Promise<{ type: "s3" | "local" | "sftp"; managed: boolean; status: string } | null> {
+}): Promise<{ type: "s3" | "local" | "sftp" | "azblob" | "gcs"; managed: boolean; status: string } | null> {
   const [row] = await db
     .select({
       type: backupDestination.type,
@@ -95,7 +95,7 @@ export async function getDestinationWithSecret(input: {
   organizationId: OrganizationId;
   id: BackupDestinationId;
 }): Promise<{
-  type: "s3" | "local" | "sftp";
+  type: "s3" | "local" | "sftp" | "azblob" | "gcs";
   config: JsonObject;
   encryptedSecret: string | null;
 } | null> {
@@ -119,7 +119,7 @@ export async function getDestinationWithSecret(input: {
 export async function createDestinationRecord(input: {
   organizationId: OrganizationId;
   name: string;
-  type: "s3" | "local" | "sftp";
+  type: "s3" | "local" | "sftp" | "azblob" | "gcs";
   config: JsonObject;
   encryptedSecret: string | null;
 }): Promise<DestinationView> {

@@ -48,13 +48,20 @@ interface ExecutionContextBase {
   storagePath: string | null;
   /** sha256 of the stored archive body (null until the run succeeds). */
   checksum: string | null;
+  /** Uncompressed dump/tar size recorded by the run (null until success);
+   *  verification uses it as the size-ratio baseline. */
+  sourceSizeBytes: number | null;
   /** Pre-backup command (scheduled runs only), exec'd in the DB container. */
   preHook: string | null;
   /** Owning schedule (null for manual runs); tags snapshots for tag-scoped `forget`. */
   scheduleId: BackupScheduleId | null;
+  /** Schedule opted into restore-proving verification after each success. */
+  verifyAfterBackup: boolean;
+  /** How the archive is produced: logical dump or pg_basebackup cluster tar. */
+  approach: "logical" | "physical";
   destination: {
     id: BackupDestinationId;
-    type: "s3" | "local" | "sftp";
+    type: "s3" | "local" | "sftp" | "azblob" | "gcs";
     config: JsonObject;
     encryptedSecret: string | null;
     /** Platform-managed local destination — changes how `deriveRepoKey` roots
@@ -94,6 +101,7 @@ interface ContextRow {
   encryption: ExecutionContextBase["encryption"];
   storagePath: string | null;
   checksum: string | null;
+  sourceSizeBytes: number | null;
   resourceName: string | null;
   projectId: ProjectId | null;
   projectSlug: string | null;
@@ -102,12 +110,14 @@ interface ContextRow {
   username: string | null;
   password: string | null;
   destId: BackupDestinationId;
-  destType: "s3" | "local" | "sftp";
+  destType: "s3" | "local" | "sftp" | "azblob" | "gcs";
   destConfig: JsonObject;
   destSecret: string | null;
   destManaged: boolean;
   preHook: string | null;
   scheduleId: BackupScheduleId | null;
+  verifyAfterBackup: boolean | null;
+  approach: "logical" | "physical";
 }
 
 function toBase(row: ContextRow): ExecutionContextBase {
@@ -117,8 +127,11 @@ function toBase(row: ContextRow): ExecutionContextBase {
     encryption: row.encryption,
     storagePath: row.storagePath,
     checksum: row.checksum,
+    sourceSizeBytes: row.sourceSizeBytes,
     preHook: row.preHook ?? null,
     scheduleId: row.scheduleId,
+    verifyAfterBackup: row.verifyAfterBackup ?? false,
+    approach: row.approach,
     destination: {
       id: row.destId,
       type: row.destType,
@@ -195,6 +208,7 @@ export async function getExecutionContext(backupId: BackupId): Promise<Execution
       encryption: backup.encryption,
       storagePath: backup.storagePath,
       checksum: backup.checksum,
+      sourceSizeBytes: backup.sourceSizeBytes,
       resourceName: resource.name,
       projectId: resource.projectId,
       projectSlug: project.slug,
@@ -210,6 +224,8 @@ export async function getExecutionContext(backupId: BackupId): Promise<Execution
       // Pre-hook lives on the schedule; null for manual (scheduleId null) runs.
       preHook: backupSchedule.preHook,
       scheduleId: backup.scheduleId,
+      verifyAfterBackup: backupSchedule.verifyAfterBackup,
+      approach: backup.approach,
     })
     .from(backup)
     .leftJoin(resource, eq(resource.id, backup.resourceId))

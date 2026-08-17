@@ -23,15 +23,27 @@ import { db } from "@otterdeploy/db";
 import { resource } from "@otterdeploy/db/schema";
 import { withTimeout } from "@otterdeploy/shared/promise";
 
+import { backupSchedulerLiveness } from "../backups/scheduler";
+
 const READINESS_TIMEOUT_MS = 5_000;
 
 export interface ReadinessResult {
   ok: boolean;
   /** Present only on failure: safe to expose, carries no query data. */
   error?: string;
+  /** Backup-scheduler liveness (databasus-style): false when the scheduler
+   *  started but hasn't ticked in 5 minutes. Folded into `ok` because a
+   *  wedged scheduler means backups have silently stopped, and a process
+   *  restart is exactly the remedy the healthcheck can trigger. */
+  backupScheduler?: { healthy: boolean; lastTickAt: string | null };
 }
 
 export async function checkReadiness(): Promise<ReadinessResult> {
+  const scheduler = backupSchedulerLiveness();
+  const backupScheduler = {
+    healthy: scheduler.healthy,
+    lastTickAt: scheduler.lastTickAt?.toISOString() ?? null,
+  };
   try {
     // Async wrapper because a Drizzle builder is a thenable, not a Promise,
     // and crucially it only dispatches when awaited, which must happen INSIDE
@@ -43,8 +55,19 @@ export async function checkReadiness(): Promise<ReadinessResult> {
       READINESS_TIMEOUT_MS,
       "readiness probe query",
     );
-    return { ok: true };
+    if (!scheduler.healthy) {
+      return {
+        ok: false,
+        error: "backup scheduler has not ticked in over 5 minutes",
+        backupScheduler,
+      };
+    }
+    return { ok: true, backupScheduler };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+      backupScheduler,
+    };
   }
 }

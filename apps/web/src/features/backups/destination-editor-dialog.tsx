@@ -183,6 +183,8 @@ function DestinationEditorBody({
                       { id: "s3", label: "S3" },
                       { id: "local", label: "Local disk" },
                       { id: "sftp", label: "SFTP" },
+                      { id: "azblob", label: "Azure Blob" },
+                      { id: "gcs", label: "GCS" },
                     ]}
                   />
                 </Field>

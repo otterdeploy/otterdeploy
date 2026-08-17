@@ -60,6 +60,8 @@ export const ID_PREFIX = {
   backupSchedule: "bsch",
   backupDestination: "bdst",
   backupLog: "blog",
+  backupVerification: "bver",
+  backupRestore: "brst",
   // audit trail
   auditLog: "aud",
   // in-app notifications
@@ -340,6 +342,8 @@ export const idSchema: IdSchemaMap = {
   backupSchedule: zId(ID_PREFIX.backupSchedule),
   backupDestination: zId(ID_PREFIX.backupDestination),
   backupLog: zId(ID_PREFIX.backupLog),
+  backupVerification: zId(ID_PREFIX.backupVerification),
+  backupRestore: zId(ID_PREFIX.backupRestore),
   auditLog: zId(ID_PREFIX.auditLog),
   notification: zId(ID_PREFIX.notification),
   notificationChannel: zId(ID_PREFIX.notificationChannel),

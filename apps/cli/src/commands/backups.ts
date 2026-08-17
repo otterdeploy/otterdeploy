@@ -87,6 +87,10 @@ const runCmd = defineCommand({
   args: {
     database: { type: "positional", required: true, description: "Database name" },
     destination: { type: "string", description: "Destination id (bakdest_…)" },
+    physical: {
+      type: "boolean",
+      description: "pg_basebackup cluster tar instead of a logical dump (postgres only)",
+    },
     config: { type: "string", description: "Path to config file" },
     slug: { type: "string", description: "Project slug (defaults to config)" },
     url: { type: "string", description: "Override control plane URL" },
@@ -122,10 +126,46 @@ const runCmd = defineCommand({
       note(`Using the only destination: ${only.name} ${dim(`(${only.id})`)}.`);
     }
 
-    const result = await client.backups.run({ resourceId, destinationIds: [destinationId] });
-    ok(`Backup queued for ${resourceName}.`);
+    const result = await client.backups.run({
+      resourceId,
+      destinationIds: [destinationId],
+      approach: args.physical ? "physical" : "logical",
+    });
+    ok(`${args.physical ? "Physical backup" : "Backup"} queued for ${resourceName}.`);
     detail([["id", result.ids.map((id) => paint("id", shortId(id))).join(" ")]]);
     hint(`run \`${cmd("backups list")}\` to watch progress`);
+  },
+});
+
+const verifyCmd = defineCommand({
+  meta: {
+    name: "verify",
+    description: "Verify a backup by restoring it into a throwaway container",
+  },
+  args: {
+    backupId: { type: "positional", required: true, description: "Backup id (bak_…, prefix ok)" },
+    url: { type: "string", description: "Override control plane URL" },
+  },
+  async run({ args }) {
+    const { url, token } = await ensureAuthenticated(args.url);
+    const client = createCliClient({ url, token });
+
+    const backups = await client.backups.list({});
+    const matches = backups.filter((b) => b.id.startsWith(args.backupId));
+    const backup =
+      backups.find((b) => b.id === args.backupId) ??
+      (matches.length === 1 ? matches[0] : undefined);
+    if (!backup) {
+      abort(
+        `No backup \`${args.backupId}\` in this organization.`,
+        `run \`${cmd("backups list")}\` to see them`,
+      );
+    }
+
+    const started = await client.backups.verifyRestore({ id: backup.id });
+    ok(`Verification started for ${shortId(backup.id)} (${started.status}).`);
+    note("The snapshot is being restored into a sandbox; this can take a few minutes.");
+    hint(`watch the run's detail drawer in the dashboard, or re-run \`${cmd("backups list")}\``);
   },
 });
 
@@ -268,6 +308,7 @@ export const backupsCommand = defineCommand({
     list: listCmd,
     run: runCmd,
     restore: restoreCmd,
+    verify: verifyCmd,
     destinations: destinationsCmd,
   },
 });

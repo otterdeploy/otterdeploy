@@ -93,6 +93,95 @@ export function shellQuote(s: string): string {
   return `'${s.replace(/'/g, "'\\''")}'`;
 }
 
+/**
+ * Physical backup command: a pg_basebackup tar of the WHOLE cluster streamed
+ * to stdout (postgres only). `--wal-method=fetch` bundles the WAL needed for
+ * a consistent restore into the tar, so the archive is self-contained.
+ * Restores by extracting into a fresh data directory (download, not
+ * in-place); continuous WAL archiving + PITR build on this later.
+ */
+export function physicalDumpCommand(ctx: DumpTarget): {
+  cmd: string[];
+  env: string[];
+  method: string;
+} {
+  if (ctx.engine !== "postgres") {
+    throw new Error(`physical backups are postgres-only (engine "${ctx.engine}")`);
+  }
+  return {
+    cmd: ["pg_basebackup", "--pgdata=-", "--format=tar", "--wal-method=fetch", "-U", ctx.username],
+    env: [`PGPASSWORD=${ctx.password}`],
+    method: "pg_basebackup --format=tar --wal-method=fetch",
+  };
+}
+
+/**
+ * Per-engine in-place restore command, the mirror of `dumpCommand`: reads the
+ * dump format that engine's dump produces from stdin and loads it into the
+ * live database. Same in-container exec model, so credentials stay off the
+ * wire and the restore client matches the server version by construction.
+ */
+export function restoreCommand(ctx: DumpTarget): { cmd: string[]; env: string[]; method: string } {
+  switch (ctx.engine) {
+    case "postgres":
+      return {
+        cmd: [
+          "pg_restore",
+          "--clean",
+          "--if-exists",
+          "--no-owner",
+          "-U",
+          ctx.username,
+          "-d",
+          ctx.databaseName,
+        ],
+        env: [`PGPASSWORD=${ctx.password}`],
+        method: "pg_restore --clean --if-exists",
+      };
+    case "mariadb":
+      // mysqldump emits plain SQL; the mysql client replays it. mariadb images
+      // ship both `mysql` and `mariadb` client names; `mysql` exists on both.
+      return {
+        cmd: ["sh", "-c", `exec mysql -u ${shellQuote(ctx.username)} ${shellQuote(ctx.databaseName)}`],
+        env: [`MYSQL_PWD=${ctx.password}`],
+        method: "mysql < dump.sql",
+      };
+    case "mongodb":
+      return {
+        cmd: [
+          "mongorestore",
+          "--archive",
+          "--drop",
+          `--nsInclude=${ctx.databaseName}.*`,
+          `--username=${ctx.username}`,
+          `--password=${ctx.password}`,
+          "--authenticationDatabase=admin",
+        ],
+        env: [],
+        method: "mongorestore --archive --drop",
+      };
+    case "redis":
+      throw new Error("redis has no dump restore; restore the volume backup instead");
+    default:
+      throw new Error(`in-place restore is not supported for engine "${ctx.engine}"`);
+  }
+}
+
+/** Filesystem the engine's data lives on inside its container, for the
+ *  disk-space preflight before an in-place restore. */
+export function engineDataDir(engine: DatabaseEngine): string {
+  switch (engine) {
+    case "postgres":
+      return "/var/lib/postgresql/data";
+    case "mariadb":
+      return "/var/lib/mysql";
+    case "mongodb":
+      return "/data/db";
+    default:
+      return "/";
+  }
+}
+
 type LogFn = (stream: "stdout" | "stderr" | "system", line: string) => Promise<void>;
 
 /**

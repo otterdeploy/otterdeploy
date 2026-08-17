@@ -193,22 +193,32 @@ function RestoreWizardBody({ backup, onClose }: { backup: Backup; onClose: () =>
               title="Download archive"
               sub="Fetch the decrypted archive to your machine. Nothing on the source changes."
             />
-            <RestoreModeCard
-              id="in-place"
-              current={mode}
-              onSelect={setMode}
-              danger
-              title="Restore in place"
-              sub={
-                isVolume
-                  ? "Replaces the volume's contents with this archive. Refused while any container mounts it. Requires typed-name confirmation."
-                  : "Overwrites the current source with this snapshot. Requires typed-name confirmation."
-              }
-            />
+            {/* A physical base backup restores by extracting into a fresh
+                data directory with the server stopped: the destructive modes
+                are not offered because the server would refuse them anyway. */}
+            {backup.approach === "physical" ? (
+              <p className="rounded-md border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+                This is a physical pg_basebackup cluster tar. Download it and extract into a fresh
+                PostgreSQL data directory; in-place restore doesn't apply.
+              </p>
+            ) : (
+              <RestoreModeCard
+                id="in-place"
+                current={mode}
+                onSelect={setMode}
+                danger
+                title="Restore in place"
+                sub={
+                  isVolume
+                    ? "Replaces the volume's contents with this archive. Refused while any container mounts it. Requires typed-name confirmation."
+                    : "Overwrites the current source with this snapshot. Requires typed-name confirmation."
+                }
+              />
+            )}
             {/* A volume snapshot has no database target, so this is offered
                 only for database backups, and only when the project has
                 another database of the same engine to restore into. */}
-            {!isVolume && targets.length > 0 && (
+            {!isVolume && backup.approach !== "physical" && targets.length > 0 && (
               <>
                 <RestoreModeCard
                   id="into"

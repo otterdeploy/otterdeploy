@@ -189,6 +189,19 @@ export function currentKeyId(): string {
   return CURRENT_KEY_ID;
 }
 
+/**
+ * Keyring master secrets ordered CURRENT-FIRST (the id new encryptions use,
+ * then every other configured id). Consumers that derive deterministic
+ * passwords from master material (the rustic repo passwords in
+ * backups/rustic.ts) use this to open repos keyed under a previous secret and
+ * migrate them forward — the missing rotation path for `BETTER_AUTH_SECRET`.
+ * Secrets, handle with the same care as the keyring itself.
+ */
+export function masterSecretCandidates(): string[] {
+  const ordered = [keyring.get(CURRENT_KEY_ID), ...keyring.values()];
+  return [...new Set(ordered.filter((s): s is string => s != null))];
+}
+
 // ── Key derivation ──────────────────────────────────────────────────────
 
 const derivedKeyCache = new Map<string, CryptoKey>();

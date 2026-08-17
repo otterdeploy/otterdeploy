@@ -13,6 +13,8 @@ import type { JsonObject } from "@otterdeploy/shared/json";
 
 import { Result } from "better-result";
 
+import { decryptDestinationSecret, probeDestination } from "./destination-probe";
+
 import type { OrgRef } from "../scopes";
 import type { DestinationResult } from "./service";
 
@@ -20,7 +22,7 @@ import {
   canDisableManagedDestination,
   ensureManagedLocalDestination,
 } from "../../backups/managed-destination";
-import { decryptSecret, encryptSecret } from "../../lib/crypto";
+import { encryptSecret } from "../../lib/crypto";
 import { missingConfigKeys, missingSecret } from "./destination-config";
 import {
   DestinationConfigInvalidError,
@@ -42,7 +44,7 @@ import {
   updateDestinationRecord,
 } from "./queries";
 
-type DestinationType = "s3" | "local" | "sftp";
+type DestinationType = "s3" | "local" | "sftp" | "azblob" | "gcs";
 
 /**
  * List the org's destinations, provisioning the managed local one first.
@@ -239,11 +241,12 @@ export async function deleteDestination(
 }
 
 /**
- * Validates a stored destination credential: required config keys are present
- * and the encrypted secret decrypts cleanly. A failed validation is a typed
- * error (`DestinationTestFailedError`), not a success payload. This is a
- * structural check, not a live connectivity probe. Real head-bucket/list
- * lands with the execution engine once an S3 client exists.
+ * Live destination test: after the structural checks (required config keys
+ * present, secret decrypts), perform a REAL write-read round trip against the
+ * backend by initializing (or re-checking) a tiny reserved probe repository
+ * with the destination's actual credentials. `init` writes real objects,
+ * `check` reads them back, so a green test means "a backup written here can
+ * be read back", not merely "the form was filled in".
  */
 export async function testDestination(
   input: OrgRef & { id: BackupDestinationId },
@@ -266,9 +269,9 @@ export async function testDestination(
     );
   }
 
-  // `local` needs no secret; s3/sftp must carry decryptable creds.
+  // `local` needs no secret; every other backend must carry decryptable creds.
+  let secret: Record<string, string> = {};
   if (row.type !== "local") {
-    // Hoisted so the narrowing survives into the `try` closure below.
     const encryptedSecret = row.encryptedSecret;
     if (!encryptedSecret) {
       return Result.err(
@@ -278,10 +281,7 @@ export async function testDestination(
         }),
       );
     }
-    const decrypted = await Result.tryPromise({
-      try: () => decryptSecret(encryptedSecret),
-      catch: (cause) => (cause instanceof Error ? cause : new Error("decrypt")),
-    });
+    const decrypted = await decryptDestinationSecret(encryptedSecret);
     if (Result.isError(decrypted)) {
       return Result.err(
         new DestinationTestFailedError({
@@ -290,9 +290,30 @@ export async function testDestination(
         }),
       );
     }
+    secret = decrypted.value;
+  }
+
+  const guard = await getDestinationGuardFields({
+    organizationId: input.organizationId,
+    id: input.id,
+  });
+  const probed = await probeDestination({
+    organizationId: input.organizationId,
+    type: row.type,
+    config: row.config,
+    secret,
+    managed: guard?.managed ?? false,
+  });
+  if (Result.isError(probed)) {
+    return Result.err(
+      new DestinationTestFailedError({
+        destinationId: input.id,
+        reason: `Live probe failed: ${probed.error.message.slice(0, 500)}`,
+      }),
+    );
   }
 
   return Result.ok({
-    message: "Destination credential is valid (structural check).",
+    message: "Destination verified: wrote a probe repository and read it back.",
   });
 }

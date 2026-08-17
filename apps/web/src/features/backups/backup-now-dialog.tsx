@@ -63,6 +63,7 @@ function emptyRun(resourceId: string | undefined): {
   volumeName: string;
   destinationIds: string[];
   encrypted: boolean;
+  physical: boolean;
 } {
   return {
     sourceKind: "database",
@@ -70,6 +71,7 @@ function emptyRun(resourceId: string | undefined): {
     volumeName: "",
     destinationIds: [],
     encrypted: true,
+    physical: false,
   };
 }
 
@@ -96,6 +98,7 @@ function BackupNowBody({
             : { resourceId: value.resourceId }),
           destinationIds: value.destinationIds,
           encryption: value.encrypted ? "aes-256-gcm" : "none",
+          approach: value.sourceKind === "database" && value.physical ? "physical" : "logical",
         });
         toast.success(
           value.destinationIds.length > 1
@@ -153,17 +156,49 @@ function BackupNowBody({
           ) : null}
 
           {sourceKind === "database" ? (
-            <form.Field name="resourceId">
-              {(field) => (
-                <Field label="Database">
-                  <DatabaseCombobox
-                    databases={databases}
-                    value={field.state.value}
-                    onChange={field.handleChange}
-                  />
-                </Field>
-              )}
-            </form.Field>
+            <>
+              <form.Field name="resourceId">
+                {(field) => (
+                  <Field label="Database">
+                    <DatabaseCombobox
+                      databases={databases}
+                      value={field.state.value}
+                      onChange={field.handleChange}
+                    />
+                  </Field>
+                )}
+              </form.Field>
+              {/* Physical (pg_basebackup) is a postgres-only capability: a
+                  whole-cluster tar for disaster recovery. Offered only when
+                  the chosen database is actually postgres, so the option can
+                  never fail on engine grounds. */}
+              <form.Subscribe selector={(s) => s.values.resourceId}>
+                {(resourceId) =>
+                  databases.find((d) => d.resourceId === resourceId)?.engine === "postgres" ? (
+                    <form.Field name="physical">
+                      {(field) => (
+                        <Field label="Method">
+                          <Segmented
+                            value={field.state.value ? "physical" : "logical"}
+                            onChange={(v) => field.handleChange(v === "physical")}
+                            options={[
+                              { id: "logical", label: "Logical dump" },
+                              { id: "physical", label: "Physical (pg_basebackup)" },
+                            ]}
+                          />
+                          {field.state.value && (
+                            <p className="text-[11px] text-muted-foreground">
+                              Whole-cluster tar for disaster recovery. Restores by extracting into
+                              a fresh data directory (download only, no in-place restore).
+                            </p>
+                          )}
+                        </Field>
+                      )}
+                    </form.Field>
+                  ) : null
+                }
+              </form.Subscribe>
+            </>
           ) : (
             <form.Field name="volumeName">
               {(field) => (

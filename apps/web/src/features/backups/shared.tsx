@@ -99,42 +99,6 @@ export function downloadBase64(data: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export function cronHuman(cron: string): string {
-  switch (cron) {
-    case "0 * * * *":
-      return "Every hour on the hour";
-    case "0 3 * * *":
-      return "Every day at 03:00 UTC";
-    case "0 4 * * 0":
-      return "Every Sunday at 04:00 UTC";
-    case "0 2 1 * *":
-      return "Monthly on the 1st at 02:00 UTC";
-    default:
-      return cron;
-  }
-}
-
-/** Human retention summary from a schedule's GFS tiers + age/storage caps. */
-export function retentionLabel(s: {
-  keepDaily: number;
-  keepWeekly: number;
-  keepMonthly: number;
-  keepYearly: number;
-  retentionDays: number | null;
-  maxStorageGb: number | null;
-}): string {
-  const tiers: string[] = [];
-  if (s.keepDaily) tiers.push(`${s.keepDaily}d`);
-  if (s.keepWeekly) tiers.push(`${s.keepWeekly}w`);
-  if (s.keepMonthly) tiers.push(`${s.keepMonthly}mo`);
-  if (s.keepYearly) tiers.push(`${s.keepYearly}y`);
-  const parts: string[] = [];
-  if (tiers.length) parts.push(`keep ${tiers.join("/")}`);
-  if (s.retentionDays) parts.push(`${s.retentionDays}d max age`);
-  if (s.maxStorageGb) parts.push(`${s.maxStorageGb}GB cap`);
-  return parts.length ? parts.join(" · ") : "No retention policy";
-}
-
 // Config values are typed `unknown` (jsonb); coerce only scalars to a string.
 function cfgStr(v: unknown): string {
   return typeof v === "string" || typeof v === "number" ? String(v) : "";
@@ -145,6 +109,8 @@ export function destUri(d: Destination): string {
   const cfg = d.config ?? {};
   if (d.type === "s3") return `s3://${cfgStr(cfg.bucket) || cfgStr(cfg.endpoint)}`;
   if (d.type === "local") return cfgStr(cfg.path) || "/var/backups/otterdeploy";
+  if (d.type === "azblob") return `azblob://${cfgStr(cfg.container)}`;
+  if (d.type === "gcs") return `gs://${cfgStr(cfg.bucket)}`;
   return cfgStr(cfg.endpoint) || cfgStr(cfg.host);
 }
 
@@ -152,6 +118,8 @@ export function destSub(d: Destination): string {
   const cfg = d.config ?? {};
   if (d.type === "s3") return cfgStr(cfg.region) || "S3-compatible";
   if (d.type === "local") return "Manager node";
+  if (d.type === "azblob") return "Azure Blob Storage";
+  if (d.type === "gcs") return "Google Cloud Storage";
   return "SFTP";
 }
 
@@ -164,7 +132,7 @@ export function kindIcon(k: BackupKind) {
 }
 
 export function destIcon(k: DestinationKind) {
-  if (k === "s3") return CloudServerIcon;
+  if (k === "s3" || k === "azblob" || k === "gcs") return CloudServerIcon;
   if (k === "sftp") return Upload01Icon;
   return ServerStack01Icon;
 }
@@ -213,6 +181,29 @@ export function StatusBadge({
     >
       <span className="size-1.5 rounded-full bg-current" />
       {children ?? status}
+    </Badge>
+  );
+}
+
+/**
+ * Restore-proving verification badge for a run. `passed` means the snapshot
+ * was actually restored into a sandbox and inspected, so it earns a distinct
+ * mark from plain run status. `none` renders nothing: absence of verification
+ * is the default, not a warning.
+ */
+export function VerifiedBadge({ status }: { status: Backup["verifiedStatus"] }) {
+  if (status === "none") return null;
+  const tone =
+    status === "passed"
+      ? "border-success/30 bg-success/10 text-success"
+      : status === "failed"
+        ? "border-destructive/30 bg-destructive/10 text-destructive"
+        : "border-info/30 bg-info/10 text-info";
+  const label = status === "passed" ? "verified" : status === "failed" ? "verify failed" : "verifying";
+  return (
+    <Badge variant="outline" className={cn("gap-1 font-mono text-[10px]", tone)}>
+      <span className="size-1.5 rounded-full bg-current" />
+      {label}
     </Badge>
   );
 }

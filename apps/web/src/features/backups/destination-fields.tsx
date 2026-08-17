@@ -26,7 +26,7 @@ export const DEST_TYPE_FIELDS: Record<
       half?: boolean;
       required?: boolean;
     }[];
-    secret: { key: string; label: string }[];
+    secret: { key: string; label: string; multiline?: boolean }[];
   }
 > = {
   s3: {
@@ -58,7 +58,36 @@ export const DEST_TYPE_FIELDS: Record<
       { key: "username", label: "Username", required: true },
       { key: "path", label: "Remote path", placeholder: "/backups" },
     ],
-    secret: [{ key: "password", label: "Password" }],
+    // Key-auth only: the rustic SFTP backend cannot authenticate with a
+    // password, and the server rejects password-only destinations up front.
+    // Offering a password field here produced destinations that could never
+    // work.
+    secret: [{ key: "privateKey", label: "SSH private key (PEM)", multiline: true }],
+  },
+  azblob: {
+    config: [
+      { key: "container", label: "Container", half: true, required: true },
+      { key: "accountName", label: "Storage account", half: true },
+      {
+        key: "endpoint",
+        label: "Endpoint (optional)",
+        placeholder: "https://account.blob.core.windows.net",
+      },
+      { key: "prefix", label: "Prefix (optional)", placeholder: "backups/" },
+    ],
+    secret: [
+      { key: "accountName", label: "Storage account name" },
+      { key: "accountKey", label: "Account key" },
+    ],
+  },
+  gcs: {
+    config: [
+      { key: "bucket", label: "Bucket", required: true },
+      { key: "prefix", label: "Prefix (optional)", placeholder: "backups/" },
+    ],
+    secret: [
+      { key: "credential", label: "Service-account JSON (base64)", multiline: true },
+    ],
   },
 };
 
@@ -142,15 +171,30 @@ export function DestinationTypeFields({
               ? "Leave blank to keep the stored credential"
               : "Encrypted at rest (AES-256 GCM)"}
           </div>
-          {fields.secret.map((f) => (
-            <Field key={f.key} label={f.label}>
-              <Input
-                type="password"
-                value={secret[f.key] ?? ""}
-                onChange={(e) => onSecret({ ...secret, [f.key]: e.target.value })}
-              />
-            </Field>
-          ))}
+          {fields.secret.map((f) =>
+            f.multiline ? (
+              // Multiline material (PEM keys, service-account JSON): a
+              // password input strips newlines on paste and silently corrupts
+              // the credential, so these get a real textarea.
+              <Field key={f.key} label={f.label}>
+                <textarea
+                  value={secret[f.key] ?? ""}
+                  rows={4}
+                  spellCheck={false}
+                  className="rounded-md border bg-background px-3 py-2 font-mono text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  onChange={(e) => onSecret({ ...secret, [f.key]: e.target.value })}
+                />
+              </Field>
+            ) : (
+              <Field key={f.key} label={f.label}>
+                <Input
+                  type="password"
+                  value={secret[f.key] ?? ""}
+                  onChange={(e) => onSecret({ ...secret, [f.key]: e.target.value })}
+                />
+              </Field>
+            ),
+          )}
         </div>
       )}
     </>

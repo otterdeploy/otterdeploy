@@ -8,6 +8,9 @@ import {
   executeBackup,
   getDatabaseResourceInOrg,
   listBackupLogs,
+  listRestores,
+  listVerifications,
+  requestBackupVerification,
   restoreBackup,
   verifyBackup,
 } from "../../backups";
@@ -75,6 +78,7 @@ export const backupsRouter = {
           destinationId,
           encryption: input.encryption,
           method: "manual",
+          approach: input.approach,
         });
         ids.push(id);
         // Run detached. Status + logs are observable via get/logs.
@@ -99,6 +103,65 @@ export const backupsRouter = {
       });
     }
     return verifyBackup(input.id);
+  }),
+
+  // Restore-proving verification (sandbox restore), detached: RBAC: backup:run
+  // (it exercises the same engine surface as a run, not a restore of live data).
+  verifyRestore: requirePermission({ backup: ["run"] }).backups.verifyRestore.handler(
+    async ({ input, context, errors }) => {
+      context.log.set({ target: { type: "backup", id: input.id } });
+      await enforceBackupScope(context, input.id);
+      const found = await getBackup({
+        id: input.id,
+        organizationId: context.activeOrganizationId,
+      });
+      if (found.isErr()) {
+        throw matchError(found.error, {
+          BackupNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
+      const requested = await requestBackupVerification(input.id, "manual");
+      if (requested.isErr()) {
+        throw matchError(requested.error, {
+          BackupContextMissingError: () => errors.NOT_FOUND(),
+          VerificationUnsupportedError: (e) =>
+            errors.UNSUPPORTED({ data: { reason: e.message } }),
+        });
+      }
+      return { verificationId: requested.value, status: "queued" };
+    },
+  ),
+
+  // Verification history for a run, newest first. Read-only, org-scoped.
+  verifications: orgScopedProcedure.backups.verifications.handler(
+    async ({ input, context, errors }) => {
+      await enforceBackupScope(context, input.id);
+      const found = await getBackup({
+        id: input.id,
+        organizationId: context.activeOrganizationId,
+      });
+      if (found.isErr()) {
+        throw matchError(found.error, {
+          BackupNotFoundError: () => errors.NOT_FOUND(),
+        });
+      }
+      return listVerifications(input.id);
+    },
+  ),
+
+  // Restore history for a run, newest first. Read-only, org-scoped.
+  restores: orgScopedProcedure.backups.restores.handler(async ({ input, context, errors }) => {
+    await enforceBackupScope(context, input.id);
+    const found = await getBackup({
+      id: input.id,
+      organizationId: context.activeOrganizationId,
+    });
+    if (found.isErr()) {
+      throw matchError(found.error, {
+        BackupNotFoundError: () => errors.NOT_FOUND(),
+      });
+    }
+    return listRestores(input.id);
   }),
 
   // Restore a succeeded backup: RBAC: backup:restore.

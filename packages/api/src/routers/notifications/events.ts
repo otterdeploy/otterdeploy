@@ -27,6 +27,8 @@ const PLATFORM_EVENTS: readonly PlatformEventDef[] = [
   { id: "backup.failed", label: "Backup failed", severity: "err" },
   { id: "backup.succeeded", label: "Backup succeeded", severity: "ok" },
   { id: "backup.orphaned", label: "Backup schedule orphaned", severity: "warn" },
+  { id: "backup.overdue", label: "Backups overdue", severity: "warn" },
+  { id: "backup.verify-failed", label: "Backup verification failed", severity: "err" },
   { id: "ssh.rotated", label: "SSH key rotated", severity: "info" },
   { id: "audit.anomaly", label: "Audit anomaly", severity: "warn" },
   { id: "edge.probe", label: "Suspicious edge traffic", severity: "warn" },

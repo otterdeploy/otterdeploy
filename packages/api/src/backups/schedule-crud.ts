@@ -12,6 +12,7 @@ import type {
 
 import { db } from "@otterdeploy/db";
 import { backupSchedule } from "@otterdeploy/db/schema";
+import { omitUndefined } from "@otterdeploy/shared/object";
 import { and, eq } from "drizzle-orm";
 
 export async function createScheduleRecord(input: {
@@ -21,6 +22,8 @@ export async function createScheduleRecord(input: {
   cron: string;
   destinationIds: BackupDestinationId[];
   projectId?: ProjectId | null;
+  keepLast: number;
+  keepHourly: number;
   keepDaily: number;
   keepWeekly: number;
   keepMonthly: number;
@@ -30,6 +33,9 @@ export async function createScheduleRecord(input: {
   preHook: string | null;
   encryption: "none" | "aes-256-gcm";
   enabled: boolean;
+  maxRetries: number;
+  verifyAfterBackup: boolean;
+  overdueAfterHours: number | null;
 }): Promise<typeof backupSchedule.$inferSelect> {
   const [row] = await db
     .insert(backupSchedule)
@@ -40,6 +46,8 @@ export async function createScheduleRecord(input: {
       cron: input.cron,
       destinationIds: input.destinationIds,
       projectId: input.projectId ?? null,
+      keepLast: input.keepLast,
+      keepHourly: input.keepHourly,
       keepDaily: input.keepDaily,
       keepWeekly: input.keepWeekly,
       keepMonthly: input.keepMonthly,
@@ -49,6 +57,9 @@ export async function createScheduleRecord(input: {
       preHook: input.preHook,
       encryption: input.encryption,
       enabled: input.enabled,
+      maxRetries: input.maxRetries,
+      verifyAfterBackup: input.verifyAfterBackup,
+      overdueAfterHours: input.overdueAfterHours,
     })
     .returning();
   if (!row) throw new Error("createScheduleRecord: insert returned no rows");
@@ -61,6 +72,8 @@ export async function updateScheduleRecord(input: {
   name?: string;
   sources?: string[];
   cron?: string;
+  keepLast?: number;
+  keepHourly?: number;
   keepDaily?: number;
   keepWeekly?: number;
   keepMonthly?: number;
@@ -69,23 +82,30 @@ export async function updateScheduleRecord(input: {
   maxStorageGb?: number | null;
   preHook?: string | null;
   enabled?: boolean;
+  maxRetries?: number;
+  verifyAfterBackup?: boolean;
+  overdueAfterHours?: number | null;
 }): Promise<typeof backupSchedule.$inferSelect | null> {
-  const patch: Partial<typeof backupSchedule.$inferInsert> = {};
-  if (input.name !== undefined) patch.name = input.name;
-  if (input.sources !== undefined) patch.sources = input.sources;
-  if (input.cron !== undefined) {
-    patch.cron = input.cron;
-    // Recompute on next tick.
-    patch.nextRunAt = null;
-  }
-  if (input.keepDaily !== undefined) patch.keepDaily = input.keepDaily;
-  if (input.keepWeekly !== undefined) patch.keepWeekly = input.keepWeekly;
-  if (input.keepMonthly !== undefined) patch.keepMonthly = input.keepMonthly;
-  if (input.keepYearly !== undefined) patch.keepYearly = input.keepYearly;
-  if (input.retentionDays !== undefined) patch.retentionDays = input.retentionDays;
-  if (input.maxStorageGb !== undefined) patch.maxStorageGb = input.maxStorageGb;
-  if (input.preHook !== undefined) patch.preHook = input.preHook;
-  if (input.enabled !== undefined) patch.enabled = input.enabled;
+  const patch: Partial<typeof backupSchedule.$inferInsert> = omitUndefined({
+    name: input.name,
+    sources: input.sources,
+    cron: input.cron,
+    keepLast: input.keepLast,
+    keepHourly: input.keepHourly,
+    keepDaily: input.keepDaily,
+    keepWeekly: input.keepWeekly,
+    keepMonthly: input.keepMonthly,
+    keepYearly: input.keepYearly,
+    retentionDays: input.retentionDays,
+    maxStorageGb: input.maxStorageGb,
+    preHook: input.preHook,
+    enabled: input.enabled,
+    maxRetries: input.maxRetries,
+    verifyAfterBackup: input.verifyAfterBackup,
+    overdueAfterHours: input.overdueAfterHours,
+  });
+  // An edited cron recomputes its fire time on the next tick.
+  if (input.cron !== undefined) patch.nextRunAt = null;
 
   const [row] = await db
     .update(backupSchedule)

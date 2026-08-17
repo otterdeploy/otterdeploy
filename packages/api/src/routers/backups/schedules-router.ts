@@ -28,6 +28,8 @@ export const backupSchedulesRouter = {
         cron: input.cron,
         destinationIds: input.destinationIds,
         projectId: input.projectId ?? null,
+        keepLast: input.keepLast,
+        keepHourly: input.keepHourly,
         keepDaily: input.keepDaily,
         keepWeekly: input.keepWeekly,
         keepMonthly: input.keepMonthly,
@@ -37,6 +39,9 @@ export const backupSchedulesRouter = {
         preHook: input.preHook,
         encryption: input.encryption,
         enabled: input.enabled,
+        maxRetries: input.maxRetries,
+        verifyAfterBackup: input.verifyAfterBackup,
+        overdueAfterHours: input.overdueAfterHours,
       });
       context.log.set({ target: { type: "backup_schedule", id: row.id } });
       const [destinationNames, resolution] = await Promise.all([
@@ -64,6 +69,8 @@ export const backupSchedulesRouter = {
         name: input.name,
         sources: input.sources,
         cron: input.cron,
+        keepLast: input.keepLast,
+        keepHourly: input.keepHourly,
         keepDaily: input.keepDaily,
         keepWeekly: input.keepWeekly,
         keepMonthly: input.keepMonthly,
@@ -72,6 +79,9 @@ export const backupSchedulesRouter = {
         maxStorageGb: input.maxStorageGb,
         preHook: input.preHook,
         enabled: input.enabled,
+        maxRetries: input.maxRetries,
+        verifyAfterBackup: input.verifyAfterBackup,
+        overdueAfterHours: input.overdueAfterHours,
       });
       if (!row) throw errors.NOT_FOUND();
       const [destinationNames, resolution] = await Promise.all([

@@ -25,8 +25,9 @@ import type { JsonObject } from "@otterdeploy/shared/json";
 
 import { volumeArchiveScope } from "./volume";
 
-/** Supported backup destination backends. */
-export type DestinationType = "s3" | "local" | "sftp";
+/** Supported backup destination backends. `azblob` (Azure Blob) and `gcs`
+ *  (Google Cloud Storage) ride the same OpenDAL layer as s3/sftp. */
+export type DestinationType = "s3" | "local" | "sftp" | "azblob" | "gcs";
 
 /**
  * A backup destination with its secret already decrypted — the input every
@@ -118,6 +119,25 @@ export function deriveRepoKey(ctx: RepoIdSource): RepoKey {
   return { repoId, passwordDomain: repoId };
 }
 
+/**
+ * Repo key for the destination's live-probe repository (the "Test" button):
+ * a real rustic repo at a reserved `.probe` scope, so a test performs a
+ * genuine write-read round trip (init writes config/keys, check reads them
+ * back) against the actual backend with the actual credentials. A few KB,
+ * idempotent, reused by subsequent tests.
+ */
+export function deriveProbeRepoKey(
+  organizationId: string,
+  destination: { config: JsonObject; managed: boolean },
+): RepoKey {
+  return deriveRepoKey({
+    kind: "volume",
+    volumeName: ".probe",
+    organizationId,
+    destination,
+  });
+}
+
 function localRepo(dest: ResolvedDestination, key: RepoKey): RusticRepo {
   const path = str(dest.config.path);
   if (!path) throw new Error("local destination missing `path`");
@@ -168,6 +188,39 @@ function sftpRepo(dest: ResolvedDestination, key: RepoKey): RusticRepo {
   };
 }
 
+function azblobRepo(dest: ResolvedDestination, key: RepoKey): RusticRepo {
+  const container = str(dest.config.container);
+  if (!container) throw new Error("azblob destination missing `container`");
+  const accountName = str(dest.secret.accountName) ?? str(dest.config.accountName);
+  const accountKey = str(dest.secret.accountKey);
+  if (!accountName || !accountKey) {
+    throw new Error("azblob destination missing credentials (accountName + accountKey)");
+  }
+  const options: Record<string, string> = {
+    container,
+    root: key.repoId,
+    account_name: accountName,
+    account_key: accountKey,
+    // OpenDAL azblob requires an endpoint; default to the account's public one.
+    endpoint: str(dest.config.endpoint) ?? `https://${accountName}.blob.core.windows.net`,
+  };
+  return { ...key, repository: "opendal:azblob", options };
+}
+
+function gcsRepo(dest: ResolvedDestination, key: RepoKey): RusticRepo {
+  const bucket = str(dest.config.bucket);
+  if (!bucket) throw new Error("gcs destination missing `bucket`");
+  // Base64-encoded service-account JSON (OpenDAL's `credential` option).
+  const credential = str(dest.secret.credential);
+  if (!credential) {
+    throw new Error("gcs destination missing `credential` (base64 service-account JSON)");
+  }
+  const options: Record<string, string> = { bucket, root: key.repoId, credential };
+  const endpoint = str(dest.config.endpoint);
+  if (endpoint) options.endpoint = endpoint;
+  return { ...key, repository: "opendal:gcs", options };
+}
+
 /**
  * Map a resolved destination + repo key to the rustic repository URL and OpenDAL
  * options. Throws with an actionable message when required config/creds are
@@ -181,5 +234,9 @@ export function toRusticRepo(dest: ResolvedDestination, key: RepoKey): RusticRep
       return s3Repo(dest, key);
     case "sftp":
       return sftpRepo(dest, key);
+    case "azblob":
+      return azblobRepo(dest, key);
+    case "gcs":
+      return gcsRepo(dest, key);
   }
 }

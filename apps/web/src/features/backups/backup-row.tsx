@@ -23,6 +23,7 @@ import { restoreBackup } from "./data/backups";
 import {
   StatusBadge,
   ProjectTagBadge,
+  VerifiedBadge,
   absTime,
   backupWhen,
   destIcon,
@@ -131,7 +132,10 @@ export function BackupRow({
             ) : (
               <span className="font-mono text-[11px] text-muted-foreground">–</span>
             )}
-            <StatusBadge status={b.status} />
+            <span className="flex flex-wrap items-center gap-1">
+              <StatusBadge status={b.status} />
+              <VerifiedBadge status={b.verifiedStatus} />
+            </span>
           </span>
           <span
             className="flex items-center justify-end gap-0.5"

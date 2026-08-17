@@ -15,6 +15,8 @@ import { ID_PREFIX, zId } from "@otterdeploy/shared/id";
 import { createSelectSchema } from "drizzle-zod";
 import * as z from "zod";
 
+import { validateCron } from "../../lib/cron";
+
 import { zJsonObject } from "../../lib/z-json";
 import { projectIdField, resourceIdField } from "../project/contract/shared";
 import { volumeNameField } from "../volumes/contract";
@@ -25,11 +27,25 @@ const basePath = "/backups";
 const backupIdField = zId(ID_PREFIX.backup);
 const backupScheduleIdField = zId(ID_PREFIX.backupSchedule);
 const backupDestinationIdField = zId(ID_PREFIX.backupDestination);
+const backupVerificationIdField = zId(ID_PREFIX.backupVerification);
+const backupRestoreIdField = zId(ID_PREFIX.backupRestore);
+
+/** Cron expressions are validated at the boundary — an unparseable expression
+ *  would otherwise be accepted, silently null the schedule's nextRunAt, and
+ *  dead-end it forever with a green-looking row. Same native parser
+ *  (Bun.cron) the scheduler fires with, so valid-here always means
+ *  fires-there, and the error carries Bun's field-level reason. */
+const cronField = z.string().min(1).check((ctx) => {
+  const valid = validateCron(ctx.value);
+  if (valid.isErr()) {
+    ctx.issues.push({ code: "custom", message: valid.error.message, input: ctx.value });
+  }
+});
 
 // "stack" exists only as a reserved DB-enum value with no engine. It is
 // deliberately NOT offered here (or in the UI filter).
 const backupKind = z.enum(["database", "volume"]);
-const destinationType = z.enum(["s3", "local", "sftp"]);
+const destinationType = z.enum(["s3", "local", "sftp", "azblob", "gcs"]);
 
 // ─── Output schemas ────────────────────────────────────────────────────
 
@@ -165,9 +181,14 @@ const runBackupInput = z
     // One dump fanned out to every destination: one backup record per id.
     destinationIds: z.array(backupDestinationIdField).min(1),
     encryption: z.enum(["none", "aes-256-gcm"]).default("aes-256-gcm"),
+    // `physical` = pg_basebackup cluster tar (postgres databases only).
+    approach: z.enum(["logical", "physical"]).default("logical"),
   })
   .refine((v) => (v.resourceId != null) !== (v.volumeName != null), {
     message: "Provide exactly one of resourceId or volumeName",
+  })
+  .refine((v) => v.approach !== "physical" || v.resourceId != null, {
+    message: "Physical backups apply to database resources, not volumes",
   });
 
 const restoreBackupInput = z.object({
@@ -198,10 +219,12 @@ const backupLogLineSchema = z.object({
 const createScheduleInput = z.object({
   name: z.string().min(1).max(120),
   sources: z.array(z.string()).default([]),
-  cron: z.string().min(1),
+  cron: cronField,
   destinationIds: z.array(backupDestinationIdField).min(1),
   projectId: projectIdField.optional(),
   // GFS retention tiers: keep the most recent archive per bucket up to N.
+  keepLast: z.number().int().nonnegative().default(0),
+  keepHourly: z.number().int().nonnegative().default(0),
   keepDaily: z.number().int().nonnegative().default(0),
   keepWeekly: z.number().int().nonnegative().default(0),
   keepMonthly: z.number().int().nonnegative().default(0),
@@ -211,13 +234,20 @@ const createScheduleInput = z.object({
   preHook: z.string().max(2000).nullable().default(null),
   encryption: z.enum(["none", "aes-256-gcm"]).default("aes-256-gcm"),
   enabled: z.boolean().default(true),
+  // Failure handling + trust: bounded retry, restore-proving verification,
+  // and the overdue-alert threshold (null = derive from the cron cadence).
+  maxRetries: z.number().int().min(0).max(5).default(0),
+  verifyAfterBackup: z.boolean().default(false),
+  overdueAfterHours: z.number().int().positive().nullable().default(null),
 });
 
 const updateScheduleInput = z.object({
   id: backupScheduleIdField,
   name: z.string().min(1).max(120).optional(),
   sources: z.array(z.string()).optional(),
-  cron: z.string().min(1).optional(),
+  cron: cronField.optional(),
+  keepLast: z.number().int().nonnegative().optional(),
+  keepHourly: z.number().int().nonnegative().optional(),
   keepDaily: z.number().int().nonnegative().optional(),
   keepWeekly: z.number().int().nonnegative().optional(),
   keepMonthly: z.number().int().nonnegative().optional(),
@@ -226,6 +256,9 @@ const updateScheduleInput = z.object({
   maxStorageGb: z.number().int().positive().nullable().optional(),
   preHook: z.string().max(2000).nullable().optional(),
   enabled: z.boolean().optional(),
+  maxRetries: z.number().int().min(0).max(5).optional(),
+  verifyAfterBackup: z.boolean().optional(),
+  overdueAfterHours: z.number().int().positive().nullable().optional(),
 });
 
 const scheduleIdInput = z.object({ id: backupScheduleIdField });
@@ -251,6 +284,44 @@ const backupRunNotFound = {
   INVALID: {
     status: 422 as const,
     message: "Source is not a backupable database or volume" as const,
+  },
+};
+
+// ─── Restore-proving verification + restore history ─────────────────────
+
+const verificationRowSchema = z.object({
+  id: backupVerificationIdField,
+  backupId: backupIdField,
+  status: z.enum(["queued", "running", "passed", "failed"]),
+  trigger: z.enum(["manual", "after-backup"]),
+  checks: zJsonObject.nullable(),
+  failMessage: z.string().nullable(),
+  durationMs: z.number().nullable(),
+  startedAt: z.date().nullable(),
+  completedAt: z.date().nullable(),
+  createdAt: z.date(),
+});
+
+const restoreRowSchema = z.object({
+  id: backupRestoreIdField,
+  backupId: backupIdField,
+  mode: z.enum(["download", "in-place"]),
+  targetResourceId: resourceIdField.nullable(),
+  status: z.enum(["running", "succeeded", "failed"]),
+  errorMessage: z.string().nullable(),
+  durationMs: z.number().nullable(),
+  startedAt: z.date(),
+  completedAt: z.date().nullable(),
+});
+
+/** A verification request against a run it can't prove (volume tar, non-pg
+ *  engine, never-succeeded run): a 422 naming the reason, not a fake failure. */
+const verifyRestoreErrors = {
+  ...backupNotFound,
+  UNSUPPORTED: {
+    status: 422 as const,
+    message: "This backup cannot be restore-verified" as const,
+    data: z.object({ reason: z.string() }),
   },
 };
 
@@ -307,6 +378,28 @@ export const backupsContract = {
     .meta({ path: `${basePath}/{id}/verify`, tag, method: "POST" })
     .input(getBackupInput)
     .output(verifyResultSchema),
+
+  // Start a restore-proving verification (sandbox restore) detached; poll
+  // `verifications` for the outcome.
+  verifyRestore: oc
+    .errors(verifyRestoreErrors)
+    .meta({ path: `${basePath}/{id}/verify-restore`, tag, method: "POST" })
+    .input(getBackupInput)
+    .output(z.object({ verificationId: backupVerificationIdField, status: z.string() })),
+
+  // Verification history for a run, newest first.
+  verifications: oc
+    .errors(backupNotFound)
+    .meta({ path: `${basePath}/{id}/verifications`, tag, method: "GET" })
+    .input(getBackupInput)
+    .output(z.array(verificationRowSchema)),
+
+  // Restore history for a run, newest first.
+  restores: oc
+    .errors(backupNotFound)
+    .meta({ path: `${basePath}/{id}/restores`, tag, method: "GET" })
+    .input(getBackupInput)
+    .output(z.array(restoreRowSchema)),
 
   // Paginated per-run log lines (cursor = afterSeq).
   logs: oc

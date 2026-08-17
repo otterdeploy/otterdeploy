@@ -2,6 +2,11 @@
  * Form state for the schedule editor: typed values, defaults, the optimistic
  * create/update mutation, and the `useScheduleForm` hook. No JSX. The field
  * layout lives in `./schedule-fields`.
+ *
+ * Cadence is preset-first: hourly/daily/weekly/monthly presets carry real
+ * time-of-day / weekday / day-of-month knobs and compile to cron; `custom`
+ * exposes the raw expression (validated server-side by the same parser the
+ * scheduler fires with, so a saved schedule always actually fires).
  */
 import { ID_PREFIX, createId, idSchema } from "@otterdeploy/shared/id";
 import { useForm } from "@tanstack/react-form";
@@ -14,24 +19,65 @@ import { schedulesCollection } from "./data/schedules";
 
 export type CronPreset = "hourly" | "daily" | "weekly" | "monthly" | "custom";
 
-export const PRESET_CRON: Record<Exclude<CronPreset, "custom">, string> = {
-  hourly: "0 * * * *",
-  daily: "0 3 * * *",
-  weekly: "0 4 * * 0",
-  monthly: "0 2 1 * *",
-};
+export interface CronParts {
+  /** UTC hour for daily/weekly/monthly presets. */
+  atHour: number;
+  /** 0 (Sunday) – 6, weekly preset. */
+  weekday: number;
+  /** 1 – 28, monthly preset (capped so it fires every month). */
+  dayOfMonth: number;
+}
 
-const PRESETS = ["hourly", "daily", "weekly", "monthly"] as const;
+export const DEFAULT_PARTS: CronParts = { atHour: 3, weekday: 0, dayOfMonth: 1 };
 
-function presetFromCron(cron: string): CronPreset {
-  return PRESETS.find((preset) => PRESET_CRON[preset] === cron) ?? "custom";
+/** Compile a preset + its knobs into the cron the scheduler fires with. */
+export function cronFromPreset(preset: Exclude<CronPreset, "custom">, parts: CronParts): string {
+  switch (preset) {
+    case "hourly":
+      return "0 * * * *";
+    case "daily":
+      return `0 ${parts.atHour} * * *`;
+    case "weekly":
+      return `0 ${parts.atHour} * * ${parts.weekday}`;
+    case "monthly":
+      return `0 ${parts.atHour} ${parts.dayOfMonth} * *`;
+  }
+}
+
+/** Recognize a stored cron as one of the presets (else `custom`). */
+export function presetFromCron(cron: string): { preset: CronPreset; parts: CronParts } {
+  const parts = { ...DEFAULT_PARTS };
+  const trimmed = cron.trim();
+  if (trimmed === "0 * * * *") return { preset: "hourly", parts };
+  const daily = /^0 (\d{1,2}) \* \* \*$/.exec(trimmed);
+  if (daily) return { preset: "daily", parts: { ...parts, atHour: Number(daily[1]) } };
+  const weekly = /^0 (\d{1,2}) \* \* (\d)$/.exec(trimmed);
+  if (weekly) {
+    return {
+      preset: "weekly",
+      parts: { ...parts, atHour: Number(weekly[1]), weekday: Number(weekly[2]) },
+    };
+  }
+  const monthly = /^0 (\d{1,2}) (\d{1,2}) \* \*$/.exec(trimmed);
+  if (monthly) {
+    return {
+      preset: "monthly",
+      parts: { ...parts, atHour: Number(monthly[1]), dayOfMonth: Number(monthly[2]) },
+    };
+  }
+  return { preset: "custom", parts };
 }
 
 export interface ScheduleFormValues {
   name: string;
   sources: string[];
   preset: CronPreset;
+  atHour: number;
+  weekday: number;
+  dayOfMonth: number;
   cron: string;
+  keepLast: number;
+  keepHourly: number;
   keepDaily: number;
   keepWeekly: number;
   keepMonthly: number;
@@ -42,13 +88,21 @@ export interface ScheduleFormValues {
   destinationIds: string[];
   encryptionNone: boolean;
   enabled: boolean;
+  maxRetries: number;
+  verifyAfterBackup: boolean;
+  overdueAfterHours: string;
 }
 
 const NEW_SCHEDULE: ScheduleFormValues = {
   name: "New backup schedule",
   sources: [],
   preset: "daily",
-  cron: PRESET_CRON.daily,
+  atHour: DEFAULT_PARTS.atHour,
+  weekday: DEFAULT_PARTS.weekday,
+  dayOfMonth: DEFAULT_PARTS.dayOfMonth,
+  cron: cronFromPreset("daily", DEFAULT_PARTS),
+  keepLast: 0,
+  keepHourly: 0,
   keepDaily: 14,
   keepWeekly: 4,
   keepMonthly: 6,
@@ -59,6 +113,9 @@ const NEW_SCHEDULE: ScheduleFormValues = {
   destinationIds: [],
   encryptionNone: false,
   enabled: true,
+  maxRetries: 1,
+  verifyAfterBackup: false,
+  overdueAfterHours: "",
 };
 
 /**
@@ -69,9 +126,6 @@ const NEW_SCHEDULE: ScheduleFormValues = {
  * require configuring storage first. Falls back to any other enabled
  * destination, and never pre-selects a `disabled` one, since that would hand
  * the operator a schedule that silently writes nowhere.
- *
- * Chosen explicitly rather than taking `destinations[0]` so the default doesn't
- * silently change if the list's sort order is ever revisited.
  */
 function defaultDestinationIds(destinations: Destination[]): string[] {
   const enabled = destinations.filter((d) => d.status !== "disabled");
@@ -88,11 +142,17 @@ function scheduleDefaults(
       ...NEW_SCHEDULE,
       destinationIds: defaultDestinationIds(destinations),
     };
+  const { preset, parts } = presetFromCron(initial.cron);
   return {
     name: initial.name,
     sources: initial.sources,
-    preset: presetFromCron(initial.cron),
+    preset,
+    atHour: parts.atHour,
+    weekday: parts.weekday,
+    dayOfMonth: parts.dayOfMonth,
     cron: initial.cron,
+    keepLast: initial.keepLast,
+    keepHourly: initial.keepHourly,
     keepDaily: initial.keepDaily,
     keepWeekly: initial.keepWeekly,
     keepMonthly: initial.keepMonthly,
@@ -103,6 +163,9 @@ function scheduleDefaults(
     destinationIds: initial.destinationIds,
     encryptionNone: initial.encryption === "none",
     enabled: initial.enabled,
+    maxRetries: initial.maxRetries,
+    verifyAfterBackup: initial.verifyAfterBackup,
+    overdueAfterHours: initial.overdueAfterHours != null ? String(initial.overdueAfterHours) : "",
   };
 }
 
@@ -118,13 +181,26 @@ function saveSchedule(
     ? Math.max(1, Number(value.retentionDays))
     : null;
   const maxStorageGb = value.maxStorageGb.trim() ? Math.max(1, Number(value.maxStorageGb)) : null;
+  const overdueAfterHours = value.overdueAfterHours.trim()
+    ? Math.max(1, Number(value.overdueAfterHours))
+    : null;
   const preHook = value.preHook.trim() || null;
+  const cron =
+    value.preset === "custom"
+      ? value.cron.trim()
+      : cronFromPreset(value.preset, {
+          atHour: value.atHour,
+          weekday: value.weekday,
+          dayOfMonth: value.dayOfMonth,
+        });
 
   if (initial) {
     return schedulesCollection.update(initial.id, (draft) => {
       draft.name = value.name.trim();
       draft.sources = sources;
-      draft.cron = value.cron.trim();
+      draft.cron = cron;
+      draft.keepLast = value.keepLast;
+      draft.keepHourly = value.keepHourly;
       draft.keepDaily = value.keepDaily;
       draft.keepWeekly = value.keepWeekly;
       draft.keepMonthly = value.keepMonthly;
@@ -133,6 +209,9 @@ function saveSchedule(
       draft.maxStorageGb = maxStorageGb;
       draft.preHook = preHook;
       draft.enabled = value.enabled;
+      draft.maxRetries = value.maxRetries;
+      draft.verifyAfterBackup = value.verifyAfterBackup;
+      draft.overdueAfterHours = overdueAfterHours;
     });
   }
   return schedulesCollection.insert({
@@ -143,7 +222,9 @@ function saveSchedule(
     projectId: null,
     name: value.name.trim(),
     sources,
-    cron: value.cron.trim(),
+    cron,
+    keepLast: value.keepLast,
+    keepHourly: value.keepHourly,
     keepDaily: value.keepDaily,
     keepWeekly: value.keepWeekly,
     keepMonthly: value.keepMonthly,
@@ -156,6 +237,10 @@ function saveSchedule(
     destinationIds: value.destinationIds.map((id) => idSchema.backupDestination.parse(id)),
     encryption: value.encryptionNone ? "none" : "aes-256-gcm",
     enabled: value.enabled,
+    maxRetries: value.maxRetries,
+    verifyAfterBackup: value.verifyAfterBackup,
+    overdueAfterHours,
+    overdueNotifiedAt: null,
     lastRunAt: null,
     lastRunStatus: null,
     nextRunAt: null,
@@ -174,15 +259,22 @@ export function useScheduleForm({
   organizationId,
   destinations,
   onClose,
+  presetSources,
 }: {
   initial: Schedule | null;
   organizationId: string;
   destinations: Destination[];
   onClose: () => void;
+  /** Pre-seeded sources for a NEW schedule; ignored when editing. */
+  presetSources?: string[];
 }) {
   const editing = initial !== null;
+  const defaults = scheduleDefaults(initial, destinations);
   return useForm({
-    defaultValues: scheduleDefaults(initial, destinations),
+    defaultValues:
+      !editing && presetSources && presetSources.length > 0
+        ? { ...defaults, sources: presetSources }
+        : defaults,
     onSubmit: ({ value }) => {
       const tx = saveSchedule(initial, organizationId, value, destinations);
       onClose();

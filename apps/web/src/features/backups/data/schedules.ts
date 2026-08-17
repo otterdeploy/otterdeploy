@@ -42,6 +42,8 @@ const schedulesQueryOptions = queryCollectionOptions({
           // Null/empty projectId means org-wide. Collapse to undefined so
           // omitUndefined drops the key entirely (input has no null form).
           ...omitUndefined({ projectId: row.projectId || undefined }),
+          keepLast: row.keepLast,
+          keepHourly: row.keepHourly,
           keepDaily: row.keepDaily,
           keepWeekly: row.keepWeekly,
           keepMonthly: row.keepMonthly,
@@ -51,6 +53,9 @@ const schedulesQueryOptions = queryCollectionOptions({
           preHook: row.preHook,
           encryption: row.encryption === "none" ? "none" : "aes-256-gcm",
           enabled: row.enabled,
+          maxRetries: row.maxRetries,
+          verifyAfterBackup: row.verifyAfterBackup,
+          overdueAfterHours: row.overdueAfterHours,
         });
         // Temp optimistic id → refetch for the real row.
         await queryClient.invalidateQueries({ queryKey: schedulesListKey });
@@ -67,6 +72,8 @@ const schedulesQueryOptions = queryCollectionOptions({
             name: c.name,
             sources: c.sources,
             cron: c.cron,
+            keepLast: c.keepLast,
+            keepHourly: c.keepHourly,
             keepDaily: c.keepDaily,
             keepWeekly: c.keepWeekly,
             keepMonthly: c.keepMonthly,
@@ -75,6 +82,9 @@ const schedulesQueryOptions = queryCollectionOptions({
             maxStorageGb: c.maxStorageGb,
             preHook: c.preHook,
             enabled: c.enabled,
+            maxRetries: c.maxRetries,
+            verifyAfterBackup: c.verifyAfterBackup,
+            overdueAfterHours: c.overdueAfterHours,
           }),
         });
       }),
@@ -98,7 +108,9 @@ export const schedulesCollection = persistence
       persistedCollectionOptions<ScheduleRow, string | number>({
         ...schedulesQueryOptions,
         persistence,
-        schemaVersion: 1,
+        // v2: rows grew keepLast/keepHourly + maxRetries/verifyAfterBackup/
+        // overdueAfterHours (production-hardening pass).
+        schemaVersion: 2,
       }),
     )
   : createCollection(schedulesQueryOptions);

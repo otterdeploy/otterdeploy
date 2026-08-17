@@ -61,7 +61,9 @@ export const backupsCollection = persistence
       persistedCollectionOptions<BackupRow, string | number>({
         ...backupsQueryOptions,
         persistence,
-        schemaVersion: 1,
+        // v2: rows grew attempt + verifiedStatus/verifiedAt (restore-proving
+        // verification badges).
+        schemaVersion: 2,
       }),
     )
   : createCollection(backupsQueryOptions);
@@ -78,7 +80,20 @@ export function restoreBackup(input: Parameters<typeof orpc.backups.restore.call
   return orpc.backups.restore.call(input);
 }
 
-/** Integrity check result. The server re-fetches the stored archive and
- *  recomputes its checksum. Read through `useQuery` at the point of use (see
- *  restore-verify-step.tsx), so only the output type is shared from here. */
+/** Structural integrity check result (rustic repo `check` + snapshot-exists).
+ *  Read through `useQuery` at the point of use (see restore-verify-step.tsx),
+ *  so only the output type is shared from here. */
 export type VerifyResult = Awaited<ReturnType<typeof orpc.backups.verify.call>>;
+
+/** Start a restore-proving verification (sandbox restore), detached; the
+ *  verifications list + the run row's badge carry the outcome. */
+export async function verifyRestore(id: Backup["id"]) {
+  const res = await orpc.backups.verifyRestore.call({ id });
+  await queryClient.invalidateQueries({ queryKey: backupsListKey });
+  return res;
+}
+
+export type VerificationRow = Awaited<
+  ReturnType<typeof orpc.backups.verifications.call>
+>[number];
+export type RestoreRow = Awaited<ReturnType<typeof orpc.backups.restores.call>>[number];

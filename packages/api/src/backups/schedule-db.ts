@@ -21,7 +21,7 @@ import {
   project,
   resource,
 } from "@otterdeploy/db/schema";
-import { and, desc, eq, inArray, isNull, lte, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
 
 import { listStackDatabaseResources } from "./stack";
 
@@ -33,6 +33,8 @@ export interface DueSchedule {
   cron: string;
   destinationIds: BackupDestinationId[];
   encryption: "none" | "aes-256-gcm" | "kms-managed" | "customer-key";
+  keepLast: number;
+  keepHourly: number;
   keepDaily: number;
   keepWeekly: number;
   keepMonthly: number;
@@ -40,6 +42,8 @@ export interface DueSchedule {
   retentionDays: number | null;
   maxStorageGb: number | null;
   preHook: string | null;
+  /** Extra attempts for a failed (source × destination) run. 0 = off. */
+  maxRetries: number;
   // Null = freshly created, never scheduled, initialize without backfilling.
   nextRunAt: Date | null;
 }
@@ -55,6 +59,8 @@ export async function listDueSchedules(now: Date): Promise<DueSchedule[]> {
       cron: backupSchedule.cron,
       destinationIds: backupSchedule.destinationIds,
       encryption: backupSchedule.encryption,
+      keepLast: backupSchedule.keepLast,
+      keepHourly: backupSchedule.keepHourly,
       keepDaily: backupSchedule.keepDaily,
       keepWeekly: backupSchedule.keepWeekly,
       keepMonthly: backupSchedule.keepMonthly,
@@ -62,6 +68,7 @@ export async function listDueSchedules(now: Date): Promise<DueSchedule[]> {
       retentionDays: backupSchedule.retentionDays,
       maxStorageGb: backupSchedule.maxStorageGb,
       preHook: backupSchedule.preHook,
+      maxRetries: backupSchedule.maxRetries,
       nextRunAt: backupSchedule.nextRunAt,
     })
     .from(backupSchedule)
@@ -149,7 +156,67 @@ export async function updateScheduleAfterRun(
     nextRunAt: Date | null;
   },
 ): Promise<void> {
-  await db.update(backupSchedule).set(fields).where(eq(backupSchedule.id, scheduleId));
+  await db
+    .update(backupSchedule)
+    .set(
+      // A successful pass ends any overdue episode, so the next lapse notifies
+      // again instead of being swallowed by a stale marker.
+      fields.lastRunStatus === "succeeded" ? { ...fields, overdueNotifiedAt: null } : fields,
+    )
+    .where(eq(backupSchedule.id, scheduleId));
+}
+
+// ---------------------------------------------------------------------------
+// Overdue detection (backup.overdue)
+// ---------------------------------------------------------------------------
+
+export interface OverdueCandidate {
+  id: BackupScheduleId;
+  organizationId: OrganizationId;
+  name: string;
+  cron: string;
+  overdueAfterHours: number | null;
+  overdueNotifiedAt: Date | null;
+  createdAt: Date;
+  /** Newest successful run for the schedule (null = never succeeded). */
+  lastSuccessAt: Date | null;
+}
+
+/** Enabled schedules + their newest successful run, for the overdue sweep. */
+export async function listOverdueCandidates(): Promise<OverdueCandidate[]> {
+  const rows = await db
+    .select({
+      id: backupSchedule.id,
+      organizationId: backupSchedule.organizationId,
+      name: backupSchedule.name,
+      cron: backupSchedule.cron,
+      overdueAfterHours: backupSchedule.overdueAfterHours,
+      overdueNotifiedAt: backupSchedule.overdueNotifiedAt,
+      createdAt: backupSchedule.createdAt,
+      lastSuccessAt: sql<Date | null>`(
+        SELECT max(${backup.completedAt}) FROM ${backup}
+        WHERE ${backup.scheduleId} = ${backupSchedule.id}
+          AND ${backup.status} = 'succeeded'
+      )`,
+    })
+    .from(backupSchedule)
+    .where(eq(backupSchedule.enabled, true));
+  return rows.map((r) => ({
+    ...r,
+    // node-postgres returns the scalar subquery as a string/Date depending on
+    // the driver path; normalize to a Date | null the sweep can compare.
+    lastSuccessAt: r.lastSuccessAt == null ? null : new Date(r.lastSuccessAt),
+  }));
+}
+
+export async function markScheduleOverdueNotified(
+  scheduleId: BackupScheduleId,
+  at: Date,
+): Promise<void> {
+  await db
+    .update(backupSchedule)
+    .set({ overdueNotifiedAt: at })
+    .where(eq(backupSchedule.id, scheduleId));
 }
 
 /** A resolved source, tagged so the run gets the right engine path: `database`
